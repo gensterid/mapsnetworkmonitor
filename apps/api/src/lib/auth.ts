@@ -49,8 +49,11 @@ export const auth = betterAuth({
     trustedOrigins: [
         'http://localhost:5173',
         'http://localhost:5174',
+        'http://localhost:3001',
         process.env.CORS_ORIGIN || 'http://localhost:5173',
-    ],
+        // Support any IP-based origins for LAN deployments
+        ...(process.env.TRUSTED_ORIGINS ? process.env.TRUSTED_ORIGINS.split(',') : []),
+    ].filter(Boolean),
 });
 
 // Export auth types
