@@ -1,5 +1,5 @@
-import { routerService, settingsService } from '../services';
-import { alertEscalationService } from '../services/alert-escalation.service';
+import { routerService, settingsService } from '../services/index.js';
+import { alertEscalationService } from '../services/alert-escalation.service.js';
 
 // Default polling interval in milliseconds (2 minutes)
 const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
