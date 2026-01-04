@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { userService, settingsService } from '../services';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { requireAdmin, requireOwnerOrAdmin } from '../middleware/rbac.middleware';
-import { asyncHandler, ApiError } from '../middleware/error.middleware';
+import { userService, settingsService } from '../services/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireAdmin, requireOwnerOrAdmin } from '../middleware/rbac.middleware.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
 
@@ -92,8 +92,8 @@ router.post(
         });
 
         // Create the credential account for authentication
-        const { db } = await import('../db');
-        const { accounts } = await import('../db/schema');
+        const { db } = await import('../db/index.js');
+        const { accounts } = await import('../db/schema/index.js');
         await db.insert(accounts).values({
             id: crypto.randomUUID(),
             accountId: user.id,

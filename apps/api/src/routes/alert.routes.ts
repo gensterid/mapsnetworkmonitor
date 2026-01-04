@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { alertService } from '../services';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { requireOperator, requireAdmin, requireUser } from '../middleware/rbac.middleware';
-import { asyncHandler, ApiError } from '../middleware/error.middleware';
+import { alertService } from '../services/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireOperator, requireAdmin, requireUser } from '../middleware/rbac.middleware.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
 

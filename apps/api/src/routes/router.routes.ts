@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { routerService } from '../services';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { requireOperator, requireAdmin } from '../middleware/rbac.middleware';
-import { asyncHandler, ApiError } from '../middleware/error.middleware';
-import { settingsService } from '../services';
+import { routerService } from '../services/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
+import { settingsService } from '../services/index.js';
 
 const router = Router();
 

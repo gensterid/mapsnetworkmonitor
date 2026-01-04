@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { groupService } from '../services';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { requireAdmin } from '../middleware/rbac.middleware';
-import { asyncHandler, ApiError } from '../middleware/error.middleware';
+import { groupService } from '../services/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
 

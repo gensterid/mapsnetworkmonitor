@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { dashboardService } from '../services';
-import { authMiddleware } from '../middleware/auth.middleware';
-import { asyncHandler } from '../middleware/error.middleware';
+import { dashboardService } from '../services/index.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
+import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
 
