@@ -2,11 +2,11 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import routes from './routes';
-import backupRoutes from './routes/backup.routes';
-import { errorMiddleware, notFoundMiddleware } from './middleware';
-import { startScheduler } from './lib/scheduler';
-import { db } from './db';
+import routes from './routes/index.js';
+import backupRoutes from './routes/backup.routes.js';
+import { errorMiddleware, notFoundMiddleware } from './middleware/index.js';
+import { startScheduler } from './lib/scheduler.js';
+import { db } from './db/index.js';
 import { sql } from 'drizzle-orm';
 
 // Global error handlers to prevent server crashes from unhandled errors
