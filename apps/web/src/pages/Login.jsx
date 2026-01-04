@@ -26,7 +26,15 @@ export default function Login() {
 
             if (!isEmail(identifier)) {
                 try {
-                    const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/lookup-email`, {
+                    // In production, use relative path; in dev, use localhost:3001
+                    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+                    if (typeof window !== 'undefined' &&
+                        !window.location.hostname.includes('localhost') &&
+                        !window.location.hostname.includes('127.0.0.1')) {
+                        apiUrl = ''; // Use current origin
+                    }
+
+                    const response = await fetch(`${apiUrl}/api/auth/lookup-email`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ identifier }),
