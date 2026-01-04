@@ -1,14 +1,14 @@
 import { Router } from 'express';
-import authRoutes from './auth.routes';
-import routerRoutes from './router.routes';
-import alertRoutes from './alert.routes';
-import groupRoutes from './group.routes';
-import userRoutes from './user.routes';
-import userRouterRoutes from './user-router.routes';
-import dashboardRoutes from './dashboard.routes';
-import settingsRoutes from './settings.routes';
-import { notificationRoutes } from './notification.routes';
-import { eventsRoutes } from './events.routes';
+import authRoutes from './auth.routes.js';
+import routerRoutes from './router.routes.js';
+import alertRoutes from './alert.routes.js';
+import groupRoutes from './group.routes.js';
+import userRoutes from './user.routes.js';
+import userRouterRoutes from './user-router.routes.js';
+import dashboardRoutes from './dashboard.routes.js';
+import settingsRoutes from './settings.routes.js';
+import { notificationRoutes } from './notification.routes.js';
+import { eventsRoutes } from './events.routes.js';
 
 const router = Router();
 
