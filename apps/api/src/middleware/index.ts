@@ -1,3 +1,3 @@
-export * from './auth.middleware';
-export * from './rbac.middleware';
-export * from './error.middleware';
+export * from './auth.middleware.js';
+export * from './rbac.middleware.js';
+export * from './error.middleware.js';

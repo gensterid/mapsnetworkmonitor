@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { auth } from '../lib/auth';
+import { auth } from '../lib/auth.js';
 
 // Extend Express Request to include user and session
 declare global {
