@@ -1,8 +1,20 @@
 import { createAuthClient } from 'better-auth/react';
 
 // Create the Better Auth client
+// In production, use relative path (empty string) to go through Nginx proxy
+// In development, use localhost:3001
+const getBaseURL = () => {
+    if (typeof window !== 'undefined') {
+        // If running in browser and not on localhost, use relative path
+        if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+            return ''; // Relative path - will use current origin
+        }
+    }
+    return 'http://localhost:3001';
+};
+
 export const authClient = createAuthClient({
-    baseURL: 'http://localhost:3001',
+    baseURL: getBaseURL(),
 });
 
 // Export auth methods for easy access
