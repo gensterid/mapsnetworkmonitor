@@ -1,0 +1,608 @@
+/* Network Map Component Styles */
+
+/* Ensure Leaflet stays in background relative to other UI components */
+.leaflet-container {
+    z-index: 0 !important;
+}
+
+/* ===== Custom Marker Icons ===== */
+.custom-marker-icon {
+    background: transparent;
+    border: none;
+}
+
+.device-icon {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.device-icon__badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid white;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.device-icon:hover .device-icon__badge {
+    transform: scale(1.1);
+}
+
+/* Device type colors */
+.device-icon--router .device-icon__badge {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.device-icon--olt .device-icon__badge {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+}
+
+.device-icon--odp .device-icon__badge {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.device-icon--client .device-icon__badge {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+/* Status colors */
+.device-icon--online .device-icon__badge {
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+}
+
+.device-icon--offline .device-icon__badge {
+    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%) !important;
+    box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
+}
+
+/* Smaller node icons (netwatch) */
+.device-icon--small .device-icon__badge {
+    width: 24px;
+    height: 24px;
+}
+
+.device-icon--small .device-icon__badge .material-symbols-outlined {
+    font-size: 14px;
+}
+
+/* Device label */
+.device-icon__label {
+    background: rgba(15, 23, 42, 0.9);
+    color: white;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    max-width: 100px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    backdrop-filter: blur(4px);
+}
+
+/* ===== Custom Tooltip Overrides ===== */
+.leaflet-tooltip.custom-map-tooltip {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+}
+
+.leaflet-tooltip.custom-map-tooltip::before {
+    display: none;
+}
+
+/* ===== Path Edit Handles ===== */
+.path-edit-handle {
+    width: 16px;
+    height: 16px;
+    background: white;
+    border: 3px solid #3b82f6;
+    border-radius: 50%;
+    cursor: grab;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    pointer-events: auto !important;
+    z-index: 1000;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.path-edit-handle:hover {
+    transform: scale(1.3);
+    background: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+}
+
+.path-edit-handle:active {
+    cursor: grabbing;
+}
+
+.path-edit-handle--new {
+    width: 14px;
+    height: 14px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 2px dashed #3b82f6;
+    cursor: pointer;
+}
+
+.path-edit-handle--new:hover {
+    background: rgba(59, 130, 246, 0.3);
+    transform: scale(1.2);
+}
+
+.path-handle-container {
+    z-index: 1000 !important;
+}
+
+/* ===== Map Controls ===== */
+.map-controls {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.map-control-group {
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 8px;
+    padding: 8px;
+    backdrop-filter: blur(8px);
+}
+
+.map-control-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.map-control-btn:hover {
+    background: rgba(59, 130, 246, 0.2);
+}
+
+.map-control-btn--active {
+    background: rgba(59, 130, 246, 0.3);
+    color: #60a5fa;
+}
+
+/* ===== Floating Action Button ===== */
+.map-fab {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+}
+
+.map-fab__main {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.map-fab__main:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+}
+
+.map-fab__main--open {
+    transform: rotate(45deg);
+}
+
+.map-fab__menu {
+    position: absolute;
+    bottom: 70px;
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(10px);
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.map-fab__menu--open {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
+.map-fab__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.map-fab__item-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: none;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+
+.map-fab__item-btn:hover {
+    transform: scale(1.1);
+}
+
+.map-fab__item-btn--router {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.map-fab__item-btn--olt {
+    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+}
+
+.map-fab__item-btn--odp {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.map-fab__item-btn--client {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.map-fab__item-label {
+    background: rgba(15, 23, 42, 0.9);
+    color: white;
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    backdrop-filter: blur(4px);
+}
+
+/* ===== Path Edit Toolbar ===== */
+.path-edit-toolbar {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 8px;
+    padding: 8px 16px;
+    backdrop-filter: blur(8px);
+}
+
+.path-edit-toolbar__length {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.path-edit-toolbar__length-value {
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.path-edit-toolbar__actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.path-edit-toolbar__btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.path-edit-toolbar__btn:hover {
+    transform: scale(1.02);
+}
+
+.path-edit-toolbar__btn--reset {
+    background: rgba(71, 85, 105, 0.5);
+    color: white;
+}
+
+.path-edit-toolbar__btn--cancel {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.path-edit-toolbar__btn--save {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+/* ===== Map Legend ===== */
+.map-legend {
+    position: absolute;
+    bottom: 24px;
+    left: 24px;
+    z-index: 1000;
+    background: rgba(15, 23, 42, 0.9);
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 8px;
+    padding: 12px;
+    backdrop-filter: blur(8px);
+}
+
+.map-legend__title {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+}
+
+.map-legend__items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.map-legend__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.map-legend__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1px solid white;
+}
+
+.map-legend__dot--online {
+    background: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.map-legend__dot--offline {
+    background: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.map-legend__line {
+    width: 20px;
+    height: 2px;
+    border-radius: 1px;
+}
+
+.map-legend__line--up {
+    background: #10b981;
+}
+
+.map-legend__line--down {
+    background: #ef4444;
+    background: repeating-linear-gradient(90deg,
+            #ef4444,
+            #ef4444 4px,
+            transparent 4px,
+            transparent 8px);
+}
+
+.map-legend__text {
+    color: white;
+    font-size: 11px;
+}
+
+/* ===== Device Modal ===== */
+.device-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    backdrop-filter: blur(4px);
+}
+
+.device-modal {
+    background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 12px;
+    width: 400px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.device-modal__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+}
+
+.device-modal__title {
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.device-modal__close {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+}
+
+.device-modal__close:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+.device-modal__content {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.device-modal__field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.device-modal__label {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.device-modal__input,
+.device-modal__select {
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: white;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.15s ease;
+}
+
+.device-modal__input:focus,
+.device-modal__select:focus {
+    border-color: #3b82f6;
+}
+
+.device-modal__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 20px 20px;
+}
+
+.device-modal__btn {
+    padding: 10px 16px;
+    border-radius: 6px;
+    border: none;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.device-modal__btn:hover {
+    transform: scale(1.01);
+}
+
+.device-modal__btn--primary {
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    color: white;
+}
+
+.device-modal__btn--secondary {
+    background: rgba(71, 85, 105, 0.4);
+    color: white;
+}
+
+.device-modal__btn--danger {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+/* ===== Animations ===== */
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 16px rgba(16, 185, 129, 0.7);
+    }
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.device-icon--online .device-icon__badge {
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 640px) {
+    .map-fab {
+        bottom: 16px;
+        right: 16px;
+    }
+
+    .map-fab__main {
+        width: 48px;
+        height: 48px;
+    }
+
+    .map-legend {
+        left: 16px;
+        bottom: 16px;
+        padding: 8px;
+    }
+
+    .device-modal {
+        width: calc(100% - 32px);
+        margin: 16px;
+    }
+}

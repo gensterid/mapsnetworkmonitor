@@ -1,0 +1,108 @@
+import React, { useEffect, useRef, useMemo } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet-ant-path';
+
+/**
+ * AnimatedPath - A component that renders animated "marching ants" polylines
+ * using leaflet-ant-path for visual indication of data flow direction.
+ * 
+ * Performance optimizations:
+ * - Uses useMemo to prevent unnecessary re-renders
+ * - Cleans up properly on unmount
+ * - Configurable animation speed
+ */
+const AnimatedPath = ({
+    positions = [],
+    color = '#10b981',
+    pulseColor = '#ffffff',
+    weight = 3,
+    opacity = 0.8,
+    delay = 800,
+    dashArray = [10, 20],
+    paused = false,
+    reverse = false,
+    hardwareAccelerated = true,
+    status = 'up', // 'up', 'down', 'unknown'
+    tooltip,
+    popup,
+    onClick,
+}) => {
+    const map = useMap();
+    const pathRef = useRef(null);
+
+    // Memoize options to prevent unnecessary updates
+    const options = useMemo(() => {
+        // Status-based colors
+        let lineColor = color;
+        let linePulseColor = pulseColor;
+
+        if (status === 'down') {
+            lineColor = '#ef4444';
+            linePulseColor = '#fecaca';
+        } else if (status === 'unknown') {
+            lineColor = '#64748b';
+            linePulseColor = '#94a3b8';
+        }
+
+        return {
+            color: lineColor,
+            pulseColor: linePulseColor,
+            weight,
+            opacity,
+            delay,
+            dashArray,
+            paused,
+            reverse,
+            hardwareAccelerated,
+            tooltip,
+            popup,
+        };
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, tooltip, popup]);
+
+    useEffect(() => {
+        if (!map || positions.length < 2) return;
+
+        // Create the ant path
+        // @ts-ignore - leaflet-ant-path types
+        const antPath = L.polyline.antPath(positions, options);
+
+        if (onClick) {
+            antPath.on('click', onClick);
+        }
+
+        // Add Tooltip and Popup
+        if (options.tooltip) {
+            antPath.bindTooltip(options.tooltip, { sticky: true, direction: 'top', className: 'custom-map-tooltip', opacity: 1 });
+        }
+        if (options.popup) {
+            antPath.bindPopup(options.popup);
+        }
+
+        antPath.addTo(map);
+        pathRef.current = antPath;
+
+        return () => {
+            if (pathRef.current) {
+                map.removeLayer(pathRef.current);
+                pathRef.current = null;
+            }
+        };
+    }, [map, positions, options, onClick]);
+
+    // Update path when options change
+    useEffect(() => {
+        if (pathRef.current) {
+            pathRef.current.setStyle({
+                color: options.color,
+                pulseColor: options.pulseColor,
+                weight: options.weight,
+                opacity: options.opacity,
+            });
+        }
+    }, [options]);
+
+    return null;
+};
+
+export default AnimatedPath;

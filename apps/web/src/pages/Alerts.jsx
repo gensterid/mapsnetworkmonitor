@@ -1,0 +1,190 @@
+import React from 'react';
+import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts } from '@/hooks';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff } from 'lucide-react';
+import { formatDateWithTimezone } from '@/lib/timezone';
+import clsx from 'clsx';
+
+export default function Alerts() {
+    const { data: alerts = [], isLoading, error, refetch } = useAlerts();
+    const { data: settings } = useSettings();
+    const acknowledgeMutation = useAcknowledgeAlert();
+    const acknowledgeAllMutation = useAcknowledgeAllAlerts();
+
+    const timezone = settings?.timezone || 'Asia/Jakarta';
+
+    const formatAlertTime = (dateStr) => {
+        return formatDateWithTimezone(dateStr, timezone);
+    };
+
+    const acknowledgeAlert = async (alertId) => {
+        try {
+            await acknowledgeMutation.mutateAsync(alertId);
+        } catch (err) {
+            console.error('Failed to acknowledge alert:', err);
+        }
+    };
+
+    const handleAcknowledgeAll = async () => {
+        try {
+            await acknowledgeAllMutation.mutateAsync();
+        } catch (err) {
+            console.error('Failed to acknowledge all alerts:', err);
+        }
+    };
+
+    // Check if there are any unacknowledged alerts
+    const hasUnacknowledged = alerts.some(a => !a.acknowledged);
+
+    // Get appropriate icon based on alert type and severity
+    const getAlertIcon = (alert) => {
+        const { type, severity, title } = alert;
+
+        // Check if it's a "device up" alert (info severity with "up" or "online" in title)
+        const isDeviceUp = severity === 'info' && (
+            title?.toLowerCase().includes(' is up') ||
+            title?.toLowerCase().includes(' is online') ||
+            title?.toLowerCase().includes('is now up') ||
+            title?.toLowerCase().includes('is now online')
+        );
+
+        // Check if it's a "device down" alert
+        const isDeviceDown =
+            title?.toLowerCase().includes(' is down') ||
+            title?.toLowerCase().includes(' is offline') ||
+            title?.toLowerCase().includes('is now down') ||
+            title?.toLowerCase().includes('is now offline') ||
+            type === 'netwatch_down';
+
+        if (isDeviceUp) {
+            // Green icon for device up
+            return <Wifi className="w-5 h-5 mt-0.5 text-emerald-500" />;
+        } else if (isDeviceDown) {
+            // Red icon for device down (regardless of severity)
+            return <WifiOff className="w-5 h-5 mt-0.5 text-red-500" />;
+        } else if (severity === 'critical') {
+            // Red icon for critical
+            return <AlertTriangle className="w-5 h-5 mt-0.5 text-red-500" />;
+        } else if (severity === 'warning') {
+            // Yellow icon for warning
+            return <AlertTriangle className="w-5 h-5 mt-0.5 text-yellow-500" />;
+        } else if (severity === 'info') {
+            // Green icon for info
+            return <Wifi className="w-5 h-5 mt-0.5 text-emerald-500" />;
+        } else {
+            // Default
+            return <AlertTriangle className="w-5 h-5 mt-0.5" />;
+        }
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-slate-950">
+                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="flex-1 flex items-center justify-center bg-slate-950 text-red-400">
+                Error loading alerts: {error.message}
+            </div>
+        );
+    }
+
+    const getSeverityColor = (severity) => {
+        switch (severity) {
+            case 'critical': return 'bg-red-500/10 text-red-400 border-red-500/20';
+            case 'warning': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
+            case 'info': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+            default: return 'bg-slate-700 text-slate-300';
+        }
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold text-white">Alerts</h1>
+                    <p className="text-slate-400 text-sm">Monitor system alerts and notifications</p>
+                </div>
+                <Button onClick={() => refetch()} variant="outline">
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                </Button>
+                {hasUnacknowledged && (
+                    <Button
+                        onClick={handleAcknowledgeAll}
+                        variant="primary"
+                        loading={acknowledgeAllMutation.isPending}
+                        className="ml-2"
+                    >
+                        <CheckCheck className="w-4 h-4 mr-2" />
+                        Acknowledge All
+                    </Button>
+                )}
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+                {alerts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                        <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-4">
+                            <CheckCircle className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-medium text-white mb-1">No active alerts</h3>
+                        <p className="text-slate-400">All systems are operating normally</p>
+                    </div>
+                ) : (
+                    <div className="space-y-3">
+                        {alerts.map((alert) => (
+                            <Card key={alert.id} className={clsx("border", getSeverityColor(alert.severity))}>
+                                <CardContent className="p-4">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div className="flex items-start gap-3">
+                                            {getAlertIcon(alert)}
+                                            <div>
+                                                <h3 className="font-medium text-white">{alert.title}</h3>
+                                                <p className="text-sm text-slate-400 mt-1">{alert.message || alert.description}</p>
+                                                <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                                                    <span className="flex items-center gap-1">
+                                                        <Clock className="w-3 h-3" />
+                                                        {formatAlertTime(alert.createdAt)}
+                                                    </span>
+                                                    {alert.routerName && <span>Router: {alert.routerName}</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        {!alert.acknowledged ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => acknowledgeAlert(alert.id)}
+                                                loading={acknowledgeMutation.isPending}
+                                            >
+                                                Acknowledge
+                                            </Button>
+                                        ) : (
+                                            <div className="text-xs text-slate-500 text-right">
+                                                <div className="flex items-center justify-end gap-1 text-emerald-500 mb-1">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    <span>Acknowledged</span>
+                                                </div>
+                                                {alert.acknowledgedByName && (
+                                                    <div>by {alert.acknowledgedByName}</div>
+                                                )}
+                                                <div>{formatAlertTime(alert.acknowledgedAt)}</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+

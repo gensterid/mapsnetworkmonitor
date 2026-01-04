@@ -1,0 +1,1 @@
+ALTER TABLE "routers" ADD COLUMN "latency" integer;
