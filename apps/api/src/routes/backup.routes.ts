@@ -1,9 +1,9 @@
 
 import { Router, Request } from 'express';
 import multer from 'multer';
-import { backupService } from '../services/backup.service';
-import { requireAdmin } from '../middleware/rbac.middleware';
-import { authMiddleware } from '../middleware/auth.middleware';
+import { backupService } from '../services/backup.service.js';
+import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
 import fs from 'fs';
 import path from 'path';
 
