@@ -1,5 +1,5 @@
-import { routerService } from './router.service';
-import { alertService } from './alert.service';
+import { routerService } from './router.service.js';
+import { alertService } from './alert.service.js';
 
 interface DashboardStats {
     routers: {

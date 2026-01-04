@@ -1,5 +1,5 @@
 import { eq, desc, and, isNull, getTableColumns } from 'drizzle-orm';
-import { db } from '../db';
+import { db } from '../db/index.js';
 import {
     alerts,
     appSettings,
@@ -7,10 +7,10 @@ import {
     users,
     type Alert,
     type NewAlert,
-} from '../db/schema';
+} from '../db/schema/index.js';
 import { inArray } from 'drizzle-orm';
-import { notificationService } from './notification.service';
-import { eventEmitter } from './event-emitter.service';
+import { notificationService } from './notification.service.js';
+import { eventEmitter } from './event-emitter.service.js';
 
 // Default threshold values
 const DEFAULT_THRESHOLDS = {

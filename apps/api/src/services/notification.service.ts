@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { db } from '../db';
-import { notificationGroups, routers, routerNetwatch, type Alert } from '../db/schema';
+import { db } from '../db/index.js';
+import { notificationGroups, routers, routerNetwatch, type Alert } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
 
 export class NotificationService {

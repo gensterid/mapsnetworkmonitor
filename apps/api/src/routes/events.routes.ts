@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
-import { eventEmitter } from '../services/event-emitter.service';
+import { eventEmitter } from '../services/event-emitter.service.js';
 
 const router = Router();
 

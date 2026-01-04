@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
-import { db } from '../db';
-import { userRouters, routers, users } from '../db/schema';
-import { requireAdmin } from '../middleware/rbac.middleware';
-import { asyncHandler } from '../middleware/error.middleware';
+import { db } from '../db/index.js';
+import { userRouters, routers, users } from '../db/schema/index.js';
+import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
 

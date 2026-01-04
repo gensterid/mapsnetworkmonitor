@@ -1,12 +1,12 @@
 import { eq, desc, and } from 'drizzle-orm';
-import { db } from '../db';
+import { db } from '../db/index.js';
 import {
     appSettings,
     auditLogs,
     type AppSetting,
     type AuditLog,
     type NewAuditLog,
-} from '../db/schema';
+} from '../db/schema/index.js';
 
 /**
  * Settings Service - handles app settings and audit logs

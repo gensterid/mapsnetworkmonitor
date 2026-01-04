@@ -1,7 +1,7 @@
-import { db } from '../db';
-import { alerts, routers, routerNetwatch } from '../db/schema';
+import { db } from '../db/index.js';
+import { alerts, routers, routerNetwatch } from '../db/schema/index.js';
 import { eq, and, inArray } from 'drizzle-orm';
-import { notificationService } from './notification.service';
+import { notificationService } from './notification.service.js';
 
 // Escalation thresholds in milliseconds
 const ESCALATION_THRESHOLDS = [

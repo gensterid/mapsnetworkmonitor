@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
-import { db } from '../db';
-import { users, accounts, type User, type NewUser } from '../db/schema';
+import { db } from '../db/index.js';
+import { users, accounts, type User, type NewUser } from '../db/schema/index.js';
 import { scryptSync, randomBytes } from 'crypto';
 
 /**

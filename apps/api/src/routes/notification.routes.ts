@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import { db } from '../db';
-import { notificationGroups } from '../db/schema';
+import { db } from '../db/index.js';
+import { notificationGroups } from '../db/schema/index.js';
 import { eq, desc } from 'drizzle-orm';
 import { z } from 'zod';
-import { requireAdmin } from '../middleware/rbac.middleware';
+import { requireAdmin } from '../middleware/rbac.middleware.js';
 
 const router = Router();
 

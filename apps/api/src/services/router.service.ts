@@ -1,5 +1,5 @@
 import { eq, desc, and } from 'drizzle-orm';
-import { db } from '../db';
+import { db } from '../db/index.js';
 import {
     routers,
     routerInterfaces,
@@ -10,8 +10,8 @@ import {
     type RouterMetric,
     type RouterNetwatch,
     userRouters,
-} from '../db/schema';
-import { encrypt, decrypt } from '../lib/encryption';
+} from '../db/schema/index.js';
+import { encrypt, decrypt } from '../lib/encryption.js';
 import {
     connectToRouter,
     getRouterInfo,
@@ -24,8 +24,8 @@ import {
     getHotspotActive,
     getPppActive,
     type RouterConnection,
-} from '../lib/mikrotik-api';
-import { measureLatency } from '../lib/network-utils';
+} from '../lib/mikrotik-api.js';
+import { measureLatency } from '../lib/network-utils.js';
 
 export interface CreateRouterInput {
     name: string;

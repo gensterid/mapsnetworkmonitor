@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
-import { db } from '../db';
-import { routerGroups, type RouterGroup, type NewRouterGroup } from '../db/schema';
+import { db } from '../db/index.js';
+import { routerGroups, type RouterGroup, type NewRouterGroup } from '../db/schema/index.js';
 
 /**
  * Group Service - handles router group operations
