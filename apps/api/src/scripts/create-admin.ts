@@ -1,10 +1,8 @@
 import 'dotenv/config';
-import { db } from '../db';
-import { users, accounts } from '../db/schema';
-import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { db } from '../db/index.js';
+import { users, accounts } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
-import bcrypt from 'bcrypt';
+import { scryptSync, randomBytes, randomUUID } from 'crypto';
 
 async function createAdminUser() {
     const email = 'admin@mikrotik.local';
@@ -23,20 +21,26 @@ async function createAdminUser() {
 
         if (existing.length > 0) {
             console.log('Admin user already exists!');
-            console.log('Use these credentials to login:');
-            console.log(`  Email: ${email}`);
-            console.log(`  Password: ${password}`);
-            process.exit(0);
+            console.log('Deleting existing admin to recreate with correct password...');
+
+            // Delete existing account and user
+            await db.delete(accounts).where(eq(accounts.userId, existing[0].id));
+            await db.delete(users).where(eq(users.id, existing[0].id));
+            console.log('Deleted existing admin user.');
         }
 
-        // Create auth instance to get proper password hashing config if needed, 
-        // but for now we'll manually hash using the same method usually used (bcrypt)
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash password using scrypt (same format as Better Auth)
+        // Format: salt:hash (both hex encoded)
+        const salt = randomBytes(16).toString('hex');
+        const hashedBuffer = scryptSync(password, salt, 64, { N: 16384, r: 16, p: 1, maxmem: 67108864 });
+        const hashedPassword = `${salt}:${hashedBuffer.toString('hex')}`;
 
         const now = new Date();
+        const userId = randomUUID();
 
         // Insert user
         const [newUser] = await db.insert(users).values({
+            id: userId,
             email,
             name,
             role: 'admin',
@@ -45,10 +49,11 @@ async function createAdminUser() {
             updatedAt: now
         }).returning();
 
-        // Insert account (password)
+        // Insert account (password) - Better Auth format
         await db.insert(accounts).values({
+            id: randomUUID(),
             userId: newUser.id,
-            accountId: email,
+            accountId: newUser.id,
             providerId: 'credential',
             password: hashedPassword,
             createdAt: now,
@@ -60,8 +65,6 @@ async function createAdminUser() {
         console.log('Login credentials:');
         console.log(`  Email: ${email}`);
         console.log(`  Password: ${password}`);
-        console.log('');
-        console.log('Note: Go to http://localhost:5173/login to login');
 
     } catch (error) {
         console.error('Error creating admin user:', error);
@@ -71,3 +74,4 @@ async function createAdminUser() {
 }
 
 createAdminUser();
+
