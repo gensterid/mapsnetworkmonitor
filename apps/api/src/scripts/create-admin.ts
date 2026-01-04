@@ -1,18 +1,10 @@
 import 'dotenv/config';
 import { db } from '../db';
-import { users } from '../db/schema';
+import { users, accounts } from '../db/schema';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-
-// Create a temporary auth instance for password hashing
-const tempAuth = betterAuth({
-    database: drizzleAdapter(db, {
-        provider: 'pg',
-    }),
-    emailAndPassword: {
-        enabled: true,
-    },
-});
+import { eq } from 'drizzle-orm';
+import bcrypt from 'bcrypt';
 
 async function createAdminUser() {
     const email = 'admin@mikrotik.local';
@@ -26,7 +18,7 @@ async function createAdminUser() {
     try {
         // Check if user already exists
         const existing = await db.select().from(users).where(
-            require('drizzle-orm').eq(users.email, email)
+            eq(users.email, email)
         );
 
         if (existing.length > 0) {
@@ -37,17 +29,31 @@ async function createAdminUser() {
             process.exit(0);
         }
 
-        // Hash the password using bcrypt (same as better-auth)
-        const bcrypt = require('bcrypt');
+        // Create auth instance to get proper password hashing config if needed, 
+        // but for now we'll manually hash using the same method usually used (bcrypt)
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert user directly
+        const now = new Date();
+
+        // Insert user
         const [newUser] = await db.insert(users).values({
             email,
             name,
             role: 'admin',
             emailVerified: true,
+            createdAt: now,
+            updatedAt: now
         }).returning();
+
+        // Insert account (password)
+        await db.insert(accounts).values({
+            userId: newUser.id,
+            accountId: email,
+            providerId: 'credential',
+            password: hashedPassword,
+            createdAt: now,
+            updatedAt: now
+        });
 
         console.log('✅ Admin user created successfully!');
         console.log('');
