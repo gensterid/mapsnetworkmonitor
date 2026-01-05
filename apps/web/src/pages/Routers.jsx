@@ -33,7 +33,7 @@ import { useQuery } from '@tanstack/react-query';
 
 // Router Form Modal (for Add and Edit)
 function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
-    const { isOperator } = useRole();
+    const { isAdmin } = useRole();
     // Fetch Notification Groups
     const { data: notificationGroups = [] } = useQuery({
         queryKey: ['notification-groups'],
@@ -206,7 +206,7 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     </div>
                 </div>
 
-                {isOperator && (
+                {isAdmin && (
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-300">Notification Group</label>
                         <select
