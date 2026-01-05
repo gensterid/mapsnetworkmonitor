@@ -601,6 +601,15 @@
         padding: 8px;
     }
 
+    .map-legend--minimized {
+        padding: 6px 10px;
+        width: auto;
+    }
+
+    .map-legend--minimized .map-legend__title {
+        margin-bottom: 0;
+    }
+
     .device-modal {
         width: calc(100% - 32px);
         margin: 16px;

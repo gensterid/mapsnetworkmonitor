@@ -240,6 +240,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu toggle
     const mapContainerRef = React.useRef(null);
 
     const queryClient = useQueryClient();
@@ -847,73 +848,96 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
             {/* Top Controls */}
             {!showRoutersOnly && (
-                <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 bg-slate-900/80 p-2 rounded-lg backdrop-blur-sm border border-slate-700">
-                    <label className="text-xs text-white font-bold mb-1">Map Type</label>
-                    <select
-                        value={mapType}
-                        onChange={(e) => setMapType(e.target.value)}
-                        className="bg-slate-800 text-white text-xs p-1 rounded border border-slate-600 outline-none"
-                    >
-                        <option value="roadmap">Roadmap</option>
-                        <option value="satellite">Satellite</option>
-                        <option value="hybrid">Hybrid</option>
-                        <option value="terrain">Terrain</option>
-                        <option value="dark">Dark Mode</option>
-                    </select>
-
-                    {/* Edit Mode Toggle */}
+                <>
+                    {/* Mobile Menu Button - Only visible on small screens */}
                     <button
-                        onClick={() => setIsEditMode(prev => !prev)}
-                        className={`mt-2 px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors ${isEditMode
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                            }`}
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
+                        className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
                     >
-                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                            {isEditMode ? 'lock_open' : 'lock'}
+                        <span className="material-symbols-outlined">
+                            {isMenuOpen ? 'close' : 'menu'}
                         </span>
-                        {isEditMode ? 'Editing' : 'Locked'}
                     </button>
 
-                    {/* Refresh/Sync Button */}
-                    <button
-                        onClick={handleManualSync}
-                        disabled={isSyncing}
-                        className="mt-2 px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        title="Sinkronisasi data dari MikroTik"
-                    >
-                        <span
-                            className="material-symbols-outlined"
-                            style={{
-                                fontSize: 14,
-                                animation: isSyncing ? 'spin 1s linear infinite' : 'none'
-                            }}
+                    <div className={`
+                        absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
+                        flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg 
+                        backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
+                        transition-all duration-200 origin-top-right
+                        ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
+                    `}>
+                        <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
+                            <label className="text-xs text-white font-bold">Map Type</label>
+                        </div>
+                        <select
+                            value={mapType}
+                            onChange={(e) => setMapType(e.target.value)}
+                            className="bg-slate-800 text-white text-xs p-1.5 rounded border border-slate-600 outline-none w-full"
                         >
-                            sync
-                        </span>
-                        {isSyncing ? 'Syncing...' : 'Refresh'}
-                    </button>
+                            <option value="roadmap">Roadmap</option>
+                            <option value="satellite">Satellite</option>
+                            <option value="hybrid">Hybrid</option>
+                            <option value="terrain">Terrain</option>
+                            <option value="dark">Dark Mode</option>
+                        </select>
 
-                    {/* Fullscreen Button */}
-                    <button
-                        onClick={() => {
-                            if (!document.fullscreenElement) {
-                                mapContainerRef.current?.requestFullscreen();
-                                setIsFullscreen(true);
-                            } else {
-                                document.exitFullscreen();
-                                setIsFullscreen(false);
-                            }
-                        }}
-                        className="mt-2 px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
-                        title="Toggle Fullscreen"
-                    >
-                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                        </span>
-                        {isFullscreen ? 'Exit' : 'Full'}
-                    </button>
-                </div>
+                        <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
+
+                        {/* Edit Mode Toggle */}
+                        <button
+                            onClick={() => setIsEditMode(prev => !prev)}
+                            className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                }`}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                                {isEditMode ? 'lock_open' : 'lock'}
+                            </span>
+                            {isEditMode ? 'Editing' : 'Locked'}
+                        </button>
+
+                        {/* Refresh/Sync Button */}
+                        <button
+                            onClick={handleManualSync}
+                            disabled={isSyncing}
+                            className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Sinkronisasi data dari MikroTik"
+                        >
+                            <span
+                                className="material-symbols-outlined"
+                                style={{
+                                    fontSize: 16,
+                                    animation: isSyncing ? 'spin 1s linear infinite' : 'none'
+                                }}
+                            >
+                                sync
+                            </span>
+                            {isSyncing ? 'Syncing...' : 'Refresh'}
+                        </button>
+
+                        {/* Fullscreen Button */}
+                        <button
+                            onClick={() => {
+                                if (!document.fullscreenElement) {
+                                    mapContainerRef.current?.requestFullscreen();
+                                    setIsFullscreen(true);
+                                } else {
+                                    document.exitFullscreen();
+                                    setIsFullscreen(false);
+                                }
+                                setIsMenuOpen(false); // Close menu on action
+                            }}
+                            className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
+                            title="Toggle Fullscreen"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                                {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                            </span>
+                            {isFullscreen ? 'Exit' : 'Full'}
+                        </button>
+                    </div>
+                </>
             )}
 
             {/* Legend */}
