@@ -852,20 +852,20 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                     <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value)}
-                        className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary max-w-[120px] sm:max-w-none"
                     >
-                        <option value="status">Down First</option>
-                        <option value="name">Name A-Z</option>
-                        <option value="host">Host A-Z</option>
-                        <option value="location">Location</option>
+                        <option value="status">Status</option>
+                        <option value="name">Name</option>
+                        <option value="host">IP</option>
+                        <option value="location">Loc</option>
                     </select>
-                    <Button variant="outline" onClick={handleSync} loading={syncMutation.isPending}>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Sync from Router
+                    <Button variant="outline" onClick={handleSync} loading={syncMutation.isPending} title="Sync from Router">
+                        <RefreshCw className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Sync</span>
                     </Button>
-                    <Button onClick={() => setIsAddModalOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Host
+                    <Button onClick={() => setIsAddModalOpen(true)} title="Add Host">
+                        <Plus className="w-4 h-4 sm:mr-2" />
+                        <span className="hidden sm:inline">Add Host</span>
                     </Button>
                 </div>
             </div>
@@ -879,7 +879,81 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                 </div>
             )}
 
-            <Card className="glass-panel">
+            {/* Mobile Card View */}
+            <div className="block sm:hidden space-y-3">
+                {filteredNetwatch.length > 0 ? (
+                    filteredNetwatch.map((nw) => (
+                        <Card key={nw.id} className="glass-panel">
+                            <CardContent className="p-4">
+                                <div className="flex justify-between items-start mb-2">
+                                    <div>
+                                        <div className="text-white font-mono font-medium">{nw.host}</div>
+                                        {nw.name && <div className="text-sm text-slate-400">{nw.name}</div>}
+                                    </div>
+                                    <div className="flex flex-col items-end gap-1">
+                                        <span className={clsx(
+                                            "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium",
+                                            nw.status === 'up'
+                                                ? "bg-emerald-500/10 text-emerald-400"
+                                                : "bg-red-500/10 text-red-400"
+                                        )}>
+                                            {nw.status === 'up' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                                            {nw.status === 'up' ? 'Up' : 'Down'}
+                                        </span>
+                                        {nw.name?.startsWith('[DISABLED]') && (
+                                            <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">Disabled</span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mb-3 border-t border-slate-800/50 pt-2">
+                                    <div>
+                                        <div className="text-slate-600">Location</div>
+                                        <div className="text-slate-400 truncate">{nw.location || '-'}</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-slate-600">Last Check</div>
+                                        <div className="text-slate-400">{nw.lastCheck ? new Date(nw.lastCheck).toLocaleTimeString() : '-'}</div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center pt-2 border-t border-slate-800/50">
+                                    <div className="text-xs">
+                                        {nw.status === 'up' && nw.lastUp && (
+                                            <span className="text-emerald-500/70">Up since {new Date(nw.lastUp).toLocaleTimeString()}</span>
+                                        )}
+                                        {nw.status !== 'up' && nw.lastDown && (
+                                            <span className="text-red-500/70">Down since {new Date(nw.lastDown).toLocaleTimeString()}</span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setEditingNetwatch(nw)}
+                                            className="p-1.5 rounded-md bg-slate-800 text-slate-400 hover:text-white"
+                                        >
+                                            <Edit className="w-4 h-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => handleDelete(nw)}
+                                            className="p-1.5 rounded-md bg-slate-800 text-slate-400 hover:text-red-400"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : (
+                    <div className="py-8 text-center bg-slate-900/50 rounded-lg border border-slate-800 border-dashed">
+                        <Eye className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                        <p className="text-slate-400 text-sm">No hosts found</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Desktop Table View */}
+            <Card className="glass-panel hidden sm:block">
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full">
@@ -1088,8 +1162,8 @@ export default function RouterDetails() {
     return (
         <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
             {/* Header */}
-            <div className="p-6 border-b border-slate-800">
-                <div className="flex items-center justify-between mb-4">
+            <div className="p-4 sm:p-6 border-b border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
                     <div className="flex items-center gap-4">
                         <Link to="/routers">
                             <Button variant="ghost" size="icon">
@@ -1098,7 +1172,7 @@ export default function RouterDetails() {
                         </Link>
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-2xl font-bold text-white">{router?.name}</h1>
+                                <h1 className="text-xl sm:text-2xl font-bold text-white">{router?.name}</h1>
                                 <span className={clsx(
                                     "px-2 py-0.5 rounded-full text-xs font-medium",
                                     router?.status === 'online'
@@ -1111,14 +1185,14 @@ export default function RouterDetails() {
                             <p className="text-slate-400 text-sm">{router?.host}:{router?.port}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button onClick={() => setIsEditModalOpen(true)} variant="outline">
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit Config
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <Button onClick={() => setIsEditModalOpen(true)} variant="outline" title="Edit Config">
+                            <Edit className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Edit Config</span>
                         </Button>
-                        <Button onClick={handleRefresh} variant="outline" disabled={refreshMutation.isPending}>
-                            <RefreshCw className={clsx("w-4 h-4 mr-2", refreshMutation.isPending && "animate-spin")} />
-                            Refresh
+                        <Button onClick={handleRefresh} variant="outline" disabled={refreshMutation.isPending} title="Refresh">
+                            <RefreshCw className={clsx("w-4 h-4 sm:mr-2", refreshMutation.isPending && "animate-spin")} />
+                            <span className="hidden sm:inline">Refresh</span>
                         </Button>
                     </div>
                 </div>
