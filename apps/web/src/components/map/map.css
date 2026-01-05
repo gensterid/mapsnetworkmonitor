@@ -442,9 +442,20 @@
     border: 1px solid rgba(71, 85, 105, 0.5);
     border-radius: 12px;
     width: 400px;
-    max-height: 80vh;
-    overflow-y: auto;
+    border: 1px solid rgba(71, 85, 105, 0.5);
+    border-radius: 12px;
+    width: 400px;
+    max-height: 90vh;
+    /* Fallback */
+    max-height: 90dvh;
+    display: flex;
+    flex-direction: column;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.device-modal-overlay {
+    align-items: center;
+    /* Generally center, but if tall, flex-start? center is safer with max-height */
 }
 
 .device-modal__header {
@@ -453,6 +464,8 @@
     justify-content: space-between;
     padding: 16px 20px;
     border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+    flex-shrink: 0;
+    /* Prevent header shrinking */
 }
 
 .device-modal__title {
@@ -485,6 +498,8 @@
     display: flex;
     flex-direction: column;
     gap: 16px;
+    overflow-y: auto;
+    /* Scrollable content area */
 }
 
 .device-modal__field {
@@ -520,7 +535,13 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 0 20px 20px;
+    padding: 20px;
+    /* Reduced bottom padding in content allows this to sit nicely */
+    background: inherit;
+    /* Matches modal bg */
+    border-top: 1px solid rgba(71, 85, 105, 0.3);
+    flex-shrink: 0;
+    /* Make sticky-ish at bottom of flex container */
 }
 
 .device-modal__btn {

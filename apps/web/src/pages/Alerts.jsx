@@ -105,26 +105,28 @@ export default function Alerts() {
 
     return (
         <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+            <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Alerts</h1>
                     <p className="text-slate-400 text-sm">Monitor system alerts and notifications</p>
                 </div>
-                <Button onClick={() => refetch()} variant="outline">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
-                </Button>
-                {hasUnacknowledged && (
-                    <Button
-                        onClick={handleAcknowledgeAll}
-                        variant="primary"
-                        loading={acknowledgeAllMutation.isPending}
-                        className="ml-2"
-                    >
-                        <CheckCheck className="w-4 h-4 mr-2" />
-                        Acknowledge All
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <Button onClick={() => refetch()} variant="outline" className="flex-1 sm:flex-none justify-center">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh
                     </Button>
-                )}
+                    {hasUnacknowledged && (
+                        <Button
+                            onClick={handleAcknowledgeAll}
+                            variant="primary"
+                            loading={acknowledgeAllMutation.isPending}
+                            className="ml-0 flex-1 sm:flex-none justify-center"
+                        >
+                            <CheckCheck className="w-4 h-4 mr-2" />
+                            Ack All
+                        </Button>
+                    )}
+                </div>
             </div>
 
             <div className="flex-1 overflow-auto p-6">
