@@ -560,11 +560,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
         setIsSaving(true);
         try {
-            console.log(`Deleting netwatch: routerId=${device.routerId}, netwatchId=${device.id}`);
-            await deleteNetwatchMutation.mutateAsync({
-                routerId: device.routerId,
-                netwatchId: device.id,
-            });
+            const payload = {
+                routerId: String(device.routerId),
+                netwatchId: String(device.id),
+            };
+            console.log(`Deleting netwatch with payload:`, payload);
+            await deleteNetwatchMutation.mutateAsync(payload);
             console.log('Device deleted successfully');
             handleCloseModal();
             // Force refetch

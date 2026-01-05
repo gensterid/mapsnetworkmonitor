@@ -129,7 +129,7 @@ const DeviceModal = ({
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit}>
+                <form onSubmit={handleSubmit} className="device-modal__form">
                     <div className="device-modal__content">
                         {/* Device Name */}
                         <div className="device-modal__field">

@@ -877,14 +877,27 @@ export class RouterService {
      * Delete a netwatch entry
      */
     async deleteNetwatch(routerId: string, netwatchId: string): Promise<boolean> {
-        // 0. Get original entry
-        const [original] = await db.select().from(routerNetwatch).where(eq(routerNetwatch.id, netwatchId));
-        if (!original) return false;
+        console.log(`[RouterService] Deleting netwatch entry: ${netwatchId} (router: ${routerId})`);
 
-        // 1. Apply to Router (only for client types)
+        // 1. Delete from DB first and get the deleted entry
+        // This ensures that even if router connection fails, the item is removed from DB/Map
+        const [deleted] = await db
+            .delete(routerNetwatch)
+            .where(eq(routerNetwatch.id, netwatchId))
+            .returning();
+
+        if (!deleted) {
+            console.warn(`[RouterService] Netwatch entry not found in DB for deletion: ${netwatchId}`);
+            return false;
+        }
+
+        console.log(`[RouterService] Deleted netwatch from DB: ${deleted.host} (${deleted.deviceType})`);
+
+        // 2. Apply to Router (only for client types)
         // OLT/ODP are not stored in MikroTik Netwatch
-        const isClientType = original.deviceType === 'client' || !original.deviceType;
+        const isClientType = deleted.deviceType === 'client' || !deleted.deviceType;
         if (isClientType) {
+            console.log(`[RouterService] Attempting to remove from MikroTik router...`);
             const router = await this.findByIdWithPassword(routerId);
             if (router) {
                 let conn;
@@ -897,33 +910,32 @@ export class RouterService {
                     });
 
                     try {
-                        await removeNetwatchEntry(conn, original.host);
+                        await removeNetwatchEntry(conn, deleted.host);
+                        console.log(`[RouterService] Removed from MikroTik netwatch: ${deleted.host}`);
                     } catch (netwatchErr: any) {
                         // Ignore if entry not found, otherwise throw
                         const msg = netwatchErr.message || '';
                         if (!msg.includes('no such item') && !msg.includes('not found')) {
-                            throw netwatchErr;
+                            console.error(`[RouterService] Failed to remove from MikroTik:`, msg);
+                        } else {
+                            console.log('Netwatch entry not found on router, skipping');
                         }
-                        console.log('Netwatch entry not found on router, proceeding with DB deletion');
                     }
                 } catch (err) {
-                    console.error('Failed to delete netwatch from router:', err);
-                    // If we can't connect to router, we should still allow deleting from DB?
-                    // For now, let's log it and proceed, assuming user wants to clean up DB.
-                    // Or maybe throw ONLY if it's a critical connection error?
-                    // But if router is dead, user must be able to delete the device from DB.
+                    console.error('Failed to connect/delete netwatch from router (DB entry was already deleted):', err);
+                    // We don't re-throw here because the DB entry is already gone, 
+                    // so the "primary" goal of the user (clearing the map) is achieved.
                 } finally {
                     if (conn) await conn.close().catch(console.error);
                 }
+            } else {
+                console.warn(`[RouterService] Router ${routerId} not found, skipped MikroTik cleanup`);
             }
+        } else {
+            console.log(`[RouterService] Device type is ${deleted.deviceType}, skipping MikroTik cleanup`);
         }
 
-        const result = await db
-            .delete(routerNetwatch)
-            .where(eq(routerNetwatch.id, netwatchId))
-            .returning();
-
-        return result.length > 0;
+        return true;
     }
 
 

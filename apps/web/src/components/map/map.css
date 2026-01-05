@@ -451,11 +451,12 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    /* Ensure content is contained */
 }
 
 .device-modal-overlay {
     align-items: center;
-    /* Generally center, but if tall, flex-start? center is safer with max-height */
 }
 
 .device-modal__header {
@@ -466,6 +467,16 @@
     border-bottom: 1px solid rgba(71, 85, 105, 0.3);
     flex-shrink: 0;
     /* Prevent header shrinking */
+}
+
+/* Add style for the form to ensure it takes remaining height */
+.device-modal__form {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    flex: 1;
+    min-height: 0;
+    /* Important for nested flex scroll */
 }
 
 .device-modal__title {
@@ -500,6 +511,8 @@
     gap: 16px;
     overflow-y: auto;
     /* Scrollable content area */
+    flex: 1;
+    /* Take remaining space */
 }
 
 .device-modal__field {
@@ -542,6 +555,7 @@
     border-top: 1px solid rgba(71, 85, 105, 0.3);
     flex-shrink: 0;
     /* Make sticky-ish at bottom of flex container */
+    z-index: 10;
 }
 
 .device-modal__btn {
