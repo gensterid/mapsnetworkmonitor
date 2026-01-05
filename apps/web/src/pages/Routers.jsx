@@ -15,6 +15,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 
 // Helper function to format uptime in seconds to human readable format
 function formatUptime(seconds) {
@@ -150,6 +151,15 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
             } else {
                 payload.password = formData.password; // Required for new routers
                 await apiClient.post('/routers', payload);
+            }
+
+            if (!isAdmin) {
+                toast.success('Router berhasil di simpan dan silahkan menghubungi admin', {
+                    duration: 5000,
+                    icon: '🔒',
+                });
+            } else {
+                toast.success(isEditing ? 'Router updated successfully' : 'Router added successfully');
             }
 
             onSuccess?.();
