@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiClient } from '@/lib/api';
-import { useAuth } from '@/lib/auth-client';
+import { useAuth, useRole } from '@/lib/auth-client';
 import {
     useRouters,
     useCreateRouter,
@@ -33,7 +33,7 @@ import { useQuery } from '@tanstack/react-query';
 
 // Router Form Modal (for Add and Edit)
 function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
-    const { isAdmin } = useAuth();
+    const { isOperator } = useRole();
     // Fetch Notification Groups
     const { data: notificationGroups = [] } = useQuery({
         queryKey: ['notification-groups'],
@@ -206,7 +206,7 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     </div>
                 </div>
 
-                {isAdmin && (
+                {isOperator && (
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-300">Notification Group</label>
                         <select
