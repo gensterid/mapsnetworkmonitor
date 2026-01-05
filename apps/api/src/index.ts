@@ -68,6 +68,8 @@ app.use(
         origin: [
             'http://localhost:5173',
             'http://localhost:5174',
+            'https://mapsmonitor.genster.web.id',
+            'http://10.10.70.116',
             process.env.CORS_ORIGIN || 'http://localhost:5173',
         ],
         credentials: true,
