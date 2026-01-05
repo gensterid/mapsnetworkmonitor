@@ -23,9 +23,13 @@ import {
     parseUptimeToSeconds,
     getHotspotActive,
     getPppActive,
+    addNetwatchEntry,
+    updateNetwatchEntry,
+    removeNetwatchEntry,
     type RouterConnection,
 } from '../lib/mikrotik-api.js';
 import { measureLatency } from '../lib/network-utils.js';
+import { alertService } from './alert.service.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -724,24 +728,25 @@ export class RouterService {
 
         // Only add to MikroTik if it's a netwatch client type (has IP to ping)
         if (data.deviceType === 'client' || !data.deviceType) {
+            let conn;
             try {
-                const conn = await connectToRouter({
+                conn = await connectToRouter({
                     host: router.host,
                     port: router.port,
                     username: router.username,
                     password: router.password,
                 });
 
-                const { addNetwatchEntry } = await import('../lib/mikrotik-api');
                 await addNetwatchEntry(conn, {
                     host: data.host,
                     interval: data.interval,
                     comment: data.name, // Mapping name to comment
                 });
-                conn.close();
             } catch (err) {
                 console.error('Failed to add netwatch to router:', err);
                 throw new Error(`Failed to add to router: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            } finally {
+                if (conn) await conn.close().catch(console.error);
             }
         }
 
@@ -797,21 +802,20 @@ export class RouterService {
         if (isClientType && (data.host || data.interval || data.name !== undefined)) {
             const router = await this.findByIdWithPassword(routerId);
             if (router) {
+                let conn;
                 try {
-                    const conn = await connectToRouter({
+                    conn = await connectToRouter({
                         host: router.host,
                         port: router.port,
                         username: router.username,
                         password: router.password,
                     });
 
-                    const { updateNetwatchEntry } = await import('../lib/mikrotik-api');
                     await updateNetwatchEntry(conn, original.host, {
                         host: data.host,
                         interval: data.interval,
                         comment: data.name,
                     });
-                    conn.close();
                 } catch (err) {
                     console.error('Failed to update netwatch on router:', err);
                     // Log more details if available
@@ -819,6 +823,8 @@ export class RouterService {
                         console.error('Error details:', JSON.stringify(err, null, 2));
                     }
                     throw new Error(`Failed to update router: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+                } finally {
+                    if (conn) await conn.close().catch(console.error);
                 }
             }
         }
@@ -863,15 +869,15 @@ export class RouterService {
         if (isClientType) {
             const router = await this.findByIdWithPassword(routerId);
             if (router) {
+                let conn;
                 try {
-                    const conn = await connectToRouter({
+                    conn = await connectToRouter({
                         host: router.host,
                         port: router.port,
                         username: router.username,
                         password: router.password,
                     });
 
-                    const { removeNetwatchEntry } = await import('../lib/mikrotik-api');
                     try {
                         await removeNetwatchEntry(conn, original.host);
                     } catch (netwatchErr: any) {
@@ -882,13 +888,14 @@ export class RouterService {
                         }
                         console.log('Netwatch entry not found on router, proceeding with DB deletion');
                     }
-                    conn.close();
                 } catch (err) {
                     console.error('Failed to delete netwatch from router:', err);
                     // If we can't connect to router, we should still allow deleting from DB?
                     // For now, let's log it and proceed, assuming user wants to clean up DB.
                     // Or maybe throw ONLY if it's a critical connection error?
                     // But if router is dead, user must be able to delete the device from DB.
+                } finally {
+                    if (conn) await conn.close().catch(console.error);
                 }
             }
         }
@@ -975,7 +982,6 @@ export class RouterService {
                             console.log(`[NETWATCH] Status change detected for ${nw.host}: ${existing.status} -> ${status}`);
                             if (status === 'down' || status === 'up') {
                                 try {
-                                    const { alertService } = await import('./alert.service');
                                     console.log(`[NETWATCH] Creating alert for ${nw.host} (${status})`);
                                     const alert = await alertService.createNetwatchAlert(
                                         routerId,
