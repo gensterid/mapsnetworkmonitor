@@ -13,15 +13,7 @@
 function parseApiDate(dateInput) {
     if (!dateInput) return null;
 
-    let dateStr = String(dateInput);
-
-    // Remove the 'Z' suffix if present - the API incorrectly tags local time as UTC
-    // This makes JavaScript interpret it as local time instead of UTC
-    if (dateStr.endsWith('Z')) {
-        dateStr = dateStr.slice(0, -1);
-    }
-
-    const date = new Date(dateStr);
+    const date = new Date(dateInput);
     return isNaN(date.getTime()) ? null : date;
 }
 
