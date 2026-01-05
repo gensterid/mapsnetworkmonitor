@@ -4,8 +4,12 @@ import { notificationGroups } from '../db/schema/index.js';
 import { eq, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = Router();
+
+// All routes require authentication
+router.use(authMiddleware);
 
 // Schema for key validation
 const notificationGroupSchema = z.object({
