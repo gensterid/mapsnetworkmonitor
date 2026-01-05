@@ -334,7 +334,6 @@ export class RouterService {
                             if (existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
                                 if (status === 'down' || status === 'up') {
                                     try {
-                                        const { alertService } = await import('./alert.service');
                                         await alertService.createNetwatchAlert(
                                             id,
                                             `[${router.name}] ${finalName}`,
@@ -403,9 +402,8 @@ export class RouterService {
                 .where(eq(routers.id, id))
                 .returning();
 
-            // Create alert if status changed from offline to online
+            // Create alert if status changed from status to online
             if (previousStatus === 'offline') {
-                const { alertService } = await import('./alert.service');
                 await alertService.createStatusChangeAlert(
                     id,
                     router.name,
@@ -435,7 +433,6 @@ export class RouterService {
 
             // Check for metric-based alerts (CPU/Memory thresholds)
             try {
-                const { alertService } = await import('./alert.service');
                 await alertService.checkAndCreateMetricAlerts(
                     id,
                     router.name,
@@ -505,34 +502,55 @@ export class RouterService {
             }
 
             return updatedRouter;
-        } catch (error) {
-            console.error(`[Router ${router.host}] Connection failed:`, error instanceof Error ? error.message : error);
-            // Mark router as offline
-            const [updatedRouter] = await db
-                .update(routers)
-                .set({
-                    status: 'offline',
-                    updatedAt: new Date(),
-                })
-                .where(eq(routers.id, id))
-                .returning();
-
-            // Create alert if status changed from online to offline
-            if (previousStatus === 'online') {
-                try {
-                    const { alertService } = await import('./alert.service');
-                    await alertService.createStatusChangeAlert(
-                        id,
-                        router.name,
-                        previousStatus,
-                        'offline'
-                    );
-                } catch (alertError) {
-                    console.error('Failed to create offline alert:', alertError);
-                }
-            }
+            // ... (rest of function until catch block)
 
             return updatedRouter;
+        } catch (error) {
+            console.error(`[Router ${router.host}] Connection failed:`, error instanceof Error ? error.message : error);
+
+            // Only mark offline if it's a connection error
+            // Check if error is ETIMEDOUT, ECONNREFUSED, or login failure
+            const errMsg = error instanceof Error ? error.message : String(error);
+            const isConnectionError =
+                errMsg.includes('timeout') ||
+                errMsg.includes('ECONNREFUSED') ||
+                errMsg.includes('EHOSTUNREACH') ||
+                errMsg.includes('login failure') ||
+                errMsg.includes('cannot connect');
+
+            if (isConnectionError) {
+
+                const [updatedRouter] = await db
+                    .update(routers)
+                    .set({
+                        status: 'offline',
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(routers.id, id))
+                    .returning();
+
+                // Create alert if status changed from online to offline
+                if (previousStatus === 'online') {
+                    try {
+                        await alertService.createStatusChangeAlert(
+                            id,
+                            router.name,
+                            previousStatus,
+                            'offline'
+                        );
+                    } catch (alertError) {
+                        console.error('Failed to create offline alert:', alertError);
+                    }
+                }
+                return updatedRouter;
+            } else {
+                // If it's NOT a connection error (e.g. metrics parsing failed), 
+                // keep previous status or mark online?
+                // Better to throw so we see the error, but don't mark offline.
+                // Or just log it.
+                console.error(`[Router ${router.host}] Non-connection error during refresh:`, error);
+                return router;
+            }
         }
     }
 
