@@ -96,15 +96,11 @@ export class NotificationService {
     async notifyAlert(alert: Alert, routerId: string) {
         try {
             // 1. Get Router to find Notification Group
-            const router = await db.query.routers.findFirst({
-                where: eq(routers.id, routerId),
-                with: {
-                    // We need to fetch the notification group.
-                    // Since we defined the relation in schema but maybe not in relations,
-                    // let's do a join or separate fetch if relations aren't set up.
-                    // For safety, let's just fetch the group manually using the ID.
-                } as any
-            });
+            // 1. Get Router to find Notification Group
+            const [router] = await db
+                .select()
+                .from(routers)
+                .where(eq(routers.id, routerId));
 
             if (!router || !router.notificationGroupId) {
                 return; // No group assigned
