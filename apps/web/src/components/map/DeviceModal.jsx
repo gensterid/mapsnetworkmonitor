@@ -188,6 +188,16 @@ const DeviceModal = ({
                                     className="device-modal__input"
                                     value={formData.latitude}
                                     onChange={handleChange}
+                                    onPaste={(e) => {
+                                        const pasted = e.clipboardData.getData('text');
+                                        if (pasted.includes(',')) {
+                                            e.preventDefault();
+                                            const [lat, lng] = pasted.split(',').map(s => s.trim());
+                                            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                                setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                            }
+                                        }
+                                    }}
                                     placeholder="-8.123456"
                                     disabled={isSaving}
                                 />
@@ -200,6 +210,16 @@ const DeviceModal = ({
                                     className="device-modal__input"
                                     value={formData.longitude}
                                     onChange={handleChange}
+                                    onPaste={(e) => {
+                                        const pasted = e.clipboardData.getData('text');
+                                        if (pasted.includes(',')) {
+                                            e.preventDefault();
+                                            const [lat, lng] = pasted.split(',').map(s => s.trim());
+                                            if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                                setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                            }
+                                        }
+                                    }}
                                     placeholder="120.123456"
                                     disabled={isSaving}
                                 />
