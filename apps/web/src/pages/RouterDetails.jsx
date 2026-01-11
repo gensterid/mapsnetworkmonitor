@@ -122,11 +122,21 @@ function ProgressBar({ value, color = "blue", label }) {
 
 // Interface Traffic Chart Component
 function InterfaceTrafficChart({ routerId, interfaces }) {
-    const [selectedInterface, setSelectedInterface] = useState('ether1');
+    const [selectedInterface, setSelectedInterface] = useState('');
     const [history, setHistory] = useState([]);
 
     // Find selected interface data
     const currentInterface = interfaces?.find(i => i.name === selectedInterface);
+
+    // Auto-select first interface if current selection is invalid
+    useEffect(() => {
+        if (interfaces?.length > 0) {
+            // If no selection or selected interface not found in list
+            if (!selectedInterface || !interfaces.find(i => i.name === selectedInterface)) {
+                setSelectedInterface(interfaces[0].name);
+            }
+        }
+    }, [interfaces, selectedInterface]);
 
     // Update history when interface data changes
     useEffect(() => {
@@ -147,9 +157,9 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
             if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
             return newHistory;
         });
-    }, [currentInterface, selectedInterface]);
+    }, [currentInterface]); // Removed selectedInterface logic from here to avoid double-reset race conditions
 
-    // Reset history when interface selection changes
+    // Reset history when interface selection actually changes
     useEffect(() => {
         setHistory([]);
     }, [selectedInterface]);

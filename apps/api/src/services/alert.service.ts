@@ -215,14 +215,33 @@ export class AlertService {
             notificationService.notifyAlert(alert, data.routerId).catch(err =>
                 console.error('Failed to trigger notification:', err)
             );
-        }
 
-        // Broadcast real-time SSE event to all connected clients
-        eventEmitter.broadcast('new_alert', {
-            alert,
-            message: `New alert: ${alert.title}`,
-            timestamp: new Date().toISOString(),
-        });
+            // Get users assigned to this router
+            const assignedUsers = await db
+                .select({ userId: userRouters.userId })
+                .from(userRouters)
+                .where(eq(userRouters.routerId, data.routerId));
+
+            const userIds = assignedUsers.map(u => u.userId);
+
+            // Broadcast real-time SSE event to all connected clients
+            eventEmitter.broadcastToUsers('new_alert', {
+                alert,
+                message: `New alert: ${alert.title}`,
+                timestamp: new Date().toISOString(),
+            }, userIds);
+        } else {
+            // System-wide alert or no router ID? currently alerts always have routerId in schema, but types might say optional?
+            // If no routerId context, maybe broadcast to all admins? or all users?
+            // Schema says routerId is NotNull. So this block is always entered if valid data.
+
+            // Fallback for safety if routerId matches nothing (shouldn't happen with FK)
+            eventEmitter.broadcast('new_alert', {
+                alert,
+                message: `New alert: ${alert.title}`,
+                timestamp: new Date().toISOString(),
+            });
+        }
 
         return alert;
     }
@@ -444,6 +463,7 @@ export class AlertService {
                     eq(alerts.resolved, false)
                 ));
 
+            let resolvedCount = 0;
             // Resolve alerts that match this host
             for (const alert of unresolvedAlerts) {
                 if (alert.message.includes(host)) {
@@ -455,10 +475,27 @@ export class AlertService {
                         })
                         .where(eq(alerts.id, alert.id));
                     console.log(`[ALERT] Auto-resolved alert ${alert.id} for ${host} (now UP)`);
+                    resolvedCount++;
                 }
             }
 
-            // Don't create a new "UP" alert, just resolve the DOWN alerts
+            // Create notification that device is UP if we resolved something or if we want to notify even if we missed the DOWN event (optional)
+            // User requested: "is down tetapi setelah up tidak adad notifikasi" -> implies they want notification on UP.
+
+            // Deduplicate UP alerts (don't spam if it's already UP)
+            // But usually UP event comes once. 
+            // Let's create an INFO alert.
+
+            if (resolvedCount > 0) {
+                await this.create({
+                    routerId,
+                    type: 'status_change', // using valid enum type
+                    severity: 'info',
+                    title: `Device ${deviceName || host} is back UP`,
+                    message: `Netwatch host ${host} (${deviceName}) is now reachable`,
+                });
+            }
+
             return null;
         }
 

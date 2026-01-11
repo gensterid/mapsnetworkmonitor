@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { eventEmitter } from '../services/event-emitter.service.js';
+import { optionalAuthMiddleware } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
  * GET /api/events
  * Server-Sent Events endpoint for real-time updates
  */
-router.get('/', (req: Request, res: Response) => {
+router.get('/', optionalAuthMiddleware, (req: Request, res: Response) => {
     // Set SSE headers
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
@@ -20,7 +21,7 @@ router.get('/', (req: Request, res: Response) => {
     const clientId = randomUUID();
 
     // Add client to the list
-    eventEmitter.addClient(clientId, res);
+    eventEmitter.addClient(clientId, res, req.user ? { id: req.user.id, role: req.user.role } : undefined);
 
     // Send initial connection confirmation
     res.write(`event: connected\ndata: ${JSON.stringify({ clientId, message: 'SSE connection established' })}\n\n`);
