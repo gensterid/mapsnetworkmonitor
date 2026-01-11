@@ -1,5 +1,4 @@
-import React from 'react';
-import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts } from '@/hooks';
+import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff } from 'lucide-react';
@@ -9,10 +8,11 @@ import clsx from 'clsx';
 export default function Alerts() {
     const { data: alerts = [], isLoading, error, refetch } = useAlerts();
     const { data: settings } = useSettings();
+    const { data: currentUser } = useCurrentUser();
     const acknowledgeMutation = useAcknowledgeAlert();
     const acknowledgeAllMutation = useAcknowledgeAllAlerts();
 
-    const timezone = settings?.timezone || 'Asia/Jakarta';
+    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
 
     const formatAlertTime = (dateStr) => {
         return formatDateWithTimezone(dateStr, timezone);
