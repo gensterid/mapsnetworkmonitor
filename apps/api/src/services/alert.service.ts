@@ -487,16 +487,24 @@ export class AlertService {
             // Let's create an INFO alert.
 
             if (resolvedCount > 0) {
-                await this.create({
+                return this.create({
                     routerId,
-                    type: 'status_change', // using valid enum type
+                    type: 'status_change',
                     severity: 'info',
                     title: `Device ${deviceName || host} is back UP`,
-                    message: `Netwatch host ${host} (${deviceName}) is now reachable`,
+                    message: `Netwatch host ${host} (${deviceName}) is now reachable. Resolved ${resolvedCount} downtime alert(s).`,
+                });
+            } else {
+                // Even if no specific DOWN alert was resolved (maybe expired), still notify UP if desired
+                // forcing notification for visibility
+                return this.create({
+                    routerId,
+                    type: 'status_change',
+                    severity: 'info',
+                    title: `Device ${deviceName || host} is back UP`,
+                    message: `Netwatch host ${host} (${deviceName}) is now reachable.`,
                 });
             }
-
-            return null;
         }
 
         // Deduplicate: check if we already alerted about this specific device being down recently
