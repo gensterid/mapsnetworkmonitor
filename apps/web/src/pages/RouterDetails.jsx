@@ -152,12 +152,20 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                 rx: currentInterface.rxRate || 0,
             };
 
-            // Keep last 20 points (approx 3-5 mins depending on poll rate)
+            // If history is empty, add a "start" point slightly in the past to create a line immediately
+            if (prev.length === 0) {
+                return [
+                    { ...newPoint, time: '' }, // Ghost point
+                    newPoint
+                ];
+            }
+
+            // Keep last 20 points
             const newHistory = [...prev, newPoint];
             if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
             return newHistory;
         });
-    }, [currentInterface]); // Removed selectedInterface logic from here to avoid double-reset race conditions
+    }, [currentInterface?.txRate, currentInterface?.rxRate, currentInterface?.name]); // Listen to specific values
 
     // Reset history when interface selection actually changes
     useEffect(() => {
@@ -165,7 +173,7 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
     }, [selectedInterface]);
 
     const formatBits = (bits) => {
-        if (bits === 0) return '0 bps';
+        if (!bits || bits === 0) return '0 bps';
         const k = 1000;
         const sizes = ['bps', 'Kbps', 'Mbps', 'Gbps'];
         const i = Math.floor(Math.log(bits) / Math.log(k));
@@ -222,6 +230,7 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                                 tickLine={false}
                                 axisLine={false}
                                 width={60}
+                                domain={[0, 'auto']}
                             />
                             <Tooltip
                                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f1f5f9' }}
