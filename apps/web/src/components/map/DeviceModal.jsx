@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './map.css';
+import SearchableSelect from '../ui/SearchableSelect';
 
 /**
  * DeviceModal - Modal for viewing and editing device properties
@@ -239,20 +240,16 @@ const DeviceModal = ({
                                     <label className="device-modal__label">
                                         {formData.connectionType === 'router' ? 'Select Router' : 'Select Client'}
                                     </label>
-                                    <select
-                                        name="connectedToId"
-                                        className="device-modal__select"
+                                    <SearchableSelect
+                                        options={connectionSources.map(source => ({
+                                            value: source.id,
+                                            label: `${source.name} (${source.host})`
+                                        }))}
                                         value={formData.connectedToId}
-                                        onChange={handleChange}
+                                        onChange={(e) => handleChange({ target: { name: 'connectedToId', value: e.target.value } })}
+                                        placeholder={formData.connectionType === 'router' ? "Select a router..." : "Select a client..."}
                                         disabled={isSaving}
-                                    >
-                                        <option value="">-- Select --</option>
-                                        {connectionSources.map(source => (
-                                            <option key={source.id} value={source.id}>
-                                                {source.name} ({source.host})
-                                            </option>
-                                        ))}
-                                    </select>
+                                    />
                                 </div>
                             </>
                         )}
