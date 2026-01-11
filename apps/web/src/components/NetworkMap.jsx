@@ -552,6 +552,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         deviceType: deviceData.type || 'client',
                         latitude: deviceData.latitude,
                         longitude: deviceData.longitude,
+                        connectionType: deviceData.connectionType,
+                        connectedToId: deviceData.connectedToId,
                     },
                 });
             }
