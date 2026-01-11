@@ -816,7 +816,10 @@ export class RouterService {
 
         // 1. Apply to Router (only for client types and only if relevant fields change)
         // OLT/ODP don't need to be added to MikroTik netwatch
-        const isClientType = original.deviceType === 'client' || !original.deviceType;
+        // STRICT CHECK: Skip if host is 0.0.0.0 (Virtual device)
+        const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0';
+        const isClientType = !isVirtualHost && (original.deviceType === 'client' || !original.deviceType);
+
         if (isClientType && (data.host || data.interval || data.name !== undefined)) {
             const router = await this.findByIdWithPassword(routerId);
             if (router) {
