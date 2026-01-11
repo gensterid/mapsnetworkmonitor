@@ -24,6 +24,7 @@ const AnimatedPath = ({
     reverse = false,
     hardwareAccelerated = true,
     status = 'up', // 'up', 'down', 'unknown'
+    type = null, // 'odp', 'client', etc
     tooltip,
     popup,
     onClick,
@@ -40,6 +41,9 @@ const AnimatedPath = ({
         if (status === 'down') {
             lineColor = '#ef4444';
             linePulseColor = '#fecaca';
+        } else if (type === 'odp') {
+            lineColor = '#3b82f6'; // Blue-500
+            linePulseColor = '#bfdbfe'; // Blue-200
         } else if (status === 'unknown') {
             lineColor = '#64748b';
             linePulseColor = '#94a3b8';
@@ -58,7 +62,7 @@ const AnimatedPath = ({
             tooltip,
             popup,
         };
-    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, tooltip, popup]);
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup]);
 
     useEffect(() => {
         if (!map || positions.length < 2) return;

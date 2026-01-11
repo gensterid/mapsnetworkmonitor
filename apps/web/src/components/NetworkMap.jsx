@@ -460,6 +460,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     sourceName,
                     destName: node.name || node.host,
                     distance,
+                    deviceType: node.deviceType,
                 });
             }
         });
@@ -684,6 +685,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         key={`line-${line.id}`}
                         positions={[line.from, ...(line.waypoints || []), line.to]}
                         status={line.status}
+                        type={line.deviceType}
                         delay={line.status === 'up' ? 800 : 400}
                         weight={line.status === 'up' ? 3 : 2}
                         tooltip={`
