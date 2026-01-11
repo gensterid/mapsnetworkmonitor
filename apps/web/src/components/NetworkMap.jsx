@@ -520,7 +520,27 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 });
             } else {
                 // Create new device (OLT, ODP, Client)
-                const routerId = deviceData.connectedToId || filteredRouterId || mapData.routers[0]?.id;
+                let routerId = filteredRouterId;
+
+                if (deviceData.connectedToId) {
+                    // Check if connected directly to a router
+                    const isRouter = mapData.routers.some(r => r.id === deviceData.connectedToId);
+                    if (isRouter) {
+                        routerId = deviceData.connectedToId;
+                    } else {
+                        // Connected to another node (ODP/OLT), find its routerId
+                        const parentNode = mapData.nodes.find(n => n.id === deviceData.connectedToId);
+                        if (parentNode) {
+                            routerId = parentNode.routerId;
+                        }
+                    }
+                }
+
+                // Fallback to first router if still no ID
+                if (!routerId) {
+                    routerId = mapData.routers[0]?.id;
+                }
+
                 if (!routerId) {
                     throw new Error('No router available. Please add a router first.');
                 }
