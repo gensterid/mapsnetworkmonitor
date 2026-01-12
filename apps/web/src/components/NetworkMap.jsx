@@ -766,9 +766,6 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     />
                 )}
 
-                {/* Line Thickness Control */}
-                <LineThicknessControl thickness={lineThickness} onChange={setLineThickness} />
-
                 {/* Router Markers */}
 
                 {mapData.routers.map(router => (
@@ -912,6 +909,30 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         </select>
 
                         <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
+
+                        {/* Line Thickness Control */}
+                        <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
+                            <span className="text-xs text-white font-medium pl-1">Line Size</span>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => setLineThickness(Math.max(1, lineThickness - 1))}
+                                    className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                    title="Decrease (Tipis)"
+                                >
+                                    -
+                                </button>
+                                <span className="text-xs text-white font-mono w-4 text-center">{lineThickness}</span>
+                                <button
+                                    onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
+                                    className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                    title="Increase (Tebal)"
+                                >
+                                    +
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="h-px bg-slate-700/50 my-1"></div>
 
                         {/* Edit Mode Toggle */}
                         <button
