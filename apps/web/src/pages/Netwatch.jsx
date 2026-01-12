@@ -223,6 +223,16 @@ export default function Netwatch() {
                                                 <span className="uppercase">{entry.deviceType}</span>
                                             </div>
                                         )}
+                                        {(entry.latency !== undefined && entry.latency !== null) && (
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-slate-500">Latency:</span>
+                                                <span className={`font-mono font-bold ${Number(entry.latency) < 20 ? 'text-emerald-400' :
+                                                        Number(entry.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                    }`}>
+                                                    {entry.latency} ms
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
