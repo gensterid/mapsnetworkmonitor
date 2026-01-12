@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
-import { users } from './users';
+import { users } from './users.js';
 
 // Application settings table
 export const appSettings = pgTable('app_settings', {
