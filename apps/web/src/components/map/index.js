@@ -1,4 +1,5 @@
 // Map Components Index
+export { default as LineThicknessControl } from './LineThicknessControl';
 export { default as AnimatedPath } from './AnimatedPath';
 export { default as EditablePath } from './EditablePath';
 export { default as DeviceModal } from './DeviceModal';

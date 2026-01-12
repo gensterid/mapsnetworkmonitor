@@ -42,8 +42,11 @@ const AnimatedPath = ({
             lineColor = '#ef4444';
             linePulseColor = '#fecaca';
         } else if (type === 'odp') {
-            lineColor = '#3b82f6'; // Blue-500
-            linePulseColor = '#bfdbfe'; // Blue-200
+            lineColor = '#f59e0b'; // Orange-500
+            linePulseColor = '#fcd34d'; // Orange-200
+        } else if (type === 'olt') {
+            lineColor = '#8b5cf6'; // Violet-500
+            linePulseColor = '#ddd6fe'; // Violet-200
         } else if (status === 'unknown') {
             lineColor = '#64748b';
             linePulseColor = '#94a3b8';

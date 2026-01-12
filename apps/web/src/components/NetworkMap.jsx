@@ -16,6 +16,7 @@ import {
     MapLegend,
     DeviceModal,
     createDeviceIcon,
+    LineThicknessControl,
 } from './map';
 import './map/map.css';
 import { calculatePathLength, formatDistance } from '@/lib/geo';
@@ -237,6 +238,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [editingDevice, setEditingDevice] = useState(null);
     const [editWaypoints, setEditWaypoints] = useState([]);
     const [pathLength, setPathLength] = useState(0);
+    const [lineThickness, setLineThickness] = useState(3);
     const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -709,7 +711,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         status={line.status}
                         type={line.deviceType}
                         delay={line.status === 'up' ? 800 : 400}
-                        weight={line.status === 'up' ? 3 : 2}
+                        weight={line.status === 'up' ? lineThickness : Math.max(1, lineThickness - 1)}
                         tooltip={`
                             <div class="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                                 <div class="px-3 py-2 flex items-center justify-between ${line.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'}">
@@ -741,8 +743,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     <div class="flex items-center justify-between text-xs">
                                         <span class="text-slate-400">Distance</span>
                                         <div class="flex items-center gap-1.5 text-slate-200 font-mono bg-slate-900/50 px-2 py-0.5 rounded">
-                                           <span class="material-symbols-outlined text-[14px] text-slate-500">straighten</span>
-                                           ${formatDistance(line.distance)}
+                                            <span class="material-symbols-outlined text-[14px] text-slate-500">straighten</span>
+                                            ${formatDistance(line.distance)}
                                         </div>
                                     </div>
                                 </div>
@@ -763,6 +765,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         onLengthChange={setPathLength}
                     />
                 )}
+
+                {/* Line Thickness Control */}
+                <LineThicknessControl thickness={lineThickness} onChange={setLineThickness} />
 
                 {/* Router Markers */}
 
@@ -885,12 +890,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     </button>
 
                     <div className={`
-                        absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
-                        flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg 
-                        backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
-                        transition-all duration-200 origin-top-right
-                        ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
-                    `}>
+                            absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
+                            flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg 
+                            backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
+                            transition-all duration-200 origin-top-right
+                            ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
+                        `}>
                         <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
                             <label className="text-xs text-white font-bold">Map Type</label>
                         </div>
@@ -993,7 +998,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 onEditPath={handleEditPath}
                 isSaving={isSaving}
             />
-        </main >
+        </main>
     );
 };
 
