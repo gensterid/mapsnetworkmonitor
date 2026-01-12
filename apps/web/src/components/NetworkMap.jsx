@@ -854,6 +854,16 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         <span className="text-slate-400">Type</span>
                                         <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
                                     </div>
+                                    {(node.latency !== undefined && node.latency !== null) && (
+                                        <div className="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2 mt-1">
+                                            <span className="text-slate-400">Latency</span>
+                                            <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                }`}>
+                                                {node.latency} ms
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </Tooltip>

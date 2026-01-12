@@ -10,7 +10,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "npm run build --workspaces"
+    "build": "npm run build --workspaces",
+    "db:push": "npm run db:push -w apps/api"
   },
   "keywords": [],
   "author": "",

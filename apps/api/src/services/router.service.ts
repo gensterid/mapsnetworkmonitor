@@ -26,6 +26,7 @@ import {
     addNetwatchEntry,
     updateNetwatchEntry,
     removeNetwatchEntry,
+    measurePing,
     type RouterConnection,
 } from '../lib/mikrotik-api.js';
 import { measureLatency } from '../lib/network-utils.js';
@@ -377,6 +378,54 @@ export class RouterService {
                     }
                 } catch (nwErr) {
                     console.error(`[Router ${router.name}] Failed to sync netwatch:`, nwErr instanceof Error ? nwErr.message : nwErr);
+                }
+
+                // Measure latency for Netwatch hosts (Concurrent limited)
+                if (includeNetwatch) {
+                    try {
+                        // Get all netwatch entries that are known (synced)
+                        const entries = await db
+                            .select()
+                            .from(routerNetwatch)
+                            .where(eq(routerNetwatch.routerId, id));
+
+                        // Filter those that should be pinged (e.g. not disabled, status not down?) 
+                        // To be safe, we ping everything that is monitored to check latency, even if 'up'.
+                        // If 'down', ping might fail (return -1) which is fine.
+                        const targets = entries.filter(e => e.status !== 'unknown');
+
+                        // Concurrency limit
+                        const CONCURRENCY_LIMIT = 5;
+                        const chunks = [];
+                        for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
+                            chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
+                        }
+
+                        for (const chunk of chunks) {
+                            await Promise.all(chunk.map(async (target) => {
+                                try {
+                                    const lat = await measurePing(conn, target.host);
+                                    if (lat >= 0) {
+                                        await db
+                                            .update(routerNetwatch)
+                                            .set({ latency: lat })
+                                            .where(eq(routerNetwatch.id, target.id));
+                                    } else {
+                                        // If failing to ping, maybe set latency null or keep as is? 
+                                        // If status is UP but ping fails (e.g. firewall), latency is unknown.
+                                        await db
+                                            .update(routerNetwatch)
+                                            .set({ latency: null })
+                                            .where(eq(routerNetwatch.id, target.id));
+                                    }
+                                } catch (e) {
+                                    // Ignore ping error
+                                }
+                            }));
+                        }
+                    } catch (pingErr) {
+                        console.error(`[Router ${router.name}] Failed to measure netwatch latency:`, pingErr);
+                    }
                 }
             }
 

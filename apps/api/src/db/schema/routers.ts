@@ -140,6 +140,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     deviceType: deviceTypeEnum('device_type').default('client'), // Type: client, olt, odp
     interval: integer('interval').default(30), // check interval in seconds
     status: netwatchStatusEnum('status').default('unknown'),
+    latency: integer('latency'), // Latency in ms
     lastCheck: timestamp('last_check'),
     lastUp: timestamp('last_up'),
     lastDown: timestamp('last_down'),

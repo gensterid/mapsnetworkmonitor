@@ -429,3 +429,34 @@ export async function getPppActive(api: any): Promise<number> {
     const result = await api.write('/ppp/active/print');
     return result.length;
 }
+
+/**
+ * Measure ping latency to a host
+ * Returns latency in ms, or -1 if unreachable
+ */
+export async function measurePing(api: any, address: string): Promise<number> {
+    try {
+        const result = await api.write([
+            '/ping',
+            `=address=${address}`,
+            '=count=1'
+        ]);
+
+        if (result && result.length > 0) {
+            // result[0] typically contains fields like: seq, host, time, ttl, size, sent, received, packet-loss, min-rtt, avg-rtt, max-rtt
+            const entry = result[0];
+
+            // Try different possible fields depending on RouterOS version/output
+            if (entry['avg-rtt']) return parseInt(entry['avg-rtt']);
+            if (entry['time']) {
+                // Time format might be "10ms" or just "10"
+                const timeStr = String(entry['time']);
+                return parseInt(timeStr.replace('ms', ''));
+            }
+        }
+        return -1;
+    } catch (error) {
+        // Ping failed (timeout or other error)
+        return -1;
+    }
+}
