@@ -5,6 +5,18 @@ import { useRouters } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    AreaChart,
+    Area,
+    Line
+} from 'recharts';
+import {
     BarChart3,
     TrendingUp,
     AlertTriangle,
@@ -24,8 +36,27 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
-// Simple bar chart component
-function SimpleBarChart({ data, dataKey, color = 'primary', height = 200 }) {
+// Custom Tooltip for Recharts
+const CustomTooltip = ({ active, payload, label }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-slate-800 border border-slate-700 p-2 rounded-lg shadow-xl text-xs">
+                <p className="text-slate-300 font-medium mb-1">{label}</p>
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2 mb-0.5 last:mb-0">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+                        <span className="text-slate-400 capitalize">{entry.name}:</span>
+                        <span className="text-white font-mono font-medium">{entry.value}{entry.unit || ''}</span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
+
+// Simple bar chart component using Recharts
+function SimpleBarChart({ data, dataKey = 'total', color = '#3b82f6', height = 200 }) {
     if (!data || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-48 text-slate-500">
@@ -34,42 +65,48 @@ function SimpleBarChart({ data, dataKey, color = 'primary', height = 200 }) {
         );
     }
 
-    const maxValue = Math.max(...data.map(d => d[dataKey] || 0), 1);
+    // Transform data for display if needed
+    const chartData = data.map(item => ({
+        ...item,
+        displayDate: item.date ? new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : item.label,
+        [dataKey]: Number(item[dataKey] || 0)
+    }));
 
     return (
-        <div className="relative" style={{ height }}>
-            <div className="flex items-end justify-between gap-1 h-full">
-                {data.map((item, index) => {
-                    const value = item[dataKey] || 0;
-                    const heightPercent = (value / maxValue) * 100;
-                    return (
-                        <div
-                            key={index}
-                            className="flex-1 flex flex-col items-center gap-1"
-                        >
-                            <span className="text-[10px] text-slate-400">{value}</span>
-                            <div
-                                className={clsx(
-                                    "w-full rounded-t transition-all",
-                                    color === 'danger' ? 'bg-red-500' :
-                                        color === 'warning' ? 'bg-amber-500' :
-                                            color === 'success' ? 'bg-emerald-500' :
-                                                'bg-primary'
-                                )}
-                                style={{ height: `${Math.max(heightPercent, 2)}%` }}
-                            />
-                            <span className="text-[9px] text-slate-500 truncate w-full text-center">
-                                {item.label || item.date?.slice(5) || index + 1}
-                            </span>
-                        </div>
-                    );
-                })}
-            </div>
+        <div style={{ height }}>
+            <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                    <XAxis
+                        dataKey="displayDate"
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        dy={10}
+                    />
+                    <YAxis
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        dx={-10}
+                    />
+                    <Tooltip content={<CustomTooltip />} cursor={{ fill: '#334155', opacity: 0.2 }} />
+                    <Bar
+                        dataKey={dataKey}
+                        name="Alerts"
+                        fill={color}
+                        radius={[4, 4, 0, 0]}
+                        barSize={30}
+                    />
+                </BarChart>
+            </ResponsiveContainer>
         </div>
     );
 }
 
-// Multi-line trend chart
+// Multi-line trend chart using Recharts
 function TrendChart({ data, height = 200 }) {
     if (!data || data.length === 0) {
         return (
@@ -79,36 +116,69 @@ function TrendChart({ data, height = 200 }) {
         );
     }
 
-    const maxCpu = Math.max(...data.map(d => d.avgCpu || 0), 1);
-    const maxMem = Math.max(...data.map(d => d.avgMemory || 0), 1);
-    const maxValue = Math.max(maxCpu, maxMem, 100);
+    // Format data timestamps
+    const chartData = data.map(item => ({
+        ...item,
+        time: new Date(item.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        avgCpu: Number(item.avgCpu || 0),
+        avgMemory: Number(item.avgMemory || 0)
+    }));
 
     return (
-        <div className="relative" style={{ height }}>
-            <svg className="w-full h-full" viewBox={`0 0 ${data.length * 20} ${height}`} preserveAspectRatio="none">
-                {/* CPU Line */}
-                <polyline
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2"
-                    points={data.map((d, i) => `${i * 20 + 10},${height - (d.avgCpu / maxValue) * height}`).join(' ')}
-                />
-                {/* Memory Line */}
-                <polyline
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="2"
-                    points={data.map((d, i) => `${i * 20 + 10},${height - (d.avgMemory / maxValue) * height}`).join(' ')}
-                />
-            </svg>
-            <div className="absolute bottom-0 left-0 flex gap-4 text-xs">
-                <span className="flex items-center gap-1">
-                    <span className="w-3 h-1 bg-blue-500 rounded" /> CPU
-                </span>
-                <span className="flex items-center gap-1">
-                    <span className="w-3 h-1 bg-emerald-500 rounded" /> Memory
-                </span>
-            </div>
+        <div style={{ height }}>
+            <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                    <defs>
+                        <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                    <XAxis
+                        dataKey="time"
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={30}
+                        dy={10}
+                    />
+                    <YAxis
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        dx={-10}
+                        unit="%"
+                    />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area
+                        type="monotone"
+                        dataKey="avgCpu"
+                        name="CPU Load"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorCpu)"
+                        unit="%"
+                    />
+                    <Area
+                        type="monotone"
+                        dataKey="avgMemory"
+                        name="Memory Usage"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorMem)"
+                        unit="%"
+                    />
+                </AreaChart>
+            </ResponsiveContainer>
         </div>
     );
 }
