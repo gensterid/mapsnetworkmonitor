@@ -23,11 +23,13 @@ import {
     parseUptimeToSeconds,
     getHotspotActive,
     getPppActive,
+    getPppSessions,
     addNetwatchEntry,
     updateNetwatchEntry,
     removeNetwatchEntry,
     measurePing,
     type RouterConnection,
+    type PppSession,
 } from '../lib/mikrotik-api.js';
 import { measureLatency } from '../lib/network-utils.js';
 import { alertService } from './alert.service.js';
@@ -713,6 +715,30 @@ export class RouterService {
         } catch (error) {
             console.error(`Failed to get PPP users for ${router.host}:`, error);
             return 0;
+        }
+    }
+
+    /**
+     * Get active PPP sessions with details
+     */
+    async getPppSessions(routerId: string): Promise<PppSession[]> {
+        const router = await this.findByIdWithPassword(routerId);
+        if (!router) throw new Error('Router not found');
+
+        try {
+            const conn = await connectToRouter({
+                host: router.host,
+                port: router.port,
+                username: router.username,
+                password: router.password,
+            });
+
+            const sessions = await getPppSessions(conn);
+            conn.close();
+            return sessions;
+        } catch (error) {
+            console.error(`Failed to get PPP sessions for ${router.host}:`, error);
+            return [];
         }
     }
 

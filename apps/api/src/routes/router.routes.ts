@@ -367,6 +367,19 @@ router.get(
         res.json({ data: { count } });
     })
 );
+
+/**
+ * GET /api/routers/:id/ppp/sessions
+ * Get active PPP sessions with details
+ */
+router.get(
+    '/:id/ppp/sessions',
+    asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const sessions = await routerService.getPppSessions(id);
+        res.json({ data: sessions });
+    })
+);
 // ==================== NETWATCH ROUTES ====================
 
 const createNetwatchSchema = z.object({

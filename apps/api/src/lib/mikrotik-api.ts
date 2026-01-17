@@ -460,3 +460,45 @@ export async function measurePing(api: any, address: string): Promise<number> {
         return -1;
     }
 }
+
+export interface PppSession {
+    name: string;           // username
+    service?: string;       // pppoe, pptp, l2tp, ovpn, sstp
+    callerId?: string;      // MAC address or phone number
+    address?: string;       // IP address assigned
+    uptime?: string;        // uptime string like "1h30m"
+    uptimeSeconds?: number; // uptime in seconds for sorting
+    encoding?: string;
+    sessionId?: string;
+    limitBytesIn?: number;
+    limitBytesOut?: number;
+}
+
+/**
+ * Get active PPP sessions with details
+ */
+export async function getPppSessions(api: any): Promise<PppSession[]> {
+    const result = await api.write('/ppp/active/print');
+
+    return result.map((session: any) => {
+        // Parse uptime to seconds for sorting
+        let uptimeSeconds = 0;
+        if (session.uptime) {
+            uptimeSeconds = parseUptimeToSeconds(session.uptime);
+        }
+
+        return {
+            name: session.name,
+            service: session.service,
+            callerId: session['caller-id'],
+            address: session.address,
+            uptime: session.uptime,
+            uptimeSeconds,
+            encoding: session.encoding,
+            sessionId: session['session-id'],
+            limitBytesIn: session['limit-bytes-in'] ? parseInt(session['limit-bytes-in']) : undefined,
+            limitBytesOut: session['limit-bytes-out'] ? parseInt(session['limit-bytes-out']) : undefined,
+        };
+    });
+}
+

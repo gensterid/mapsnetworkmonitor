@@ -11,6 +11,7 @@ import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Netwatch from './pages/Netwatch';
 import NotificationGroups from './pages/NotificationGroups';
+import Pppoe from './pages/Pppoe';
 import { useSession, useRole } from './lib/auth-client';
 
 import { Toaster } from 'react-hot-toast';
@@ -116,6 +117,7 @@ function App() {
             } />
             <Route path="routers/:id" element={<RouterDetails />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="pppoe" element={<Pppoe />} />
             <Route path="netwatch" element={
               <AdminRoute>
                 <Netwatch />
