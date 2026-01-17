@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/Button';
 import clsx from 'clsx';
 
 // Stats Card Component
-function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progress }) {
+function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progress, href, onClick }) {
     const colorClasses = {
         success: { bg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20', text: 'text-emerald-400', icon: 'text-emerald-400' },
         danger: { bg: 'bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/20', text: 'text-red-400', icon: 'text-red-400' },
@@ -31,8 +31,8 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
     };
     const colors = colorClasses[color] || colorClasses.primary;
 
-    return (
-        <div className="glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5">
+    const cardContent = (
+        <>
             <div className={clsx("absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity", colors.text)}>
                 <Icon className="w-16 h-16" />
             </div>
@@ -58,6 +58,30 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
                     <div className={clsx("h-full", colors.bg.replace('/20', ''))} style={{ width: `${progress}%` }} />
                 </div>
             )}
+        </>
+    );
+
+    const cardClassName = "glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer";
+
+    if (href) {
+        return (
+            <Link to={href} className={cardClassName}>
+                {cardContent}
+            </Link>
+        );
+    }
+
+    if (onClick) {
+        return (
+            <button onClick={onClick} className={clsx(cardClassName, "text-left w-full")}>
+                {cardContent}
+            </button>
+        );
+    }
+
+    return (
+        <div className={cardClassName}>
+            {cardContent}
         </div>
     );
 }
@@ -335,6 +359,7 @@ export default function Dashboard() {
                             value={onlineCount}
                             trend={onlineCount > 0 ? `+${onlineCount}` : undefined}
                             color="success"
+                            onClick={() => setStatusFilter('online')}
                         />
                         <StatsCard
                             icon={WifiOff}
@@ -342,6 +367,7 @@ export default function Dashboard() {
                             value={offlineCount}
                             trendLabel={offlineCount > 0 ? "Critical" : "All Good"}
                             color="danger"
+                            onClick={() => setStatusFilter('offline')}
                         />
                         <StatsCard
                             icon={AlertTriangle}
@@ -349,6 +375,7 @@ export default function Dashboard() {
                             value={warningCount}
                             trendLabel={warningCount > 0 ? "Needs Attention" : "Clear"}
                             color="warning"
+                            href="/alerts"
                         />
                         <StatsCard
                             icon={Activity}
@@ -357,6 +384,7 @@ export default function Dashboard() {
                             trendLabel={uptime >= 90 ? "Optimal" : "Low"}
                             color="primary"
                             progress={parseFloat(uptime)}
+                            onClick={() => setStatusFilter('all')}
                         />
                     </div>
 
