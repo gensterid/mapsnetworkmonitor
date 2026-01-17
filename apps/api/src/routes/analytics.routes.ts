@@ -54,6 +54,22 @@ router.get(
 );
 
 /**
+ * GET /api/analytics/alerts/list
+ * Get detailed alerts list
+ */
+router.get(
+    '/alerts/list',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const routerId = req.query.routerId as string | undefined;
+        const limit = parseInt(req.query.limit as string) || 50;
+        // @ts-ignore
+        const alerts = await analyticsService.getAlertsList(dateRange, routerId, req.user?.id, req.user?.role, limit);
+        res.json({ data: alerts });
+    })
+);
+
+/**
  * GET /api/analytics/uptime
  * Get uptime statistics per router
  */

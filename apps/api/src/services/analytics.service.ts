@@ -361,17 +361,10 @@ class AnalyticsService {
     /**
      * Get audit logs with pagination
      */
-    async getAuditLogs(
-        page: number = 1,
-        limit: number = 20,
-        dateRange?: DateRange,
-        action?: string,
-        entity?: string
-    ): Promise<{ logs: AuditLogEntry[]; total: number; page: number; totalPages: number }> {
-        const range = dateRange || this.getDefaultDateRange();
+    async getAuditLogs(page: number, limit: number, dateRange?: DateRange, action?: string, entity?: string): Promise<{ logs: any[]; total: number; page: number; totalPages: number }> {
         const offset = (page - 1) * limit;
+        const range = dateRange || this.getDefaultDateRange();
 
-        // Build conditions
         const conditions = [
             gte(auditLogs.createdAt, range.startDate),
             lte(auditLogs.createdAt, range.endDate),
@@ -384,16 +377,6 @@ class AnalyticsService {
             conditions.push(eq(auditLogs.entity, entity));
         }
 
-        // Get total count
-        const [countResult] = await db
-            .select({ count: count() })
-            .from(auditLogs)
-            .where(and(...conditions));
-
-        const total = Number(countResult?.count) || 0;
-        const totalPages = Math.ceil(total / limit);
-
-        // Get logs
         const logs = await db
             .select()
             .from(auditLogs)
@@ -401,6 +384,14 @@ class AnalyticsService {
             .orderBy(desc(auditLogs.createdAt))
             .limit(limit)
             .offset(offset);
+
+        // Get total count for pagination
+        const [countResult] = await db
+            .select({ count: count() })
+            .from(auditLogs)
+            .where(and(...conditions));
+
+        const total = Number(countResult?.count) || 0;
 
         return {
             logs: logs.map(l => ({
@@ -415,8 +406,52 @@ class AnalyticsService {
             })),
             total,
             page,
-            totalPages,
+            totalPages: Math.ceil(total / limit),
         };
+    }
+
+    /**
+     * Get detailed alerts list (for drill-down)
+     */
+    async getAlertsList(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string, limit: number = 50): Promise<any[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        const results = await db
+            .select({
+                id: alerts.id,
+                title: alerts.title,
+                message: alerts.message,
+                severity: alerts.severity,
+                createdAt: alerts.createdAt,
+                routerName: routers.name,
+            })
+            .from(alerts)
+            .leftJoin(routers, eq(alerts.routerId, routers.id))
+            .where(and(...conditions))
+            .orderBy(desc(alerts.createdAt))
+            .limit(limit);
+
+        return results;
     }
 
     /**
