@@ -31,7 +31,8 @@ router.get(
     '/overview',
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
-        const stats = await analyticsService.getOverviewStats(dateRange);
+        const routerId = req.query.routerId as string | undefined;
+        const stats = await analyticsService.getOverviewStats(dateRange, routerId);
         res.json({ data: stats });
     })
 );
@@ -44,7 +45,8 @@ router.get(
     '/alerts/trends',
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
-        const trends = await analyticsService.getAlertTrends(dateRange);
+        const routerId = req.query.routerId as string | undefined;
+        const trends = await analyticsService.getAlertTrends(dateRange, routerId);
         res.json({ data: trends });
     })
 );
@@ -57,7 +59,8 @@ router.get(
     '/uptime',
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
-        const stats = await analyticsService.getUptimeStats(dateRange);
+        const routerId = req.query.routerId as string | undefined;
+        const stats = await analyticsService.getUptimeStats(dateRange, routerId);
         res.json({ data: stats });
     })
 );
@@ -103,7 +106,8 @@ router.get(
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
         const limit = parseInt(req.query.limit as string) || 10;
-        const devices = await analyticsService.getTopDownDevices(dateRange, limit);
+        const routerId = req.query.routerId as string | undefined;
+        const devices = await analyticsService.getTopDownDevices(dateRange, limit, routerId);
         res.json({ data: devices });
     })
 );

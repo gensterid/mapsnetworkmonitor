@@ -66,8 +66,17 @@ class AnalyticsService {
     /**
      * Get overview statistics
      */
-    async getOverviewStats(dateRange?: DateRange): Promise<OverviewStats> {
+    async getOverviewStats(dateRange?: DateRange, routerId?: string): Promise<OverviewStats> {
         const range = dateRange || this.getDefaultDateRange();
+
+        // Build alert conditions
+        const alertConditions = [
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+        if (routerId) {
+            alertConditions.push(eq(alerts.routerId, routerId));
+        }
 
         // Total and unresolved alerts in range
         const alertStats = await db
@@ -77,28 +86,45 @@ class AnalyticsService {
                 critical: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'critical' THEN 1 ELSE 0 END)`,
             })
             .from(alerts)
-            .where(and(
-                gte(alerts.createdAt, range.startDate),
-                lte(alerts.createdAt, range.endDate)
-            ));
+            .where(and(...alertConditions));
 
-        // Router counts
-        const routerStats = await db
-            .select({
-                total: count(),
-                online: sql<number>`SUM(CASE WHEN ${routers.status} = 'online' THEN 1 ELSE 0 END)`,
-                offline: sql<number>`SUM(CASE WHEN ${routers.status} != 'online' THEN 1 ELSE 0 END)`,
-            })
-            .from(routers);
+        // Router counts (if routerId filter, only count that router)
+        let totalRouters = 0;
+        let onlineRouters = 0;
+        let offlineRouters = 0;
+        let totalDevices = 0;
 
-        // Total devices count
-        const [deviceCount] = await db
-            .select({ count: count() })
-            .from(routerNetwatch);
+        if (routerId) {
+            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+            if (router) {
+                totalRouters = 1;
+                onlineRouters = router.status === 'online' ? 1 : 0;
+                offlineRouters = router.status !== 'online' ? 1 : 0;
+            }
+            const [deviceCount] = await db
+                .select({ count: count() })
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.routerId, routerId));
+            totalDevices = Number(deviceCount?.count) || 0;
+        } else {
+            const routerStats = await db
+                .select({
+                    total: count(),
+                    online: sql<number>`SUM(CASE WHEN ${routers.status} = 'online' THEN 1 ELSE 0 END)`,
+                    offline: sql<number>`SUM(CASE WHEN ${routers.status} != 'online' THEN 1 ELSE 0 END)`,
+                })
+                .from(routers);
+            totalRouters = Number(routerStats[0]?.total) || 0;
+            onlineRouters = Number(routerStats[0]?.online) || 0;
+            offlineRouters = Number(routerStats[0]?.offline) || 0;
+
+            const [deviceCount] = await db
+                .select({ count: count() })
+                .from(routerNetwatch);
+            totalDevices = Number(deviceCount?.count) || 0;
+        }
 
         // Calculate uptime percentage
-        const totalRouters = Number(routerStats[0]?.total) || 0;
-        const onlineRouters = Number(routerStats[0]?.online) || 0;
         const averageUptime = totalRouters > 0
             ? Math.round((onlineRouters / totalRouters) * 100 * 10) / 10
             : 100;
@@ -110,16 +136,24 @@ class AnalyticsService {
             averageUptime,
             totalRouters,
             onlineRouters,
-            offlineRouters: Number(routerStats[0]?.offline) || 0,
-            totalDevices: Number(deviceCount?.count) || 0,
+            offlineRouters,
+            totalDevices,
         };
     }
 
     /**
      * Get alert trends by day
      */
-    async getAlertTrends(dateRange?: DateRange): Promise<AlertTrend[]> {
+    async getAlertTrends(dateRange?: DateRange, routerId?: string): Promise<AlertTrend[]> {
         const range = dateRange || this.getDefaultDateRange();
+
+        const conditions = [
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+        if (routerId) {
+            conditions.push(eq(alerts.routerId, routerId));
+        }
 
         const trends = await db
             .select({
@@ -130,10 +164,7 @@ class AnalyticsService {
                 info: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'info' THEN 1 ELSE 0 END)`,
             })
             .from(alerts)
-            .where(and(
-                gte(alerts.createdAt, range.startDate),
-                lte(alerts.createdAt, range.endDate)
-            ))
+            .where(and(...conditions))
             .groupBy(sql`DATE(${alerts.createdAt})`)
             .orderBy(sql`DATE(${alerts.createdAt})`);
 
@@ -149,11 +180,16 @@ class AnalyticsService {
     /**
      * Get uptime statistics per router
      */
-    async getUptimeStats(dateRange?: DateRange): Promise<UptimeStats[]> {
+    async getUptimeStats(dateRange?: DateRange, routerId?: string): Promise<UptimeStats[]> {
         const range = dateRange || this.getDefaultDateRange();
 
-        // Get all routers with their status_change alerts
-        const routerList = await db.select().from(routers);
+        // Get routers (filtered if routerId provided)
+        let routerList;
+        if (routerId) {
+            routerList = await db.select().from(routers).where(eq(routers.id, routerId));
+        } else {
+            routerList = await db.select().from(routers);
+        }
 
         const stats: UptimeStats[] = [];
 
@@ -290,8 +326,17 @@ class AnalyticsService {
     /**
      * Get top down devices (most incidents)
      */
-    async getTopDownDevices(dateRange?: DateRange, limit: number = 10): Promise<{ name: string; host: string; incidents: number }[]> {
+    async getTopDownDevices(dateRange?: DateRange, limit: number = 10, routerId?: string): Promise<{ name: string; host: string; incidents: number }[]> {
         const range = dateRange || this.getDefaultDateRange();
+
+        const conditions = [
+            eq(alerts.type, 'netwatch_down'),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+        if (routerId) {
+            conditions.push(eq(alerts.routerId, routerId));
+        }
 
         // Get netwatch down alerts grouped by host
         const results = await db
@@ -300,11 +345,7 @@ class AnalyticsService {
                 incidents: count(),
             })
             .from(alerts)
-            .where(and(
-                eq(alerts.type, 'netwatch_down'),
-                gte(alerts.createdAt, range.startDate),
-                lte(alerts.createdAt, range.endDate)
-            ))
+            .where(and(...conditions))
             .groupBy(sql`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`)
             .orderBy(desc(count()))
             .limit(limit);

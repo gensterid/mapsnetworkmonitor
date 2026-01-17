@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
+import { useRouters } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import {
@@ -17,7 +18,9 @@ import {
     Download,
     Users,
     Wifi,
-    WifiOff
+    WifiOff,
+    Search,
+    Router as RouterIcon
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -106,6 +109,94 @@ function TrendChart({ data, height = 200 }) {
                     <span className="w-3 h-1 bg-emerald-500 rounded" /> Memory
                 </span>
             </div>
+        </div>
+    );
+}
+
+// Router Selector with search
+function RouterSelector({ routers, value, onChange }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+
+    const filteredRouters = useMemo(() => {
+        if (!searchQuery) return routers;
+        return routers.filter(r =>
+            r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            r.host.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [routers, searchQuery]);
+
+    const selectedRouter = routers.find(r => r.id === value);
+
+    return (
+        <div className="relative">
+            <Button variant="outline" size="sm" onClick={() => setIsOpen(!isOpen)}>
+                <RouterIcon className="w-4 h-4 mr-2" />
+                {selectedRouter?.name || 'Semua Router'}
+                <ChevronDown className="w-4 h-4 ml-2" />
+            </Button>
+            {isOpen && (
+                <>
+                    <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 z-20 w-72 rounded-lg bg-slate-800 border border-slate-700 shadow-xl overflow-hidden">
+                        <div className="p-2 border-b border-slate-700">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                <input
+                                    type="text"
+                                    placeholder="Cari router..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-60 overflow-y-auto">
+                            <button
+                                onClick={() => {
+                                    onChange(null);
+                                    setIsOpen(false);
+                                    setSearchQuery('');
+                                }}
+                                className={clsx(
+                                    "w-full px-4 py-2.5 text-left text-sm transition-colors flex items-center gap-2",
+                                    !value ? "bg-primary/10 text-primary" : "text-slate-300 hover:bg-slate-700"
+                                )}
+                            >
+                                <Server className="w-4 h-4" />
+                                Semua Router
+                            </button>
+                            {filteredRouters.map((router) => (
+                                <button
+                                    key={router.id}
+                                    onClick={() => {
+                                        onChange(router.id);
+                                        setIsOpen(false);
+                                        setSearchQuery('');
+                                    }}
+                                    className={clsx(
+                                        "w-full px-4 py-2.5 text-left text-sm transition-colors",
+                                        value === router.id ? "bg-primary/10 text-primary" : "text-slate-300 hover:bg-slate-700"
+                                    )}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <span className="font-medium">{router.name}</span>
+                                        <span className={clsx(
+                                            "w-2 h-2 rounded-full",
+                                            router.status === 'online' ? 'bg-emerald-500' : 'bg-red-500'
+                                        )} />
+                                    </div>
+                                    <span className="text-xs text-slate-500 font-mono">{router.host}</span>
+                                </button>
+                            ))}
+                            {filteredRouters.length === 0 && (
+                                <p className="text-center text-slate-500 py-4 text-sm">Tidak ada router ditemukan</p>
+                            )}
+                        </div>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -211,6 +302,12 @@ function StatCard({ icon: Icon, label, value, subvalue, color = 'primary' }) {
 }
 
 export default function Analytics() {
+    // Get routers list (respects user role permissions via the hook)
+    const { data: routers = [] } = useRouters();
+
+    // Selected router filter
+    const [selectedRouterId, setSelectedRouterId] = useState(null);
+
     // Default to last 30 days
     const [dateRange, setDateRange] = useState(() => {
         const end = new Date();
@@ -226,7 +323,8 @@ export default function Analytics() {
     const queryParams = useMemo(() => ({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
-    }), [dateRange.startDate, dateRange.endDate]);
+        ...(selectedRouterId && { routerId: selectedRouterId }),
+    }), [dateRange.startDate, dateRange.endDate, selectedRouterId]);
 
     // API Queries
     const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery({
@@ -298,7 +396,8 @@ export default function Analytics() {
                                 Statistik dan analisis data monitoring jaringan
                             </p>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap gap-2">
+                            <RouterSelector routers={routers} value={selectedRouterId} onChange={setSelectedRouterId} />
                             <DateRangePicker value={dateRange} onChange={setDateRange} />
                             <Button variant="outline" size="sm" onClick={handleRefresh}>
                                 <RefreshCw className={clsx("w-4 h-4", isLoading && "animate-spin")} />
