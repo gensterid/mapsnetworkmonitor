@@ -13,7 +13,8 @@ import {
     LogOut,
     MessageSquare,
     Globe,
-    X
+    X,
+    BarChart3
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -113,6 +114,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     {isAdmin && <NavItem path="/netwatch" icon={Globe} label="Netwatch" isActive={isActive("/netwatch")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/users" icon={Users} label="Users" isActive={isActive("/users")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/notification-groups" icon={MessageSquare} label="Notifications" isActive={isActive("/notification-groups")} onClose={onClose} />}
+                    {isAdmin && <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />}
                     <NavItem path="/settings" icon={Settings} label="Settings" isActive={isActive("/settings")} onClose={onClose} />
                 </div>
 

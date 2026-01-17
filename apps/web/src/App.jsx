@@ -11,6 +11,7 @@ import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Netwatch from './pages/Netwatch';
 import NotificationGroups from './pages/NotificationGroups';
+import Analytics from './pages/Analytics';
 import { useSession, useRole } from './lib/auth-client';
 
 import { Toaster } from 'react-hot-toast';
@@ -129,6 +130,11 @@ function App() {
             <Route path="notification-groups" element={
               <AdminRoute>
                 <NotificationGroups />
+              </AdminRoute>
+            } />
+            <Route path="analytics" element={
+              <AdminRoute>
+                <Analytics />
               </AdminRoute>
             } />
             <Route path="settings" element={<Settings />} />
