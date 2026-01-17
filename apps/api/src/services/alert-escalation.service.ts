@@ -62,6 +62,27 @@ export class AlertEscalationService {
                 ));
 
             for (const alert of unresolvedAlerts) {
+                // For status_change alerts, check if router is actually online now
+                if (alert.type === 'status_change') {
+                    const [router] = await db
+                        .select()
+                        .from(routers)
+                        .where(eq(routers.id, alert.routerId));
+
+                    // If router is online, resolve the alert instead of escalating
+                    if (router && router.status === 'online') {
+                        await db
+                            .update(alerts)
+                            .set({
+                                resolved: true,
+                                resolvedAt: new Date(),
+                            })
+                            .where(eq(alerts.id, alert.id));
+                        console.log(`[ESCALATION] Auto-resolved alert ${alert.id} for router ${router.name} (router is now ONLINE)`);
+                        continue; // Skip escalation
+                    }
+                }
+
                 // For netwatch_down alerts, check if device is actually UP now
                 if (alert.type === 'netwatch_down') {
                     const ipMatch = alert.message.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
