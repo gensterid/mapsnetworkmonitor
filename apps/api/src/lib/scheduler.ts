@@ -7,9 +7,16 @@ const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
 // Escalation check interval (5 minutes)
 const ESCALATION_CHECK_INTERVAL = 5 * 60 * 1000;
 
+// Per-router timeout (60 seconds)
+const ROUTER_TIMEOUT = 60 * 1000;
+
+// Global polling timeout (10 minutes) - safety net to prevent stuck polling
+const GLOBAL_POLLING_TIMEOUT = 10 * 60 * 1000;
+
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
 let escalationInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
+let pollingStartTime: number | null = null;
 
 /**
  * Get polling interval from settings or use default
@@ -30,17 +37,48 @@ async function getPollingInterval(): Promise<number> {
 }
 
 /**
+ * Wrap a promise with a timeout
+ */
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error(errorMessage)), timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+        clearTimeout(timeoutId);
+    });
+}
+
+/**
+ * Check if polling has been stuck for too long and force reset if needed
+ */
+function checkPollingStuck(): void {
+    if (isPolling && pollingStartTime) {
+        const elapsed = Date.now() - pollingStartTime;
+        if (elapsed > GLOBAL_POLLING_TIMEOUT) {
+            console.warn(`⚠️ Polling stuck for ${Math.round(elapsed / 1000)}s, force resetting...`);
+            isPolling = false;
+            pollingStartTime = null;
+        }
+    }
+}
+
+/**
  * Poll all routers and refresh their status (including netwatch in single connection)
  * Optimized for scale: Process in parallel batches of 10
  */
 async function pollAllRouters(): Promise<void> {
+    // Check if previous polling is stuck
+    checkPollingStuck();
+
     if (isPolling) {
         console.log('⏳ Previous polling still in progress, skipping...');
         return;
     }
 
     isPolling = true;
-    const startTime = Date.now();
+    pollingStartTime = Date.now();
     const BATCH_SIZE = 10; // Process 10 routers simultaneously
 
     try {
@@ -50,16 +88,26 @@ async function pollAllRouters(): Promise<void> {
 
         let successCount = 0;
         let failCount = 0;
+        let timeoutCount = 0;
 
-        // Helper function to process a single router
+        // Helper function to process a single router with timeout
         const processRouter = async (router: typeof routers[0]) => {
             try {
-                // Pass includeNetwatch=true to refresh router status AND sync netwatch in single connection
-                await routerService.refreshRouterStatus(router.id, true);
-                return { success: true };
+                // Wrap refreshRouterStatus with timeout
+                await withTimeout(
+                    routerService.refreshRouterStatus(router.id, true),
+                    ROUTER_TIMEOUT,
+                    `Timeout polling router ${router.name}`
+                );
+                return { success: true, timeout: false };
             } catch (error) {
-                console.error(`❌ Failed to poll router ${router.name}:`, error instanceof Error ? error.message : error);
-                return { success: false };
+                const isTimeout = error instanceof Error && error.message.includes('Timeout');
+                if (isTimeout) {
+                    console.error(`⏰ Timeout polling router ${router.name} (>${ROUTER_TIMEOUT / 1000}s)`);
+                } else {
+                    console.error(`❌ Failed to poll router ${router.name}:`, error instanceof Error ? error.message : error);
+                }
+                return { success: false, timeout: isTimeout };
             }
         };
 
@@ -75,18 +123,22 @@ async function pollAllRouters(): Promise<void> {
             results.forEach(res => {
                 if (res.success) {
                     successCount++;
+                } else if (res.timeout) {
+                    timeoutCount++;
                 } else {
                     failCount++;
                 }
             });
         }
 
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`✅ Polling complete: ${successCount} success, ${failCount} failed (${duration}s)`);
+        const duration = ((Date.now() - pollingStartTime) / 1000).toFixed(1);
+        const timeoutMsg = timeoutCount > 0 ? `, ${timeoutCount} timeout` : '';
+        console.log(`✅ Polling complete: ${successCount} success, ${failCount} failed${timeoutMsg} (${duration}s)`);
     } catch (error) {
         console.error('❌ Polling error:', error instanceof Error ? error.message : error);
     } finally {
         isPolling = false;
+        pollingStartTime = null;
     }
 }
 
