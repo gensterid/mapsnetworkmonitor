@@ -57,9 +57,10 @@ const Sidebar = ({ isOpen, onClose }) => {
     const { data: routers = [] } = useRouters();
     const { data: alertCount } = useUnreadAlertCount();
     const { data: settings } = useSettings();
-
+    const { user } = useSession(); // Access user profile
+    const { isAdmin, isOperator } = useRole();
     const { data: currentUser } = useCurrentUser();
-    const { isAdmin } = useRole();
+
 
     const isActive = (path) => location.pathname === path;
 
