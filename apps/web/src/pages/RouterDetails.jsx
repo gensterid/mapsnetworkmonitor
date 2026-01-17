@@ -29,7 +29,10 @@ import {
     Server,
     Gauge,
     Users,
-    Network
+    Network,
+    PhoneCall,
+    Timer,
+    Search
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
@@ -1112,6 +1115,133 @@ function MapTab({ router }) {
     );
 }
 
+// PPPoE Tab Content
+function PppoeTab({ routerId }) {
+    const [sessions, setSessions] = React.useState([]);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [searchQuery, setSearchQuery] = React.useState('');
+
+    const fetchSessions = async () => {
+        setIsLoading(true);
+        try {
+            const res = await apiClient.get(`/routers/${routerId}/ppp/sessions`);
+            setSessions(res.data?.data || []);
+        } catch (err) {
+            console.error('Failed to fetch PPPoE sessions:', err);
+            setSessions([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    React.useEffect(() => {
+        fetchSessions();
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchSessions, 30000);
+        return () => clearInterval(interval);
+    }, [routerId]);
+
+    const filteredSessions = sessions.filter(s =>
+        !searchQuery ||
+        s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.callerId?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                    <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <PhoneCall className="w-5 h-5 text-primary" />
+                        Active PPPoE Sessions
+                    </h2>
+                    <p className="text-slate-400 text-sm">{sessions.length} users connected</p>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:flex-none sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Search username, IP, MAC..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+                    <Button onClick={fetchSessions} variant="outline" size="sm">
+                        <RefreshCw className="w-4 h-4" />
+                    </Button>
+                </div>
+            </div>
+
+            {/* Sessions Grid */}
+            {filteredSessions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                    <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                        <PhoneCall className="w-6 h-6 text-slate-500" />
+                    </div>
+                    <h3 className="text-lg font-medium text-white mb-1">No active PPPoE sessions</h3>
+                    <p className="text-slate-400">There are no PPPoE users currently connected to this router</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredSessions.map((session, index) => (
+                        <Card key={`${session.name}-${index}`} className="glass-panel border-slate-700/50 hover:border-primary/30 transition-colors">
+                            <CardContent className="p-4">
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+                                            <Users className="w-4 h-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-medium text-white text-sm">{session.name}</h3>
+                                            <p className="text-xs text-slate-500">{session.service || 'pppoe'}</p>
+                                        </div>
+                                    </div>
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        <Wifi className="w-3 h-3" /> Online
+                                    </span>
+                                </div>
+
+                                <div className="space-y-2 text-xs text-slate-400">
+                                    {session.address && (
+                                        <div className="flex items-center gap-2">
+                                            <Network className="w-3 h-3 text-slate-500" />
+                                            <span className="font-mono">{session.address}</span>
+                                        </div>
+                                    )}
+                                    {session.callerId && (
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-500">MAC:</span>
+                                            <span className="font-mono text-xs">{session.callerId}</span>
+                                        </div>
+                                    )}
+                                    {session.uptime && (
+                                        <div className="flex items-center gap-2">
+                                            <Timer className="w-3 h-3 text-slate-500" />
+                                            <span>{session.uptime}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 
 export default function RouterDetails() {
     const { id } = useParams();
@@ -1144,6 +1274,7 @@ export default function RouterDetails() {
     const tabs = [
         { id: 'dashboard', label: 'Dashboard', icon: <Gauge className="w-4 h-4" /> },
         { id: 'netwatch', label: 'Netwatch', icon: <Eye className="w-4 h-4" /> },
+        { id: 'pppoe', label: 'PPPoE', icon: <PhoneCall className="w-4 h-4" /> },
         { id: 'map', label: 'Map', icon: <MapPin className="w-4 h-4" /> },
     ];
 
@@ -1224,6 +1355,7 @@ export default function RouterDetails() {
             <div className="flex-1 overflow-auto p-6">
                 {activeTab === 'dashboard' && <DashboardTab router={router} metrics={metrics} interfaces={interfaces} />}
                 {activeTab === 'netwatch' && <NetwatchTab routerId={id} netwatch={netwatch} refetch={refetchNetwatch} />}
+                {activeTab === 'pppoe' && <PppoeTab routerId={id} />}
                 {activeTab === 'map' && <MapTab router={router} netwatch={netwatch} apiKey={settings?.googleMapsApiKey} />}
             </div>
 
