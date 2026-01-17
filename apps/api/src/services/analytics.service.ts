@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
-import { alerts, routers, routerMetrics, routerNetwatch, auditLogs } from '../db/schema/index.js';
-import { sql, eq, and, gte, lte, desc, count, avg } from 'drizzle-orm';
+import { alerts, routers, routerMetrics, routerNetwatch, auditLogs, userRouters } from '../db/schema/index.js';
+import { sql, eq, and, gte, lte, desc, count, avg, inArray } from 'drizzle-orm';
 
 export interface DateRange {
     startDate: Date;
@@ -64,18 +64,60 @@ class AnalyticsService {
     }
 
     /**
+     * Get allowed router IDs for a user
+     */
+    private async getAllowedRouterIds(userId: string, userRole: string): Promise<string[]> {
+        if (userRole === 'admin') {
+            return []; // Admin allows all, but we handle empty array as "all" in context or explicit null check
+        }
+
+        const assigned = await db
+            .select({ routerId: userRouters.routerId })
+            .from(userRouters)
+            .where(eq(userRouters.userId, userId));
+
+        return assigned.map(a => a.routerId);
+    }
+
+    /**
      * Get overview statistics
      */
-    async getOverviewStats(dateRange?: DateRange, routerId?: string): Promise<OverviewStats> {
+    async getOverviewStats(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<OverviewStats> {
         const range = dateRange || this.getDefaultDateRange();
 
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) {
+                // Return zeros if no routers assigned
+                return {
+                    totalAlerts: 0,
+                    unresolvedAlerts: 0,
+                    criticalAlerts: 0,
+                    averageUptime: 0,
+                    totalRouters: 0,
+                    onlineRouters: 0,
+                    offlineRouters: 0,
+                    totalDevices: 0,
+                };
+            }
+        }
+
         // Build alert conditions
-        const alertConditions = [
+        const alertConditions: any[] = [
             gte(alerts.createdAt, range.startDate),
             lte(alerts.createdAt, range.endDate),
         ];
+
         if (routerId) {
+            // If specific router requested, check if allowed
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
             alertConditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            // Filter by allowed routers
+            alertConditions.push(inArray(alerts.routerId, allowedIds));
         }
 
         // Total and unresolved alerts in range
@@ -88,13 +130,14 @@ class AnalyticsService {
             .from(alerts)
             .where(and(...alertConditions));
 
-        // Router counts (if routerId filter, only count that router)
+        // Router counts
         let totalRouters = 0;
         let onlineRouters = 0;
         let offlineRouters = 0;
         let totalDevices = 0;
 
         if (routerId) {
+            // Specific router logic (already validated permission above)
             const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
             if (router) {
                 totalRouters = 1;
@@ -107,20 +150,33 @@ class AnalyticsService {
                 .where(eq(routerNetwatch.routerId, routerId));
             totalDevices = Number(deviceCount?.count) || 0;
         } else {
-            const routerStats = await db
+            // All allowed routers
+            let routerQuery = db
                 .select({
                     total: count(),
                     online: sql<number>`SUM(CASE WHEN ${routers.status} = 'online' THEN 1 ELSE 0 END)`,
                     offline: sql<number>`SUM(CASE WHEN ${routers.status} != 'online' THEN 1 ELSE 0 END)`,
                 })
                 .from(routers);
+
+            if (userRole !== 'admin') {
+                routerQuery.where(inArray(routers.id, allowedIds));
+            }
+
+            const routerStats = await routerQuery;
             totalRouters = Number(routerStats[0]?.total) || 0;
             onlineRouters = Number(routerStats[0]?.online) || 0;
             offlineRouters = Number(routerStats[0]?.offline) || 0;
 
-            const [deviceCount] = await db
+            let deviceQuery = db
                 .select({ count: count() })
                 .from(routerNetwatch);
+
+            if (userRole !== 'admin') {
+                deviceQuery.where(inArray(routerNetwatch.routerId, allowedIds));
+            }
+
+            const [deviceCount] = await deviceQuery;
             totalDevices = Number(deviceCount?.count) || 0;
         }
 
@@ -144,15 +200,27 @@ class AnalyticsService {
     /**
      * Get alert trends by day
      */
-    async getAlertTrends(dateRange?: DateRange, routerId?: string): Promise<AlertTrend[]> {
+    async getAlertTrends(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<AlertTrend[]> {
         const range = dateRange || this.getDefaultDateRange();
 
-        const conditions = [
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
             gte(alerts.createdAt, range.startDate),
             lte(alerts.createdAt, range.endDate),
         ];
+
         if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
             conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
         const trends = await db
@@ -180,16 +248,28 @@ class AnalyticsService {
     /**
      * Get uptime statistics per router
      */
-    async getUptimeStats(dateRange?: DateRange, routerId?: string): Promise<UptimeStats[]> {
+    async getUptimeStats(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<UptimeStats[]> {
         const range = dateRange || this.getDefaultDateRange();
 
-        // Get routers (filtered if routerId provided)
-        let routerList;
-        if (routerId) {
-            routerList = await db.select().from(routers).where(eq(routers.id, routerId));
-        } else {
-            routerList = await db.select().from(routers);
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
         }
+
+        // Get routers
+        let routerQuery = db.select().from(routers);
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            routerQuery.where(eq(routers.id, routerId));
+        } else if (userRole !== 'admin') {
+            routerQuery.where(inArray(routers.id, allowedIds));
+        }
+
+        const routerList = await routerQuery;
 
         const stats: UptimeStats[] = [];
 
@@ -235,8 +315,28 @@ class AnalyticsService {
     /**
      * Get performance trends (CPU/Memory average by hour)
      */
-    async getPerformanceTrends(dateRange?: DateRange, routerId?: string): Promise<PerformanceData[]> {
+    async getPerformanceTrends(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<PerformanceData[]> {
         const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
+            gte(routerMetrics.recordedAt, range.startDate),
+            lte(routerMetrics.recordedAt, range.endDate),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(routerMetrics.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(routerMetrics.routerId, allowedIds));
+        }
 
         let query = db
             .select({
@@ -245,11 +345,7 @@ class AnalyticsService {
                 avgMemory: sql<number>`AVG(CASE WHEN ${routerMetrics.totalMemory} > 0 THEN (${routerMetrics.usedMemory}::float / ${routerMetrics.totalMemory}::float * 100) ELSE 0 END)`,
             })
             .from(routerMetrics)
-            .where(and(
-                gte(routerMetrics.recordedAt, range.startDate),
-                lte(routerMetrics.recordedAt, range.endDate),
-                routerId ? eq(routerMetrics.routerId, routerId) : undefined
-            ))
+            .where(and(...conditions))
             .groupBy(sql`DATE_TRUNC('hour', ${routerMetrics.recordedAt})`)
             .orderBy(sql`DATE_TRUNC('hour', ${routerMetrics.recordedAt})`);
 
@@ -326,16 +422,28 @@ class AnalyticsService {
     /**
      * Get top down devices (most incidents)
      */
-    async getTopDownDevices(dateRange?: DateRange, limit: number = 10, routerId?: string): Promise<{ name: string; host: string; incidents: number }[]> {
+    async getTopDownDevices(dateRange?: DateRange, limit: number = 10, routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; host: string; incidents: number }[]> {
         const range = dateRange || this.getDefaultDateRange();
 
-        const conditions = [
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
             eq(alerts.type, 'netwatch_down'),
             gte(alerts.createdAt, range.startDate),
             lte(alerts.createdAt, range.endDate),
         ];
+
         if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
             conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
         // Get netwatch down alerts grouped by host

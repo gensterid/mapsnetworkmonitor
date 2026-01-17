@@ -92,6 +92,21 @@ function AdminRoute({ children }) {
   return children;
 }
 
+
+function OperatorRoute({ children }) {
+  const { isAdmin, isOperator, isPending } = useRole();
+
+  if (isPending) {
+    return null;
+  }
+
+  if (!isAdmin && !isOperator) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   return (
     <ErrorBoundary>
@@ -133,9 +148,9 @@ function App() {
               </AdminRoute>
             } />
             <Route path="analytics" element={
-              <AdminRoute>
+              <OperatorRoute>
                 <Analytics />
-              </AdminRoute>
+              </OperatorRoute>
             } />
             <Route path="settings" element={<Settings />} />
           </Route>

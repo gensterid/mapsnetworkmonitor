@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { analyticsService } from '../services/analytics.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
 
-// All analytics routes require authentication and admin role
+// All analytics routes require authentication and operator role (or admin)
 router.use(authMiddleware);
-router.use(requireAdmin);
+router.use(requireOperator);
 
 /**
  * Parse date range from query parameters
@@ -32,7 +32,8 @@ router.get(
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
-        const stats = await analyticsService.getOverviewStats(dateRange, routerId);
+        // @ts-ignore - user is attached by authMiddleware
+        const stats = await analyticsService.getOverviewStats(dateRange, routerId, req.user?.id, req.user?.role);
         res.json({ data: stats });
     })
 );
@@ -46,7 +47,8 @@ router.get(
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
-        const trends = await analyticsService.getAlertTrends(dateRange, routerId);
+        // @ts-ignore
+        const trends = await analyticsService.getAlertTrends(dateRange, routerId, req.user?.id, req.user?.role);
         res.json({ data: trends });
     })
 );
@@ -60,7 +62,8 @@ router.get(
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
-        const stats = await analyticsService.getUptimeStats(dateRange, routerId);
+        // @ts-ignore
+        const stats = await analyticsService.getUptimeStats(dateRange, routerId, req.user?.id, req.user?.role);
         res.json({ data: stats });
     })
 );
@@ -74,7 +77,8 @@ router.get(
     asyncHandler(async (req, res) => {
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
-        const trends = await analyticsService.getPerformanceTrends(dateRange, routerId);
+        // @ts-ignore
+        const trends = await analyticsService.getPerformanceTrends(dateRange, routerId, req.user?.id, req.user?.role);
         res.json({ data: trends });
     })
 );
@@ -107,7 +111,8 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const limit = parseInt(req.query.limit as string) || 10;
         const routerId = req.query.routerId as string | undefined;
-        const devices = await analyticsService.getTopDownDevices(dateRange, limit, routerId);
+        // @ts-ignore
+        const devices = await analyticsService.getTopDownDevices(dateRange, limit, routerId, req.user?.id, req.user?.role);
         res.json({ data: devices });
     })
 );
