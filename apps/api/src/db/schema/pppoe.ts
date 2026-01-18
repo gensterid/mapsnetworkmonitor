@@ -1,0 +1,27 @@
+import {
+    pgTable,
+    uuid,
+    text,
+    timestamp,
+} from 'drizzle-orm/pg-core';
+import { routers } from './routers.js';
+
+// PPPoE Sessions table - tracks active PPPoE sessions for detecting connect/disconnect
+export const pppoeSessions = pgTable('pppoe_sessions', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    routerId: uuid('router_id')
+        .notNull()
+        .references(() => routers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(), // PPPoE username
+    sessionId: text('session_id'), // MikroTik session ID
+    callerId: text('caller_id'), // MAC or calling station ID
+    address: text('address'), // Assigned IP address
+    service: text('service'), // Service type (pppoe, pptp, etc.)
+    uptime: text('uptime'), // Current uptime string from MikroTik
+    connectedAt: timestamp('connected_at').defaultNow().notNull(),
+    lastSeen: timestamp('last_seen').defaultNow().notNull(),
+});
+
+// Types
+export type PppoeSession = typeof pppoeSessions.$inferSelect;
+export type NewPppoeSession = typeof pppoeSessions.$inferInsert;

@@ -20,6 +20,8 @@ export const alertTypeEnum = pgEnum('alert_type', [
     'netwatch_down',
     'threshold',
     'reboot',
+    'pppoe_connect',
+    'pppoe_disconnect',
 ]);
 
 // Alert severity enum

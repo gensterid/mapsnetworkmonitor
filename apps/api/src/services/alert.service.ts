@@ -33,7 +33,7 @@ export class AlertService {
      */
     private async findRecentUnresolvedAlert(
         routerId: string,
-        type: 'status_change' | 'high_cpu' | 'high_memory' | 'high_disk' | 'interface_down' | 'netwatch_down' | 'threshold' | 'reboot'
+        type: 'status_change' | 'high_cpu' | 'high_memory' | 'high_disk' | 'interface_down' | 'netwatch_down' | 'threshold' | 'reboot' | 'pppoe_connect' | 'pppoe_disconnect'
     ): Promise<Alert | null> {
         const cooldownTime = new Date(Date.now() - ALERT_COOLDOWN_MINUTES * 60 * 1000);
 
@@ -653,6 +653,78 @@ export class AlertService {
         }
 
         return { cpuAlert, memoryAlert };
+    }
+
+    /**
+     * Format duration in seconds to human-readable string
+     */
+    private formatDuration(seconds: number): string {
+        if (seconds < 60) {
+            return `${seconds}s`;
+        }
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) {
+            return `${minutes}m ${seconds % 60}s`;
+        }
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) {
+            return `${hours}h ${minutes % 60}m`;
+        }
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h`;
+    }
+
+    /**
+     * Create PPPoE connect alert
+     */
+    async createPppoeConnectAlert(
+        routerId: string,
+        routerName: string,
+        username: string,
+        ipAddress: string
+    ): Promise<Alert | null> {
+        const thresholds = await this.getThresholds();
+
+        // Check if alerts are enabled
+        if (!thresholds.alertsEnabled) {
+            return null;
+        }
+
+        return this.create({
+            routerId,
+            type: 'pppoe_connect',
+            severity: 'info',
+            title: `PPPoE: ${username} connected`,
+            message: `User ${username} connected to ${routerName}. IP: ${ipAddress}`,
+        });
+    }
+
+    /**
+     * Create PPPoE disconnect alert
+     */
+    async createPppoeDisconnectAlert(
+        routerId: string,
+        routerName: string,
+        username: string,
+        ipAddress: string,
+        sessionDurationSeconds: number
+    ): Promise<Alert | null> {
+        const thresholds = await this.getThresholds();
+
+        // Check if alerts are enabled
+        if (!thresholds.alertsEnabled) {
+            return null;
+        }
+
+        const duration = this.formatDuration(sessionDurationSeconds);
+
+        return this.create({
+            routerId,
+            type: 'pppoe_disconnect',
+            severity: 'warning',
+            title: `PPPoE: ${username} disconnected`,
+            message: `User ${username} disconnected from ${routerName}. IP: ${ipAddress}. Session duration: ${duration}`,
+        });
     }
 }
 

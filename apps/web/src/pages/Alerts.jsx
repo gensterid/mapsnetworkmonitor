@@ -1,11 +1,13 @@
+import { useState } from 'react';
 import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff, Search, X } from 'lucide-react';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import clsx from 'clsx';
 
 export default function Alerts() {
+    const [searchQuery, setSearchQuery] = useState('');
     const { data: alerts = [], isLoading, error, refetch } = useAlerts();
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
@@ -13,6 +15,18 @@ export default function Alerts() {
     const acknowledgeAllMutation = useAcknowledgeAllAlerts();
 
     const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+
+    // Filter alerts based on search query
+    const filteredAlerts = alerts.filter(alert => {
+        if (!searchQuery.trim()) return true;
+        const query = searchQuery.toLowerCase();
+        return (
+            alert.title?.toLowerCase().includes(query) ||
+            alert.message?.toLowerCase().includes(query) ||
+            alert.type?.toLowerCase().includes(query) ||
+            alert.severity?.toLowerCase().includes(query)
+        );
+    });
 
     const formatAlertTime = (dateStr) => {
         return formatDateWithTimezone(dateStr, timezone);
@@ -40,6 +54,16 @@ export default function Alerts() {
     // Get appropriate icon based on alert type and severity
     const getAlertIcon = (alert) => {
         const { type, severity, title } = alert;
+
+        // Check if it's a PPPoE connect alert
+        if (type === 'pppoe_connect') {
+            return <Wifi className="w-5 h-5 mt-0.5 text-emerald-500" />;
+        }
+
+        // Check if it's a PPPoE disconnect alert
+        if (type === 'pppoe_disconnect') {
+            return <WifiOff className="w-5 h-5 mt-0.5 text-yellow-500" />;
+        }
 
         // Check if it's a "device up" alert (info severity with "up" or "online" in title)
         const isDeviceUp = severity === 'info' && (
@@ -129,18 +153,49 @@ export default function Alerts() {
                 </div>
             </div>
 
+            {/* Search Input */}
+            <div className="px-6 pt-4">
+                <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <input
+                        type="text"
+                        placeholder="Search alerts by title, message, type..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    )}
+                </div>
+                {searchQuery && (
+                    <p className="text-xs text-slate-500 mt-2">
+                        Showing {filteredAlerts.length} of {alerts.length} alerts
+                    </p>
+                )}
+            </div>
+
             <div className="flex-1 overflow-auto p-6">
-                {alerts.length === 0 ? (
+                {filteredAlerts.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
                         <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-4">
                             <CheckCircle className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">No active alerts</h3>
-                        <p className="text-slate-400">All systems are operating normally</p>
+                        <h3 className="text-lg font-medium text-white mb-1">
+                            {searchQuery ? 'No matching alerts' : 'No active alerts'}
+                        </h3>
+                        <p className="text-slate-400">
+                            {searchQuery ? 'Try a different search term' : 'All systems are operating normally'}
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {alerts.map((alert) => (
+                        {filteredAlerts.map((alert) => (
                             <Card key={alert.id} className={clsx("border", getSeverityColor(alert.severity))}>
                                 <CardContent className="p-4">
                                     <div className="flex items-start justify-between gap-4">

@@ -33,6 +33,7 @@ import {
 } from '../lib/mikrotik-api.js';
 import { measureLatency } from '../lib/network-utils.js';
 import { alertService } from './alert.service.js';
+import { pppoeService } from './pppoe.service.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -493,6 +494,16 @@ export class RouterService {
                 );
             } catch (alertError) {
                 console.error('Failed to check metric alerts:', alertError);
+            }
+
+            // Track PPPoE sessions and create connect/disconnect alerts
+            if (includeNetwatch) {
+                try {
+                    const currentPppSessions = await getPppSessions(conn);
+                    await pppoeService.trackSessions(id, router.name, currentPppSessions);
+                } catch (pppoeError) {
+                    console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError instanceof Error ? pppoeError.message : pppoeError);
+                }
             }
 
             // Update interfaces
