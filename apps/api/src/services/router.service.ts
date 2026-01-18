@@ -432,6 +432,27 @@ export class RouterService {
                 }
             }
 
+            // Track PPPoE sessions and create connect/disconnect alerts (before closing connection)
+            if (includeNetwatch) {
+                try {
+                    console.log(`[Router ${router.name}] Fetching PPPoE sessions...`);
+                    const currentPppSessions = await getPppSessions(conn);
+                    console.log(`[Router ${router.name}] Found ${currentPppSessions.length} active PPPoE sessions`);
+
+                    if (currentPppSessions.length > 0) {
+                        console.log(`[Router ${router.name}] PPPoE usernames: ${currentPppSessions.map(s => s.name).join(', ')}`);
+                    }
+
+                    const result = await pppoeService.trackSessions(id, router.name, currentPppSessions);
+
+                    if (result.connected.length > 0 || result.disconnected.length > 0) {
+                        console.log(`[Router ${router.name}] PPPoE changes: +${result.connected.length} connected, -${result.disconnected.length} disconnected`);
+                    }
+                } catch (pppoeError) {
+                    console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError instanceof Error ? pppoeError.message : pppoeError);
+                }
+            }
+
             conn.close();
 
             const latency = await measureLatency(router.host);
@@ -496,26 +517,7 @@ export class RouterService {
                 console.error('Failed to check metric alerts:', alertError);
             }
 
-            // Track PPPoE sessions and create connect/disconnect alerts
-            if (includeNetwatch) {
-                try {
-                    console.log(`[Router ${router.name}] Fetching PPPoE sessions...`);
-                    const currentPppSessions = await getPppSessions(conn);
-                    console.log(`[Router ${router.name}] Found ${currentPppSessions.length} active PPPoE sessions`);
 
-                    if (currentPppSessions.length > 0) {
-                        console.log(`[Router ${router.name}] PPPoE usernames: ${currentPppSessions.map(s => s.name).join(', ')}`);
-                    }
-
-                    const result = await pppoeService.trackSessions(id, router.name, currentPppSessions);
-
-                    if (result.connected.length > 0 || result.disconnected.length > 0) {
-                        console.log(`[Router ${router.name}] PPPoE changes: +${result.connected.length} connected, -${result.disconnected.length} disconnected`);
-                    }
-                } catch (pppoeError) {
-                    console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError instanceof Error ? pppoeError.message : pppoeError);
-                }
-            }
 
             // Update interfaces
             for (const iface of interfaces) {
