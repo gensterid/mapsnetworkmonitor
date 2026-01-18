@@ -16,6 +16,8 @@ export interface OverviewStats {
     onlineRouters: number;
     offlineRouters: number;
     totalDevices: number;
+    pppoeConnects: number;
+    pppoeDisconnects: number;
 }
 
 export interface AlertTrend {
@@ -24,6 +26,8 @@ export interface AlertTrend {
     critical: number;
     warning: number;
     info: number;
+    pppoeConnect: number;
+    pppoeDisconnect: number;
 }
 
 export interface UptimeStats {
@@ -99,6 +103,8 @@ class AnalyticsService {
                     onlineRouters: 0,
                     offlineRouters: 0,
                     totalDevices: 0,
+                    pppoeConnects: 0,
+                    pppoeDisconnects: 0,
                 };
             }
         }
@@ -126,6 +132,8 @@ class AnalyticsService {
                 total: count(),
                 unresolved: sql<number>`SUM(CASE WHEN ${alerts.resolved} = false THEN 1 ELSE 0 END)`,
                 critical: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'critical' THEN 1 ELSE 0 END)`,
+                pppoeConnects: sql<number>`SUM(CASE WHEN ${alerts.type} = 'pppoe_connect' THEN 1 ELSE 0 END)`,
+                pppoeDisconnects: sql<number>`SUM(CASE WHEN ${alerts.type} = 'pppoe_disconnect' THEN 1 ELSE 0 END)`,
             })
             .from(alerts)
             .where(and(...alertConditions));
@@ -194,6 +202,8 @@ class AnalyticsService {
             onlineRouters,
             offlineRouters,
             totalDevices,
+            pppoeConnects: Number(alertStats[0]?.pppoeConnects) || 0,
+            pppoeDisconnects: Number(alertStats[0]?.pppoeDisconnects) || 0,
         };
     }
 
@@ -230,6 +240,8 @@ class AnalyticsService {
                 critical: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'critical' THEN 1 ELSE 0 END)`,
                 warning: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'warning' THEN 1 ELSE 0 END)`,
                 info: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'info' THEN 1 ELSE 0 END)`,
+                pppoeConnect: sql<number>`SUM(CASE WHEN ${alerts.type} = 'pppoe_connect' THEN 1 ELSE 0 END)`,
+                pppoeDisconnect: sql<number>`SUM(CASE WHEN ${alerts.type} = 'pppoe_disconnect' THEN 1 ELSE 0 END)`,
             })
             .from(alerts)
             .where(and(...conditions))
@@ -242,6 +254,8 @@ class AnalyticsService {
             critical: Number(t.critical) || 0,
             warning: Number(t.warning) || 0,
             info: Number(t.info) || 0,
+            pppoeConnect: Number(t.pppoeConnect) || 0,
+            pppoeDisconnect: Number(t.pppoeDisconnect) || 0,
         }));
     }
 

@@ -526,7 +526,7 @@ export default function Analytics() {
 
                     {/* Overview Stats */}
                     {/* ... (StatCards remain unchanged) */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                         <StatCard
                             icon={AlertTriangle}
                             label="Total Alerts"
@@ -554,6 +554,20 @@ export default function Analytics() {
                             value={overview?.totalDevices || 0}
                             subvalue="Netwatch hosts"
                             color="primary"
+                        />
+                        <StatCard
+                            icon={Wifi}
+                            label="PPPoE Connect"
+                            value={overview?.pppoeConnects || 0}
+                            subvalue="Koneksi baru"
+                            color="success"
+                        />
+                        <StatCard
+                            icon={WifiOff}
+                            label="PPPoE Disconnect"
+                            value={overview?.pppoeDisconnects || 0}
+                            subvalue="Terputus"
+                            color="danger"
                         />
                     </div>
 
