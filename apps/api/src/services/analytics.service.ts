@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
-import { alerts, routers, routerMetrics, routerNetwatch, auditLogs, userRouters } from '../db/schema/index.js';
-import { sql, eq, and, gte, lte, desc, count, avg, inArray } from 'drizzle-orm';
+import { alerts, routers, routerMetrics, routerNetwatch, auditLogs, userRouters, pppoeSessions } from '../db/schema/index.js';
+import { sql, eq, and, gte, lte, desc, count, avg, inArray, notInArray } from 'drizzle-orm';
 
 export interface DateRange {
     startDate: Date;
@@ -595,7 +595,7 @@ class AnalyticsService {
     }
 
     /**
-     * Get PPPoE clients that are currently down (recently disconnected and not reconnected)
+     * Get PPPoE clients that are currently down (recently disconnected and not in active sessions)
      */
     async getCurrentPppoeDownStatus(routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; address: string; downSince: Date; routerName: string }[]> {
         let allowedIds: string[] = [];
@@ -604,7 +604,7 @@ class AnalyticsService {
             if (allowedIds.length === 0) return [];
         }
 
-        // Get recent disconnect alerts (last 24 hours) that don't have a subsequent connect
+        // Get recent disconnect alerts (last 24 hours)
         const oneDayAgo = new Date();
         oneDayAgo.setHours(oneDayAgo.getHours() - 24);
 
@@ -634,45 +634,32 @@ class AnalyticsService {
             .where(and(...conditions))
             .orderBy(desc(alerts.createdAt));
 
-        // Get all connect alerts to filter out reconnected clients
-        const connectConditions: any[] = [
-            eq(alerts.type, 'pppoe_connect'),
-            gte(alerts.createdAt, oneDayAgo),
-        ];
+        // Get all CURRENTLY ACTIVE sessions from pppoe_sessions table
+        let activeSessionsQuery = db
+            .select({ name: pppoeSessions.name, routerId: pppoeSessions.routerId })
+            .from(pppoeSessions);
+
         if (routerId) {
-            connectConditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
-            connectConditions.push(inArray(alerts.routerId, allowedIds));
+            activeSessionsQuery = activeSessionsQuery.where(eq(pppoeSessions.routerId, routerId)) as any;
+        } else if (userRole !== 'admin' && allowedIds.length > 0) {
+            activeSessionsQuery = activeSessionsQuery.where(inArray(pppoeSessions.routerId, allowedIds)) as any;
         }
 
-        const connects = await db
-            .select({ title: alerts.title, createdAt: alerts.createdAt })
-            .from(alerts)
-            .where(and(...connectConditions));
+        const activeSessions = await activeSessionsQuery;
+        const activeSessionNames = new Set(activeSessions.map(s => s.name));
 
-        // Build a map of latest connect times by PPPoE name
-        const connectMap = new Map<string, Date>();
-        for (const c of connects) {
-            const name = c.title?.replace('PPPoE Connect: ', '') || '';
-            const existing = connectMap.get(name);
-            if (!existing || c.createdAt > existing) {
-                connectMap.set(name, c.createdAt);
-            }
-        }
-
-        // Filter disconnects where there's no subsequent connect
+        // Filter disconnects where client is NOT in active sessions (truly down)
         const downClients: { name: string; address: string; downSince: Date; routerName: string; routerId: string }[] = [];
         const seenNames = new Set<string>();
 
         for (const d of disconnects) {
             const name = d.title?.replace('PPPoE Disconnect: ', '') || 'Unknown';
 
-            // Skip if we already have this client (keep most recent)
+            // Skip if we already have this client (keep most recent disconnect)
             if (seenNames.has(name)) continue;
 
-            const lastConnect = connectMap.get(name);
-            // If no connect after this disconnect, client is still down
-            if (!lastConnect || lastConnect < d.createdAt) {
+            // Only add if NOT in active sessions (truly down)
+            if (!activeSessionNames.has(name)) {
                 // Extract IP from message
                 const ipMatch = d.message?.match(/IP: ([^\s,)]+)/);
                 const address = ipMatch?.[1] || 'N/A';
