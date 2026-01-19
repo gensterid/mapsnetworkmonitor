@@ -171,7 +171,70 @@ class PppoeService {
     async cleanupRouterSessions(routerId: string): Promise<void> {
         await db.delete(pppoeSessions).where(eq(pppoeSessions.routerId, routerId));
     }
+
+    /**
+     * Update coordinates for a PPPoE session
+     */
+    async updateCoordinates(
+        id: string,
+        latitude: string | null,
+        longitude: string | null
+    ): Promise<PppoeSession | undefined> {
+        const [session] = await db
+            .update(pppoeSessions)
+            .set({ latitude, longitude })
+            .where(eq(pppoeSessions.id, id))
+            .returning();
+        return session;
+    }
+
+    /**
+     * Find all PPPoE sessions (with optional router filter)
+     */
+    async findAll(routerId?: string): Promise<PppoeSession[]> {
+        if (routerId) {
+            return db
+                .select()
+                .from(pppoeSessions)
+                .where(eq(pppoeSessions.routerId, routerId))
+                .orderBy(pppoeSessions.name);
+        }
+        return db
+            .select()
+            .from(pppoeSessions)
+            .orderBy(pppoeSessions.name);
+    }
+
+    /**
+     * Find PPPoE session by ID
+     */
+    async findById(id: string): Promise<PppoeSession | undefined> {
+        const [session] = await db
+            .select()
+            .from(pppoeSessions)
+            .where(eq(pppoeSessions.id, id));
+        return session;
+    }
+
+    /**
+     * Find all sessions with coordinates for map display
+     */
+    async findAllWithCoordinates(routerId?: string): Promise<PppoeSession[]> {
+        const query = db
+            .select()
+            .from(pppoeSessions)
+            .where(
+                routerId
+                    ? eq(pppoeSessions.routerId, routerId)
+                    : undefined as any
+            )
+            .orderBy(pppoeSessions.name);
+
+        const sessions = await query;
+        return sessions.filter(s => s.latitude && s.longitude);
+    }
 }
 
 // Export singleton instance
 export const pppoeService = new PppoeService();
+

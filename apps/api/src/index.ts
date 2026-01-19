@@ -44,6 +44,23 @@ async function runMigrations() {
                     ALTER TABLE alerts ADD COLUMN last_escalated_at TIMESTAMP;
                     RAISE NOTICE 'Added last_escalated_at column';
                 END IF;
+
+                -- Add PPPoE coordinates columns
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'pppoe_sessions' AND column_name = 'latitude'
+                ) THEN
+                    ALTER TABLE pppoe_sessions ADD COLUMN latitude TEXT;
+                    RAISE NOTICE 'Added latitude column to pppoe_sessions';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'pppoe_sessions' AND column_name = 'longitude'
+                ) THEN
+                    ALTER TABLE pppoe_sessions ADD COLUMN longitude TEXT;
+                    RAISE NOTICE 'Added longitude column to pppoe_sessions';
+                END IF;
             END $$;
         `);
         console.log('✅ Database migrations complete');

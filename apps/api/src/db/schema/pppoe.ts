@@ -18,6 +18,8 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     address: text('address'), // Assigned IP address
     service: text('service'), // Service type (pppoe, pptp, etc.)
     uptime: text('uptime'), // Current uptime string from MikroTik
+    latitude: text('latitude'), // Location latitude for map display
+    longitude: text('longitude'), // Location longitude for map display
     connectedAt: timestamp('connected_at').defaultNow().notNull(),
     lastSeen: timestamp('last_seen').defaultNow().notNull(),
 });

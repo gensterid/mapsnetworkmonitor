@@ -447,11 +447,11 @@ export async function measurePing(api: any, address: string): Promise<number> {
             const entry = result[0];
 
             // Try different possible fields depending on RouterOS version/output
-            if (entry['avg-rtt']) return parseInt(entry['avg-rtt']);
+            if (entry['avg-rtt']) {
+                return parseLatencyValue(entry['avg-rtt']);
+            }
             if (entry['time']) {
-                // Time format might be "10ms" or just "10"
-                const timeStr = String(entry['time']);
-                return parseInt(timeStr.replace('ms', ''));
+                return parseLatencyValue(entry['time']);
             }
         }
         return -1;
@@ -459,6 +459,35 @@ export async function measurePing(api: any, address: string): Promise<number> {
         // Ping failed (timeout or other error)
         return -1;
     }
+}
+
+/**
+ * Parse latency value from RouterOS ping output
+ * Handles formats: "10ms", "956us", "1s", or plain number
+ */
+function parseLatencyValue(value: any): number {
+    const str = String(value).trim().toLowerCase();
+
+    // Handle microseconds (us) - convert to ms
+    if (str.includes('us')) {
+        const us = parseFloat(str.replace('us', ''));
+        return Math.max(1, Math.round(us / 1000)); // Min 1ms
+    }
+
+    // Handle seconds (s) - NOT "ms"
+    if (str.endsWith('s') && !str.includes('ms')) {
+        const s = parseFloat(str.replace('s', ''));
+        return Math.round(s * 1000);
+    }
+
+    // Handle milliseconds (ms)
+    if (str.includes('ms')) {
+        return Math.round(parseFloat(str.replace('ms', '')));
+    }
+
+    // Plain number (assume ms)
+    const num = parseFloat(str);
+    return isNaN(num) ? -1 : Math.round(num);
 }
 
 export interface PppSession {
