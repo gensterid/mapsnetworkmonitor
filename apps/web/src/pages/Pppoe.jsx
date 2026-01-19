@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useRouters } from '@/hooks';
 import { Card, CardContent } from '@/components/ui/Card';
@@ -13,7 +13,9 @@ import {
     Search,
     User,
     Timer,
-    Network
+    Network,
+    MapPin,
+    X
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -50,15 +52,152 @@ function useAllPppoe() {
     });
 }
 
+// Fetch PPPoE sessions from database (with coordinates)
+function usePppoeWithCoordinates() {
+    return useQuery({
+        queryKey: ['pppoe', 'db-sessions'],
+        queryFn: async () => {
+            const res = await apiClient.get('/pppoe');
+            return res.data?.data || [];
+        },
+        staleTime: 30000,
+    });
+}
+
+// Hook for updating PPPoE coordinates
+function useUpdatePppoeCoordinates() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: async ({ id, latitude, longitude }) => {
+            const res = await apiClient.patch(`/pppoe/${id}/coordinates`, {
+                latitude,
+                longitude,
+            });
+            return res.data?.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pppoe'] });
+        },
+    });
+}
+
+// Coordinates Modal Component
+function CoordinatesModal({ session, onClose, onSave, isSaving }) {
+    const [latitude, setLatitude] = useState(session?.latitude || '');
+    const [longitude, setLongitude] = useState(session?.longitude || '');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave({ latitude, longitude });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-primary" />
+                        Set Lokasi PPPoE
+                    </h3>
+                    <button
+                        onClick={onClose}
+                        className="text-slate-400 hover:text-white transition-colors"
+                    >
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="mb-4 p-3 bg-slate-800 rounded-lg">
+                    <div className="text-sm text-slate-400">Username</div>
+                    <div className="font-medium text-white">{session?.name}</div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm text-slate-400 mb-1">Latitude</label>
+                        <input
+                            type="text"
+                            value={latitude}
+                            onChange={(e) => setLatitude(e.target.value)}
+                            placeholder="-6.2088"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm text-slate-400 mb-1">Longitude</label>
+                        <input
+                            type="text"
+                            value={longitude}
+                            onChange={(e) => setLongitude(e.target.value)}
+                            placeholder="106.8456"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+
+                    <div className="text-xs text-slate-500">
+                        Tips: Anda bisa mendapatkan koordinat dari Google Maps dengan klik kanan pada lokasi.
+                    </div>
+
+                    <div className="flex gap-3 pt-2">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            onClick={onClose}
+                            className="flex-1"
+                        >
+                            Batal
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={isSaving}
+                            className="flex-1"
+                        >
+                            {isSaving ? (
+                                <>
+                                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                                    Menyimpan...
+                                </>
+                            ) : (
+                                'Simpan'
+                            )}
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 export default function Pppoe() {
     const { data: pppoeEntries = [], isLoading, refetch } = useAllPppoe();
+    const { data: dbSessions = [] } = usePppoeWithCoordinates();
     const { data: routers = [] } = useRouters();
     const [searchQuery, setSearchQuery] = useState('');
     const [routerFilter, setRouterFilter] = useState('all');
     const [sortBy, setSortBy] = useState('uptime'); // uptime, name, router
+    const [selectedSession, setSelectedSession] = useState(null);
+
+    const updateCoordinates = useUpdatePppoeCoordinates();
+
+    // Merge live sessions with database coordinates
+    const mergedEntries = useMemo(() => {
+        // Create lookup map from dbSessions by name
+        const dbMap = new Map(dbSessions.map(s => [s.name, s]));
+
+        return pppoeEntries.map(entry => {
+            const dbSession = dbMap.get(entry.name);
+            return {
+                ...entry,
+                dbId: dbSession?.id,
+                latitude: dbSession?.latitude,
+                longitude: dbSession?.longitude,
+            };
+        });
+    }, [pppoeEntries, dbSessions]);
 
     // Filter entries
-    const filteredEntries = pppoeEntries
+    const filteredEntries = mergedEntries
         .filter(entry => {
             const matchesSearch = !searchQuery ||
                 entry.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -91,6 +230,28 @@ export default function Pppoe() {
         return acc;
     }, {});
 
+    // Count sessions with coordinates
+    const sessionsWithLocation = mergedEntries.filter(e => e.latitude && e.longitude).length;
+
+    const handleSaveCoordinates = async (coords) => {
+        if (!selectedSession?.dbId) {
+            alert('Session ini belum tersimpan di database. Tunggu beberapa saat hingga terdeteksi oleh sistem.');
+            return;
+        }
+
+        try {
+            await updateCoordinates.mutateAsync({
+                id: selectedSession.dbId,
+                latitude: coords.latitude || null,
+                longitude: coords.longitude || null,
+            });
+            setSelectedSession(null);
+        } catch (err) {
+            console.error('Failed to save coordinates:', err);
+            alert('Gagal menyimpan koordinat');
+        }
+    };
+
     if (isLoading) {
         return (
             <div className="flex-1 flex items-center justify-center bg-slate-950">
@@ -118,7 +279,7 @@ export default function Pppoe() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
                         <div className="text-2xl font-bold text-white">{pppoeEntries.length}</div>
                         <div className="text-xs text-slate-400">Total Active</div>
@@ -126,6 +287,10 @@ export default function Pppoe() {
                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
                         <div className="text-2xl font-bold text-emerald-400">{routers.length}</div>
                         <div className="text-xs text-emerald-400/70">Routers</div>
+                    </div>
+                    <div className="bg-primary/10 border border-primary/20 rounded-lg p-3">
+                        <div className="text-2xl font-bold text-primary">{sessionsWithLocation}</div>
+                        <div className="text-xs text-primary/70">With Location</div>
                     </div>
                     <div className="col-span-2 bg-slate-900/50 border border-slate-800 rounded-lg p-3">
                         <div className="text-xs text-slate-400 mb-1">Sessions per Router</div>
@@ -230,12 +395,41 @@ export default function Pppoe() {
                                             <span className="text-primary">{entry.routerName}</span>
                                         </div>
                                     </div>
+
+                                    {/* Location Button */}
+                                    <div className="mt-3 pt-3 border-t border-slate-800">
+                                        <button
+                                            onClick={() => setSelectedSession(entry)}
+                                            className={clsx(
+                                                "w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors",
+                                                entry.latitude && entry.longitude
+                                                    ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                            )}
+                                        >
+                                            <MapPin className="w-3 h-3" />
+                                            {entry.latitude && entry.longitude
+                                                ? `📍 ${parseFloat(entry.latitude).toFixed(4)}, ${parseFloat(entry.longitude).toFixed(4)}`
+                                                : 'Set Lokasi'
+                                            }
+                                        </button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
                 )}
             </div>
+
+            {/* Coordinates Modal */}
+            {selectedSession && (
+                <CoordinatesModal
+                    session={selectedSession}
+                    onClose={() => setSelectedSession(null)}
+                    onSave={handleSaveCoordinates}
+                    isSaving={updateCoordinates.isPending}
+                />
+            )}
         </div>
     );
 }
