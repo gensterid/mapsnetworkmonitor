@@ -33,7 +33,9 @@ import {
     WifiOff,
     Search,
     Router as RouterIcon,
-    X
+    X,
+    PhoneOff,
+    RotateCcw
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -383,11 +385,8 @@ export default function Analytics() {
     // Selected router filter
     const [selectedRouterId, setSelectedRouterId] = useState(null);
 
-    // Selected date for drill-down (chart click)
-    const [selectedDate, setSelectedDate] = useState(null);
-
-    // Default to last 30 days
-    const [dateRange, setDateRange] = useState(() => {
+    // Helper to get default date range (30 days)
+    const getDefaultDateRange = () => {
         const end = new Date();
         const start = new Date();
         start.setDate(start.getDate() - 30);
@@ -396,39 +395,19 @@ export default function Analytics() {
             endDate: end.toISOString().split('T')[0],
             label: '30 Hari',
         };
-    });
+    };
+
+    // Default to last 30 days
+    const [dateRange, setDateRange] = useState(getDefaultDateRange);
+
+    // Check if viewing single day (from chart click)
+    const isSingleDayView = dateRange.startDate === dateRange.endDate;
 
     const queryParams = useMemo(() => ({
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
         ...(selectedRouterId && { routerId: selectedRouterId }),
     }), [dateRange.startDate, dateRange.endDate, selectedRouterId]);
-
-    // Query for selected date alerts (Filtered alerts)
-    const filteredStatsParams = useMemo(() => {
-        if (!selectedDate) return null;
-        // Construct start/end for the full selected day
-        const start = new Date(selectedDate);
-        const end = new Date(selectedDate);
-        end.setHours(23, 59, 59, 999);
-
-        return {
-            startDate: start.toISOString(),
-            endDate: end.toISOString(),
-            ...(selectedRouterId && { routerId: selectedRouterId }),
-            limit: 50
-        };
-    }, [selectedDate, selectedRouterId]);
-
-    const { data: dailyAlerts, isLoading: dailyAlertsLoading } = useQuery({
-        queryKey: ['analytics-daily-alerts', filteredStatsParams],
-        queryFn: async () => {
-            if (!filteredStatsParams) return [];
-            const res = await apiClient.get('/analytics/alerts/list', { params: filteredStatsParams });
-            return res.data.data;
-        },
-        enabled: !!filteredStatsParams
-    });
 
     // API Queries
     const { data: overview, isLoading: overviewLoading, refetch: refetchOverview } = useQuery({
@@ -481,21 +460,43 @@ export default function Analytics() {
         },
     });
 
+    // PPPoE Top Disconnectors query
+    const { data: pppoeDisconnectors } = useQuery({
+        queryKey: ['analytics-pppoe-disconnectors', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/pppoe/top-disconnectors', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
+    // PPPoE Down Status query
+    const { data: pppoeDownStatus } = useQuery({
+        queryKey: ['analytics-pppoe-down-status', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/pppoe/down-status', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
     const handleRefresh = () => {
         refetchOverview();
-        if (selectedDate) {
-            // Refetch daily alerts if active
+    };
+
+    // Click on bar chart = filter ALL data to that single day
+    const handleBarClick = (data) => {
+        if (data?.date) {
+            const clickedDate = data.date;
+            setDateRange({
+                startDate: clickedDate,
+                endDate: clickedDate,
+                label: new Date(clickedDate).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+            });
         }
     };
 
-    const handleBarClick = (data) => {
-        if (data && data.date) {
-            setSelectedDate(data.date);
-            // Optional: scroll to alerts section
-            setTimeout(() => {
-                document.getElementById('daily-alerts-section')?.scrollIntoView({ behavior: 'smooth' });
-            }, 100);
-        }
+    // Reset to default 30 days view
+    const handleResetDateRange = () => {
+        setDateRange(getDefaultDateRange());
     };
 
     const isLoading = overviewLoading || trendsLoading || uptimeLoading || perfLoading;
@@ -518,6 +519,12 @@ export default function Analytics() {
                         <div className="flex flex-wrap gap-2">
                             <RouterSelector routers={routers} value={selectedRouterId} onChange={setSelectedRouterId} />
                             <DateRangePicker value={dateRange} onChange={setDateRange} />
+                            {isSingleDayView && (
+                                <Button variant="outline" size="sm" onClick={handleResetDateRange} className="text-amber-400 border-amber-500/50 hover:bg-amber-500/10">
+                                    <RotateCcw className="w-4 h-4 mr-1" />
+                                    Reset
+                                </Button>
+                            )}
                             <Button variant="outline" size="sm" onClick={handleRefresh}>
                                 <RefreshCw className={clsx("w-4 h-4", isLoading && "animate-spin")} />
                             </Button>
@@ -617,63 +624,8 @@ export default function Analytics() {
                         </Card>
                     </div>
 
-                    {/* Daily Alerts Drill-down Section */}
-                    {selectedDate && (
-                        <Card className="glass-panel border-primary/30" id="daily-alerts-section">
-                            <CardHeader className="pb-2 flex flex-row items-center justify-between">
-                                <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                    <AlertTriangle className="w-4 h-4 text-warning" />
-                                    Alerts pada {new Date(selectedDate).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                                </CardTitle>
-                                <Button variant="ghost" size="sm" onClick={() => setSelectedDate(null)}>
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            </CardHeader>
-                            <CardContent>
-                                {dailyAlertsLoading ? (
-                                    <div className="flex items-center justify-center py-8">
-                                        <RefreshCw className="w-6 h-6 animate-spin text-primary" />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
-                                        {dailyAlerts?.length > 0 ? (
-                                            dailyAlerts.map((alert, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors"
-                                                >
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={clsx(
-                                                            "w-2 h-2 rounded-full",
-                                                            alert.severity === 'critical' ? 'bg-red-500' :
-                                                                alert.severity === 'warning' ? 'bg-amber-500' :
-                                                                    'bg-blue-500'
-                                                        )} />
-                                                        <div>
-                                                            <p className="text-sm text-white font-medium">{alert.title}</p>
-                                                            <p className="text-xs text-slate-500">{alert.message}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-right">
-                                                        <p className="text-xs text-slate-400 font-mono">
-                                                            {new Date(alert.createdAt).toLocaleTimeString('id-ID')}
-                                                        </p>
-                                                        <p className="text-[10px] text-slate-500">{alert.routerName}</p>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <p className="text-center text-slate-500 py-4">Tidak ada alert pada tanggal ini</p>
-                                        )}
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    )}
-
                     {/* Bottom Section */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        {/* ... (Existing bottom cards) */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
                         <Card className="glass-panel">
                             {/* ... Top Down Devices ... */}
                             <CardHeader className="pb-2">
@@ -780,6 +732,70 @@ export default function Analytics() {
                                         ))
                                     ) : (
                                         <p className="text-center text-slate-500 py-4">Tidak ada aktivitas</p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* PPPoE Sering Disconnect */}
+                        <Card className="glass-panel">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                    <PhoneOff className="w-4 h-4 text-amber-400" />
+                                    PPPoE Sering Disconnect
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {pppoeDisconnectors?.length > 0 ? (
+                                        pppoeDisconnectors.slice(0, 5).map((client, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                            >
+                                                <div>
+                                                    <p className="text-sm text-white font-medium">{client.name}</p>
+                                                    <p className="text-xs text-slate-500">{client.routerName}</p>
+                                                </div>
+                                                <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 text-xs font-medium">
+                                                    {client.disconnectCount}x
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-slate-500 py-4">Tidak ada data</p>
+                                    )}
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* PPPoE Status Down */}
+                        <Card className="glass-panel">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                    <WifiOff className="w-4 h-4 text-red-400" />
+                                    PPPoE Sedang Down
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {pppoeDownStatus?.length > 0 ? (
+                                        pppoeDownStatus.slice(0, 5).map((client, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                            >
+                                                <div>
+                                                    <p className="text-sm text-white font-medium">{client.name}</p>
+                                                    <p className="text-xs text-slate-500">{client.routerName} • {client.address}</p>
+                                                </div>
+                                                <span className="text-xs text-red-400">
+                                                    {new Date(client.downSince).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                </span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-emerald-500 py-4 text-sm">Semua PPPoE Online ✓</p>
                                     )}
                                 </div>
                             </CardContent>

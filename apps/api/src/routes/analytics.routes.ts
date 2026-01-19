@@ -133,4 +133,35 @@ router.get(
     })
 );
 
+/**
+ * GET /api/analytics/pppoe/top-disconnectors
+ * Get PPPoE clients with most disconnections
+ */
+router.get(
+    '/pppoe/top-disconnectors',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const limit = parseInt(req.query.limit as string) || 10;
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const data = await analyticsService.getTopPppoeDisconnectors(dateRange, limit, routerId, req.user?.id, req.user?.role);
+        res.json({ data });
+    })
+);
+
+/**
+ * GET /api/analytics/pppoe/down-status
+ * Get PPPoE clients that are currently down
+ */
+router.get(
+    '/pppoe/down-status',
+    asyncHandler(async (req, res) => {
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const data = await analyticsService.getCurrentPppoeDownStatus(routerId, req.user?.id, req.user?.role);
+        res.json({ data });
+    })
+);
+
 export default router;
+

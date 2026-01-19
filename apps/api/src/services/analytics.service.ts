@@ -527,6 +527,188 @@ class AnalyticsService {
 
         return devicesWithNames.filter((d): d is NonNullable<typeof d> => d !== null);
     }
+
+    /**
+     * Get top PPPoE clients with most disconnections
+     */
+    async getTopPppoeDisconnectors(dateRange?: DateRange, limit: number = 10, routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; disconnectCount: number; lastDisconnect: Date; routerName: string }[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
+            eq(alerts.type, 'pppoe_disconnect'),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        // Extract PPPoE name from message and count disconnects
+        // Message format: "PPPoE client USERNAME disconnected from ROUTER..."
+        const results = await db
+            .select({
+                pppoeTitle: alerts.title,
+                disconnectCount: count(),
+                lastDisconnect: sql<Date>`MAX(${alerts.createdAt})`,
+                routerId: alerts.routerId,
+            })
+            .from(alerts)
+            .where(and(...conditions))
+            .groupBy(alerts.title, alerts.routerId)
+            .orderBy(desc(count()))
+            .limit(limit);
+
+        // Get router names
+        const withRouterNames = await Promise.all(
+            results.map(async (r) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, r.routerId))
+                    .limit(1);
+
+                // Extract PPPoE name from title (format: "PPPoE Disconnect: USERNAME")
+                const name = r.pppoeTitle?.replace('PPPoE Disconnect: ', '') || 'Unknown';
+
+                return {
+                    name,
+                    disconnectCount: Number(r.disconnectCount) || 0,
+                    lastDisconnect: r.lastDisconnect,
+                    routerName: router?.name || 'Unknown',
+                };
+            })
+        );
+
+        return withRouterNames;
+    }
+
+    /**
+     * Get PPPoE clients that are currently down (recently disconnected and not reconnected)
+     */
+    async getCurrentPppoeDownStatus(routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; address: string; downSince: Date; routerName: string }[]> {
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        // Get recent disconnect alerts (last 24 hours) that don't have a subsequent connect
+        const oneDayAgo = new Date();
+        oneDayAgo.setHours(oneDayAgo.getHours() - 24);
+
+        const conditions: any[] = [
+            eq(alerts.type, 'pppoe_disconnect'),
+            gte(alerts.createdAt, oneDayAgo),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        // Get all disconnect alerts
+        const disconnects = await db
+            .select({
+                title: alerts.title,
+                message: alerts.message,
+                createdAt: alerts.createdAt,
+                routerId: alerts.routerId,
+            })
+            .from(alerts)
+            .where(and(...conditions))
+            .orderBy(desc(alerts.createdAt));
+
+        // Get all connect alerts to filter out reconnected clients
+        const connectConditions: any[] = [
+            eq(alerts.type, 'pppoe_connect'),
+            gte(alerts.createdAt, oneDayAgo),
+        ];
+        if (routerId) {
+            connectConditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            connectConditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        const connects = await db
+            .select({ title: alerts.title, createdAt: alerts.createdAt })
+            .from(alerts)
+            .where(and(...connectConditions));
+
+        // Build a map of latest connect times by PPPoE name
+        const connectMap = new Map<string, Date>();
+        for (const c of connects) {
+            const name = c.title?.replace('PPPoE Connect: ', '') || '';
+            const existing = connectMap.get(name);
+            if (!existing || c.createdAt > existing) {
+                connectMap.set(name, c.createdAt);
+            }
+        }
+
+        // Filter disconnects where there's no subsequent connect
+        const downClients: { name: string; address: string; downSince: Date; routerName: string; routerId: string }[] = [];
+        const seenNames = new Set<string>();
+
+        for (const d of disconnects) {
+            const name = d.title?.replace('PPPoE Disconnect: ', '') || 'Unknown';
+
+            // Skip if we already have this client (keep most recent)
+            if (seenNames.has(name)) continue;
+
+            const lastConnect = connectMap.get(name);
+            // If no connect after this disconnect, client is still down
+            if (!lastConnect || lastConnect < d.createdAt) {
+                // Extract IP from message
+                const ipMatch = d.message?.match(/IP: ([^\s,)]+)/);
+                const address = ipMatch?.[1] || 'N/A';
+
+                downClients.push({
+                    name,
+                    address,
+                    downSince: d.createdAt,
+                    routerName: '',
+                    routerId: d.routerId,
+                });
+                seenNames.add(name);
+            }
+        }
+
+        // Get router names
+        const withRouterNames = await Promise.all(
+            downClients.map(async (client) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, client.routerId))
+                    .limit(1);
+
+                return {
+                    name: client.name,
+                    address: client.address,
+                    downSince: client.downSince,
+                    routerName: router?.name || 'Unknown',
+                };
+            })
+        );
+
+        return withRouterNames.slice(0, 10); // Limit to 10
+    }
 }
 
 export const analyticsService = new AnalyticsService();
+
