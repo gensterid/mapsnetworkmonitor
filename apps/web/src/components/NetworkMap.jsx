@@ -280,6 +280,20 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         enabled: !!routersData && !showRoutersOnly,
     });
 
+    // Fetch PPPoE sessions with coordinates
+    const { data: pppoeData } = useQuery({
+        queryKey: ['pppoe-map', filteredRouterId],
+        queryFn: async () => {
+            const url = filteredRouterId
+                ? `/pppoe/map?routerId=${filteredRouterId}`
+                : '/pppoe/map';
+            const res = await apiClient.get(url);
+            return res.data.data || [];
+        },
+        enabled: !showRoutersOnly,
+        staleTime: 30000,
+    });
+
     // State for syncing indicator
     const [isSyncing, setIsSyncing] = useState(false);
 
@@ -467,8 +481,28 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             }
         });
 
-        return { routers: routerNodes, nodes, lines };
-    }, [routersData, netwatchData, filteredRouterId, showRoutersOnly]);
+        // Fourth pass: Create PPPoE nodes
+        const pppoeNodes = [];
+        if (pppoeData && Array.isArray(pppoeData)) {
+            pppoeData.forEach(session => {
+                if (session.latitude && session.longitude) {
+                    const lat = parseFloat(session.latitude);
+                    const lng = parseFloat(session.longitude);
+                    if (!isNaN(lat) && !isNaN(lng)) {
+                        pppoeNodes.push({
+                            ...session,
+                            lat,
+                            lng,
+                            deviceType: 'pppoe',
+                            status: session.isActive ? 'up' : 'down',
+                        });
+                    }
+                }
+            });
+        }
+
+        return { routers: routerNodes, nodes, lines, pppoeNodes };
+    }, [routersData, netwatchData, pppoeData, filteredRouterId, showRoutersOnly]);
 
     const defaultCenter = [-8.8742173, 120.7290947];
     const center = mapData.routers.length > 0 ? [mapData.routers[0].lat, mapData.routers[0].lng] : defaultCenter;
@@ -476,8 +510,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     // Combine all points for auto-fitting
     const allMarkers = useMemo(() => [
         ...mapData.routers,
-        ...mapData.nodes
-    ], [mapData.routers, mapData.nodes]);
+        ...mapData.nodes,
+        ...(mapData.pppoeNodes || [])
+    ], [mapData.routers, mapData.nodes, mapData.pppoeNodes]);
 
     // Handlers
     const handleDeviceClick = useCallback((device, type) => {
@@ -868,6 +903,49 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             </div>
                         </Tooltip>
                     </DraggableMarker>
+                ))}
+
+                {/* PPPoE Client Markers */}
+                {(mapData.pppoeNodes || []).map(pppoe => (
+                    <Marker
+                        key={`pppoe-${pppoe.id}`}
+                        position={[pppoe.lat, pppoe.lng]}
+                        icon={createDeviceIcon({
+                            type: 'pppoe',
+                            status: pppoe.status,
+                            name: showLabels ? pppoe.name : '',
+                            showLabel: showLabels,
+                            small: true,
+                        })}
+                    >
+                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                            <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'}`}>
+                                    <div className="flex items-center gap-2 text-white">
+                                        <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                                        <span className="font-bold text-xs truncate max-w-[100px]">{pppoe.name}</span>
+                                    </div>
+                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                        PPPoE
+                                    </div>
+                                </div>
+                                <div className="p-3 bg-slate-800 space-y-2">
+                                    {pppoe.address && (
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">IP</span>
+                                            <span className="text-slate-200 font-mono">{pppoe.address}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Status</span>
+                                        <span className={pppoe.status === 'up' ? 'text-emerald-400' : 'text-slate-400'}>
+                                            {pppoe.status === 'up' ? 'Online' : 'Offline'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </Tooltip>
+                    </Marker>
                 ))}
 
             </MapContainer>

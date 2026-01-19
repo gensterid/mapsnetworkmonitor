@@ -32,6 +32,10 @@ const deviceConfig = {
         icon: 'wifi',
         colorClass: 'device-icon--client',
     },
+    pppoe: {
+        icon: 'account_circle',
+        colorClass: 'device-icon--pppoe',
+    },
 };
 
 /**

@@ -52,6 +52,10 @@
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
+.device-icon--pppoe .device-icon__badge {
+    background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+}
+
 /* Status colors */
 .device-icon--online .device-icon__badge {
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
