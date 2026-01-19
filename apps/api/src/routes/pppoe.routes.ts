@@ -57,16 +57,17 @@ router.get('/:id', async (req, res) => {
 
 /**
  * PATCH /api/pppoe/:id/coordinates
- * Update PPPoE session coordinates (requires operator or admin)
+ * Update PPPoE session coordinates and waypoints (requires operator or admin)
  */
 router.patch('/:id/coordinates', requireOperator, async (req, res) => {
     try {
-        const { latitude, longitude } = req.body;
+        const { latitude, longitude, waypoints } = req.body;
 
         const session = await pppoeService.updateCoordinates(
             req.params.id,
             latitude || null,
-            longitude || null
+            longitude || null,
+            waypoints || null
         );
 
         if (!session) {
@@ -80,4 +81,31 @@ router.patch('/:id/coordinates', requireOperator, async (req, res) => {
     }
 });
 
+/**
+ * PUT /api/pppoe/:id
+ * Update PPPoE session (requires operator or admin)
+ */
+router.put('/:id', requireOperator, async (req, res) => {
+    try {
+        const { latitude, longitude, waypoints } = req.body;
+
+        const session = await pppoeService.updateCoordinates(
+            req.params.id,
+            latitude || null,
+            longitude || null,
+            waypoints || null
+        );
+
+        if (!session) {
+            return res.status(404).json({ error: 'Session not found' });
+        }
+
+        res.json({ data: session });
+    } catch (error) {
+        console.error('Failed to update PPPoE session:', error);
+        res.status(500).json({ error: 'Failed to update session' });
+    }
+});
+
 export default router;
+

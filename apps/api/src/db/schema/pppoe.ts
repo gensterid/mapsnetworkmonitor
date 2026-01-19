@@ -20,6 +20,7 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     uptime: text('uptime'), // Current uptime string from MikroTik
     latitude: text('latitude'), // Location latitude for map display
     longitude: text('longitude'), // Location longitude for map display
+    waypoints: text('waypoints'), // JSON string of waypoints for map line
     connectedAt: timestamp('connected_at').defaultNow().notNull(),
     lastSeen: timestamp('last_seen').defaultNow().notNull(),
 });

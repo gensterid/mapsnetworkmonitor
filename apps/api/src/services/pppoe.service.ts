@@ -173,16 +173,22 @@ class PppoeService {
     }
 
     /**
-     * Update coordinates for a PPPoE session
+     * Update coordinates and waypoints for a PPPoE session
      */
     async updateCoordinates(
         id: string,
         latitude: string | null,
-        longitude: string | null
+        longitude: string | null,
+        waypoints: string | null = null
     ): Promise<PppoeSession | undefined> {
+        const updateData: any = { latitude, longitude };
+        if (waypoints !== undefined) {
+            updateData.waypoints = waypoints;
+        }
+
         const [session] = await db
             .update(pppoeSessions)
-            .set({ latitude, longitude })
+            .set(updateData)
             .where(eq(pppoeSessions.id, id))
             .returning();
         return session;

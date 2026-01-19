@@ -489,13 +489,39 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     const lat = parseFloat(session.latitude);
                     const lng = parseFloat(session.longitude);
                     if (!isNaN(lat) && !isNaN(lng)) {
+                        // Find parent router for this PPPoE
+                        const parentRouter = routerMap.get(session.routerId);
+
                         pppoeNodes.push({
                             ...session,
                             lat,
                             lng,
                             deviceType: 'pppoe',
-                            status: session.isActive ? 'up' : 'down',
+                            status: 'up', // Sessions in DB are always active
                         });
+
+                        // Create line from router to PPPoE
+                        if (parentRouter) {
+                            const waypoints = session.waypoints
+                                ? (typeof session.waypoints === 'string' ? JSON.parse(session.waypoints) : session.waypoints)
+                                : [];
+                            const fullPath = [[parentRouter.lat, parentRouter.lng], ...waypoints, [lat, lng]];
+                            const distance = calculatePathLength(fullPath);
+
+                            lines.push({
+                                id: `pppoe-${session.id}`,
+                                routerId: session.routerId,
+                                pppoeId: session.id,
+                                from: [parentRouter.lat, parentRouter.lng],
+                                to: [lat, lng],
+                                status: 'up',
+                                waypoints: waypoints,
+                                sourceName: parentRouter.name,
+                                destName: session.name,
+                                distance,
+                                deviceType: 'pppoe',
+                            });
+                        }
                     }
                 }
             });
@@ -659,21 +685,30 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
         setIsSaving(true);
         try {
-            // Save waypoints as JSON string
-            await updateNetwatchMutation.mutateAsync({
-                routerId: editingDevice.routerId,
-                netwatchId: editingDevice.id,
-                data: {
+            // Check if this is a PPPoE device or netwatch device
+            if (editingDevice.deviceType === 'pppoe') {
+                // Save PPPoE waypoints
+                await apiClient.patch(`/pppoe/${editingDevice.id}/coordinates`, {
                     waypoints: JSON.stringify(editWaypoints),
-                },
-            });
+                });
+                queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+            } else {
+                // Save netwatch waypoints
+                await updateNetwatchMutation.mutateAsync({
+                    routerId: editingDevice.routerId,
+                    netwatchId: editingDevice.id,
+                    data: {
+                        waypoints: JSON.stringify(editWaypoints),
+                    },
+                });
+            }
             handleCancelPathEdit();
         } catch (err) {
             console.error('Failed to save path:', err);
         } finally {
             setIsSaving(false);
         }
-    }, [editingDevice, editWaypoints, updateNetwatchMutation, handleCancelPathEdit]);
+    }, [editingDevice, editWaypoints, updateNetwatchMutation, handleCancelPathEdit, queryClient]);
 
     const handleResetPath = useCallback(() => {
         setEditWaypoints([]);
@@ -721,10 +756,38 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         }
     }, [updateRouterMutation, updateNetwatchMutation, queryClient]);
 
+    // PPPoE update mutation
+    const updatePppoeMutation = useMutation({
+        mutationFn: async ({ pppoeId, data }) => {
+            const res = await apiClient.patch(`/pppoe/${pppoeId}/coordinates`, data);
+            return res.data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+        },
+    });
+
+    // Handle PPPoE marker drag
+    const handlePppoeDragEnd = useCallback(async (pppoe, newPosition) => {
+        try {
+            await updatePppoeMutation.mutateAsync({
+                pppoeId: pppoe.id,
+                data: {
+                    latitude: newPosition[0].toString(),
+                    longitude: newPosition[1].toString(),
+                },
+            });
+        } catch (err) {
+            console.error('Failed to update PPPoE position:', err);
+            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+        }
+    }, [updatePppoeMutation, queryClient]);
+
     // Find line for editing
     const editingLine = useMemo(() => {
         if (!isEditingPath || !editingDevice) return null;
-        return mapData.lines.find(l => l.netwatchId === editingDevice.id);
+        // Check both netwatch and pppoe lines
+        return mapData.lines.find(l => l.netwatchId === editingDevice.id || l.pppoeId === editingDevice.id);
     }, [isEditingPath, editingDevice, mapData.lines]);
 
     return (
@@ -907,7 +970,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                 {/* PPPoE Client Markers */}
                 {(mapData.pppoeNodes || []).map(pppoe => (
-                    <Marker
+                    <DraggableMarker
                         key={`pppoe-${pppoe.id}`}
                         position={[pppoe.lat, pppoe.lng]}
                         icon={createDeviceIcon({
@@ -917,6 +980,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             showLabel: showLabels,
                             small: true,
                         })}
+                        draggable={isEditMode}
+                        onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                        onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
                     >
                         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
                             <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -938,14 +1004,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     )}
                                     <div className="flex items-center justify-between text-xs">
                                         <span className="text-slate-400">Status</span>
-                                        <span className={pppoe.status === 'up' ? 'text-emerald-400' : 'text-slate-400'}>
-                                            {pppoe.status === 'up' ? 'Online' : 'Offline'}
-                                        </span>
+                                        <span className="text-emerald-400">Online</span>
+                                    </div>
+                                    <div className="text-xs text-slate-500 text-center pt-1 border-t border-slate-700">
+                                        Klik untuk edit
                                     </div>
                                 </div>
                             </div>
                         </Tooltip>
-                    </Marker>
+                    </DraggableMarker>
                 ))}
 
             </MapContainer>

@@ -61,6 +61,14 @@ async function runMigrations() {
                     ALTER TABLE pppoe_sessions ADD COLUMN longitude TEXT;
                     RAISE NOTICE 'Added longitude column to pppoe_sessions';
                 END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'pppoe_sessions' AND column_name = 'waypoints'
+                ) THEN
+                    ALTER TABLE pppoe_sessions ADD COLUMN waypoints TEXT;
+                    RAISE NOTICE 'Added waypoints column to pppoe_sessions';
+                END IF;
             END $$;
         `);
         console.log('✅ Database migrations complete');
