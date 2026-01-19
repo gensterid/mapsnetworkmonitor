@@ -579,8 +579,9 @@ class AnalyticsService {
                     .where(eq(routers.id, r.routerId))
                     .limit(1);
 
-                // Extract PPPoE name from title (format: "PPPoE Disconnect: USERNAME")
-                const name = r.pppoeTitle?.replace('PPPoE Disconnect: ', '') || 'Unknown';
+                // Extract PPPoE name from title (format: "PPPoE: USERNAME disconnected")
+                const titleMatch = r.pppoeTitle?.match(/^PPPoE: (.+) disconnected$/);
+                const name = titleMatch?.[1] || r.pppoeTitle?.replace('PPPoE: ', '').replace(' disconnected', '') || 'Unknown';
 
                 return {
                     name,
@@ -653,7 +654,9 @@ class AnalyticsService {
         const seenNames = new Set<string>();
 
         for (const d of disconnects) {
-            const name = d.title?.replace('PPPoE Disconnect: ', '') || 'Unknown';
+            // Extract PPPoE name from title (format: "PPPoE: USERNAME disconnected")
+            const titleMatch = d.title?.match(/^PPPoE: (.+) disconnected$/);
+            const name = titleMatch?.[1] || d.title?.replace('PPPoE: ', '').replace(' disconnected', '') || 'Unknown';
 
             // Skip if we already have this client (keep most recent disconnect)
             if (seenNames.has(name)) continue;
