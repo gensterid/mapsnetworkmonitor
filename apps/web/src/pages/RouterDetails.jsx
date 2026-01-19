@@ -32,7 +32,8 @@ import {
     Network,
     PhoneCall,
     Timer,
-    Search
+    Search,
+    X
 } from 'lucide-react';
 import clsx from 'clsx';
 import {
@@ -1115,17 +1116,88 @@ function MapTab({ router }) {
     );
 }
 
+// PPPoE Coordinates Modal
+function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
+    const [latitude, setLatitude] = React.useState(session?.latitude || '');
+    const [longitude, setLongitude] = React.useState(session?.longitude || '');
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSave({ latitude, longitude });
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md">
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                        <MapPin className="w-5 h-5 text-primary" />
+                        Set Lokasi PPPoE
+                    </h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <div className="mb-4 p-3 bg-slate-800 rounded-lg">
+                    <div className="text-sm text-slate-400">Username</div>
+                    <div className="font-medium text-white">{session?.name}</div>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-sm text-slate-400 mb-1">Latitude</label>
+                        <input
+                            type="text"
+                            value={latitude}
+                            onChange={(e) => setLatitude(e.target.value)}
+                            placeholder="-6.2088"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm text-slate-400 mb-1">Longitude</label>
+                        <input
+                            type="text"
+                            value={longitude}
+                            onChange={(e) => setLongitude(e.target.value)}
+                            placeholder="106.8456"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                        />
+                    </div>
+                    <p className="text-xs text-slate-500">
+                        Tips: Klik kanan di Google Maps untuk menyalin koordinat
+                    </p>
+                    <div className="flex gap-3 pt-2">
+                        <Button type="button" variant="outline" onClick={onClose} className="flex-1">Batal</Button>
+                        <Button type="submit" disabled={isSaving} className="flex-1">
+                            {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Simpan'}
+                        </Button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+}
+
 // PPPoE Tab Content
 function PppoeTab({ routerId }) {
     const [sessions, setSessions] = React.useState([]);
+    const [dbSessions, setDbSessions] = React.useState([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [searchQuery, setSearchQuery] = React.useState('');
+    const [selectedSession, setSelectedSession] = React.useState(null);
+    const [isSaving, setIsSaving] = React.useState(false);
 
     const fetchSessions = async () => {
         setIsLoading(true);
         try {
-            const res = await apiClient.get(`/routers/${routerId}/ppp/sessions`);
-            setSessions(res.data?.data || []);
+            const [liveRes, dbRes] = await Promise.all([
+                apiClient.get(`/routers/${routerId}/ppp/sessions`),
+                apiClient.get(`/pppoe?routerId=${routerId}`)
+            ]);
+            setSessions(liveRes.data?.data || []);
+            setDbSessions(dbRes.data?.data || []);
         } catch (err) {
             console.error('Failed to fetch PPPoE sessions:', err);
             setSessions([]);
@@ -1136,17 +1208,51 @@ function PppoeTab({ routerId }) {
 
     React.useEffect(() => {
         fetchSessions();
-        // Refresh every 30 seconds
         const interval = setInterval(fetchSessions, 30000);
         return () => clearInterval(interval);
     }, [routerId]);
 
-    const filteredSessions = sessions.filter(s =>
+    // Merge live sessions with DB coordinates
+    const mergedSessions = React.useMemo(() => {
+        const dbMap = new Map(dbSessions.map(s => [s.name, s]));
+        return sessions.map(s => ({
+            ...s,
+            dbId: dbMap.get(s.name)?.id,
+            latitude: dbMap.get(s.name)?.latitude,
+            longitude: dbMap.get(s.name)?.longitude,
+        }));
+    }, [sessions, dbSessions]);
+
+    const filteredSessions = mergedSessions.filter(s =>
         !searchQuery ||
         s.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         s.callerId?.toLowerCase().includes(searchQuery.toLowerCase())
     );
+
+    const handleSaveCoordinates = async (coords) => {
+        if (!selectedSession?.dbId) {
+            alert('Session belum tersimpan di database. Tunggu beberapa saat.');
+            return;
+        }
+        setIsSaving(true);
+        try {
+            await apiClient.patch(`/pppoe/${selectedSession.dbId}/coordinates`, {
+                latitude: coords.latitude || null,
+                longitude: coords.longitude || null,
+            });
+            setSelectedSession(null);
+            fetchSessions();
+        } catch (err) {
+            console.error('Failed to save coordinates:', err);
+            alert('Gagal menyimpan koordinat');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Count sessions with location
+    const withLocation = mergedSessions.filter(s => s.latitude && s.longitude).length;
 
     if (isLoading) {
         return (
@@ -1165,7 +1271,10 @@ function PppoeTab({ routerId }) {
                         <PhoneCall className="w-5 h-5 text-primary" />
                         Active PPPoE Sessions
                     </h2>
-                    <p className="text-slate-400 text-sm">{sessions.length} users connected</p>
+                    <p className="text-slate-400 text-sm">
+                        {sessions.length} users connected
+                        {withLocation > 0 && <span className="text-primary ml-2">• {withLocation} with location</span>}
+                    </p>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none sm:w-64">
@@ -1233,10 +1342,39 @@ function PppoeTab({ routerId }) {
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Set Lokasi Button */}
+                                <div className="mt-3 pt-3 border-t border-slate-800">
+                                    <button
+                                        onClick={() => setSelectedSession(session)}
+                                        className={clsx(
+                                            "w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors",
+                                            session.latitude && session.longitude
+                                                ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                                                : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                        )}
+                                    >
+                                        <MapPin className="w-3 h-3" />
+                                        {session.latitude && session.longitude
+                                            ? `📍 ${parseFloat(session.latitude).toFixed(4)}, ${parseFloat(session.longitude).toFixed(4)}`
+                                            : 'Set Lokasi'
+                                        }
+                                    </button>
+                                </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
+            )}
+
+            {/* Coordinates Modal */}
+            {selectedSession && (
+                <PppoeCoordinatesModal
+                    session={selectedSession}
+                    onClose={() => setSelectedSession(null)}
+                    onSave={handleSaveCoordinates}
+                    isSaving={isSaving}
+                />
             )}
         </div>
     );
