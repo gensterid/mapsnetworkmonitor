@@ -370,6 +370,17 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
     });
 
+    // Mutation for updating PPPoE session coordinates
+    const updatePppoeMutation = useMutation({
+        mutationFn: async ({ pppoeId, data }) => {
+            const res = await apiClient.patch(`/pppoe/${pppoeId}/coordinates`, data);
+            return res.data.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+        },
+    });
+
     // Combine Data
     const mapData = useMemo(() => {
         if (!routersData) return { routers: [], lines: [], nodes: [] };
@@ -764,17 +775,6 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             }
         }
     }, [updateRouterMutation, updateNetwatchMutation, queryClient]);
-
-    // PPPoE update mutation
-    const updatePppoeMutation = useMutation({
-        mutationFn: async ({ pppoeId, data }) => {
-            const res = await apiClient.patch(`/pppoe/${pppoeId}/coordinates`, data);
-            return res.data.data;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
-        },
-    });
 
     // Handle PPPoE marker drag
     const handlePppoeDragEnd = useCallback(async (pppoe, newPosition) => {
