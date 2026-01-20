@@ -183,7 +183,15 @@ class PppoeService {
         connectionType: string | null = null,
         connectedToId: string | null = null
     ): Promise<PppoeSession | undefined> {
-        const updateData: any = { latitude, longitude };
+        const updateData: any = {};
+
+        // Only update latitude/longitude if explicitly provided (not null)
+        if (latitude !== undefined && latitude !== null) {
+            updateData.latitude = latitude;
+        }
+        if (longitude !== undefined && longitude !== null) {
+            updateData.longitude = longitude;
+        }
         if (waypoints !== undefined && waypoints !== null) {
             updateData.waypoints = waypoints;
         }
@@ -192,6 +200,11 @@ class PppoeService {
         }
         if (connectedToId !== undefined) {
             updateData.connectedToId = connectedToId;
+        }
+
+        // Only update if there's something to update
+        if (Object.keys(updateData).length === 0) {
+            return this.findById(id);
         }
 
         const [session] = await db
