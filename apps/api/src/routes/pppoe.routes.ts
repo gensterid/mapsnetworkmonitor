@@ -57,17 +57,19 @@ router.get('/:id', async (req, res) => {
 
 /**
  * PATCH /api/pppoe/:id/coordinates
- * Update PPPoE session coordinates and waypoints (requires operator or admin)
+ * Update PPPoE session coordinates, waypoints and connection info (requires operator or admin)
  */
 router.patch('/:id/coordinates', requireOperator, async (req, res) => {
     try {
-        const { latitude, longitude, waypoints } = req.body;
+        const { latitude, longitude, waypoints, connectionType, connectedToId } = req.body;
 
         const session = await pppoeService.updateCoordinates(
             req.params.id,
             latitude || null,
             longitude || null,
-            waypoints || null
+            waypoints || null,
+            connectionType || null,
+            connectedToId !== undefined ? connectedToId : null
         );
 
         if (!session) {
@@ -87,13 +89,15 @@ router.patch('/:id/coordinates', requireOperator, async (req, res) => {
  */
 router.put('/:id', requireOperator, async (req, res) => {
     try {
-        const { latitude, longitude, waypoints } = req.body;
+        const { latitude, longitude, waypoints, connectionType, connectedToId } = req.body;
 
         const session = await pppoeService.updateCoordinates(
             req.params.id,
             latitude || null,
             longitude || null,
-            waypoints || null
+            waypoints || null,
+            connectionType || null,
+            connectedToId !== undefined ? connectedToId : null
         );
 
         if (!session) {

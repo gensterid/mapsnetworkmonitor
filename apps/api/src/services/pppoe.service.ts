@@ -173,17 +173,25 @@ class PppoeService {
     }
 
     /**
-     * Update coordinates and waypoints for a PPPoE session
+     * Update coordinates, waypoints and connection info for a PPPoE session
      */
     async updateCoordinates(
         id: string,
         latitude: string | null,
         longitude: string | null,
-        waypoints: string | null = null
+        waypoints: string | null = null,
+        connectionType: string | null = null,
+        connectedToId: string | null = null
     ): Promise<PppoeSession | undefined> {
         const updateData: any = { latitude, longitude };
-        if (waypoints !== undefined) {
+        if (waypoints !== undefined && waypoints !== null) {
             updateData.waypoints = waypoints;
+        }
+        if (connectionType !== undefined && connectionType !== null) {
+            updateData.connectionType = connectionType;
+        }
+        if (connectedToId !== undefined) {
+            updateData.connectedToId = connectedToId;
         }
 
         const [session] = await db

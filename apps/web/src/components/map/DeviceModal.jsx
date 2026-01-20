@@ -155,12 +155,13 @@ const DeviceModal = ({
                                 className="device-modal__select"
                                 value={formData.type}
                                 onChange={handleChange}
-                                disabled={isSaving || (device?.id && device.deviceType === 'router')}
+                                disabled={isSaving || (device?.id && (device.deviceType === 'router' || device.deviceType === 'pppoe'))}
                             >
                                 <option value="router">Router</option>
                                 <option value="olt">OLT</option>
                                 <option value="odp">ODP</option>
                                 <option value="client">Client / Netwatch</option>
+                                <option value="pppoe">PPPoE Client</option>
                             </select>
                         </div>
 

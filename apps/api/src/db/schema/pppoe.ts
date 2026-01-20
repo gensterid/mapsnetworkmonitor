@@ -21,6 +21,8 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     latitude: text('latitude'), // Location latitude for map display
     longitude: text('longitude'), // Location longitude for map display
     waypoints: text('waypoints'), // JSON string of waypoints for map line
+    connectionType: text('connection_type').default('router'), // 'router' or 'client'
+    connectedToId: uuid('connected_to_id'), // ID of client/device connected to (if connectionType is 'client')
     connectedAt: timestamp('connected_at').defaultNow().notNull(),
     lastSeen: timestamp('last_seen').defaultNow().notNull(),
 });

@@ -583,6 +583,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     data: {
                         latitude: deviceData.latitude,
                         longitude: deviceData.longitude,
+                        connectionType: deviceData.connectionType,
+                        connectedToId: deviceData.connectedToId || null,
                     },
                 });
             } else if (deviceData.id) {
