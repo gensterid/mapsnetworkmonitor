@@ -565,6 +565,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         notes: deviceData.notes,
                     },
                 });
+            } else if (deviceData.deviceType === 'pppoe' && deviceData.id) {
+                // Update PPPoE session - uses separate endpoint
+                await updatePppoeMutation.mutateAsync({
+                    pppoeId: deviceData.id,
+                    data: {
+                        latitude: deviceData.latitude,
+                        longitude: deviceData.longitude,
+                    },
+                });
             } else if (deviceData.id) {
                 // Update existing Netwatch / Client / OLT / ODP
                 await updateNetwatchMutation.mutateAsync({
@@ -627,7 +636,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         } finally {
             setIsSaving(false);
         }
-    }, [updateRouterMutation, updateNetwatchMutation, createNetwatchMutation, handleCloseModal, mapData.routers]);
+    }, [updateRouterMutation, updateNetwatchMutation, createNetwatchMutation, updatePppoeMutation, handleCloseModal, mapData.routers]);
 
     const handleDeleteDevice = useCallback(async (device) => {
         console.log('Attempting to delete device:', device);
