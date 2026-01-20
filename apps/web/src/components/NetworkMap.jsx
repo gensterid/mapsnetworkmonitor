@@ -706,11 +706,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     }, [deleteNetwatchMutation, handleCloseModal, queryClient]);
 
     const handleEditPath = useCallback((device) => {
-        const line = mapData.lines.find(l => l.netwatchId === device.id);
+        // Check for both netwatchId and pppoeId
+        const line = mapData.lines.find(l => l.netwatchId === device.id || l.pppoeId === device.id);
         if (line) {
             setEditingDevice(device);
             setEditWaypoints(line.waypoints || []);
             setIsEditingPath(true);
+        } else {
+            console.warn('No line found for device:', device.id);
         }
     }, [mapData.lines]);
 
