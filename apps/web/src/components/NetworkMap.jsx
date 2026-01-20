@@ -511,23 +511,42 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             status: 'up', // Sessions in DB are always active
                         });
 
-                        // Create line from router to PPPoE
-                        if (parentRouter) {
+                        // Determine source position based on connectionType
+                        let fromPos = null;
+                        let sourceName = 'Unknown';
+
+                        if (session.connectionType === 'client' && session.connectedToId) {
+                            // Connected to another client/device
+                            const parentDevice = deviceMap.get(session.connectedToId);
+                            if (parentDevice) {
+                                fromPos = [parentDevice.lat, parentDevice.lng];
+                                sourceName = parentDevice.name || parentDevice.host || 'Unknown Client';
+                            }
+                        }
+
+                        // Fallback to router if no client connection found
+                        if (!fromPos && parentRouter) {
+                            fromPos = [parentRouter.lat, parentRouter.lng];
+                            sourceName = parentRouter.name;
+                        }
+
+                        // Create line from source to PPPoE
+                        if (fromPos) {
                             const waypoints = session.waypoints
                                 ? (typeof session.waypoints === 'string' ? JSON.parse(session.waypoints) : session.waypoints)
                                 : [];
-                            const fullPath = [[parentRouter.lat, parentRouter.lng], ...waypoints, [lat, lng]];
+                            const fullPath = [fromPos, ...waypoints, [lat, lng]];
                             const distance = calculatePathLength(fullPath);
 
                             lines.push({
                                 id: `pppoe-${session.id}`,
                                 routerId: session.routerId,
                                 pppoeId: session.id,
-                                from: [parentRouter.lat, parentRouter.lng],
+                                from: fromPos,
                                 to: [lat, lng],
                                 status: 'up',
                                 waypoints: waypoints,
-                                sourceName: parentRouter.name,
+                                sourceName: sourceName,
                                 destName: session.name,
                                 distance,
                                 deviceType: 'pppoe',

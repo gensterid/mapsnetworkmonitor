@@ -41,6 +41,9 @@ const AnimatedPath = ({
         if (status === 'down') {
             lineColor = '#ef4444';
             linePulseColor = '#fecaca';
+        } else if (type === 'pppoe') {
+            lineColor = '#9333ea'; // Purple-600
+            linePulseColor = '#c084fc'; // Purple-400
         } else if (type === 'odp') {
             lineColor = '#f59e0b'; // Orange-500
             linePulseColor = '#fcd34d'; // Orange-200
