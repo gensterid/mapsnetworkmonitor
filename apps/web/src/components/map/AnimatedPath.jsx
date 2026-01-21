@@ -41,9 +41,11 @@ const AnimatedPath = ({
         const preset = animationStyle ? getAnimationStyle(animationStyle) : null;
 
         // Use preset values or props
+        // Priority: Prop > Preset > Default (handled by prop default)
         const lineDelay = preset?.delay ?? delay;
         const lineDashArray = preset?.dashArray ?? dashArray;
-        const lineWeight = preset?.weight ?? weight;
+        // Prioritize explicit weight prop over preset
+        const lineWeight = weight;
         const lineOpacity = preset?.opacity ?? opacity;
         const linePaused = preset?.paused ?? paused;
         const lineReverse = preset?.reverse ?? reverse;
