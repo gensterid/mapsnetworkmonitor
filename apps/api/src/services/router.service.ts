@@ -827,7 +827,7 @@ export class RouterService {
     async createNetwatch(
         routerId: string,
         data: {
-            host: string;
+            host?: string; // Optional for ODP devices
             name?: string;
             deviceType?: 'client' | 'olt' | 'odp';
             interval?: number;
@@ -844,7 +844,7 @@ export class RouterService {
         if (!router) throw new Error('Router not found');
 
         // Only add to MikroTik if it's a netwatch client type (has IP to ping)
-        if (data.deviceType === 'client' || !data.deviceType) {
+        if ((data.deviceType === 'client' || !data.deviceType) && data.host) {
             let conn;
             try {
                 conn = await connectToRouter({
@@ -872,7 +872,7 @@ export class RouterService {
             .insert(routerNetwatch)
             .values({
                 routerId,
-                host: data.host,
+                host: data.host || '', // Default to empty string for ODP without host
                 name: data.name,
                 deviceType: data.deviceType || 'client',
                 interval: data.interval || 30,
@@ -882,7 +882,7 @@ export class RouterService {
                 waypoints: data.waypoints,
                 connectionType: data.connectionType || 'router',
                 connectedToId: data.connectedToId,
-                status: 'unknown',
+                status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
             })
             .returning();
 
