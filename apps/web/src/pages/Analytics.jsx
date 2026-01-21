@@ -350,7 +350,7 @@ function DateRangePicker({ value, onChange }) {
 }
 
 // Stat Card
-function StatCard({ icon: Icon, label, value, subvalue, color = 'primary' }) {
+function StatCard({ icon: Icon, label, value, subvalue, color = 'primary', onClick }) {
     const colorClasses = {
         success: 'text-emerald-400 bg-emerald-500/10',
         danger: 'text-red-400 bg-red-500/10',
@@ -358,20 +358,35 @@ function StatCard({ icon: Icon, label, value, subvalue, color = 'primary' }) {
         primary: 'text-blue-400 bg-blue-500/10',
     };
 
+    const cardContent = (
+        <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+                <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colorClasses[color])}>
+                    <Icon className="w-5 h-5" />
+                </div>
+                <div>
+                    <p className="text-slate-400 text-xs">{label}</p>
+                    <p className="text-xl font-bold text-white">{value}</p>
+                    {subvalue && <p className="text-xs text-slate-500">{subvalue}</p>}
+                </div>
+            </div>
+        </CardContent>
+    );
+
+    if (onClick) {
+        return (
+            <Card
+                className="glass-panel cursor-pointer hover:border-slate-600 hover:bg-slate-800/50 transition-all duration-200 hover:-translate-y-0.5"
+                onClick={onClick}
+            >
+                {cardContent}
+            </Card>
+        );
+    }
+
     return (
         <Card className="glass-panel">
-            <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                    <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colorClasses[color])}>
-                        <Icon className="w-5 h-5" />
-                    </div>
-                    <div>
-                        <p className="text-slate-400 text-xs">{label}</p>
-                        <p className="text-xl font-bold text-white">{value}</p>
-                        {subvalue && <p className="text-xs text-slate-500">{subvalue}</p>}
-                    </div>
-                </div>
-            </CardContent>
+            {cardContent}
         </Card>
     );
 }
@@ -384,6 +399,9 @@ export default function Analytics() {
 
     // Selected router filter
     const [selectedRouterId, setSelectedRouterId] = useState(null);
+
+    // Detail modal state for stat cards
+    const [detailModal, setDetailModal] = useState({ open: false, type: null, title: '', data: null });
 
     // Helper to get default date range (30 days)
     const getDefaultDateRange = () => {
@@ -562,6 +580,12 @@ export default function Analytics() {
                             value={overview?.totalAlerts || 0}
                             subvalue={`${overview?.unresolvedAlerts || 0} unresolved`}
                             color="warning"
+                            onClick={() => setDetailModal({
+                                open: true,
+                                type: 'alerts',
+                                title: 'Total Alerts',
+                                data: { total: overview?.totalAlerts, unresolved: overview?.unresolvedAlerts }
+                            })}
                         />
                         <StatCard
                             icon={Activity}
@@ -569,6 +593,12 @@ export default function Analytics() {
                             value={`${overview?.averageUptime || 0}%`}
                             subvalue={`${overview?.onlineRouters || 0}/${overview?.totalRouters || 0} online`}
                             color="success"
+                            onClick={() => setDetailModal({
+                                open: true,
+                                type: 'uptime',
+                                title: 'Uptime Rata-rata',
+                                data: { uptime: overview?.averageUptime, online: overview?.onlineRouters, total: overview?.totalRouters }
+                            })}
                         />
                         <StatCard
                             icon={Server}
@@ -576,6 +606,12 @@ export default function Analytics() {
                             value={overview?.totalRouters || 0}
                             subvalue={`${overview?.offlineRouters || 0} offline`}
                             color="primary"
+                            onClick={() => setDetailModal({
+                                open: true,
+                                type: 'routers',
+                                title: 'Detail Routers',
+                                data: { total: overview?.totalRouters, online: overview?.onlineRouters, offline: overview?.offlineRouters, routers }
+                            })}
                         />
                         <StatCard
                             icon={Users}
@@ -583,6 +619,12 @@ export default function Analytics() {
                             value={overview?.totalDevices || 0}
                             subvalue="Netwatch hosts"
                             color="primary"
+                            onClick={() => setDetailModal({
+                                open: true,
+                                type: 'devices',
+                                title: 'Total Devices',
+                                data: { total: overview?.totalDevices }
+                            })}
                         />
                         <StatCard
                             icon={Wifi}
@@ -590,6 +632,12 @@ export default function Analytics() {
                             value={overview?.pppoeConnects || 0}
                             subvalue="Koneksi baru"
                             color="success"
+                            onClick={() => setDetailModal({
+                                open: true,
+                                type: 'pppoe-connect',
+                                title: 'PPPoE Connections',
+                                data: { connects: overview?.pppoeConnects }
+                            })}
                         />
                         <StatCard
                             icon={WifiOff}
@@ -597,6 +645,12 @@ export default function Analytics() {
                             value={overview?.pppoeDisconnects || 0}
                             subvalue="Terputus"
                             color="danger"
+                            onClick={() => setDetailModal({
+                                open: true,
+                                type: 'pppoe-disconnect',
+                                title: 'PPPoE Disconnections',
+                                data: { disconnects: overview?.pppoeDisconnects }
+                            })}
                         />
                     </div>
 
@@ -881,6 +935,138 @@ export default function Analytics() {
                     </div>
                 </div>
             </div>
+
+            {/* Stat Detail Modal */}
+            {detailModal.open && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setDetailModal({ open: false, type: null, title: '', data: null })}>
+                    <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal Header */}
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700">
+                            <h3 className="text-lg font-semibold text-white">{detailModal.title}</h3>
+                            <button
+                                onClick={() => setDetailModal({ open: false, type: null, title: '', data: null })}
+                                className="text-slate-400 hover:text-white transition-colors"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-5 overflow-y-auto max-h-[60vh]">
+                            {detailModal.type === 'alerts' && (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-slate-800 rounded-lg p-4 text-center">
+                                            <p className="text-3xl font-bold text-amber-400">{detailModal.data?.total || 0}</p>
+                                            <p className="text-sm text-slate-400 mt-1">Total Alerts</p>
+                                        </div>
+                                        <div className="bg-slate-800 rounded-lg p-4 text-center">
+                                            <p className="text-3xl font-bold text-red-400">{detailModal.data?.unresolved || 0}</p>
+                                            <p className="text-sm text-slate-400 mt-1">Unresolved</p>
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-slate-500 text-center">Klik "View All History" di panel alerts untuk melihat detail lengkap.</p>
+                                </div>
+                            )}
+
+                            {detailModal.type === 'uptime' && (
+                                <div className="space-y-4">
+                                    <div className="bg-slate-800 rounded-lg p-6 text-center">
+                                        <p className="text-5xl font-bold text-emerald-400">{detailModal.data?.uptime || 0}%</p>
+                                        <p className="text-sm text-slate-400 mt-2">Rata-rata Uptime Jaringan</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 text-center">
+                                            <p className="text-2xl font-bold text-emerald-400">{detailModal.data?.online || 0}</p>
+                                            <p className="text-xs text-slate-400 mt-1">Router Online</p>
+                                        </div>
+                                        <div className="bg-slate-800 rounded-lg p-4 text-center">
+                                            <p className="text-2xl font-bold text-slate-300">{detailModal.data?.total || 0}</p>
+                                            <p className="text-xs text-slate-400 mt-1">Total Router</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {detailModal.type === 'routers' && (
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 text-center">
+                                            <p className="text-2xl font-bold text-blue-400">{detailModal.data?.total || 0}</p>
+                                            <p className="text-xs text-slate-400">Total</p>
+                                        </div>
+                                        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3 text-center">
+                                            <p className="text-2xl font-bold text-emerald-400">{detailModal.data?.online || 0}</p>
+                                            <p className="text-xs text-slate-400">Online</p>
+                                        </div>
+                                        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-center">
+                                            <p className="text-2xl font-bold text-red-400">{detailModal.data?.offline || 0}</p>
+                                            <p className="text-xs text-slate-400">Offline</p>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2 mt-4">
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider">Router List</p>
+                                        {detailModal.data?.routers?.slice(0, 8).map((router) => (
+                                            <div key={router.id} className="flex items-center justify-between p-3 bg-slate-800 rounded-lg">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={clsx("w-2 h-2 rounded-full", router.status === 'online' ? 'bg-emerald-500' : 'bg-red-500')} />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-white">{router.name}</p>
+                                                        <p className="text-xs text-slate-500 font-mono">{router.host}</p>
+                                                    </div>
+                                                </div>
+                                                <span className={clsx(
+                                                    "px-2 py-1 rounded text-xs font-medium",
+                                                    router.status === 'online' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                                                )}>
+                                                    {router.status}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {detailModal.type === 'devices' && (
+                                <div className="space-y-4">
+                                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6 text-center">
+                                        <p className="text-5xl font-bold text-blue-400">{detailModal.data?.total || 0}</p>
+                                        <p className="text-sm text-slate-400 mt-2">Total Netwatch Devices</p>
+                                    </div>
+                                    <p className="text-sm text-slate-500 text-center">Lihat halaman Map untuk detail setiap device.</p>
+                                </div>
+                            )}
+
+                            {detailModal.type === 'pppoe-connect' && (
+                                <div className="space-y-4">
+                                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-6 text-center">
+                                        <p className="text-5xl font-bold text-emerald-400">{detailModal.data?.connects || 0}</p>
+                                        <p className="text-sm text-slate-400 mt-2">Koneksi PPPoE Baru</p>
+                                    </div>
+                                    <p className="text-sm text-slate-500 text-center">Jumlah klien PPPoE yang terhubung dalam periode yang dipilih.</p>
+                                </div>
+                            )}
+
+                            {detailModal.type === 'pppoe-disconnect' && (
+                                <div className="space-y-4">
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
+                                        <p className="text-5xl font-bold text-red-400">{detailModal.data?.disconnects || 0}</p>
+                                        <p className="text-sm text-slate-400 mt-2">PPPoE Terputus</p>
+                                    </div>
+                                    <p className="text-sm text-slate-500 text-center">Jumlah klien PPPoE yang terputus dalam periode yang dipilih.</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-5 py-4 border-t border-slate-700 flex justify-end">
+                            <Button variant="outline" size="sm" onClick={() => setDetailModal({ open: false, type: null, title: '', data: null })}>
+                                Tutup
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

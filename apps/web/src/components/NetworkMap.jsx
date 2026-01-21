@@ -137,7 +137,12 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`;
         script.async = true;
         script.defer = true;
-        script.onload = () => setScriptLoaded(true);
+        script.onload = () => {
+            setScriptLoaded(true);
+            // Hide API Key from Inspect Element by removing the script tag
+            // Note: Key is still visible in Network tab (cannot be hidden in client-side apps)
+            script.remove();
+        };
         document.head.appendChild(script);
     }, [apiKey]);
 
