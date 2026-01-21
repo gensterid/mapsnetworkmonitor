@@ -79,8 +79,8 @@ export class RouterService {
     ): Promise<(Router & { latestMetrics?: RouterMetric; maxInterfaceSpeed?: string })[]> {
         let query = db.select().from(routers).orderBy(routers.name).$dynamic();
 
-        // If user is not admin or operator, filter by assigned routers
-        if (userId && userRole && userRole !== 'admin' && userRole !== 'operator') {
+        // If user is not admin, filter by assigned routers
+        if (userId && userRole && userRole !== 'admin') {
             // Get assigned router IDs
             const assigned = await db
                 .select({ routerId: userRouters.routerId })

@@ -15,7 +15,12 @@ router.use(authMiddleware);
 router.get('/', async (req, res) => {
     try {
         const routerId = req.query.routerId as string | undefined;
-        const sessions = await pppoeService.findAll(routerId);
+        // Pass user context for RBAC filtering
+        const sessions = await pppoeService.findAll(
+            routerId,
+            req.user?.id,
+            req.user?.role
+        );
         res.json({ data: sessions });
     } catch (error) {
         console.error('Failed to get PPPoE sessions:', error);
@@ -30,7 +35,12 @@ router.get('/', async (req, res) => {
 router.get('/map', async (req, res) => {
     try {
         const routerId = req.query.routerId as string | undefined;
-        const sessions = await pppoeService.findAllWithCoordinates(routerId);
+        // Pass user context for RBAC filtering
+        const sessions = await pppoeService.findAllWithCoordinates(
+            routerId,
+            req.user?.id,
+            req.user?.role
+        );
         res.json({ data: sessions });
     } catch (error) {
         console.error('Failed to get PPPoE map data:', error);

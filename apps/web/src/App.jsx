@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Netwatch from './pages/Netwatch';
 import NotificationGroups from './pages/NotificationGroups';
 import Analytics from './pages/Analytics';
+import AnimationDemo from './pages/AnimationDemo';
 import { useSession, useRole } from './lib/auth-client';
 
 import { Toaster } from 'react-hot-toast';
@@ -114,6 +115,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/animation-demo" element={<AnimationDemo />} />
 
           <Route
             path="/"

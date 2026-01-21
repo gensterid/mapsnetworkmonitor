@@ -1,7 +1,8 @@
-import { eq, and, notInArray } from 'drizzle-orm';
+import { eq, and, notInArray, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     pppoeSessions,
+    userRouters,
     type PppoeSession,
     type NewPppoeSession,
 } from '../db/schema/index.js';
@@ -218,18 +219,42 @@ class PppoeService {
     /**
      * Find all PPPoE sessions (with optional router filter)
      */
-    async findAll(routerId?: string): Promise<PppoeSession[]> {
+    /**
+     * Find all PPPoE sessions (with optional router filter)
+     */
+    async findAll(
+        routerId?: string,
+        userId?: string,
+        userRole?: string
+    ): Promise<PppoeSession[]> {
+        let query = db.select().from(pppoeSessions).$dynamic();
+        const filters = [];
+
         if (routerId) {
-            return db
-                .select()
-                .from(pppoeSessions)
-                .where(eq(pppoeSessions.routerId, routerId))
-                .orderBy(pppoeSessions.name);
+            filters.push(eq(pppoeSessions.routerId, routerId));
         }
-        return db
-            .select()
-            .from(pppoeSessions)
-            .orderBy(pppoeSessions.name);
+
+        // If user is not admin, filter by assigned routers
+        if (userId && userRole && userRole !== 'admin') {
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+
+            const assignedIds = assigned.map((a) => a.routerId);
+
+            if (assignedIds.length === 0) {
+                return []; // No routers assigned
+            }
+
+            filters.push(inArray(pppoeSessions.routerId, assignedIds));
+        }
+
+        if (filters.length > 0) {
+            query = query.where(and(...filters));
+        }
+
+        return query.orderBy(pppoeSessions.name);
     }
 
     /**
@@ -246,19 +271,43 @@ class PppoeService {
     /**
      * Find all sessions with coordinates for map display
      */
-    async findAllWithCoordinates(routerId?: string): Promise<PppoeSession[]> {
-        const query = db
-            .select()
-            .from(pppoeSessions)
-            .where(
-                routerId
-                    ? eq(pppoeSessions.routerId, routerId)
-                    : undefined as any
-            )
-            .orderBy(pppoeSessions.name);
+    /**
+     * Find all sessions with coordinates for map display
+     */
+    async findAllWithCoordinates(
+        routerId?: string,
+        userId?: string,
+        userRole?: string
+    ): Promise<PppoeSession[]> {
+        let query = db.select().from(pppoeSessions).$dynamic();
+        const filters = [];
 
-        const sessions = await query;
-        return sessions.filter(s => s.latitude && s.longitude);
+        if (routerId) {
+            filters.push(eq(pppoeSessions.routerId, routerId));
+        }
+
+        // If user is not admin, filter by assigned routers
+        if (userId && userRole && userRole !== 'admin') {
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+
+            const assignedIds = assigned.map((a) => a.routerId);
+
+            if (assignedIds.length === 0) {
+                return []; // No routers assigned
+            }
+
+            filters.push(inArray(pppoeSessions.routerId, assignedIds));
+        }
+
+        if (filters.length > 0) {
+            query = query.where(and(...filters));
+        }
+
+        const sessions = await query.orderBy(pppoeSessions.name);
+        return sessions.filter((s) => s.latitude && s.longitude);
     }
 }
 
