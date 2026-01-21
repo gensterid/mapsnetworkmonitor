@@ -915,11 +915,13 @@ export class RouterService {
 
         // 1. Apply to Router (only for client types and only if relevant fields change)
         // OLT/ODP don't need to be added to MikroTik netwatch
-        // STRICT CHECK: Skip if host is 0.0.0.0 (Virtual device)
-        const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0';
-        const isClientType = !isVirtualHost && (original.deviceType === 'client' || !original.deviceType);
+        // STRICT CHECK: Skip if host is 0.0.0.0 (Virtual device) or empty
+        const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0' || data.host === '';
+        const isOdpOrOlt = original.deviceType === 'odp' || original.deviceType === 'olt' || data.deviceType === 'odp' || data.deviceType === 'olt';
+        const isClientType = !isVirtualHost && !isOdpOrOlt && (original.deviceType === 'client' || !original.deviceType);
 
-        if (isClientType && (data.host || data.interval || data.name !== undefined)) {
+        // Only update MikroTik for client types with valid host
+        if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
             const router = await this.findByIdWithPassword(routerId);
             if (router) {
                 let conn;
@@ -953,7 +955,13 @@ export class RouterService {
             updatedAt: new Date(),
         };
 
-        if (data.host !== undefined) updateData.host = data.host;
+        if (data.host !== undefined) {
+            updateData.host = data.host;
+            // If host is cleared, automatically set status to 'up' so it doesn't appear in down list
+            if (data.host === '' || !data.host) {
+                updateData.status = 'up';
+            }
+        }
         if (data.name !== undefined) updateData.name = data.name;
         if (data.deviceType !== undefined) updateData.deviceType = data.deviceType;
         if (data.interval !== undefined) updateData.interval = data.interval;
