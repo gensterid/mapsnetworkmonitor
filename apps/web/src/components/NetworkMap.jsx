@@ -843,6 +843,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             <MapContainer
                 center={center}
                 zoom={10}
+                maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
                 scrollWheelZoom={true}
                 style={{ height: "100%", width: "100%", background: "#0f172a" }}
             >
