@@ -166,14 +166,14 @@
         animation: marker-shake 0.5s ease infinite;
     }
 
-    /* Pulsing glow effect for offline devices - with bounce animation */
+    /* Pulsing glow effect for offline devices - stable version without bounce */
     .leaflet-marker-icon.marker-pulse-danger {
-        animation: marker-pulse-red 1s ease infinite, marker-bounce 1.2s ease-in-out infinite;
-        transform-origin: center bottom;
+        animation: marker-pulse-red 1s ease infinite;
     }
 
     .leaflet-marker-icon.marker-pulse-danger .device-icon {
-        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.4), 0 0 20px rgba(239, 68, 68, 0.6);
+        box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.5), 0 0 25px rgba(239, 68, 68, 0.7);
+        border: 2px solid #ef4444;
     }
 }
 
