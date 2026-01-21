@@ -396,7 +396,7 @@ const createNetwatchSchema = z.object({
 });
 
 const updateNetwatchSchema = z.object({
-    host: z.string().min(1).optional(),
+    host: z.string().optional(), // Allow empty string for ODP
     name: z.string().optional(),
     interval: z.number().int().min(5).max(3600).optional(),
     latitude: z.preprocess((val) => {
