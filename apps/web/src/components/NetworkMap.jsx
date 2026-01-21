@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -19,6 +20,9 @@ import {
     LineThicknessControl,
 } from './map';
 import './map/map.css';
+// Marker Cluster CSS
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { calculatePathLength, formatDistance } from '@/lib/geo';
 
 // --- Custom Components ---
@@ -244,6 +248,16 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu toggle
     const mapContainerRef = React.useRef(null);
+
+    // Performance optimization states
+    const [enableAnimation, setEnableAnimation] = useState(() => {
+        const saved = localStorage.getItem('map_animation_enabled');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
+    const [enableClustering, setEnableClustering] = useState(() => {
+        const saved = localStorage.getItem('map_clustering_enabled');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
 
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
@@ -845,6 +859,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         animationStyle={currentUser?.animationStyle || 'default'}
                         delay={line.status === 'up' ? 800 : 400}
                         weight={line.status === 'up' ? lineThickness : Math.max(1, lineThickness - 1)}
+                        enableAnimation={enableAnimation}
                         tooltip={`
                             <div class="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                                 <div class="px-3 py-2 flex items-center justify-between ${line.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'}">
@@ -901,154 +916,184 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                 {/* Router Markers */}
 
-                {mapData.routers.map(router => (
-                    <DraggableMarker
-                        key={router.id}
-                        position={[router.lat, router.lng]}
-                        icon={createDeviceIcon({
-                            type: 'router',
-                            status: router.status,
-                            name: showLabels ? router.name : '',
-                            showLabel: showLabels,
-                        })}
-                        draggable={isEditMode}
-                        onDragEnd={(pos) => handleMarkerDragEnd(router, 'router', pos)}
-                        onClick={() => handleDeviceClick(router, 'router')}
-                    >
-                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                            <div className="flex flex-col min-w-[180px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                {/* Header */}
-                                <div className={`px-3 py-2 flex items-center justify-between ${router.status === 'online' ? 'bg-emerald-600' : 'bg-red-600'
-                                    }`}>
-                                    <div className="flex items-center gap-2 text-white">
-                                        <span className="material-symbols-outlined text-[16px]">router</span>
-                                        <span className="font-bold text-xs truncate max-w-[120px]">{router.name}</span>
-                                    </div>
-                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                        {router.status}
-                                    </div>
-                                </div>
-                                {/* Body */}
-                                <div className="p-3 bg-slate-800 space-y-2">
-                                    <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
-                                        <span className="text-slate-400">Host</span>
-                                        <span className="text-slate-200 font-mono">{router.host}</span>
-                                    </div>
-                                    {router.model && (
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="text-slate-400">Model</span>
-                                            <span className="text-slate-200">{router.model}</span>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </Tooltip>
-                    </DraggableMarker>
-                ))}
-
-                {/* Netwatch Node Markers */}
-                {mapData.nodes.map(node => (
-                    <DraggableMarker
-                        key={node.id}
-                        position={[node.lat, node.lng]}
-                        icon={createDeviceIcon({
-                            type: node.deviceType || 'client',
-                            status: node.status,
-                            name: showLabels ? (node.name || node.host) : '',
-                            showLabel: showLabels,
-                            small: true,
-                        })}
-                        draggable={isEditMode}
-                        onDragEnd={(pos) => handleMarkerDragEnd(node, 'client', pos)}
-                        onClick={() => handleDeviceClick(node, 'client')}
-                    >
-                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                            <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                {/* Header */}
-                                <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
-                                    }`}>
-                                    <div className="flex items-center gap-2 text-white">
-                                        <span className="material-symbols-outlined text-[16px]">
-                                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
-                                        </span>
-                                        <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
-                                    </div>
-                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                        {node.status}
-                                    </div>
-                                </div>
-                                {/* Body */}
-                                <div className="p-3 bg-slate-800 space-y-2">
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-400">Host</span>
-                                        <span className="text-slate-200 font-mono">{node.host}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-400">Type</span>
-                                        <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
-                                    </div>
-                                    {(node.latency !== undefined && node.latency !== null) && (
-                                        <div className="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2 mt-1">
-                                            <span className="text-slate-400">Latency</span>
-                                            <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                {/* Markers with optional Clustering */}
+                {(() => {
+                    const markers = (
+                        <>
+                            {/* Router Markers */}
+                            {mapData.routers.map(router => (
+                                <DraggableMarker
+                                    key={router.id}
+                                    position={[router.lat, router.lng]}
+                                    icon={createDeviceIcon({
+                                        type: 'router',
+                                        status: router.status,
+                                        name: showLabels ? router.name : '',
+                                        showLabel: showLabels,
+                                    })}
+                                    draggable={isEditMode}
+                                    onDragEnd={(pos) => handleMarkerDragEnd(router, 'router', pos)}
+                                    onClick={() => handleDeviceClick(router, 'router')}
+                                >
+                                    <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                        <div className="flex flex-col min-w-[180px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                            {/* Header */}
+                                            <div className={`px-3 py-2 flex items-center justify-between ${router.status === 'online' ? 'bg-emerald-600' : 'bg-red-600'
                                                 }`}>
-                                                {node.latency} ms
-                                            </span>
+                                                <div className="flex items-center gap-2 text-white">
+                                                    <span className="material-symbols-outlined text-[16px]">router</span>
+                                                    <span className="font-bold text-xs truncate max-w-[120px]">{router.name}</span>
+                                                </div>
+                                                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                                    {router.status}
+                                                </div>
+                                            </div>
+                                            {/* Body */}
+                                            <div className="p-3 bg-slate-800 space-y-2">
+                                                <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
+                                                    <span className="text-slate-400">Host</span>
+                                                    <span className="text-slate-200 font-mono">{router.host}</span>
+                                                </div>
+                                                {router.model && (
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">Model</span>
+                                                        <span className="text-slate-200">{router.model}</span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    )}
-                                </div>
-                            </div>
-                        </Tooltip>
-                    </DraggableMarker>
-                ))}
+                                    </Tooltip>
+                                </DraggableMarker>
+                            ))}
 
-                {/* PPPoE Client Markers */}
-                {(mapData.pppoeNodes || []).map(pppoe => (
-                    <DraggableMarker
-                        key={`pppoe-${pppoe.id}`}
-                        position={[pppoe.lat, pppoe.lng]}
-                        icon={createDeviceIcon({
-                            type: 'pppoe',
-                            status: pppoe.status,
-                            name: showLabels ? pppoe.name : '',
-                            showLabel: showLabels,
-                            small: true,
-                        })}
-                        draggable={isEditMode}
-                        onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                        onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
-                    >
-                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                            <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'}`}>
-                                    <div className="flex items-center gap-2 text-white">
-                                        <span className="material-symbols-outlined text-[16px]">account_circle</span>
-                                        <span className="font-bold text-xs truncate max-w-[100px]">{pppoe.name}</span>
-                                    </div>
-                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                        PPPoE
-                                    </div>
-                                </div>
-                                <div className="p-3 bg-slate-800 space-y-2">
-                                    {pppoe.address && (
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="text-slate-400">IP</span>
-                                            <span className="text-slate-200 font-mono">{pppoe.address}</span>
+                            {/* Netwatch Node Markers */}
+                            {mapData.nodes.map(node => (
+                                <DraggableMarker
+                                    key={node.id}
+                                    position={[node.lat, node.lng]}
+                                    icon={createDeviceIcon({
+                                        type: node.deviceType || 'client',
+                                        status: node.status,
+                                        name: showLabels ? (node.name || node.host) : '',
+                                        showLabel: showLabels,
+                                        small: true,
+                                    })}
+                                    draggable={isEditMode}
+                                    onDragEnd={(pos) => handleMarkerDragEnd(node, 'client', pos)}
+                                    onClick={() => handleDeviceClick(node, 'client')}
+                                >
+                                    <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                        <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                            {/* Header */}
+                                            <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
+                                                }`}>
+                                                <div className="flex items-center gap-2 text-white">
+                                                    <span className="material-symbols-outlined text-[16px]">
+                                                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
+                                                    </span>
+                                                    <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                                                </div>
+                                                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                                    {node.status}
+                                                </div>
+                                            </div>
+                                            {/* Body */}
+                                            <div className="p-3 bg-slate-800 space-y-2">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-slate-400">Host</span>
+                                                    <span className="text-slate-200 font-mono">{node.host}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-slate-400">Type</span>
+                                                    <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
+                                                </div>
+                                                {(node.latency !== undefined && node.latency !== null) && (
+                                                    <div className="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2 mt-1">
+                                                        <span className="text-slate-400">Latency</span>
+                                                        <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                            Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                            }`}>
+                                                            {node.latency} ms
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    )}
-                                    <div className="flex items-center justify-between text-xs">
-                                        <span className="text-slate-400">Status</span>
-                                        <span className="text-emerald-400">Online</span>
-                                    </div>
-                                    <div className="text-xs text-slate-500 text-center pt-1 border-t border-slate-700">
-                                        Klik untuk edit
-                                    </div>
-                                </div>
-                            </div>
-                        </Tooltip>
-                    </DraggableMarker>
-                ))}
+                                    </Tooltip>
+                                </DraggableMarker>
+                            ))}
+
+                            {/* PPPoE Client Markers */}
+                            {(mapData.pppoeNodes || []).map(pppoe => (
+                                <DraggableMarker
+                                    key={`pppoe-${pppoe.id}`}
+                                    position={[pppoe.lat, pppoe.lng]}
+                                    icon={createDeviceIcon({
+                                        type: 'pppoe',
+                                        status: pppoe.status,
+                                        name: showLabels ? pppoe.name : '',
+                                        showLabel: showLabels,
+                                        small: true,
+                                    })}
+                                    draggable={isEditMode}
+                                    onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                                    onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                                >
+                                    <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                        <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                            <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'}`}>
+                                                <div className="flex items-center gap-2 text-white">
+                                                    <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                                                    <span className="font-bold text-xs truncate max-w-[100px]">{pppoe.name}</span>
+                                                </div>
+                                                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                                    PPPoE
+                                                </div>
+                                            </div>
+                                            <div className="p-3 bg-slate-800 space-y-2">
+                                                {pppoe.address && (
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">IP</span>
+                                                        <span className="text-slate-200 font-mono">{pppoe.address}</span>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-slate-400">Status</span>
+                                                    <span className="text-emerald-400">Online</span>
+                                                </div>
+                                                <div className="text-xs text-slate-500 text-center pt-1 border-t border-slate-700">
+                                                    Klik untuk edit
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </Tooltip>
+                                </DraggableMarker>
+                            ))}
+                        </>
+                    );
+
+                    if (enableClustering) {
+                        return (
+                            <MarkerClusterGroup
+                                chunkedLoading
+                                spiderfyOnMaxZoom={true}
+                                showCoverageOnHover={false}
+                                maxClusterRadius={60}
+                                polygonOptions={{
+                                    fillColor: '#3b82f6',
+                                    color: '#3b82f6',
+                                    weight: 1,
+                                    opacity: 1,
+                                    fillOpacity: 0.1,
+                                }}
+                            >
+                                {markers}
+                            </MarkerClusterGroup>
+                        );
+                    }
+
+                    return markers;
+                })()}
 
             </MapContainer>
 
@@ -1186,6 +1231,22 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 <MapLegend
                     showLabels={showLabels}
                     onToggleLabels={handleToggleLabels}
+                    enableAnimation={enableAnimation}
+                    onToggleAnimation={() => {
+                        setEnableAnimation(prev => {
+                            const newVal = !prev;
+                            localStorage.setItem('map_animation_enabled', JSON.stringify(newVal));
+                            return newVal;
+                        });
+                    }}
+                    enableClustering={enableClustering}
+                    onToggleClustering={() => {
+                        setEnableClustering(prev => {
+                            const newVal = !prev;
+                            localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
+                            return newVal;
+                        });
+                    }}
                 />
             )}
 

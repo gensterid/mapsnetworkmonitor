@@ -7,7 +7,14 @@ import './map.css';
 /**
  * MapLegend - Legend showing status indicators
  */
-const MapLegend = ({ showLabels: initialShowLabels = true, onToggleLabels: initialOnToggleLabels }) => {
+const MapLegend = ({
+    showLabels: initialShowLabels = true,
+    onToggleLabels: initialOnToggleLabels,
+    enableAnimation = true,
+    onToggleAnimation,
+    enableClustering = true,
+    onToggleClustering,
+}) => {
     // Internal state for mobile responsiveness
     // On desktop, we respect the parent's prop. On mobile, we might default to hidden.
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 640);
@@ -85,13 +92,73 @@ const MapLegend = ({ showLabels: initialShowLabels = true, onToggleLabels: initi
                         </div>
                     </div>
 
+                    {/* Performance toggles */}
+                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 6, textTransform: 'uppercase' }}>
+                            Performa
+                        </div>
+
+                        {/* Animation toggle */}
+                        {onToggleAnimation && (
+                            <button
+                                onClick={onToggleAnimation}
+                                className="map-legend__toggle"
+                                style={{
+                                    marginBottom: 4,
+                                    padding: '5px 8px',
+                                    background: enableAnimation ? 'rgba(16, 185, 129, 0.2)' : 'rgba(71, 85, 105, 0.4)',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    color: 'white',
+                                    fontSize: 10,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    width: '100%',
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                                    {enableAnimation ? 'animation' : 'motion_photos_off'}
+                                </span>
+                                Animasi: {enableAnimation ? 'ON' : 'OFF'}
+                            </button>
+                        )}
+
+                        {/* Clustering toggle */}
+                        {onToggleClustering && (
+                            <button
+                                onClick={onToggleClustering}
+                                className="map-legend__toggle"
+                                style={{
+                                    padding: '5px 8px',
+                                    background: enableClustering ? 'rgba(59, 130, 246, 0.2)' : 'rgba(71, 85, 105, 0.4)',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    color: 'white',
+                                    fontSize: 10,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    width: '100%',
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                                    {enableClustering ? 'group_work' : 'scatter_plot'}
+                                </span>
+                                Cluster: {enableClustering ? 'ON' : 'OFF'}
+                            </button>
+                        )}
+                    </div>
+
                     {/* Label toggle (Desktop only, or bottom of mobile if expanded) */}
                     {initialOnToggleLabels && !isMobile && (
                         <button
                             onClick={initialOnToggleLabels}
                             className="map-legend__toggle"
                             style={{
-                                marginTop: 12,
+                                marginTop: 8,
                                 padding: '6px 10px',
                                 background: showContent ? 'rgba(59, 130, 246, 0.2)' : 'rgba(71, 85, 105, 0.4)',
                                 border: 'none',

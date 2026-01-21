@@ -28,6 +28,7 @@ const AnimatedPath = ({
     status = 'up', // 'up', 'down', 'unknown'
     type = null, // 'odp', 'client', etc
     animationStyle = null, // Use preset style name (e.g., 'fastPulse', 'dotted')
+    enableAnimation = true, // Performance toggle
     tooltip,
     popup,
     onClick,
@@ -47,7 +48,8 @@ const AnimatedPath = ({
         // Prioritize explicit weight prop over preset
         const lineWeight = weight;
         const lineOpacity = preset?.opacity ?? opacity;
-        const linePaused = preset?.paused ?? paused;
+        // Disable animation if enableAnimation is false (for performance)
+        const linePaused = !enableAnimation || (preset?.paused ?? paused);
         const lineReverse = preset?.reverse ?? reverse;
 
         // Status-based colors
@@ -84,7 +86,7 @@ const AnimatedPath = ({
             tooltip,
             popup,
         };
-    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup, animationStyle]);
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup, animationStyle, enableAnimation]);
 
     useEffect(() => {
         if (!map || positions.length < 2) return;
