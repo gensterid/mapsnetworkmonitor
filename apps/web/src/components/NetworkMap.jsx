@@ -203,6 +203,7 @@ const DraggableMarker = ({
     onDragEnd,
     onClick,
     children,
+    ...props
 }) => {
     const [markerPosition, setMarkerPosition] = useState(position);
 
@@ -227,10 +228,69 @@ const DraggableMarker = ({
             icon={icon}
             draggable={draggable}
             eventHandlers={eventHandlers}
+            {...props}
         >
             {children}
         </Marker>
     );
+};
+
+// Custom cluster icon creator
+const createClusterCustomIcon = (cluster) => {
+    const markers = cluster.getAllChildMarkers();
+    let hasDown = false;
+    let downCount = 0;
+
+    for (const marker of markers) {
+        // Access options passed to Marker via DraggableMarker
+        if (marker.options.status === 'down' || marker.options.status === 'offline') {
+            hasDown = true;
+            downCount++;
+        }
+    }
+
+    const childCount = cluster.getChildCount();
+
+    return L.divIcon({
+        html: `
+            <div style="
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                width: 100%; 
+                height: 100%; 
+                background-color: ${hasDown ? 'rgba(239, 68, 68, 0.9)' : 'rgba(59, 130, 246, 0.9)'}; 
+                border: 2px solid white; 
+                border-radius: 50%; 
+                color: white; 
+                font-weight: bold; 
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                position: relative;
+                ${hasDown ? 'animation: pulse-ring 2s infinite;' : ''}
+            ">
+                <span>${childCount}</span>
+                ${hasDown ? `
+                    <span style="
+                        position: absolute; 
+                        top: -5px; 
+                        right: -5px; 
+                        background-color: #7f1d1d; 
+                        color: white; 
+                        font-size: 10px; 
+                        width: 16px; 
+                        height: 16px; 
+                        border-radius: 50%; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        border: 1px solid white;
+                    ">${downCount}</span>
+                ` : ''}
+            </div>
+        `,
+        className: 'custom-cluster-marker', // Override default leaflet class
+        iconSize: L.point(40, 40, true),
+    });
 };
 
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
@@ -925,6 +985,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             {mapData.routers.map(router => (
                                 <DraggableMarker
                                     key={router.id}
+                                    status={router.status} // For cluster icon
                                     position={[router.lat, router.lng]}
                                     icon={createDeviceIcon({
                                         type: 'router',
@@ -971,6 +1032,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             {mapData.nodes.map(node => (
                                 <DraggableMarker
                                     key={node.id}
+                                    status={node.status} // For cluster icon
                                     position={[node.lat, node.lng]}
                                     icon={createDeviceIcon({
                                         type: node.deviceType || 'client',
@@ -1028,6 +1090,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             {(mapData.pppoeNodes || []).map(pppoe => (
                                 <DraggableMarker
                                     key={`pppoe-${pppoe.id}`}
+                                    status={pppoe.status} // For cluster icon
                                     position={[pppoe.lat, pppoe.lng]}
                                     icon={createDeviceIcon({
                                         type: 'pppoe',
@@ -1080,6 +1143,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 spiderfyOnMaxZoom={true}
                                 showCoverageOnHover={false}
                                 maxClusterRadius={60}
+                                iconCreateFunction={createClusterCustomIcon}
                                 polygonOptions={{
                                     fillColor: '#3b82f6',
                                     color: '#3b82f6',
