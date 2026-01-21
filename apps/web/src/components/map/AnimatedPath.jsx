@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useMemo } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet-ant-path';
+import { getAnimationStyle } from './animationStyles';
 
 /**
  * AnimatedPath - A component that renders animated "marching ants" polylines
@@ -11,6 +12,7 @@ import 'leaflet-ant-path';
  * - Uses useMemo to prevent unnecessary re-renders
  * - Cleans up properly on unmount
  * - Configurable animation speed
+ * - Supports preset animation styles
  */
 const AnimatedPath = ({
     positions = [],
@@ -25,6 +27,7 @@ const AnimatedPath = ({
     hardwareAccelerated = true,
     status = 'up', // 'up', 'down', 'unknown'
     type = null, // 'odp', 'client', etc
+    animationStyle = null, // Use preset style name (e.g., 'fastPulse', 'dotted')
     tooltip,
     popup,
     onClick,
@@ -34,6 +37,17 @@ const AnimatedPath = ({
 
     // Memoize options to prevent unnecessary updates
     const options = useMemo(() => {
+        // Apply preset style if specified
+        const preset = animationStyle ? getAnimationStyle(animationStyle) : null;
+
+        // Use preset values or props
+        const lineDelay = preset?.delay ?? delay;
+        const lineDashArray = preset?.dashArray ?? dashArray;
+        const lineWeight = preset?.weight ?? weight;
+        const lineOpacity = preset?.opacity ?? opacity;
+        const linePaused = preset?.paused ?? paused;
+        const lineReverse = preset?.reverse ?? reverse;
+
         // Status-based colors
         let lineColor = color;
         let linePulseColor = pulseColor;
@@ -58,17 +72,17 @@ const AnimatedPath = ({
         return {
             color: lineColor,
             pulseColor: linePulseColor,
-            weight,
-            opacity,
-            delay,
-            dashArray,
-            paused,
-            reverse,
+            weight: lineWeight,
+            opacity: lineOpacity,
+            delay: lineDelay,
+            dashArray: lineDashArray,
+            paused: linePaused,
+            reverse: lineReverse,
             hardwareAccelerated,
             tooltip,
             popup,
         };
-    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup]);
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup, animationStyle]);
 
     useEffect(() => {
         if (!map || positions.length < 2) return;

@@ -10,6 +10,7 @@ import { useExportDatabase, useImportDatabase } from '@/hooks';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
+import { getAnimationStyleNames } from '@/components/map/animationStyles';
 
 const TABS = [
     { id: 'profile', label: 'My Profile', icon: User },
@@ -27,6 +28,7 @@ export default function Settings() {
         alertEmail: '',
         googleMapsApiKey: '',
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        animationStyle: 'default',
         // Profile fields
         name: '',
         username: '',
@@ -80,6 +82,7 @@ export default function Settings() {
                 name: currentUser.name || '',
                 username: currentUser.username || '',
                 image: currentUser.image || '',
+                animationStyle: currentUser.animationStyle || 'default',
             }));
         }
     }, [currentUser]);
@@ -110,6 +113,7 @@ export default function Settings() {
             if (currentUser) {
                 const userUpdates = {
                     timezone: formData.timezone,
+                    animationStyle: formData.animationStyle,
                 };
 
                 // Only update profile fields if on profile tab or changed
@@ -340,6 +344,36 @@ export default function Settings() {
                                     <span className="text-xs text-slate-400">
                                         Sistem: {Intl.DateTimeFormat().resolvedOptions().timeZone}
                                     </span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* Map Preferences */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Globe className="w-5 h-5" />
+                                    Map Preferences
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">Gaya Animasi Garis</label>
+                                    <select
+                                        name="animationStyle"
+                                        value={formData.animationStyle}
+                                        onChange={handleChange}
+                                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    >
+                                        {getAnimationStyleNames().map((style) => (
+                                            <option key={style.value} value={style.value}>
+                                                {style.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <p className="text-xs text-slate-500">
+                                        {getAnimationStyleNames().find(s => s.value === formData.animationStyle)?.description}
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>

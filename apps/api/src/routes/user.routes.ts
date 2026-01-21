@@ -13,6 +13,7 @@ const updateUserSchema = z.object({
     username: z.string().min(3).max(50).optional().nullable(),
     image: z.string().url().optional().nullable(),
     timezone: z.string().optional(),
+    animationStyle: z.string().optional(),
 });
 
 const updateRoleSchema = z.object({

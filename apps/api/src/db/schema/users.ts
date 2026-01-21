@@ -13,6 +13,7 @@ export const users = pgTable('users', {
     emailVerified: boolean('email_verified').default(false).notNull(),
     role: text('role').notNull().default('user'),
     timezone: text('timezone').default('Asia/Jakarta').notNull(),
+    animationStyle: text('animation_style').default('default'), // Map line animation style preference
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

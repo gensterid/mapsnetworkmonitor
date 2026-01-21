@@ -4,7 +4,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useSettings } from '@/hooks';
+import { useSettings, useCurrentUser } from '@/hooks';
 import '@/lib/GoogleMutant';
 
 // Import new map components
@@ -247,6 +247,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
+    const { data: currentUser } = useCurrentUser();
     const apiKey = settings?.googleMapsApiKey;
 
     // Fetch Routers
@@ -841,6 +842,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         positions={[line.from, ...(line.waypoints || []), line.to]}
                         status={line.status}
                         type={line.deviceType}
+                        animationStyle={currentUser?.animationStyle || 'default'}
                         delay={line.status === 'up' ? 800 : 400}
                         weight={line.status === 'up' ? lineThickness : Math.max(1, lineThickness - 1)}
                         tooltip={`
