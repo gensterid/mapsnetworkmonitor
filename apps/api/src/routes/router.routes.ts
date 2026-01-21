@@ -383,7 +383,7 @@ router.get(
 // ==================== NETWATCH ROUTES ====================
 
 const createNetwatchSchema = z.object({
-    host: z.string().min(1),
+    host: z.string().optional(), // Optional for ODP devices
     name: z.string().optional(),
     interval: z.number().int().min(5).max(3600).optional().default(30),
     latitude: z.string().optional(),

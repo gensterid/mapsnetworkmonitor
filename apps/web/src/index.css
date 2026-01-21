@@ -166,9 +166,10 @@
         animation: marker-shake 0.5s ease infinite;
     }
 
-    /* Pulsing glow effect for offline devices - no transform to avoid positioning issues */
+    /* Pulsing glow effect for offline devices - with bounce animation */
     .leaflet-marker-icon.marker-pulse-danger {
-        animation: marker-pulse-red 1s ease infinite;
+        animation: marker-pulse-red 1s ease infinite, marker-bounce 1.2s ease-in-out infinite;
+        transform-origin: center bottom;
     }
 
     .leaflet-marker-icon.marker-pulse-danger .device-icon {
