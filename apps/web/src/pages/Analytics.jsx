@@ -636,7 +636,11 @@ export default function Analytics() {
                                 open: true,
                                 type: 'pppoe-connect',
                                 title: 'PPPoE Connections',
-                                data: { connects: overview?.pppoeConnects }
+                                data: {
+                                    connects: overview?.pppoeConnects,
+                                    // Will show currently online PPPoE sessions
+                                    downStatus: pppoeDownStatus
+                                }
                             })}
                         />
                         <StatCard
@@ -649,7 +653,11 @@ export default function Analytics() {
                                 open: true,
                                 type: 'pppoe-disconnect',
                                 title: 'PPPoE Disconnections',
-                                data: { disconnects: overview?.pppoeDisconnects }
+                                data: {
+                                    disconnects: overview?.pppoeDisconnects,
+                                    disconnectors: pppoeDisconnectors,
+                                    downStatus: pppoeDownStatus
+                                }
                             })}
                         />
                     </div>
@@ -1039,21 +1047,107 @@ export default function Analytics() {
 
                             {detailModal.type === 'pppoe-connect' && (
                                 <div className="space-y-4">
-                                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-6 text-center">
-                                        <p className="text-5xl font-bold text-emerald-400">{detailModal.data?.connects || 0}</p>
-                                        <p className="text-sm text-slate-400 mt-2">Koneksi PPPoE Baru</p>
+                                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 text-center">
+                                        <p className="text-4xl font-bold text-emerald-400">{detailModal.data?.connects || 0}</p>
+                                        <p className="text-sm text-slate-400 mt-1">Koneksi PPPoE Baru</p>
                                     </div>
-                                    <p className="text-sm text-slate-500 text-center">Jumlah klien PPPoE yang terhubung dalam periode yang dipilih.</p>
+
+                                    {/* Show list of currently connected PPPoE */}
+                                    <div className="space-y-2">
+                                        <p className="text-xs text-slate-500 uppercase tracking-wider">Status PPPoE Online</p>
+                                        {detailModal.data?.downStatus?.length === 0 ? (
+                                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 text-center">
+                                                <Wifi className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                                                <p className="text-emerald-400 font-medium">Semua PPPoE Online ✓</p>
+                                                <p className="text-xs text-slate-500 mt-1">Tidak ada yang sedang down</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-slate-400 text-center py-4">
+                                                Lihat card "PPPoE Disconnect" untuk melihat yang sedang down
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
                             {detailModal.type === 'pppoe-disconnect' && (
                                 <div className="space-y-4">
-                                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-6 text-center">
-                                        <p className="text-5xl font-bold text-red-400">{detailModal.data?.disconnects || 0}</p>
-                                        <p className="text-sm text-slate-400 mt-2">PPPoE Terputus</p>
+                                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-center">
+                                        <p className="text-4xl font-bold text-red-400">{detailModal.data?.disconnects || 0}</p>
+                                        <p className="text-sm text-slate-400 mt-1">PPPoE Terputus</p>
                                     </div>
-                                    <p className="text-sm text-slate-500 text-center">Jumlah klien PPPoE yang terputus dalam periode yang dipilih.</p>
+
+                                    {/* Top Disconnectors List */}
+                                    {detailModal.data?.disconnectors?.length > 0 && (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                                <AlertTriangle className="w-3 h-3" />
+                                                Top Disconnectors
+                                            </p>
+                                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                                                {detailModal.data.disconnectors.map((client, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="flex items-center justify-between p-3 bg-slate-800 rounded-lg"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 text-sm font-bold">
+                                                                {i + 1}
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-medium text-white">{client.name}</p>
+                                                                <p className="text-xs text-slate-500">{client.routerName}</p>
+                                                            </div>
+                                                        </div>
+                                                        <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 text-xs font-bold">
+                                                            {client.disconnectCount}x
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Currently Down PPPoE */}
+                                    {detailModal.data?.downStatus?.length > 0 && (
+                                        <div className="space-y-2">
+                                            <p className="text-xs text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                                <WifiOff className="w-3 h-3 text-red-400" />
+                                                Sedang Down Sekarang
+                                            </p>
+                                            <div className="space-y-2 max-h-40 overflow-y-auto">
+                                                {detailModal.data.downStatus.map((client, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="flex items-center justify-between p-3 bg-red-500/5 border border-red-500/20 rounded-lg"
+                                                    >
+                                                        <div>
+                                                            <p className="text-sm font-medium text-white">{client.name}</p>
+                                                            <p className="text-xs text-slate-500">
+                                                                {client.routerName} • {client.address || 'No IP'}
+                                                            </p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-xs text-red-400 font-medium">Down</span>
+                                                            <p className="text-[10px] text-slate-600">
+                                                                {client.downSince ? new Date(client.downSince).toLocaleTimeString('id-ID', {
+                                                                    hour: '2-digit', minute: '2-digit'
+                                                                }) : '--'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {(!detailModal.data?.disconnectors?.length && !detailModal.data?.downStatus?.length) && (
+                                        <div className="bg-slate-800 rounded-lg p-4 text-center">
+                                            <Wifi className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
+                                            <p className="text-emerald-400 font-medium">Tidak ada data disconnect</p>
+                                            <p className="text-xs text-slate-500 mt-1">Semua PPPoE stabil dalam periode ini</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
