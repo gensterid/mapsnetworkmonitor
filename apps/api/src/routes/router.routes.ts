@@ -340,6 +340,18 @@ router.get(
     })
 );
 
+/**
+ * GET /api/routers/:id/ping-latencies
+ * Get ping latency to configured targets via this router
+ */
+router.get(
+    '/:id/ping-latencies',
+    asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const latencies = await routerService.measurePingTargets(id);
+        res.json({ data: latencies });
+    })
+);
 
 
 /**

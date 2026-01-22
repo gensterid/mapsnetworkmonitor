@@ -12,6 +12,12 @@ import type {
     TestConnectionResult,
 } from '../types';
 
+export interface PingLatency {
+    ip: string;
+    label: string;
+    latency: number | null;
+}
+
 /**
  * Router Service
  * Handles all router-related API calls
@@ -103,6 +109,32 @@ export const routerService = {
      */
     deleteNetwatch: (routerId: string, netwatchId: string) =>
         del(`/routers/${routerId}/netwatch/${netwatchId}`),
+
+    /**
+     * Sync netwatch entries from MikroTik router
+     */
+    syncNetwatch: (routerId: string) =>
+        post<{ success: boolean; synced: number; errors: string[] }>(`/routers/${routerId}/netwatch/sync`),
+
+    // ================== Ping Latencies ==================
+
+    /**
+     * Get ping latencies to configured targets via router
+     */
+    getPingLatencies: (routerId: string) =>
+        get<PingLatency[]>(`/routers/${routerId}/ping-latencies`),
+
+    /**
+     * Get active hotspot users count
+     */
+    getHotspotActive: (routerId: string) =>
+        get<{ count: number }>(`/routers/${routerId}/hotspot/active`),
+
+    /**
+     * Get active PPP connections count
+     */
+    getPppActive: (routerId: string) =>
+        get<{ count: number }>(`/routers/${routerId}/ppp/active`),
 };
 
 export default routerService;

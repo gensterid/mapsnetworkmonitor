@@ -12,6 +12,7 @@ export const routerKeys = {
     netwatch: (id) => [...routerKeys.detail(id), 'netwatch'],
     hotspot: (id) => [...routerKeys.detail(id), 'hotspot'],
     ppp: (id) => [...routerKeys.detail(id), 'ppp'],
+    pingLatencies: (id) => [...routerKeys.detail(id), 'pingLatencies'],
 };
 
 // ==================== Queries ====================
@@ -123,6 +124,20 @@ export function useRouterPppActive(routerId, options = {}) {
         queryFn: () => routerService.getPppActive(routerId),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
+        enabled: !!routerId,
+        ...options,
+    });
+}
+
+/**
+ * Hook to fetch ping latencies from a router
+ */
+export function usePingLatencies(routerId, options = {}) {
+    return useQuery({
+        queryKey: routerKeys.pingLatencies(routerId),
+        queryFn: () => routerService.getPingLatencies(routerId),
+        staleTime: 60 * 1000,
+        refetchInterval: 60 * 1000, // Refresh every 60 seconds
         enabled: !!routerId,
         ...options,
     });

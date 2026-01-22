@@ -19,6 +19,7 @@ export {
     useSyncNetwatch,
     useRouterHotspotActive,
     useRouterPppActive,
+    usePingLatencies,
     routerKeys,
 } from './useRouters';
 

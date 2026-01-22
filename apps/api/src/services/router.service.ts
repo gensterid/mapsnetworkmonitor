@@ -34,6 +34,7 @@ import {
 import { measureLatency } from '../lib/network-utils.js';
 import { alertService } from './alert.service.js';
 import { pppoeService } from './pppoe.service.js';
+import { settingsService } from './settings.service.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -800,6 +801,65 @@ export class RouterService {
             maintenance: allRouters.filter((r) => r.status === 'maintenance').length,
             unknown: allRouters.filter((r) => r.status === 'unknown').length,
         };
+    }
+
+    /**
+     * Measure ping latency to configured targets via MikroTik router
+     * Returns array of { ip, label, latency } objects
+     */
+    async measurePingTargets(routerId: string): Promise<{ ip: string; label: string; latency: number | null }[]> {
+        const router = await this.findByIdWithPassword(routerId);
+        if (!router || router.status !== 'online') {
+            return [];
+        }
+
+        // Get configured ping targets from settings
+        const defaultTargets = [
+            { ip: '8.8.8.8', label: 'Google DNS' },
+            { ip: '1.1.1.1', label: 'Cloudflare' }
+        ];
+
+        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', defaultTargets);
+        const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
+
+        if (targets.length === 0) {
+            return [];
+        }
+
+        try {
+            const conn = await connectToRouter({
+                host: router.host,
+                port: router.port,
+                username: router.username,
+                password: router.password,
+            });
+
+            const results: { ip: string; label: string; latency: number | null }[] = [];
+
+            // Ping each target (sequentially to avoid overwhelming router)
+            for (const target of targets.slice(0, 6)) { // Max 6 targets
+                try {
+                    const latency = await measurePing(conn, target.ip);
+                    results.push({
+                        ip: target.ip,
+                        label: target.label || target.ip,
+                        latency: latency >= 0 ? latency : null
+                    });
+                } catch (err) {
+                    results.push({
+                        ip: target.ip,
+                        label: target.label || target.ip,
+                        latency: null
+                    });
+                }
+            }
+
+            conn.close();
+            return results;
+        } catch (error) {
+            console.error(`[Router ${router.name}] Failed to measure ping targets:`, error instanceof Error ? error.message : error);
+            return [];
+        }
     }
 
     // ==================== NETWATCH METHODS ====================

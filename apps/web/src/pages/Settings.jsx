@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2 } from 'lucide-react';
 import { useExportDatabase, useImportDatabase } from '@/hooks';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
 import clsx from 'clsx';
@@ -35,6 +35,10 @@ export default function Settings() {
         image: '',
     });
     const [saveStatus, setSaveStatus] = useState('');
+    const [pingTargets, setPingTargets] = useState([
+        { ip: '8.8.8.8', label: 'Google DNS' },
+        { ip: '1.1.1.1', label: 'Cloudflare' }
+    ]);
 
     const { data: settings, isLoading: isSettingsLoading } = useSettings();
     const { data: currentUser, isLoading: isUserLoading } = useCurrentUser();
@@ -71,6 +75,10 @@ export default function Settings() {
                 alertEmail: settings.alertEmail || '',
                 googleMapsApiKey: settings.googleMapsApiKey || '',
             }));
+            // Load ping targets from settings
+            if (settings.pingTargets && Array.isArray(settings.pingTargets)) {
+                setPingTargets(settings.pingTargets);
+            }
         }
     }, [settings]);
 
@@ -107,6 +115,9 @@ export default function Settings() {
                 await updateSettingMutation.mutateAsync({ key: 'alertEmailEnabled', value: formData.alertEmailEnabled });
                 await updateSettingMutation.mutateAsync({ key: 'alertEmail', value: formData.alertEmail });
                 await updateSettingMutation.mutateAsync({ key: 'googleMapsApiKey', value: formData.googleMapsApiKey });
+                // Save ping targets (filter out empty ones)
+                const validTargets = pingTargets.filter(t => t.ip.trim() !== '');
+                await updateSettingMutation.mutateAsync({ key: 'pingTargets', value: validTargets });
             }
 
             // Update User Profile (Self)
@@ -441,6 +452,72 @@ export default function Settings() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {/* Ping Targets (Admin Only) */}
+                        {currentUser?.role === 'admin' && (
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <Activity className="w-5 h-5" />
+                                        Ping Targets
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <p className="text-sm text-slate-400">
+                                        Configure IP addresses to ping from each router for latency monitoring (max 6 targets).
+                                    </p>
+                                    <div className="space-y-3">
+                                        {pingTargets.map((target, index) => (
+                                            <div key={index} className="flex gap-2 items-center">
+                                                <Input
+                                                    value={target.ip}
+                                                    onChange={(e) => {
+                                                        const newTargets = [...pingTargets];
+                                                        newTargets[index].ip = e.target.value;
+                                                        setPingTargets(newTargets);
+                                                    }}
+                                                    placeholder="IP Address (e.g., 8.8.8.8)"
+                                                    className="flex-1"
+                                                />
+                                                <Input
+                                                    value={target.label}
+                                                    onChange={(e) => {
+                                                        const newTargets = [...pingTargets];
+                                                        newTargets[index].label = e.target.value;
+                                                        setPingTargets(newTargets);
+                                                    }}
+                                                    placeholder="Label"
+                                                    className="flex-1"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        const newTargets = pingTargets.filter((_, i) => i !== index);
+                                                        setPingTargets(newTargets);
+                                                    }}
+                                                    className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {pingTargets.length < 6 && (
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setPingTargets([...pingTargets, { ip: '', label: '' }])}
+                                        >
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Add Target
+                                        </Button>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         {/* Database Management (Admin Only) */}
                         {currentUser?.role === 'admin' && (
