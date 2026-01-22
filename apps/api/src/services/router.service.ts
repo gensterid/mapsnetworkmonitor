@@ -823,10 +823,12 @@ export class RouterService {
         const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
 
         if (targets.length === 0) {
+            console.log(`[Router ${router.name}] No ping targets found in settings, returning empty array`);
             return [];
         }
 
         try {
+            console.log(`[Router ${router.name}] Connecting to measure ping targets: ${targets.map(t => t.ip).join(', ')}`);
             const conn = await connectToRouter({
                 host: router.host,
                 port: router.port,
@@ -839,13 +841,16 @@ export class RouterService {
             // Ping each target (sequentially to avoid overwhelming router)
             for (const target of targets.slice(0, 6)) { // Max 6 targets
                 try {
+                    console.log(`[Router ${router.name}] Pinging ${target.ip}...`);
                     const latency = await measurePing(conn, target.ip);
+                    console.log(`[Router ${router.name}] Ping result for ${target.ip}: ${latency}ms`);
                     results.push({
                         ip: target.ip,
                         label: target.label || target.ip,
                         latency: latency >= 0 ? latency : null
                     });
                 } catch (err) {
+                    console.error(`[Router ${router.name}] Error pinging ${target.ip}:`, err);
                     results.push({
                         ip: target.ip,
                         label: target.label || target.ip,
@@ -857,8 +862,9 @@ export class RouterService {
             conn.close();
             return results;
         } catch (error) {
-            console.error(`[Router ${router.name}] Failed to measure ping targets:`, error instanceof Error ? error.message : error);
-            return [];
+            console.error(`[Router ${router.name}] Failed to measure ping targets completely:`, error instanceof Error ? error.message : error);
+            // Re-throw so frontend sees the error
+            throw error;
         }
     }
 
