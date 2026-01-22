@@ -129,6 +129,8 @@ export function useRouterPppActive(routerId, options = {}) {
     });
 }
 
+import routerServiceDirect from '@/lib/api/services/router.service';
+
 /**
  * Hook to fetch ping latencies from a router
  */
@@ -137,7 +139,31 @@ export function usePingLatencies(routerId, options = {}) {
         queryKey: routerKeys.pingLatencies(routerId),
         queryFn: () => {
             console.log(`[usePingLatencies] Fetching latencies for router ${routerId}`);
-            return routerService.fetchPingLatencies(routerId);
+
+            // Debugging the service object
+            if (!routerServiceDirect) {
+                console.error('[usePingLatencies] routerService is undefined!');
+                throw new Error('Router Service not loaded');
+            }
+
+            // Try the direct import first
+            if (typeof routerServiceDirect.fetchPingLatencies === 'function') {
+                return routerServiceDirect.fetchPingLatencies(routerId);
+            }
+            if (typeof routerServiceDirect.getPingLatencies === 'function') {
+                return routerServiceDirect.getPingLatencies(routerId);
+            }
+
+            // Try the global/barrel import if direct fails (fallback)
+            if (typeof routerService.fetchPingLatencies === 'function') {
+                return routerService.fetchPingLatencies(routerId);
+            }
+            if (typeof routerService.getPingLatencies === 'function') {
+                return routerService.getPingLatencies(routerId);
+            }
+
+            console.error('[usePingLatencies] Method not found on service object. Keys:', Object.keys(routerServiceDirect));
+            throw new Error('getPingLatencies method missing from service');
         },
         staleTime: 60 * 1000,
         refetchInterval: 60 * 1000, // Refresh every 60 seconds
