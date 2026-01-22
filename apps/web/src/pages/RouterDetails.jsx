@@ -50,7 +50,7 @@ import NetworkMap from '@/components/NetworkMap';
 // Tab component
 function Tabs({ tabs, activeTab, onTabChange }) {
     return (
-        <div className="flex gap-1 p-1 bg-slate-800/50 rounded-lg">
+        <div className="flex gap-1 p-1 bg-slate-800/50 rounded-lg overflow-x-auto no-scrollbar">
             {tabs.map((tab) => (
                 <button
                     key={tab.id}
@@ -404,7 +404,7 @@ function DashboardTab({ router, metrics, interfaces }) {
     };
 
     const memoryUsage = metrics?.totalMemory && metrics?.usedMemory
-        ? Math.round((metrics.usedMemory / metrics.totalMemory) * 100)
+        ? ((metrics.usedMemory / metrics.totalMemory) * 100).toFixed(1)
         : 0;
 
     return (

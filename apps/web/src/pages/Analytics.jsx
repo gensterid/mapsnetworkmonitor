@@ -213,7 +213,7 @@ function RouterSelector({ routers, value, onChange }) {
             {isOpen && (
                 <>
                     <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-                    <div className="absolute right-0 top-full mt-2 z-20 w-72 rounded-lg bg-slate-800 border border-slate-700 shadow-xl overflow-hidden">
+                    <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-2 z-20 w-72 rounded-lg bg-slate-800 border border-slate-700 shadow-xl overflow-hidden">
                         <div className="p-2 border-b border-slate-700">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
