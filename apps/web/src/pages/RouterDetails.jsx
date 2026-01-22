@@ -307,7 +307,7 @@ function ActiveUsersCard({ routerId }) {
 
 // Ping Latency Card Component
 function PingLatencyCard({ routerId }) {
-    const { data: latencies, isLoading } = usePingLatencies(routerId);
+    const { data: latencies, isLoading, isError, error } = usePingLatencies(routerId);
 
     const getLatencyColor = (latency) => {
         if (latency === null) return 'text-slate-500';
@@ -323,28 +323,6 @@ function PingLatencyCard({ routerId }) {
         return 'bg-red-500/10';
     };
 
-    if (isLoading) {
-        return (
-            <Card className="glass-panel">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                        <Activity className="w-5 h-5" />
-                        Ping Latency
-                    </CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-center py-4">
-                        <RefreshCw className="w-5 h-5 animate-spin text-primary" />
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    }
-
-    if (!latencies || latencies.length === 0) {
-        return null;
-    }
-
     return (
         <Card className="glass-panel">
             <CardHeader>
@@ -354,25 +332,41 @@ function PingLatencyCard({ routerId }) {
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="space-y-2">
-                    {latencies.map((item, idx) => (
-                        <div
-                            key={idx}
-                            className={clsx(
-                                "flex items-center justify-between p-2 rounded-lg",
-                                getLatencyBg(item.latency)
-                            )}
-                        >
-                            <div className="flex flex-col">
-                                <span className="text-sm text-white font-medium">{item.label}</span>
-                                <span className="text-xs text-slate-500 font-mono">{item.ip}</span>
+                {isLoading ? (
+                    <div className="flex items-center justify-center py-4">
+                        <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                    </div>
+                ) : isError ? (
+                    <div className="text-center py-4 text-red-400 text-sm">
+                        <AlertCircle className="w-5 h-5 mx-auto mb-2" />
+                        Failed to load latency data
+                    </div>
+                ) : !latencies || latencies.length === 0 ? (
+                    <div className="text-center py-4 text-slate-500 text-sm">
+                        No ping targets configured
+                        <p className="text-xs mt-1">Configure targets in Settings → General</p>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {latencies.map((item, idx) => (
+                            <div
+                                key={idx}
+                                className={clsx(
+                                    "flex items-center justify-between p-2 rounded-lg",
+                                    getLatencyBg(item.latency)
+                                )}
+                            >
+                                <div className="flex flex-col">
+                                    <span className="text-sm text-white font-medium">{item.label}</span>
+                                    <span className="text-xs text-slate-500 font-mono">{item.ip}</span>
+                                </div>
+                                <span className={clsx("text-lg font-bold font-mono", getLatencyColor(item.latency))}>
+                                    {item.latency !== null ? `${item.latency}ms` : '--'}
+                                </span>
                             </div>
-                            <span className={clsx("text-lg font-bold font-mono", getLatencyColor(item.latency))}>
-                                {item.latency !== null ? `${item.latency}ms` : '--'}
-                            </span>
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
