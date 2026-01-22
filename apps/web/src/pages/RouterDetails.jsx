@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive } from '@/hooks';
+import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -305,6 +305,79 @@ function ActiveUsersCard({ routerId }) {
     );
 }
 
+// Ping Latency Card Component
+function PingLatencyCard({ routerId }) {
+    const { data: latencies, isLoading } = usePingLatencies(routerId);
+
+    const getLatencyColor = (latency) => {
+        if (latency === null) return 'text-slate-500';
+        if (latency < 50) return 'text-emerald-400';
+        if (latency < 100) return 'text-yellow-400';
+        return 'text-red-400';
+    };
+
+    const getLatencyBg = (latency) => {
+        if (latency === null) return 'bg-slate-700';
+        if (latency < 50) return 'bg-emerald-500/10';
+        if (latency < 100) return 'bg-yellow-500/10';
+        return 'bg-red-500/10';
+    };
+
+    if (isLoading) {
+        return (
+            <Card className="glass-panel">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                        <Activity className="w-5 h-5" />
+                        Ping Latency
+                    </CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="flex items-center justify-center py-4">
+                        <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    if (!latencies || latencies.length === 0) {
+        return null;
+    }
+
+    return (
+        <Card className="glass-panel">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                    <Activity className="w-5 h-5" />
+                    Ping Latency
+                </CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    {latencies.map((item, idx) => (
+                        <div
+                            key={idx}
+                            className={clsx(
+                                "flex items-center justify-between p-2 rounded-lg",
+                                getLatencyBg(item.latency)
+                            )}
+                        >
+                            <div className="flex flex-col">
+                                <span className="text-sm text-white font-medium">{item.label}</span>
+                                <span className="text-xs text-slate-500 font-mono">{item.ip}</span>
+                            </div>
+                            <span className={clsx("text-lg font-bold font-mono", getLatencyColor(item.latency))}>
+                                {item.latency !== null ? `${item.latency}ms` : '--'}
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
 // Dashboard Tab Content
 function DashboardTab({ router, metrics, interfaces }) {
     const formatBytes = (bytes) => {
@@ -368,6 +441,9 @@ function DashboardTab({ router, metrics, interfaces }) {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* Ping Latency Card */}
+                    <PingLatencyCard routerId={router.id} />
                 </div>
 
                 {/* Interface Traffic Chart */}
