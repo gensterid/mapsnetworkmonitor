@@ -16,7 +16,7 @@ export default function AppLayout() {
     }, [location.pathname]);
 
     return (
-        <div className="flex h-screen w-screen bg-slate-950 overflow-hidden">
+        <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] w-screen bg-slate-950 overflow-hidden">
             {/* Mobile Sidebar Overlay */}
             {isSidebarOpen && (
                 <div
