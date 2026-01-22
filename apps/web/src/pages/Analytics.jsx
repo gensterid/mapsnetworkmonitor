@@ -359,7 +359,7 @@ function StatCard({ icon: Icon, label, value, subvalue, color = 'primary', onCli
     };
 
     const cardContent = (
-        <CardContent className="p-4 h-full flex items-center">
+        <CardContent className="!p-4 h-full flex items-center">
             <div className="flex items-center gap-3 w-full">
                 <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colorClasses[color])}>
                     <Icon className="w-5 h-5" />
