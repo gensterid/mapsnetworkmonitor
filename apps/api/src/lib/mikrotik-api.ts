@@ -434,29 +434,57 @@ export async function getPppActive(api: any): Promise<number> {
  * Measure ping latency to a host
  * Returns latency in ms, or -1 if unreachable
  */
+/**
+ * Measure ping latency to a host
+ * Returns latency in ms, or -1 if unreachable
+ */
 export async function measurePing(api: any, address: string): Promise<number> {
     try {
         const result = await api.write([
             '/ping',
             `=address=${address}`,
-            '=count=1'
+            '=count=3' // Increase to 3 for better average
         ]);
 
-        if (result && result.length > 0) {
-            // result[0] typically contains fields like: seq, host, time, ttl, size, sent, received, packet-loss, min-rtt, avg-rtt, max-rtt
-            const entry = result[0];
+        // console.log(`[DEBUG] Ping raw for ${address}:`, JSON.stringify(result));
 
-            // Try different possible fields depending on RouterOS version/output
-            if (entry['avg-rtt']) {
-                return parseLatencyValue(entry['avg-rtt']);
+        if (result && result.length > 0) {
+            // Filter out packets that were lost (sometimes they appear in list)
+            // But usually result is summary of each packet. 
+            // We want the average of successful packets.
+
+            let totalLatency = 0;
+            let count = 0;
+
+            for (const entry of result) {
+                // Ignore summary entries if any (usually ping tool returns per-packet or final summary depending on flags)
+                // api.write usually returns array of responses.
+
+                // Prioritize avg-rtt if available (usually in final summary or each packet)
+                if (entry['avg-rtt']) {
+                    return parseLatencyValue(entry['avg-rtt']);
+                }
+
+                // If per-packet 'time' is available
+                if (entry['time']) {
+                    const lat = parseLatencyValue(entry['time']);
+                    if (lat >= 0) {
+                        totalLatency += lat;
+                        count++;
+                    }
+                }
             }
-            if (entry['time']) {
-                return parseLatencyValue(entry['time']);
+
+            if (count > 0) {
+                const avg = Math.round(totalLatency / count);
+                // console.log(`[DEBUG] Calculated average for ${address}: ${avg}ms from ${count} packets`);
+                return avg;
             }
         }
         return -1;
     } catch (error) {
         // Ping failed (timeout or other error)
+        console.error(`Error pinging ${address}:`, error);
         return -1;
     }
 }

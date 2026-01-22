@@ -307,7 +307,7 @@ function ActiveUsersCard({ routerId }) {
 
 // Ping Latency Card Component
 function PingLatencyCard({ routerId }) {
-    const { data: latencies, isLoading, isError, error, refetch } = usePingLatencies(routerId);
+    const { data: latencies, isLoading, isFetching, isError, error, refetch } = usePingLatencies(routerId);
 
     const getLatencyColor = (latency) => {
         if (latency === null) return 'text-slate-500';
@@ -330,8 +330,8 @@ function PingLatencyCard({ routerId }) {
                     <Activity className="w-5 h-5" />
                     Ping Latency
                 </CardTitle>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => refetch()} disabled={isLoading}>
-                    <RefreshCw className={clsx("w-3 h-3 text-slate-400", isLoading && "animate-spin")} />
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => refetch()} disabled={isFetching}>
+                    <RefreshCw className={clsx("w-3 h-3 text-slate-400", isFetching && "animate-spin")} />
                 </Button>
             </CardHeader>
             <CardContent>
