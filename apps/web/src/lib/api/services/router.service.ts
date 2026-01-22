@@ -121,7 +121,7 @@ export const routerService = {
     /**
      * Get ping latencies to configured targets via router
      */
-    getPingLatencies: (routerId: string) =>
+    fetchPingLatencies: (routerId: string) =>
         get<PingLatency[]>(`/routers/${routerId}/ping-latencies`),
 
     /**

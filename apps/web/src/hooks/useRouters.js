@@ -137,7 +137,7 @@ export function usePingLatencies(routerId, options = {}) {
         queryKey: routerKeys.pingLatencies(routerId),
         queryFn: () => {
             console.log(`[usePingLatencies] Fetching latencies for router ${routerId}`);
-            return routerService.getPingLatencies(routerId);
+            return routerService.fetchPingLatencies(routerId);
         },
         staleTime: 60 * 1000,
         refetchInterval: 60 * 1000, // Refresh every 60 seconds
