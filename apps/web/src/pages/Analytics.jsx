@@ -359,8 +359,8 @@ function StatCard({ icon: Icon, label, value, subvalue, color = 'primary', onCli
     };
 
     const cardContent = (
-        <CardContent className="p-4">
-            <div className="flex items-center gap-3">
+        <CardContent className="p-4 h-full flex items-center">
+            <div className="flex items-center gap-3 w-full">
                 <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colorClasses[color])}>
                     <Icon className="w-5 h-5" />
                 </div>
@@ -376,7 +376,7 @@ function StatCard({ icon: Icon, label, value, subvalue, color = 'primary', onCli
     if (onClick) {
         return (
             <Card
-                className="glass-panel cursor-pointer hover:border-slate-600 hover:bg-slate-800/50 transition-all duration-200 hover:-translate-y-0.5"
+                className="glass-panel cursor-pointer hover:border-slate-600 hover:bg-slate-800/50 transition-all duration-200 hover:-translate-y-0.5 h-full"
                 onClick={onClick}
             >
                 {cardContent}
@@ -385,7 +385,7 @@ function StatCard({ icon: Icon, label, value, subvalue, color = 'primary', onCli
     }
 
     return (
-        <Card className="glass-panel">
+        <Card className="glass-panel h-full">
             {cardContent}
         </Card>
     );

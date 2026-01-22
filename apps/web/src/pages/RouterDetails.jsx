@@ -81,9 +81,9 @@ function StatsCard({ icon: Icon, label, value, color = "blue", subValue }) {
     };
 
     return (
-        <Card className="glass-panel">
-            <CardContent className="p-4">
-                <div className="flex items-center gap-3">
+        <Card className="glass-panel h-full">
+            <CardContent className="p-4 h-full flex items-center">
+                <div className="flex items-center gap-3 w-full">
                     <div className={clsx("p-2.5 rounded-lg", colorClasses[color])}>
                         <Icon className="w-5 h-5" />
                     </div>
