@@ -841,6 +841,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
     const [editingNetwatch, setEditingNetwatch] = useState(null);
     const [syncStatus, setSyncStatus] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'up', 'down'
+    const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('status'); // 'status', 'name', 'host', 'location'
     const queryClient = useQueryClient();
     const syncMutation = useSyncNetwatch();
@@ -855,6 +856,11 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
         : statusFilter === 'up'
             ? netwatch.filter(n => n.status === 'up')
             : netwatch.filter(n => n.status === 'down' || n.status === 'unknown')
+    ).filter(n =>
+        !searchQuery ||
+        n.host?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.location?.toLowerCase().includes(searchQuery.toLowerCase())
     ).sort((a, b) => {
         switch (sortBy) {
             case 'status':
@@ -948,25 +954,37 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                         )}
                     </div>
                 </div>
-                <div className="flex gap-2 items-center">
-                    <select
-                        value={sortBy}
-                        onChange={(e) => setSortBy(e.target.value)}
-                        className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary max-w-[120px] sm:max-w-none"
-                    >
-                        <option value="status">Status</option>
-                        <option value="name">Name</option>
-                        <option value="host">IP</option>
-                        <option value="location">Loc</option>
-                    </select>
-                    <Button variant="outline" onClick={handleSync} loading={syncMutation.isPending} title="Sync from Router">
-                        <RefreshCw className="w-4 h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Sync</span>
-                    </Button>
-                    <Button onClick={() => setIsAddModalOpen(true)} title="Add Host">
-                        <Plus className="w-4 h-4 sm:mr-2" />
-                        <span className="hidden sm:inline">Add Host</span>
-                    </Button>
+                <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center w-full sm:w-auto">
+                    <div className="relative w-full sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Search host, name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary max-w-[120px] sm:max-w-none"
+                        >
+                            <option value="status">Status</option>
+                            <option value="name">Name</option>
+                            <option value="host">IP</option>
+                            <option value="location">Loc</option>
+                        </select>
+                        <Button variant="outline" onClick={handleSync} loading={syncMutation.isPending} title="Sync from Router">
+                            <RefreshCw className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Sync</span>
+                        </Button>
+                        <Button onClick={() => setIsAddModalOpen(true)} title="Add Host">
+                            <Plus className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">Add Host</span>
+                        </Button>
+                    </div>
                 </div>
             </div>
 
