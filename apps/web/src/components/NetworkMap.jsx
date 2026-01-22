@@ -301,6 +301,7 @@ const createClusterCustomIcon = (cluster) => {
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
     const [mapType, setMapType] = useState('hybrid');
     const [showLabels, setShowLabels] = useState(true);
+    const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isEditingPath, setIsEditingPath] = useState(false);
@@ -987,7 +988,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     const markers = (
                         <>
                             {/* Router Markers */}
-                            {mapData.routers.map(router => (
+                            {mapData.routers.filter(r => !searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery))).map(router => (
                                 <DraggableMarker
                                     key={router.id}
                                     status={router.status} // For cluster icon
@@ -1034,7 +1035,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             ))}
 
                             {/* Netwatch Node Markers */}
-                            {mapData.nodes.map(node => (
+                            {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => (
                                 <DraggableMarker
                                     key={node.id}
                                     status={node.status} // For cluster icon
@@ -1092,7 +1093,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             ))}
 
                             {/* PPPoE Client Markers */}
-                            {(mapData.pppoeNodes || []).map(pppoe => (
+                            {(mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
                                 <DraggableMarker
                                     key={`pppoe-${pppoe.id}`}
                                     status={pppoe.status} // For cluster icon
@@ -1198,6 +1199,29 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             transition-all duration-200 origin-top-right
                             ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
                         `}>
+
+                        {/* Search Box */}
+                        <div className="mb-2 w-full min-w-[200px]">
+                            <div className="relative">
+                                <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+                                <input
+                                    type="text"
+                                    placeholder="Search map..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-slate-800 text-white text-xs py-1.5 pl-8 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                                    >
+                                        <span className="material-symbols-outlined text-[14px]">close</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
                             <label className="text-xs text-white font-bold">Map Type</label>
                         </div>
