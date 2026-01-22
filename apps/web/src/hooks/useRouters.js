@@ -135,10 +135,17 @@ export function useRouterPppActive(routerId, options = {}) {
 export function usePingLatencies(routerId, options = {}) {
     return useQuery({
         queryKey: routerKeys.pingLatencies(routerId),
-        queryFn: () => routerService.getPingLatencies(routerId),
+        queryFn: () => {
+            console.log(`[usePingLatencies] Fetching latencies for router ${routerId}`);
+            return routerService.getPingLatencies(routerId);
+        },
         staleTime: 60 * 1000,
         refetchInterval: 60 * 1000, // Refresh every 60 seconds
         enabled: !!routerId,
+        retry: 1,
+        onError: (err) => {
+            console.error(`[usePingLatencies] Error fetching latencies for router ${routerId}:`, err);
+        },
         ...options,
     });
 }

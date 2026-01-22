@@ -307,7 +307,7 @@ function ActiveUsersCard({ routerId }) {
 
 // Ping Latency Card Component
 function PingLatencyCard({ routerId }) {
-    const { data: latencies, isLoading, isError, error } = usePingLatencies(routerId);
+    const { data: latencies, isLoading, isError, error, refetch } = usePingLatencies(routerId);
 
     const getLatencyColor = (latency) => {
         if (latency === null) return 'text-slate-500';
@@ -325,11 +325,14 @@ function PingLatencyCard({ routerId }) {
 
     return (
         <Card className="glass-panel">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-base">
                     <Activity className="w-5 h-5" />
                     Ping Latency
                 </CardTitle>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => refetch()} disabled={isLoading}>
+                    <RefreshCw className={clsx("w-3 h-3 text-slate-400", isLoading && "animate-spin")} />
+                </Button>
             </CardHeader>
             <CardContent>
                 {isLoading ? (
@@ -339,7 +342,11 @@ function PingLatencyCard({ routerId }) {
                 ) : isError ? (
                     <div className="text-center py-4 text-red-400 text-sm">
                         <AlertCircle className="w-5 h-5 mx-auto mb-2" />
-                        Failed to load latency data
+                        <p>Failed to load latency data</p>
+                        <p className="text-xs text-slate-500 mt-1">{error?.message || 'Check logs'}</p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => refetch()}>
+                            Try Again
+                        </Button>
                     </div>
                 ) : !latencies || latencies.length === 0 ? (
                     <div className="text-center py-4 text-slate-500 text-sm">
