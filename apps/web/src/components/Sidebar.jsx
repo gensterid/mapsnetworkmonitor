@@ -108,8 +108,8 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <NavItem path="/" icon={LayoutDashboard} label="Dashboard" isActive={isActive("/")} onClose={onClose} />
                     <NavItem path="/map" icon={MapIcon} label="Network Map" isActive={isActive("/map")} onClose={onClose} />
                     <NavItem path="/routers" icon={RouterIcon} label="Devices" badge={routers.length} isActive={isActive("/routers")} onClose={onClose} />
-                    <NavItem path="/alerts" icon={Bell} label="Alerts" badge={alertCount?.count} badgeColor={alertCount?.count > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : undefined} isActive={isActive("/alerts")} onClose={onClose} />
-                    <NavItem path="/issues" icon={Activity} label="Issues" isActive={isActive("/issues")} onClose={onClose} />
+                    <NavItem path="/alerts" icon={Bell} label="Alerts" badge={alertCount?.connectivity} badgeColor={alertCount?.connectivity > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : undefined} isActive={isActive("/alerts")} onClose={onClose} />
+                    <NavItem path="/issues" icon={Activity} label="Issues" badge={alertCount?.issues} badgeColor={alertCount?.issues > 0 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : undefined} isActive={isActive("/issues")} onClose={onClose} />
 
                     <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6">System</div>
 

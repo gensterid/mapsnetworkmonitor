@@ -30,13 +30,12 @@ router.get(
 router.get(
     '/unread',
     asyncHandler(async (req, res) => {
-        const count = await alertService.countUnacknowledged(req.user?.id, req.user?.role);
-        const bySeverity = await alertService.countBySeverity(req.user?.id, req.user?.role);
+        const stats = await alertService.getUnreadStats(req.user?.id, req.user?.role);
 
         res.json({
             data: {
-                count,
-                ...bySeverity,
+                count: stats.total, // Backward compatibility
+                ...stats,
             },
         });
     })

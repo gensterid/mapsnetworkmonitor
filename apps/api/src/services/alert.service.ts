@@ -443,6 +443,76 @@ export class AlertService {
     }
 
     /**
+     * Get unread stats with breakdown by category
+     */
+    async getUnreadStats(userId?: string, userRole?: string): Promise<{
+        total: number;
+        issues: number;
+        connectivity: number;
+        bySeverity: { info: number; warning: number; critical: number };
+    }> {
+        let query = db
+            .select()
+            .from(alerts)
+            .where(and(eq(alerts.acknowledged, false), eq(alerts.resolved, false)))
+            .$dynamic();
+
+        // Filter for non-admins
+        if (userId && userRole && userRole !== 'admin') {
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+
+            const routerIds = assigned.map((a) => a.routerId);
+
+            if (routerIds.length === 0) {
+                return {
+                    total: 0,
+                    issues: 0,
+                    connectivity: 0,
+                    bySeverity: { info: 0, warning: 0, critical: 0 },
+                };
+            }
+
+            query = db
+                .select()
+                .from(alerts)
+                .where(
+                    and(
+                        eq(alerts.acknowledged, false),
+                        eq(alerts.resolved, false),
+                        inArray(alerts.routerId, routerIds)
+                    )
+                )
+                .$dynamic();
+        }
+
+        const allAlerts = await query;
+
+        // Categorize
+        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+        const issuesCount = allAlerts.filter(a =>
+            issueTypes.includes(a.type) ||
+            (a.type === 'threshold') ||
+            (a.severity === 'warning' && !a.type?.includes('status_change') && !a.type?.includes('down') && !a.type?.includes('offline') && !a.type?.includes('pppoe'))
+        ).length;
+
+        const connectivityCount = allAlerts.length - issuesCount;
+
+        return {
+            total: allAlerts.length,
+            issues: issuesCount,
+            connectivity: connectivityCount,
+            bySeverity: {
+                info: allAlerts.filter((a) => a.severity === 'info').length,
+                warning: allAlerts.filter((a) => a.severity === 'warning').length,
+                critical: allAlerts.filter((a) => a.severity === 'critical').length,
+            },
+        };
+    }
+
+    /**
      * Create netwatch alert (respects settings)
      */
     async createNetwatchAlert(
