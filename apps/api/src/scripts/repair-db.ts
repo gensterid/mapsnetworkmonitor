@@ -53,6 +53,45 @@ const runRepair = async () => {
             console.log('✅ Column last_known_latency already exists.');
         }
 
+        // 2. Fix: pppoe_sessions columns
+        console.log('🔍 Checking pppoe_sessions table...');
+
+        // Status column
+        const checkStatus = await db.execute(sql`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='pppoe_sessions' AND column_name='status';
+        `);
+        if (checkStatus.length === 0) {
+            console.log('⚠️ Column status missing in pppoe_sessions. Adding it...');
+            await db.execute(sql`ALTER TABLE pppoe_sessions ADD COLUMN status text DEFAULT 'active';`);
+            console.log('✅ Column status added.');
+        }
+
+        // Last Down column
+        const checkLastDown = await db.execute(sql`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='pppoe_sessions' AND column_name='last_down';
+        `);
+        if (checkLastDown.length === 0) {
+            console.log('⚠️ Column last_down missing in pppoe_sessions. Adding it...');
+            await db.execute(sql`ALTER TABLE pppoe_sessions ADD COLUMN last_down timestamp;`);
+            console.log('✅ Column last_down added.');
+        }
+
+        // Last Latency column
+        const checkLastLatency = await db.execute(sql`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='pppoe_sessions' AND column_name='last_latency';
+        `);
+        if (checkLastLatency.length === 0) {
+            console.log('⚠️ Column last_latency missing in pppoe_sessions. Adding it...');
+            await db.execute(sql`ALTER TABLE pppoe_sessions ADD COLUMN last_latency integer;`);
+            console.log('✅ Column last_latency added.');
+        }
+
         // Add other repairs here if needed in future
 
         console.log('🎉 Database repair completed successfully!');
