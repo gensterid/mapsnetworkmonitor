@@ -16,8 +16,28 @@ export default function Alerts() {
 
     const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
 
-    // Filter alerts based on search query
+    // Connectivity types (Up/Down/Reboot/Interface)
+    const connectivityTypes = [
+        'status_change',
+        'interface_down',
+        'netwatch_down',
+        'reboot',
+        'pppoe_connect',
+        'pppoe_disconnect'
+    ];
+
+    // Filter alerts: Connectivity only
     const filteredAlerts = alerts.filter(alert => {
+        // 1. Must be a connectivity type
+        // Basic connectivity types + fallback for any other types NOT in the "issues" category
+        const isIssue = ['high_cpu', 'high_memory', 'high_disk', 'threshold'].includes(alert.type);
+        if (isIssue) return false;
+
+        if (!connectivityTypes.includes(alert.type) && alert.type !== 'info') {
+            // If unknown type, maybe default to alert? 
+            // Let's rely on exclusion of issues.
+        }
+
         if (!searchQuery.trim()) return true;
         const query = searchQuery.toLowerCase();
         return (

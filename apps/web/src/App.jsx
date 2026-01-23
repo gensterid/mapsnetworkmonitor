@@ -7,6 +7,7 @@ import Routers from './pages/Routers';
 import RouterDetails from './pages/RouterDetails';
 import NetworkMap from './pages/NetworkMap';
 import Alerts from './pages/Alerts';
+import Issues from './pages/Issues';
 import Users from './pages/Users';
 import Settings from './pages/Settings';
 import Netwatch from './pages/Netwatch';
@@ -134,6 +135,7 @@ function App() {
             } />
             <Route path="routers/:id" element={<RouterDetails />} />
             <Route path="alerts" element={<Alerts />} />
+            <Route path="issues" element={<Issues />} />
             <Route path="netwatch" element={
               <AdminRoute>
                 <Netwatch />
