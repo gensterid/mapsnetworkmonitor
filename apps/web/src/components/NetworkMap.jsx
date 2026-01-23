@@ -249,17 +249,58 @@ const DraggableMarker = ({
 const createClusterCustomIcon = (cluster) => {
     const markers = cluster.getAllChildMarkers();
     let hasDown = false;
+    let hasIssue = false;
     let downCount = 0;
+    let issueCount = 0;
 
     for (const marker of markers) {
         // Access options passed to Marker via DraggableMarker
-        if (marker.options.status === 'down' || marker.options.status === 'offline') {
+        const status = marker.options.status;
+        const latency = marker.options.icon?.options?.latency;
+        const packetLoss = marker.options.icon?.options?.packetLoss;
+
+        // Check Down
+        if (status === 'down' || status === 'offline') {
             hasDown = true;
             downCount++;
+        }
+        // Check Issue (if not down)
+        else {
+            // Check if icon options created a warning status or check raw metrics
+            // The createDeviceIcon function normalizes status to 'warning' if issues exist, 
+            // but here we might just have the raw status 'up'.
+            // We can check the icon's options if possible, or re-evaluate metrics.
+            // marker.options.icon is L.DivIcon. It has options.
+            // But createDeviceIcon returns an icon where we passed { latency, packetLoss }.
+            // Let's rely on the marker props if possible or re-check.
+            // However, marker.options usually contains what was passed to <Marker>.
+            // We passed `status={node.status}`.
+            // We ALSO need to know if it has issues.
+            // Let's check if we can access the normalized status from the icon class? No.
+            // Better: Check latency/packetLoss if available in marker options options.
+
+            // Inspecting NetworkMap.jsx:
+            // <DraggableMarker ... icon={createDeviceIcon({ latency: node.latency ... })} ... >
+            // The icon object is stored in marker.options.icon.
+            // Leaflet stores options in icon.options.
+
+            const isWarning = (latency !== undefined && latency > 100) || (packetLoss !== undefined && packetLoss > 0);
+            if (isWarning) {
+                hasIssue = true;
+                issueCount++;
+            }
         }
     }
 
     const childCount = cluster.getChildCount();
+
+    // Color logic: Red > Yellow > Blue
+    let bgColor = 'rgba(59, 130, 246, 0.9)'; // Blue (Default)
+    if (hasDown) {
+        bgColor = 'rgba(239, 68, 68, 0.9)'; // Red
+    } else if (hasIssue) {
+        bgColor = 'rgba(234, 179, 8, 0.9)'; // Yellow (Amber-500)
+    }
 
     return L.divIcon({
         html: `
@@ -269,7 +310,7 @@ const createClusterCustomIcon = (cluster) => {
                 justify-content: center; 
                 width: 100%; 
                 height: 100%; 
-                background-color: ${hasDown ? 'rgba(239, 68, 68, 0.9)' : 'rgba(59, 130, 246, 0.9)'}; 
+                background-color: ${bgColor}; 
                 border: 2px solid white; 
                 border-radius: 50%; 
                 color: white; 
@@ -296,9 +337,26 @@ const createClusterCustomIcon = (cluster) => {
                         border: 1px solid white;
                     ">${downCount}</span>
                 ` : ''}
+                ${!hasDown && hasIssue ? `
+                    <span style="
+                        position: absolute; 
+                        top: -5px; 
+                        right: -5px; 
+                        background-color: #ca8a04; 
+                        color: white; 
+                        font-size: 10px; 
+                        width: 16px; 
+                        height: 16px; 
+                        border-radius: 50%; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        border: 1px solid white;
+                    ">${issueCount}</span>
+                ` : ''}
             </div>
         `,
-        className: 'custom-cluster-marker', // Override default leaflet class
+        className: 'custom-cluster-marker',
         iconSize: L.point(40, 40, true),
     });
 };
