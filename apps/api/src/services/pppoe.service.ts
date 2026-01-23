@@ -19,6 +19,18 @@ class PppoeService {
      * @param routerName Router name (for alert messages)
      * @param currentSessions Current active PPPoE sessions from MikroTik
      */
+    /**
+     * Store coordinates for users who disconnect (to preserve when they reconnect)
+     * Key: "routerId:username", Value: { latitude, longitude, waypoints, connectionType, connectedToId }
+     */
+    private coordinatesCache: Map<string, {
+        latitude: string | null;
+        longitude: string | null;
+        waypoints: string | null;
+        connectionType: string | null;
+        connectedToId: string | null;
+    }> = new Map();
+
     async trackSessions(
         routerId: string,
         routerName: string,
@@ -40,6 +52,50 @@ class PppoeService {
 
             console.log(`[PPPoE] Previous tracked: ${previousSessions.length}, Current active: ${currentSessions.length}`);
 
+            // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
+            for (const session of previousSessions) {
+                if (!currentSessionNames.has(session.name)) {
+                    // Disconnection detected
+                    disconnected.push(session.name);
+                    console.log(`[PPPoE] Disconnection detected: ${session.name}`);
+
+                    // Cache coordinates before deleting (to preserve for reconnection)
+                    if (session.latitude || session.longitude || session.waypoints) {
+                        const cacheKey = `${routerId}:${session.name}`;
+                        this.coordinatesCache.set(cacheKey, {
+                            latitude: session.latitude,
+                            longitude: session.longitude,
+                            waypoints: session.waypoints,
+                            connectionType: session.connectionType,
+                            connectedToId: session.connectedToId,
+                        });
+                        console.log(`[PPPoE] Cached coordinates for ${session.name}`);
+                    }
+
+                    // Calculate session duration
+                    const duration = Math.floor(
+                        (Date.now() - new Date(session.connectedAt).getTime()) / 1000
+                    );
+
+                    // Create disconnect alert
+                    try {
+                        const alert = await alertService.createPppoeDisconnectAlert(
+                            routerId,
+                            routerName,
+                            session.name,
+                            session.address || 'N/A',
+                            duration
+                        );
+                        console.log(`[PPPoE] Disconnect alert created: ${alert ? alert.id : 'null (alerts disabled?)'}`);
+                    } catch (alertErr) {
+                        console.error(`[PPPoE] Failed to create disconnect alert:`, alertErr);
+                    }
+
+                    // Remove session from tracking
+                    await this.deleteSession(session.id);
+                }
+            }
+
             // Detect new connections (in current but not in previous)
             for (const session of currentSessions) {
                 if (!previousSessionNames.has(session.name)) {
@@ -47,8 +103,12 @@ class PppoeService {
                     connected.push(session.name);
                     console.log(`[PPPoE] New connection detected: ${session.name} (IP: ${session.address})`);
 
-                    // Create new session record
-                    await this.createSession({
+                    // Check if we have cached coordinates for this user
+                    const cacheKey = `${routerId}:${session.name}`;
+                    const cachedCoords = this.coordinatesCache.get(cacheKey);
+
+                    // Create new session record (with cached coordinates if available)
+                    const newSessionData: NewPppoeSession = {
                         routerId,
                         name: session.name,
                         sessionId: session.sessionId,
@@ -56,7 +116,21 @@ class PppoeService {
                         address: session.address,
                         service: session.service,
                         uptime: session.uptime,
-                    });
+                    };
+
+                    // Transfer cached coordinates to new session
+                    if (cachedCoords) {
+                        if (cachedCoords.latitude) newSessionData.latitude = cachedCoords.latitude;
+                        if (cachedCoords.longitude) newSessionData.longitude = cachedCoords.longitude;
+                        if (cachedCoords.waypoints) newSessionData.waypoints = cachedCoords.waypoints;
+                        if (cachedCoords.connectionType) newSessionData.connectionType = cachedCoords.connectionType;
+                        if (cachedCoords.connectedToId) newSessionData.connectedToId = cachedCoords.connectedToId;
+                        console.log(`[PPPoE] Restored coordinates for ${session.name} from cache`);
+                        // Remove from cache after use
+                        this.coordinatesCache.delete(cacheKey);
+                    }
+
+                    await this.createSession(newSessionData);
 
                     // Create connect alert
                     try {
@@ -80,37 +154,6 @@ class PppoeService {
                             address: session.address,
                         });
                     }
-                }
-            }
-
-            // Detect disconnections (in previous but not in current)
-            for (const session of previousSessions) {
-                if (!currentSessionNames.has(session.name)) {
-                    // Disconnection detected
-                    disconnected.push(session.name);
-                    console.log(`[PPPoE] Disconnection detected: ${session.name}`);
-
-                    // Calculate session duration
-                    const duration = Math.floor(
-                        (Date.now() - new Date(session.connectedAt).getTime()) / 1000
-                    );
-
-                    // Create disconnect alert
-                    try {
-                        const alert = await alertService.createPppoeDisconnectAlert(
-                            routerId,
-                            routerName,
-                            session.name,
-                            session.address || 'N/A',
-                            duration
-                        );
-                        console.log(`[PPPoE] Disconnect alert created: ${alert ? alert.id : 'null (alerts disabled?)'}`);
-                    } catch (alertErr) {
-                        console.error(`[PPPoE] Failed to create disconnect alert:`, alertErr);
-                    }
-
-                    // Remove session from tracking
-                    await this.deleteSession(session.id);
                 }
             }
 
