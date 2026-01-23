@@ -170,11 +170,14 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
     return null;
 };
 
-// Helper to auto-fit bounds to markers
+// Helper to auto-fit bounds to markers (only on initial load)
 const MapAutoFit = ({ markers, isEditing }) => {
     const map = useMap();
+    const hasInitialFit = React.useRef(false);
 
     useEffect(() => {
+        // Only fit bounds on initial load, not after updates
+        if (hasInitialFit.current) return;
         if (!markers || markers.length === 0 || isEditing) return;
 
         try {
@@ -191,6 +194,8 @@ const MapAutoFit = ({ markers, isEditing }) => {
                         maxZoom: 16
                     });
                 }
+                // Mark as initialized
+                hasInitialFit.current = true;
             }
         } catch (e) {
             console.error("Error fitting bounds:", e);
