@@ -440,7 +440,7 @@ export async function getPppActive(api: any): Promise<number> {
  */
 export async function measurePing(api: any, address: string): Promise<{ latency: number, packetLoss: number }> {
     try {
-        const pingCount = 5;
+        const pingCount = 3;
         const result = await api.write([
             '/ping',
             `=address=${address}`,
