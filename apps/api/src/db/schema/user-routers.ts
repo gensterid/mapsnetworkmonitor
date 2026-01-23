@@ -1,6 +1,6 @@
 import { pgTable, uuid, timestamp, primaryKey } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { routers } from './routers.js';
+import { users } from './users';
+import { routers } from './routers';
 
 // User Routers junction table (for access control)
 export const userRouters = pgTable(
