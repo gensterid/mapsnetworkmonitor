@@ -3,6 +3,7 @@ import {
     uuid,
     text,
     timestamp,
+    integer,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers';
 
@@ -25,6 +26,10 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     connectedToId: uuid('connected_to_id'), // ID of client/device connected to (if connectionType is 'client')
     connectedAt: timestamp('connected_at').defaultNow().notNull(),
     lastSeen: timestamp('last_seen').defaultNow().notNull(),
+    // Status tracking
+    status: text('status').default('active'), // 'active', 'disconnected'
+    lastDown: timestamp('last_down'),
+    lastLatency: integer('last_latency'), // Latency in ms (if available)
 });
 
 // Types

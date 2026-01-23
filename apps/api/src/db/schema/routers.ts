@@ -141,6 +141,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     interval: integer('interval').default(30), // check interval in seconds
     status: netwatchStatusEnum('status').default('unknown'),
     latency: integer('latency'), // Latency in ms
+    lastKnownLatency: integer('last_known_latency'), // Last recorded latency before effective down
     packetLoss: integer('packet_loss').default(0), // Packet loss percentage
     lastCheck: timestamp('last_check'),
     lastUp: timestamp('last_up'),

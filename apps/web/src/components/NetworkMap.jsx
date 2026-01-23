@@ -1083,21 +1083,56 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                     <span className="text-slate-400">Type</span>
                                                     <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
                                                 </div>
-                                                {(node.latency !== undefined && node.latency !== null) && (
-                                                    <div className="flex flex-col gap-1 border-t border-slate-700/50 pt-2 mt-1 px-0.5">
-                                                        <div className="flex items-center justify-between text-xs">
-                                                            <span className="text-slate-400">Latency</span>
-                                                            <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                                Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
-                                                                }`}>
-                                                                {node.latency} ms
-                                                            </span>
-                                                        </div>
-                                                        {node.packetLoss > 0 && (
+
+                                                {/* Status Detail: Latency/Packet Loss OR Down Info */}
+                                                {(node.status === 'up' || node.status === 'online') ? (
+                                                    (node.latency !== undefined && node.latency !== null) && (
+                                                        <div className="flex flex-col gap-1 border-t border-slate-700/50 pt-2 mt-1 px-0.5">
                                                             <div className="flex items-center justify-between text-xs">
-                                                                <span className="text-slate-400">Packet Loss</span>
-                                                                <span className="font-mono font-bold text-red-400">
-                                                                    {node.packetLoss}%
+                                                                <span className="text-slate-400">Latency</span>
+                                                                <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                                    Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                                    }`}>
+                                                                    {node.latency} ms
+                                                                </span>
+                                                            </div>
+                                                            {node.packetLoss > 0 && (
+                                                                <div className="flex items-center justify-between text-xs">
+                                                                    <span className="text-slate-400">Packet Loss</span>
+                                                                    <span className="font-mono font-bold text-red-400">
+                                                                        {node.packetLoss}%
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )
+                                                ) : (
+                                                    <div className="flex flex-col gap-1 border-t border-slate-700/50 pt-2 mt-1 px-0.5">
+                                                        {node.lastDown && (
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className="text-slate-400">Down Since</span>
+                                                                <span className="text-slate-200">
+                                                                    {/* We need to format relative time here. Since we can't easily import formatRelativeTime without modifying imports, 
+                                                                        we can pass it as a prop or context, OR simplistic approach if utility is not available in scope. 
+                                                                        Let's assume we can use a simple formatter or update imports. 
+                                                                        Wait, I should check if formatRelativeTime is imported. It is NOT imported in NetworkMap.jsx currently.
+                                                                        I will add the import in a separate step or assume I should add it.
+                                                                        Re-checking file content... imports are at top. I cannot easily add import with replace_file_content if I only target this block.
+                                                                        I will use a simple inline formatter or just display the date?
+                                                                        User asked for "jam tanggal down" (time date down). 
+                                                                        Let's try to trust `new Date(node.lastDown).toLocaleString()` first or similar.
+                                                                    */}
+                                                                    {new Date(node.lastDown).toLocaleString('id-ID', {
+                                                                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+                                                                    })}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                        {node.lastKnownLatency && (
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className="text-slate-400">Last Latency</span>
+                                                                <span className="font-mono text-slate-400">
+                                                                    {node.lastKnownLatency} ms
                                                                 </span>
                                                             </div>
                                                         )}

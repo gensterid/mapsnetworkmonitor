@@ -414,11 +414,44 @@ export class RouterService {
                                             .update(routerNetwatch)
                                             .set({
                                                 latency: latency,
+                                                lastKnownLatency: latency, // Update last known latency
                                                 packetLoss: packetLoss
                                             })
                                             .where(eq(routerNetwatch.id, target.id));
+
+                                        // Check for performance alerts (Latency > 100ms or Packet Loss > 0%)
+                                        if (latency > 100 || packetLoss > 0) {
+                                            const issueType = latency > 100 ? 'high_latency' : 'packet_loss';
+                                            const message = latency > 100
+                                                ? `High latency detected: ${latency}ms`
+                                                : `Packet loss detected: ${packetLoss}%`;
+
+                                            // Check deduplication in alert service (we'll add a generic method or use custom)
+                                            // For now, let's use a generic 'threshold' type or specific ones if we add them to enum
+                                            // Schema enum for alert type: 'status_change', 'high_cpu', 'high_memory', 'high_disk', 'interface_down', 'netwatch_down', 'threshold', 'reboot', 'pppoe_connect', 'pppoe_disconnect'
+                                            // We will use 'threshold' for now, or add new types. Let's stick to 'threshold' to avoid schema change for enum if possible, 
+                                            // OR better: we can reuse 'netwatch_down' context but that's confusing. 
+                                            // Let's assume 'threshold' is fine or check alert service capabilities.
+
+                                            try {
+                                                // Create a custom alert via alertService (we might need to expose a generic create method or add specific one)
+                                                // Using a direct create call via alertService singleton since we are in routerService
+                                                await alertService.createPerformanceAlert(
+                                                    id,
+                                                    router.name,
+                                                    target.host,
+                                                    target.name || target.host,
+                                                    latency,
+                                                    packetLoss
+                                                );
+                                            } catch (err) {
+                                                console.error('Failed to create performance alert:', err);
+                                            }
+                                        }
+
                                     } else {
                                         // If failing to ping (latency -1), usually means 100% loss
+                                        // Do NOT nullify lastKnownLatency
                                         await db
                                             .update(routerNetwatch)
                                             .set({

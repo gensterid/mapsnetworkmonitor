@@ -726,6 +726,49 @@ export class AlertService {
             message: `User ${username} disconnected from ${routerName}. IP: ${ipAddress}. Session duration: ${duration}`,
         });
     }
+
+    /**
+     * Create performance alert (high latency or packet loss)
+     */
+    async createPerformanceAlert(
+        routerId: string,
+        routerName: string,
+        host: string,
+        deviceName: string,
+        latency: number,
+        packetLoss: number
+    ): Promise<Alert | null> {
+        const thresholds = await this.getThresholds();
+
+        if (!thresholds.alertsEnabled) return null;
+
+        // Use 'threshold' type for now as planned
+        // Deduplicate: check if we already alerted about this host recently
+        const existing = await this.findRecentUnresolvedAlert(routerId, 'threshold');
+        if (existing && existing.message.includes(host)) {
+            return null;
+        }
+
+        const isHighLatency = latency > 100;
+        const isPacketLoss = packetLoss > 0;
+
+        // Don't alert if checks pass (should be handled by caller but safe to check)
+        if (!isHighLatency && !isPacketLoss) return null;
+
+        let title = `Performance Issue: ${deviceName}`;
+        let message = `Host ${host} (${deviceName}) has issues:`;
+
+        if (isHighLatency) message += ` Latency ${latency}ms (>100ms).`;
+        if (isPacketLoss) message += ` Packet Loss ${packetLoss}%.`;
+
+        return this.create({
+            routerId,
+            type: 'threshold', // generic threshold type
+            severity: 'warning',
+            title,
+            message,
+        });
+    }
 }
 
 // Export singleton instance
