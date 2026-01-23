@@ -1051,6 +1051,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         name: showLabels ? (node.name || node.host) : '',
                                         showLabel: showLabels,
                                         small: true,
+                                        latency: node.latency,
+                                        packetLoss: node.packetLoss,
                                     })}
                                     draggable={isEditMode}
                                     onDragEnd={(pos) => handleMarkerDragEnd(node, 'client', pos)}

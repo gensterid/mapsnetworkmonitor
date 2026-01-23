@@ -53,13 +53,23 @@ export const createDeviceIcon = ({
     name = '',
     showLabel = true,
     small = false,
+    latency = null,
+    packetLoss = null,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
-    // Normalize status
-    const normalizedStatus = (status === 'up' || status === 'online') ? 'online' :
-        (status === 'down' || status === 'offline' || status === 'disable' || status === 'unknown' || !status) ? 'offline' :
-            'unknown';
+    // Determine if there's a performance issue (high latency or packet loss)
+    const hasPerformanceIssue = (latency !== null && latency > 100) || (packetLoss !== null && packetLoss > 0);
+
+    // Normalize status - prioritize 'warning' for performance issues on online devices
+    let normalizedStatus;
+    if (status === 'up' || status === 'online') {
+        normalizedStatus = hasPerformanceIssue ? 'warning' : 'online';
+    } else if (status === 'down' || status === 'offline' || status === 'disable' || status === 'unknown' || !status) {
+        normalizedStatus = 'offline';
+    } else {
+        normalizedStatus = 'unknown';
+    }
 
     const sizeClass = small ? 'device-icon--small' : '';
     const statusClass = `device-icon--${normalizedStatus}`;
@@ -78,11 +88,12 @@ export const createDeviceIcon = ({
         </div>
     `;
 
-    // Add bounce animation class for offline/down devices
-    const bounceClass = normalizedStatus === 'offline' ? 'marker-pulse-danger' : '';
+    // Add bounce animation class for offline/down devices, pulse for warning
+    const animationClass = normalizedStatus === 'offline' ? 'marker-pulse-danger' :
+        normalizedStatus === 'warning' ? 'marker-pulse-warning' : '';
 
     return L.divIcon({
-        className: `custom-marker-icon ${bounceClass}`,
+        className: `custom-marker-icon ${animationClass}`,
         html,
         iconSize: [small ? 24 : 60, small ? 24 : 60],
         iconAnchor: [small ? 12 : 30, small ? 12 : 20],
