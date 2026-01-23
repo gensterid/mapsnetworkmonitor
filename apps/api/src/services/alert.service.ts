@@ -5,6 +5,7 @@ import {
     appSettings,
     userRouters,
     users,
+    routers,
     type Alert,
     type NewAlert,
 } from '../db/schema/index.js';
@@ -105,9 +106,11 @@ export class AlertService {
             .select({
                 ...getTableColumns(alerts),
                 acknowledgedByName: users.name,
+                routerName: routers.name,
             })
             .from(alerts)
             .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
+            .leftJoin(routers, eq(alerts.routerId, routers.id))
             .orderBy(desc(alerts.createdAt))
             .limit(limit)
             .$dynamic();
@@ -130,9 +133,11 @@ export class AlertService {
                 .select({
                     ...getTableColumns(alerts),
                     acknowledgedByName: users.name,
+                    routerName: routers.name,
                 })
                 .from(alerts)
                 .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
+                .leftJoin(routers, eq(alerts.routerId, routers.id))
                 .where(inArray(alerts.routerId, routerIds))
                 .orderBy(desc(alerts.createdAt))
                 .limit(limit)
@@ -145,10 +150,14 @@ export class AlertService {
     /**
      * Get unacknowledged alerts (filtered by user access)
      */
-    async findUnacknowledged(limit = 100, userId?: string, userRole?: string): Promise<Alert[]> {
+    async findUnacknowledged(limit = 100, userId?: string, userRole?: string): Promise<any[]> {
         let query = db
-            .select()
+            .select({
+                ...getTableColumns(alerts),
+                routerName: routers.name,
+            })
             .from(alerts)
+            .leftJoin(routers, eq(alerts.routerId, routers.id))
             .where(eq(alerts.acknowledged, false))
             .orderBy(desc(alerts.createdAt))
             .limit(limit)
@@ -168,8 +177,12 @@ export class AlertService {
             }
 
             query = db
-                .select()
+                .select({
+                    ...getTableColumns(alerts),
+                    routerName: routers.name,
+                })
                 .from(alerts)
+                .leftJoin(routers, eq(alerts.routerId, routers.id))
                 .where(and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds)))
                 .orderBy(desc(alerts.createdAt))
                 .limit(limit)
@@ -187,9 +200,11 @@ export class AlertService {
             .select({
                 ...getTableColumns(alerts),
                 acknowledgedByName: users.name,
+                routerName: routers.name,
             })
             .from(alerts)
             .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
+            .leftJoin(routers, eq(alerts.routerId, routers.id))
             .where(eq(alerts.routerId, routerId))
             .orderBy(desc(alerts.createdAt))
             .limit(limit);
