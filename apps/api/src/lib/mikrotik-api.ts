@@ -508,21 +508,27 @@ export async function measurePing(api: any, address: string): Promise<{ latency:
 function parseLatencyValue(value: any): number {
     const str = String(value).trim().toLowerCase();
 
-    // Handle microseconds (us) - convert to ms
-    if (str.includes('us')) {
-        const us = parseFloat(str.replace('us', ''));
-        return Math.max(1, Math.round(us / 1000)); // Min 1ms
+    // Match milliseconds and microseconds
+    const msMatch = str.match(/(\d+)ms/);
+    const usMatch = str.match(/(\d+)us/);
+
+    // If ms component is present (e.g. "5ms", "5ms258us")
+    if (msMatch) {
+        const ms = parseInt(msMatch[1], 10);
+        const us = usMatch ? parseInt(usMatch[1], 10) : 0;
+        return Math.round(ms + (us / 1000));
     }
 
-    // Handle seconds (s) - NOT "ms"
-    if (str.endsWith('s') && !str.includes('ms')) {
-        const s = parseFloat(str.replace('s', ''));
+    // If only microseconds (e.g. "800us")
+    if (usMatch) {
+        const us = parseInt(usMatch[1], 10);
+        return Math.max(1, Math.round(us / 1000));
+    }
+
+    // Handle seconds (s) - e.g. "1s", "0.5s"
+    if (str.endsWith('s') && !str.includes('ms') && !str.includes('us')) {
+        const s = parseFloat(str.replace('s', '')); // replace 's' to safe parse
         return Math.round(s * 1000);
-    }
-
-    // Handle milliseconds (ms)
-    if (str.includes('ms')) {
-        return Math.round(parseFloat(str.replace('ms', '')));
     }
 
     // Plain number (assume ms)
