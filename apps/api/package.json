@@ -10,7 +10,8 @@
         "db:migrate": "drizzle-kit migrate",
         "db:push": "tsx node_modules/drizzle-kit/bin.cjs push",
         "db:studio": "drizzle-kit studio",
-        "create-admin": "tsx src/scripts/create-admin.ts"
+        "create-admin": "tsx src/scripts/create-admin.ts",
+        "db:repair": "tsx src/scripts/repair-db.ts"
     },
     "dependencies": {
         "@types/bcrypt": "^6.0.0",
