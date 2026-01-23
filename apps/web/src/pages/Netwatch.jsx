@@ -224,13 +224,23 @@ export default function Netwatch() {
                                             </div>
                                         )}
                                         {(entry.latency !== undefined && entry.latency !== null) && (
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-slate-500">Latency:</span>
-                                                <span className={`font-mono font-bold ${Number(entry.latency) < 20 ? 'text-emerald-400' :
+                                            <div className="flex flex-col gap-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-slate-500">Latency:</span>
+                                                    <span className={`font-mono font-bold ${Number(entry.latency) < 20 ? 'text-emerald-400' :
                                                         Number(entry.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
-                                                    }`}>
-                                                    {entry.latency} ms
-                                                </span>
+                                                        }`}>
+                                                        {entry.latency} ms
+                                                    </span>
+                                                </div>
+                                                {entry.packetLoss > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-slate-500">Packet Loss:</span>
+                                                        <span className="font-mono font-bold text-red-400">
+                                                            {entry.packetLoss}%
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         )}
                                     </div>

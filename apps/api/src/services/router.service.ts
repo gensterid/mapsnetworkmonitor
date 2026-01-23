@@ -408,18 +408,23 @@ export class RouterService {
                         for (const chunk of chunks) {
                             await Promise.all(chunk.map(async (target) => {
                                 try {
-                                    const lat = await measurePing(conn, target.host);
-                                    if (lat >= 0) {
+                                    const { latency, packetLoss } = await measurePing(conn, target.host);
+                                    if (latency >= 0) {
                                         await db
                                             .update(routerNetwatch)
-                                            .set({ latency: lat })
+                                            .set({
+                                                latency: latency,
+                                                packetLoss: packetLoss
+                                            })
                                             .where(eq(routerNetwatch.id, target.id));
                                     } else {
-                                        // If failing to ping, maybe set latency null or keep as is? 
-                                        // If status is UP but ping fails (e.g. firewall), latency is unknown.
+                                        // If failing to ping (latency -1), usually means 100% loss
                                         await db
                                             .update(routerNetwatch)
-                                            .set({ latency: null })
+                                            .set({
+                                                latency: null,
+                                                packetLoss: packetLoss >= 0 ? packetLoss : null
+                                            })
                                             .where(eq(routerNetwatch.id, target.id));
                                     }
                                 } catch (e) {
@@ -807,7 +812,7 @@ export class RouterService {
      * Measure ping latency to configured targets via MikroTik router
      * Returns array of { ip, label, latency } objects
      */
-    async measurePingTargets(routerId: string): Promise<{ ip: string; label: string; latency: number | null }[]> {
+    async measurePingTargets(routerId: string): Promise<{ ip: string; label: string; latency: number | null; packetLoss: number | null }[]> {
         const router = await this.findByIdWithPassword(routerId);
         if (!router || router.status !== 'online') {
             return [];
@@ -836,25 +841,27 @@ export class RouterService {
                 password: router.password,
             });
 
-            const results: { ip: string; label: string; latency: number | null }[] = [];
+            const results: { ip: string; label: string; latency: number | null; packetLoss: number | null }[] = [];
 
             // Ping each target (sequentially to avoid overwhelming router)
             for (const target of targets.slice(0, 6)) { // Max 6 targets
                 try {
                     console.log(`[Router ${router.name}] Pinging ${target.ip}...`);
-                    const latency = await measurePing(conn, target.ip);
-                    console.log(`[Router ${router.name}] Ping result for ${target.ip}: ${latency}ms`);
+                    const { latency, packetLoss } = await measurePing(conn, target.ip);
+                    console.log(`[Router ${router.name}] Ping result for ${target.ip}: ${latency}ms, Loss: ${packetLoss}%`);
                     results.push({
                         ip: target.ip,
                         label: target.label || target.ip,
-                        latency: latency >= 0 ? latency : null
+                        latency: latency >= 0 ? latency : null,
+                        packetLoss: packetLoss
                     });
                 } catch (err) {
                     console.error(`[Router ${router.name}] Error pinging ${target.ip}:`, err);
                     results.push({
                         ip: target.ip,
                         label: target.label || target.ip,
-                        latency: null
+                        latency: null,
+                        packetLoss: null
                     });
                 }
             }

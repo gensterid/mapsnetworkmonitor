@@ -1082,6 +1082,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Status</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Since</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Location</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Latency</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Coords</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Last Check</th>
                                     <th className="text-right py-3 px-4 text-xs font-medium text-slate-400 uppercase">Actions</th>
@@ -1135,6 +1136,25 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                             })()}
                                         </td>
                                         <td className="py-3 px-4 text-sm text-slate-400">{nw.location || '-'}</td>
+                                        <td className="py-3 px-4 text-sm">
+                                            {(nw.latency !== undefined && nw.latency !== null) ? (
+                                                <div className="flex flex-col">
+                                                    <span className={clsx("font-mono font-bold",
+                                                        Number(nw.latency) < 20 ? 'text-emerald-400' :
+                                                            Number(nw.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                    )}>
+                                                        {nw.latency} ms
+                                                    </span>
+                                                    {nw.packetLoss > 0 && (
+                                                        <span className="text-xs text-red-400 font-bold">
+                                                            Loss: {nw.packetLoss}%
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-slate-500">-</span>
+                                            )}
+                                        </td>
                                         <td className="py-3 px-4">
                                             {nw.latitude && nw.longitude ? (
                                                 <span className="flex items-center gap-1 text-xs text-purple-400">

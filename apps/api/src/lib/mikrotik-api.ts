@@ -438,54 +438,84 @@ export async function getPppActive(api: any): Promise<number> {
  * Measure ping latency to a host
  * Returns latency in ms, or -1 if unreachable
  */
-export async function measurePing(api: any, address: string): Promise<number> {
+export async function measurePing(api: any, address: string): Promise<{ latency: number, packetLoss: number }> {
     try {
+        const pingCount = 5;
         const result = await api.write([
             '/ping',
             `=address=${address}`,
-            '=count=3' // Increase to 3 for better average
+            `=count=${pingCount}`
         ]);
 
-        // console.log(`[DEBUG] Ping raw for ${address}:`, JSON.stringify(result));
-
         if (result && result.length > 0) {
-            // Filter out packets that were lost (sometimes they appear in list)
-            // But usually result is summary of each packet. 
-            // We want the average of successful packets.
-
+            // Calculate stats from results
             let totalLatency = 0;
-            let count = 0;
+            let receivedCount = 0;
+            let sentCount = 0;
 
+            // Check if result contains summary (usually last item if not streaming)
+            // Or if it's a list of packet responses.
+            // ping with count returns array of results. each result represents a packet or summary.
+
+            // Standard RouterOS API ping output usually returns one item per packet
             for (const entry of result) {
-                // Ignore summary entries if any (usually ping tool returns per-packet or final summary depending on flags)
-                // api.write usually returns array of responses.
+                if (entry['packet-size']) { // It's a packet response
+                    sentCount++;
+                    if (entry['received'] !== undefined) {
+                        // This might be a summary line? valid packet usually has 'time' or 'ttl'
+                    }
 
-                // Prioritize avg-rtt if available (usually in final summary or each packet)
-                if (entry['avg-rtt']) {
-                    return parseLatencyValue(entry['avg-rtt']);
-                }
-
-                // If per-packet 'time' is available
-                if (entry['time']) {
-                    const lat = parseLatencyValue(entry['time']);
-                    if (lat >= 0) {
-                        totalLatency += lat;
-                        count++;
+                    if (entry['time']) {
+                        const lat = parseLatencyValue(entry['time']);
+                        if (lat >= 0) {
+                            totalLatency += lat;
+                            receivedCount++;
+                        }
+                    } else if (entry['status'] && entry['status'] === 'timeout') {
+                        // Timeout, sent but not received
+                    }
+                } else if (entry['sent'] && entry['received']) {
+                    // This is a summary line
+                    sentCount = parseInt(entry['sent']);
+                    receivedCount = parseInt(entry['received']);
+                    if (entry['avg-rtt']) {
+                        totalLatency = parseLatencyValue(entry['avg-rtt']) * receivedCount;
                     }
                 }
             }
 
-            if (count > 0) {
-                const avg = Math.round(totalLatency / count);
-                // console.log(`[DEBUG] Calculated average for ${address}: ${avg}ms from ${count} packets`);
-                return avg;
+            // Fallback if no summary found but we iterated packets
+            if (sentCount === 0) sentCount = pingCount; // Assume we tried 5
+
+            // If we have distinct packet entries without summary line logic above might vary based on ROS version
+            // simpler approach: iterate all entries that look like packet responses
+            if (result.some((r: any) => r.seq || r.time || r.status === 'timeout')) {
+                receivedCount = result.filter((r: any) => r.time).length;
+                sentCount = result.length; // Approximate, or fixed to pingCount
+                if (sentCount < pingCount) sentCount = pingCount; // We asked for 5
+
+                const validPackets = result.filter((r: any) => r.time);
+                if (validPackets.length > 0) {
+                    totalLatency = validPackets.reduce((sum: number, r: any) => sum + parseLatencyValue(r.time), 0);
+                }
             }
+
+            // Calculate Packet Loss
+            const lossPercent = sentCount > 0
+                ? Math.round(((sentCount - receivedCount) / sentCount) * 100)
+                : 100;
+
+            const avgLatency = receivedCount > 0
+                ? Math.round(totalLatency / receivedCount)
+                : -1;
+
+            return { latency: avgLatency, packetLoss: lossPercent };
         }
-        return -1;
+
+        return { latency: -1, packetLoss: 100 };
     } catch (error) {
-        // Ping failed (timeout or other error)
         console.error(`Error pinging ${address}:`, error);
-        return -1;
+        return { latency: -1, packetLoss: 100 };
     }
 }
 
