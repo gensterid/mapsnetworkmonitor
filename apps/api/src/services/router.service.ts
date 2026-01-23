@@ -1156,6 +1156,102 @@ export class RouterService {
 
 
     /**
+     * Measure latency for all netwatch hosts on a router
+     */
+    async measureNetwatchLatency(routerId: string, customConn?: RouterConnection | any): Promise<void> {
+        // Get router details if connection not provided
+        let conn: any = customConn;
+        let shouldClose = false;
+
+        if (!conn) {
+            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+            if (!router) return;
+
+            try {
+                const password = decrypt(router.passwordEncrypted);
+                conn = await connectToRouter({
+                    host: router.host,
+                    port: router.port,
+                    username: router.username,
+                    password,
+                });
+                shouldClose = true;
+            } catch (err) {
+                console.error(`[Router ${router.name}] Failed to connect for latency measurement:`, err);
+                return;
+            }
+        }
+
+        try {
+            // Get all netwatch entries that are known (synced)
+            const entries = await db
+                .select()
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.routerId, routerId));
+
+            const targets = entries.filter(e => e.status !== 'unknown');
+
+            // Concurrency limit
+            const CONCURRENCY_LIMIT = 5;
+            const chunks = [];
+            for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
+                chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
+            }
+
+            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+
+            for (const chunk of chunks) {
+                await Promise.all(chunk.map(async (target) => {
+                    try {
+                        const { latency, packetLoss } = await measurePing(conn, target.host);
+                        if (latency >= 0) {
+                            await db
+                                .update(routerNetwatch)
+                                .set({
+                                    latency: latency,
+                                    lastKnownLatency: latency,
+                                    packetLoss: packetLoss
+                                })
+                                .where(eq(routerNetwatch.id, target.id));
+
+                            if (latency > 100 || packetLoss > 0) {
+                                try {
+                                    await alertService.createPerformanceAlert(
+                                        routerId,
+                                        router?.name || 'Unknown',
+                                        target.host,
+                                        target.name || target.host,
+                                        latency,
+                                        packetLoss
+                                    );
+                                } catch (err) {
+                                    console.error('Failed to create performance alert:', err);
+                                }
+                            }
+                        } else {
+                            await db
+                                .update(routerNetwatch)
+                                .set({
+                                    latency: null,
+                                    packetLoss: packetLoss >= 0 ? packetLoss : null
+                                })
+                                .where(eq(routerNetwatch.id, target.id));
+                        }
+                    } catch (e) {
+                        // Ignore ping error
+                    }
+                }));
+            }
+        } catch (err) {
+            console.error(`Failed to measure netwatch latency for router ${routerId}:`, err);
+        } finally {
+            if (shouldClose && conn) {
+                await conn.close().catch(console.error);
+            }
+        }
+    }
+
+    /**
      * Sync netwatch entries from MikroTik router to database
      * This fetches the actual netwatch configuration from the router
      */
@@ -1182,9 +1278,11 @@ export class RouterService {
             password,
         };
 
+        let api: any;
+
         try {
             // Connect to router
-            const api = await connectToRouter(connection);
+            api = await connectToRouter(connection);
 
             try {
                 // Fetch netwatch entries from MikroTik
@@ -1277,8 +1375,13 @@ export class RouterService {
                         synced++;
                     }
                 }
+
+                // --- ADDED: Measure latency immediately using the existing connection ---
+                console.log(`[Router ${router.name}] Measuring latency after sync...`);
+                await this.measureNetwatchLatency(routerId, api);
+
             } finally {
-                await api.close();
+                if (api) await api.close();
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : 'Unknown error';
