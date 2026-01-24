@@ -32,6 +32,10 @@ yarn-error.log*
 # OS
 Thumbs.db
 
+
 # Project specific
 tmp
+temp
 artifacts
+database-export.json
+*.json.bak
