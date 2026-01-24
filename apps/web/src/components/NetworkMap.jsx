@@ -8,9 +8,7 @@ import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser } from '@/hooks';
 import '@/lib/GoogleMutant';
 
-// Import new map components
-import {
-    AnimatedPath,
+AnimatedPath,
     EditablePath,
     MapFAB,
     MapToolbar,
@@ -19,6 +17,7 @@ import {
     createDeviceIcon,
     LineThicknessControl,
 } from './map';
+import { formatDateWithTimezone } from '@/lib/timezone';
 import './map/map.css';
 // Marker Cluster CSS
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
@@ -138,37 +137,33 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`;
         script.async = true;
         script.defer = true;
-        script.onload = () => {
-            setScriptLoaded(true);
-            // Hide API Key from Inspect Element by removing the script tag
-            // Note: Key is still visible in Network tab (cannot be hidden in client-side apps)
-            script.remove();
+        script.remove();
+    };
+    document.head.appendChild(script);
+}, [apiKey]);
+
+useEffect(() => {
+    if (!scriptLoaded || !L.gridLayer.googleMutant) return;
+
+    try {
+        const layerOptions = {
+            type: type === 'dark' ? 'roadmap' : type,
         };
-        document.head.appendChild(script);
-    }, [apiKey]);
 
-    useEffect(() => {
-        if (!scriptLoaded || !L.gridLayer.googleMutant) return;
-
-        try {
-            const layerOptions = {
-                type: type === 'dark' ? 'roadmap' : type,
-            };
-
-            // Apply styles if dark mode
-            if (type === 'dark') {
-                layerOptions.styles = DARK_MAP_STYLES;
-            }
-
-            const googleLayer = L.gridLayer.googleMutant(layerOptions);
-            googleLayer.addTo(map);
-            return () => map.removeLayer(googleLayer);
-        } catch (e) {
-            console.error("Failed to init google layer", e);
+        // Apply styles if dark mode
+        if (type === 'dark') {
+            layerOptions.styles = DARK_MAP_STYLES;
         }
-    }, [map, type, scriptLoaded]);
 
-    return null;
+        const googleLayer = L.gridLayer.googleMutant(layerOptions);
+        googleLayer.addTo(map);
+        return () => map.removeLayer(googleLayer);
+    } catch (e) {
+        console.error("Failed to init google layer", e);
+    }
+}, [map, type, scriptLoaded]);
+
+return null;
 };
 
 // Prevent re-renders of the layer component itself unless props change
@@ -1254,7 +1249,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                                         Let's try to trust `new Date(node.lastDown).toLocaleString()` first or similar.
                                                                     */}
                                                                     {/* Use consistent timezone formatting */}
-                                                                    {node.lastDown ? formatDateWithTimezone(node.lastDown) : '-'}
+                                                                    {/* Use consistent timezone formatting */}
+                                                                    {node.lastDown ? formatDateWithTimezone(node.lastDown, currentUser?.timezone || settings?.timezone) : '-'}
                                                                 </span>
                                                             </div>
                                                         )}
