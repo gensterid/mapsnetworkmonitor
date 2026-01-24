@@ -698,6 +698,68 @@ class AnalyticsService {
 
         return withRouterNames.slice(0, 10); // Limit to 10
     }
+    /**
+     * Get issues analysis (frequent issues)
+     */
+    async getIssuesAnalysis(dateRange?: DateRange, limit: number = 10, routerId?: string, userId?: string, userRole?: string): Promise<{ title: string; count: number; lastOccurred: Date; routerName: string; severity: string }[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
+            // Filter generic issues (exclude netwatch down and pppoe which have their own cards)
+            inArray(alerts.type, ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'interface_traffic']),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        const results = await db
+            .select({
+                title: alerts.title,
+                count: count(),
+                lastOccurred: sql<Date>`MAX(${alerts.createdAt})`,
+                severity: sql<string>`MAX(${alerts.severity})`,
+                routerId: alerts.routerId,
+            })
+            .from(alerts)
+            .where(and(...conditions))
+            .groupBy(alerts.title, alerts.routerId)
+            .orderBy(desc(count()))
+            .limit(limit);
+
+        const withRouterNames = await Promise.all(
+            results.map(async (r) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, r.routerId))
+                    .limit(1);
+
+                return {
+                    title: r.title,
+                    count: Number(r.count) || 0,
+                    lastOccurred: r.lastOccurred,
+                    routerName: router?.name || 'Unknown',
+                    severity: r.severity,
+                };
+            })
+        );
+
+        return withRouterNames;
+    }
 }
 
 export const analyticsService = new AnalyticsService();
