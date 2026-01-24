@@ -135,33 +135,35 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`;
         script.async = true;
         script.defer = true;
-        script.remove();
-    };
-    document.head.appendChild(script);
-}, [apiKey]);
-
-useEffect(() => {
-    if (!scriptLoaded || !L.gridLayer.googleMutant) return;
-
-    try {
-        const layerOptions = {
-            type: type === 'dark' ? 'roadmap' : type,
+        script.onload = () => {
+            setScriptLoaded(true);
+            script.remove();
         };
+        document.head.appendChild(script);
+    }, [apiKey]);
 
-        // Apply styles if dark mode
-        if (type === 'dark') {
-            layerOptions.styles = DARK_MAP_STYLES;
+    useEffect(() => {
+        if (!scriptLoaded || !L.gridLayer.googleMutant) return;
+
+        try {
+            const layerOptions = {
+                type: type === 'dark' ? 'roadmap' : type,
+            };
+
+            // Apply styles if dark mode
+            if (type === 'dark') {
+                layerOptions.styles = DARK_MAP_STYLES;
+            }
+
+            const googleLayer = L.gridLayer.googleMutant(layerOptions);
+            googleLayer.addTo(map);
+            return () => map.removeLayer(googleLayer);
+        } catch (e) {
+            console.error("Failed to init google layer", e);
         }
+    }, [map, type, scriptLoaded]);
 
-        const googleLayer = L.gridLayer.googleMutant(layerOptions);
-        googleLayer.addTo(map);
-        return () => map.removeLayer(googleLayer);
-    } catch (e) {
-        console.error("Failed to init google layer", e);
-    }
-}, [map, type, scriptLoaded]);
-
-return null;
+    return null;
 };
 
 // Prevent re-renders of the layer component itself unless props change
