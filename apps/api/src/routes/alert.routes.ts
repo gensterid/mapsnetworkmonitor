@@ -19,6 +19,8 @@ router.get(
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 100;
         const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
+        const search = req.query.search as string;
+        const routerId = req.query.routerId as string;
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
@@ -29,7 +31,9 @@ router.get(
             startDate,
             endDate,
             userId: req.user?.id,
-            userRole: req.user?.role
+            userRole: req.user?.role,
+            search,
+            routerId
         });
 
         res.json(result);
