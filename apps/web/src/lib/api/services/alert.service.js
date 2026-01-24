@@ -10,15 +10,18 @@ export const alertService = {
      * params: { page, limit, sortOrder }
      */
     getAll: (params = {}) => {
-        const queryParams = new URLSearchParams();
-        if (params.page) queryParams.append('page', params.page);
-        if (params.limit) queryParams.append('limit', params.limit);
-        if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-
         // Handle legacy limit-only call if someone passes a number
         if (typeof params === 'number') {
             return get(`/alerts?limit=${params}`);
         }
+
+        const queryParams = new URLSearchParams();
+        // Add all standard params
+        Object.keys(params).forEach(key => {
+            if (params[key] !== undefined && params[key] !== null) {
+                queryParams.append(key, params[key]);
+            }
+        });
 
         return get(`/alerts?${queryParams.toString()}`);
     },
