@@ -24,6 +24,7 @@ import './map/map.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { calculatePathLength, formatDistance } from '@/lib/geo';
+import { formatDateWithTimezone } from '@/lib/timezone';
 
 // --- Custom Components ---
 
@@ -169,6 +170,9 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
 
     return null;
 };
+
+// Prevent re-renders of the layer component itself unless props change
+const MemoizedGoogleMapsLayer = React.memo(GoogleMapsLayer);
 
 // Helper to auto-fit bounds to markers (only on initial load)
 const MapAutoFit = ({ markers, isEditing }) => {
@@ -995,7 +999,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 style={{ height: "100%", width: "100%", background: "#0f172a" }}
             >
                 <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
-                <GoogleMapsLayer type={mapType} apiKey={apiKey} />
+                <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
+
 
                 {/* Animated Topology Lines (show when NOT editing) */}
                 {!isEditingPath && mapData.lines.map((line) => (
@@ -1198,9 +1203,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                                         User asked for "jam tanggal down" (time date down). 
                                                                         Let's try to trust `new Date(node.lastDown).toLocaleString()` first or similar.
                                                                     */}
-                                                                    {new Date(node.lastDown).toLocaleString('id-ID', {
-                                                                        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-                                                                    })}
+                                                                    {/* Use consistent timezone formatting */}
+                                                                    {node.lastDown ? formatDateWithTimezone(node.lastDown) : '-'}
                                                                 </span>
                                                             </div>
                                                         )}

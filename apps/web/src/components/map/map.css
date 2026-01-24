@@ -5,6 +5,11 @@
     z-index: 0 !important;
 }
 
+/* Fix for Google Maps tiles in some frameworks */
+.leaflet-container img {
+    max-width: none !important;
+}
+
 /* ===== Custom Marker Icons ===== */
 .custom-marker-icon {
     background: transparent;
