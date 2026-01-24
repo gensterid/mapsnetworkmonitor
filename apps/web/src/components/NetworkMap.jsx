@@ -178,6 +178,7 @@ const MapAutoFit = ({ markers, isEditing }) => {
     useEffect(() => {
         // Only fit bounds on initial load, not after updates
         if (hasInitialFit.current) return;
+        // Don't auto-fit if we have no markers, OR if we are in an editing mode
         if (!markers || markers.length === 0 || isEditing) return;
 
         try {
@@ -244,6 +245,19 @@ const DraggableMarker = ({
         </Marker>
     );
 };
+
+// Memoized Marker to prevent re-renders unless position/status changes
+const MemoizedDraggableMarker = React.memo(DraggableMarker, (prev, next) => {
+    // Only re-render if position, status, or drag state changes
+    return (
+        prev.position[0] === next.position[0] &&
+        prev.position[1] === next.position[1] &&
+        prev.status === next.status &&
+        prev.draggable === next.draggable &&
+        prev.icon?.options?.latency === next.icon?.options?.latency &&
+        prev.icon?.options?.packetLoss === next.icon?.options?.packetLoss
+    );
+});
 
 // Custom cluster icon creator
 const createClusterCustomIcon = (cluster) => {
@@ -1208,7 +1222,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                             {/* PPPoE Client Markers */}
                             {(mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
-                                <DraggableMarker
+                                <MemoizedDraggableMarker
                                     key={`pppoe-${pppoe.id}`}
                                     status={pppoe.status} // For cluster icon
                                     position={[pppoe.lat, pppoe.lng]}
