@@ -139,6 +139,24 @@ export default function Issues() {
                             Ack All
                         </Button>
                     )}
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="date"
+                            value={dateFilter}
+                            onChange={(e) => setDateFilter(e.target.value)}
+                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary w-32 sm:w-auto"
+                        />
+                        {dateFilter && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setDateFilter('')}
+                                className="text-slate-400 hover:text-white"
+                            >
+                                <X className="w-4 h-4" />
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
 
