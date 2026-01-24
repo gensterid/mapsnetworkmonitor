@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline } fro
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser } from '@/hooks';
 import '@/lib/GoogleMutant';
@@ -400,6 +400,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             const res = await apiClient.get('/routers');
             return res.data.data;
         },
+        placeholderData: keepPreviousData,
     });
 
     // Fetch Netwatch for all routers (Disabled if showRoutersOnly is true)
@@ -422,6 +423,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             return Promise.all(promises);
         },
         enabled: !!routersData && !showRoutersOnly,
+        placeholderData: keepPreviousData,
+        refetchInterval: 30000,
     });
 
     // Fetch PPPoE sessions with coordinates
@@ -436,6 +439,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
         enabled: !showRoutersOnly,
         staleTime: 30000,
+        placeholderData: keepPreviousData,
     });
 
     // State for syncing indicator

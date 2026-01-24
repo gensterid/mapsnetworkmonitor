@@ -5,6 +5,7 @@ import {
     boolean,
     timestamp,
     integer,
+    decimal,
     pgEnum,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers';
@@ -66,8 +67,24 @@ export const netwatchHosts = pgTable('netwatch_hosts', {
     status: text('status'), // up, down, unknown
     timeout: integer('timeout').default(1000), // ms
     interval: integer('interval').default(10), // seconds
+
     sinceUp: timestamp('since_up'),
     sinceDown: timestamp('since_down'),
+    lastCheck: timestamp('last_check'),
+    lastUp: timestamp('last_up'),
+    lastDown: timestamp('last_down'),
+    latency: integer('latency'),
+    lastKnownLatency: integer('last_known_latency'),
+    packetLoss: integer('packet_loss').default(0),
+    // Location for map display
+    latitude: decimal('latitude', { precision: 10, scale: 7 }),
+    longitude: decimal('longitude', { precision: 10, scale: 7 }),
+    location: text('location'),
+    // Metadata
+    deviceType: text('device_type'), // client, olt, odp
+    waypoints: text('waypoints'),
+    connectionType: text('connection_type').default('router'),
+    connectedToId: uuid('connected_to_id'),
     disabled: boolean('disabled').default(false),
     lastUpdated: timestamp('last_updated').defaultNow(),
 });
