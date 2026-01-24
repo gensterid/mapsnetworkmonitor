@@ -22,6 +22,9 @@ import {
 import { formatDateWithTimezone } from '@/lib/timezone';
 import './map/map.css';
 // Marker Cluster CSS
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
+import { calculatePathLength, formatDistance } from '@/lib/geo';
 
 // --- Custom Components ---
 
