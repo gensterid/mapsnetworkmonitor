@@ -1197,8 +1197,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                                                 {/* Ping Latency List (Netwatch) */}
                                                 {(() => {
-                                                    const routerNodes = mapData.nodes.filter(n => n.routerId === router.id && n.status !== 'unknown');
-                                                    if (routerNodes.length === 0) return null;
+                                                    // Use netwatchData directly to get ALL entries, not just mapped ones
+                                                    const routerNetwatchGroup = netwatchData?.find(g => g.routerId === router.id);
+                                                    const routerEntries = routerNetwatchGroup?.entries || [];
+                                                    // Filter out disabled or unknown if desired, but Dashboard usually shows all active checks
+                                                    // Checking matches dashboard: items with latency or status
+                                                    const validEntries = routerEntries.filter(n => n.status !== 'unknown' || n.lastKnownLatency);
+
+                                                    if (validEntries.length === 0) return null;
 
                                                     return (
                                                         <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
@@ -1206,23 +1212,35 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                                 <span className="material-symbols-outlined text-[14px]">show_chart</span>
                                                                 Ping Latency
                                                             </div>
-                                                            <div className="space-y-1">
-                                                                {routerNodes.slice(0, 5).map(node => (
-                                                                    <div key={node.id} className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
-                                                                        <span className="text-slate-300 truncate max-w-[120px]" title={node.name || node.host}>
-                                                                            {node.name || node.host}
-                                                                        </span>
-                                                                        <span className={`font-mono font-bold ${!node.latency ? 'text-slate-500' :
-                                                                            Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                                                Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                            <div className="space-y-1.5">
+                                                                {validEntries.slice(0, 5).map(node => (
+                                                                    <div key={node.id} className="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-slate-700/30">
+                                                                        <div className="flex flex-col overflow-hidden max-w-[120px]">
+                                                                            <span className="text-slate-200 font-bold text-[11px] truncate" title={node.name}>
+                                                                                {node.name || 'Unknown'}
+                                                                            </span>
+                                                                            <span className="text-slate-500 text-[9px] truncate" title={node.host}>
+                                                                                {node.host}
+                                                                            </span>
+                                                                        </div>
+                                                                        <span className={`font-mono font-bold text-xs ${!node.latency && node.status === 'down' ? 'text-red-500' :
+                                                                                !node.latency ? 'text-slate-500' :
+                                                                                    Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                                                        Number(node.latency) < 100 ? 'text-emerald-400' : // Dashboard uses green for < 100? Image shows 49ms green. 100ms red.
+                                                                                            Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400' // Let's keep my thresholds or match dashboard.
+                                                                            // Dashboard image: 48ms Green, 45ms Green, 100ms Red, 82ms Yellow.
+                                                                            // So: < 50 Green, < 100 Yellow, >= 100 Red?
+                                                                            // Or < 80 Green?
+                                                                            // Let's guess: < 50 Green, < 100 Yellow, >= 100 Red.
                                                                             }`}>
-                                                                            {node.latency !== undefined && node.latency !== null ? `${node.latency}ms` : '-'}
+                                                                            {node.latency !== undefined && node.latency !== null ? `${node.latency}ms` :
+                                                                                node.status === 'down' ? 'DOWN' : '-'}
                                                                         </span>
                                                                     </div>
                                                                 ))}
-                                                                {routerNodes.length > 5 && (
+                                                                {validEntries.length > 5 && (
                                                                     <div className="text-[10px] text-center text-slate-500 italic pt-0.5">
-                                                                        + {routerNodes.length - 5} more
+                                                                        + {validEntries.length - 5} more
                                                                     </div>
                                                                 )}
                                                             </div>
