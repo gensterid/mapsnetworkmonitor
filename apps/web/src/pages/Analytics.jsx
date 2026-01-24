@@ -1183,18 +1183,16 @@ export default function Analytics() {
                             </div>
                         </div>
                     </div>
-                        </div>
-                    </div >
                 )
-}
+            }
 
-{/* History Detail Modal */ }
-<AnalyticsDetailModal
-    open={historyModal.open}
-    type={historyModal.type}
-    target={historyModal.target}
-    onClose={() => setHistoryModal({ open: false, type: null, target: null })}
-/>
+            {/* History Detail Modal */}
+            <AnalyticsDetailModal
+                open={historyModal.open}
+                type={historyModal.type}
+                target={historyModal.target}
+                onClose={() => setHistoryModal({ open: false, type: null, target: null })}
+            />
         </div >
     );
 }
