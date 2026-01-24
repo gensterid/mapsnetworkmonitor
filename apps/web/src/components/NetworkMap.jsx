@@ -295,6 +295,7 @@ const MemoizedSmartMarker = React.memo(SmartMarker, (prev, next) => {
         prev.position[1] === next.position[1] &&
         prev.status === next.status &&
         prev.name === next.name &&
+        prev.showLabel === next.showLabel && // Fix: Add showLabel check
         prev.draggable === next.draggable &&
         prev.latency === next.latency &&
         prev.packetLoss === next.packetLoss
@@ -431,7 +432,7 @@ const createClusterCustomIcon = (cluster) => {
 };
 
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
-    const [mapType, setMapType] = useState('hybrid');
+    const [mapType, setMapType] = useState('satellite'); // Changed default to satellite
     const [showLabels, setShowLabels] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
@@ -440,7 +441,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [editingDevice, setEditingDevice] = useState(null);
     const [editWaypoints, setEditWaypoints] = useState([]);
     const [pathLength, setPathLength] = useState(0);
-    const [lineThickness, setLineThickness] = useState(3);
+    const [lineThickness, setLineThickness] = useState(4); // Changed default to 4
     const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
