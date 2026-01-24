@@ -19,11 +19,15 @@ router.get(
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 100;
         const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
         const result = await alertService.findAll({
             page,
             limit,
             sortOrder,
+            startDate,
+            endDate,
             userId: req.user?.id,
             userRole: req.user?.role
         });
@@ -60,11 +64,15 @@ router.get(
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 100;
         const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
+        const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+        const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
         const result = await alertService.findUnacknowledged({
             page,
             limit,
             sortOrder,
+            startDate,
+            endDate,
             userId: req.user?.id,
             userRole: req.user?.role
         });

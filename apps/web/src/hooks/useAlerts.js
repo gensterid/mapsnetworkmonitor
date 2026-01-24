@@ -22,7 +22,7 @@ export function useAlerts(params = {}, options = {}) {
     const { page = 1, limit = 100, sortOrder = 'desc' } = finalParams;
 
     return useQuery({
-        queryKey: [...alertKeys.lists(), { page, limit, sortOrder }],
+        queryKey: [...alertKeys.lists(), { page, limit, sortOrder, startDate: finalParams.startDate, endDate: finalParams.endDate }],
         // If meta is returned, we might want to keep previous data while fetching new page
         placeholderData: (previousData) => previousData,
         queryFn: () => alertService.getAll(finalParams),
@@ -66,7 +66,7 @@ export function useUnacknowledgedAlerts(params = {}, options = {}) {
     const { page = 1, limit = 100, sortOrder = 'desc' } = finalParams;
 
     return useQuery({
-        queryKey: [...alertKeys.unacknowledged(), { page, limit, sortOrder }],
+        queryKey: [...alertKeys.unacknowledged(), { page, limit, sortOrder, startDate: finalParams.startDate, endDate: finalParams.endDate }],
         placeholderData: (previousData) => previousData,
         queryFn: () => alertService.getUnacknowledged(finalParams),
         staleTime: 10 * 1000,

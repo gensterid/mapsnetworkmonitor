@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, isNull, getTableColumns } from 'drizzle-orm';
+import { eq, desc, asc, and, isNull, getTableColumns, gte, lte } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     alerts,
@@ -105,6 +105,8 @@ export class AlertService {
         page?: number;
         limit?: number;
         sortOrder?: 'asc' | 'desc';
+        startDate?: Date;
+        endDate?: Date;
         userId?: string;
         userRole?: string
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
@@ -131,6 +133,17 @@ export class AlertService {
             .from(alerts)
             .$dynamic();
 
+        const filters = [];
+
+        // Date filtering
+        if (options.startDate) {
+            filters.push(gte(alerts.createdAt, options.startDate));
+        }
+        if (options.endDate) {
+            // Adjust end date to include the entire day if needed, but assuming precise date passed
+            filters.push(lte(alerts.createdAt, options.endDate));
+        }
+
         // Filter for non-admins
         if (options.userId && options.userRole && options.userRole !== 'admin') {
             const assigned = await db
@@ -147,9 +160,12 @@ export class AlertService {
                 };
             }
 
-            const filter = inArray(alerts.routerId, routerIds);
-            query = query.where(filter) as any;
-            countQuery = countQuery.where(filter) as any;
+            filters.push(inArray(alerts.routerId, routerIds));
+        }
+
+        if (filters.length > 0) {
+            query = query.where(and(...filters)) as any;
+            countQuery = countQuery.where(and(...filters)) as any;
         }
 
         // Get total count
@@ -183,6 +199,8 @@ export class AlertService {
         page?: number;
         limit?: number;
         sortOrder?: 'asc' | 'desc';
+        startDate?: Date;
+        endDate?: Date;
         userId?: string;
         userRole?: string
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
@@ -191,7 +209,7 @@ export class AlertService {
         const offset = (page - 1) * limit;
         const sortOrder = options.sortOrder || 'desc';
 
-        // Base query
+        // Base query - start with acknowledged=false filter
         let query = db
             .select({
                 ...getTableColumns(alerts),
@@ -199,15 +217,23 @@ export class AlertService {
             })
             .from(alerts)
             .leftJoin(routers, eq(alerts.routerId, routers.id))
-            .where(eq(alerts.acknowledged, false))
             .$dynamic();
 
         // Count query
         let countQuery = db
             .select({ count: alerts.id })
             .from(alerts)
-            .where(eq(alerts.acknowledged, false))
             .$dynamic();
+
+        const filters = [eq(alerts.acknowledged, false)];
+
+        // Date filtering
+        if (options.startDate) {
+            filters.push(gte(alerts.createdAt, options.startDate));
+        }
+        if (options.endDate) {
+            filters.push(lte(alerts.createdAt, options.endDate));
+        }
 
         // Filter for non-admins
         if (options.userId && options.userRole && options.userRole !== 'admin') {
@@ -225,10 +251,11 @@ export class AlertService {
                 };
             }
 
-            const filter = and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds));
-            query = query.where(filter) as any;
-            countQuery = countQuery.where(filter) as any;
+            filters.push(inArray(alerts.routerId, routerIds));
         }
+
+        query = query.where(and(...filters)) as any;
+        countQuery = countQuery.where(and(...filters)) as any;
 
         // Get total count
         const totalResult = await countQuery;

@@ -10,11 +10,46 @@ export default function Issues() {
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [sortOrder, setSortOrder] = useState('desc');
+    const [dateFilter, setDateFilter] = useState({
+        date: '',
+        month: '',
+        year: new Date().getFullYear().toString()
+    });
+
+    // Construct start and end dates based on filter
+    const getDateRange = () => {
+        if (dateFilter.date) {
+            // Specific date
+            const startDate = new Date(dateFilter.date);
+            startDate.setHours(0, 0, 0, 0);
+            const endDate = new Date(dateFilter.date);
+            endDate.setHours(23, 59, 59, 999);
+            return { startDate, endDate };
+        } else if (dateFilter.month && dateFilter.year) {
+            // Specific month
+            const year = parseInt(dateFilter.year);
+            const month = parseInt(dateFilter.month); // 0-indexed? No, usually 1-12 in value
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+            return { startDate, endDate };
+        } else if (dateFilter.year) {
+            // Specific year
+            const year = parseInt(dateFilter.year);
+            const startDate = new Date(year, 0, 1);
+            const endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+            return { startDate, endDate };
+        }
+        return {};
+    };
+
+    const { startDate, endDate } = getDateRange();
 
     const { data: result = [], isLoading, error, refetch } = useAlerts({
         page,
         limit: 20,
-        sortOrder
+        sortOrder,
+        startDate: startDate ? startDate.toISOString() : undefined,
+        endDate: endDate ? endDate.toISOString() : undefined
     });
 
     const alerts = Array.isArray(result) ? result : (result?.data || []);
@@ -136,6 +171,48 @@ export default function Issues() {
                         <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
                             <X className="w-4 h-4" />
                         </button>
+                    )}
+                </div>
+
+                {/* Date Filters */}
+                <div className="flex flex-wrap gap-2 mt-4">
+                    <input
+                        type="date"
+                        value={dateFilter.date}
+                        onChange={(e) => setDateFilter({ ...dateFilter, date: e.target.value, month: '', year: '' })}
+                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
+                    />
+                    <select
+                        value={dateFilter.month}
+                        onChange={(e) => setDateFilter({ ...dateFilter, month: e.target.value, date: '' })}
+                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
+                    >
+                        <option value="">Month</option>
+                        {Array.from({ length: 12 }, (_, i) => (
+                            <option key={i + 1} value={i + 1}>
+                                {new Date(0, i).toLocaleString('default', { month: 'long' })}
+                            </option>
+                        ))}
+                    </select>
+                    <select
+                        value={dateFilter.year}
+                        onChange={(e) => setDateFilter({ ...dateFilter, year: e.target.value, date: '' })}
+                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
+                    >
+                        <option value="">Year</option>
+                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                            <option key={year} value={year}>{year}</option>
+                        ))}
+                    </select>
+                    {(dateFilter.date || dateFilter.month) && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDateFilter({ date: '', month: '', year: new Date().getFullYear().toString() })}
+                            className="text-slate-400 hover:text-white"
+                        >
+                            Reset
+                        </Button>
                     )}
                 </div>
             </div>
