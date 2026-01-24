@@ -248,7 +248,61 @@ const DraggableMarker = ({
             {children}
         </Marker>
     );
+    );
 };
+
+// Wrapper that handles icon creation internally to ensure prop stability for memoization
+const SmartMarker = ({
+    position,
+    type,
+    status,
+    name,
+    showLabel,
+    small,
+    latency,
+    packetLoss,
+    draggable,
+    onDragEnd,
+    onClick,
+    children
+}) => {
+    // Memoize the icon so it doesn't change reference on every render
+    const icon = useMemo(() => createDeviceIcon({
+        type,
+        status,
+        name: showLabel ? name : '',
+        showLabel,
+        small,
+        latency,
+        packetLoss
+    }), [type, status, name, showLabel, small, latency, packetLoss]);
+
+    return (
+        <DraggableMarker
+            position={position}
+            icon={icon}
+            draggable={draggable}
+            onDragEnd={onDragEnd}
+            onClick={onClick}
+            status={status} // Pass status for cluster icon logic
+        >
+            {children}
+        </DraggableMarker>
+    );
+};
+
+// Strict memoization for the SmartMarker
+const MemoizedSmartMarker = React.memo(SmartMarker, (prev, next) => {
+    return (
+        prev.position[0] === next.position[0] &&
+        prev.position[1] === next.position[1] &&
+        prev.status === next.status &&
+        prev.name === next.name &&
+        prev.draggable === next.draggable &&
+        prev.latency === next.latency &&
+        prev.packetLoss === next.packetLoss
+    );
+});
 
 // Memoized Marker to prevent re-renders unless position/status changes
 const MemoizedDraggableMarker = React.memo(DraggableMarker, (prev, next) => {
@@ -1122,22 +1176,19 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                             {/* Netwatch Node Markers */}
                             {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => (
-                                <DraggableMarker
-                                    key={node.id}
-                                    status={node.status} // For cluster icon
+                                <MemoizedSmartMarker
+                                    key={`${node.routerId}-${node.id}`}
                                     position={[node.lat, node.lng]}
-                                    icon={createDeviceIcon({
-                                        type: node.deviceType || 'client',
-                                        status: node.status,
-                                        name: showLabels ? (node.name || node.host) : '',
-                                        showLabel: showLabels,
-                                        small: true,
-                                        latency: node.latency,
-                                        packetLoss: node.packetLoss,
-                                    })}
+                                    type={node.deviceType}
+                                    status={node.status}
+                                    name={node.name || node.host}
+                                    showLabel={showLabels}
+                                    small={true}
+                                    latency={Number(node.latency)}
+                                    packetLoss={Number(node.packetLoss)}
                                     draggable={isEditMode}
-                                    onDragEnd={(pos) => handleMarkerDragEnd(node, 'client', pos)}
-                                    onClick={() => handleDeviceClick(node, 'client')}
+                                    onDragEnd={(pos) => handleMarkerDragEnd(node, node.deviceType, pos)}
+                                    onClick={() => handleDeviceClick(node, node.deviceType)}
                                 >
                                     <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
                                         <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -1226,17 +1277,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                             {/* PPPoE Client Markers */}
                             {(mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
-                                <MemoizedDraggableMarker
+                                <MemoizedSmartMarker
                                     key={`pppoe-${pppoe.id}`}
-                                    status={pppoe.status} // For cluster icon
                                     position={[pppoe.lat, pppoe.lng]}
-                                    icon={createDeviceIcon({
-                                        type: 'pppoe',
-                                        status: pppoe.status,
-                                        name: showLabels ? pppoe.name : '',
-                                        showLabel: showLabels,
-                                        small: true,
-                                    })}
+                                    type="pppoe"
+                                    status={pppoe.status}
+                                    name={pppoe.name}
+                                    showLabel={showLabels}
+                                    small={true}
                                     draggable={isEditMode}
                                     onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
                                     onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
@@ -1269,7 +1317,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                             </div>
                                         </div>
                                     </Tooltip>
-                                </MemoizedDraggableMarker>
+                                </MemoizedSmartMarker>
                             ))}
                         </>
                     );
