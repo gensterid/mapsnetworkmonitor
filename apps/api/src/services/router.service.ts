@@ -915,11 +915,48 @@ export class RouterService {
      * Get all netwatch entries for a router
      */
     async getNetwatch(routerId: string): Promise<RouterNetwatch[]> {
-        return db
+        const entries = await db
             .select()
             .from(routerNetwatch)
             .where(eq(routerNetwatch.routerId, routerId))
             .orderBy(routerNetwatch.host);
+
+        // Fetch recent 'netwatch_down' alerts to fix invalid MikroTik timestamps
+        // We generally trust the server's alert timestamp over the router's "sinceDown" which might have wrong clock
+        const { alerts, and, eq, desc } = await import('../db/schema/index.js'); // Ensure schema import is available or use existing imports
+        // Re-using existing imports if possible, but safely re-importing schema symbols if needed aliases match
+
+        // Note: We use existing imported 'alerts' from top of file
+        const downAlerts = await db
+            .select({
+                message: alerts.message,
+                createdAt: alerts.createdAt,
+            })
+            .from(alerts)
+            .where(and(
+                eq(alerts.routerId, routerId),
+                eq(alerts.type, 'netwatch_down')
+            ))
+            .orderBy(desc(alerts.createdAt))
+            .limit(500); // Fetch enough history to cover active down statuses
+
+        return entries.map((entry) => {
+            if (entry.status === 'down' && entry.host) {
+                // Try to find the latest alert for this host
+                // Alert message typically contains the host IP/Identifier
+                const matchingAlert = downAlerts.find(a =>
+                    a.message && a.message.includes(entry.host)
+                );
+
+                if (matchingAlert) {
+                    return {
+                        ...entry,
+                        lastDown: matchingAlert.createdAt,
+                    };
+                }
+            }
+            return entry;
+        });
     }
 
     /**

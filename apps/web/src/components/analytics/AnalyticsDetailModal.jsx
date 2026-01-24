@@ -27,8 +27,9 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
         switch (type) {
             case 'device-logs':
                 // Search for alerts related to this device (by name or host)
-                // We prefer name as it's more specific in title "Device [router] NAME is down"
-                return { ...baseParams, search: target.name };
+                // We prefer host (IP) as it's more reliable in alert messages "Device Name (IP) is down"
+                const search = target.host || target.name;
+                return { ...baseParams, search };
             case 'router-uptime':
                 // Alerts for specific router
                 return { ...baseParams, routerId: target.routerId || target.id };
