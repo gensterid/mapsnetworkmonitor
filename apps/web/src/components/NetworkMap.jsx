@@ -1060,17 +1060,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
 
                 {/* Animated Topology Lines (show when NOT editing) */}
-                {!isEditingPath && mapData.lines.map((line) => (
-                    <AnimatedPath
-                        key={`line-${line.id}`}
-                        positions={[line.from, ...(line.waypoints || []), line.to]}
-                        status={line.status}
-                        type={line.deviceType}
-                        animationStyle={currentUser?.animationStyle || 'default'}
-                        delay={line.status === 'up' ? 800 : 400}
-                        weight={line.status === 'up' ? lineThickness : Math.max(1, lineThickness - 1)}
-                        enableAnimation={enableAnimation}
-                        tooltip={`
+                {!isEditingPath && mapData.lines.map((line) => {
+                    const tooltipContent = `
                             <div class="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                                 <div class="px-3 py-2 flex items-center justify-between ${line.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'}">
                                     <div class="flex items-center gap-2 text-white">
@@ -1107,9 +1098,22 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     </div>
                                 </div>
                             </div>
-                        `}
-                    />
-                ))}
+                        `;
+                    return (
+                        <AnimatedPath
+                            key={`line-${line.id}`}
+                            positions={[line.from, ...(line.waypoints || []), line.to]}
+                            status={line.status}
+                            type={line.deviceType}
+                            animationStyle={currentUser?.animationStyle || 'default'}
+                            delay={line.status === 'up' ? 800 : 400}
+                            weight={line.status === 'up' ? lineThickness : Math.max(1, lineThickness - 1)}
+                            enableAnimation={enableAnimation}
+                            tooltip={tooltipContent}
+                            popup={tooltipContent} // Fix: Add popup same as tooltip
+                        />
+                    );
+                })}
 
                 {/* Editable Path (show when editing) */}
                 {isEditingPath && editingLine && (
@@ -1178,151 +1182,153 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             ))}
 
                             {/* Netwatch Node Markers */}
-                            {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => (
-                                <MemoizedSmartMarker
-                                    key={`${node.routerId}-${node.id}`}
-                                    position={[node.lat, node.lng]}
-                                    type={node.deviceType}
-                                    status={node.status}
-                                    name={node.name || node.host}
-                                    showLabel={showLabels}
-                                    small={true}
-                                    latency={Number(node.latency)}
-                                    packetLoss={Number(node.packetLoss)}
-                                    draggable={isEditMode}
-                                    onDragEnd={(pos) => handleMarkerDragEnd(node, node.deviceType, pos)}
-                                    onClick={() => handleDeviceClick(node, node.deviceType)}
-                                >
-                                    <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                        <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                            {/* Header */}
-                                            <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
-                                                }`}>
-                                                <div className="flex items-center gap-2 text-white">
-                                                    <span className="material-symbols-outlined text-[16px]">
-                                                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
-                                                    </span>
-                                                    <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                            {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => {
+                                // Find connected line to get source info
+                                const line = mapData.lines.find(l => l.netwatchId === node.id);
+                                return (
+                                    <MemoizedSmartMarker
+                                        key={`${node.routerId}-${node.id}`}
+                                        position={[node.lat, node.lng]}
+                                        type={node.deviceType}
+                                        status={node.status}
+                                        name={node.name || node.host}
+                                        showLabel={showLabels}
+                                        small={true}
+                                        latency={Number(node.latency)}
+                                        packetLoss={Number(node.packetLoss)}
+                                        draggable={isEditMode}
+                                        onDragEnd={(pos) => handleMarkerDragEnd(node, node.deviceType, pos)}
+                                        onClick={() => handleDeviceClick(node, node.deviceType)}
+                                    >
+                                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                            <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                                {/* Header */}
+                                                <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
+                                                    }`}>
+                                                    <div className="flex items-center gap-2 text-white">
+                                                        <span className="material-symbols-outlined text-[16px]">
+                                                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
+                                                        </span>
+                                                        <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                                                    </div>
+                                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                                        {node.status}
+                                                    </div>
                                                 </div>
-                                                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                                    {node.status}
-                                                </div>
-                                            </div>
-                                            {/* Body */}
-                                            <div className="p-3 bg-slate-800 space-y-2">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-slate-400">Host</span>
-                                                    <span className="text-slate-200 font-mono">{node.host}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-slate-400">Type</span>
-                                                    <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
-                                                </div>
+                                                {/* Body */}
+                                                <div className="p-3 bg-slate-800 space-y-2">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">Host</span>
+                                                        <span className="text-slate-200 font-mono">{node.host}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
+                                                        <span className="text-slate-400">Type</span>
+                                                        <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
+                                                    </div>
 
-                                                {/* Status Detail: Latency/Packet Loss OR Down Info */}
-                                                {(node.status === 'up' || node.status === 'online') ? (
-                                                    (node.latency !== undefined && node.latency !== null) && (
-                                                        <div className="flex flex-col gap-1 border-t border-slate-700/50 pt-2 mt-1 px-0.5">
+                                                    {/* Source & Distance Info */}
+                                                    {line && (
+                                                        <div className="space-y-2 border-b border-slate-700/50 pb-2">
                                                             <div className="flex items-center justify-between text-xs">
-                                                                <span className="text-slate-400">Latency</span>
-                                                                <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                                    Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
-                                                                    }`}>
-                                                                    {node.latency} ms
-                                                                </span>
+                                                                <span className="text-slate-400">Source</span>
+                                                                <span className="text-slate-200 truncate max-w-[100px]" title={line.sourceName}>{line.sourceName}</span>
                                                             </div>
-                                                            {node.packetLoss > 0 && (
+                                                            <div className="flex items-center justify-between text-xs">
+                                                                <span className="text-slate-400">Distance</span>
+                                                                <span className="text-slate-200 font-mono">{formatDistance(line.distance)}</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Status Detail: Latency/Packet Loss OR Down Info */}
+                                                    {(node.status === 'up' || node.status === 'online') ? (
+                                                        (node.latency !== undefined && node.latency !== null) && (
+                                                            <div className="flex flex-col gap-1 pt-0.5">
                                                                 <div className="flex items-center justify-between text-xs">
-                                                                    <span className="text-slate-400">Packet Loss</span>
-                                                                    <span className="font-mono font-bold text-red-400">
-                                                                        {node.packetLoss}%
+                                                                    <span className="text-slate-400">Latency</span>
+                                                                    <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                                        Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                                        }`}>
+                                                                        {node.latency} ms
+                                                                    </span>
+                                                                </div>
+                                                                {node.packetLoss > 0 && (
+                                                                    <div className="flex items-center justify-between text-xs">
+                                                                        <span className="text-slate-400">Packet Loss</span>
+                                                                        <span className="font-mono font-bold text-red-400">
+                                                                            {node.packetLoss}%
+                                                                        </span>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1 pt-0.5 text-xs text-red-300">
+                                                            {node.lastDown && (
+                                                                <div className="flex flex-col">
+                                                                    <span className="text-slate-400 mb-0.5">Down Since:</span>
+                                                                    <span className="font-mono bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50">
+                                                                        {formatDateWithTimezone(node.lastDown)}
                                                                     </span>
                                                                 </div>
                                                             )}
                                                         </div>
-                                                    )
-                                                ) : (
-                                                    <div className="flex flex-col gap-1 border-t border-slate-700/50 pt-2 mt-1 px-0.5">
-                                                        {node.lastDown && (
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className="text-slate-400">Down Since</span>
-                                                                <span className="text-slate-200">
-                                                                    {/* We need to format relative time here. Since we can't easily import formatRelativeTime without modifying imports, 
-                                                                        we can pass it as a prop or context, OR simplistic approach if utility is not available in scope. 
-                                                                        Let's assume we can use a simple formatter or update imports. 
-                                                                        Wait, I should check if formatRelativeTime is imported. It is NOT imported in NetworkMap.jsx currently.
-                                                                        I will add the import in a separate step or assume I should add it.
-                                                                        Re-checking file content... imports are at top. I cannot easily add import with replace_file_content if I only target this block.
-                                                                        I will use a simple inline formatter or just display the date?
-                                                                        User asked for "jam tanggal down" (time date down). 
-                                                                        Let's try to trust `new Date(node.lastDown).toLocaleString()` first or similar.
-                                                                    */}
-                                                                    {/* Use consistent timezone formatting */}
-                                                                    {/* Use consistent timezone formatting */}
-                                                                    {node.lastDown ? formatDateWithTimezone(node.lastDown, currentUser?.timezone || settings?.timezone) : '-'}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                        {node.lastKnownLatency && (
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className="text-slate-400">Last Latency</span>
-                                                                <span className="font-mono text-slate-400">
-                                                                    {node.lastKnownLatency} ms
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    </Tooltip>
-                                </MemoizedSmartMarker>
-                            ))}
+                                        </Tooltip>
+                                    </MemoizedSmartMarker>
+                                )
+                            })}
+
+
 
                             {/* PPPoE Client Markers */}
-                            {(mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
-                                <MemoizedSmartMarker
-                                    key={`pppoe-${pppoe.id}`}
-                                    position={[pppoe.lat, pppoe.lng]}
-                                    type="pppoe"
-                                    status={pppoe.status}
-                                    name={pppoe.name}
-                                    showLabel={showLabels}
-                                    small={true}
-                                    draggable={isEditMode}
-                                    onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                                    onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
-                                >
-                                    <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                        <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                            <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'}`}>
-                                                <div className="flex items-center gap-2 text-white">
-                                                    <span className="material-symbols-outlined text-[16px]">account_circle</span>
-                                                    <span className="font-bold text-xs truncate max-w-[100px]">{pppoe.name}</span>
-                                                </div>
-                                                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                                    PPPoE
-                                                </div>
-                                            </div>
-                                            <div className="p-3 bg-slate-800 space-y-2">
-                                                {pppoe.address && (
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">IP</span>
-                                                        <span className="text-slate-200 font-mono">{pppoe.address}</span>
+                            {
+                                (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
+                                    <MemoizedSmartMarker
+                                        key={`pppoe-${pppoe.id}`}
+                                        position={[pppoe.lat, pppoe.lng]}
+                                        type="pppoe"
+                                        status={pppoe.status}
+                                        name={pppoe.name}
+                                        showLabel={showLabels}
+                                        small={true}
+                                        draggable={isEditMode}
+                                        onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                                        onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                                    >
+                                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                            <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'}`}>
+                                                    <div className="flex items-center gap-2 text-white">
+                                                        <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                                                        <span className="font-bold text-xs truncate max-w-[100px]">{pppoe.name}</span>
                                                     </div>
-                                                )}
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-slate-400">Status</span>
-                                                    <span className="text-emerald-400">Online</span>
+                                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                                        PPPoE
+                                                    </div>
                                                 </div>
-                                                <div className="text-xs text-slate-500 text-center pt-1 border-t border-slate-700">
-                                                    Klik untuk edit
+                                                <div className="p-3 bg-slate-800 space-y-2">
+                                                    {pppoe.address && (
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-slate-400">IP</span>
+                                                            <span className="text-slate-200 font-mono">{pppoe.address}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">Status</span>
+                                                        <span className="text-emerald-400">Online</span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-500 text-center pt-1 border-t border-slate-700">
+                                                        Klik untuk edit
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </Tooltip>
-                                </MemoizedSmartMarker>
-                            ))}
+                                        </Tooltip>
+                                    </MemoizedSmartMarker>
+                                ))
+                            }
                         </>
                     );
 
@@ -1350,33 +1356,36 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     return markers;
                 })()}
 
-            </MapContainer>
+            </MapContainer >
 
             {/* Path Edit Toolbar */}
-            {!showRoutersOnly && (
-                <MapToolbar
-                    isVisible={isEditingPath}
-                    pathLength={pathLength}
-                    onReset={handleResetPath}
-                    onCancel={handleCancelPathEdit}
-                    onSave={handleSavePath}
-                />
-            )}
+            {
+                !showRoutersOnly && (
+                    <MapToolbar
+                        isVisible={isEditingPath}
+                        pathLength={pathLength}
+                        onReset={handleResetPath}
+                        onCancel={handleCancelPathEdit}
+                        onSave={handleSavePath}
+                    />
+                )
+            }
 
             {/* Top Controls */}
-            {!showRoutersOnly && (
-                <>
-                    {/* Mobile Menu Button - Only visible on small screens */}
-                    <button
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
-                    >
-                        <span className="material-symbols-outlined">
-                            {isMenuOpen ? 'close' : 'menu'}
-                        </span>
-                    </button>
+            {
+                !showRoutersOnly && (
+                    <>
+                        {/* Mobile Menu Button - Only visible on small screens */}
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
+                        >
+                            <span className="material-symbols-outlined">
+                                {isMenuOpen ? 'close' : 'menu'}
+                            </span>
+                        </button>
 
-                    <div className={`
+                        <div className={`
                             absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
                             flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg 
                             backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
@@ -1384,157 +1393,162 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
                         `}>
 
-                        {/* Search Box */}
-                        <div className="mb-2 w-full min-w-[200px]">
-                            <div className="relative">
-                                <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-                                <input
-                                    type="text"
-                                    placeholder="Search map..."
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className="w-full bg-slate-800 text-white text-xs py-1.5 pl-8 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
-                                />
-                                {searchQuery && (
-                                    <button
-                                        onClick={() => setSearchQuery('')}
-                                        className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                                    >
-                                        <span className="material-symbols-outlined text-[14px]">close</span>
-                                    </button>
-                                )}
+                            {/* Search Box */}
+                            <div className="mb-2 w-full min-w-[200px]">
+                                <div className="relative">
+                                    <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+                                    <input
+                                        type="text"
+                                        placeholder="Search map..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full bg-slate-800 text-white text-xs py-1.5 pl-8 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
+                                    />
+                                    {searchQuery && (
+                                        <button
+                                            onClick={() => setSearchQuery('')}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                                        >
+                                            <span className="material-symbols-outlined text-[14px]">close</span>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
-                        </div>
 
-                        <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
-                            <label className="text-xs text-white font-bold">Map Type</label>
-                        </div>
-                        <select
-                            value={mapType}
-                            onChange={(e) => setMapType(e.target.value)}
-                            className="bg-slate-800 text-white text-xs p-1.5 rounded border border-slate-600 outline-none w-full"
-                        >
-                            <option value="roadmap">Roadmap</option>
-                            <option value="satellite">Satellite</option>
-                            <option value="hybrid">Hybrid</option>
-                            <option value="terrain">Terrain</option>
-                            <option value="dark">Dark Mode</option>
-                        </select>
-
-                        <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
-
-                        {/* Line Thickness Control */}
-                        <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
-                            <span className="text-xs text-white font-medium pl-1">Line Size</span>
-                            <div className="flex items-center gap-1">
-                                <button
-                                    onClick={() => setLineThickness(Math.max(1, lineThickness - 1))}
-                                    className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
-                                    title="Decrease (Tipis)"
-                                >
-                                    -
-                                </button>
-                                <span className="text-xs text-white font-mono w-4 text-center">{lineThickness}</span>
-                                <button
-                                    onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
-                                    className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
-                                    title="Increase (Tebal)"
-                                >
-                                    +
-                                </button>
+                            <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
+                                <label className="text-xs text-white font-bold">Map Type</label>
                             </div>
-                        </div>
-
-                        <div className="h-px bg-slate-700/50 my-1"></div>
-
-                        {/* Edit Mode Toggle */}
-                        <button
-                            onClick={() => setIsEditMode(prev => !prev)}
-                            className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
-                                ? 'bg-blue-600 text-white'
-                                : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                }`}
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                                {isEditMode ? 'lock_open' : 'lock'}
-                            </span>
-                            {isEditMode ? 'Editing' : 'Locked'}
-                        </button>
-
-                        {/* Refresh/Sync Button */}
-                        <button
-                            onClick={handleManualSync}
-                            disabled={isSyncing}
-                            className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Sinkronisasi data dari MikroTik"
-                        >
-                            <span
-                                className="material-symbols-outlined"
-                                style={{
-                                    fontSize: 16,
-                                    animation: isSyncing ? 'spin 1s linear infinite' : 'none'
-                                }}
+                            <select
+                                value={mapType}
+                                onChange={(e) => setMapType(e.target.value)}
+                                className="bg-slate-800 text-white text-xs p-1.5 rounded border border-slate-600 outline-none w-full"
                             >
-                                sync
-                            </span>
-                            {isSyncing ? 'Syncing...' : 'Refresh'}
-                        </button>
+                                <option value="roadmap">Roadmap</option>
+                                <option value="satellite">Satellite</option>
+                                <option value="hybrid">Hybrid</option>
+                                <option value="terrain">Terrain</option>
+                                <option value="dark">Dark Mode</option>
+                            </select>
 
-                        {/* Fullscreen Button */}
-                        <button
-                            onClick={() => {
-                                if (!document.fullscreenElement) {
-                                    mapContainerRef.current?.requestFullscreen();
-                                    setIsFullscreen(true);
-                                } else {
-                                    document.exitFullscreen();
-                                    setIsFullscreen(false);
-                                }
-                                setIsMenuOpen(false); // Close menu on action
-                            }}
-                            className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
-                            title="Toggle Fullscreen"
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                                {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                            </span>
-                            {isFullscreen ? 'Exit' : 'Full'}
-                        </button>
-                    </div>
-                </>
-            )}
+                            <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
+
+                            {/* Line Thickness Control */}
+                            <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
+                                <span className="text-xs text-white font-medium pl-1">Line Size</span>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setLineThickness(Math.max(1, lineThickness - 1))}
+                                        className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                        title="Decrease (Tipis)"
+                                    >
+                                        -
+                                    </button>
+                                    <span className="text-xs text-white font-mono w-4 text-center">{lineThickness}</span>
+                                    <button
+                                        onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
+                                        className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                        title="Increase (Tebal)"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-slate-700/50 my-1"></div>
+
+                            {/* Edit Mode Toggle */}
+                            <button
+                                onClick={() => setIsEditMode(prev => !prev)}
+                                className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                    }`}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                                    {isEditMode ? 'lock_open' : 'lock'}
+                                </span>
+                                {isEditMode ? 'Editing' : 'Locked'}
+                            </button>
+
+                            {/* Refresh/Sync Button */}
+                            <button
+                                onClick={handleManualSync}
+                                disabled={isSyncing}
+                                className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Sinkronisasi data dari MikroTik"
+                            >
+                                <span
+                                    className="material-symbols-outlined"
+                                    style={{
+                                        fontSize: 16,
+                                        animation: isSyncing ? 'spin 1s linear infinite' : 'none'
+                                    }}
+                                >
+                                    sync
+                                </span>
+                                {isSyncing ? 'Syncing...' : 'Refresh'}
+                            </button>
+
+                            {/* Fullscreen Button */}
+                            <button
+                                onClick={() => {
+                                    if (!document.fullscreenElement) {
+                                        mapContainerRef.current?.requestFullscreen();
+                                        setIsFullscreen(true);
+                                    } else {
+                                        document.exitFullscreen();
+                                        setIsFullscreen(false);
+                                    }
+                                    setIsMenuOpen(false); // Close menu on action
+                                }}
+                                className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
+                                title="Toggle Fullscreen"
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                                    {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                                </span>
+                                {isFullscreen ? 'Exit' : 'Full'}
+                            </button>
+                        </div>
+                    </>
+                )
+            }
 
             {/* Legend */}
-            {!showRoutersOnly && (
-                <MapLegend
-                    showLabels={showLabels}
-                    onToggleLabels={handleToggleLabels}
-                    enableAnimation={enableAnimation}
-                    onToggleAnimation={() => {
-                        setEnableAnimation(prev => {
-                            const newVal = !prev;
-                            localStorage.setItem('map_animation_enabled', JSON.stringify(newVal));
-                            return newVal;
-                        });
-                    }}
-                    enableClustering={enableClustering}
-                    onToggleClustering={() => {
-                        setEnableClustering(prev => {
-                            const newVal = !prev;
-                            localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
-                            return newVal;
-                        });
-                    }}
-                />
-            )}
+            {
+                !showRoutersOnly && (
+                    <MapLegend
+                        showLabels={showLabels}
+                        onToggleLabels={handleToggleLabels}
+                        enableAnimation={enableAnimation}
+                        onToggleAnimation={() => {
+                            setEnableAnimation(prev => {
+                                const newVal = !prev;
+                                localStorage.setItem('map_animation_enabled', JSON.stringify(newVal));
+                                return newVal;
+                            });
+                        }}
+                        enableClustering={enableClustering}
+                        onToggleClustering={() => {
+                            setEnableClustering(prev => {
+                                const newVal = !prev;
+                                localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
+                                return newVal;
+                            });
+                        }}
+                    />
+                )
+            }
 
             {/* Floating Action Button */}
-            {!showRoutersOnly && (
-                <MapFAB
-                    onAddDevice={handleAddDevice}
-                    disabled={isEditingPath}
-                />
-            )}
+            {
+                !showRoutersOnly && (
+                    <MapFAB
+                        onAddDevice={handleAddDevice}
+                        disabled={isEditingPath}
+                    />
+                )
+            }
 
             {/* Device Modal */}
             <DeviceModal
@@ -1548,7 +1562,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 onEditPath={handleEditPath}
                 isSaving={isSaving}
             />
-        </main>
+        </main >
     );
 };
 
