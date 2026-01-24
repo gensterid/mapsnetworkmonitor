@@ -1267,7 +1267,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                             </div>
                                         </div>
                                     </Tooltip>
-                                </DraggableMarker>
+                                </MemoizedSmartMarker>
                             ))}
 
                             {/* PPPoE Client Markers */}
