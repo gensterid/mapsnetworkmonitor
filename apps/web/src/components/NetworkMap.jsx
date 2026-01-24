@@ -1151,30 +1151,84 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     onClick={() => handleDeviceClick(router, 'router')}
                                 >
                                     <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                        <div className="flex flex-col min-w-[180px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                        <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                                             {/* Header */}
                                             <div className={`px-3 py-2 flex items-center justify-between ${router.status === 'online' ? 'bg-emerald-600' : 'bg-red-600'
                                                 }`}>
                                                 <div className="flex items-center gap-2 text-white">
                                                     <span className="material-symbols-outlined text-[16px]">router</span>
-                                                    <span className="font-bold text-xs truncate max-w-[120px]">{router.name}</span>
+                                                    <span className="font-bold text-xs truncate max-w-[140px]">{router.name}</span>
                                                 </div>
                                                 <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
                                                     {router.status}
                                                 </div>
                                             </div>
                                             {/* Body */}
-                                            <div className="p-3 bg-slate-800 space-y-2">
-                                                <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
-                                                    <span className="text-slate-400">Host</span>
-                                                    <span className="text-slate-200 font-mono">{router.host}</span>
-                                                </div>
-                                                {router.model && (
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Model</span>
-                                                        <span className="text-slate-200">{router.model}</span>
+                                            <div className="p-3 bg-slate-800 space-y-3">
+                                                {/* System Metrics */}
+                                                {router.latestMetrics && (
+                                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                                        <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
+                                                            <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">CPU</span>
+                                                            <span className="text-slate-200 font-mono font-medium">{router.latestMetrics.cpuLoad}%</span>
+                                                        </div>
+                                                        <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
+                                                            <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">RAM</span>
+                                                            <span className="text-slate-200 font-mono font-medium">
+                                                                {Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="col-span-2 bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between">
+                                                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Uptime</span>
+                                                            <span className="text-slate-200 font-mono font-medium">
+                                                                {router.latestMetrics.uptime ? (() => {
+                                                                    const seconds = Number(router.latestMetrics.uptime);
+                                                                    const d = Math.floor(seconds / (3600 * 24));
+                                                                    const h = Math.floor((seconds % (3600 * 24)) / 3600);
+                                                                    const m = Math.floor((seconds % 3600) / 60);
+                                                                    if (d > 0) return `${d}d ${h}h`;
+                                                                    if (h > 0) return `${h}h ${m}m`;
+                                                                    return `${m}m`
+                                                                })() : '-'}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 )}
+
+                                                {/* Ping Latency List (Netwatch) */}
+                                                {(() => {
+                                                    const routerNodes = mapData.nodes.filter(n => n.routerId === router.id && n.status !== 'unknown');
+                                                    if (routerNodes.length === 0) return null;
+
+                                                    return (
+                                                        <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
+                                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
+                                                                <span className="material-symbols-outlined text-[14px]">show_chart</span>
+                                                                Ping Latency
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                {routerNodes.slice(0, 5).map(node => (
+                                                                    <div key={node.id} className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
+                                                                        <span className="text-slate-300 truncate max-w-[120px]" title={node.name || node.host}>
+                                                                            {node.name || node.host}
+                                                                        </span>
+                                                                        <span className={`font-mono font-bold ${!node.latency ? 'text-slate-500' :
+                                                                            Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                                                Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                                            }`}>
+                                                                            {node.latency !== undefined && node.latency !== null ? `${node.latency}ms` : '-'}
+                                                                        </span>
+                                                                    </div>
+                                                                ))}
+                                                                {routerNodes.length > 5 && (
+                                                                    <div className="text-[10px] text-center text-slate-500 italic pt-0.5">
+                                                                        + {routerNodes.length - 5} more
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </Tooltip>
@@ -1299,29 +1353,42 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
                                     >
                                         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                            <div className="flex flex-col min-w-[160px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'}`}>
+                                            <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
+                                                {/* Header */}
+                                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'
+                                                    }`}>
                                                     <div className="flex items-center gap-2 text-white">
                                                         <span className="material-symbols-outlined text-[16px]">account_circle</span>
-                                                        <span className="font-bold text-xs truncate max-w-[100px]">{pppoe.name}</span>
+                                                        <span className="font-bold text-xs truncate max-w-[140px]">{pppoe.name}</span>
                                                     </div>
                                                     <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
                                                         PPPoE
                                                     </div>
                                                 </div>
-                                                <div className="p-3 bg-slate-800 space-y-2">
+                                                {/* Body */}
+                                                <div className="p-3 bg-slate-800 space-y-3">
+                                                    {/* System Metrics */}
                                                     {pppoe.address && (
-                                                        <div className="flex items-center justify-between text-xs">
-                                                            <span className="text-slate-400">IP</span>
-                                                            <span className="text-slate-200 font-mono">{pppoe.address}</span>
+                                                        <div className="grid grid-cols-1 gap-2 text-xs">
+                                                            <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
+                                                                <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">IP Address</span>
+                                                                <span className="text-slate-200 font-mono font-medium">{pppoe.address}</span>
+                                                            </div>
                                                         </div>
                                                     )}
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Status</span>
-                                                        <span className="text-emerald-400">Online</span>
-                                                    </div>
-                                                    <div className="text-xs text-slate-500 text-center pt-1 border-t border-slate-700">
-                                                        Klik untuk edit
+
+                                                    {/* Status */}
+                                                    <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
+                                                        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
+                                                            <span className="material-symbols-outlined text-[14px]">info</span>
+                                                            Status
+                                                        </div>
+                                                        <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
+                                                            <span className="text-slate-300">Connection</span>
+                                                            <span className={`font-mono font-bold ${pppoe.status === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                {pppoe.status === 'up' ? 'Online' : 'Offline'}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
