@@ -18,6 +18,7 @@ import {
     DeviceModal,
     createDeviceIcon,
     LineThicknessControl,
+    RouterTooltip,
 } from './map';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import './map/map.css';
@@ -261,7 +262,8 @@ const SmartMarker = ({
     draggable,
     onDragEnd,
     onClick,
-    children
+    children,
+    ...props
 }) => {
     // Memoize the icon so it doesn't change reference on every render
     const icon = useMemo(() => createDeviceIcon({
@@ -282,6 +284,7 @@ const SmartMarker = ({
             onDragEnd={onDragEnd}
             onClick={onClick}
             status={status} // Pass status for cluster icon logic
+            {...props}
         >
             {children}
         </DraggableMarker>
@@ -446,6 +449,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu toggle
+    const [hoveredRouterId, setHoveredRouterId] = useState(null); // Track hovered router for tooltip fetching
     const mapContainerRef = React.useRef(null);
 
     // Performance optimization states
@@ -1146,110 +1150,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         name: showLabels ? router.name : '',
                                         showLabel: showLabels,
                                     })}
-                                    draggable={isEditMode}
-                                    onDragEnd={(pos) => handleMarkerDragEnd(router, 'router', pos)}
+                                    eventHandlers={{
+                                        click: () => handleDeviceClick(router, 'router'),
+                                        mouseover: () => setHoveredRouterId(router.id),
+                                        mouseout: () => setHoveredRouterId(null)
+                                    }}
                                     onClick={() => handleDeviceClick(router, 'router')}
                                 >
-                                    <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                        <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
-                                            {/* Header */}
-                                            <div className={`px-3 py-2 flex items-center justify-between ${router.status === 'online' ? 'bg-emerald-600' : 'bg-red-600'
-                                                }`}>
-                                                <div className="flex items-center gap-2 text-white">
-                                                    <span className="material-symbols-outlined text-[16px]">router</span>
-                                                    <span className="font-bold text-xs truncate max-w-[140px]">{router.name}</span>
-                                                </div>
-                                                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                                    {router.status}
-                                                </div>
-                                            </div>
-                                            {/* Body */}
-                                            <div className="p-3 bg-slate-800 space-y-3">
-                                                {/* System Metrics */}
-                                                {router.latestMetrics && (
-                                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                                        <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
-                                                            <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">CPU</span>
-                                                            <span className="text-slate-200 font-mono font-medium">{router.latestMetrics.cpuLoad}%</span>
-                                                        </div>
-                                                        <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
-                                                            <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">RAM</span>
-                                                            <span className="text-slate-200 font-mono font-medium">
-                                                                {Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%
-                                                            </span>
-                                                        </div>
-                                                        <div className="col-span-2 bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between">
-                                                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Uptime</span>
-                                                            <span className="text-slate-200 font-mono font-medium">
-                                                                {router.latestMetrics.uptime ? (() => {
-                                                                    const seconds = Number(router.latestMetrics.uptime);
-                                                                    const d = Math.floor(seconds / (3600 * 24));
-                                                                    const h = Math.floor((seconds % (3600 * 24)) / 3600);
-                                                                    const m = Math.floor((seconds % 3600) / 60);
-                                                                    if (d > 0) return `${d}d ${h}h`;
-                                                                    if (h > 0) return `${h}h ${m}m`;
-                                                                    return `${m}m`
-                                                                })() : '-'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Ping Latency List (Netwatch) */}
-                                                {(() => {
-                                                    // Use netwatchData directly to get ALL entries, not just mapped ones
-                                                    const routerNetwatchGroup = netwatchData?.find(g => g.routerId === router.id);
-                                                    const routerEntries = routerNetwatchGroup?.entries || [];
-                                                    // Filter out disabled or unknown if desired, but Dashboard usually shows all active checks
-                                                    // Checking matches dashboard: items with latency or status
-                                                    const validEntries = routerEntries.filter(n => n.status !== 'unknown' || n.lastKnownLatency);
-
-                                                    if (validEntries.length === 0) return null;
-
-                                                    return (
-                                                        <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
-                                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
-                                                                <span className="material-symbols-outlined text-[14px]">show_chart</span>
-                                                                Ping Latency
-                                                            </div>
-                                                            <div className="space-y-1.5">
-                                                                {validEntries.slice(0, 5).map(node => (
-                                                                    <div key={node.id} className="flex items-center justify-between bg-slate-900/50 p-2 rounded border border-slate-700/30">
-                                                                        <div className="flex flex-col overflow-hidden max-w-[120px]">
-                                                                            <span className="text-slate-200 font-bold text-[11px] truncate" title={node.name}>
-                                                                                {node.name || 'Unknown'}
-                                                                            </span>
-                                                                            <span className="text-slate-500 text-[9px] truncate" title={node.host}>
-                                                                                {node.host}
-                                                                            </span>
-                                                                        </div>
-                                                                        <span className={`font-mono font-bold text-xs ${!node.latency && node.status === 'down' ? 'text-red-500' :
-                                                                                !node.latency ? 'text-slate-500' :
-                                                                                    Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                                                        Number(node.latency) < 100 ? 'text-emerald-400' : // Dashboard uses green for < 100? Image shows 49ms green. 100ms red.
-                                                                                            Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400' // Let's keep my thresholds or match dashboard.
-                                                                            // Dashboard image: 48ms Green, 45ms Green, 100ms Red, 82ms Yellow.
-                                                                            // So: < 50 Green, < 100 Yellow, >= 100 Red?
-                                                                            // Or < 80 Green?
-                                                                            // Let's guess: < 50 Green, < 100 Yellow, >= 100 Red.
-                                                                            }`}>
-                                                                            {node.latency !== undefined && node.latency !== null ? `${node.latency}ms` :
-                                                                                node.status === 'down' ? 'DOWN' : '-'}
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
-                                                                {validEntries.length > 5 && (
-                                                                    <div className="text-[10px] text-center text-slate-500 italic pt-0.5">
-                                                                        + {validEntries.length - 5} more
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        </div>
-                                    </Tooltip>
+                                    <RouterTooltip router={router} isHovered={hoveredRouterId === router.id} />
                                 </DraggableMarker>
                             ))}
 
