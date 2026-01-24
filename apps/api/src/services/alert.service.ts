@@ -130,6 +130,7 @@ export class AlertService {
         let countQuery = db
             .select({ count: alerts.id })
             .from(alerts)
+            .leftJoin(routers, eq(alerts.routerId, routers.id))
             .$dynamic();
 
         const filters = [];
