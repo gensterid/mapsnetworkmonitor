@@ -78,7 +78,8 @@ export class DashboardService {
      * Get recent alerts for dashboard
      */
     async getRecentAlerts(limit = 10) {
-        return alertService.findUnacknowledged(limit);
+        const result = await alertService.findUnacknowledged({ limit });
+        return result.data;
     }
 }
 
