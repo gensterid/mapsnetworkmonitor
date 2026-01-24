@@ -49,7 +49,8 @@ const AnimatedPath = ({
         const lineWeight = weight;
         const lineOpacity = preset?.opacity ?? opacity;
         // Disable animation if enableAnimation is false (for performance)
-        const linePaused = !enableAnimation || (preset?.paused ?? paused);
+        // Also pause if status is 'down' or 'offline' to prevent flickering
+        const linePaused = !enableAnimation || (preset?.paused ?? paused) || (status === 'down' || status === 'offline');
         const lineReverse = preset?.reverse ?? reverse;
 
         // Status-based colors
