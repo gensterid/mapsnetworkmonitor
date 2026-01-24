@@ -102,7 +102,21 @@ export const userService = {
  */
 export const alertService = {
     // Get all alerts
-    getAll: (limit = 100) => get(`/alerts?limit=${limit}`),
+    getAll: (params = {}) => {
+        // Handle legacy limit argument
+        if (typeof params === 'number') {
+            return get(`/alerts?limit=${params}`);
+        }
+
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] !== undefined && params[key] !== null) {
+                queryParams.append(key, params[key]);
+            }
+        });
+
+        return get(`/alerts?${queryParams.toString()}`);
+    },
 
     // Get alert by ID
     getById: (id) => get(`/alerts/${id}`),
@@ -111,7 +125,21 @@ export const alertService = {
     getUnreadCount: () => get('/alerts/unread'),
 
     // Get unacknowledged alerts
-    getUnacknowledged: (limit = 100) => get(`/alerts/unacknowledged?limit=${limit}`),
+    getUnacknowledged: (params = {}) => {
+        // Handle legacy limit argument
+        if (typeof params === 'number') {
+            return get(`/alerts/unacknowledged?limit=${params}`);
+        }
+
+        const queryParams = new URLSearchParams();
+        Object.keys(params).forEach(key => {
+            if (params[key] !== undefined && params[key] !== null) {
+                queryParams.append(key, params[key]);
+            }
+        });
+
+        return get(`/alerts/unacknowledged?${queryParams.toString()}`);
+    },
 
     // Acknowledge an alert
     acknowledge: (id) => put(`/alerts/${id}/acknowledge`),

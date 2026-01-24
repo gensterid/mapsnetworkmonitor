@@ -10,36 +10,21 @@ export default function Alerts() {
     const [searchQuery, setSearchQuery] = useState('');
     const [page, setPage] = useState(1);
     const [sortOrder, setSortOrder] = useState('desc');
-    const [dateFilter, setDateFilter] = useState({
-        date: '',
-        month: '',
-        year: new Date().getFullYear().toString()
-    });
+    const [dateFilter, setDateFilter] = useState('');
 
     // Construct start and end dates based on filter
     const getDateRange = () => {
-        if (dateFilter.date) {
-            // Specific date
-            const startDate = new Date(dateFilter.date);
-            startDate.setHours(0, 0, 0, 0);
-            const endDate = new Date(dateFilter.date);
-            endDate.setHours(23, 59, 59, 999);
+        if (!dateFilter) return {};
+
+        try {
+            const [year, month, day] = dateFilter.split('-').map(Number);
+            const startDate = new Date(year, month - 1, day, 0, 0, 0, 0);
+            const endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
             return { startDate, endDate };
-        } else if (dateFilter.month && dateFilter.year) {
-            // Specific month
-            const year = parseInt(dateFilter.year);
-            const month = parseInt(dateFilter.month); // 0-indexed? No, usually 1-12 in value
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 0, 23, 59, 59, 999);
-            return { startDate, endDate };
-        } else if (dateFilter.year) {
-            // Specific year
-            const year = parseInt(dateFilter.year);
-            const startDate = new Date(year, 0, 1);
-            const endDate = new Date(year, 11, 31, 23, 59, 59, 999);
-            return { startDate, endDate };
+        } catch (e) {
+            console.error("Invalid date format", e);
+            return {};
         }
-        return {};
     };
 
     const { startDate, endDate } = getDateRange();
@@ -228,8 +213,29 @@ export default function Alerts() {
                 </div>
             </div>
 
-            {/* Search Input */}
-            <div className="px-6 pt-4">
+            {/* Filters */}
+            <div className="px-6 pt-4 flex flex-col gap-3">
+                {/* Date Filter */}
+                <div className="flex items-center gap-2">
+                    <input
+                        type="date"
+                        value={dateFilter}
+                        onChange={(e) => setDateFilter(e.target.value)}
+                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary w-full sm:w-auto"
+                    />
+                    {dateFilter && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDateFilter('')}
+                            className="text-slate-400 hover:text-white"
+                        >
+                            Reset
+                        </Button>
+                    )}
+                </div>
+
+                {/* Search Input */}
                 <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                     <input
@@ -249,47 +255,8 @@ export default function Alerts() {
                     )}
                 </div>
 
-                {/* Date Filters */}
-                <div className="flex flex-wrap gap-2 mt-4">
-                    <input
-                        type="date"
-                        value={dateFilter.date}
-                        onChange={(e) => setDateFilter({ ...dateFilter, date: e.target.value, month: '', year: '' })}
-                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
-                    />
-                    <select
-                        value={dateFilter.month}
-                        onChange={(e) => setDateFilter({ ...dateFilter, month: e.target.value, date: '' })}
-                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
-                    >
-                        <option value="">Month</option>
-                        {Array.from({ length: 12 }, (_, i) => (
-                            <option key={i + 1} value={i + 1}>
-                                {new Date(0, i).toLocaleString('default', { month: 'long' })}
-                            </option>
-                        ))}
-                    </select>
-                    <select
-                        value={dateFilter.year}
-                        onChange={(e) => setDateFilter({ ...dateFilter, year: e.target.value, date: '' })}
-                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary"
-                    >
-                        <option value="">Year</option>
-                        {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                            <option key={year} value={year}>{year}</option>
-                        ))}
-                    </select>
-                    {(dateFilter.date || dateFilter.month) && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDateFilter({ date: '', month: '', year: new Date().getFullYear().toString() })}
-                            className="text-slate-400 hover:text-white"
-                        >
-                            Reset
-                        </Button>
-                    )}
-                </div>
+
+
 
                 {searchQuery && (
                     <p className="text-xs text-slate-500 mt-2">
@@ -361,31 +328,33 @@ export default function Alerts() {
             </div>
 
             {/* Pagination Controls */}
-            {meta && meta.totalPages > 1 && (
-                <div className="p-4 border-t border-slate-800 flex items-center justify-between">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page === 1}
-                        onClick={() => setPage(p => Math.max(1, p - 1))}
-                    >
-                        Previous
-                    </Button>
-                    <span className="text-sm text-slate-400">
-                        Page {meta.page} of {meta.totalPages} (Total {meta.total})
-                    </span>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={page >= meta.totalPages}
-                        onClick={() => setPage(p => p + 1)}
-                    >
-                        Next
-                    </Button>
-                </div>
-            )}
+            {
+                meta && meta.totalPages > 1 && (
+                    <div className="p-4 border-t border-slate-800 flex items-center justify-between">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page === 1}
+                            onClick={() => setPage(p => Math.max(1, p - 1))}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-sm text-slate-400">
+                            Page {meta.page} of {meta.totalPages} (Total {meta.total})
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={page >= meta.totalPages}
+                            onClick={() => setPage(p => p + 1)}
+                        >
+                            Next
+                        </Button>
+                    </div>
+                )
+            }
 
-        </div>
+        </div >
     );
 }
 
