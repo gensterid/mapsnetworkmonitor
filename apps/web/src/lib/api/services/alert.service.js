@@ -7,8 +7,21 @@ import { get, put, del } from '../client';
 export const alertService = {
     /**
      * Get all alerts
+     * params: { page, limit, sortOrder }
      */
-    getAll: (limit = 100) => get(`/alerts?limit=${limit}`),
+    getAll: (params = {}) => {
+        const queryParams = new URLSearchParams();
+        if (params.page) queryParams.append('page', params.page);
+        if (params.limit) queryParams.append('limit', params.limit);
+        if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+
+        // Handle legacy limit-only call if someone passes a number
+        if (typeof params === 'number') {
+            return get(`/alerts?limit=${params}`);
+        }
+
+        return get(`/alerts?${queryParams.toString()}`);
+    },
 
     /**
      * Get alert by ID
@@ -22,8 +35,21 @@ export const alertService = {
 
     /**
      * Get unacknowledged alerts
+     * params: { page, limit, sortOrder }
      */
-    getUnacknowledged: (limit = 100) => get(`/alerts/unacknowledged?limit=${limit}`),
+    getUnacknowledged: (params = {}) => {
+        const queryParams = new URLSearchParams();
+        if (params.page) queryParams.append('page', params.page);
+        if (params.limit) queryParams.append('limit', params.limit);
+        if (params.sortOrder) queryParams.append('sortOrder', params.sortOrder);
+
+        // Handle legacy limit-only call
+        if (typeof params === 'number') {
+            return get(`/alerts/unacknowledged?limit=${params}`);
+        }
+
+        return get(`/alerts/unacknowledged?${queryParams.toString()}`);
+    },
 
     /**
      * Acknowledge an alert

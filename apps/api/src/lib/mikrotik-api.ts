@@ -229,12 +229,48 @@ export async function getRouterInterfaces(
 }
 
 /**
+ * Get router clock time
+ */
+export async function getRouterClock(api: any): Promise<{ time: string; date: string; timeZoneName: string; gmtOffset: string }> {
+    const clockResult = await api.write('/system/clock/print');
+    return clockResult[0] || {};
+}
+
+/**
  * Get netwatch hosts
  */
 export async function getNetwatchHosts(
-    api: any
+    api: any,
+    routerClock?: { time: string; date: string; timeZoneName: string; gmtOffset: string }
 ): Promise<NetwatchData[]> {
     const hostsResult = await api.write('/tool/netwatch/print');
+
+    // Calculate time offset if clock provided
+    let timeOffset = 0;
+    if (routerClock) {
+        try {
+            // Combine date and time to parse router current time
+            // MikroTik date format: "jan/25/2026"
+            // MikroTik time format: "20:30:15"
+            // We need to parse this carefuly
+            const routerNow = parseMikrotikDate(`${routerClock.date} ${routerClock.time}`);
+            const serverNow = new Date();
+
+            // Offset = ServerTime - RouterTime
+            // If Router is ahead (future), offset is negative?
+            // No, we want to convert RouterTime to ServerTime.
+            // Actual Event Time (Server Frame) = Event Time (Router Frame) + (ServerNow - RouterNow)
+            // Example:
+            // Server: 10:00. Router: 13:00. (Router is +3h)
+            // Event at 12:50 Router Time.
+            // Should be 09:50 Server Time.
+            // 12:50 + (10:00 - 13:00) = 12:50 - 3h = 09:50. Correct.
+
+            timeOffset = serverNow.getTime() - routerNow.getTime();
+        } catch (e) {
+            console.warn('Failed to calculate time offset:', e);
+        }
+    }
 
     return hostsResult.map((host: any) => {
         let sinceUp: Date | undefined;
@@ -243,6 +279,12 @@ export async function getNetwatchHosts(
         if (host.since) {
             try {
                 const sinceDate = parseMikrotikDate(host.since);
+
+                // Adjust for time offset
+                if (timeOffset !== 0) {
+                    sinceDate.setTime(sinceDate.getTime() + timeOffset);
+                }
+
                 if (host.status === 'up') {
                     sinceUp = sinceDate;
                 } else if (host.status === 'down') {

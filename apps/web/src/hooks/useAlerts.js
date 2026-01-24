@@ -14,11 +14,18 @@ export const alertKeys = {
 
 /**
  * Hook to fetch all alerts
+ * params: { page, limit, sortOrder } or separate arguments
  */
-export function useAlerts(limit = 100, options = {}) {
+export function useAlerts(params = {}, options = {}) {
+    // Handle legacy limit argument
+    const finalParams = typeof params === 'number' ? { limit: params } : params;
+    const { page = 1, limit = 100, sortOrder = 'desc' } = finalParams;
+
     return useQuery({
-        queryKey: [...alertKeys.lists(), { limit }],
-        queryFn: () => alertService.getAll(limit),
+        queryKey: [...alertKeys.lists(), { page, limit, sortOrder }],
+        // If meta is returned, we might want to keep previous data while fetching new page
+        placeholderData: (previousData) => previousData,
+        queryFn: () => alertService.getAll(finalParams),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
         ...options,
@@ -53,10 +60,15 @@ export function useUnreadAlertCount(options = {}) {
 /**
  * Hook to fetch unacknowledged alerts
  */
-export function useUnacknowledgedAlerts(limit = 100, options = {}) {
+export function useUnacknowledgedAlerts(params = {}, options = {}) {
+    // Handle legacy limit argument
+    const finalParams = typeof params === 'number' ? { limit: params } : params;
+    const { page = 1, limit = 100, sortOrder = 'desc' } = finalParams;
+
     return useQuery({
-        queryKey: alertKeys.unacknowledged(),
-        queryFn: () => alertService.getUnacknowledged(limit),
+        queryKey: [...alertKeys.unacknowledged(), { page, limit, sortOrder }],
+        placeholderData: (previousData) => previousData,
+        queryFn: () => alertService.getUnacknowledged(finalParams),
         staleTime: 10 * 1000,
         refetchInterval: 10 * 1000,
         ...options,

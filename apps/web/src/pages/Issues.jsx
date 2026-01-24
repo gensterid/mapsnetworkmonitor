@@ -8,7 +8,17 @@ import clsx from 'clsx';
 
 export default function Issues() {
     const [searchQuery, setSearchQuery] = useState('');
-    const { data: alerts = [], isLoading, error, refetch } = useAlerts();
+    const [page, setPage] = useState(1);
+    const [sortOrder, setSortOrder] = useState('desc');
+
+    const { data: result = [], isLoading, error, refetch } = useAlerts({
+        page,
+        limit: 20,
+        sortOrder
+    });
+
+    const alerts = Array.isArray(result) ? result : (result?.data || []);
+    const meta = result?.meta;
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const acknowledgeMutation = useAcknowledgeAlert();
@@ -91,6 +101,14 @@ export default function Issues() {
                     <p className="text-slate-400 text-sm">Monitor performance and system issues</p>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
+                    <Button
+                        variant="outline"
+                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                        className="flex-1 sm:flex-none justify-center"
+                    >
+                        {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
+                        Sort Date
+                    </Button>
                     <Button onClick={() => refetch()} variant="outline" className="flex-1 sm:flex-none justify-center">
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Refresh
@@ -166,6 +184,32 @@ export default function Issues() {
                     </div>
                 )}
             </div>
+
+            {/* Pagination Controls */}
+            {meta && meta.totalPages > 1 && (
+                <div className="p-4 border-t border-slate-800 flex items-center justify-between">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page === 1}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-sm text-slate-400">
+                        Page {meta.page} of {meta.totalPages} (Total {meta.total})
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={page >= meta.totalPages}
+                        onClick={() => setPage(p => p + 1)}
+                    >
+                        Next
+                    </Button>
+                </div>
+            )}
+
         </div>
     );
 }

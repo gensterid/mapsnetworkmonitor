@@ -18,6 +18,7 @@ import {
     getRouterResources,
     getRouterInterfaces,
     getNetwatchHosts,
+    getRouterClock,
     testConnection,
     rebootRouter,
     parseUptimeToSeconds,
@@ -1285,8 +1286,16 @@ export class RouterService {
             api = await connectToRouter(connection);
 
             try {
+                // Fetch router clock for time sync
+                let routerClock;
+                try {
+                    routerClock = await getRouterClock(api);
+                } catch (clockErr) {
+                    console.warn(`[Router ${router.name}] Failed to fetch clock:`, clockErr);
+                }
+
                 // Fetch netwatch entries from MikroTik
-                const mikrotikNetwatch = await getNetwatchHosts(api);
+                const mikrotikNetwatch = await getNetwatchHosts(api, routerClock);
 
                 // Get existing netwatch entries from DB
                 const existingEntries = await db

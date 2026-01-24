@@ -1,4 +1,4 @@
-import { eq, desc, and, isNull, getTableColumns } from 'drizzle-orm';
+import { eq, desc, asc, and, isNull, getTableColumns } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     alerts,
@@ -101,7 +101,19 @@ export class AlertService {
     /**
      * Get all alerts (filtered by user access)
      */
-    async findAll(limit = 100, userId?: string, userRole?: string): Promise<any[]> {
+    async findAll(options: {
+        page?: number;
+        limit?: number;
+        sortOrder?: 'asc' | 'desc';
+        userId?: string;
+        userRole?: string
+    } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+        const page = options.page || 1;
+        const limit = options.limit || 100;
+        const offset = (page - 1) * limit;
+        const sortOrder = options.sortOrder || 'desc';
+
+        // Base query
         let query = db
             .select({
                 ...getTableColumns(alerts),
@@ -111,46 +123,75 @@ export class AlertService {
             .from(alerts)
             .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
             .leftJoin(routers, eq(alerts.routerId, routers.id))
-            .orderBy(desc(alerts.createdAt))
-            .limit(limit)
+            .$dynamic();
+
+        // Count query
+        let countQuery = db
+            .select({ count: alerts.id })
+            .from(alerts)
             .$dynamic();
 
         // Filter for non-admins
-        if (userId && userRole && userRole !== 'admin') {
-            // Get assigned router IDs
+        if (options.userId && options.userRole && options.userRole !== 'admin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
-                .where(eq(userRouters.userId, userId));
+                .where(eq(userRouters.userId, options.userId));
 
             const routerIds = assigned.map((a) => a.routerId);
 
             if (routerIds.length === 0) {
-                return []; // No routers assigned, so no alerts
+                return {
+                    data: [],
+                    meta: { total: 0, page, limit, totalPages: 0 }
+                };
             }
 
-            query = db
-                .select({
-                    ...getTableColumns(alerts),
-                    acknowledgedByName: users.name,
-                    routerName: routers.name,
-                })
-                .from(alerts)
-                .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
-                .leftJoin(routers, eq(alerts.routerId, routers.id))
-                .where(inArray(alerts.routerId, routerIds))
-                .orderBy(desc(alerts.createdAt))
-                .limit(limit)
-                .$dynamic();
+            const filter = inArray(alerts.routerId, routerIds);
+            query = query.where(filter) as any;
+            countQuery = countQuery.where(filter) as any;
         }
 
-        return query;
+        // Get total count
+        const totalResult = await countQuery;
+        const total = totalResult.length;
+        const totalPages = Math.ceil(total / limit);
+
+        // Apply sorting and pagination
+        const validSort = sortOrder === 'asc' ? asc(alerts.createdAt) : desc(alerts.createdAt);
+
+        const data = await query
+            .orderBy(validSort)
+            .limit(limit)
+            .offset(offset);
+
+        return {
+            data,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages
+            }
+        };
     }
 
     /**
      * Get unacknowledged alerts (filtered by user access)
      */
-    async findUnacknowledged(limit = 100, userId?: string, userRole?: string): Promise<any[]> {
+    async findUnacknowledged(options: {
+        page?: number;
+        limit?: number;
+        sortOrder?: 'asc' | 'desc';
+        userId?: string;
+        userRole?: string
+    } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+        const page = options.page || 1;
+        const limit = options.limit || 100;
+        const offset = (page - 1) * limit;
+        const sortOrder = options.sortOrder || 'desc';
+
+        // Base query
         let query = db
             .select({
                 ...getTableColumns(alerts),
@@ -159,37 +200,58 @@ export class AlertService {
             .from(alerts)
             .leftJoin(routers, eq(alerts.routerId, routers.id))
             .where(eq(alerts.acknowledged, false))
-            .orderBy(desc(alerts.createdAt))
-            .limit(limit)
+            .$dynamic();
+
+        // Count query
+        let countQuery = db
+            .select({ count: alerts.id })
+            .from(alerts)
+            .where(eq(alerts.acknowledged, false))
             .$dynamic();
 
         // Filter for non-admins
-        if (userId && userRole && userRole !== 'admin') {
+        if (options.userId && options.userRole && options.userRole !== 'admin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
-                .where(eq(userRouters.userId, userId));
+                .where(eq(userRouters.userId, options.userId));
 
             const routerIds = assigned.map((a) => a.routerId);
 
             if (routerIds.length === 0) {
-                return [];
+                return {
+                    data: [],
+                    meta: { total: 0, page, limit, totalPages: 0 }
+                };
             }
 
-            query = db
-                .select({
-                    ...getTableColumns(alerts),
-                    routerName: routers.name,
-                })
-                .from(alerts)
-                .leftJoin(routers, eq(alerts.routerId, routers.id))
-                .where(and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds)))
-                .orderBy(desc(alerts.createdAt))
-                .limit(limit)
-                .$dynamic();
+            const filter = and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds));
+            query = query.where(filter) as any;
+            countQuery = countQuery.where(filter) as any;
         }
 
-        return query;
+        // Get total count
+        const totalResult = await countQuery;
+        const total = totalResult.length;
+        const totalPages = Math.ceil(total / limit);
+
+        // Apply sorting and pagination
+        const validSort = sortOrder === 'asc' ? asc(alerts.createdAt) : desc(alerts.createdAt);
+
+        const data = await query
+            .orderBy(validSort)
+            .limit(limit)
+            .offset(offset);
+
+        return {
+            data,
+            meta: {
+                total,
+                page,
+                limit,
+                totalPages
+            }
+        };
     }
 
     /**

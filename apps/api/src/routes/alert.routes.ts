@@ -16,10 +16,19 @@ router.use(authMiddleware);
 router.get(
     '/',
     asyncHandler(async (req, res) => {
+        const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 100;
-        const alerts = await alertService.findAll(limit, req.user?.id, req.user?.role);
+        const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
 
-        res.json({ data: alerts });
+        const result = await alertService.findAll({
+            page,
+            limit,
+            sortOrder,
+            userId: req.user?.id,
+            userRole: req.user?.role
+        });
+
+        res.json(result);
     })
 );
 
@@ -48,10 +57,19 @@ router.get(
 router.get(
     '/unacknowledged',
     asyncHandler(async (req, res) => {
+        const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 100;
-        const alerts = await alertService.findUnacknowledged(limit, req.user?.id, req.user?.role);
+        const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
 
-        res.json({ data: alerts });
+        const result = await alertService.findUnacknowledged({
+            page,
+            limit,
+            sortOrder,
+            userId: req.user?.id,
+            userRole: req.user?.role
+        });
+
+        res.json(result);
     })
 );
 
