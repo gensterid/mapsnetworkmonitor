@@ -31,7 +31,7 @@ export default function Issues() {
 
     const { data: result = [], isLoading, error, refetch } = useAlerts({
         page,
-        limit: 20,
+        limit: startDate ? 10000 : 50, // Default 50, show all (high limit) if filtering by date
         sortOrder,
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined

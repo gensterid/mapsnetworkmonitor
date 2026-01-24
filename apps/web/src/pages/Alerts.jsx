@@ -32,7 +32,7 @@ export default function Alerts() {
     // Pass pagination params
     const { data: result, isLoading, error, refetch } = useAlerts({
         page,
-        limit: 20, // Lower limit for pagination 
+        limit: startDate ? 10000 : 50, // Default 50, show all (high limit) if filtering by date
         sortOrder,
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined
