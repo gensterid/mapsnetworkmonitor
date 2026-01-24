@@ -711,8 +711,8 @@ class AnalyticsService {
         }
 
         const conditions: any[] = [
-            // Filter generic issues (exclude netwatch down and pppoe which have their own cards)
-            inArray(alerts.type, ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'interface_traffic']),
+            // Filter by severity to capture ALL issues (warning/critical)
+            inArray(alerts.severity, ['warning', 'critical']),
             gte(alerts.createdAt, range.startDate),
             lte(alerts.createdAt, range.endDate),
         ];
