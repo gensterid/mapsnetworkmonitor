@@ -38,6 +38,7 @@ import {
     RotateCcw
 } from 'lucide-react';
 import clsx from 'clsx';
+import AnalyticsDetailModal from '@/components/analytics/AnalyticsDetailModal';
 
 // Custom Tooltip for Recharts
 const CustomTooltip = ({ active, payload, label }) => {
@@ -402,6 +403,9 @@ export default function Analytics() {
 
     // Detail modal state for stat cards
     const [detailModal, setDetailModal] = useState({ open: false, type: null, title: '', data: null });
+
+    // History/Detail modal for list items
+    const [historyModal, setHistoryModal] = useState({ open: false, type: null, target: null });
 
     // Helper to get default date range (30 days)
     const getDefaultDateRange = () => {
@@ -780,13 +784,14 @@ export default function Analytics() {
                                         topDownDevices.slice(0, 5).map((device, i) => (
                                             <div
                                                 key={i}
-                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                onClick={() => setHistoryModal({ open: true, type: 'device-logs', target: device })}
                                             >
                                                 <div>
-                                                    <p className="text-sm text-white font-medium">{device.name}</p>
+                                                    <p className="text-sm text-white font-medium group-hover:text-primary transition-colors">{device.name}</p>
                                                     <p className="text-xs text-slate-500 font-mono">{device.host}</p>
                                                 </div>
-                                                <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs font-medium">
+                                                <span className="px-2 py-1 rounded bg-red-500/10 text-red-400 text-xs font-medium border border-red-500/20">
                                                     {device.incidents}x down
                                                 </span>
                                             </div>
@@ -812,9 +817,10 @@ export default function Analytics() {
                                         uptimeStats.slice(0, 5).map((router, i) => (
                                             <div
                                                 key={i}
-                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                onClick={() => setHistoryModal({ open: true, type: 'router-uptime', target: router })}
                                             >
-                                                <p className="text-sm text-white font-medium">{router.routerName}</p>
+                                                <p className="text-sm text-white font-medium group-hover:text-primary transition-colors">{router.routerName}</p>
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-20 h-2 bg-slate-700 rounded-full overflow-hidden">
                                                         <div
@@ -856,7 +862,8 @@ export default function Analytics() {
                                             issuesAnalysis.slice(0, 5).map((issue, i) => (
                                                 <div
                                                     key={i}
-                                                    className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                                    className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                    onClick={() => setHistoryModal({ open: true, type: 'issue-logs', target: issue })}
                                                 >
                                                     <div className="flex-1 min-w-0 mr-2">
                                                         <div className="flex items-center gap-2">
@@ -866,14 +873,14 @@ export default function Analytics() {
                                                                     issue.severity === 'warning' ? 'bg-amber-500' :
                                                                         'bg-blue-500'
                                                             )} />
-                                                            <p className="text-sm text-white font-medium truncate" title={issue.title}>{issue.title}</p>
+                                                            <p className="text-sm text-white font-medium truncate group-hover:text-primary transition-colors" title={issue.title}>{issue.title}</p>
                                                         </div>
                                                         <p className="text-xs text-slate-500 font-mono truncate pl-3.5">
                                                             {issue.routerName} • {new Date(issue.lastOccurred).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                                                         </p>
                                                     </div>
                                                     <span className={clsx(
-                                                        "px-2 py-1 rounded text-xs font-medium whitespace-nowrap",
+                                                        "px-2 py-1 rounded text-xs font-medium whitespace-nowrap border border-white/5",
                                                         issue.severity === 'critical' ? 'bg-red-500/10 text-red-400' :
                                                             issue.severity === 'warning' ? 'bg-amber-500/10 text-amber-400' :
                                                                 'bg-blue-500/10 text-blue-400'
@@ -904,13 +911,14 @@ export default function Analytics() {
                                         pppoeDisconnectors.slice(0, 5).map((client, i) => (
                                             <div
                                                 key={i}
-                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                onClick={() => setHistoryModal({ open: true, type: 'pppoe-logs', target: client })}
                                             >
                                                 <div>
-                                                    <p className="text-sm text-white font-medium">{client.name}</p>
+                                                    <p className="text-sm text-white font-medium group-hover:text-primary transition-colors">{client.name}</p>
                                                     <p className="text-xs text-slate-500">{client.routerName}</p>
                                                 </div>
-                                                <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 text-xs font-medium">
+                                                <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-400 text-xs font-medium border border-amber-500/20">
                                                     {client.disconnectCount}x
                                                 </span>
                                             </div>
@@ -936,13 +944,14 @@ export default function Analytics() {
                                         pppoeDownStatus.slice(0, 5).map((client, i) => (
                                             <div
                                                 key={i}
-                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50"
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                onClick={() => setHistoryModal({ open: true, type: 'pppoe-down-details', target: client })}
                                             >
                                                 <div>
-                                                    <p className="text-sm text-white font-medium">{client.name}</p>
+                                                    <p className="text-sm text-white font-medium group-hover:text-primary transition-colors">{client.name}</p>
                                                     <p className="text-xs text-slate-500">{client.routerName} • {client.address}</p>
                                                 </div>
-                                                <span className="text-xs text-red-400">
+                                                <span className="text-xs text-red-400 font-mono">
                                                     {new Date(client.downSince).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                                                 </span>
                                             </div>
@@ -1174,8 +1183,18 @@ export default function Analytics() {
                             </div>
                         </div>
                     </div>
+                        </div>
+                    </div >
                 )
-            }
+}
+
+{/* History Detail Modal */ }
+<AnalyticsDetailModal
+    open={historyModal.open}
+    type={historyModal.type}
+    target={historyModal.target}
+    onClose={() => setHistoryModal({ open: false, type: null, target: null })}
+/>
         </div >
     );
 }
