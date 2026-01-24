@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies } from '@/hooks';
+import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -36,6 +36,7 @@ import {
     X
 } from 'lucide-react';
 import clsx from 'clsx';
+import { formatDateWithTimezone } from '@/lib/timezone';
 import {
     AreaChart,
     Area,
@@ -845,6 +846,9 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
     const [sortBy, setSortBy] = useState('status'); // 'status', 'name', 'host', 'location'
     const queryClient = useQueryClient();
     const syncMutation = useSyncNetwatch();
+    const { data: currentUser } = useCurrentUser();
+    const { data: settings } = useSettings();
+    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
 
     // Count up and down hosts
     const upCount = netwatch.filter(n => n.status === 'up').length;
@@ -1127,7 +1131,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                                 else display = `${diffMins}m`;
                                                 return (
                                                     <div className="flex flex-col">
-                                                        <span className="text-white font-medium">{sinceDate.toLocaleString('id-ID')}</span>
+                                                        <span className="text-white font-medium">{formatDateWithTimezone(since, timezone)}</span>
                                                         <span className={clsx("text-xs", nw.status === 'up' ? 'text-emerald-400' : 'text-red-400')}>
                                                             ({display})
                                                         </span>

@@ -152,7 +152,10 @@ export default function Issues() {
                                             <Button variant="ghost" size="sm" onClick={() => acknowledgeAlert(alert.id)} loading={acknowledgeMutation.isPending}>Acknowledge</Button>
                                         ) : (
                                             <div className="text-xs text-slate-500 text-right">
-                                                <div className="flex items-center justify-end gap-1 text-emerald-500 mb-1"><CheckCircle className="w-3 h-3" /><span>Acknowledged</span></div>
+                                                <div className="flex items-center justify-end gap-1 text-emerald-500 mb-1">
+                                                    <CheckCircle className="w-3 h-3" />
+                                                    <span>Acknowledged {alert.acknowledgedByName ? `by ${alert.acknowledgedByName}` : ''}</span>
+                                                </div>
                                                 <div>{formatAlertTime(alert.acknowledgedAt)}</div>
                                             </div>
                                         )}
