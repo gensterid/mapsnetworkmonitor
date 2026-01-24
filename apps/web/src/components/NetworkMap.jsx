@@ -8,7 +8,9 @@ import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser } from '@/hooks';
 import '@/lib/GoogleMutant';
 
-AnimatedPath,
+// Import new map components
+import {
+    AnimatedPath,
     EditablePath,
     MapFAB,
     MapToolbar,
@@ -20,10 +22,6 @@ AnimatedPath,
 import { formatDateWithTimezone } from '@/lib/timezone';
 import './map/map.css';
 // Marker Cluster CSS
-import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
-import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
-import { calculatePathLength, formatDistance } from '@/lib/geo';
-import { formatDateWithTimezone } from '@/lib/timezone';
 
 // --- Custom Components ---
 
