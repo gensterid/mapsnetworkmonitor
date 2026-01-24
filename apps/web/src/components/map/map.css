@@ -635,7 +635,8 @@
     }
 }
 
-@keyframes pulse-ring {
+/* Animation Removed to reduce flickering */
+/* @keyframes pulse-ring {
     0% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
     }
@@ -647,7 +648,7 @@
     100% {
         box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
     }
-}
+} */
 
 .device-icon--online .device-icon__badge {
     animation: pulse-glow 2s ease-in-out infinite;

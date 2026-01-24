@@ -88,9 +88,8 @@ export const createDeviceIcon = ({
         </div>
     `;
 
-    // Add bounce animation class for offline/down devices, pulse for warning
-    const animationClass = normalizedStatus === 'offline' ? 'marker-pulse-danger' :
-        normalizedStatus === 'warning' ? 'marker-pulse-warning' : '';
+    // Simplified animation logic to prevent flickering
+    const animationClass = ''; // Disabled animations: normalizedStatus === 'offline' ? 'marker-pulse-danger' : ...
 
     return L.divIcon({
         className: `custom-marker-icon ${animationClass}`,
