@@ -466,6 +466,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const apiKey = settings?.googleMapsApiKey;
+    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
 
     // Fetch Routers
     const { data: routersData } = useQuery({
@@ -1248,7 +1249,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                                 <div className="flex flex-col">
                                                                     <span className="text-slate-400 mb-0.5">Down Since:</span>
                                                                     <span className="font-mono bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50">
-                                                                        {formatDateWithTimezone(node.lastDown)}
+                                                                        {formatDateWithTimezone(node.lastDown, timezone)}
                                                                     </span>
                                                                 </div>
                                                             )}
