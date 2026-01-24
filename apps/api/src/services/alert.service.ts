@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, or, ilike, isNull, getTableColumns, gte, lte } from 'drizzle-orm';
+import { eq, desc, asc, and, or, ilike, isNull, getTableColumns, gte, lte, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     alerts,
@@ -154,7 +154,7 @@ export class AlertService {
             filters.push(or(
                 ilike(alerts.title, searchTerm),
                 ilike(alerts.message, searchTerm),
-                ilike(alerts.type, searchTerm),
+                ilike(sql`${alerts.type}::text`, searchTerm),
                 ilike(routers.name, searchTerm)
             ));
         }
