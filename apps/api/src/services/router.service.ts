@@ -5,6 +5,7 @@ import {
     routerInterfaces,
     routerMetrics,
     routerNetwatch,
+    alerts,
     type Router,
     type RouterInterface,
     type RouterMetric,
@@ -923,8 +924,6 @@ export class RouterService {
 
         // Fetch recent 'netwatch_down' alerts to fix invalid MikroTik timestamps
         // We generally trust the server's alert timestamp over the router's "sinceDown" which might have wrong clock
-        const { alerts, and, eq, desc } = await import('../db/schema/index.js'); // Ensure schema import is available or use existing imports
-        // Re-using existing imports if possible, but safely re-importing schema symbols if needed aliases match
 
         // Note: We use existing imported 'alerts' from top of file
         const downAlerts = await db
