@@ -1,13 +1,22 @@
 import React from 'react';
-import { usePingLatencies } from '@/hooks';
+import { usePingLatencies, useRouterHotspotActive, useRouterPppActive } from '@/hooks';
 import { Tooltip } from 'react-leaflet';
-import { formatDistance } from '@/lib/geo'; // Assuming this is where it was, or I'll check imports
 
 export const RouterTooltip = ({ router, isHovered }) => {
-    // Fetch live latencies only when hovered
-    const { data: latencies, isLoading, isError } = usePingLatencies(router.id, {
+    // Fetch live data only when hovered
+    const { data: latencies, isLoading: isLoadingPing } = usePingLatencies(router.id, {
         enabled: isHovered,
-        staleTime: 60000, // Cache for 1 min
+        staleTime: 60000,
+    });
+
+    const { data: hotspotData } = useRouterHotspotActive(router.id, {
+        enabled: isHovered,
+        staleTime: 60000,
+    });
+
+    const { data: pppData } = useRouterPppActive(router.id, {
+        enabled: isHovered,
+        staleTime: 60000,
     });
 
     const getLatencyColor = (latency) => {
@@ -19,13 +28,19 @@ export const RouterTooltip = ({ router, isHovered }) => {
 
     return (
         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-            <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
+            <div className="flex flex-col min-w-[240px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                 {/* Header */}
                 <div className={`px-3 py-2 flex items-center justify-between ${router.status === 'online' ? 'bg-emerald-600' : 'bg-red-600'
                     }`}>
-                    <div className="flex items-center gap-2 text-white">
-                        <span className="material-symbols-outlined text-[16px]">router</span>
-                        <span className="font-bold text-xs truncate max-w-[140px]">{router.name}</span>
+                    <div className="flex flex-col">
+                        <div className="flex items-center gap-2 text-white">
+                            <span className="material-symbols-outlined text-[16px]">router</span>
+                            <span className="font-bold text-xs truncate max-w-[140px]">{router.name}</span>
+                        </div>
+                        {/* Router Model */}
+                        {router.model && (
+                            <span className="text-[10px] text-white/80 pl-6 truncate max-w-[140px]">{router.model}</span>
+                        )}
                     </div>
                     <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
                         {router.status}
@@ -46,6 +61,28 @@ export const RouterTooltip = ({ router, isHovered }) => {
                                     {Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%
                                 </span>
                             </div>
+
+                            {/* Active Users/Sessions (Only show if > 0) */}
+                            {hotspotData?.count > 0 && (
+                                <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between col-span-2">
+                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[12px]">wifi</span>
+                                        Hotspot
+                                    </span>
+                                    <span className="text-orange-400 font-mono font-bold">{hotspotData.count}</span>
+                                </div>
+                            )}
+
+                            {pppData?.count > 0 && (
+                                <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between col-span-2">
+                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider flex items-center gap-1">
+                                        <span className="material-symbols-outlined text-[12px]">lan</span>
+                                        PPPoE
+                                    </span>
+                                    <span className="text-blue-400 font-mono font-bold">{pppData.count}</span>
+                                </div>
+                            )}
+
                             <div className="col-span-2 bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between">
                                 <span className="text-slate-400 text-[10px] uppercase tracking-wider">Uptime</span>
                                 <span className="text-slate-200 font-mono font-medium">
@@ -70,7 +107,7 @@ export const RouterTooltip = ({ router, isHovered }) => {
                             Ping Latency
                         </div>
 
-                        {isLoading && !latencies ? (
+                        {isLoadingPing && !latencies ? (
                             <div className="flex justify-center py-2">
                                 <span className="material-symbols-outlined animate-spin text-slate-500 text-sm">refresh</span>
                             </div>
