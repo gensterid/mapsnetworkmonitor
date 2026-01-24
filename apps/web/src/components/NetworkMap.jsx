@@ -243,8 +243,10 @@ const DraggableMarker = ({
             icon={icon}
             draggable={draggable}
             eventHandlers={eventHandlers}
+            {...props}
+        >
             {children}
-        </Marker >
+        </Marker>
     );
 };
 
