@@ -826,17 +826,22 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 });
             } else if (deviceData.id) {
                 // Update existing Netwatch / Client / OLT / ODP
+                const routerId = deviceData.routerId || deviceData.connectedToId;
+                if (!routerId) {
+                    throw new Error("Invalid Router ID. Please ensure the device is connected to a router or another device.");
+                }
+
                 await updateNetwatchMutation.mutateAsync({
-                    routerId: deviceData.routerId || deviceData.connectedToId,
-                    netwatchId: deviceData.id,
+                    routerId: String(routerId),
+                    netwatchId: String(deviceData.id),
                     data: {
                         name: deviceData.name,
                         host: deviceData.host,
                         deviceType: deviceData.type || deviceData.deviceType,
-                        latitude: deviceData.latitude,
-                        longitude: deviceData.longitude,
+                        latitude: deviceData.latitude ? String(deviceData.latitude) : undefined,
+                        longitude: deviceData.longitude ? String(deviceData.longitude) : undefined,
                         connectionType: deviceData.connectionType,
-                        connectedToId: deviceData.connectedToId,
+                        connectedToId: deviceData.connectedToId || null,
                         notes: deviceData.notes,
                     },
                 });
