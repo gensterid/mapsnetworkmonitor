@@ -731,7 +731,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             lat,
                             lng,
                             deviceType: 'pppoe',
-                            status: 'up', // Sessions in DB are always active
+                            status: session.status === 'active' ? 'online' : 'offline',
                         });
 
                         // Determine source position based on connectionType
@@ -767,7 +767,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 pppoeId: session.id,
                                 from: fromPos,
                                 to: [lat, lng],
-                                status: 'up',
+                                status: session.status === 'active' ? 'up' : 'down',
                                 waypoints: waypoints,
                                 sourceName: sourceName,
                                 destName: session.name,

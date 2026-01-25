@@ -92,7 +92,12 @@ class PppoeService {
                     }
 
                     // Remove session from tracking
-                    await this.deleteSession(session.id);
+                    // Update session status to disconnected instead of deleting
+                    await this.updateSession(session.id, {
+                        lastSeen: new Date(),
+                        lastDown: new Date(),
+                        status: 'disconnected'
+                    });
                 }
             }
 
@@ -152,10 +157,11 @@ class PppoeService {
                             lastSeen: new Date(),
                             uptime: session.uptime,
                             address: session.address,
+                            status: 'active'
                         });
                     }
                 }
-            }
+            } // End of currentSessions loop
 
             if (connected.length > 0 || disconnected.length > 0) {
                 console.log(`[PPPoE] Summary for ${routerName}: +${connected.length} connected, -${disconnected.length} disconnected`);
@@ -194,7 +200,7 @@ class PppoeService {
      */
     async updateSession(
         id: string,
-        data: Partial<Pick<PppoeSession, 'lastSeen' | 'uptime' | 'address'>>
+        data: Partial<Pick<PppoeSession, 'lastSeen' | 'uptime' | 'address' | 'status' | 'lastDown'>>
     ): Promise<void> {
         await db
             .update(pppoeSessions)
