@@ -121,6 +121,7 @@ class PppoeService {
                         address: session.address,
                         service: session.service,
                         uptime: session.uptime,
+                        status: 'active', // Explicitly set status to active
                     };
 
                     // Transfer cached coordinates to new session

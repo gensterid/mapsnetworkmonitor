@@ -734,7 +734,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             lat,
                             lng,
                             deviceType: 'pppoe',
-                            status: session.status === 'active' ? 'online' : 'offline',
+                            status: (session.status === 'active' || session.status === 'up') ? 'online' : 'offline',
                         });
 
                         // Determine source position based on connectionType
@@ -1285,7 +1285,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
                                             <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                                                 {/* Header */}
-                                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'active' ? 'bg-purple-600' : 'bg-slate-600'
+                                                <div className={`px-3 py-2 flex items-center justify-between ${['online', 'active', 'up'].includes(pppoe.status) ? 'bg-purple-600' : 'bg-slate-600'
                                                     }`}>
                                                     <div className="flex items-center gap-2 text-white">
                                                         <span className="material-symbols-outlined text-[16px]">account_circle</span>
@@ -1307,7 +1307,6 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                         </div>
                                                     )}
 
-                                                    {/* Status */}
                                                     <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
                                                         <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
                                                             <span className="material-symbols-outlined text-[14px]">info</span>
@@ -1315,8 +1314,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                         </div>
                                                         <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
                                                             <span className="text-slate-300">Connection</span>
-                                                            <span className={`font-mono font-bold ${pppoe.status === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                                {pppoe.status === 'active' ? 'Online' : 'Offline'}
+                                                            <span className={`font-mono font-bold ${['online', 'active', 'up'].includes(pppoe.status) ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                {['online', 'active', 'up'].includes(pppoe.status) ? 'Online' : 'Offline'}
                                                             </span>
                                                         </div>
                                                     </div>
