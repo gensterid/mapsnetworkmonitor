@@ -54,6 +54,9 @@ class PppoeService {
 
             // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
             for (const session of previousSessions) {
+                // Skip if already disconnected
+                if (session.status === 'disconnected') continue;
+
                 if (!currentSessionNames.has(session.name)) {
                     // Disconnection detected
                     disconnected.push(session.name);
