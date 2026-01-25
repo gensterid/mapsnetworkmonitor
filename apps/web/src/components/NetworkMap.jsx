@@ -847,10 +847,16 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
         setIsSaving(true);
 
+        // Sanitize data: valid UUID or null (not empty string)
+        const sanitizedData = { ...updatedData };
+        if (sanitizedData.connectedToId === '') {
+            sanitizedData.connectedToId = null;
+        }
+
         if (selectedDevice.type === 'router') {
             updateRouterMutation.mutate({
                 routerId: selectedDevice.id,
-                data: updatedData
+                data: sanitizedData
             }, {
                 onSettled: () => {
                     setIsSaving(false);
@@ -863,7 +869,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             // Assuming PPPoE editing is limited or uses updatePppoeMutation
             updatePppoeMutation.mutate({
                 pppoeId: selectedDevice.id,
-                data: updatedData
+                data: sanitizedData
             }, {
                 onSettled: () => {
                     setIsSaving(false);
@@ -875,7 +881,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             updateNetwatchMutation.mutate({
                 routerId: selectedDevice.routerId,
                 netwatchId: selectedDevice.id,
-                data: updatedData
+                data: sanitizedData
             }, {
                 onSettled: () => {
                     setIsSaving(false);
