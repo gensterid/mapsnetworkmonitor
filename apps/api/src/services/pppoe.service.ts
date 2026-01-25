@@ -1,4 +1,4 @@
-import { eq, and, notInArray, inArray } from 'drizzle-orm';
+import { eq, and, notInArray, inArray, isNotNull, ne } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     pppoeSessions,
@@ -353,11 +353,23 @@ class PppoeService {
         }
 
         if (filters.length > 0) {
-            query = query.where(and(...filters));
+            query = query.where(and(
+                ...filters,
+                isNotNull(pppoeSessions.latitude),
+                ne(pppoeSessions.latitude, ''),
+                isNotNull(pppoeSessions.longitude),
+                ne(pppoeSessions.longitude, '')
+            ));
+        } else {
+            query = query.where(and(
+                isNotNull(pppoeSessions.latitude),
+                ne(pppoeSessions.latitude, ''),
+                isNotNull(pppoeSessions.longitude),
+                ne(pppoeSessions.longitude, '')
+            ));
         }
 
-        const sessions = await query.orderBy(pppoeSessions.name);
-        return sessions.filter((s) => s.latitude && s.longitude);
+        return query.orderBy(pppoeSessions.name);
     }
 }
 
