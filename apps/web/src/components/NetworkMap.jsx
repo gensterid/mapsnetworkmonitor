@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser } from '@/hooks';
 import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import '@/lib/GoogleMutant';
+import { toast } from 'react-hot-toast';
 
 // Import new map components
 import {
@@ -523,6 +524,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
     // State for syncing indicator
     const [isSyncing, setIsSyncing] = useState(false);
+    // const { toast } = useToast(); // Removed: using react-hot-toast import directly
 
     // Manual sync function - syncs all routers' netwatch data
     const handleManualSync = useCallback(async () => {
@@ -539,6 +541,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 targetRouters.map(r =>
                     apiClient.post(`/routers/${r.id}/netwatch/sync`).catch(err => {
                         console.error(`Sync failed for router ${r.name}:`, err);
+                        toast.error(`Sync Failed: ${r.name} - ${err.response?.data?.message || err.message}`);
                     })
                 )
             );
@@ -546,8 +549,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             if (!showRoutersOnly) {
                 await refetchNetwatch();
             }
+            toast.success('Netwatch data synchronized with routers.');
         } catch (err) {
             console.error('Manual sync failed:', err);
+            toast.error('Failed to synchronize data.');
         } finally {
             setIsSyncing(false);
         }
@@ -561,6 +566,11 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
+            toast.success('New device has been successfully added.');
+        },
+        onError: (err) => {
+            console.error('Create failed:', err);
+            toast.error(`Failed to Add Device: ${err.response?.data?.message || err.message}`);
         },
     });
 
@@ -572,6 +582,11 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
+            toast.success('Device configuration saved successfully.');
+        },
+        onError: (err) => {
+            console.error('Update failed:', err);
+            toast.error(`Failed to Save Device: ${err.response?.data?.message || err.message}`);
         },
     });
 
@@ -583,6 +598,11 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['routers'] });
+            toast.success('Router configuration saved successfully.');
+        },
+        onError: (err) => {
+            console.error('Update router failed:', err);
+            toast.error(`Failed to Update Router: ${err.response?.data?.message || err.message}`);
         },
     });
 
@@ -594,6 +614,11 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
+            toast.success('Device has been removed.');
+        },
+        onError: (err) => {
+            console.error('Delete failed:', err);
+            toast.error(`Failed to Delete Device: ${err.response?.data?.message || err.message}`);
         },
     });
 
