@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser } from '@/hooks';
+import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import '@/lib/GoogleMutant';
 
 // Import new map components
@@ -607,9 +608,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
     });
 
+    // Memoize dependencies to ensure mapData is only recalculated when ACTUAL data content changes
+    const stableRoutersData = useDeepCompareMemoize(routersData);
+    const stableNetwatchData = useDeepCompareMemoize(netwatchData);
+    const stablePppoeData = useDeepCompareMemoize(pppoeData);
+
     // Combine Data
     const mapData = useMemo(() => {
-        if (!routersData) return { routers: [], lines: [], nodes: [] };
+        if (!stableRoutersData) return { routers: [], lines: [], nodes: [] };
 
         const nodes = [];
         const lines = [];
@@ -619,7 +625,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         const routerMap = new Map();
         const deviceMap = new Map();
 
-        routersData.forEach(router => {
+        stableRoutersData.forEach(router => {
             // Apply filtering
             if (filteredRouterId && router.id !== filteredRouterId) return;
 
@@ -632,12 +638,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         });
 
         // If showRoutersOnly is true, return early with just routers
-        if (showRoutersOnly || !netwatchData) {
+        if (showRoutersOnly || !stableNetwatchData) {
             return { routers: routerNodes, nodes: [], lines: [] };
         }
 
         // Second pass: Create netwatch nodes and index them
-        netwatchData.forEach(nwGroup => {
+        stableNetwatchData.forEach(nwGroup => {
             // Apply filtering
             if (filteredRouterId && nwGroup.routerId !== filteredRouterId) return;
 
@@ -720,8 +726,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
         // Fourth pass: Create PPPoE nodes
         const pppoeNodes = [];
-        if (pppoeData && Array.isArray(pppoeData)) {
-            pppoeData.forEach(session => {
+        if (stablePppoeData && Array.isArray(stablePppoeData)) {
+            stablePppoeData.forEach(session => {
                 if (session.latitude && session.longitude) {
                     const lat = parseFloat(session.latitude);
                     const lng = parseFloat(session.longitude);
@@ -784,7 +790,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         }
 
         return { routers: routerNodes, nodes, lines, pppoeNodes };
-    }, [routersData, netwatchData, pppoeData, filteredRouterId, showRoutersOnly]);
+    }, [stableRoutersData, stableNetwatchData, stablePppoeData, filteredRouterId, showRoutersOnly]);
 
     const defaultCenter = [-8.8742173, 120.7290947];
     const center = mapData.routers.length > 0 ? [mapData.routers[0].lat, mapData.routers[0].lng] : defaultCenter;
@@ -798,7 +804,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
     // Handlers
     const handleDeviceClick = useCallback((device, type) => {
-        setSelectedDevice({ ...device, deviceType: type });
+        setSelectedDevice({ ...device, type });
         setIsModalOpen(true);
     }, []);
 
@@ -807,245 +813,156 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         setSelectedDevice(null);
     }, []);
 
-    const handleSaveDevice = useCallback(async (deviceData) => {
-        setIsSaving(true);
-        try {
-            if (deviceData.deviceType === 'router') {
-                // Update existing router
-                await updateRouterMutation.mutateAsync({
-                    routerId: deviceData.id,
-                    data: {
-                        name: deviceData.name,
-                        latitude: deviceData.latitude,
-                        longitude: deviceData.longitude,
-                        notes: deviceData.notes,
-                    },
-                });
-            } else if (deviceData.deviceType === 'pppoe' && deviceData.id) {
-                // Update PPPoE session - uses separate endpoint
-                await updatePppoeMutation.mutateAsync({
-                    pppoeId: deviceData.id,
-                    data: {
-                        latitude: deviceData.latitude,
-                        longitude: deviceData.longitude,
-                        connectionType: deviceData.connectionType,
-                        connectedToId: deviceData.connectedToId || null,
-                    },
-                });
-            } else if (deviceData.id) {
-                // Update existing Netwatch / Client / OLT / ODP
-                const routerId = deviceData.routerId || deviceData.connectedToId;
-                if (!routerId) {
-                    throw new Error("Invalid Router ID. Please ensure the device is connected to a router or another device.");
-                }
+    const handleEditPath = (device) => {
+        setIsModalOpen(false);
+        setIsEditingPath(true);
+        setEditingDevice(device);
 
-                await updateNetwatchMutation.mutateAsync({
-                    routerId: String(routerId),
-                    netwatchId: String(deviceData.id),
-                    data: {
-                        name: deviceData.name,
-                        host: deviceData.host,
-                        deviceType: deviceData.type || deviceData.deviceType,
-                        latitude: deviceData.latitude ? String(deviceData.latitude) : undefined,
-                        longitude: deviceData.longitude ? String(deviceData.longitude) : undefined,
-                        connectionType: deviceData.connectionType,
-                        connectedToId: deviceData.connectedToId || null,
-                        notes: deviceData.notes,
-                    },
-                });
-            } else {
-                // Create new device (OLT, ODP, Client)
-                let routerId = filteredRouterId;
-
-                if (deviceData.connectedToId) {
-                    // Check if connected directly to a router
-                    const isRouter = mapData.routers.some(r => r.id === deviceData.connectedToId);
-                    if (isRouter) {
-                        routerId = deviceData.connectedToId;
-                    } else {
-                        // Connected to another node (ODP/OLT), find its routerId
-                        const parentNode = mapData.nodes.find(n => n.id === deviceData.connectedToId);
-                        if (parentNode) {
-                            routerId = parentNode.routerId;
-                        }
-                    }
-                }
-
-                // Fallback to first router if still no ID
-                if (!routerId) {
-                    routerId = mapData.routers[0]?.id;
-                }
-
-                if (!routerId) {
-                    throw new Error('No router available. Please add a router first.');
-                }
-                await createNetwatchMutation.mutateAsync({
-                    routerId,
-                    data: {
-                        name: deviceData.name,
-                        host: deviceData.host || '0.0.0.0', // Default IP for OLT/ODP
-                        deviceType: deviceData.type || 'client',
-                        latitude: deviceData.latitude,
-                        longitude: deviceData.longitude,
-                        connectionType: deviceData.connectionType,
-                        connectedToId: deviceData.connectedToId,
-                    },
-                });
-            }
-            handleCloseModal();
-        } catch (err) {
-            console.error('Failed to save device:', err);
-            alert('Failed to save device: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setIsSaving(false);
-        }
-    }, [updateRouterMutation, updateNetwatchMutation, createNetwatchMutation, updatePppoeMutation, handleCloseModal, mapData.routers]);
-
-    const handleDeleteDevice = useCallback(async (device) => {
-        console.log('Attempting to delete device:', device);
-
-        // Only netwatch/client devices can be deleted from the map
-        if (device.deviceType === 'router' || device.type === 'router') {
-            alert('Router tidak bisa dihapus dari peta. Hapus melalui halaman Routers.');
-            return;
+        // Parse waypoints if they exist
+        let waypoints = [];
+        if (device.waypoints) {
+            waypoints = typeof device.waypoints === 'string'
+                ? JSON.parse(device.waypoints)
+                : device.waypoints;
         }
 
-        if (!device.routerId || !device.id) {
-            console.error('Invalid device data for deletion:', device);
-            alert('Data perangkat tidak valid (missing routerId or id).');
-            return;
-        }
+        // Add source and dest to create complete path for editing
+        // Find line for this device
+        const line = mapData.lines.find(l =>
+            (device.type === 'pppoe' ? l.pppoeId === device.id : l.netwatchId === device.id)
+        );
 
-        setIsSaving(true);
-        try {
-            const payload = {
-                routerId: String(device.routerId),
-                netwatchId: String(device.id),
-            };
-            console.log(`Deleting netwatch with payload:`, payload);
-            await deleteNetwatchMutation.mutateAsync(payload);
-            console.log('Device deleted successfully');
-            handleCloseModal();
-            // Force refetch
-            queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
-        } catch (err) {
-            console.error('Failed to delete device:', err);
-            alert('Gagal menghapus perangkat: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setIsSaving(false);
-        }
-    }, [deleteNetwatchMutation, handleCloseModal, queryClient]);
-
-    const handleEditPath = useCallback((device) => {
-        // Check for both netwatchId and pppoeId
-        const line = mapData.lines.find(l => l.netwatchId === device.id || l.pppoeId === device.id);
-        if (line) {
-            setEditingDevice(device);
-            setEditWaypoints(line.waypoints || []);
-            setIsEditingPath(true);
+        if (line && line.from) {
+            // waypoints only (exclude start/end for editing logic if EditablePath handles it)
+            // But EditablePath usually takes [start, ...waypoints, end]
+            // We'll set just waypoints state and let EditablePath handle rendering
+            setEditWaypoints(waypoints);
         } else {
-            console.warn('No line found for device:', device.id);
+            setEditWaypoints([]);
         }
-    }, [mapData.lines]);
+    };
 
-    const handleCancelPathEdit = useCallback(() => {
+    const handleSaveDevice = (updatedData) => {
+        if (!selectedDevice) return;
+
+        setIsSaving(true);
+
+        if (selectedDevice.type === 'router') {
+            updateRouterMutation.mutate({
+                routerId: selectedDevice.id,
+                data: updatedData
+            }, {
+                onSettled: () => {
+                    setIsSaving(false);
+                    setIsModalOpen(false);
+                }
+            });
+        } else if (selectedDevice.type === 'pppoe') {
+            // For PPPoE we only update coords/waypoints usually via map
+            // But if modal allows editing other things? Modal usually specifically for netwatch options
+            // Assuming PPPoE editing is limited or uses updatePppoeMutation
+            updatePppoeMutation.mutate({
+                pppoeId: selectedDevice.id,
+                data: updatedData
+            }, {
+                onSettled: () => {
+                    setIsSaving(false);
+                    setIsModalOpen(false);
+                }
+            });
+        } else {
+            // Netwatch
+            updateNetwatchMutation.mutate({
+                routerId: selectedDevice.routerId,
+                netwatchId: selectedDevice.id,
+                data: updatedData
+            }, {
+                onSettled: () => {
+                    setIsSaving(false);
+                    setIsModalOpen(false);
+                }
+            });
+        }
+    };
+
+    const handleDeleteDevice = () => {
+        if (!selectedDevice) return;
+        if (confirm('Are you sure you want to delete this device?')) {
+            deleteNetwatchMutation.mutate({
+                routerId: selectedDevice.routerId,
+                netwatchId: selectedDevice.id
+            }, {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                }
+            });
+        }
+    };
+
+    const handleResetPath = () => {
+        setEditWaypoints([]);
+    };
+
+    const handleCancelPathEdit = () => {
         setIsEditingPath(false);
         setEditingDevice(null);
         setEditWaypoints([]);
-        setPathLength(0);
-    }, []);
+    };
 
-    const handleSavePath = useCallback(async () => {
+    const handleSavePath = () => {
         if (!editingDevice) return;
 
-        setIsSaving(true);
-        try {
-            // Check if this is a PPPoE device or netwatch device
-            if (editingDevice.deviceType === 'pppoe') {
-                // Save PPPoE waypoints
-                await apiClient.patch(`/pppoe/${editingDevice.id}/coordinates`, {
-                    waypoints: JSON.stringify(editWaypoints),
-                });
-                queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
-            } else {
-                // Save netwatch waypoints
-                await updateNetwatchMutation.mutateAsync({
-                    routerId: editingDevice.routerId,
-                    netwatchId: editingDevice.id,
-                    data: {
-                        waypoints: JSON.stringify(editWaypoints),
-                    },
-                });
-            }
-            handleCancelPathEdit();
-        } catch (err) {
-            console.error('Failed to save path:', err);
-        } finally {
-            setIsSaving(false);
+        const waypointsJson = JSON.stringify(editWaypoints);
+
+        if (editingDevice.type === 'pppoe') {
+            updatePppoeMutation.mutate({
+                pppoeId: editingDevice.id,
+                data: { waypoints: waypointsJson }
+            });
+        } else {
+            updateNetwatchMutation.mutate({
+                routerId: editingDevice.routerId,
+                netwatchId: editingDevice.id,
+                data: { waypoints: waypointsJson }
+            });
         }
-    }, [editingDevice, editWaypoints, updateNetwatchMutation, handleCancelPathEdit, queryClient]);
 
-    const handleResetPath = useCallback(() => {
+        setIsEditingPath(false);
+        setEditingDevice(null);
         setEditWaypoints([]);
-    }, []);
+    };
 
-    const handleAddDevice = useCallback((type) => {
-        console.log('Add device of type:', type);
-        setSelectedDevice({ deviceType: type, name: '', host: '' });
+    const handleAddDevice = (type) => {
+        // Logic to add device (open modal with empty state)
+        // For now, assume adding Netwatch
+        if (mapData.routers.length === 0) {
+            alert("No routers available to add device to.");
+            return;
+        }
+
+        setSelectedDevice({
+            isNew: true,
+            type: type, // 'olt', 'odp', 'client'
+            routerId: mapData.routers[0].id // Default to first router
+        });
         setIsModalOpen(true);
-    }, []);
+    };
+
+    const handlePppoeDragEnd = useCallback((pppoe, newPos) => {
+        // Update local cache or optimistically update?
+        // Better to trigger mutation
+        updatePppoeMutation.mutate({
+            pppoeId: pppoe.id,
+            data: {
+                latitude: String(newPos[0]),
+                longitude: String(newPos[1])
+            }
+        });
+    }, [updatePppoeMutation]);
 
     const handleToggleLabels = useCallback(() => {
         setShowLabels(prev => !prev);
     }, []);
-
-    const handleMarkerDragEnd = useCallback(async (device, type, newPosition) => {
-        try {
-            if (type === 'router') {
-                await updateRouterMutation.mutateAsync({
-                    routerId: device.id,
-                    data: {
-                        latitude: newPosition[0].toString(),
-                        longitude: newPosition[1].toString(),
-                        notes: device.notes,
-                    },
-                });
-            } else {
-                await updateNetwatchMutation.mutateAsync({
-                    routerId: device.routerId,
-                    netwatchId: device.id,
-                    data: {
-                        latitude: newPosition[0].toString(),
-                        longitude: newPosition[1].toString(),
-                    },
-                });
-            }
-        } catch (err) {
-            console.error('Failed to update position:', err);
-            // Refetch to revert position
-            if (type === 'router') {
-                queryClient.invalidateQueries({ queryKey: ['routers'] });
-            } else {
-                queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
-            }
-        }
-    }, [updateRouterMutation, updateNetwatchMutation, queryClient]);
-
-    // Handle PPPoE marker drag
-    const handlePppoeDragEnd = useCallback(async (pppoe, newPosition) => {
-        try {
-            await updatePppoeMutation.mutateAsync({
-                pppoeId: pppoe.id,
-                data: {
-                    latitude: newPosition[0].toString(),
-                    longitude: newPosition[1].toString(),
-                },
-            });
-        } catch (err) {
-            console.error('Failed to update PPPoE position:', err);
-            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
-        }
-    }, [updatePppoeMutation, queryClient]);
 
     // Find line for editing
     const editingLine = useMemo(() => {
@@ -1053,6 +970,207 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         // Check both netwatch and pppoe lines
         return mapData.lines.find(l => l.netwatchId === editingDevice.id || l.pppoeId === editingDevice.id);
     }, [isEditingPath, editingDevice, mapData.lines]);
+
+    // --- Stable Markers Generation ---
+    const markers = useMemo(() => {
+        return (
+            <>
+                {/* Router Markers */}
+                {mapData.routers.filter(r => !searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery))).map(router => (
+                    <DraggableMarker
+                        key={router.id}
+                        status={router.status} // For cluster icon
+                        position={[router.lat, router.lng]}
+                        icon={createDeviceIcon({
+                            type: 'router',
+                            status: router.status,
+                            name: showLabels ? router.name : '',
+                            showLabel: showLabels,
+                        })}
+                        eventHandlers={{
+                            click: () => handleDeviceClick(router, 'router'),
+                            mouseover: () => setHoveredRouterId(router.id),
+                            mouseout: () => setHoveredRouterId(null)
+                        }}
+                        onClick={() => handleDeviceClick(router, 'router')}
+                    >
+                        <RouterTooltip router={router} isHovered={hoveredRouterId === router.id} />
+                    </DraggableMarker>
+                ))}
+
+                {/* Netwatch Node Markers */}
+                {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => {
+                    // Find connected line to get source info
+                    const line = mapData.lines.find(l => l.netwatchId === node.id);
+                    return (
+                        <MemoizedSmartMarker
+                            key={`${node.routerId}-${node.id}`}
+                            position={[node.lat, node.lng]}
+                            type={node.deviceType}
+                            status={node.status}
+                            name={node.name || node.host}
+                            showLabel={showLabels}
+                            small={true}
+                            latency={Number(node.latency)}
+                            packetLoss={Number(node.packetLoss)}
+                            draggable={isEditMode}
+                            onDragEnd={(pos) => {
+                                updateNetwatchMutation.mutate({
+                                    routerId: node.routerId,
+                                    netwatchId: node.id,
+                                    data: {
+                                        latitude: String(pos[0]),
+                                        longitude: String(pos[1])
+                                    }
+                                });
+                            }}
+                            onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
+                        >
+                            <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                                    {/* Header */}
+                                    <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
+                                        }`}>
+                                        <div className="flex items-center gap-2 text-white">
+                                            <span className="material-symbols-outlined text-[16px]">
+                                                {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
+                                            </span>
+                                            <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                                        </div>
+                                        <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                            {node.status}
+                                        </div>
+                                    </div>
+                                    {/* Body */}
+                                    <div className="p-3 bg-slate-800 space-y-2">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="text-slate-400">Host</span>
+                                            <span className="text-slate-200 font-mono">{node.host}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
+                                            <span className="text-slate-400">Type</span>
+                                            <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
+                                        </div>
+
+                                        {/* Source & Distance Info */}
+                                        {line && (
+                                            <div className="space-y-2 border-b border-slate-700/50 pb-2">
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-slate-400">Source</span>
+                                                    <span className="text-slate-200 truncate max-w-[100px]" title={line.sourceName}>{line.sourceName}</span>
+                                                </div>
+                                                <div className="flex items-center justify-between text-xs">
+                                                    <span className="text-slate-400">Distance</span>
+                                                    <span className="text-slate-200 font-mono">{formatDistance(line.distance)}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Status Detail: Latency/Packet Loss OR Down Info */}
+                                        {(node.status === 'up' || node.status === 'online') ? (
+                                            (node.latency !== undefined && node.latency !== null) && (
+                                                <div className="flex flex-col gap-1 pt-0.5">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">Latency</span>
+                                                        <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
+                                                            Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                            }`}>
+                                                            {node.latency} ms
+                                                        </span>
+                                                    </div>
+                                                    {node.packetLoss > 0 && (
+                                                        <div className="flex items-center justify-between text-xs">
+                                                            <span className="text-slate-400">Packet Loss</span>
+                                                            <span className="font-mono font-bold text-red-400">
+                                                                {node.packetLoss}%
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )
+                                        ) : (
+                                            <div className="flex flex-col gap-1 pt-0.5 text-xs text-red-300">
+                                                {node.lastDown && (
+                                                    <div className="flex flex-col">
+                                                        <span className="text-slate-400 mb-0.5">Down Since:</span>
+                                                        <span className="font-mono bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50">
+                                                            {formatDateWithTimezone(node.lastDown, timezone)}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </Tooltip>
+                        </MemoizedSmartMarker>
+                    )
+                })}
+
+
+
+                {/* PPPoE Client Markers */}
+                {
+                    (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
+                        <MemoizedSmartMarker
+                            key={`pppoe-${pppoe.id}`}
+                            position={[pppoe.lat, pppoe.lng]}
+                            type="pppoe"
+                            status={pppoe.status}
+                            name={pppoe.name}
+                            showLabel={showLabels}
+                            small={true}
+                            draggable={isEditMode}
+                            onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                            onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                        >
+                            <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
+                                    {/* Header */}
+                                    <div className={`px-3 py-2 flex items-center justify-between ${['online', 'active', 'up'].includes(pppoe.status) ? 'bg-purple-600' : 'bg-slate-600'
+                                        }`}>
+                                        <div className="flex items-center gap-2 text-white">
+                                            <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                                            <span className="font-bold text-xs truncate max-w-[140px]">{pppoe.name}</span>
+                                        </div>
+                                        <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                            PPPoE
+                                        </div>
+                                    </div>
+                                    {/* Body */}
+                                    <div className="p-3 bg-slate-800 space-y-3">
+                                        {/* System Metrics */}
+                                        {pppoe.address && (
+                                            <div className="grid grid-cols-1 gap-2 text-xs">
+                                                <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
+                                                    <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">IP Address</span>
+                                                    <span className="text-slate-200 font-mono font-medium">{pppoe.address}</span>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
+                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
+                                                <span className="material-symbols-outlined text-[14px]">info</span>
+                                                Status
+                                            </div>
+                                            <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
+                                                <span className="text-slate-300">Connection</span>
+                                                <span className={`font-mono font-bold ${['online', 'active', 'up'].includes(pppoe.status) ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                    {['online', 'active', 'up'].includes(pppoe.status) ? 'Online' : 'Offline'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </Tooltip>
+                        </MemoizedSmartMarker>
+                    ))
+                }
+            </>
+        )
+    }, [mapData, searchQuery, showLabels, isEditMode, handleDeviceClick, handlePppoeDragEnd, updateNetwatchMutation, timezone, hoveredRouterId]);
+
 
     return (
         <main ref={mapContainerRef} className="flex-1 relative flex flex-col bg-[#0f172a] overflow-hidden h-full">
@@ -1136,198 +1254,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     />
                 )}
 
-                {/* Router Markers */}
-
                 {/* Markers with optional Clustering */}
                 {(() => {
-                    const markers = (
-                        <>
-                            {/* Router Markers */}
-                            {mapData.routers.filter(r => !searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery))).map(router => (
-                                <DraggableMarker
-                                    key={router.id}
-                                    status={router.status} // For cluster icon
-                                    position={[router.lat, router.lng]}
-                                    icon={createDeviceIcon({
-                                        type: 'router',
-                                        status: router.status,
-                                        name: showLabels ? router.name : '',
-                                        showLabel: showLabels,
-                                    })}
-                                    eventHandlers={{
-                                        click: () => handleDeviceClick(router, 'router'),
-                                        mouseover: () => setHoveredRouterId(router.id),
-                                        mouseout: () => setHoveredRouterId(null)
-                                    }}
-                                    onClick={() => handleDeviceClick(router, 'router')}
-                                >
-                                    <RouterTooltip router={router} isHovered={hoveredRouterId === router.id} />
-                                </DraggableMarker>
-                            ))}
-
-                            {/* Netwatch Node Markers */}
-                            {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => {
-                                // Find connected line to get source info
-                                const line = mapData.lines.find(l => l.netwatchId === node.id);
-                                return (
-                                    <MemoizedSmartMarker
-                                        key={`${node.routerId}-${node.id}`}
-                                        position={[node.lat, node.lng]}
-                                        type={node.deviceType}
-                                        status={node.status}
-                                        name={node.name || node.host}
-                                        showLabel={showLabels}
-                                        small={true}
-                                        latency={Number(node.latency)}
-                                        packetLoss={Number(node.packetLoss)}
-                                        draggable={isEditMode}
-                                        onDragEnd={(pos) => handleMarkerDragEnd(node, node.deviceType, pos)}
-                                        onClick={() => handleDeviceClick(node, node.deviceType)}
-                                    >
-                                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                            <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                                {/* Header */}
-                                                <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
-                                                    }`}>
-                                                    <div className="flex items-center gap-2 text-white">
-                                                        <span className="material-symbols-outlined text-[16px]">
-                                                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
-                                                        </span>
-                                                        <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
-                                                    </div>
-                                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                                        {node.status}
-                                                    </div>
-                                                </div>
-                                                {/* Body */}
-                                                <div className="p-3 bg-slate-800 space-y-2">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Host</span>
-                                                        <span className="text-slate-200 font-mono">{node.host}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
-                                                        <span className="text-slate-400">Type</span>
-                                                        <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
-                                                    </div>
-
-                                                    {/* Source & Distance Info */}
-                                                    {line && (
-                                                        <div className="space-y-2 border-b border-slate-700/50 pb-2">
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className="text-slate-400">Source</span>
-                                                                <span className="text-slate-200 truncate max-w-[100px]" title={line.sourceName}>{line.sourceName}</span>
-                                                            </div>
-                                                            <div className="flex items-center justify-between text-xs">
-                                                                <span className="text-slate-400">Distance</span>
-                                                                <span className="text-slate-200 font-mono">{formatDistance(line.distance)}</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Status Detail: Latency/Packet Loss OR Down Info */}
-                                                    {(node.status === 'up' || node.status === 'online') ? (
-                                                        (node.latency !== undefined && node.latency !== null) && (
-                                                            <div className="flex flex-col gap-1 pt-0.5">
-                                                                <div className="flex items-center justify-between text-xs">
-                                                                    <span className="text-slate-400">Latency</span>
-                                                                    <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                                        Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
-                                                                        }`}>
-                                                                        {node.latency} ms
-                                                                    </span>
-                                                                </div>
-                                                                {node.packetLoss > 0 && (
-                                                                    <div className="flex items-center justify-between text-xs">
-                                                                        <span className="text-slate-400">Packet Loss</span>
-                                                                        <span className="font-mono font-bold text-red-400">
-                                                                            {node.packetLoss}%
-                                                                        </span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        )
-                                                    ) : (
-                                                        <div className="flex flex-col gap-1 pt-0.5 text-xs text-red-300">
-                                                            {node.lastDown && (
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-slate-400 mb-0.5">Down Since:</span>
-                                                                    <span className="font-mono bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50">
-                                                                        {formatDateWithTimezone(node.lastDown, timezone)}
-                                                                    </span>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </Tooltip>
-                                    </MemoizedSmartMarker>
-                                )
-                            })}
-
-
-
-                            {/* PPPoE Client Markers */}
-                            {
-                                (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
-                                    <MemoizedSmartMarker
-                                        key={`pppoe-${pppoe.id}`}
-                                        position={[pppoe.lat, pppoe.lng]}
-                                        type="pppoe"
-                                        status={pppoe.status}
-                                        name={pppoe.name}
-                                        showLabel={showLabels}
-                                        small={true}
-                                        draggable={isEditMode}
-                                        onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                                        onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
-                                    >
-                                        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                            <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
-                                                {/* Header */}
-                                                <div className={`px-3 py-2 flex items-center justify-between ${['online', 'active', 'up'].includes(pppoe.status) ? 'bg-purple-600' : 'bg-slate-600'
-                                                    }`}>
-                                                    <div className="flex items-center gap-2 text-white">
-                                                        <span className="material-symbols-outlined text-[16px]">account_circle</span>
-                                                        <span className="font-bold text-xs truncate max-w-[140px]">{pppoe.name}</span>
-                                                    </div>
-                                                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                                        PPPoE
-                                                    </div>
-                                                </div>
-                                                {/* Body */}
-                                                <div className="p-3 bg-slate-800 space-y-3">
-                                                    {/* System Metrics */}
-                                                    {pppoe.address && (
-                                                        <div className="grid grid-cols-1 gap-2 text-xs">
-                                                            <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
-                                                                <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">IP Address</span>
-                                                                <span className="text-slate-200 font-mono font-medium">{pppoe.address}</span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
-                                                        <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
-                                                            <span className="material-symbols-outlined text-[14px]">info</span>
-                                                            Status
-                                                        </div>
-                                                        <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
-                                                            <span className="text-slate-300">Connection</span>
-                                                            <span className={`font-mono font-bold ${['online', 'active', 'up'].includes(pppoe.status) ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                                {['online', 'active', 'up'].includes(pppoe.status) ? 'Online' : 'Offline'}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Tooltip>
-                                    </MemoizedSmartMarker>
-                                ))
-                            }
-                        </>
-                    );
-
                     if (enableClustering) {
                         return (
                             <MarkerClusterGroup
