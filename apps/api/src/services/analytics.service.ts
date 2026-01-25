@@ -641,9 +641,17 @@ class AnalyticsService {
             .from(pppoeSessions);
 
         if (routerId) {
-            activeSessionsQuery = activeSessionsQuery.where(eq(pppoeSessions.routerId, routerId)) as any;
+            activeSessionsQuery = activeSessionsQuery.where(and(
+                eq(pppoeSessions.routerId, routerId),
+                eq(pppoeSessions.status, 'active')
+            )) as any;
         } else if (userRole !== 'admin' && allowedIds.length > 0) {
-            activeSessionsQuery = activeSessionsQuery.where(inArray(pppoeSessions.routerId, allowedIds)) as any;
+            activeSessionsQuery = activeSessionsQuery.where(and(
+                inArray(pppoeSessions.routerId, allowedIds),
+                eq(pppoeSessions.status, 'active')
+            )) as any;
+        } else {
+            activeSessionsQuery = activeSessionsQuery.where(eq(pppoeSessions.status, 'active')) as any;
         }
 
         const activeSessions = await activeSessionsQuery;
