@@ -1111,61 +1111,90 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                 {/* PPPoE Client Markers */}
                 {
-                    (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => (
-                        <MemoizedSmartMarker
-                            key={`pppoe-${pppoe.id}`}
-                            position={[pppoe.lat, pppoe.lng]}
-                            type="pppoe"
-                            status={pppoe.status}
-                            name={pppoe.name}
-                            showLabel={showLabels}
-                            small={true}
-                            draggable={isEditMode}
-                            onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                            onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
-                        >
-                            <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
-                                    {/* Header */}
-                                    <div className={`px-3 py-2 flex items-center justify-between ${['online', 'active', 'up'].includes(pppoe.status) ? 'bg-purple-600' : 'bg-slate-600'
-                                        }`}>
-                                        <div className="flex items-center gap-2 text-white">
-                                            <span className="material-symbols-outlined text-[16px]">account_circle</span>
-                                            <span className="font-bold text-xs truncate max-w-[140px]">{pppoe.name}</span>
+                    (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => {
+                        const line = mapData.lines.find(l => l.pppoeId === pppoe.id);
+                        return (
+                            <MemoizedSmartMarker
+                                key={`pppoe-${pppoe.id}`}
+                                position={[pppoe.lat, pppoe.lng]}
+                                type="pppoe"
+                                status={pppoe.status}
+                                name={pppoe.name}
+                                showLabel={showLabels}
+                                small={true}
+                                draggable={isEditMode}
+                                onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                                onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                            >
+                                <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+                                    <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
+                                        {/* Header */}
+                                        <div className={`px-3 py-2 flex items-center justify-between ${['online', 'active', 'up'].includes(pppoe.status) ? 'bg-purple-600' : 'bg-slate-600'
+                                            }`}>
+                                            <div className="flex items-center gap-2 text-white">
+                                                <span className="material-symbols-outlined text-[16px]">account_circle</span>
+                                                <span className="font-bold text-xs truncate max-w-[140px]">{pppoe.name}</span>
+                                            </div>
+                                            <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                                                PPPoE
+                                            </div>
                                         </div>
-                                        <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                            PPPoE
-                                        </div>
-                                    </div>
-                                    {/* Body */}
-                                    <div className="p-3 bg-slate-800 space-y-3">
-                                        {/* System Metrics */}
-                                        {pppoe.address && (
-                                            <div className="grid grid-cols-1 gap-2 text-xs">
-                                                <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
-                                                    <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">IP Address</span>
-                                                    <span className="text-slate-200 font-mono font-medium">{pppoe.address}</span>
+                                        {/* Body */}
+                                        <div className="p-3 bg-slate-800 space-y-3">
+                                            {/* System Metrics */}
+                                            {pppoe.address && (
+                                                <div className="grid grid-cols-1 gap-2 text-xs">
+                                                    <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
+                                                        <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">IP Address</span>
+                                                        <span className="text-slate-200 font-mono font-medium">{pppoe.address}</span>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        )}
+                                            )}
 
-                                        <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
-                                            <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
-                                                <span className="material-symbols-outlined text-[14px]">info</span>
-                                                Status
-                                            </div>
-                                            <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
-                                                <span className="text-slate-300">Connection</span>
-                                                <span className={`font-mono font-bold ${['online', 'active', 'up'].includes(pppoe.status) ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                    {['online', 'active', 'up'].includes(pppoe.status) ? 'Online' : 'Offline'}
-                                                </span>
+                                            {/* Source & Distance Info - NEW SECTION */}
+                                            {line && (
+                                                <div className="space-y-2 border-t border-slate-700/50 pt-2">
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">Source</span>
+                                                        <span className="text-slate-200 truncate max-w-[100px]" title={line.sourceName}>{line.sourceName}</span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between text-xs">
+                                                        <span className="text-slate-400">Distance</span>
+                                                        <span className="text-slate-200 font-mono">{formatDistance(line.distance)}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
+                                                    <span className="material-symbols-outlined text-[14px]">info</span>
+                                                    Status
+                                                </div>
+                                                <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
+                                                    <span className="text-slate-300">Connection</span>
+                                                    <span className={`font-mono font-bold ${['online', 'active', 'up'].includes(pppoe.status) ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                        {['online', 'active', 'up'].includes(pppoe.status) ? 'Online' : 'Offline'}
+                                                    </span>
+                                                </div>
+
+                                                {/* Latency Info - NEW SECTION */}
+                                                {(pppoe.lastLatency || pppoe.latency) && (
+                                                    <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
+                                                        <span className="text-slate-300">Latency</span>
+                                                        <span className={`font-mono font-bold ${Number(pppoe.lastLatency || pppoe.latency) < 20 ? 'text-emerald-400' :
+                                                            Number(pppoe.lastLatency || pppoe.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
+                                                            }`}>
+                                                            {pppoe.lastLatency || pppoe.latency} ms
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            </Tooltip>
-                        </MemoizedSmartMarker>
-                    ))
+                                </Tooltip>
+                            </MemoizedSmartMarker>
+                        )
+                    })
                 }
             </>
         )
