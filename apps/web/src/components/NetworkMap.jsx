@@ -291,11 +291,35 @@ const SmartMarker = ({
     );
 };
 
-// Strict memoization for the SmartMarker
-const MemoizedSmartMarker = React.memo(SmartMarker);
+// Custom Comparison Function to prevent re-renders when array refs change but values don't
+const arePropsEqual = (prev, next) => {
+    // 1. Check position by value (lat/lng)
+    const posChanged = prev.position[0] !== next.position[0] || prev.position[1] !== next.position[1];
+    if (posChanged) return false;
+
+    // 2. Check other primitive props
+    // Note: We ignore onClick and onDragEnd as they are often new function references but same logic
+    // We ignore children (tooltip) assuming if status/name/etc match, tooltip is fine.
+    // If tooltip relies on external data not passed as props, it won't update, but that's a trade-off for performance.
+    return (
+        prev.status === next.status &&
+        prev.name === next.name &&
+        prev.showLabel === next.showLabel &&
+        prev.draggable === next.draggable &&
+        prev.latency === next.latency &&
+        prev.packetLoss === next.packetLoss &&
+        prev.type === next.type &&
+        prev.small === next.small &&
+        // For draggable marker specifically
+        prev.icon === next.icon
+    );
+};
+
+// Strict memoization for the SmartMarker with custom check
+const MemoizedSmartMarker = React.memo(SmartMarker, arePropsEqual);
 
 // Memoized Marker to prevent re-renders unless position/status changes
-const MemoizedDraggableMarker = React.memo(DraggableMarker);
+const MemoizedDraggableMarker = React.memo(DraggableMarker, arePropsEqual);
 
 // Custom cluster icon creator
 const createClusterCustomIcon = (cluster) => {
@@ -1261,7 +1285,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
                                             <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                                                 {/* Header */}
-                                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'up' ? 'bg-purple-600' : 'bg-slate-600'
+                                                <div className={`px-3 py-2 flex items-center justify-between ${pppoe.status === 'active' ? 'bg-purple-600' : 'bg-slate-600'
                                                     }`}>
                                                     <div className="flex items-center gap-2 text-white">
                                                         <span className="material-symbols-outlined text-[16px]">account_circle</span>
@@ -1291,8 +1315,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                         </div>
                                                         <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
                                                             <span className="text-slate-300">Connection</span>
-                                                            <span className={`font-mono font-bold ${pppoe.status === 'up' ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                                {pppoe.status === 'up' ? 'Online' : 'Offline'}
+                                                            <span className={`font-mono font-bold ${pppoe.status === 'active' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                                {pppoe.status === 'active' ? 'Online' : 'Offline'}
                                                             </span>
                                                         </div>
                                                     </div>

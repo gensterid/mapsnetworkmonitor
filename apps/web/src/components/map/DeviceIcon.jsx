@@ -63,9 +63,9 @@ export const createDeviceIcon = ({
 
     // Normalize status - prioritize 'warning' for performance issues on online devices
     let normalizedStatus;
-    if (status === 'up' || status === 'online') {
+    if (status === 'up' || status === 'online' || status === 'active') {
         normalizedStatus = hasPerformanceIssue ? 'warning' : 'online';
-    } else if (status === 'down' || status === 'offline' || status === 'disable' || status === 'unknown' || !status) {
+    } else if (status === 'down' || status === 'offline' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status) {
         normalizedStatus = 'offline';
     } else {
         normalizedStatus = 'unknown';
