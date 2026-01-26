@@ -903,16 +903,28 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             });
         } else {
             // Netwatch
-            updateNetwatchMutation.mutate({
-                routerId: selectedDevice.routerId,
-                netwatchId: selectedDevice.id,
-                data: sanitizedData
-            }, {
-                onSettled: () => {
-                    setIsSaving(false);
-                    setIsModalOpen(false);
-                }
-            });
+            if (selectedDevice.isNew) {
+                createNetwatchMutation.mutate({
+                    routerId: selectedDevice.routerId,
+                    data: sanitizedData
+                }, {
+                    onSettled: () => {
+                        setIsSaving(false);
+                        setIsModalOpen(false);
+                    }
+                });
+            } else {
+                updateNetwatchMutation.mutate({
+                    routerId: selectedDevice.routerId,
+                    netwatchId: selectedDevice.id,
+                    data: sanitizedData
+                }, {
+                    onSettled: () => {
+                        setIsSaving(false);
+                        setIsModalOpen(false);
+                    }
+                });
+            }
         }
     };
 
