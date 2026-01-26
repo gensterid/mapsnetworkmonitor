@@ -145,7 +145,10 @@ export const alertService = {
     acknowledge: (id) => put(`/alerts/${id}/acknowledge`),
 
     // Acknowledge all alerts
-    acknowledgeAll: () => put('/alerts/acknowledge-all'),
+    acknowledgeAll: (category) => {
+        const query = category ? `?category=${category}` : '';
+        return put(`/alerts/acknowledge-all${query}`);
+    },
 
     // Resolve an alert
     resolve: (id) => put(`/alerts/${id}/resolve`),
