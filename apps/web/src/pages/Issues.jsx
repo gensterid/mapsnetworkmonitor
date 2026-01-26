@@ -52,11 +52,23 @@ export default function Issues() {
     // Filter alerts: Issues only
     const filteredAlerts = alerts.filter(alert => {
         // 1. Must be an issue type
-        const isIssue = issueTypes.includes(alert.type) ||
-            (alert.type === 'threshold') ||
-            (alert.severity === 'warning' && !alert.type?.includes('down') && !alert.type?.includes('offline'));
+        // 1. Must be an issue type (Strict backend matching)
+        // isIssue = issueTypes.includes(type) OR type === 'threshold' OR (warning AND !excludes)
+        if (issueTypes.includes(alert.type)) return true;
+        if (alert.type === 'threshold') return true;
 
-        if (!isIssue) return false;
+        // Warnings that are NOT connectivity related are issues
+        if (alert.severity === 'warning' &&
+            !alert.type?.includes('status_change') &&
+            !alert.type?.includes('down') &&
+            !alert.type?.includes('offline') &&
+            !alert.type?.includes('pppoe') &&
+            !alert.type?.includes('interface') &&
+            !alert.type?.includes('netwatch')) {
+            return true;
+        }
+
+        return false;
 
         // 2. Search query
         if (!searchQuery.trim()) return true;
