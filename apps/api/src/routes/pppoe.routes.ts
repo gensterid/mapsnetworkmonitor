@@ -8,10 +8,6 @@ const router = Router();
 // Apply auth middleware to all routes
 router.use(authMiddleware);
 
-/**
- * GET /api/pppoe
- * Get all PPPoE sessions
- */
 router.get('/', async (req, res) => {
     try {
         const routerId = req.query.routerId as string | undefined;

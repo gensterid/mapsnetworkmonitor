@@ -69,14 +69,22 @@ const DeviceModal = ({
                 }
             }
 
-            onSave({
-                ...device,
-                ...formData,
-                deviceType: formData.type, // Ensure deviceType is passed correctly
+            // Construct clean payload
+            const payload = {
+                id: device?.id, // Keep ID for reference
                 routerId: targetRouterId,
+                name: formData.name,
+                deviceType: formData.type,
+                host: formData.host,
+                notes: formData.notes,
                 latitude: formData.latitude,
                 longitude: formData.longitude,
-            });
+                connectionType: formData.connectionType,
+                // Ensure connectedToId is null if empty string
+                connectedToId: formData.connectedToId || null,
+            };
+
+            onSave(payload);
         }
     };
 

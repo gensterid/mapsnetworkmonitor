@@ -1045,8 +1045,8 @@ export class RouterService {
             interval?: number;
             latitude?: string;
             longitude?: string;
-            location?: string;
-            waypoints?: string; // JSON string of coordinates
+            location?: string | null;
+            waypoints?: string | null; // JSON string of coordinates
             connectionType?: 'router' | 'client';
             connectedToId?: string | null;
             status?: 'up' | 'down' | 'unknown';

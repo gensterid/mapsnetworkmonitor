@@ -419,10 +419,10 @@ const updateNetwatchSchema = z.object({
         if (val === '' || val === null || val === undefined) return undefined;
         return val;
     }, z.string().optional()),
-    location: z.string().optional(),
+    location: z.string().nullable().optional(),
     status: z.enum(['up', 'down', 'unknown']).optional(),
     deviceType: z.enum(['client', 'olt', 'odp']).optional(),
-    waypoints: z.string().optional(),
+    waypoints: z.string().nullable().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
     connectedToId: z.string().uuid().optional().nullable(),
 });

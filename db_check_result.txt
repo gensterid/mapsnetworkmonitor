@@ -1,0 +1,16 @@
+PostgresError: password authentication failed for user "postgres"
+    at ErrorResponse (file:///F:/Antigrafity/new-monitoring-mikrotik/node_modules/postgres/src/connection.js:794:26)
+    at handle (file:///F:/Antigrafity/new-monitoring-mikrotik/node_modules/postgres/src/connection.js:480:6)
+    at Socket.data (file:///F:/Antigrafity/new-monitoring-mikrotik/node_modules/postgres/src/connection.js:315:9)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:189:23) {
+  severity_local: 'FATAL',
+  severity: 'FATAL',
+  code: '28P01',
+  file: 'auth.c',
+  line: '320',
+  routine: 'auth_failed'
+}
