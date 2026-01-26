@@ -83,13 +83,8 @@ export default function Issues() {
 
     const handleAcknowledgeAll = async () => {
         try {
-            // Only acknowledge filtered (visible) alerts? currently API ack all acknowledges EVERYTHING.
-            // Be careful. The hook `useAcknowledgeAllAlerts` probably hits `DELETE /api/alerts` or `PUT /api/alerts/ack-all`.
-            // If it acks ALL, it might ack "Alerts" page items too.
-            // For now let's assume global ack is fine, or warn user. 
-            // Better: Iterate and ack only visible ones if API supports individual.
-            // Let's stick to using the existing global ack for now but strictly speaking it might clear "Alerts" tab too.
-            await acknowledgeAllMutation.mutateAsync();
+            // Acknowledge all "issues" only
+            await acknowledgeAllMutation.mutateAsync('issues');
         } catch (err) {
             console.error('Failed to acknowledge all alerts:', err);
         }

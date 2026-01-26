@@ -133,7 +133,7 @@ export function useAcknowledgeAllAlerts() {
     const queryClient = useQueryClient();
 
     return useMutation({
-        mutationFn: () => alertService.acknowledgeAll(),
+        mutationFn: (category) => alertService.acknowledgeAll(category),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
             queryClient.invalidateQueries({ queryKey: alertKeys.unread() });

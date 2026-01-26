@@ -132,7 +132,8 @@ router.put(
     '/acknowledge-all',
     requireUser,
     asyncHandler(async (req, res) => {
-        await alertService.acknowledgeAll(req.user!.id, req.user!.role);
+        const category = req.query.category as 'issues' | 'alerts' | undefined;
+        await alertService.acknowledgeAll(req.user!.id, req.user!.role, category);
         res.json({ message: 'All alerts acknowledged successfully' });
     })
 );

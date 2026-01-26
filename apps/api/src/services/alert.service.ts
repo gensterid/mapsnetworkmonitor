@@ -400,9 +400,84 @@ export class AlertService {
     }
 
     /**
+     * Check if alert is an "issue" (System/Performance) vs "alert" (Connectivity/Status)
+     */
+    private isIssue(alert: Alert): boolean {
+        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+
+        if (issueTypes.includes(alert.type)) return true;
+        if (alert.type === 'threshold') return true;
+
+        // Warnings that are NOT connectivity related are issues
+        if (alert.severity === 'warning' &&
+            !alert.type?.includes('status_change') &&
+            !alert.type?.includes('down') &&
+            !alert.type?.includes('offline') &&
+            !alert.type?.includes('pppoe') &&
+            !alert.type?.includes('interface') &&
+            !alert.type?.includes('netwatch')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Acknowledge all alerts
      */
-    async acknowledgeAll(userId: string, userRole?: string): Promise<boolean> {
+    async acknowledgeAll(userId: string, userRole?: string, category?: 'issues' | 'alerts'): Promise<boolean> {
+        // If category is provided, we need to fetch and sort first because conditional logic is complex map-reduce
+        if (category) {
+            let query = db
+                .select()
+                .from(alerts)
+                .where(eq(alerts.acknowledged, false));
+
+            // For non-admins/operators, check router access
+            if (userRole && userRole === 'user') {
+                const assigned = await db
+                    .select({ routerId: userRouters.routerId })
+                    .from(userRouters)
+                    .where(eq(userRouters.userId, userId));
+
+                const routerIds = assigned.map(a => a.routerId);
+
+                // If no routers assigned, nothing to acknowledge
+                if (routerIds.length === 0) return true;
+
+                query = db
+                    .select()
+                    .from(alerts)
+                    .where(and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds))) as any;
+            }
+
+            const unacknowledged = await query;
+            const targetIds: string[] = [];
+
+            for (const alert of unacknowledged) {
+                const isIssue = this.isIssue(alert);
+                if (category === 'issues' && isIssue) {
+                    targetIds.push(alert.id);
+                } else if (category === 'alerts' && !isIssue) {
+                    targetIds.push(alert.id);
+                }
+            }
+
+            if (targetIds.length > 0) {
+                await db
+                    .update(alerts)
+                    .set({
+                        acknowledged: true,
+                        acknowledgedBy: userId,
+                        acknowledgedAt: new Date(),
+                    })
+                    .where(inArray(alerts.id, targetIds));
+            }
+
+            return true;
+        }
+
+        // Global Acknowledge (No category) - Use efficient single query
         let whereClause = eq(alerts.acknowledged, false);
 
         // For non-admins/operators, check router access
@@ -596,12 +671,7 @@ export class AlertService {
         const allAlerts = await query;
 
         // Categorize
-        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
-        const issuesCount = allAlerts.filter(a =>
-            issueTypes.includes(a.type) ||
-            (a.type === 'threshold') ||
-            (a.severity === 'warning' && !a.type?.includes('status_change') && !a.type?.includes('down') && !a.type?.includes('offline') && !a.type?.includes('pppoe'))
-        ).length;
+        const issuesCount = allAlerts.filter(a => this.isIssue(a)).length;
 
         const connectivityCount = allAlerts.length - issuesCount;
 

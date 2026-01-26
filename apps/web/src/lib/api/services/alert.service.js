@@ -72,7 +72,10 @@ export const alertService = {
     /**
      * Acknowledge all alerts
      */
-    acknowledgeAll: () => put('/alerts/acknowledge-all'),
+    acknowledgeAll: (category) => {
+        const query = category ? `?category=${category}` : '';
+        return put(`/alerts/acknowledge-all${query}`);
+    },
 };
 
 export default alertService;

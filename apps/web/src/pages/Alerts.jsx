@@ -94,7 +94,8 @@ export default function Alerts() {
 
     const handleAcknowledgeAll = async () => {
         try {
-            await acknowledgeAllMutation.mutateAsync();
+            // Acknowledge all "alerts" (connectivity) only
+            await acknowledgeAllMutation.mutateAsync('alerts');
         } catch (err) {
             console.error('Failed to acknowledge all alerts:', err);
         }
