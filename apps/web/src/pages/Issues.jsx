@@ -34,7 +34,6 @@ export default function Issues() {
         page,
         limit: startDate ? 10000 : 50, // Default 50, show all (high limit) if filtering by date
         sortOrder,
-        sortOrder,
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined,
         search: debouncedSearch
