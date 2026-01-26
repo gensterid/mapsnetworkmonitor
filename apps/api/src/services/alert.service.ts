@@ -634,7 +634,7 @@ export class AlertService {
         let query = db
             .select()
             .from(alerts)
-            .where(and(eq(alerts.acknowledged, false), eq(alerts.resolved, false)))
+            .where(eq(alerts.acknowledged, false))
             .$dynamic();
 
         // Filter for non-admins
@@ -661,7 +661,6 @@ export class AlertService {
                 .where(
                     and(
                         eq(alerts.acknowledged, false),
-                        eq(alerts.resolved, false),
                         inArray(alerts.routerId, routerIds)
                     )
                 )
