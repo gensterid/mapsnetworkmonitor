@@ -1208,6 +1208,18 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                     </span>
                                                 </div>
 
+                                                {/* Down Since Info */}
+                                                {!['online', 'active', 'up'].includes(pppoe.status) && pppoe.lastDown && (
+                                                    <div className="flex flex-col gap-1 pt-0.5 mt-2 border-t border-slate-700/50">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-0.5">Down Since</span>
+                                                            <span className="font-mono text-xs bg-red-950/40 text-red-200 px-1.5 py-1 rounded border border-red-900/30">
+                                                                {formatDateWithTimezone(pppoe.lastDown, timezone)}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 {/* Latency Info - NEW SECTION */}
                                                 {(pppoe.lastLatency || pppoe.latency) && (
                                                     <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
