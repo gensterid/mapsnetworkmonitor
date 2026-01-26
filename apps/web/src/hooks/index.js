@@ -73,3 +73,5 @@ export {
 // SSE (Server-Sent Events) hook
 export { useSSE } from './useSSE';
 export * from './useBackup';
+// Utility hooks
+export { useDebounce } from './useDebounce';

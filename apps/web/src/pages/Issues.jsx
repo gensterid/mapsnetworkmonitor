@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser } from '@/hooks';
+import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser, useDebounce } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff, Search, X, Activity } from 'lucide-react';
@@ -11,6 +11,7 @@ export default function Issues() {
     const [page, setPage] = useState(1);
     const [sortOrder, setSortOrder] = useState('desc');
     const [dateFilter, setDateFilter] = useState('');
+    const debouncedSearch = useDebounce(searchQuery, 500);
 
     // Construct start and end dates based on filter
     const getDateRange = () => {
@@ -33,8 +34,10 @@ export default function Issues() {
         page,
         limit: startDate ? 10000 : 50, // Default 50, show all (high limit) if filtering by date
         sortOrder,
+        sortOrder,
         startDate: startDate ? startDate.toISOString() : undefined,
-        endDate: endDate ? endDate.toISOString() : undefined
+        endDate: endDate ? endDate.toISOString() : undefined,
+        search: debouncedSearch
     });
 
     const alerts = Array.isArray(result) ? result : (result?.data || []);
