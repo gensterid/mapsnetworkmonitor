@@ -1237,12 +1237,53 @@ function MapTab({ router }) {
 
 // PPPoE Coordinates Modal
 function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
-    const [latitude, setLatitude] = React.useState(session?.latitude || '');
-    const [longitude, setLongitude] = React.useState(session?.longitude || '');
+    const [coordinates, setCoordinates] = React.useState(
+        session?.latitude && session?.longitude
+            ? `${session.latitude}, ${session.longitude}`
+            : ''
+    );
+    const [parsed, setParsed] = React.useState({
+        lat: session?.latitude || '',
+        long: session?.longitude || ''
+    });
+
+    React.useEffect(() => {
+        if (!coordinates) {
+            setParsed({ lat: '', long: '' });
+            return;
+        }
+
+        // Try to parse "lat, long"
+        const parts = coordinates.split(',').map(p => p.trim());
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            setParsed({ lat: parts[0], long: parts[1] });
+        } else {
+            // If just typing or invalid format, we might not be able to parse correctly yet
+            // but let's try to assume first part is lat if only one number
+            if (parts.length === 1 && !isNaN(parts[0])) {
+                // partial
+            }
+        }
+    }, [coordinates]);
+
+    const handleChange = (e) => {
+        setCoordinates(e.target.value);
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({ latitude, longitude });
+        // Final validation
+        const parts = coordinates.split(',').map(p => p.trim());
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            onSave({ latitude: parts[0], longitude: parts[1] });
+        } else {
+            // If user just typed one number or format is weird, fallback to parsed state if valid, or error
+            if (parsed.lat && parsed.long) {
+                onSave({ latitude: parsed.lat, longitude: parsed.long });
+            } else {
+                alert('Format koordinat tidak valid. Gunakan format: "Latitude, Longitude" (contoh: -6.123, 106.123)');
+            }
+        }
     };
 
     return (
@@ -1258,38 +1299,40 @@ function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
                     </button>
                 </div>
 
-                <div className="mb-4 p-3 bg-slate-800 rounded-lg">
-                    <div className="text-sm text-slate-400">Username</div>
-                    <div className="font-medium text-white">{session?.name}</div>
+                <div className="mb-4 p-3 bg-slate-800 rounded-lg flex justify-between items-center">
+                    <div>
+                        <div className="text-sm text-slate-400">Username</div>
+                        <div className="font-medium text-white">{session?.name}</div>
+                    </div>
+                    {parsed.lat && parsed.long && (
+                        <div className="text-right">
+                            <div className="text-xs text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded">
+                                Valid: {parseFloat(parsed.lat).toFixed(4)}, {parseFloat(parsed.long).toFixed(4)}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm text-slate-400 mb-1">Latitude</label>
+                        <label className="block text-sm text-slate-400 mb-1">Koordinat (Latitude, Longitude)</label>
                         <input
                             type="text"
-                            value={latitude}
-                            onChange={(e) => setLatitude(e.target.value)}
-                            placeholder="-6.2088"
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
+                            value={coordinates}
+                            onChange={handleChange}
+                            placeholder="-6.2088, 106.8456"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm font-mono focus:ring-1 focus:ring-primary focus:border-primary outline-none"
+                            autoFocus
                         />
                     </div>
-                    <div>
-                        <label className="block text-sm text-slate-400 mb-1">Longitude</label>
-                        <input
-                            type="text"
-                            value={longitude}
-                            onChange={(e) => setLongitude(e.target.value)}
-                            placeholder="106.8456"
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm"
-                        />
-                    </div>
+
                     <p className="text-xs text-slate-500">
-                        Tips: Klik kanan di Google Maps untuk menyalin koordinat
+                        Tips: Copy dari Google Maps (klik kanan → pilih koordinat) dan paste di sini.
                     </p>
+
                     <div className="flex gap-3 pt-2">
                         <Button type="button" variant="outline" onClick={onClose} className="flex-1">Batal</Button>
-                        <Button type="submit" disabled={isSaving} className="flex-1">
+                        <Button type="submit" disabled={isSaving || (!parsed.lat || !parsed.long)} className="flex-1">
                             {isSaving ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Simpan'}
                         </Button>
                     </div>
@@ -1329,12 +1372,23 @@ function PppoeTab({ routerId }) {
         }
     };
 
+    const mountedRef = React.useRef(false);
+
     React.useEffect(() => {
+        mountedRef.current = true;
+        // Reset state only when routerId changes significantly or on first mount
         setSessions([]);
         setIsLoading(true);
         fetchSessions();
-        const interval = setInterval(fetchSessions, 30000);
-        return () => clearInterval(interval);
+
+        const interval = setInterval(() => {
+            if (mountedRef.current) fetchSessions();
+        }, 30000);
+
+        return () => {
+            mountedRef.current = false;
+            clearInterval(interval);
+        };
     }, [routerId]);
 
     // Merge live sessions with DB coordinates
