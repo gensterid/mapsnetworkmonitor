@@ -1307,9 +1307,12 @@ function PppoeTab({ routerId }) {
     const [searchQuery, setSearchQuery] = React.useState('');
     const [selectedSession, setSelectedSession] = React.useState(null);
     const [isSaving, setIsSaving] = React.useState(false);
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
 
     const fetchSessions = async () => {
-        setIsLoading(true);
+        // isLoading handled by useEffect for initial load, keep existing data during refresh
+        setIsRefreshing(true);
+
         try {
             const [liveRes, dbRes] = await Promise.all([
                 apiClient.get(`/routers/${routerId}/ppp/sessions`),
@@ -1322,10 +1325,13 @@ function PppoeTab({ routerId }) {
             setSessions([]);
         } finally {
             setIsLoading(false);
+            setIsRefreshing(false);
         }
     };
 
     React.useEffect(() => {
+        setSessions([]);
+        setIsLoading(true);
         fetchSessions();
         const interval = setInterval(fetchSessions, 30000);
         return () => clearInterval(interval);
@@ -1406,8 +1412,8 @@ function PppoeTab({ routerId }) {
                             className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
-                    <Button onClick={fetchSessions} variant="outline" size="sm">
-                        <RefreshCw className="w-4 h-4" />
+                    <Button onClick={fetchSessions} variant="outline" size="sm" disabled={isRefreshing}>
+                        <RefreshCw className={clsx("w-4 h-4", isRefreshing && "animate-spin")} />
                     </Button>
                 </div>
             </div>
