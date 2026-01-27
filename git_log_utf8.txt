@@ -1,5 +1,0 @@
-﻿commit f78646d82ca46406f53494de6ac262f3ad675bc7
-Author: MikroTik Admin <admin@mikrotik.local>
-Date:   Sun Jan 25 17:28:47 2026 +0800
-
-    feat: persist offline pppoe sessions
