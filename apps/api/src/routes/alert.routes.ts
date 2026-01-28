@@ -21,6 +21,7 @@ router.get(
         const sortOrder = (req.query.sortOrder as 'asc' | 'desc') || 'desc';
         const search = req.query.search as string;
         const routerId = req.query.routerId as string;
+        const category = req.query.category as 'issues' | 'alerts';
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
 
@@ -33,7 +34,8 @@ router.get(
             userId: req.user?.id,
             userRole: req.user?.role,
             search,
-            routerId
+            routerId,
+            category
         });
 
         res.json(result);

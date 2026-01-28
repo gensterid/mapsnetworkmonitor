@@ -108,6 +108,7 @@ export class AlertService {
         userRole?: string;
         search?: string;
         routerId?: string;
+        category?: 'issues' | 'alerts';
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
         const page = options.page || 1;
         const limit = options.limit || 100;
@@ -177,6 +178,27 @@ export class AlertService {
             }
 
             filters.push(inArray(alerts.routerId, routerIds));
+        }
+
+        // Category filtering
+        if (options.category) {
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect'];
+
+            if (options.category === 'issues') {
+                // Issues: Specific types OR (Warning severity AND NOT connectivity types)
+                filters.push(or(
+                    inArray(alerts.type, issueTypesList as any),
+                    and(
+                        eq(alerts.severity, 'warning'),
+                        sql`${alerts.type} NOT IN ${connectivityTypesList}`
+                    )
+                ));
+            } else if (options.category === 'alerts') {
+                // Alerts: Connectivity types OR (NOT Issue types AND NOT (Warning + Non-Connectivity))
+                // Simplest: Connectivity types mostly. 
+                filters.push(inArray(alerts.type, connectivityTypesList as any));
+            }
         }
 
         if (filters.length > 0) {

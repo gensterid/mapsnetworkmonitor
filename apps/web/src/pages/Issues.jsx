@@ -36,7 +36,8 @@ export default function Issues() {
         sortOrder,
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined,
-        search: debouncedSearch
+        search: debouncedSearch,
+        category: 'issues'
     });
 
     const alerts = Array.isArray(result) ? result : (result?.data || []);
