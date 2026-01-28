@@ -890,7 +890,8 @@ export class RouterService {
             for (const target of targets.slice(0, 6)) { // Max 6 targets
                 try {
                     console.log(`[Router ${router.name}] Pinging ${target.ip}...`);
-                    const { latency, packetLoss } = await measurePing(conn, target.ip);
+                    // Use relaxed interval (500ms) and longer timeout (2000ms) for high latency internet targets
+                    const { latency, packetLoss } = await measurePing(conn, target.ip, 3, '500ms', '2000ms');
                     console.log(`[Router ${router.name}] Ping result for ${target.ip}: ${latency}ms, Loss: ${packetLoss}%`);
                     results.push({
                         ip: target.ip,
