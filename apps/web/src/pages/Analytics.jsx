@@ -1021,7 +1021,11 @@ export default function Analytics() {
                                         <div className="space-y-2">
                                             {cpuPeaks?.length > 0 ? (
                                                 cpuPeaks.slice(0, 5).map((item, i) => (
-                                                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                    <div
+                                                        key={i}
+                                                        className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                        onClick={() => setHistoryModal({ open: true, type: 'cpu-peak-details', target: item })}
+                                                    >
                                                         <div>
                                                             <p className="text-sm text-white font-medium">{item.routerName}</p>
                                                             <p className="text-xs text-slate-500">Jam {item.hour}:00</p>
@@ -1035,12 +1039,12 @@ export default function Analytics() {
                                                             )}>
                                                                 {item.avgCpu}% CPU
                                                             </span>
-                                                            <p className="text-[10px] text-slate-500 mt-1">{item.peakCount}x >90%</p>
+                                                            <p className="text-[10px] text-slate-500 mt-1">{item.peakCount}x &gt;90%</p>
                                                         </div>
                                                     </div>
                                                 ))
                                             ) : (
-                                                <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada peak CPU >90% ✓</p>
+                                                <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada peak CPU &gt;90% ✓</p>
                                             )}
                                         </div>
                                     )}
@@ -1064,7 +1068,11 @@ export default function Analytics() {
                                         <div className="space-y-2">
                                             {downtimeAnalysis?.length > 0 ? (
                                                 downtimeAnalysis.slice(0, 5).map((item, i) => (
-                                                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                    <div
+                                                        key={i}
+                                                        className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                        onClick={() => setHistoryModal({ open: true, type: 'downtime-details', target: item })}
+                                                    >
                                                         <div className="flex-1 min-w-0 mr-2">
                                                             <p className="text-sm text-white font-medium truncate">{item.name}</p>
                                                             <p className="text-xs text-slate-500 truncate">{item.routerName}</p>
@@ -1083,7 +1091,7 @@ export default function Analytics() {
                                                     </div>
                                                 ))
                                             ) : (
-                                                <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada downtime >5 menit ✓</p>
+                                                <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada downtime &gt;5 menit ✓</p>
                                             )}
                                         </div>
                                     )}
@@ -1107,7 +1115,11 @@ export default function Analytics() {
                                         <div className="space-y-2">
                                             {capacityAnalysis?.length > 0 ? (
                                                 capacityAnalysis.slice(0, 5).map((item, i) => (
-                                                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                    <div
+                                                        key={i}
+                                                        className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                        onClick={() => setHistoryModal({ open: true, type: 'capacity-details', target: item })}
+                                                    >
                                                         <div className="flex-1 min-w-0 mr-2">
                                                             <p className="text-sm text-white font-medium truncate">{item.interfaceName}</p>
                                                             <p className="text-xs text-slate-500 truncate">{item.routerName} • {item.speed}</p>
@@ -1150,7 +1162,11 @@ export default function Analytics() {
                                     <div className="space-y-2">
                                         {incidentHeatmap?.length > 0 ? (
                                             incidentHeatmap.slice(0, 5).map((item, i) => (
-                                                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                <div
+                                                    key={i}
+                                                    className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                    onClick={() => setHistoryModal({ open: true, type: 'heatmap-details', target: item })}
+                                                >
                                                     <div className="flex-1 min-w-0 mr-2">
                                                         <p className="text-sm text-white font-medium truncate">
                                                             {item.deviceNames?.[0] || 'Unknown'}

@@ -26,26 +26,28 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
 
         switch (type) {
             case 'device-logs':
-                // Search for alerts related to this device (by name or host)
-                // We prefer host (IP) as it's more reliable in alert messages "Device Name (IP) is down"
-                const search = target.host || target.name;
-                return { ...baseParams, search };
+                return { ...baseParams, search: target.host || target.name };
             case 'router-uptime':
-                // Alerts for specific router
                 return { ...baseParams, routerId: target.routerId || target.id };
             case 'issue-logs':
-                // Search by issue title (e.g. "High CPU")
-                // If target.type is available (e.g. 'high_cpu'), use that? 
-                // The backend supports 'type' param filter if we implemented it, but search is safer for now.
-                return { ...baseParams, search: target.title }; // Search for the specific issue title
+                return { ...baseParams, search: target.title };
             case 'pppoe-logs':
-                // Search by client name
                 return { ...baseParams, search: target.name };
             case 'pppoe-down-details':
-                // Show all currently down PPPoE? Or logs for specific?
-                // If target is passed, show logs for that user.
                 if (target) return { ...baseParams, search: target.name };
                 return baseParams;
+            case 'cpu-peak-details':
+                // For CPU peaks, we want to see high CPU alerts for this router
+                return { ...baseParams, routerId: target.routerId, search: 'CPU' };
+            case 'downtime-details':
+                // For downtime, show logs for this specific host
+                return { ...baseParams, search: target.host || target.name };
+            case 'capacity-details':
+                // For capacity, show interface alerts
+                return { ...baseParams, routerId: target.routerId, search: target.interfaceName };
+            case 'heatmap-details':
+                // For heatmap, search by the primary device name
+                return { ...baseParams, search: target.deviceNames?.[0] || '' };
             default:
                 return baseParams;
         }
@@ -64,6 +66,10 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             case 'issue-logs': return `Detail Issue: ${target?.title}`;
             case 'pppoe-logs': return `Riwayat Koneksi PPPoE: ${target?.name}`;
             case 'pppoe-down-details': return `Detail PPPoE Down: ${target?.name}`;
+            case 'cpu-peak-details': return `Detail High CPU: ${target?.routerName} (Jam ${target?.hour}:00)`;
+            case 'downtime-details': return `Detail Downtime: ${target?.name}`;
+            case 'capacity-details': return `Riwayat Interface: ${target?.interfaceName}`;
+            case 'heatmap-details': return `Insiden Area: ${target?.deviceNames?.[0] || 'Unknown'} ...`;
             default: return 'Detail';
         }
     };
@@ -153,6 +159,6 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
                     </Button>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
