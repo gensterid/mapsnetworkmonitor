@@ -480,19 +480,26 @@ export async function getPppActive(api: any): Promise<number> {
  * Measure ping latency to a host
  * Returns latency in ms, or -1 if unreachable
  */
-export async function measurePing(api: any, address: string): Promise<{ latency: number, packetLoss: number }> {
+export async function measurePing(
+    api: any,
+    address: string,
+    count: number = 3,
+    interval: string = '100ms',
+    timeout: string = '1000ms'
+): Promise<{ latency: number, packetLoss: number }> {
     try {
-        const pingCount = 3;
         const result = await api.write([
             '/ping',
             `=address=${address}`,
-            `=count=${pingCount}`
+            `=count=${count}`,
+            `=interval=${interval}`,
+            `=timeout=${timeout}`
         ]);
 
         if (result && result.length > 0) {
             let totalLatency = 0;
             let receivedCount = 0;
-            let sentCount = pingCount; // We always ask for pingCount packets
+            let sentCount = count; // Default to requested count
 
             // RouterOS API returns one entry per ping packet
             // Each successful packet has: seq, host, size, ttl, time
@@ -508,7 +515,7 @@ export async function measurePing(api: any, address: string): Promise<{ latency:
                 }
                 // If entry has 'sent' and 'received', it's a summary (some ROS versions)
                 else if (entry['sent'] !== undefined && entry['received'] !== undefined) {
-                    sentCount = parseInt(entry['sent']) || pingCount;
+                    sentCount = parseInt(entry['sent']) || count;
                     receivedCount = parseInt(entry['received']) || 0;
                     if (entry['avg-rtt']) {
                         // Use average RTT directly if available

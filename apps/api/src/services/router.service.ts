@@ -410,7 +410,7 @@ export class RouterService {
                         for (const chunk of chunks) {
                             await Promise.all(chunk.map(async (target) => {
                                 try {
-                                    const { latency, packetLoss } = await measurePing(conn, target.host);
+                                    const { latency, packetLoss } = await measurePing(conn, target.host, 1, '50ms', '500ms');
                                     if (latency >= 0) {
                                         await db
                                             .update(routerNetwatch)
