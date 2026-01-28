@@ -487,13 +487,17 @@ export async function measurePing(
     interval: string = '100ms',
     timeout: string = '1000ms'
 ): Promise<{ latency: number, packetLoss: number }> {
+    if (!address) {
+        // console.log('[PING FAIL] Address is empty');
+        return { latency: -1, packetLoss: 100 };
+    }
+
     try {
         const result = await api.write([
             '/ping',
             `=address=${address}`,
             `=count=${count}`,
-            `=interval=${interval}`,
-            `=timeout=${timeout}`
+            `=interval=${interval}`
         ]);
 
         if (result && result.length > 0) {
