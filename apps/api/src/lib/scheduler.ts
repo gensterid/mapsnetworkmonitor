@@ -24,10 +24,10 @@ interface ScalingConfig {
 }
 
 const SCALING_TIERS: { maxDevices: number; config: ScalingConfig }[] = [
-    { maxDevices: 50, config: { intervalMs: 30 * 1000, batchSize: 10, strategy: 'Full check' } },
-    { maxDevices: 200, config: { intervalMs: 60 * 1000, batchSize: 5, strategy: 'Batching' } },
-    { maxDevices: 500, config: { intervalMs: 120 * 1000, batchSize: 3, strategy: 'Priority + Batching' } },
-    { maxDevices: Infinity, config: { intervalMs: 300 * 1000, batchSize: 2, strategy: 'Sampling + Alert only' } },
+    { maxDevices: 50, config: { intervalMs: 30 * 1000, batchSize: 20, strategy: 'Full check' } },
+    { maxDevices: 200, config: { intervalMs: 60 * 1000, batchSize: 15, strategy: 'Batching' } },
+    { maxDevices: 500, config: { intervalMs: 120 * 1000, batchSize: 10, strategy: 'Priority + Batching' } },
+    { maxDevices: Infinity, config: { intervalMs: 300 * 1000, batchSize: 5, strategy: 'Sampling + Alert only' } },
 ];
 
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
