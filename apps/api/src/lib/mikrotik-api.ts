@@ -497,7 +497,7 @@ export async function measurePing(
         ]);
 
         if (result && result.length > 0) {
-            // console.log(`[PING DEBUG] ${address} raw result:`, JSON.stringify(result)); 
+            console.log(`[PING DEBUG] ${address} raw result:`, JSON.stringify(result));
 
             let totalLatency = 0;
             let receivedCount = 0;
@@ -542,7 +542,7 @@ export async function measurePing(
                 ? Math.round(totalLatency / receivedCount)
                 : -1;
 
-            // console.log(`[PING DEBUG] ${address} parsed: lat=${avgLatency}, loss=${lossPercent}`);
+            console.log(`[PING DEBUG] ${address} parsed: lat=${avgLatency}, loss=${lossPercent}`);
             return { latency: avgLatency, packetLoss: lossPercent };
         } else {
             console.log(`[PING FAIL] ${address} - No result from API`);
