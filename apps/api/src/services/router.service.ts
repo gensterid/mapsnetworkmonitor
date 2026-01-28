@@ -408,7 +408,7 @@ export class RouterService {
                         const targets = entries.filter(e => e.status !== 'unknown');
 
                         // Concurrency limit
-                        const CONCURRENCY_LIMIT = 10;
+                        const CONCURRENCY_LIMIT = 1;
                         const chunks = [];
                         for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
                             chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
