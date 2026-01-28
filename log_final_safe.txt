@@ -1,5 +1,0 @@
-commit ba86f5401b65d53182f4e2eb0e5f991a11c07087
-Author: MikroTik Admin <admin@mikrotik.local>
-Date:   Wed Jan 28 01:22:53 2026 +0800
-
-    fix: prevent pppoe list flickering on refresh
