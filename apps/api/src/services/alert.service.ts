@@ -182,7 +182,7 @@ export class AlertService {
 
         // Category filtering
         if (options.category) {
-            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'reboot'];
             const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect'];
 
             if (options.category === 'issues') {
