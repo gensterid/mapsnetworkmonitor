@@ -287,7 +287,7 @@ export class RouterService {
      * @param id Router ID
      * @param includeNetwatch If true, also sync netwatch entries in the same connection
      */
-    async refreshRouterStatus(id: string, includeNetwatch: boolean = false): Promise<Router | undefined> {
+    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true): Promise<Router | undefined> {
         const router = await this.findByIdWithPassword(id);
         if (!router) return undefined;
 
@@ -301,9 +301,16 @@ export class RouterService {
                 password: router.password,
             });
 
+            // Always fetch basic system info for identity/uptime check
             const info = await getRouterInfo(conn);
-            const resources = await getRouterResources(conn);
-            const interfaces = await getRouterInterfaces(conn);
+
+            // Only fetch heavy resources on full sync
+            let resources = undefined;
+            let interfaces = undefined;
+            if (isFullSync) {
+                resources = await getRouterResources(conn);
+                interfaces = await getRouterInterfaces(conn);
+            }
 
             // Fetch and sync netwatch in the same connection if requested
             if (includeNetwatch) {
@@ -401,7 +408,7 @@ export class RouterService {
                         const targets = entries.filter(e => e.status !== 'unknown');
 
                         // Concurrency limit
-                        const CONCURRENCY_LIMIT = 5;
+                        const CONCURRENCY_LIMIT = 10;
                         const chunks = [];
                         for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
                             chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
@@ -526,36 +533,38 @@ export class RouterService {
                 );
             }
 
-            // Save metrics
-            await db.insert(routerMetrics).values({
-                routerId: id,
-                cpuLoad: resources.cpuLoad,
-                cpuCount: resources.cpuCount,
-                cpuFrequency: resources.cpuFrequency,
-                totalMemory: resources.totalMemory,
-                usedMemory: resources.usedMemory,
-                freeMemory: resources.freeMemory,
-                totalDisk: resources.totalDisk,
-                usedDisk: resources.usedDisk,
-                freeDisk: resources.freeDisk,
-                uptime: resources.uptime
-                    ? parseUptimeToSeconds(resources.uptime)
-                    : undefined,
-                boardTemp: resources.boardTemp,
-                voltage: resources.voltage,
-            });
+            // Save metrics only if resources are available (Full Sync)
+            if (resources) {
+                await db.insert(routerMetrics).values({
+                    routerId: id,
+                    cpuLoad: resources.cpuLoad,
+                    cpuCount: resources.cpuCount,
+                    cpuFrequency: resources.cpuFrequency,
+                    totalMemory: resources.totalMemory,
+                    usedMemory: resources.usedMemory,
+                    freeMemory: resources.freeMemory,
+                    totalDisk: resources.totalDisk,
+                    usedDisk: resources.usedDisk,
+                    freeDisk: resources.freeDisk,
+                    uptime: resources.uptime
+                        ? parseUptimeToSeconds(resources.uptime)
+                        : undefined,
+                    boardTemp: resources.boardTemp,
+                    voltage: resources.voltage,
+                });
 
-            // Check for metric-based alerts (CPU/Memory thresholds)
-            try {
-                await alertService.checkAndCreateMetricAlerts(
-                    id,
-                    router.name,
-                    resources.cpuLoad,
-                    resources.totalMemory,
-                    resources.usedMemory
-                );
-            } catch (alertError) {
-                console.error('Failed to check metric alerts:', alertError);
+                // Check for metric-based alerts (CPU/Memory thresholds)
+                try {
+                    await alertService.checkAndCreateMetricAlerts(
+                        id,
+                        router.name,
+                        resources.cpuLoad,
+                        resources.totalMemory,
+                        resources.usedMemory
+                    );
+                } catch (alertError) {
+                    console.error('Failed to check metric alerts:', alertError);
+                }
             }
 
 

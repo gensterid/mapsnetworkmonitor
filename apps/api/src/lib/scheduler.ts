@@ -132,6 +132,7 @@ async function pollAllRouters(): Promise<void> {
 
     isPolling = true;
     pollingStartTime = Date.now();
+    const date = new Date(pollingStartTime);
 
     // Use adaptive batch size from scaling config
     const BATCH_SIZE = currentScalingConfig.batchSize;
@@ -148,9 +149,12 @@ async function pollAllRouters(): Promise<void> {
         // Helper function to process a single router with timeout
         const processRouter = async (router: typeof routers[0]) => {
             try {
+                // Determine if this is a full sync poll (every 5 polling cycles)
+                const isFullSync = (date.getMinutes() % 5 === 0);
+
                 // Wrap refreshRouterStatus with timeout
                 await withTimeout(
-                    routerService.refreshRouterStatus(router.id, true),
+                    routerService.refreshRouterStatus(router.id, true, isFullSync),
                     ROUTER_TIMEOUT,
                     `Timeout polling router ${router.name}`
                 );
