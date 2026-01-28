@@ -512,6 +512,39 @@ export default function Analytics() {
         },
     });
 
+    // Advanced Analytics Queries
+    const { data: cpuPeaks, isLoading: cpuPeaksLoading } = useQuery({
+        queryKey: ['analytics-cpu-peaks', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/cpu-peaks', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
+    const { data: downtimeAnalysis, isLoading: downtimeLoading } = useQuery({
+        queryKey: ['analytics-downtime', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/downtime', { params: { ...queryParams, minMinutes: 5 } });
+            return res.data.data;
+        },
+    });
+
+    const { data: capacityAnalysis, isLoading: capacityLoading } = useQuery({
+        queryKey: ['analytics-capacity', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/capacity', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
+    const { data: incidentHeatmap } = useQuery({
+        queryKey: ['analytics-incident-heatmap', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/incident-heatmap', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
     // Alerts list query - for showing detailed alerts in single day view
     const { data: alertsList, isLoading: alertsListLoading } = useQuery({
         queryKey: ['analytics-alerts-list', queryParams],
@@ -962,6 +995,186 @@ export default function Analytics() {
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+
+                    {/* Advanced Analytics Section */}
+                    <div className="mt-6">
+                        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                            <TrendingUp className="w-5 h-5 text-primary" />
+                            Analisis Lanjutan
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {/* CPU Peak Analysis */}
+                            <Card className="glass-panel">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <Activity className="w-4 h-4 text-orange-400" />
+                                        CPU Peak Hours
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {cpuPeaksLoading ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {cpuPeaks?.length > 0 ? (
+                                                cpuPeaks.slice(0, 5).map((item, i) => (
+                                                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                        <div>
+                                                            <p className="text-sm text-white font-medium">{item.routerName}</p>
+                                                            <p className="text-xs text-slate-500">Jam {item.hour}:00</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className={clsx(
+                                                                "px-2 py-1 rounded text-xs font-medium",
+                                                                item.avgCpu > 90 ? 'bg-red-500/10 text-red-400' :
+                                                                    item.avgCpu > 70 ? 'bg-amber-500/10 text-amber-400' :
+                                                                        'bg-emerald-500/10 text-emerald-400'
+                                                            )}>
+                                                                {item.avgCpu}% CPU
+                                                            </span>
+                                                            <p className="text-[10px] text-slate-500 mt-1">{item.peakCount}x >90%</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada peak CPU >90% ✓</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Downtime Analysis */}
+                            <Card className="glass-panel">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <Clock className="w-4 h-4 text-red-400" />
+                                        Downtime Signifikan
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {downtimeLoading ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {downtimeAnalysis?.length > 0 ? (
+                                                downtimeAnalysis.slice(0, 5).map((item, i) => (
+                                                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                        <div className="flex-1 min-w-0 mr-2">
+                                                            <p className="text-sm text-white font-medium truncate">{item.name}</p>
+                                                            <p className="text-xs text-slate-500 truncate">{item.routerName}</p>
+                                                        </div>
+                                                        <div className="text-right flex-shrink-0">
+                                                            <span className={clsx(
+                                                                "px-2 py-1 rounded text-xs font-medium",
+                                                                item.totalDowntimeMinutes > 60 ? 'bg-red-500/10 text-red-400' :
+                                                                    item.totalDowntimeMinutes > 30 ? 'bg-amber-500/10 text-amber-400' :
+                                                                        'bg-blue-500/10 text-blue-400'
+                                                            )}>
+                                                                {item.totalDowntimeMinutes > 60 ? `${Math.round(item.totalDowntimeMinutes / 60)}h` : `${item.totalDowntimeMinutes}m`}
+                                                            </span>
+                                                            <p className="text-[10px] text-slate-500 mt-1">{item.incidentCount}x down</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada downtime >5 menit ✓</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Capacity Analysis */}
+                            <Card className="glass-panel">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <TrendingUp className="w-4 h-4 text-amber-400" />
+                                        Kapasitas Interface
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    {capacityLoading ? (
+                                        <div className="flex items-center justify-center py-8">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {capacityAnalysis?.length > 0 ? (
+                                                capacityAnalysis.slice(0, 5).map((item, i) => (
+                                                    <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                        <div className="flex-1 min-w-0 mr-2">
+                                                            <p className="text-sm text-white font-medium truncate">{item.interfaceName}</p>
+                                                            <p className="text-xs text-slate-500 truncate">{item.routerName} • {item.speed}</p>
+                                                        </div>
+                                                        <div className="w-24">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={clsx(
+                                                                            "h-full rounded-full",
+                                                                            item.utilizationPercent > 80 ? 'bg-red-500' :
+                                                                                item.utilizationPercent > 60 ? 'bg-amber-500' :
+                                                                                    'bg-emerald-500'
+                                                                        )}
+                                                                        style={{ width: `${Math.min(item.utilizationPercent, 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                                <span className="text-xs text-slate-400 w-10 text-right">{item.utilizationPercent}%</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-center text-emerald-500 py-4 text-sm">Semua interface normal ✓</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Incident Heatmap Summary */}
+                            <Card className="glass-panel">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4 text-red-400" />
+                                        Zona Masalah
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-2">
+                                        {incidentHeatmap?.length > 0 ? (
+                                            incidentHeatmap.slice(0, 5).map((item, i) => (
+                                                <div key={i} className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50">
+                                                    <div className="flex-1 min-w-0 mr-2">
+                                                        <p className="text-sm text-white font-medium truncate">
+                                                            {item.deviceNames?.[0] || 'Unknown'}
+                                                            {item.deviceNames?.length > 1 && <span className="text-slate-500"> +{item.deviceNames.length - 1}</span>}
+                                                        </p>
+                                                        <p className="text-xs text-slate-500 truncate">{item.routerName}</p>
+                                                    </div>
+                                                    <span className={clsx(
+                                                        "px-2 py-1 rounded text-xs font-medium border",
+                                                        item.incidentCount > 15 ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                            item.incidentCount > 5 ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' :
+                                                                'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                    )}>
+                                                        {item.incidentCount}x
+                                                    </span>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <p className="text-center text-emerald-500 py-4 text-sm">Tidak ada zona masalah ✓</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
                 </div>
             </div >

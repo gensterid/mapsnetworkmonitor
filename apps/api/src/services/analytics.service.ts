@@ -768,6 +768,431 @@ class AnalyticsService {
 
         return withRouterNames;
     }
+
+    /**
+     * Get CPU peak analysis - routers with high CPU during peak hours
+     */
+    async getCpuPeakAnalysis(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
+        routerId: string;
+        routerName: string;
+        hour: number;
+        avgCpu: number;
+        peakCount: number;
+    }[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        const conditions: any[] = [
+            gte(routerMetrics.recordedAt, range.startDate),
+            lte(routerMetrics.recordedAt, range.endDate),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(routerMetrics.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(routerMetrics.routerId, allowedIds));
+        }
+
+        // Group by router and hour, count peaks (CPU > 90%)
+        const results = await db
+            .select({
+                routerId: routerMetrics.routerId,
+                hour: sql<number>`EXTRACT(HOUR FROM ${routerMetrics.recordedAt})`.as('hour'),
+                avgCpu: avg(routerMetrics.cpuLoad),
+                peakCount: sql<number>`SUM(CASE WHEN ${routerMetrics.cpuLoad} > 90 THEN 1 ELSE 0 END)`,
+            })
+            .from(routerMetrics)
+            .where(and(...conditions))
+            .groupBy(routerMetrics.routerId, sql`EXTRACT(HOUR FROM ${routerMetrics.recordedAt})`)
+            .orderBy(desc(sql`SUM(CASE WHEN ${routerMetrics.cpuLoad} > 90 THEN 1 ELSE 0 END)`));
+
+        // Get router names
+        const withNames = await Promise.all(
+            results.map(async (r) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, r.routerId))
+                    .limit(1);
+
+                return {
+                    routerId: r.routerId,
+                    routerName: router?.name || 'Unknown',
+                    hour: Number(r.hour),
+                    avgCpu: Math.round((Number(r.avgCpu) || 0) * 10) / 10,
+                    peakCount: Number(r.peakCount) || 0,
+                };
+            })
+        );
+
+        // Filter only those with peaks and sort by peak count
+        return withNames.filter(r => r.peakCount > 0).slice(0, 20);
+    }
+
+    /**
+     * Get downtime analysis - devices with significant downtime
+     */
+    async getDowntimeAnalysis(dateRange?: DateRange, minDowntimeMinutes: number = 5, routerId?: string, userId?: string, userRole?: string): Promise<{
+        host: string;
+        name: string;
+        totalDowntimeMinutes: number;
+        incidentCount: number;
+        routerName: string;
+    }[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        // Get netwatch entries with lastDown within the date range
+        const netwatchConditions: any[] = [];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            netwatchConditions.push(eq(routerNetwatch.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            netwatchConditions.push(inArray(routerNetwatch.routerId, allowedIds));
+        }
+
+        let query = db
+            .select({
+                host: routerNetwatch.host,
+                name: routerNetwatch.name,
+                lastDown: routerNetwatch.lastDown,
+                lastUp: routerNetwatch.lastUp,
+                status: routerNetwatch.status,
+                routerId: routerNetwatch.routerId,
+            })
+            .from(routerNetwatch);
+
+        if (netwatchConditions.length > 0) {
+            query = query.where(and(...netwatchConditions)) as any;
+        }
+
+        const netwatchEntries = await query;
+
+        // Count down incidents from alerts for each host
+        const alertConditions: any[] = [
+            eq(alerts.type, 'netwatch_down'),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+
+        if (routerId) {
+            alertConditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin' && allowedIds.length > 0) {
+            alertConditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        const incidentCounts = await db
+            .select({
+                host: sql<string>`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`.as('host'),
+                incidents: count(),
+            })
+            .from(alerts)
+            .where(and(...alertConditions))
+            .groupBy(sql`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`);
+
+        const incidentMap = new Map(incidentCounts.map(i => [i.host, Number(i.incidents)]));
+
+        // Calculate downtime for each entry
+        const results: { host: string; name: string; totalDowntimeMinutes: number; incidentCount: number; routerId: string }[] = [];
+
+        for (const entry of netwatchEntries) {
+            const incidents = incidentMap.get(entry.host) || 0;
+
+            // Estimate downtime based on incidents (average 30 min per incident) or calculate if we have timestamps
+            let downtimeMinutes = incidents * 30; // Default estimation
+
+            if (entry.lastDown && entry.lastUp && entry.lastUp > entry.lastDown) {
+                // If we have both timestamps, calculate actual downtime
+                downtimeMinutes = (entry.lastUp.getTime() - entry.lastDown.getTime()) / (1000 * 60);
+            } else if (entry.lastDown && entry.status === 'down') {
+                // Currently down, calculate from lastDown to now
+                downtimeMinutes = (Date.now() - entry.lastDown.getTime()) / (1000 * 60);
+            }
+
+            if (downtimeMinutes >= minDowntimeMinutes || incidents > 0) {
+                results.push({
+                    host: entry.host,
+                    name: entry.name || entry.host,
+                    totalDowntimeMinutes: Math.round(downtimeMinutes),
+                    incidentCount: incidents,
+                    routerId: entry.routerId,
+                });
+            }
+        }
+
+        // Get router names
+        const withRouterNames = await Promise.all(
+            results.map(async (r) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, r.routerId))
+                    .limit(1);
+
+                return {
+                    host: r.host,
+                    name: r.name,
+                    totalDowntimeMinutes: r.totalDowntimeMinutes,
+                    incidentCount: r.incidentCount,
+                    routerName: router?.name || 'Unknown',
+                };
+            })
+        );
+
+        // Sort by downtime descending
+        return withRouterNames.sort((a, b) => b.totalDowntimeMinutes - a.totalDowntimeMinutes).slice(0, 20);
+    }
+
+    /**
+     * Get interface capacity analysis - interfaces approaching bottleneck
+     */
+    async getInterfaceCapacityAnalysis(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
+        interfaceName: string;
+        routerName: string;
+        speed: string;
+        avgTxMbps: number;
+        avgRxMbps: number;
+        utilizationPercent: number;
+    }[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        // Import routerInterfaces from schema
+        const { routerInterfaces } = await import('../db/schema/index.js');
+
+        const conditions: any[] = [];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(routerInterfaces.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(routerInterfaces.routerId, allowedIds));
+        }
+
+        // Get interfaces with their current rates
+        let query = db
+            .select({
+                name: routerInterfaces.name,
+                routerId: routerInterfaces.routerId,
+                speed: routerInterfaces.speed,
+                txRate: routerInterfaces.txRate,
+                rxRate: routerInterfaces.rxRate,
+                running: routerInterfaces.running,
+            })
+            .from(routerInterfaces);
+
+        if (conditions.length > 0) {
+            query = query.where(and(...conditions)) as any;
+        }
+
+        const interfaces = await query;
+
+        // Calculate utilization for each interface
+        const results: { interfaceName: string; routerId: string; speed: string; avgTxMbps: number; avgRxMbps: number; utilizationPercent: number }[] = [];
+
+        for (const iface of interfaces) {
+            if (!iface.running) continue; // Skip disabled/inactive interfaces
+
+            // Parse speed (e.g., "1Gbps", "100Mbps")
+            let speedMbps = 1000; // Default 1Gbps
+            if (iface.speed) {
+                const speedMatch = iface.speed.match(/(\d+)([GMK])?bps/i);
+                if (speedMatch) {
+                    const value = parseInt(speedMatch[1]);
+                    const unit = speedMatch[2]?.toUpperCase();
+                    if (unit === 'G') speedMbps = value * 1000;
+                    else if (unit === 'M') speedMbps = value;
+                    else if (unit === 'K') speedMbps = value / 1000;
+                    else speedMbps = value;
+                }
+            }
+
+            // Convert bits/sec to Mbps
+            const txMbps = ((iface.txRate || 0) / 1000000);
+            const rxMbps = ((iface.rxRate || 0) / 1000000);
+            const maxRate = Math.max(txMbps, rxMbps);
+            const utilization = speedMbps > 0 ? (maxRate / speedMbps) * 100 : 0;
+
+            if (utilization > 10) { // Only show interfaces with >10% utilization
+                results.push({
+                    interfaceName: iface.name,
+                    routerId: iface.routerId,
+                    speed: iface.speed || 'Unknown',
+                    avgTxMbps: Math.round(txMbps * 10) / 10,
+                    avgRxMbps: Math.round(rxMbps * 10) / 10,
+                    utilizationPercent: Math.round(utilization * 10) / 10,
+                });
+            }
+        }
+
+        // Get router names
+        const withRouterNames = await Promise.all(
+            results.map(async (r) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, r.routerId))
+                    .limit(1);
+
+                return {
+                    interfaceName: r.interfaceName,
+                    routerName: router?.name || 'Unknown',
+                    speed: r.speed,
+                    avgTxMbps: r.avgTxMbps,
+                    avgRxMbps: r.avgRxMbps,
+                    utilizationPercent: r.utilizationPercent,
+                };
+            })
+        );
+
+        // Sort by utilization descending
+        return withRouterNames.sort((a, b) => b.utilizationPercent - a.utilizationPercent).slice(0, 20);
+    }
+
+    /**
+     * Get incident heatmap data - geographic distribution of incidents
+     */
+    async getIncidentHeatmap(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
+        lat: number;
+        lng: number;
+        incidentCount: number;
+        deviceNames: string[];
+        routerName: string;
+    }[]> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) return [];
+        }
+
+        // Get all netwatch entries with coordinates
+        const netwatchConditions: any[] = [];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            netwatchConditions.push(eq(routerNetwatch.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            netwatchConditions.push(inArray(routerNetwatch.routerId, allowedIds));
+        }
+
+        let netwatchQuery = db
+            .select({
+                host: routerNetwatch.host,
+                name: routerNetwatch.name,
+                latitude: routerNetwatch.latitude,
+                longitude: routerNetwatch.longitude,
+                routerId: routerNetwatch.routerId,
+            })
+            .from(routerNetwatch);
+
+        if (netwatchConditions.length > 0) {
+            netwatchQuery = netwatchQuery.where(and(...netwatchConditions)) as any;
+        }
+
+        const netwatchEntries = await netwatchQuery;
+
+        // Count incidents per host from alerts
+        const alertConditions: any[] = [
+            eq(alerts.type, 'netwatch_down'),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+
+        if (routerId) {
+            alertConditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin' && allowedIds.length > 0) {
+            alertConditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        const incidentCounts = await db
+            .select({
+                host: sql<string>`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`.as('host'),
+                incidents: count(),
+            })
+            .from(alerts)
+            .where(and(...alertConditions))
+            .groupBy(sql`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`);
+
+        const incidentMap = new Map(incidentCounts.map(i => [i.host, Number(i.incidents)]));
+
+        // Build heatmap data (only entries with coordinates and incidents)
+        const heatmapData: Map<string, { lat: number; lng: number; incidentCount: number; deviceNames: string[]; routerId: string }> = new Map();
+
+        for (const entry of netwatchEntries) {
+            const incidents = incidentMap.get(entry.host) || 0;
+            if (incidents === 0 || !entry.latitude || !entry.longitude) continue;
+
+            const lat = parseFloat(entry.latitude as string);
+            const lng = parseFloat(entry.longitude as string);
+            if (isNaN(lat) || isNaN(lng)) continue;
+
+            // Round coordinates to ~100m precision for clustering
+            const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+
+            if (heatmapData.has(key)) {
+                const existing = heatmapData.get(key)!;
+                existing.incidentCount += incidents;
+                existing.deviceNames.push(entry.name || entry.host);
+            } else {
+                heatmapData.set(key, {
+                    lat,
+                    lng,
+                    incidentCount: incidents,
+                    deviceNames: [entry.name || entry.host],
+                    routerId: entry.routerId,
+                });
+            }
+        }
+
+        // Get router names
+        const results = await Promise.all(
+            Array.from(heatmapData.values()).map(async (data) => {
+                const [router] = await db
+                    .select({ name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, data.routerId))
+                    .limit(1);
+
+                return {
+                    lat: data.lat,
+                    lng: data.lng,
+                    incidentCount: data.incidentCount,
+                    deviceNames: data.deviceNames.slice(0, 5), // Limit names shown
+                    routerName: router?.name || 'Unknown',
+                };
+            })
+        );
+
+        // Sort by incident count descending
+        return results.sort((a, b) => b.incidentCount - a.incidentCount).slice(0, 50);
+    }
 }
 
 export const analyticsService = new AnalyticsService();

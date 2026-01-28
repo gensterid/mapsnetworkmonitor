@@ -179,5 +179,66 @@ router.get(
     })
 );
 
+/**
+ * GET /api/analytics/cpu-peaks
+ * Get CPU peak analysis - routers with high CPU during peak hours
+ */
+router.get(
+    '/cpu-peaks',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const data = await analyticsService.getCpuPeakAnalysis(dateRange, routerId, req.user?.id, req.user?.role);
+        res.json({ data });
+    })
+);
+
+/**
+ * GET /api/analytics/downtime
+ * Get downtime analysis - devices with significant downtime
+ */
+router.get(
+    '/downtime',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const routerId = req.query.routerId as string | undefined;
+        const minMinutes = parseInt(req.query.minMinutes as string) || 5;
+        // @ts-ignore
+        const data = await analyticsService.getDowntimeAnalysis(dateRange, minMinutes, routerId, req.user?.id, req.user?.role);
+        res.json({ data });
+    })
+);
+
+/**
+ * GET /api/analytics/capacity
+ * Get interface capacity analysis - bottleneck detection
+ */
+router.get(
+    '/capacity',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const data = await analyticsService.getInterfaceCapacityAnalysis(dateRange, routerId, req.user?.id, req.user?.role);
+        res.json({ data });
+    })
+);
+
+/**
+ * GET /api/analytics/incident-heatmap
+ * Get incident heatmap data - geographic distribution
+ */
+router.get(
+    '/incident-heatmap',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const data = await analyticsService.getIncidentHeatmap(dateRange, routerId, req.user?.id, req.user?.role);
+        res.json({ data });
+    })
+);
+
 export default router;
 
