@@ -570,64 +570,63 @@ export class RouterService {
 
 
             // Update interfaces
-            for (const iface of interfaces) {
-                // Check if interface exists
-                const [existingInterface] = await db
-                    .select()
-                    .from(routerInterfaces)
-                    .where(and(
-                        eq(routerInterfaces.routerId, id),
-                        eq(routerInterfaces.name, iface.name)
-                    ));
+            if (interfaces) {
+                for (const iface of interfaces) {
+                    // Check if interface exists
+                    const [existingInterface] = await db
+                        .select()
+                        .from(routerInterfaces)
+                        .where(and(
+                            eq(routerInterfaces.routerId, id),
+                            eq(routerInterfaces.name, iface.name)
+                        ));
 
-                if (existingInterface) {
-                    // Calculate rates (bits per second)
-                    const now = new Date();
-                    const lastUpdate = existingInterface.lastUpdated || new Date();
-                    const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+                    if (existingInterface) {
+                        // Calculate rates (bits per second)
+                        const now = new Date();
+                        const lastUpdate = existingInterface.lastUpdated || new Date();
+                        const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
-                    let txRate = 0;
-                    let rxRate = 0;
+                        let txRate = 0;
+                        let rxRate = 0;
 
-                    if (seconds > 0 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
-                        const txDiff = iface.txBytes - (existingInterface.txBytes || 0);
-                        const rxDiff = iface.rxBytes - (existingInterface.rxBytes || 0);
+                        if (seconds > 0 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
+                            const txDiff = iface.txBytes - (existingInterface.txBytes || 0);
+                            const rxDiff = iface.rxBytes - (existingInterface.rxBytes || 0);
 
-                        // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
-                        if (txDiff >= 0) {
-                            txRate = Math.round((txDiff * 8) / seconds);
+                            // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
+                            if (txDiff >= 0) {
+                                txRate = Math.round((txDiff * 8) / seconds);
+                            }
+                            if (rxDiff >= 0) {
+                                rxRate = Math.round((rxDiff * 8) / seconds);
+                            }
                         }
-                        if (rxDiff >= 0) {
-                            rxRate = Math.round((rxDiff * 8) / seconds);
-                        }
-                    }
 
-                    // Update existing interface
-                    await db
-                        .update(routerInterfaces)
-                        .set({
+                        // Update existing interface
+                        await db
+                            .update(routerInterfaces)
+                            .set({
+                                ...iface,
+                                status: iface.running ? 'up' : 'down',
+                                lastUpdated: new Date(),
+                                // calculated rates
+                                txRate: txRate,
+                                rxRate: rxRate,
+                            })
+                            .where(eq(routerInterfaces.id, existingInterface.id));
+                    } else {
+                        // Create new interface
+                        await db.insert(routerInterfaces).values({
+                            routerId: id,
                             ...iface,
                             status: iface.running ? 'up' : 'down',
-                            lastUpdated: new Date(),
-                            // calculated rates
-                            txRate: txRate,
-                            rxRate: rxRate,
-                        })
-                        .where(eq(routerInterfaces.id, existingInterface.id));
-                } else {
-                    // Create new interface
-                    await db.insert(routerInterfaces).values({
-                        routerId: id,
-                        ...iface,
-                        status: iface.running ? 'up' : 'down',
-                        txRate: 0,
-                        rxRate: 0,
-                    });
+                            txRate: 0,
+                            rxRate: 0,
+                        });
+                    }
                 }
             }
-
-            return updatedRouter;
-            // ... (rest of function until catch block)
 
             return updatedRouter;
         } catch (error) {
