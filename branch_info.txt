@@ -1,0 +1,1 @@
+* main 8cdb653 feat: make advanced analytics panels interactive with detailed view modals
