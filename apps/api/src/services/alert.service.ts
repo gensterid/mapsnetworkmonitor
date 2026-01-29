@@ -1036,11 +1036,19 @@ export class AlertService {
         // Don't alert if checks pass (should be handled by caller but safe to check)
         if (!isHighLatency && !isPacketLoss) return null;
 
-        let title = `Performance Issue: ${deviceName}`;
+        let title;
+        if (isHighLatency && isPacketLoss) {
+            title = `Performance Issue: ${deviceName}`;
+        } else if (isHighLatency) {
+            title = `High Latency: ${deviceName}`;
+        } else {
+            title = `Packet Loss: ${deviceName}`;
+        }
+
         let message = `Host ${host} (${deviceName}) has issues:`;
 
-        if (isHighLatency) message += ` Latency ${latency}ms (>100ms).`;
-        if (isPacketLoss) message += ` Packet Loss ${packetLoss}%.`;
+        if (isHighLatency) message += ` High Latency detected (${latency}ms > 100ms).`;
+        if (isPacketLoss) message += ` Packet Loss detected (${packetLoss}%).`;
 
         return this.create({
             routerId,
