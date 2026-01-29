@@ -98,13 +98,6 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
 
                 {/* Modal Content */}
                 <div className="flex-1 overflow-y-auto p-0 bg-slate-900/50">
-                    {/* DEBUG BLOCK */}
-                    <div className="p-2 bg-red-900/50 text-xs font-mono text-white border-b border-red-700">
-                        DEBUG: Loading={isLoading ? 'T' : 'F'}, Length={alertList?.length}<br />
-                        Type={type}, Params={JSON.stringify(queryParams)}<br />
-                        Sample={JSON.stringify(alertList?.[0] || 'none')}
-                    </div>
-
                     {isLoading ? (
                         <div className="flex items-center justify-center h-48">
                             <RefreshCw className="w-8 h-8 animate-spin text-primary" />
