@@ -111,6 +111,10 @@ export class AlertService {
         category?: 'issues' | 'alerts';
         resolved?: boolean;
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
+        if (options.resolved !== undefined) {
+            console.log('DEBUG: findAll called with resolved=', options.resolved, typeof options.resolved);
+        }
+
         const page = options.page || 1;
         const limit = options.limit || 100;
         const offset = (page - 1) * limit;
