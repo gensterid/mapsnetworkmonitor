@@ -832,6 +832,8 @@ export class AlertService {
             severity,
             title: `Router ${routerName} is now ${newStatus}`,
             message: `Status changed from ${oldStatus} to ${newStatus}`,
+            resolved: true, // Event is a log, auto-resolve
+            resolvedAt: new Date(),
         });
     }
 
@@ -977,6 +979,8 @@ export class AlertService {
             severity: 'info',
             title: `PPPoE: ${username} connected`,
             message: `User ${username} connected to ${routerName}. IP: ${ipAddress}`,
+            resolved: true, // Event is a log
+            resolvedAt: new Date(),
         });
     }
 
@@ -1005,6 +1009,8 @@ export class AlertService {
             severity: 'warning',
             title: `PPPoE: ${username} disconnected`,
             message: `User ${username} disconnected from ${routerName}. IP: ${ipAddress}. Session duration: ${duration}`,
+            resolved: true, // Event is a log
+            resolvedAt: new Date(),
         });
     }
 
