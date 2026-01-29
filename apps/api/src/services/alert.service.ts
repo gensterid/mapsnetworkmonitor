@@ -193,8 +193,9 @@ export class AlertService {
 
         // Category filtering
         if (options.category) {
-            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'reboot'];
-            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect'];
+            // Consistent with isIssue() but SQL-friendly
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
 
             if (options.category === 'issues') {
                 // Issues: Specific types OR (Warning severity AND NOT connectivity types)
@@ -206,9 +207,17 @@ export class AlertService {
                     )
                 ));
             } else if (options.category === 'alerts') {
-                // Alerts: Connectivity types OR (NOT Issue types AND NOT (Warning + Non-Connectivity))
-                // Simplest: Connectivity types mostly. 
-                filters.push(inArray(alerts.type, connectivityTypesList as any));
+                // Alerts: Everything that is NOT an issue
+                // Checks: Connectivity types OR (NOT Issue types AND NOT (Warning + Non-Connectivity))
+
+                // Simplified Inverse Logic matches isIssue() logic exactly:
+                // If it is NOT in issueTypesList AND NOT (Severity Warning AND Not Connectivity)
+
+                filters.push(and(
+                    sql`${alerts.type} NOT IN ${issueTypesList}`,
+                    sql`NOT (${alerts.type} = 'threshold')`, // handled in issueTypesList but just to be safe
+                    sql`NOT (${alerts.severity} = 'warning' AND ${alerts.type} NOT IN ${connectivityTypesList})`
+                ));
             }
         }
 

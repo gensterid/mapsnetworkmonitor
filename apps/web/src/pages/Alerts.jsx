@@ -37,7 +37,8 @@ export default function Alerts() {
         sortOrder,
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined,
-        search: debouncedSearch
+        search: debouncedSearch,
+        category: 'alerts' // Server-side filtering to fix pagination
     });
 
     // Handle both new (paginated) and old (array) response formats for safety during transition
