@@ -72,14 +72,14 @@ async function cleanupAlerts() {
         })
         .where(
             and(
-                inArray(alerts.type, ['high_memory', 'high_cpu', 'high_disk']),
+                inArray(alerts.type, ['high_memory', 'high_cpu', 'high_disk', 'threshold'] as any[]),
                 lt(alerts.createdAt, oneDayAgo),
                 eq(alerts.resolved, false)
             )
         )
         .returning({ id: alerts.id });
 
-    console.log(`Resolved ${staleMetricUpdate.length} stale metric alerts (older than 24h).`);
+    console.log(`Resolved ${staleMetricUpdate.length} stale metric/threshold alerts (older than 24h).`);
 
     console.log('Cleanup complete.');
     process.exit(0);
