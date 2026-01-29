@@ -965,6 +965,7 @@ class AnalyticsService {
     async getInterfaceCapacityAnalysis(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
         interfaceName: string;
         routerName: string;
+        routerId: string;
         speed: string;
         avgTxMbps: number;
         avgRxMbps: number;
@@ -1060,6 +1061,7 @@ class AnalyticsService {
                 return {
                     interfaceName: r.interfaceName,
                     routerName: router?.name || 'Unknown',
+                    routerId: r.routerId,
                     speed: r.speed,
                     avgTxMbps: r.avgTxMbps,
                     avgRxMbps: r.avgRxMbps,
@@ -1081,6 +1083,7 @@ class AnalyticsService {
         incidentCount: number;
         deviceNames: string[];
         routerName: string;
+        routerId: string;
     }[]> {
         const range = dateRange || this.getDefaultDateRange();
 
@@ -1186,6 +1189,7 @@ class AnalyticsService {
                     incidentCount: data.incidentCount,
                     deviceNames: data.deviceNames.slice(0, 5), // Limit names shown
                     routerName: router?.name || 'Unknown',
+                    routerId: data.routerId,
                 };
             })
         );
