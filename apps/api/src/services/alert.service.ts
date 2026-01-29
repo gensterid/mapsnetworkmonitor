@@ -1053,6 +1053,10 @@ export class AlertService {
         // Don't alert if checks pass (should be handled by caller but safe to check)
         if (!isHighLatency && !isPacketLoss) return null;
 
+        // User Request: Filter out 100% packet loss from "issues" list
+        // 100% packet loss is already handled by "Device Down" (Netwatch) alerts which are more appropriate
+        if (packetLoss === 100) return null;
+
         let title;
         if (isHighLatency && isPacketLoss) {
             title = `Performance Issue: ${deviceName}`;
