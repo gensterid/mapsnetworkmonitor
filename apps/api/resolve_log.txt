@@ -1,4 +1,0 @@
-Resolving stale High Latency / Performance Issue alerts...
-Found 90 unresolved threshold alerts.
-Successfully resolved 90 alerts.
-This will allow NEW High Latency alerts to be generated for these hosts.
