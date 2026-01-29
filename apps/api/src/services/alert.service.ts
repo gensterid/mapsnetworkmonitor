@@ -193,7 +193,7 @@ export class AlertService {
 
         // Category filtering
         if (options.category) {
-            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'reboot', 'high_latency', 'packet_loss'];
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'reboot'];
             const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect'];
 
             if (options.category === 'issues') {
@@ -436,7 +436,7 @@ export class AlertService {
      * Check if alert is an "issue" (System/Performance) vs "alert" (Connectivity/Status)
      */
     private isIssue(alert: Alert): boolean {
-        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
 
         if (issueTypes.includes(alert.type)) return true;
         if (alert.type === 'threshold') return true;
