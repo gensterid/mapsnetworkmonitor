@@ -24,6 +24,8 @@ router.get(
         const category = req.query.category as 'issues' | 'alerts';
         const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
         const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+        // Parse resolved: 'true' -> true, 'false' -> false, undefined -> undefined
+        const resolved = req.query.resolved === 'true' ? true : req.query.resolved === 'false' ? false : undefined;
 
         const result = await alertService.findAll({
             page,
@@ -35,7 +37,8 @@ router.get(
             userRole: req.user?.role,
             search,
             routerId,
-            category
+            category,
+            resolved
         });
 
         res.json(result);

@@ -1,0 +1,13 @@
+STDOUT:
+[main 1cbf88a] chore: add script to analyze unresolved alerts
+ 1 file changed, 71 insertions(+)
+ create mode 100644 apps/api/src/scripts/analyze_unresolved.ts
+
+
+STDERR:
+To https://github.com/gensterid/mapsnetworkmonitor
+   cb74f10..1cbf88a  main -> main
+
+
+ERROR:
+None

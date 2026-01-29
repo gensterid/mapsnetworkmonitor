@@ -1,0 +1,27 @@
+--- General Stats ---
+Total Alerts: 2117
+Unresolved:   520
+
+--- By Type ---
+netwatch_down       : 969 (Unresolved: 7)
+status_change       : 547 (Unresolved: 2)
+high_memory         : 244 (Unresolved: 244)
+pppoe_connect       : 176 (Unresolved: 176)
+pppoe_disconnect    : 91 (Unresolved: 91)
+threshold           : 90 (Unresolved: 0)
+
+--- Top 10 Alert Titles ---
+244    : High memory usage on genster
+171    : Device [genster] BASI ILON NEW is down
+76     : Device [genster] BASI ILON NEW is back UP
+71     : Device [genster] TA ERNA TENILO is down
+42     : Device [genster] TA ERNA TENILO is back UP
+37     : High Latency: 172.18.19.1
+20     : Device [genster] KA RAMAN YUDIN is down
+19     : Device [genster] KA EMUS is down
+19     : Device [genster] WAWAN DUMA is down
+18     : Device [genster] ATO SOPIR is down
+
+--- Date Range ---
+Oldest Alert: 2026-01-05 01:49:59.122
+Newest Alert: 2026-01-29 20:37:16.852637

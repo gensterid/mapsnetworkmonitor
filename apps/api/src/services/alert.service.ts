@@ -109,6 +109,7 @@ export class AlertService {
         search?: string;
         routerId?: string;
         category?: 'issues' | 'alerts';
+        resolved?: boolean;
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
         const page = options.page || 1;
         const limit = options.limit || 100;
@@ -135,6 +136,13 @@ export class AlertService {
             .$dynamic();
 
         const filters = [];
+
+        // Resolved/Unresolved filter
+        if (options.resolved !== undefined) {
+            filters.push(eq(alerts.resolved, options.resolved));
+            // If filtering for unresolved, sort by creation date desc (newest problems first)
+            // If filtering for resolved, maybe resolvedAt desc? Default to createdAt for now.
+        }
 
         // Date filtering
         if (options.startDate) {

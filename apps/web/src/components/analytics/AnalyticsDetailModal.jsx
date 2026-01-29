@@ -48,6 +48,8 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             case 'heatmap-details':
                 // For heatmap, search by the primary device name
                 return { ...baseParams, search: target.deviceNames?.[0] || '' };
+            case 'unresolved-alerts':
+                return { ...baseParams, resolved: false };
             default:
                 return baseParams;
         }
@@ -70,6 +72,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             case 'downtime-details': return `Detail Downtime: ${target?.name}`;
             case 'capacity-details': return `Riwayat Interface: ${target?.interfaceName}`;
             case 'heatmap-details': return `Insiden Area: ${target?.deviceNames?.[0] || 'Unknown'} ...`;
+            case 'unresolved-alerts': return `Unresolved Alerts (${target?.unresolved || 0})`;
             default: return 'Detail';
         }
     };

@@ -1,0 +1,13 @@
+STDOUT:
+[main cb74f10] fix: auto-resolve event alerts and add cleanup script
+ 2 files changed, 94 insertions(+)
+ create mode 100644 apps/api/src/scripts/cleanup_alerts.ts
+
+
+STDERR:
+To https://github.com/gensterid/mapsnetworkmonitor
+   9481b6f..cb74f10  main -> main
+
+
+ERROR:
+None

@@ -619,9 +619,9 @@ export default function Analytics() {
                             color="warning"
                             onClick={() => setDetailModal({
                                 open: true,
-                                type: 'alerts',
-                                title: 'Total Alerts',
-                                data: { total: overview?.totalAlerts, unresolved: overview?.unresolvedAlerts }
+                                type: 'unresolved-alerts',
+                                title: 'Unresolved Alerts',
+                                data: { unresolved: overview?.unresolvedAlerts }
                             })}
                         />
                         <StatCard

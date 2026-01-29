@@ -1,0 +1,6 @@
+Found 4 routers.
+--- Router Types & Status ---
+[Mon Jan 26 2026 07:38:14 GMT+0800 (Central Indonesia Time)] PUNCAK (id.genster.net) - Status: online, LastSeen: Mon Jan 26 2026 07:38:14 GMT+0800 (Central Indonesia Time)
+[Mon Jan 26 2026 07:38:01 GMT+0800 (Central Indonesia Time)] IDED (id.genster.net) - Status: online, LastSeen: Mon Jan 26 2026 07:38:01 GMT+0800 (Central Indonesia Time)
+[Mon Jan 26 2026 07:37:54 GMT+0800 (Central Indonesia Time)] genster (id.genster.net) - Status: online, LastSeen: Mon Jan 26 2026 07:37:54 GMT+0800 (Central Indonesia Time)
+[Mon Jan 26 2026 07:37:02 GMT+0800 (Central Indonesia Time)] YANI (id.genster.net) - Status: online, LastSeen: Mon Jan 26 2026 07:37:02 GMT+0800 (Central Indonesia Time)
