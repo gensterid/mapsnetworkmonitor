@@ -1075,6 +1075,45 @@ export class AlertService {
             message,
         });
     }
+
+    /**
+     * Resolve performance alert (high latency or packet loss)
+     * call when checks pass to auto-resolve previous issues
+     */
+    async resolvePerformanceAlert(
+        routerId: string,
+        host: string
+    ): Promise<number> {
+        // Find unresolved threshold alerts for this router that mention the host
+        const existingAlerts = await db
+            .select()
+            .from(alerts)
+            .where(and(
+                eq(alerts.routerId, routerId),
+                eq(alerts.type, 'threshold'),
+                eq(alerts.resolved, false)
+            ));
+
+        // Filter in memory for message (since we put host in message/title usually)
+        // Ideally we should have a reliable way to link alert to host (maybe via title or new metadata column)
+        // For now, check if message contains host IP
+        const alertsToResolve = existingAlerts.filter(a => a.message.includes(host));
+
+        if (alertsToResolve.length === 0) return 0;
+
+        const idsToResolve = alertsToResolve.map(a => a.id);
+
+        await db
+            .update(alerts)
+            .set({
+                resolved: true,
+                resolvedAt: new Date(),
+                // message: 'Automatically resolved: Performance checks passed.' // strict append might be better but let's keep it simple
+            })
+            .where(inArray(alerts.id, idsToResolve));
+
+        return idsToResolve.length;
+    }
 }
 
 // Export singleton instance

@@ -456,6 +456,14 @@ export class RouterService {
                                             } catch (err) {
                                                 console.error('Failed to create performance alert:', err);
                                             }
+                                        } else {
+                                            // Latency is fine (<= 100ms) and no packet loss
+                                            // Auto-resolve any existing performance alerts for this host
+                                            try {
+                                                await alertService.resolvePerformanceAlert(id, target.host);
+                                            } catch (resErr) {
+                                                console.error(`[Router ${router.name}] Failed to resolve performance alert for ${target.host}:`, resErr);
+                                            }
                                         }
 
                                     } else {
