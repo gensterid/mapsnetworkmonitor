@@ -1,1 +1,0 @@
-Running: git status && git add . && git commit -m "chore: cleanup and sync" && git push origin main
