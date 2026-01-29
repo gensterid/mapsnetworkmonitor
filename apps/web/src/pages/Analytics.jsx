@@ -619,8 +619,8 @@ export default function Analytics() {
                             color="warning"
                             onClick={() => setDetailModal({
                                 open: true,
-                                type: 'unresolved-alerts',
-                                title: 'Unresolved Alerts',
+                                type: 'all-alerts',
+                                title: 'Total Alerts History',
                                 data: { unresolved: overview?.unresolvedAlerts }
                             })}
                         />

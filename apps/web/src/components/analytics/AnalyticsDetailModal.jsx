@@ -50,6 +50,8 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
                 return { ...baseParams, search: target.deviceNames?.[0] || '' };
             case 'unresolved-alerts':
                 return { ...baseParams, resolved: false };
+            case 'all-alerts':
+                return { ...baseParams }; // No filter = all history
             default:
                 return baseParams;
         }
@@ -73,6 +75,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             case 'capacity-details': return `Riwayat Interface: ${target?.interfaceName}`;
             case 'heatmap-details': return `Insiden Area: ${target?.deviceNames?.[0] || 'Unknown'} ...`;
             case 'unresolved-alerts': return `Unresolved Alerts (${target?.unresolved || 0})`;
+            case 'all-alerts': return `Semua Alert (History)`;
             default: return 'Detail';
         }
     };
