@@ -39,3 +39,6 @@ temp
 artifacts
 database-export.json
 *.json.bak
+
+sync_output.txt
+sync_output_utf8.txt
