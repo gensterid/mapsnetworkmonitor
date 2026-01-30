@@ -24,6 +24,8 @@ export const alertTypeEnum = pgEnum('alert_type', [
     'pppoe_connect',
     'pppoe_disconnect',
     'system',
+    'high_latency',
+    'packet_loss',
 ]);
 
 // Alert severity enum

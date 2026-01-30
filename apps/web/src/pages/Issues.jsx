@@ -50,7 +50,7 @@ export default function Issues() {
     const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
 
     // Issue types (Performance/System)
-    const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+    const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
 
     // Filter alerts: Issues only
     const filteredAlerts = alerts.filter(alert => {

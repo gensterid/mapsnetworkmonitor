@@ -34,7 +34,7 @@ export class AlertService {
      */
     private async findRecentUnresolvedAlert(
         routerId: string,
-        type: 'status_change' | 'high_cpu' | 'high_memory' | 'high_disk' | 'interface_down' | 'netwatch_down' | 'threshold' | 'reboot' | 'pppoe_connect' | 'pppoe_disconnect'
+        type: 'status_change' | 'high_cpu' | 'high_memory' | 'high_disk' | 'interface_down' | 'netwatch_down' | 'threshold' | 'reboot' | 'pppoe_connect' | 'pppoe_disconnect' | 'system' | 'high_latency' | 'packet_loss'
     ): Promise<Alert | null> {
         const cooldownTime = new Date(Date.now() - ALERT_COOLDOWN_MINUTES * 60 * 1000);
 
@@ -445,7 +445,7 @@ export class AlertService {
      * Check if alert is an "issue" (System/Performance) vs "alert" (Connectivity/Status)
      */
     private isIssue(alert: Alert): boolean {
-        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
 
         if (issueTypes.includes(alert.type)) return true;
         if (alert.type === 'threshold') return true;
@@ -1049,15 +1049,15 @@ export class AlertService {
 
         if (!thresholds.alertsEnabled) return null;
 
-        // Use 'threshold' type for now as planned
+        const isHighLatency = latency > 100;
+        const isPacketLoss = packetLoss > 0;
+
         // Deduplicate: check if we already alerted about this host recently
-        const existing = await this.findRecentUnresolvedAlert(routerId, 'threshold');
+        const type = isPacketLoss ? 'packet_loss' : 'high_latency';
+        const existing = await this.findRecentUnresolvedAlert(routerId, type);
         if (existing && existing.message.includes(host)) {
             return null;
         }
-
-        const isHighLatency = latency > 100;
-        const isPacketLoss = packetLoss > 0;
 
         // Don't alert if checks pass (should be handled by caller but safe to check)
         if (!isHighLatency && !isPacketLoss) return null;
@@ -1082,7 +1082,7 @@ export class AlertService {
 
         return this.create({
             routerId,
-            type: 'threshold', // generic threshold type
+            type, // high_latency or packet_loss
             severity: 'warning',
             title,
             message,
@@ -1103,7 +1103,7 @@ export class AlertService {
             .from(alerts)
             .where(and(
                 eq(alerts.routerId, routerId),
-                eq(alerts.type, 'threshold'),
+                inArray(alerts.type, ['threshold', 'high_latency', 'packet_loss']),
                 eq(alerts.resolved, false)
             ));
 
