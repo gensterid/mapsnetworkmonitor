@@ -194,7 +194,7 @@ export class AlertService {
         // Category filtering
         if (options.category) {
             // Consistent with isIssue() but SQL-friendly
-            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
             const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
 
             if (options.category === 'issues') {
