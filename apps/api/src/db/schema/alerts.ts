@@ -23,6 +23,7 @@ export const alertTypeEnum = pgEnum('alert_type', [
     'reboot',
     'pppoe_connect',
     'pppoe_disconnect',
+    'system',
 ]);
 
 // Alert severity enum
