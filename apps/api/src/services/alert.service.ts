@@ -940,18 +940,47 @@ export class AlertService {
         let cpuAlert: Alert | null = null;
         let memoryAlert: Alert | null = null;
 
+        const thresholds = await this.getThresholds();
+
         // Check CPU
         if (cpuLoad !== undefined && cpuLoad !== null) {
-            cpuAlert = await this.createHighCpuAlert(routerId, routerName, cpuLoad);
+            if (cpuLoad >= thresholds.cpuWarning) {
+                cpuAlert = await this.createHighCpuAlert(routerId, routerName, cpuLoad);
+            } else {
+                // Auto-resolve if usage is back to normal
+                await this.resolveActiveMetricAlerts(routerId, 'high_cpu');
+            }
         }
 
         // Check Memory
         if (totalMemory && usedMemory) {
             const memoryPercent = Math.round((usedMemory / totalMemory) * 100);
-            memoryAlert = await this.createHighMemoryAlert(routerId, routerName, memoryPercent);
+            if (memoryPercent >= thresholds.memoryWarning) {
+                memoryAlert = await this.createHighMemoryAlert(routerId, routerName, memoryPercent);
+            } else {
+                // Auto-resolve if usage is back to normal
+                await this.resolveActiveMetricAlerts(routerId, 'high_memory');
+            }
         }
 
         return { cpuAlert, memoryAlert };
+    }
+
+    /**
+     * Resolve active metric alerts (CPU/Memory)
+     */
+    async resolveActiveMetricAlerts(routerId: string, type: 'high_cpu' | 'high_memory'): Promise<void> {
+        await db
+            .update(alerts)
+            .set({
+                resolved: true,
+                resolvedAt: new Date(),
+            })
+            .where(and(
+                eq(alerts.routerId, routerId),
+                eq(alerts.type, type),
+                eq(alerts.resolved, false)
+            ));
     }
 
     /**
