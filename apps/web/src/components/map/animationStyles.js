@@ -133,6 +133,46 @@ export const ANIMATION_STYLES = {
         opacity: 0.5,
         description: 'Animasi minimal dan profesional'
     },
+
+    // CyberFlow - Sleek, high-speed gradient effect
+    cyberFlow: {
+        name: 'CyberFlow (Premium)',
+        delay: 200,
+        dashArray: [20, 5, 20, 5],
+        weight: 3,
+        opacity: 0.9,
+        description: 'Efek aliran siber berkecepatan tinggi'
+    },
+
+    // PulseWave - Irregular glowing pulses
+    pulseWave: {
+        name: 'PulseWave (Premium)',
+        delay: 400,
+        dashArray: [2, 10, 30, 10],
+        weight: 4,
+        opacity: 0.8,
+        description: 'Denyut pulsa tidak beraturan'
+    },
+
+    // Plasma - Shifting core color effect (visualized via weight and opacity)
+    plasma: {
+        name: 'Plasma Beam',
+        delay: 300,
+        dashArray: [40, 10],
+        weight: 8,
+        opacity: 0.7,
+        description: 'Efek balok plasma tebal dan bercahaya'
+    },
+
+    // Ghost - Low opacity, fast moving spirits
+    ghost: {
+        name: 'Ghost Signal',
+        delay: 150,
+        dashArray: [1, 50],
+        weight: 3,
+        opacity: 0.4,
+        description: 'Sinyal transparan yang bergerak sangat cepat'
+    },
 };
 
 // Get style by name with fallback to default
