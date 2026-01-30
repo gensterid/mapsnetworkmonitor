@@ -63,8 +63,9 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         const limit = parseInt(req.query.limit as string) || 50;
+        const resolved = req.query.resolved === 'true' ? true : (req.query.resolved === 'false' ? false : undefined);
         // @ts-ignore
-        const alerts = await analyticsService.getAlertsList(dateRange, routerId, req.user?.id, req.user?.role, limit);
+        const alerts = await analyticsService.getAlertsList(dateRange, routerId, req.user?.id, req.user?.role, limit, resolved);
         res.json({ data: alerts });
     })
 );

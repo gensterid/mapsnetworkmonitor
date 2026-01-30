@@ -153,6 +153,12 @@ export const alertService = {
     // Resolve an alert
     resolve: (id) => put(`/alerts/${id}/resolve`),
 
+    // Resolve all alerts
+    resolveAll: (category) => {
+        const query = category ? `?category=${category}` : '';
+        return put(`/alerts/resolve-all${query}`);
+    },
+
     // Delete an alert
     delete: (id) => del(`/alerts/${id}`),
 };

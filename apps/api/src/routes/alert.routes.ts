@@ -144,6 +144,21 @@ router.put(
 );
 
 /**
+ * PUT /api/alerts/resolve-all
+ * Resolve all alerts
+ * Requires: User, Operator or Admin
+ */
+router.put(
+    '/resolve-all',
+    requireUser,
+    asyncHandler(async (req, res) => {
+        const category = req.query.category as 'issues' | 'alerts' | undefined;
+        await alertService.resolveAll(req.user!.id, req.user!.role, category);
+        res.json({ message: 'All alerts resolved successfully' });
+    })
+);
+
+/**
  * PUT /api/alerts/:id/resolve
  * Resolve an alert
  * Requires: Operator or Admin

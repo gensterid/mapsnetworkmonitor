@@ -427,7 +427,7 @@ class AnalyticsService {
     /**
      * Get detailed alerts list (for drill-down)
      */
-    async getAlertsList(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string, limit: number = 50): Promise<any[]> {
+    async getAlertsList(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string, limit: number = 50, resolved?: boolean): Promise<any[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
@@ -440,6 +440,10 @@ class AnalyticsService {
             gte(alerts.createdAt, range.startDate),
             lte(alerts.createdAt, range.endDate),
         ];
+
+        if (resolved !== undefined) {
+            conditions.push(eq(alerts.resolved, resolved));
+        }
 
         if (routerId) {
             if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
@@ -457,6 +461,8 @@ class AnalyticsService {
                 message: alerts.message,
                 severity: alerts.severity,
                 createdAt: alerts.createdAt,
+                resolved: alerts.resolved,
+                acknowledged: alerts.acknowledged,
                 routerName: routers.name,
             })
             .from(alerts)

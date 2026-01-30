@@ -45,6 +45,7 @@ export {
     useAcknowledgeAlert,
     useAcknowledgeAllAlerts,
     useResolveAlert,
+    useResolveAllAlerts,
     useDeleteAlert,
     alertKeys,
 } from './useAlerts';

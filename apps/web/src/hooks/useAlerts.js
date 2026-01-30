@@ -141,3 +141,19 @@ export function useAcknowledgeAllAlerts() {
         },
     });
 }
+
+/**
+ * Hook to resolve all alerts
+ */
+export function useResolveAllAlerts() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (category) => alertService.resolveAll(category),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
+            queryClient.invalidateQueries({ queryKey: alertKeys.unacknowledged() });
+        },
+    });
+}

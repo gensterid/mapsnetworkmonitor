@@ -545,6 +545,50 @@ export class AlertService {
     }
 
     /**
+     * Resolve all alerts
+     */
+    async resolveAll(userId: string, userRole?: string, category?: 'issues' | 'alerts'): Promise<boolean> {
+        let whereClause: any = eq(alerts.resolved, false);
+
+        // For non-admins/operators, check router access
+        if (userRole && userRole === 'user') {
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+
+            const routerIds = assigned.map(a => a.routerId);
+            if (routerIds.length === 0) return true;
+
+            whereClause = and(eq(alerts.resolved, false), inArray(alerts.routerId, routerIds));
+        }
+
+        if (category) {
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
+
+            const categoryCondition = category === 'issues'
+                ? inArray(alerts.type, issueTypesList as any)
+                : inArray(alerts.type, connectivityTypesList as any);
+
+            whereClause = and(whereClause, categoryCondition);
+        }
+
+        await db
+            .update(alerts)
+            .set({
+                resolved: true,
+                resolvedAt: new Date(),
+                acknowledged: true, // Resolving also acknowledges
+                acknowledgedBy: userId,
+                acknowledgedAt: new Date(),
+            })
+            .where(whereClause);
+
+        return true;
+    }
+
+    /**
      * Resolve an alert
      */
     async resolve(id: string): Promise<Alert | undefined> {

@@ -619,7 +619,7 @@ export default function Analytics() {
                             color="warning"
                             onClick={() => setHistoryModal({
                                 open: true,
-                                type: 'all-alerts',
+                                type: 'unresolved-alerts',
                                 target: { unresolved: overview?.unresolvedAlerts }
                             })}
                         />
