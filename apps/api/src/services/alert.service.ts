@@ -110,8 +110,7 @@ export class AlertService {
         category?: 'issues' | 'alerts';
         resolved?: boolean;
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
-        // DEBUG LOG
-        console.log(`DEBUG_V3: findAll resolved=${options.resolved}`);
+
 
         const page = options.page || 1;
         const limit = options.limit || 100;
@@ -213,7 +212,7 @@ export class AlertService {
                     not(and(
                         eq(alerts.severity, 'warning'),
                         notInArray(alerts.type, connectivityTypesList as any)
-                    ))
+                    ) as any)
                 ));
             }
         }
