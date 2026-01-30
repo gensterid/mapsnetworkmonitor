@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, or, ilike, isNull, getTableColumns, gte, lte, sql } from 'drizzle-orm';
+import { eq, desc, asc, and, or, ilike, isNull, getTableColumns, gte, lte, sql, notInArray, inArray, not } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     alerts,
@@ -9,7 +9,6 @@ import {
     type Alert,
     type NewAlert,
 } from '../db/schema/index.js';
-import { inArray } from 'drizzle-orm';
 import { notificationService } from './notification.service.js';
 import { eventEmitter } from './event-emitter.service.js';
 
@@ -203,20 +202,18 @@ export class AlertService {
                     inArray(alerts.type, issueTypesList as any),
                     and(
                         eq(alerts.severity, 'warning'),
-                        sql`${alerts.type} NOT IN ${connectivityTypesList}`
+                        notInArray(alerts.type, connectivityTypesList as any)
                     )
                 ));
             } else if (options.category === 'alerts') {
-                // Alerts: Everything that is NOT an issue
-                // Checks: Connectivity types OR (NOT Issue types AND NOT (Warning + Non-Connectivity))
-
-                // Simplified Inverse Logic matches isIssue() logic exactly:
-                // If it is NOT in issueTypesList AND NOT (Severity Warning AND Not Connectivity)
-
+                // Alerts: Connectivity types OR (NOT Issue types AND NOT (Warning + Non-Connectivity))
                 filters.push(and(
-                    sql`${alerts.type} NOT IN ${issueTypesList}`,
-                    sql`NOT (${alerts.type} = 'threshold')`, // handled in issueTypesList but just to be safe
-                    sql`NOT (${alerts.severity} = 'warning' AND ${alerts.type} NOT IN ${connectivityTypesList})`
+                    notInArray(alerts.type, issueTypesList as any),
+                    not(eq(alerts.type, 'threshold')), // redundant but safe
+                    not(and(
+                        eq(alerts.severity, 'warning'),
+                        notInArray(alerts.type, connectivityTypesList as any)
+                    ))
                 ));
             }
         }

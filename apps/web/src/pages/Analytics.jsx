@@ -617,11 +617,10 @@ export default function Analytics() {
                             value={overview?.totalAlerts || 0}
                             subvalue={`${overview?.unresolvedAlerts || 0} unresolved`}
                             color="warning"
-                            onClick={() => setDetailModal({
+                            onClick={() => setHistoryModal({
                                 open: true,
                                 type: 'all-alerts',
-                                title: 'Total Alerts History',
-                                data: { unresolved: overview?.unresolvedAlerts }
+                                target: { unresolved: overview?.unresolvedAlerts }
                             })}
                         />
                         <StatCard
