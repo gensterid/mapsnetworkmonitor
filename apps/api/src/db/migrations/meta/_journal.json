@@ -64,6 +64,13 @@
       "when": 1769189300087,
       "tag": "0008_yummy_zaladane",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1769787435361,
+      "tag": "0009_last_lady_vermin",
+      "breakpoints": true
     }
   ]
 }

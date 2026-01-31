@@ -1,5 +1,0 @@
-Found 3 netwatch entries with latency > 100.
---- Top 20 High Latency ---
-[Mon Jan 26 2026 07:38:06 GMT+0800 (Central Indonesia Time)] Host: 172.18.19.1 () - Latency: 263ms, PacketLoss: 0%
-[Mon Jan 26 2026 07:36:57 GMT+0800 (Central Indonesia Time)] Host: 192.168.19.214 (GUTU-2) - Latency: 144ms, PacketLoss: -100%
-[Thu Jan 08 2026 18:28:05 GMT+0800 (Central Indonesia Time)] Host: 10.100.111.232 (TIO) - Latency: 980ms, PacketLoss: 50%
