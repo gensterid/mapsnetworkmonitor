@@ -1149,6 +1149,11 @@ export class AlertService {
         if (isHighLatency) message += ` High Latency detected (${latency}ms > 100ms).`;
         if (isPacketLoss) message += ` Packet Loss detected (${packetLoss}%).`;
 
+        // Always show latency context if it wasn't already highlighted as "High Latency"
+        if (!isHighLatency) {
+            message += ` Latency: ${latency}ms.`;
+        }
+
         return this.create({
             routerId,
             type, // high_latency or packet_loss
