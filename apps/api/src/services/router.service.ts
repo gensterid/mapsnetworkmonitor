@@ -402,10 +402,10 @@ export class RouterService {
                             .from(routerNetwatch)
                             .where(eq(routerNetwatch.routerId, id));
 
-                        // Filter those that should be pinged (e.g. not disabled, status not down?) 
-                        // To be safe, we ping everything that is monitored to check latency, even if 'up'.
-                        // If 'down', ping might fail (return -1) which is fine.
-                        const targets = entries.filter(e => e.status !== 'unknown');
+                        // Filter those that should be pinged (e.g. valid host)
+                        // CRITICAL FIX: We must include 'unknown' status so new devices get checked!
+                        // Only exclude items with no host or invalid host.
+                        const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
 
                         // Concurrency limit
                         const CONCURRENCY_LIMIT = 1;
