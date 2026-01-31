@@ -192,10 +192,11 @@ export const ANIMATION_STYLES = {
     // Particle Dots (True Circles)
     particleDots: {
         name: 'Particle Dots (Tik-Tok Style)',
-        delay: 400,
-        dashArray: [0.1, 60], // Minimal dash length + Round Cap = Circle
-        weight: 6, // Thicker weight for visible dots
+        delay: 800, // Standard speed
+        dashArray: [2, 40], // 2px dash (becomes dot with round cap) + 40px gap
+        weight: 6,
         opacity: 1,
+        hardwareAccelerated: false, // Force CSS animation to ensure movement
         className: 'particle-dots-glow',
         description: 'Titik-titik cahaya bulat yang mengalir (Persis video)'
     },

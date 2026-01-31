@@ -52,6 +52,7 @@ const AnimatedPath = ({
         // Also pause if status is 'down' or 'offline' to prevent flickering
         const linePaused = !enableAnimation || (preset?.paused ?? paused) || (status === 'down' || status === 'offline');
         const lineReverse = preset?.reverse ?? reverse;
+        const lineHardwareAccelerated = preset?.hardwareAccelerated ?? hardwareAccelerated;
 
         // Status-based colors
         let lineColor = color;
@@ -104,7 +105,7 @@ const AnimatedPath = ({
             dashArray: lineDashArray,
             paused: linePaused,
             reverse: lineReverse,
-            hardwareAccelerated,
+            hardwareAccelerated: lineHardwareAccelerated,
             className, // Pass class name to Leaflet layer
             tooltip,
             popup,
