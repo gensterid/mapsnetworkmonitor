@@ -1122,7 +1122,9 @@ export class AlertService {
         const isPacketLoss = packetLoss > 0;
 
         // Deduplicate: check if we already alerted about this host recently
-        const type = isPacketLoss ? 'packet_loss' : 'high_latency';
+        // Fix: Prioritize 'high_latency' so it appears in Issues list as High Latency
+        // (Packet loss info will still be in the message)
+        const type = isHighLatency ? 'high_latency' : 'packet_loss';
         const existing = await this.findRecentUnresolvedAlert(routerId, type);
         if (existing && existing.message.includes(host)) {
             return null;
