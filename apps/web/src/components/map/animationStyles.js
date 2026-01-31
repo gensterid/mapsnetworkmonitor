@@ -180,13 +180,24 @@ export const ANIMATION_STYLES = {
 
     // Packet Flow (Exact Match for Reference)
     packetFlow: {
-        name: 'Packet Data (Reference)',
+        name: 'Packet Data (Capsules)',
         delay: 600, // Slower for distinct packet visibility
         dashArray: [14, 120], // Long gap to create "discrete packet" look
         weight: 4,
         opacity: 1, // High opacity for the packet itself
         className: 'packet-flow-glow',
-        description: 'Visualisasi paket data diskrit yang bergerak (Seperti Referensi)'
+        description: 'Visualisasi paket data berbentuk kapsul yang bergerak'
+    },
+
+    // Particle Dots (True Circles)
+    particleDots: {
+        name: 'Particle Dots (Tik-Tok Style)',
+        delay: 400,
+        dashArray: [0.1, 60], // Minimal dash length + Round Cap = Circle
+        weight: 6, // Thicker weight for visible dots
+        opacity: 1,
+        className: 'particle-dots-glow',
+        description: 'Titik-titik cahaya bulat yang mengalir (Persis video)'
     },
 };
 

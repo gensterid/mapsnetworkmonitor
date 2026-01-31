@@ -700,6 +700,13 @@
     /* Make packet ends rounded */
 }
 
+/* Particle Dots - Round glowing dots */
+.particle-dots-glow {
+    filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 6px currentColor);
+    stroke-linecap: round;
+    /* Essential for making the dash look like a dot */
+}
+
 @keyframes line-pulse {
     from {
         filter: drop-shadow(0 0 2px rgba(6, 182, 212, 0.5));
