@@ -408,7 +408,10 @@ export class RouterService {
                         const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
 
                         // Concurrency limit
-                        const CONCURRENCY_LIMIT = 1;
+                        // Concurrency limit
+                        // Optimized: Increased from 1 to 5 to speed up polling for large lists (250+ devices)
+                        // This is safe for MikroTik (single connection) and reduces total time significantly.
+                        const CONCURRENCY_LIMIT = 5;
                         const chunks = [];
                         for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
                             chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
