@@ -74,6 +74,8 @@ const AnimatedPath = ({
             linePulseColor = '#94a3b8';
         }
 
+        const className = preset?.className || '';
+
         return {
             color: lineColor,
             pulseColor: linePulseColor,
@@ -84,6 +86,7 @@ const AnimatedPath = ({
             paused: linePaused,
             reverse: lineReverse,
             hardwareAccelerated,
+            className, // Pass class name to Leaflet layer
             tooltip,
             popup,
         };

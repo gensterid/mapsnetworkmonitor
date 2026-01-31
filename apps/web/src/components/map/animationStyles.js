@@ -141,6 +141,7 @@ export const ANIMATION_STYLES = {
         dashArray: [20, 5, 20, 5],
         weight: 3,
         opacity: 0.9,
+        className: 'cyber-flow-glow',
         description: 'Efek aliran siber berkecepatan tinggi'
     },
 
@@ -151,16 +152,18 @@ export const ANIMATION_STYLES = {
         dashArray: [2, 10, 30, 10],
         weight: 4,
         opacity: 0.8,
+        className: 'pulse-wave-glow',
         description: 'Denyut pulsa tidak beraturan'
     },
 
-    // Plasma - Shifting core color effect (visualized via weight and opacity)
+    // Plasma - Shifting core color effect
     plasma: {
         name: 'Plasma Beam',
         delay: 300,
         dashArray: [40, 10],
         weight: 8,
         opacity: 0.7,
+        className: 'plasma-beam-glow',
         description: 'Efek balok plasma tebal dan bercahaya'
     },
 
@@ -171,6 +174,7 @@ export const ANIMATION_STYLES = {
         dashArray: [1, 50],
         weight: 3,
         opacity: 0.4,
+        className: 'ghost-signal-blur',
         description: 'Sinyal transparan yang bergerak sangat cepat'
     },
 };
