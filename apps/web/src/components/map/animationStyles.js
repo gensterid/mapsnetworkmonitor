@@ -192,11 +192,11 @@ export const ANIMATION_STYLES = {
     // Particle Dots (True Circles)
     particleDots: {
         name: 'Particle Dots (Tik-Tok Style)',
-        delay: 300, // Faster speed for smooth dot movement
-        dashArray: [3, 50], // Slightly larger dot (3px) and wider gap
+        delay: 0, // Ignored because we use CSS animation
+        dashArray: [4, 40], // 4px dot, 40px gap
         weight: 6,
         opacity: 1,
-        hardwareAccelerated: true, // Use JS animation (smoother/more reliable for dots)
+        hardwareAccelerated: false, // We use custom CSS animation in map.css
         className: 'particle-dots-glow',
         paused: false,
         description: 'Titik-titik cahaya bulat yang mengalir (Persis video)'

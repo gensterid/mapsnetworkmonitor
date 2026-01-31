@@ -705,6 +705,19 @@
     filter: drop-shadow(0 0 3px currentColor) drop-shadow(0 0 6px currentColor);
     stroke-linecap: round;
     /* Essential for making the dash look like a dot */
+    animation: particle-flow 1s linear infinite !important;
+    /* Force animation */
+}
+
+@keyframes particle-flow {
+    0% {
+        stroke-dashoffset: 0;
+    }
+
+    100% {
+        stroke-dashoffset: -100px;
+        /* Moves the dots along the line */
+    }
 }
 
 @keyframes line-pulse {
