@@ -177,6 +177,17 @@ export const ANIMATION_STYLES = {
         className: 'ghost-signal-blur',
         description: 'Sinyal transparan yang bergerak sangat cepat'
     },
+
+    // Packet Flow (Exact Match for Reference)
+    packetFlow: {
+        name: 'Packet Data (Reference)',
+        delay: 600, // Slower for distinct packet visibility
+        dashArray: [14, 120], // Long gap to create "discrete packet" look
+        weight: 4,
+        opacity: 1, // High opacity for the packet itself
+        className: 'packet-flow-glow',
+        description: 'Visualisasi paket data diskrit yang bergerak (Seperti Referensi)'
+    },
 };
 
 // Get style by name with fallback to default

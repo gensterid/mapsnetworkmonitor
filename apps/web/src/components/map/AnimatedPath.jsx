@@ -57,21 +57,40 @@ const AnimatedPath = ({
         let lineColor = color;
         let linePulseColor = pulseColor;
 
+        // In leaflet-ant-path:
+        // color = The dashed/moving part (The "ants")
+        // pulseColor = The background path (The "rail")
+
+        // Default Logic (Dark Mode Optimized):
+        // Rail (pulseColor) should be dark/dim or the link color but transparent
+        // Packet (color) should be the bright status color
+
+        // Override defaults if they are the generic props
+        if (pulseColor === '#ffffff' && status === 'up') {
+            // If default white background, change to dark rail
+            linePulseColor = 'rgba(56, 189, 248, 0.2)'; // Sky-400 with opacity
+            lineColor = '#38bdf8'; // Sky-400 (Cyan-like)
+        }
+
         if (status === 'down') {
-            lineColor = '#ef4444';
-            linePulseColor = '#fecaca';
+            lineColor = '#ef4444'; // Red-500 Packet
+            linePulseColor = 'rgba(239, 68, 68, 0.2)'; // Red rail
         } else if (type === 'pppoe') {
-            lineColor = '#9333ea'; // Purple-600
-            linePulseColor = '#c084fc'; // Purple-400
+            lineColor = '#a855f7'; // Purple-500 Packet
+            linePulseColor = 'rgba(168, 85, 247, 0.2)'; // Purple rail
         } else if (type === 'odp') {
-            lineColor = '#f59e0b'; // Orange-500
-            linePulseColor = '#fcd34d'; // Orange-200
+            lineColor = '#f59e0b'; // Amber-500 Packet
+            linePulseColor = 'rgba(245, 158, 11, 0.2)'; // Amber rail
         } else if (type === 'olt') {
-            lineColor = '#8b5cf6'; // Violet-500
-            linePulseColor = '#ddd6fe'; // Violet-200
+            lineColor = '#8b5cf6'; // Violet-500 Packet
+            linePulseColor = 'rgba(139, 92, 246, 0.2)'; // Violet rail
         } else if (status === 'unknown') {
-            lineColor = '#64748b';
-            linePulseColor = '#94a3b8';
+            lineColor = '#94a3b8'; // Slate-400 Packet
+            linePulseColor = 'rgba(148, 163, 184, 0.2)'; // Slate rail
+        } else if (status === 'up' && lineColor === '#10b981') {
+            // Fallback for generic 'up' status if not overridden above or custom color
+            lineColor = '#06b6d4'; // Cyan-500 (Matches the "Cyber" look better than Green)
+            linePulseColor = 'rgba(6, 182, 212, 0.2)';
         }
 
         const className = preset?.className || '';

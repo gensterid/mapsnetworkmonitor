@@ -693,6 +693,13 @@
     filter: blur(1px) drop-shadow(0 0 2px currentColor);
 }
 
+/* Packet Flow - Distinct bright packet with trail glow */
+.packet-flow-glow {
+    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
+    stroke-linecap: round;
+    /* Make packet ends rounded */
+}
+
 @keyframes line-pulse {
     from {
         filter: drop-shadow(0 0 2px rgba(6, 182, 212, 0.5));
