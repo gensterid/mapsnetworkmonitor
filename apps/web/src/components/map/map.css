@@ -776,5 +776,7 @@
 
 .animate-flow {
     animation: flow-animation linear infinite;
+    animation-duration: 3s;
+    /* Fallback duration if inline style fails */
     /* Duration and DashArray will be set via JS/Inline attributes or specialized classes */
 }

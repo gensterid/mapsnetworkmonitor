@@ -166,6 +166,7 @@ const AnimatedPath = ({
                     weight: options.weight,
                     opacity: options.opacity,
                     className: `${uniqueClass} ${options.className || ''} ${options.paused ? '' : 'animate-flow'}`,
+                    dashArray: Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray,
                     fill: false
                 }}
                 eventHandlers={onClick ? { click: onClick } : null}
