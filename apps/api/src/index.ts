@@ -69,6 +69,15 @@ async function runMigrations() {
                     ALTER TABLE pppoe_sessions ADD COLUMN waypoints TEXT;
                     RAISE NOTICE 'Added waypoints column to pppoe_sessions';
                 END IF;
+
+                -- Add animation_style to users
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'users' AND column_name = 'animation_style'
+                ) THEN
+                    ALTER TABLE users ADD COLUMN animation_style TEXT DEFAULT 'default';
+                    RAISE NOTICE 'Added animation_style column to users';
+                END IF;
             END $$;
         `);
         console.log('✅ Database migrations complete');

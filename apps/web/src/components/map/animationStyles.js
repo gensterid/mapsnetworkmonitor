@@ -186,6 +186,7 @@ export const ANIMATION_STYLES = {
         weight: 4,
         opacity: 1, // High opacity for the packet itself
         className: 'packet-flow-glow',
+        lineCap: 'round',
         description: 'Visualisasi paket data berbentuk kapsul yang bergerak'
     },
 
@@ -196,8 +197,9 @@ export const ANIMATION_STYLES = {
         dashArray: [4, 60], // 4px dot, 60px gap (Spaced out like video)
         weight: 6,
         opacity: 1,
-        hardwareAccelerated: true, // Use JS animation (Standard Ant-Path behavior)
+        hardwareAccelerated: false, // Force false to ensure animation loop runs on all browsers
         className: 'particle-dots-glow',
+        lineCap: 'round',
         paused: false,
         description: 'Titik-titik cahaya bulat yang mengalir (Persis video)'
     },

@@ -761,3 +761,20 @@
         margin: 16px;
     }
 }
+
+/* ===== Manual CCS Animation Keyframes ===== */
+@keyframes flow-animation {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -100%;
+        /* Will be overriden by inline style ideally, or we rely on dasharray matching */
+    }
+}
+
+.animate-flow {
+    animation: flow-animation linear infinite;
+    /* Duration and DashArray will be set via JS/Inline attributes or specialized classes */
+}
