@@ -106,23 +106,33 @@ const AnimatedPath = ({
     const animName = options.reverse ? 'flow-reverse' : 'flow-forward';
     const offsetValue = options.reverse ? dashArraySum : -dashArraySum;
 
+    // Ref for the Polyline
+    const polylineRef = React.useRef(null);
+
+    // Effect to apply CSS variables directly to the SVG path element
+    React.useEffect(() => {
+        if (!polylineRef.current) return;
+
+        // Access the underlying Leaflet layer
+        const layer = polylineRef.current;
+
+        // Leaflet stores the path element in _path
+        // (Note: This is internal Leaflet API, but stable in v1.x)
+        const pathElement = layer._path; // || layer._renderer?._container // for canvas renderer if we switch
+
+        if (pathElement) {
+            pathElement.style.setProperty('--path-dasharray', dashArrayStr);
+            pathElement.style.setProperty('--path-duration', duration);
+            pathElement.style.setProperty('--path-anim-name', animName);
+            pathElement.style.setProperty('--path-offset', `${offsetValue}`);
+
+            // Force strict dasharray if needed
+            pathElement.style.setProperty('stroke-dasharray', `var(--path-dasharray)`, 'important');
+        }
+    }, [dashArrayStr, duration, animName, offsetValue]);
+
     return (
         <>
-            <style>
-                {`
-                .${uniqueClass} {
-                    --path-dasharray: ${dashArrayStr};
-                    --path-duration: ${duration};
-                    --path-anim-name: ${animName};
-                    --path-offset: ${offsetValue};
-                    stroke-dasharray: var(--path-dasharray) !important;
-                }
-                .${uniqueClass}:hover {
-                    stroke-width: ${options.weight + 2}px !important;
-                }
-                `}
-            </style>
-
             {/* Background Rail */}
             <Polyline
                 positions={positions}
@@ -136,11 +146,13 @@ const AnimatedPath = ({
 
             {/* Foreground Moving Ants */}
             <Polyline
+                ref={polylineRef}
                 positions={positions}
                 pathOptions={{
                     color: options.color,
                     weight: options.weight,
                     opacity: options.opacity,
+                    // We keep the uniqueClass for selection but don't rely on it for variables anymore
                     className: `ans-path-base ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
                     fill: false
                 }}
