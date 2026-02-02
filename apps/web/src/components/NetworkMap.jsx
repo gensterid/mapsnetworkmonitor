@@ -1311,7 +1311,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         `;
                     return (
                         <AnimatedPath
-                            key={`line-${line.id}`}
+                            key={`line-${line.id}-${enableAnimation}`}
                             positions={[line.from, ...(line.waypoints || []), line.to]}
                             status={line.status}
                             type={line.deviceType}
