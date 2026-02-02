@@ -68,8 +68,12 @@ const AnimatedPath = ({
             lineColor = '#94a3b8';
             linePulseColor = 'rgba(148, 163, 184, 0.2)';
         } else if (status === 'up' && lineColor === '#10b981') {
-            lineColor = '#06b6d4';
-            linePulseColor = 'rgba(6, 182, 212, 0.2)';
+            // Keep green for up status as requested
+            // lineColor = '#06b6d4'; 
+            // linePulseColor = 'rgba(6, 182, 212, 0.2)';
+
+            // Ensure pulse color matches green if it was default
+            linePulseColor = 'rgba(16, 185, 129, 0.2)';
         }
 
         return {
