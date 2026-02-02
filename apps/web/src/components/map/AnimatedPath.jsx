@@ -67,13 +67,12 @@ const AnimatedPath = ({
         } else if (status === 'unknown') {
             lineColor = '#94a3b8';
             linePulseColor = 'rgba(148, 163, 184, 0.2)';
-        } else if (status === 'up' && lineColor === '#10b981') {
-            // Keep green for up status as requested
-            // lineColor = '#06b6d4'; 
-            // linePulseColor = 'rgba(6, 182, 212, 0.2)';
-
-            // Ensure pulse color matches green if it was default
-            linePulseColor = 'rgba(16, 185, 129, 0.2)';
+        } else if (status === 'up') {
+            // Default to green for 'up' status if no specific type matched and no color provided
+            if (!lineColor || lineColor === '#10b981') {
+                lineColor = '#10b981';
+                linePulseColor = 'rgba(16, 185, 129, 0.2)';
+            }
         }
 
         return {
@@ -169,9 +168,7 @@ const AnimatedPath = ({
                     className: `${uniqueClass} ${options.className || ''} ${options.paused ? '' : 'animate-flow'}`,
                     fill: false
                 }}
-                eventHandlers={{
-                    click: onClick
-                }}
+                eventHandlers={onClick ? { click: onClick } : null}
             >
                 {options.tooltip && (
                     <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
