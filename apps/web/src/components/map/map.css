@@ -794,23 +794,28 @@
 }
 
 .ans-style-default {
-    animation: flow-default 3s linear infinite;
+    animation: flow-default 3s linear infinite !important;
+    stroke-dasharray: 10, 20 !important;
 }
 
 .ans-style-fastPulse {
-    animation: flow-fastPulse 1.5s linear infinite;
+    animation: flow-fastPulse 1.5s linear infinite !important;
+    stroke-dasharray: 5, 10 !important;
 }
 
 .ans-style-slowWave {
-    animation: flow-slowWave 4s linear infinite;
+    animation: flow-slowWave 4s linear infinite !important;
+    stroke-dasharray: 15, 30 !important;
 }
 
 .ans-style-racing {
-    animation: flow-racing 1s linear infinite;
+    animation: flow-racing 1s linear infinite !important;
+    stroke-dasharray: 8, 16 !important;
 }
 
 .ans-style-reverseFlow {
-    animation: flow-reverse 3s linear infinite;
+    animation: flow-reverse 3s linear infinite !important;
+    stroke-dasharray: 10, 20 !important;
 }
 
 @keyframes flow-animation {
@@ -819,14 +824,10 @@
     }
 
     to {
-        stroke-dashoffset: -100%;
-        /* Will be overriden by inline style ideally, or we rely on dasharray matching */
+        stroke-dashoffset: -30;
     }
 }
 
 .animate-flow {
-    animation: flow-animation linear infinite;
-    animation-duration: 3s;
-    /* Fallback duration if inline style fails */
-    /* Duration and DashArray will be set via JS/Inline attributes or specialized classes */
+    animation: flow-animation 3s linear infinite !important;
 }

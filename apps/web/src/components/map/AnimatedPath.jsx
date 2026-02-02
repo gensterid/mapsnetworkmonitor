@@ -134,15 +134,15 @@ const AnimatedPath = ({
                     }
                 }
                 .${uniqueClass} {
-                    stroke-dasharray: ${Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray};
-                    animation: ${animParams.animationName} ${animParams.duration} linear infinite${additionalAnimation};
-                    animation-play-state: ${options.paused ? 'paused' : 'running'};
-                    stroke-linecap: ${options.lineCap};
-                    stroke-linejoin: round;
+                    stroke-dasharray: ${Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray} !important;
+                    animation: ${animParams.animationName} ${animParams.duration} linear infinite${additionalAnimation} !important;
+                    animation-play-state: ${options.paused ? 'paused' : 'running'} !important;
+                    stroke-linecap: ${options.lineCap} !important;
+                    stroke-linejoin: round !important;
                 }
                 .${uniqueClass}:hover {
-                    stroke-width: ${options.weight + 2}px;
-                    filter: brightness(1.2);
+                    stroke-width: ${options.weight + 2}px !important;
+                    filter: brightness(1.2) !important;
                 }
                 `}
             </style>
