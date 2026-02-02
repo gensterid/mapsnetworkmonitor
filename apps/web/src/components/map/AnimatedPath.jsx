@@ -102,9 +102,9 @@ const AnimatedPath = ({
     // Flow speed calculation: we use the delay as duration
     const duration = `${options.delay}ms`;
 
-    // Choose the right keyframe based on the dash offset needed
-    const animName = options.reverse ? 'flow-reverse' : 'flow-forward';
-    const offsetValue = options.reverse ? dashArraySum : -dashArraySum;
+    // Choose the right keyframe name BASED ON THE SUM
+    // This is much more robust than using generic names with variables
+    const animName = `flow-${dashArraySum}${options.reverse ? '-rev' : ''}`;
 
     // Ref for the Polyline
     const polylineRef = React.useRef(null);
@@ -116,20 +116,27 @@ const AnimatedPath = ({
         // Access the underlying Leaflet layer
         const layer = polylineRef.current;
 
-        // Leaflet stores the path element in _path
-        // (Note: This is internal Leaflet API, but stable in v1.x)
-        const pathElement = layer._path; // || layer._renderer?._container // for canvas renderer if we switch
+        // Leaflet stores the path element in _path or getElement()
+        const pathElement = layer.getElement?.() || layer._path;
 
         if (pathElement) {
+            // Set variables (still useful for premium effects that inherit them)
             pathElement.style.setProperty('--path-dasharray', dashArrayStr);
             pathElement.style.setProperty('--path-duration', duration);
             pathElement.style.setProperty('--path-anim-name', animName);
-            pathElement.style.setProperty('--path-offset', `${offsetValue}`);
 
-            // Force strict dasharray if needed
-            pathElement.style.setProperty('stroke-dasharray', `var(--path-dasharray)`, 'important');
+            // Set direct CSS properties for maximum compatibility
+            // These overwrite anything from classes
+            pathElement.style.setProperty('stroke-dasharray', dashArrayStr, 'important');
+            pathElement.style.setProperty('animation-name', animName, 'important');
+            pathElement.style.setProperty('animation-duration', duration, 'important');
+            pathElement.style.setProperty('animation-timing-function', 'linear', 'important');
+            pathElement.style.setProperty('animation-iteration-count', 'infinite', 'important');
+
+            // Handle paused state
+            pathElement.style.setProperty('animation-play-state', options.paused ? 'paused' : 'running', 'important');
         }
-    }, [dashArrayStr, duration, animName, offsetValue]);
+    }, [dashArrayStr, duration, animName, options.paused]);
 
     return (
         <>
