@@ -165,7 +165,7 @@ const AnimatedPath = ({
                     color: options.color,
                     weight: options.weight,
                     opacity: options.opacity,
-                    className: `${uniqueClass} ${options.className || ''} ${options.paused ? '' : 'animate-flow'}`,
+                    className: `${uniqueClass} ans-style-${animationStyle} ${options.className || ''} ${options.paused ? '' : 'animate-flow'}`,
                     dashArray: Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray,
                     fill: false
                 }}
