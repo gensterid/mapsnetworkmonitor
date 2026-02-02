@@ -94,10 +94,29 @@ const AnimatedPath = ({
 
     const uniqueClass = `anim-path-${uuid}`;
 
+    // Convert dashArray to string format for CSS and calculate sum for offset
+    const dashArrayValues = Array.isArray(options.dashArray) ? options.dashArray : [10, 20];
+    const dashArrayStr = dashArrayValues.join(', ');
+    const dashArraySum = dashArrayValues.reduce((a, b) => a + b, 0);
+
+    // Flow speed calculation: we use the delay as duration
+    const duration = `${options.delay}ms`;
+
+    // Choose the right keyframe based on the dash offset needed
+    const animName = options.reverse ? 'flow-reverse' : 'flow-forward';
+    const offsetValue = options.reverse ? dashArraySum : -dashArraySum;
+
     return (
         <>
             <style>
                 {`
+                .${uniqueClass} {
+                    --path-dasharray: ${dashArrayStr};
+                    --path-duration: ${duration};
+                    --path-anim-name: ${animName};
+                    --path-offset: ${offsetValue};
+                    stroke-dasharray: var(--path-dasharray) !important;
+                }
                 .${uniqueClass}:hover {
                     stroke-width: ${options.weight + 2}px !important;
                 }
@@ -122,7 +141,7 @@ const AnimatedPath = ({
                     color: options.color,
                     weight: options.weight,
                     opacity: options.opacity,
-                    className: `ans-path-base ans-style-${animationStyle} ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
+                    className: `ans-path-base ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
                     fill: false
                 }}
                 eventHandlers={onClick ? { click: onClick } : null}

@@ -670,7 +670,11 @@
 .cyber-flow-glow {
     filter: drop-shadow(0 0 5px rgba(6, 182, 212, 0.8));
     /* Cyan-500 */
-    animation: line-pulse 2s infinite alternate;
+    animation-name: var(--path-anim-name), line-pulse !important;
+    animation-duration: var(--path-duration), 2s !important;
+    animation-iteration-count: infinite, infinite !important;
+    animation-direction: normal, alternate !important;
+    animation-timing-function: linear, ease-in-out !important;
 }
 
 /* Neon Glow - Bright constant glow */
@@ -680,7 +684,10 @@
 
 /* Pulse Wave - Rhythmic glow */
 .pulse-wave-glow {
-    animation: line-wave 3s infinite ease-in-out;
+    animation-name: var(--path-anim-name), line-wave !important;
+    animation-duration: var(--path-duration), 3s !important;
+    animation-iteration-count: infinite, infinite !important;
+    animation-timing-function: linear, ease-in-out !important;
 }
 
 /* Plasma Beam - Thick energetic glow */
@@ -916,107 +923,112 @@
 /* Shared Animation Classes */
 .ans-style-default {
     stroke-dasharray: 10, 20 !important;
-    animation: flow-30 3s linear infinite !important;
 }
 
 .ans-style-fastPulse {
     stroke-dasharray: 5, 10 !important;
-    animation: flow-15 1.5s linear infinite !important;
 }
 
 .ans-style-slowWave {
     stroke-dasharray: 15, 30 !important;
-    animation: flow-45 4s linear infinite !important;
 }
 
 .ans-style-dotted {
     stroke-dasharray: 3, 12 !important;
-    animation: flow-15 2s linear infinite !important;
 }
 
 .ans-style-dashed {
     stroke-dasharray: 20, 15 !important;
-    animation: flow-35 2.5s linear infinite !important;
 }
 
 .ans-style-racing {
     stroke-dasharray: 8, 16 !important;
-    animation: flow-24 1s linear infinite !important;
 }
 
 .ans-style-thickFlow {
     stroke-dasharray: 12, 8 !important;
-    animation: flow-20 2s linear infinite !important;
 }
 
 .ans-style-morse {
     stroke-dasharray: 15, 5, 5, 5 !important;
-    animation: flow-30 3s linear infinite !important;
 }
 
 .ans-style-heartbeat {
     stroke-dasharray: 5, 5, 15, 5 !important;
-    animation: flow-30 3s linear infinite !important;
 }
 
 .ans-style-fiberOptic {
     stroke-dasharray: 2, 8 !important;
-    animation: flow-10 1s linear infinite !important;
 }
 
 .ans-style-reverseFlow {
     stroke-dasharray: 10, 20 !important;
-    animation: flow-30-rev 3s linear infinite !important;
 }
 
 .ans-style-neonGlow {
     stroke-dasharray: 15, 10 !important;
-    animation: flow-25 2s linear infinite !important;
 }
 
 .ans-style-subtle {
     stroke-dasharray: 8, 25 !important;
-    animation: flow-33 4s linear infinite !important;
 }
 
 .ans-style-cyberFlow {
     stroke-dasharray: 20, 5, 20, 5 !important;
-    animation: flow-50 2s linear infinite !important;
 }
 
 .ans-style-pulseWave {
     stroke-dasharray: 2, 10, 30, 10 !important;
-    animation: flow-52 3s linear infinite !important;
 }
 
 .ans-style-plasma {
     stroke-dasharray: 40, 10 !important;
-    animation: flow-50 2s linear infinite !important;
 }
 
 .ans-style-ghost {
     stroke-dasharray: 1, 50 !important;
-    animation: flow-51 1.5s linear infinite !important;
 }
 
 .ans-style-packetFlow {
     stroke-dasharray: 14, 120 !important;
-    animation: flow-134 4s linear infinite !important;
 }
 
 .ans-style-particleDots {
     stroke-dasharray: 4, 60 !important;
-    animation: flow-64 1s linear infinite !important;
 }
 
 /* Base path styling and optimization */
 .ans-path-base {
+    animation-name: var(--path-anim-name);
+    animation-duration: var(--path-duration);
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
     will-change: stroke-dashoffset;
-    transform: translateZ(0);
 }
 
 .ans-paused {
     animation-play-state: paused !important;
+}
+
+/* Dynamic Keyframes using CSS variables */
+@keyframes flow-forward {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: var(--path-offset, -100);
+    }
+}
+
+@keyframes flow-reverse {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: var(--path-offset, 100);
+    }
 }
 
 /* Hover effects */
