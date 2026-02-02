@@ -92,60 +92,14 @@ const AnimatedPath = ({
         };
     }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup, animationStyle, enableAnimation]);
 
-    // Calculate animation parameters
-    const animParams = useMemo(() => {
-        const arr = Array.isArray(options.dashArray) ? options.dashArray : [10, 20];
-        const totalDashLength = arr.reduce((a, b) => a + b, 0);
-
-        // Generate duration based on delay (interval)
-        let durationStr = '3s';
-        if (typeof options.delay === 'number') {
-            if (options.delay < 200) durationStr = '1s';
-            else if (options.delay < 500) durationStr = '2s';
-            else durationStr = '4s';
-        }
-
-        return {
-            totalDashLength,
-            duration: durationStr,
-            animationName: `flow-${Math.floor(totalDashLength)}-${options.reverse ? 'rev' : 'fwd'}-${uuid}`
-        };
-    }, [options.dashArray, options.delay, options.reverse, uuid]);
-
     const uniqueClass = `anim-path-${uuid}`;
-
-    // Determine overlapping animations based on class name (Cyber, Pulse, etc)
-    const additionalAnimation = useMemo(() => {
-        if (options.className?.includes('cyber-flow-glow')) {
-            return ', line-pulse 2s infinite alternate';
-        } else if (options.className?.includes('pulse-wave-glow')) {
-            return ', line-wave 3s infinite ease-in-out';
-        }
-        return '';
-    }, [options.className]);
 
     return (
         <>
             <style>
                 {`
-                @keyframes ${animParams.animationName} {
-                    to {
-                        stroke-dashoffset: ${options.reverse ? animParams.totalDashLength : -animParams.totalDashLength};
-                    }
-                }
-                .${uniqueClass} {
-                    stroke-dasharray: ${Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray} !important;
-                    animation: ${animParams.animationName} ${animParams.duration} linear infinite${additionalAnimation} !important;
-                    animation-play-state: ${options.paused ? 'paused' : 'running'} !important;
-                    stroke-linecap: ${options.lineCap} !important;
-                    stroke-linejoin: round !important;
-                    /* Hardware Acceleration */
-                    transform: translateZ(0);
-                    will-change: stroke-dashoffset;
-                }
                 .${uniqueClass}:hover {
                     stroke-width: ${options.weight + 2}px !important;
-                    filter: brightness(1.2) !important;
                 }
                 `}
             </style>
@@ -168,8 +122,7 @@ const AnimatedPath = ({
                     color: options.color,
                     weight: options.weight,
                     opacity: options.opacity,
-                    className: `${uniqueClass} ${options.className || ''}`,
-                    dashArray: Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray,
+                    className: `ans-path-base ans-style-${animationStyle} ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
                     fill: false
                 }}
                 eventHandlers={onClick ? { click: onClick } : null}

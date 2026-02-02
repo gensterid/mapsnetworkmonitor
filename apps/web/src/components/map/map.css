@@ -762,7 +762,58 @@
     }
 }
 
-@keyframes flow-animation {
+/* Robust Animation Keyframes v3 */
+@keyframes flow-10 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -10;
+    }
+}
+
+@keyframes flow-15 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -15;
+    }
+}
+
+@keyframes flow-20 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -20;
+    }
+}
+
+@keyframes flow-24 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -24;
+    }
+}
+
+@keyframes flow-25 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -25;
+    }
+}
+
+@keyframes flow-30 {
     from {
         stroke-dashoffset: 0;
     }
@@ -770,4 +821,205 @@
     to {
         stroke-dashoffset: -30;
     }
+}
+
+@keyframes flow-33 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -33;
+    }
+}
+
+@keyframes flow-35 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -35;
+    }
+}
+
+@keyframes flow-45 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -45;
+    }
+}
+
+@keyframes flow-50 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -50;
+    }
+}
+
+@keyframes flow-51 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -51;
+    }
+}
+
+@keyframes flow-52 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -52;
+    }
+}
+
+@keyframes flow-64 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -64;
+    }
+}
+
+@keyframes flow-134 {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: -134;
+    }
+}
+
+@keyframes flow-30-rev {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: 30;
+    }
+}
+
+/* Shared Animation Classes */
+.ans-style-default {
+    stroke-dasharray: 10, 20 !important;
+    animation: flow-30 3s linear infinite !important;
+}
+
+.ans-style-fastPulse {
+    stroke-dasharray: 5, 10 !important;
+    animation: flow-15 1.5s linear infinite !important;
+}
+
+.ans-style-slowWave {
+    stroke-dasharray: 15, 30 !important;
+    animation: flow-45 4s linear infinite !important;
+}
+
+.ans-style-dotted {
+    stroke-dasharray: 3, 12 !important;
+    animation: flow-15 2s linear infinite !important;
+}
+
+.ans-style-dashed {
+    stroke-dasharray: 20, 15 !important;
+    animation: flow-35 2.5s linear infinite !important;
+}
+
+.ans-style-racing {
+    stroke-dasharray: 8, 16 !important;
+    animation: flow-24 1s linear infinite !important;
+}
+
+.ans-style-thickFlow {
+    stroke-dasharray: 12, 8 !important;
+    animation: flow-20 2s linear infinite !important;
+}
+
+.ans-style-morse {
+    stroke-dasharray: 15, 5, 5, 5 !important;
+    animation: flow-30 3s linear infinite !important;
+}
+
+.ans-style-heartbeat {
+    stroke-dasharray: 5, 5, 15, 5 !important;
+    animation: flow-30 3s linear infinite !important;
+}
+
+.ans-style-fiberOptic {
+    stroke-dasharray: 2, 8 !important;
+    animation: flow-10 1s linear infinite !important;
+}
+
+.ans-style-reverseFlow {
+    stroke-dasharray: 10, 20 !important;
+    animation: flow-30-rev 3s linear infinite !important;
+}
+
+.ans-style-neonGlow {
+    stroke-dasharray: 15, 10 !important;
+    animation: flow-25 2s linear infinite !important;
+}
+
+.ans-style-subtle {
+    stroke-dasharray: 8, 25 !important;
+    animation: flow-33 4s linear infinite !important;
+}
+
+.ans-style-cyberFlow {
+    stroke-dasharray: 20, 5, 20, 5 !important;
+    animation: flow-50 2s linear infinite !important;
+}
+
+.ans-style-pulseWave {
+    stroke-dasharray: 2, 10, 30, 10 !important;
+    animation: flow-52 3s linear infinite !important;
+}
+
+.ans-style-plasma {
+    stroke-dasharray: 40, 10 !important;
+    animation: flow-50 2s linear infinite !important;
+}
+
+.ans-style-ghost {
+    stroke-dasharray: 1, 50 !important;
+    animation: flow-51 1.5s linear infinite !important;
+}
+
+.ans-style-packetFlow {
+    stroke-dasharray: 14, 120 !important;
+    animation: flow-134 4s linear infinite !important;
+}
+
+.ans-style-particleDots {
+    stroke-dasharray: 4, 60 !important;
+    animation: flow-64 1s linear infinite !important;
+}
+
+/* Base path styling and optimization */
+.ans-path-base {
+    will-change: stroke-dashoffset;
+    transform: translateZ(0);
+}
+
+.ans-paused {
+    animation-play-state: paused !important;
+}
+
+/* Hover effects */
+[class*="ans-style-"]:hover {
+    filter: brightness(1.2) !important;
 }
