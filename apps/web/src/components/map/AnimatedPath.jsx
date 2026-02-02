@@ -5,38 +5,50 @@ import L from 'leaflet';
 import { getAnimationStyle } from './animationStyles';
 
 /**
- * AnimatedPath - A component that renders animated "marching ants" polylines
- * using leaflet-ant-path for visual indication of data flow direction.
+ * AnimatedPath Component
  * 
- * Performance optimizations:
- * - Uses useMemo to prevent unnecessary re-renders
- * - Cleans up properly on unmount
- * - Configurable animation speed
- * - Supports preset animation styles
+ * Renders a connection line between two coordinates with animation effects.
+ * Now supports "Pure CSS" animation to avoid Leaflet plugin issues.
+ * 
+ * @param {Object} props
+ * @param {Array} props.positions - [start, end] coordinates
+ * @param {string} props.status - 'up' | 'down' | 'offline' | 'unknown'
+ * @param {string} props.type - 'router' | 'pppoe' | 'odp' | 'olt'
+ * @param {string} props.animationStyle - Style key from animationStyles.js
+ * @param {string} props.color - Override color
+ * @param {number} props.weight - Override weight
+ * @param {number} props.opacity - Override opacity
+ * @param {number} props.delay - Override delay
+ * @param {Array} props.dashArray - Override dashArray
+ * @param {boolean} props.paused - Force pause
+ * @param {Function} props.onClick - Click handler
+ * @param {string} props.tooltip - Tooltip content
+ * @param {string} props.popup - Popup content
+ * @param {boolean} props.enableAnimation - Global animation toggle
  */
 const AnimatedPath = ({
-    positions = [],
-    color = '#10b981',
-    pulseColor = '#ffffff',
+    positions,
+    status,
+    type,
+    animationStyle = 'default',
+    color,
+    pulseColor,
     weight = 3,
-    opacity = 0.8,
+    opacity = 1,
     delay = 800,
     dashArray = [10, 20],
     paused = false,
     reverse = false,
-    hardwareAccelerated = true,
-    status = 'up', // 'up', 'down', 'unknown'
-    type = null, // 'odp', 'client', etc
-    animationStyle = null, // Use preset style name (e.g., 'fastPulse', 'dotted')
-    enableAnimation = true, // Performance toggle
+    hardwareAccelerated = false,
+    onClick,
     tooltip,
     popup,
-    onClick,
+    enableAnimation = true
 }) => {
     const map = useMap();
     const pathRef = useRef(null);
 
-    // Memoize options to prevent unnecessary updates
+    // Memoize final options to avoid unnecessary re-renders
     const options = useMemo(() => {
         // Apply preset style if specified
         const preset = animationStyle ? getAnimationStyle(animationStyle) : null;
@@ -106,7 +118,6 @@ const AnimatedPath = ({
             dashArray: lineDashArray,
             paused: linePaused,
             reverse: lineReverse,
-            hardwareAccelerated: lineHardwareAccelerated,
             hardwareAccelerated: lineHardwareAccelerated,
             className, // Pass class name to Leaflet layer
             lineCap: preset?.lineCap, // Pass lineCap preference
