@@ -186,7 +186,6 @@ export const ANIMATION_STYLES = {
         weight: 4,
         opacity: 1, // High opacity for the packet itself
         className: 'packet-flow-glow',
-        lineCap: 'round',
         description: 'Visualisasi paket data berbentuk kapsul yang bergerak'
     },
 
@@ -199,7 +198,6 @@ export const ANIMATION_STYLES = {
         opacity: 1,
         hardwareAccelerated: false, // Force false to ensure animation loop runs on all browsers
         className: 'particle-dots-glow',
-        lineCap: 'round',
         paused: false,
         description: 'Titik-titik cahaya bulat yang mengalir (Persis video)'
     },
