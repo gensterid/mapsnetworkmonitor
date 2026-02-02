@@ -139,6 +139,9 @@ const AnimatedPath = ({
                     animation-play-state: ${options.paused ? 'paused' : 'running'} !important;
                     stroke-linecap: ${options.lineCap} !important;
                     stroke-linejoin: round !important;
+                    /* Hardware Acceleration */
+                    transform: translateZ(0);
+                    will-change: stroke-dashoffset;
                 }
                 .${uniqueClass}:hover {
                     stroke-width: ${options.weight + 2}px !important;
@@ -165,7 +168,7 @@ const AnimatedPath = ({
                     color: options.color,
                     weight: options.weight,
                     opacity: options.opacity,
-                    className: `${uniqueClass} ans-style-${animationStyle} ${options.className || ''} ${options.paused ? '' : 'animate-flow'}`,
+                    className: `${uniqueClass} ${options.className || ''}`,
                     dashArray: Array.isArray(options.dashArray) ? options.dashArray.join(',') : options.dashArray,
                     fill: false
                 }}

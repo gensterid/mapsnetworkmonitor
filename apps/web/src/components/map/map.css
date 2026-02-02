@@ -762,62 +762,6 @@
     }
 }
 
-/* ===== Manual CCS Animation Keyframes ===== */
-@keyframes flow-default {
-    to {
-        stroke-dashoffset: -30;
-    }
-}
-
-@keyframes flow-fastPulse {
-    to {
-        stroke-dashoffset: -15;
-    }
-}
-
-@keyframes flow-slowWave {
-    to {
-        stroke-dashoffset: -45;
-    }
-}
-
-@keyframes flow-racing {
-    to {
-        stroke-dashoffset: -24;
-    }
-}
-
-@keyframes flow-reverse {
-    to {
-        stroke-dashoffset: 30;
-    }
-}
-
-.ans-style-default {
-    animation: flow-default 3s linear infinite !important;
-    stroke-dasharray: 10, 20 !important;
-}
-
-.ans-style-fastPulse {
-    animation: flow-fastPulse 1.5s linear infinite !important;
-    stroke-dasharray: 5, 10 !important;
-}
-
-.ans-style-slowWave {
-    animation: flow-slowWave 4s linear infinite !important;
-    stroke-dasharray: 15, 30 !important;
-}
-
-.ans-style-racing {
-    animation: flow-racing 1s linear infinite !important;
-    stroke-dasharray: 8, 16 !important;
-}
-
-.ans-style-reverseFlow {
-    animation: flow-reverse 3s linear infinite !important;
-    stroke-dasharray: 10, 20 !important;
-}
-
 @keyframes flow-animation {
     from {
         stroke-dashoffset: 0;
@@ -826,8 +770,4 @@
     to {
         stroke-dashoffset: -30;
     }
-}
-
-.animate-flow {
-    animation: flow-animation 3s linear infinite !important;
 }
