@@ -96,44 +96,41 @@ const AnimatedPath = ({
         if (pathElement) {
             let finalDashArrayStr = dashArrayStr;
             let finalDashArraySum = dashArraySum;
+            const uniqueAnimName = `dyn-flow-${uuid}`; // UNIQUE KEYFRAME NAME PER PATH
 
             // Robust Sync Arrival Logic using SVG pathLength normalization
-            // This normalizes the coordinate system of the path to 1000 units
-            // allowing us to animate 'from 0 to 1000' and it will ALWAYS take exactly 'duration'
-            // to reach the end, regardless of the line's actual length or map zoom.
             if (options.syncArrival) {
                 pathElement.setAttribute('pathLength', '1000');
 
-                // We use a pattern based on the 1000 unit scale
-                // Pattern: [dot_size, gap_to_end]
                 // For 'classicPulse' with [4, 1000] initial, we translate to normalized units
                 const basePattern = Array.isArray(options.dashArray) ? [...options.dashArray] : [4, 1000];
                 const dotSize = basePattern[0];
 
-                // A gap of 1000 ensures only one dot is visible at a time
-                const syncedDashArray = [dotSize, 1000];
+                // SEAMLESS LOGIC: The pattern must sum exactly to the pathLength (1000)
+                // for a perfect loop with dashoffset -1000
+                const gapSize = 1000 - dotSize;
+                const syncedDashArray = [dotSize, gapSize > 0 ? gapSize : 1000];
+
                 finalDashArrayStr = syncedDashArray.join(', ');
-                finalDashArraySum = dotSize + 1000;
+                finalDashArraySum = 1000;
             } else {
-                // Remove pathLength if it was previously set to return to pixel-based units
                 pathElement.removeAttribute('pathLength');
             }
 
-            // Safety check for NaN values which break CSS
-            if (isNaN(finalDashArraySum)) finalDashArraySum = 1000;
+            // Safety check for NaN values
+            if (isNaN(finalDashArraySum)) finalDashArraySum = dashArraySum || 1000;
 
-            // DEBUG LOG for User (Proxmox Troubleshooting)
+            // DEBUG LOG for Proxmox Persistence Troubleshooting
             console.log(`[AnimatedPath] ${uuid} init:`, {
                 style: animationStyle,
                 sync: options.syncArrival,
                 duration: duration,
-                dash: finalDashArrayStr
+                dash: finalDashArrayStr,
+                paused: options.paused,
+                animName: uniqueAnimName
             });
 
             // Dynamic Style Injection (Robust CSS Class)
-            // We inject a specific style tag for this component instance
-            // This ensures Leaflet's redraws (which wipe inline styles) do not kill the animation
-            // Use a unique ID that includes uuid to ensure fresh injection
             const styleId = `style-path-${uuid}`;
             let styleSheet = document.getElementById(styleId);
             if (!styleSheet) {
@@ -142,13 +139,13 @@ const AnimatedPath = ({
                 document.head.appendChild(styleSheet);
             }
 
-            // Define the keyframes and the class-based animation rules with HIGH priority
+            // Define the keyframes and the class-based animation rules with MAXIMUM priority
             styleSheet.innerText = `
-                @keyframes ${animName} {
+                @keyframes ${uniqueAnimName} {
                     from { stroke-dashoffset: 0; }
                     to { stroke-dashoffset: -${finalDashArraySum}; }
                 }
-                @keyframes ${animName}-rev {
+                @keyframes ${uniqueAnimName}-rev {
                     from { stroke-dashoffset: 0; }
                     to { stroke-dashoffset: ${finalDashArraySum}; }
                 }
@@ -156,7 +153,7 @@ const AnimatedPath = ({
                 /* Apply animation via class with MAXIMUM priority for Proxmox stability */
                 .anim-path-${uuid} {
                     stroke-dasharray: ${finalDashArrayStr} !important;
-                    animation-name: ${animName} !important;
+                    animation-name: ${uniqueAnimName}${options.reverse ? '-rev' : ''} !important;
                     animation-duration: ${duration} !important;
                     animation-timing-function: linear !important;
                     animation-iteration-count: infinite !important;
@@ -166,7 +163,6 @@ const AnimatedPath = ({
                     will-change: stroke-dashoffset;
                 }
 
-                /* Ensure color priority for this specific path */
                 .anim-path-${uuid} {
                     stroke: ${options.color} !important;
                 }
