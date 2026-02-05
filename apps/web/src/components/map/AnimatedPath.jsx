@@ -93,49 +93,55 @@ const AnimatedPath = ({
         const pathElement = layer.getElement?.() || layer._path;
 
         if (pathElement) {
-            // Dynamic Keyframe Injection
-            if (!document.getElementById(`style-${animName}`)) {
-                const styleSheet = document.createElement("style");
-                styleSheet.id = `style-${animName}`;
-                styleSheet.innerText = `
-                    @keyframes ${animName} {
-                        from { stroke-dashoffset: 0; }
-                        to { stroke-dashoffset: -${dashArraySum}; }
-                    }
-                    @keyframes ${animName}-rev {
-                        from { stroke-dashoffset: 0; }
-                        to { stroke-dashoffset: ${dashArraySum}; }
-                    }
-                `;
+            // Dynamic Style Injection (Robust CSS Class)
+            // We inject a specific style tag for this component instance
+            // This ensures Leaflet's redraws (which wipe inline styles) do not kill the animation
+            let styleSheet = document.getElementById(`style-path-${uuid}`);
+            if (!styleSheet) {
+                styleSheet = document.createElement("style");
+                styleSheet.id = `style-path-${uuid}`;
                 document.head.appendChild(styleSheet);
             }
 
-            // Set variables
-            pathElement.style.setProperty('--path-dasharray', dashArrayStr);
-            pathElement.style.setProperty('--path-duration', duration);
-            pathElement.style.setProperty('--path-anim-name', animName);
+            // Define the keyframes and the class-based animation rules
+            styleSheet.innerText = `
+                @keyframes ${animName} {
+                    from { stroke-dashoffset: 0; }
+                    to { stroke-dashoffset: -${dashArraySum}; }
+                }
+                @keyframes ${animName}-rev {
+                    from { stroke-dashoffset: 0; }
+                    to { stroke-dashoffset: ${dashArraySum}; }
+                }
+                
+                /* Apply animation via class - Leaflet respects classes! */
+                .anim-path-${uuid} {
+                    stroke-dasharray: ${dashArrayStr} !important;
+                    animation-name: ${animName};
+                    animation-duration: ${duration};
+                    animation-timing-function: linear;
+                    animation-iteration-count: infinite;
+                    animation-play-state: ${options.paused ? 'paused' : 'running'};
+                    stroke-linecap: ${options.lineCap} !important;
+                    stroke-linejoin: ${options.lineJoin} !important;
+                    will-change: stroke-dashoffset;
+                }
 
-            // Sync CSS color
-            if (options.color) {
-                pathElement.style.setProperty('color', options.color);
-            }
-
-            // Set direct CSS properties
-            pathElement.style.setProperty('stroke-dasharray', dashArrayStr, 'important');
-
-            // Apply animation properties WITHOUT !important
-            // This allows CSS classes (like .cyber-flow-glow) to override them using !important
-            // which solves the conflict between standard and premium styles natively.
-            pathElement.style.setProperty('animation-name', animName);
-            pathElement.style.setProperty('animation-duration', duration);
-            pathElement.style.setProperty('animation-timing-function', 'linear');
-            pathElement.style.setProperty('animation-iteration-count', 'infinite');
-            pathElement.style.setProperty('animation-play-state', options.paused ? 'paused' : 'running');
-
-            pathElement.style.setProperty('stroke-linecap', options.lineCap, 'important');
-            pathElement.style.setProperty('stroke-linejoin', options.lineJoin, 'important');
+                /* Ensure color priority for this specific path */
+                .anim-path-${uuid} {
+                    stroke: ${options.color} !important;
+                }
+            `;
         }
-    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, positions]);
+
+        // Cleanup function to remove style tag when component unmounts
+        return () => {
+            const styleSheet = document.getElementById(`style-path-${uuid}`);
+            if (styleSheet) {
+                styleSheet.remove();
+            }
+        };
+    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, uuid]);
 
     return (
         <>
