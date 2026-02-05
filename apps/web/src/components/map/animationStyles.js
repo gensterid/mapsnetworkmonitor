@@ -142,6 +142,7 @@ export const ANIMATION_STYLES = {
         weight: 3,
         opacity: 0.9,
         className: 'cyber-flow-glow',
+        useCustomCSS: true, // Allow CSS in map.css to handle animation
         description: 'Efek aliran siber berkecepatan tinggi'
     },
 
@@ -153,6 +154,7 @@ export const ANIMATION_STYLES = {
         weight: 4,
         opacity: 0.8,
         className: 'pulse-wave-glow',
+        useCustomCSS: true, // Allow CSS in map.css to handle animation
         description: 'Denyut pulsa tidak beraturan'
     },
 
@@ -186,6 +188,7 @@ export const ANIMATION_STYLES = {
         weight: 4,
         opacity: 1, // High opacity for the packet itself
         className: 'packet-flow-glow',
+        lineCap: 'round', // Ensure rounds
         description: 'Visualisasi paket data berbentuk kapsul yang bergerak'
     },
 
@@ -198,6 +201,7 @@ export const ANIMATION_STYLES = {
         opacity: 1,
         hardwareAccelerated: false, // Force false to ensure animation loop runs on all browsers
         className: 'particle-dots-glow',
+        lineCap: 'round', // IMPORTANT: Round dots
         paused: false,
         description: 'Titik-titik cahaya bulat yang mengalir (Lambat & Terang)'
     },
@@ -225,6 +229,7 @@ export const ANIMATION_STYLES = {
         color: '#ffffff', // FORCE WHITE TRAIL
         opacity: 0.9,
         className: 'neon-comet',
+        lineCap: 'round',
         description: 'Ekor komet memanjang'
     },
 
@@ -248,6 +253,7 @@ export const ANIMATION_STYLES = {
         weight: 4,
         color: '#ffffff', // FORCE WHITE
         className: 'neon-warning',
+        lineCap: 'round',
         description: 'Gerakan lambat indikator warning'
     },
 
