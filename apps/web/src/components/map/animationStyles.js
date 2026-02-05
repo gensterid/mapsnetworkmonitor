@@ -212,49 +212,53 @@ export const ANIMATION_STYLES = {
     // 1. Classic Pulse
     classicPulse: {
         name: 'Classic Single Pulse',
-        delay: 4000, // Slowed down from 2000 to 4000
+        delay: 4000,
         dashArray: [4, 1000],
         weight: 4,
-        color: '#ffffff', // FORCE WHITE DOT
+        color: '#ffffff',
         className: 'neon-pulse',
         lineCap: 'round',
+        syncArrival: true, // Flag for constant-time travel across path
         description: 'Satu titik cahaya fokus (Bulat)'
     },
 
     // 2. Comet Tail
     cometTail: {
         name: 'Comet Tail (Meteor)',
-        delay: 3000, // Slowed down from 1500 to 3000
+        delay: 3000,
         dashArray: [50, 800],
         weight: 5,
-        color: '#ffffff', // FORCE WHITE TRAIL
+        color: '#ffffff',
         opacity: 0.9,
         className: 'neon-comet',
         lineCap: 'round',
+        syncArrival: true,
         description: 'Ekor komet memanjang'
     },
 
     // 3. Multi-Burst
     multiBurst: {
         name: 'Multi-Burst (Packet)',
-        delay: 4000, // Slowed down from 2000 to 4000
+        delay: 4000,
         dashArray: [5, 40, 5, 40, 5, 800],
         weight: 4,
-        color: '#ffffff', // FORCE WHITE BURSTS
+        color: '#ffffff',
         className: 'neon-burst',
         lineCap: 'round',
+        syncArrival: true,
         description: 'Paket data beruntun'
     },
 
     // 4. Warning / Slow Motion
     slowWarning: {
         name: 'Warning / Slow Motion',
-        delay: 6000, // Slowed down from 4000 to 6000
+        delay: 6000,
         dashArray: [10, 800],
         weight: 4,
-        color: '#ffffff', // FORCE WHITE
+        color: '#ffffff',
         className: 'neon-warning',
         lineCap: 'round',
+        syncArrival: true,
         description: 'Gerakan lambat indikator warning'
     },
 
