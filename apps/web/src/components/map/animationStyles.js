@@ -207,8 +207,8 @@ export const ANIMATION_STYLES = {
     // 1. Classic Pulse
     classicPulse: {
         name: 'Classic Single Pulse',
-        delay: 2000,
-        dashArray: [4, 1000], // Huge gap to simulate single dot on long lines
+        delay: 4000, // Slowed down from 2000 to 4000
+        dashArray: [4, 1000],
         weight: 4,
         color: '#ffffff', // FORCE WHITE DOT
         className: 'neon-pulse',
@@ -219,8 +219,8 @@ export const ANIMATION_STYLES = {
     // 2. Comet Tail
     cometTail: {
         name: 'Comet Tail (Meteor)',
-        delay: 1500,
-        dashArray: [50, 800], // Increased gap
+        delay: 3000, // Slowed down from 1500 to 3000
+        dashArray: [50, 800],
         weight: 5,
         color: '#ffffff', // FORCE WHITE TRAIL
         opacity: 0.9,
@@ -231,8 +231,8 @@ export const ANIMATION_STYLES = {
     // 3. Multi-Burst
     multiBurst: {
         name: 'Multi-Burst (Packet)',
-        delay: 2000,
-        dashArray: [5, 40, 5, 40, 5, 800], // Increased final gap
+        delay: 4000, // Slowed down from 2000 to 4000
+        dashArray: [5, 40, 5, 40, 5, 800],
         weight: 4,
         color: '#ffffff', // FORCE WHITE BURSTS
         className: 'neon-burst',
@@ -243,8 +243,8 @@ export const ANIMATION_STYLES = {
     // 4. Warning / Slow Motion
     slowWarning: {
         name: 'Warning / Slow Motion',
-        delay: 4000,
-        dashArray: [10, 800], // Increased gap
+        delay: 6000, // Slowed down from 4000 to 6000
+        dashArray: [10, 800],
         weight: 4,
         color: '#ffffff', // FORCE WHITE
         className: 'neon-warning',
