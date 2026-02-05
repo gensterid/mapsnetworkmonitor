@@ -1069,9 +1069,9 @@
 }
 
 /* Base path styling and optimization */
+/* NOTE: animation-name and animation-duration are now controlled ONLY by JavaScript
+   in AnimatedPath.jsx. This prevents CSS from overriding JS before it runs. */
 .ans-path-base {
-    animation-name: var(--path-anim-name, flow-30);
-    animation-duration: var(--path-duration, 800ms);
     animation-timing-function: linear;
     animation-iteration-count: infinite;
     will-change: stroke-dashoffset;
