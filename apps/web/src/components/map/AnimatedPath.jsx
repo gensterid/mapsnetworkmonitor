@@ -64,7 +64,6 @@ const AnimatedPath = ({
             hardwareAccelerated: lineHardwareAccelerated,
             className: preset?.className || '',
             lineCap: preset?.lineCap || 'butt',
-            useCustomCSS: preset?.useCustomCSS || false,
             tooltip,
             popup,
         };
@@ -123,23 +122,19 @@ const AnimatedPath = ({
             // Set direct CSS properties
             pathElement.style.setProperty('stroke-dasharray', dashArrayStr, 'important');
 
-            // Only apply specific animation properties if NOT using custom CSS
-            // This allows complex styles like 'cyberFlow' to define their own animations in CSS
-            if (!options.useCustomCSS) {
-                pathElement.style.setProperty('animation-name', animName, 'important');
-                pathElement.style.setProperty('animation-duration', duration, 'important');
-                pathElement.style.setProperty('animation-timing-function', 'linear', 'important');
-                pathElement.style.setProperty('animation-iteration-count', 'infinite', 'important');
-                pathElement.style.setProperty('animation-play-state', options.paused ? 'paused' : 'running', 'important');
-            } else {
-                // For custom CSS, we just ensure it's running
-                pathElement.style.setProperty('animation-play-state', options.paused ? 'paused' : 'running', 'important');
-            }
+            // Apply animation properties WITHOUT !important
+            // This allows CSS classes (like .cyber-flow-glow) to override them using !important
+            // which solves the conflict between standard and premium styles natively.
+            pathElement.style.setProperty('animation-name', animName);
+            pathElement.style.setProperty('animation-duration', duration);
+            pathElement.style.setProperty('animation-timing-function', 'linear');
+            pathElement.style.setProperty('animation-iteration-count', 'infinite');
+            pathElement.style.setProperty('animation-play-state', options.paused ? 'paused' : 'running');
 
             pathElement.style.setProperty('stroke-linecap', options.lineCap, 'important');
             pathElement.style.setProperty('stroke-linejoin', options.lineJoin, 'important');
         }
-    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, options.useCustomCSS, positions]);
+    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, positions]);
 
     return (
         <>

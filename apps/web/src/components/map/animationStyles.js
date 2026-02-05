@@ -142,7 +142,6 @@ export const ANIMATION_STYLES = {
         weight: 3,
         opacity: 0.9,
         className: 'cyber-flow-glow',
-        useCustomCSS: true, // Allow CSS in map.css to handle animation
         description: 'Efek aliran siber berkecepatan tinggi'
     },
 
@@ -154,7 +153,6 @@ export const ANIMATION_STYLES = {
         weight: 4,
         opacity: 0.8,
         className: 'pulse-wave-glow',
-        useCustomCSS: true, // Allow CSS in map.css to handle animation
         description: 'Denyut pulsa tidak beraturan'
     },
 
