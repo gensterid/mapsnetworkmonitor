@@ -34,8 +34,8 @@ async function debugPing() {
         try {
             password = decrypt(router.passwordEncrypted);
             console.error('DEBUG: Password decrypted');
-        } catch (e) {
-            console.error('DEBUG: Decryption failed:', e.message);
+        } catch (e: any) {
+            console.error('DEBUG: Decryption failed:', e?.message || e);
         }
 
         console.error('DEBUG: Connecting to router...');
@@ -56,8 +56,8 @@ async function debugPing() {
         console.error('DEBUG: Target Result:', JSON.stringify(resultTarget));
 
         conn.close();
-    } catch (e) {
-        console.error('DEBUG: Error:', e);
+    } catch (e: any) {
+        console.error('DEBUG: Error:', e?.message || e);
     }
     process.exit(0);
 }

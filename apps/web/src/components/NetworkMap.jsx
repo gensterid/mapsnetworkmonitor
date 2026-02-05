@@ -13,6 +13,7 @@ import { toast } from 'react-hot-toast';
 // Import new map components
 import {
     AnimatedPath,
+    AntPath, // Import AntPath
     EditablePath,
     MapFAB,
     MapToolbar,
@@ -21,6 +22,7 @@ import {
     createDeviceIcon,
     LineThicknessControl,
     RouterTooltip,
+    getAnimationStyle, // Import helper to check style config
 } from './map';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import './map/map.css';
@@ -689,31 +691,27 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         nodes.forEach(node => {
             let fromPos = null;
 
-            // Determine Source Position
+            // Determine Source Position (Robust Fallback Logic)
             if (node.connectionType === 'client' && node.connectedToId) {
-                // Connected to another client?
+                // 1. Try connecting to Parent Client
                 const parentNode = deviceMap.get(node.connectedToId);
                 if (parentNode) {
                     fromPos = [parentNode.lat, parentNode.lng];
                 }
+            } else if (node.connectionType === 'router' && node.connectedToId) {
+                // 2. Try connecting to Parent Router (if explicitly set)
+                const parentRouter = routerMap.get(node.connectedToId);
+                if (parentRouter) {
+                    fromPos = [parentRouter.lat, parentRouter.lng];
+                }
             }
 
-            // Fallback to Router connection if no client parent found or connection type is router
-            if (!fromPos) {
-                // Try specific connectedToId if it matches a router
-                if (node.connectionType === 'router' && node.connectedToId) {
-                    const parentRouter = routerMap.get(node.connectedToId);
-                    if (parentRouter) {
-                        fromPos = [parentRouter.lat, parentRouter.lng];
-                    }
-                }
-
-                // Final fallback: Use the routerId associated with the device
-                if (!fromPos && node.routerId) {
-                    const parentRouter = routerMap.get(node.routerId);
-                    if (parentRouter) {
-                        fromPos = [parentRouter.lat, parentRouter.lng];
-                    }
+            // 3. FALLBACK: Always connect to Main Router if no other parent found
+            // This fixes "Missing Line" issues for orphaned devices (like Down/ODP with broken links)
+            if (!fromPos && node.routerId) {
+                const parentRouter = routerMap.get(node.routerId);
+                if (parentRouter) {
+                    fromPos = [parentRouter.lat, parentRouter.lng];
                 }
             }
 
@@ -745,6 +743,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     destName: node.name || node.host,
                     distance,
                     deviceType: node.deviceType,
+                    // FIX: Pass latency/packetLoss so Yellow Alert works
+                    latency: node.latency,
+                    packetLoss: node.packetLoss,
                 });
             }
         });
@@ -807,6 +808,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 destName: session.name,
                                 distance,
                                 deviceType: 'pppoe',
+                                // FIX: Pass latency/packetLoss so Yellow Alert works
+                                latency: session.lastLatency || session.latency,
+                                packetLoss: session.packetLoss,
                             });
                         }
                     }
@@ -1309,6 +1313,53 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 </div>
                             </div>
                         `;
+
+
+                    // Check if we should use AntPath renderer
+                    const styleConfig = getAnimationStyle(currentUser?.animationStyle || 'default');
+
+                    // --- HIGH LATENCY / PACKET LOSS ALERT LOGIC ---
+                    const latency = line.latency || 0;
+                    const packetLoss = line.packetLoss || 0;
+                    const isHighLatency = latency > 100;
+                    const isPacketLoss = packetLoss > 5;
+                    const isAlert = isHighLatency || isPacketLoss;
+
+                    // Determine Rail Color (Background)
+                    let railColor = "#06b6d4"; // Default Cyan
+
+                    if (isAlert) {
+                        railColor = "#facc15"; // YELLOW Alert
+                    } else if (line.status === 'down') {
+                        railColor = "#FF0000"; // Pure Neon Red (Down - Fix)
+                    } else if (line.deviceType === 'pppoe') {
+                        railColor = "#CD00FF"; // Neon Purple (PPPoE)
+                    } else if (line.deviceType === 'odp') {
+                        railColor = "#FF6600"; // Vibrant Neon Orange (ODP - Fix)
+                    } else if (line.status === 'up') {
+                        railColor = "#10b981"; // Emerald Green (Up - Standard)
+                    }
+
+                    if (styleConfig.isAntPath) {
+                        return (
+                            <AntPath
+                                key={`ant - line - ${line.id} `}
+                                positions={[line.from, ...(line.waypoints || []), line.to]}
+                                options={{
+                                    delay: styleConfig.delay,
+                                    dashArray: styleConfig.dashArray,
+                                    weight: lineThickness,
+                                    color: styleConfig.color || railColor,
+                                    pulseColor: styleConfig.pulseColor || "#FFFFFF",
+                                    paused: !enableAnimation,
+                                    reverse: false
+                                }}
+                                tooltip={tooltipContent}
+                                popup={tooltipContent}
+                            />
+                        );
+                    }
+
                     return (
                         <AnimatedPath
                             key={`line-${line.id}-${enableAnimation}-${currentUser?.animationStyle || 'default'}`}
@@ -1316,11 +1367,19 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             status={line.status}
                             type={line.deviceType}
                             animationStyle={currentUser?.animationStyle || 'default'}
-                            delay={line.status === 'up' ? 800 : 400}
-                            weight={line.status === 'up' ? lineThickness : Math.max(1, lineThickness - 1)}
+                            // Standardized Animation: Same speed and weight for ALL statuses
+                            delay={800}
+                            weight={lineThickness}
                             enableAnimation={enableAnimation}
+
+                            // FORCE NEON LOGIC: 
+                            // color = White (Pulse)
+                            // pulseColor = Status/Alert Color (Rail)
+                            color={styleConfig.color}
+                            pulseColor={railColor}
+
                             tooltip={tooltipContent}
-                            popup={tooltipContent} // Fix: Add popup same as tooltip
+                            popup={tooltipContent}
                         />
                     );
                 })}
@@ -1395,7 +1454,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                         <div className={`
                             absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
-                            flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg 
+                            flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg
                             backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
                             transition-all duration-200 origin-top-right
                             ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
@@ -1470,7 +1529,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                    }`}
+                                    } `}
                             >
                                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
                                     {isEditMode ? 'lock_open' : 'lock'}

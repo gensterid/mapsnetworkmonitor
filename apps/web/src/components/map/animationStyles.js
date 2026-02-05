@@ -192,15 +192,74 @@ export const ANIMATION_STYLES = {
     // Particle Dots (True Circles)
     particleDots: {
         name: 'Particle Dots (Tik-Tok Style)',
-        delay: 100, // Very fast update loop for smooth movement
+        delay: 800, // Slower movement
         dashArray: [4, 60], // 4px dot, 60px gap (Spaced out like video)
         weight: 6,
         opacity: 1,
         hardwareAccelerated: false, // Force false to ensure animation loop runs on all browsers
         className: 'particle-dots-glow',
         paused: false,
-        description: 'Titik-titik cahaya bulat yang mengalir (Persis video)'
+        description: 'Titik-titik cahaya bulat yang mengalir (Lambat & Terang)'
     },
+
+    // --- Styles Inspired by User Request (NEON REFINED) ---
+
+    // 1. Classic Pulse
+    classicPulse: {
+        name: 'Classic Single Pulse',
+        delay: 2000,
+        dashArray: [4, 1000], // Huge gap to simulate single dot on long lines
+        weight: 4,
+        color: '#ffffff', // FORCE WHITE DOT
+        className: 'neon-pulse',
+        lineCap: 'round',
+        description: 'Satu titik cahaya fokus (Bulat)'
+    },
+
+    // 2. Comet Tail
+    cometTail: {
+        name: 'Comet Tail (Meteor)',
+        delay: 1500,
+        dashArray: [50, 800], // Increased gap
+        weight: 5,
+        color: '#ffffff', // FORCE WHITE TRAIL
+        opacity: 0.9,
+        className: 'neon-comet',
+        description: 'Ekor komet memanjang'
+    },
+
+    // 3. Multi-Burst
+    multiBurst: {
+        name: 'Multi-Burst (Packet)',
+        delay: 2000,
+        dashArray: [5, 40, 5, 40, 5, 800], // Increased final gap
+        weight: 4,
+        color: '#ffffff', // FORCE WHITE BURSTS
+        className: 'neon-burst',
+        lineCap: 'round',
+        description: 'Paket data beruntun'
+    },
+
+    // 4. Warning / Slow Motion
+    slowWarning: {
+        name: 'Warning / Slow Motion',
+        delay: 4000,
+        dashArray: [10, 800], // Increased gap
+        weight: 4,
+        color: '#ffffff', // FORCE WHITE
+        className: 'neon-warning',
+        description: 'Gerakan lambat indikator warning'
+    },
+
+    // Ant Path (Leaflet Plugin)
+    antPath: {
+        name: 'Ant Path (Marching Ants)',
+        delay: 1000,
+        dashArray: [10, 20],
+        weight: 3,
+        isAntPath: true, // Flag to identify this special renderer
+        description: 'Efek garis berjalan klasik (Marching Ants)'
+    }
 };
 
 // Get style by name with fallback to default

@@ -700,9 +700,9 @@
     stroke-linecap: round;
 }
 
-/* Particle Dots - Round glowing dots */
+/* Particle Dots - Round glowing dots (Intense Glow) */
 .particle-dots-glow {
-    filter: drop-shadow(0 0 3px #10b981) drop-shadow(0 0 6px #059669);
+    filter: drop-shadow(0 0 4px #10b981) drop-shadow(0 0 8px #10b981) drop-shadow(0 0 12px #059669);
     stroke-linecap: round;
 }
 
@@ -726,6 +726,30 @@
     50% {
         filter: drop-shadow(0 0 10px currentColor) opacity(1);
     }
+}
+
+/* ===== NEW USER-REQUESTED NEON STYLES ===== */
+
+/* 1. Classic Pulse - intense white glow */
+.neon-pulse {
+    filter: drop-shadow(0 0 4px white) drop-shadow(0 0 8px white);
+}
+
+/* 2. Comet Tail */
+.neon-comet {
+    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
+    stroke-linecap: round;
+}
+
+/* 3. Multi-Burst */
+.neon-burst {
+    filter: drop-shadow(0 0 4px white) drop-shadow(0 0 8px white);
+    stroke-linecap: round;
+}
+
+/* 4. Warning (Generic) */
+.neon-warning {
+    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 10px currentColor);
 }
 
 /* ===== Responsive ===== */

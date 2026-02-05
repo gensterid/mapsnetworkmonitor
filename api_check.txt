@@ -1,0 +1,12 @@
+﻿
+> api@1.0.0 dev
+> tsx watch src/index.ts
+
+≡ƒÜÇ Server running on http://localhost:3001
+≡ƒôí API available at http://localhost:3001/api
+≡ƒöÉ Auth available at http://localhost:3001/api/auth
+Γ¥ñ∩╕Å  Health check at http://localhost:3001/api/health
+Γ£à Database migrations complete
+≡ƒôè Adaptive scaling: 289 devices ΓåÆ 120s interval, batch=10 (Priority + Batching)
+ΓÅ░ Starting router polling scheduler (every 2 minutes)
+ΓÅ░ Starting alert escalation checker (every 5 minutes)
