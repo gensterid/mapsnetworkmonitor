@@ -141,7 +141,7 @@ const AnimatedPath = ({
                 styleSheet.remove();
             }
         };
-    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, uuid]);
+    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, uuid, positions]);
 
     return (
         <>

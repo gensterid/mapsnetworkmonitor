@@ -1367,15 +1367,17 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             status={line.status}
                             type={line.deviceType}
                             animationStyle={currentUser?.animationStyle || 'default'}
-                            // Standardized Animation: Same speed and weight for ALL statuses
-                            delay={800}
-                            weight={lineThickness}
-                            enableAnimation={enableAnimation}
 
-                            // FORCE NEON LOGIC: 
-                            // color = White (Pulse)
-                            // pulseColor = Status/Alert Color (Rail)
-                            color={styleConfig.color}
+                            // Dynamic props from styleConfig
+                            delay={styleConfig.delay}
+                            dashArray={styleConfig.dashArray}
+                            weight={lineThickness}
+                            opacity={styleConfig.opacity || 1}
+                            enableAnimation={enableAnimation}
+                            lineCap={styleConfig.lineCap || 'butt'}
+
+                            // FORCE NEON LOGIC
+                            color={styleConfig.color || railColor} // Fixed fallback
                             pulseColor={railColor}
 
                             tooltip={tooltipContent}

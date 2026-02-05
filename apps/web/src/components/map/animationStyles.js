@@ -10,6 +10,7 @@ export const ANIMATION_STYLES = {
         delay: 800,
         dashArray: [10, 20],
         weight: 3,
+        isAntPath: true, // Use stable AntPath renderer
         description: 'Animasi standar dengan aliran smooth'
     },
 
@@ -19,6 +20,7 @@ export const ANIMATION_STYLES = {
         delay: 300,
         dashArray: [5, 10],
         weight: 3,
+        isAntPath: true,
         description: 'Animasi cepat untuk visualisasi data flow tinggi'
     },
 
@@ -37,6 +39,7 @@ export const ANIMATION_STYLES = {
         delay: 400,
         dashArray: [3, 12],
         weight: 4,
+        isAntPath: true, // Use stable AntPath renderer
         description: 'Titik-titik kecil bergerak di sepanjang garis'
     },
 
