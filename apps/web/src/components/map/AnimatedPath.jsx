@@ -44,7 +44,7 @@ const AnimatedPath = ({
         const lineHardwareAccelerated = preset?.hardwareAccelerated || false;
 
         // Status-based colors
-        let lineColor = color;
+        let lineColor = preset?.color || color;
         let linePulseColor = pulseColor;
 
         // REMOVED LEGACY STATUS LOGIC
@@ -139,7 +139,7 @@ const AnimatedPath = ({
             pathElement.style.setProperty('stroke-linecap', options.lineCap, 'important');
             pathElement.style.setProperty('stroke-linejoin', options.lineJoin, 'important');
         }
-    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, options.useCustomCSS]);
+    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, options.useCustomCSS, positions]);
 
     return (
         <>
