@@ -160,10 +160,10 @@ const AnimatedPath = ({
                 positions={positions}
                 pathOptions={{
                     color: options.color,
-                    // Make the pulse thicker than the rail to appear as a "round dot" sitting ON the line
                     weight: options.color === '#ffffff' ? options.weight + 3 : options.weight,
                     opacity: options.opacity,
-                    // We keep the uniqueClass for selection but don't rely on it for variables anymore
+                    // Restore dashArray to ensure Leaflet renders dashes natively
+                    dashArray: dashArrayStr,
                     className: `ans-path-base ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
                     fill: false,
                     lineCap: options.lineCap || 'butt',
