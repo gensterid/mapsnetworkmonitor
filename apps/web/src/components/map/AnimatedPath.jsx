@@ -119,17 +119,30 @@ const AnimatedPath = ({
                 pathElement.removeAttribute('pathLength');
             }
 
+            // Safety check for NaN values which break CSS
+            if (isNaN(finalDashArraySum)) finalDashArraySum = 1000;
+
+            // DEBUG LOG for User (Proxmox Troubleshooting)
+            console.log(`[AnimatedPath] ${uuid} init:`, {
+                style: animationStyle,
+                sync: options.syncArrival,
+                duration: duration,
+                dash: finalDashArrayStr
+            });
+
             // Dynamic Style Injection (Robust CSS Class)
             // We inject a specific style tag for this component instance
             // This ensures Leaflet's redraws (which wipe inline styles) do not kill the animation
-            let styleSheet = document.getElementById(`style-path-${uuid}`);
+            // Use a unique ID that includes uuid to ensure fresh injection
+            const styleId = `style-path-${uuid}`;
+            let styleSheet = document.getElementById(styleId);
             if (!styleSheet) {
                 styleSheet = document.createElement("style");
-                styleSheet.id = `style-path-${uuid}`;
+                styleSheet.id = styleId;
                 document.head.appendChild(styleSheet);
             }
 
-            // Define the keyframes and the class-based animation rules
+            // Define the keyframes and the class-based animation rules with HIGH priority
             styleSheet.innerText = `
                 @keyframes ${animName} {
                     from { stroke-dashoffset: 0; }
@@ -140,14 +153,14 @@ const AnimatedPath = ({
                     to { stroke-dashoffset: ${finalDashArraySum}; }
                 }
                 
-                /* Apply animation via class - Leaflet respects classes! */
+                /* Apply animation via class with MAXIMUM priority for Proxmox stability */
                 .anim-path-${uuid} {
                     stroke-dasharray: ${finalDashArrayStr} !important;
-                    animation-name: ${animName};
-                    animation-duration: ${duration};
-                    animation-timing-function: linear;
-                    animation-iteration-count: infinite;
-                    animation-play-state: ${options.paused ? 'paused' : 'running'};
+                    animation-name: ${animName} !important;
+                    animation-duration: ${duration} !important;
+                    animation-timing-function: linear !important;
+                    animation-iteration-count: infinite !important;
+                    animation-play-state: ${options.paused ? 'paused' : 'running'} !important;
                     stroke-linecap: ${options.lineCap} !important;
                     stroke-linejoin: ${options.lineJoin} !important;
                     will-change: stroke-dashoffset;
@@ -167,7 +180,7 @@ const AnimatedPath = ({
                 styleSheet.remove();
             }
         };
-    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, uuid, positions]);
+    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, uuid, positions, options.syncArrival, animationStyle]);
 
     return (
         <>
