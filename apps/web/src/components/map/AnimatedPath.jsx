@@ -80,7 +80,8 @@ const AnimatedPath = ({
     const dashArraySum = dashArrayValues.reduce((a, b) => a + b, 0);
 
     // Unique animation name based on the calculated sum
-    const animName = `flow-${dashArraySum}${options.reverse ? '-rev' : ''}`;
+    // We prefix with 'dyn-' to avoid conflicts with static keyframes in map.css
+    const animName = `dyn-flow-${dashArraySum}${options.reverse ? '-rev' : ''}`;
 
     // Ref for the Polyline
     const polylineRef = React.useRef(null);
