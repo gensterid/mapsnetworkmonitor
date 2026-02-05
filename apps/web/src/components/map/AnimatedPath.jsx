@@ -94,32 +94,6 @@ const AnimatedPath = ({
         const pathElement = layer.getElement?.() || layer._path;
 
         if (pathElement) {
-            let finalDashArrayStr = dashArrayStr;
-            let finalDashArraySum = dashArraySum;
-
-            // Sync Arrival Logic: Adjust dashArray to match path length
-            // This ensures points move from A to B in exactly 'duration' ms regardless of line distance
-            if (options.syncArrival) {
-                try {
-                    const totalLength = pathElement.getTotalLength();
-                    if (totalLength > 0) {
-                        const basePattern = Array.isArray(options.dashArray) ? [...options.dashArray] : [10, 20];
-                        if (basePattern.length >= 2) {
-                            // Replace the last gap with the path length
-                            // This ensures exactly one iteration of the pattern exists over the path length
-                            const patternStart = basePattern.slice(0, -1);
-                            const patternStartSum = patternStart.reduce((a, b) => a + b, 0);
-
-                            const syncedDashArray = [...patternStart, totalLength];
-                            finalDashArrayStr = syncedDashArray.join(', ');
-                            finalDashArraySum = totalLength + patternStartSum;
-                        }
-                    }
-                } catch (e) {
-                    console.warn("Could not calculate path length for sync-arrival:", e);
-                }
-            }
-
             // Dynamic Style Injection (Robust CSS Class)
             // We inject a specific style tag for this component instance
             // This ensures Leaflet's redraws (which wipe inline styles) do not kill the animation
@@ -134,16 +108,16 @@ const AnimatedPath = ({
             styleSheet.innerText = `
                 @keyframes ${animName} {
                     from { stroke-dashoffset: 0; }
-                    to { stroke-dashoffset: -${finalDashArraySum}; }
+                    to { stroke-dashoffset: -${dashArraySum}; }
                 }
                 @keyframes ${animName}-rev {
                     from { stroke-dashoffset: 0; }
-                    to { stroke-dashoffset: ${finalDashArraySum}; }
+                    to { stroke-dashoffset: ${dashArraySum}; }
                 }
                 
                 /* Apply animation via class - Leaflet respects classes! */
                 .anim-path-${uuid} {
-                    stroke-dasharray: ${finalDashArrayStr} !important;
+                    stroke-dasharray: ${dashArrayStr} !important;
                     animation-name: ${animName};
                     animation-duration: ${duration};
                     animation-timing-function: linear;
