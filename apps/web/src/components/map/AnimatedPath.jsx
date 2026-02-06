@@ -213,7 +213,7 @@ const AnimatedPath = ({
                 pathOptions={{
                     color: options.pulseColor || options.color,
                     weight: options.weight,
-                    opacity: 0.2, // Low opacity rail for motion path
+                    opacity: 0.75, // Increased opacity for better visibility (was 0.2)
                     className: options.className ? `${options.className}-rail` : ''
                 }}
             />
