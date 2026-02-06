@@ -451,7 +451,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [editingDevice, setEditingDevice] = useState(null);
     const [editWaypoints, setEditWaypoints] = useState([]);
     const [pathLength, setPathLength] = useState(0);
-    const [lineThickness, setLineThickness] = useState(4); // Changed default to 4
+    const [lineThickness, setLineThickness] = useState(8); // Increased default thickness for better visibility
     const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
