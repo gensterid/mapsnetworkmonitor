@@ -26,7 +26,9 @@ const AnimatedPath = ({
     onClick,
     tooltip,
     popup,
-    enableAnimation = true
+    enableAnimation = true,
+    motionType,
+    motionColor
 }) => {
     // Stable ID for this component instance
     const [uuid] = useState(() => Math.random().toString(36).substr(2, 9));
@@ -48,8 +50,8 @@ const AnimatedPath = ({
             syncArrival: preset?.syncArrival || false,
             // New Motion Path Options
             useMotionPath: preset?.useMotionPath || false,
-            motionType: props.motionType || preset?.motionType || 'orb', // Allow prop override
-            motionColor: props.motionColor || preset?.color || '#ffffff', // Allow prop override
+            motionType: motionType || preset?.motionType || 'orb',
+            motionColor: motionColor || preset?.color || '#ffffff',
             tooltip,
             popup,
         };
