@@ -48,8 +48,8 @@ const AnimatedPath = ({
             syncArrival: preset?.syncArrival || false,
             // New Motion Path Options
             useMotionPath: preset?.useMotionPath || false,
-            motionType: preset?.motionType || 'orb',
-            motionColor: preset?.color || '#ffffff',
+            motionType: props.motionType || preset?.motionType || 'orb', // Allow prop override
+            motionColor: props.motionColor || preset?.color || '#ffffff', // Allow prop override
             tooltip,
             popup,
         };
@@ -163,6 +163,10 @@ const AnimatedPath = ({
 
                 // Set Custom Properties for Animation
                 motionEl.style.setProperty('--motion-duration', duration);
+                // Apply dynamic color
+                motionEl.style.fill = options.motionColor;
+                motionEl.style.stroke = options.motionColor; // For some shapes
+
                 if (options.reverse) {
                     motionEl.classList.add('motion-reverse');
                 }

@@ -1039,7 +1039,6 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             mouseover: () => setHoveredRouterId(router.id),
                             mouseout: () => setHoveredRouterId(null)
                         }}
-                        onClick={() => handleDeviceClick(router, 'router')}
                     >
                         <RouterTooltip router={router} isHovered={hoveredRouterId === router.id} />
                     </DraggableMarker>
@@ -1331,13 +1330,31 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     if (isAlert) {
                         railColor = "#facc15"; // YELLOW Alert
                     } else if (line.status === 'down') {
-                        railColor = "#FF0000"; // Pure Neon Red (Down - Fix)
+                        railColor = "#FF0000"; // Pure Neon Red
                     } else if (line.deviceType === 'pppoe') {
-                        railColor = "#CD00FF"; // Neon Purple (PPPoE)
+                        railColor = "#CD00FF"; // Neon Purple
                     } else if (line.deviceType === 'odp') {
-                        railColor = "#FF6600"; // Vibrant Neon Orange (ODP - Fix)
+                        railColor = "#FF6600"; // Vibrant Neon Orange
                     } else if (line.status === 'up') {
-                        railColor = "#10b981"; // Emerald Green (Up - Standard)
+                        railColor = "#10b981"; // Emerald Green
+                    }
+
+                    // --- MOTION PATH STATE LOGIC ---
+                    let motionColor = railColor;
+                    let motionType = 'orb'; // Default
+                    let motionOpacity = 1;
+
+                    if (isAlert) {
+                        motionType = 'packet'; // Show packets for data issues
+                        motionColor = '#facc15'; // Yellow packets
+                    } else if (line.status === 'down') {
+                        motionOpacity = 0; // Hide motion on down lines (or maybe static red X?)
+                    } else if (line.deviceType === 'pppoe') {
+                        motionType = 'orb';
+                        motionColor = '#e879f9'; // Lighter purple for visibility
+                    } else if (line.deviceType === 'odp') {
+                        motionType = 'comet'; // Comet for ODP backbone
+                        motionColor = '#fdba74'; // Lighter orange
                     }
 
                     if (styleConfig.isAntPath) {
@@ -1379,6 +1396,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             // FORCE NEON LOGIC
                             color={styleConfig.color || railColor} // Fixed fallback
                             pulseColor={railColor}
+
+                            // Pass Motion Specifics
+                            motionColor={motionColor}
+                            motionType={motionType}
+                            opacity={line.status === 'down' ? 1 : (styleConfig.opacity || 1)} // Keep full opacity for down red line
+                            paused={line.status === 'down'} // Pause animation on down
 
                             tooltip={tooltipContent}
                             popup={tooltipContent}
