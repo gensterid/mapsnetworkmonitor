@@ -1086,6 +1086,64 @@
     filter: brightness(1.2) !important;
 }
 
+/* ===== MOTION PATH ELEMENTS ===== */
+
+/* Base class for the motion element (the object moving along the line) */
+.motion-element {
+    offset-path: path(var(--motion-path-d, "M0,0 L0,0"));
+    offset-distance: 0%;
+    animation: motion-move var(--motion-duration, 2000ms) linear infinite;
+    pointer-events: none;
+    /* Let clicks pass through to the line */
+    will-change: offset-distance;
+}
+
+@keyframes motion-move {
+    from {
+        offset-distance: 0%;
+    }
+
+    to {
+        offset-distance: 100%;
+    }
+}
+
+/* Motion Element Styles (SVG Compatible) */
+.motion-orb {
+    fill: white;
+    filter: drop-shadow(0 0 4px white) drop-shadow(0 0 8px white);
+    r: 4px;
+    /* Radius for circle */
+}
+
+.motion-comet {
+    fill: url(#gradient-comet);
+    /* Needs defs injection or simple fill fallback */
+    fill: white;
+    stroke: none;
+    filter: drop-shadow(0 0 5px white);
+    width: 20px;
+    /* For rect */
+    height: 4px;
+    /* For rect */
+    rx: 2px;
+    /* For rect border-radius */
+}
+
+.motion-packet {
+    fill: #FFD700;
+    /* Gold */
+    filter: drop-shadow(0 0 4px #FFD700);
+    width: 12px;
+    height: 6px;
+    rx: 2px;
+}
+
+/* Reverse Animation */
+.motion-reverse {
+    animation-direction: reverse;
+}
+
 /* Hover effects */
 [class*="ans-style-"]:hover {
     filter: brightness(1.2) !important;

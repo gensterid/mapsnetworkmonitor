@@ -270,6 +270,44 @@ export const ANIMATION_STYLES = {
         weight: 3,
         isAntPath: true, // Flag to identify this special renderer
         description: 'Efek garis berjalan klasik (Marching Ants)'
+    },
+
+    // --- NEW MOTION PATH STYLES ---
+
+    // Glowing Orb (Motion Path)
+    glowingOrb: {
+        name: 'Glowing Orb (Motion)',
+        delay: 3000,
+        weight: 2,
+        opacity: 0.3, // Dim background line
+        useMotionPath: true, // Flag for new renderer
+        motionType: 'orb',
+        color: '#ffffff',
+        description: 'Bola kemilau bergerak di atas jalur'
+    },
+
+    // Meteor / Comet (Motion Path)
+    meteor: {
+        name: 'Meteor (Motion)',
+        delay: 2000,
+        weight: 2,
+        opacity: 0.3,
+        useMotionPath: true,
+        motionType: 'comet',
+        color: '#ffffff',
+        description: 'Efek meteor dengan ekor'
+    },
+
+    // Data Packet (Motion Path)
+    dataPacket: {
+        name: 'Data Packet (Motion)',
+        delay: 4000,
+        weight: 2,
+        opacity: 0.4,
+        useMotionPath: true,
+        motionType: 'packet',
+        color: '#FFD700',
+        description: 'Paket data fisik yang dikirimkan'
     }
 };
 

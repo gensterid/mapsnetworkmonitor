@@ -28,109 +28,69 @@ const AnimatedPath = ({
     popup,
     enableAnimation = true
 }) => {
-    // Stable ID for this component instance to prevent class churn on re-renders
+    // Stable ID for this component instance
     const [uuid] = useState(() => Math.random().toString(36).substr(2, 9));
 
     // Memoize final options
     const options = useMemo(() => {
         const preset = animationStyle ? getAnimationStyle(animationStyle) : null;
-
-        const lineDelay = preset?.delay ?? delay;
-        const lineDashArray = preset?.dashArray ?? dashArray;
-        const lineWeight = weight;
-        const lineOpacity = preset?.opacity ?? opacity;
-        const linePaused = !enableAnimation || (preset?.paused ?? paused);
-        const lineReverse = preset?.reverse ?? reverse;
-        const lineHardwareAccelerated = preset?.hardwareAccelerated || false;
-
-        // Status-based colors
-        let lineColor = preset?.color || color;
-        let linePulseColor = pulseColor;
-
-        // REMOVED LEGACY STATUS LOGIC
-        // We now rely 100% on props passed from NetworkMap.jsx
-        // This ensures the "Neon White Pulse" logic works for ALL statuses
-        // without being overwritten by hardcoded values here.
-
         return {
-            color: lineColor,
-            pulseColor: linePulseColor,
-            weight: lineWeight,
-            opacity: lineOpacity,
-            delay: lineDelay,
-            dashArray: lineDashArray,
-            paused: linePaused,
-            reverse: lineReverse,
-            hardwareAccelerated: lineHardwareAccelerated,
+            color: preset?.color || color,
+            pulseColor: pulseColor,
+            weight: weight,
+            opacity: preset?.opacity ?? opacity,
+            delay: preset?.delay ?? delay,
+            dashArray: preset?.dashArray ?? dashArray,
+            paused: !enableAnimation || (preset?.paused ?? paused),
+            reverse: preset?.reverse ?? reverse,
             className: preset?.className || '',
             lineCap: preset?.lineCap || 'butt',
             syncArrival: preset?.syncArrival || false,
+            // New Motion Path Options
+            useMotionPath: preset?.useMotionPath || false,
+            motionType: preset?.motionType || 'orb',
+            motionColor: preset?.color || '#ffffff',
             tooltip,
             popup,
         };
-    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, hardwareAccelerated, status, type, tooltip, popup, animationStyle, enableAnimation]);
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, status, type, tooltip, popup, animationStyle, enableAnimation]);
 
     const uniqueClass = `anim-path-${uuid}`;
-
-    // Standard flow speed using delay as duration
     const duration = `${options.delay}ms`;
-
-    // Convert dashArray to string format for CSS and calculate sum for offset
     const dashArrayValues = Array.isArray(options.dashArray) ? options.dashArray : [10, 20];
     const dashArrayStr = dashArrayValues.join(', ');
     const dashArraySum = dashArrayValues.reduce((a, b) => a + b, 0);
-
-    // Unique animation name based on the calculated sum
-    // We prefix with 'dyn-' to avoid conflicts with static keyframes in map.css
     const animName = `dyn-flow-${dashArraySum}${options.reverse ? '-rev' : ''}`;
 
-    // Ref for the Polyline
     const polylineRef = React.useRef(null);
+    const motionElementRef = React.useRef(null);
 
-    // Effect to apply CSS variables directly to the SVG path element
+    // Effect: Handle standard CSS animations (Dash Offset)
     React.useEffect(() => {
-        if (!polylineRef.current) return;
+        if (!polylineRef.current || options.useMotionPath) return; // Skip if using Motion Path
+
         const layer = polylineRef.current;
         const pathElement = layer.getElement?.() || layer._path;
 
         if (pathElement) {
             let finalDashArrayStr = dashArrayStr;
             let finalDashArraySum = dashArraySum;
-            const uniqueAnimName = `dyn-flow-${uuid}`; // UNIQUE KEYFRAME NAME PER PATH
+            const uniqueAnimName = `dyn-flow-${uuid}`;
 
-            // Robust Sync Arrival Logic using SVG pathLength normalization
             if (options.syncArrival) {
                 pathElement.setAttribute('pathLength', '1000');
-
-                // For 'classicPulse' with [4, 1000] initial, we translate to normalized units
                 const basePattern = Array.isArray(options.dashArray) ? [...options.dashArray] : [4, 1000];
                 const dotSize = basePattern[0];
-
-                // SEAMLESS LOGIC: The pattern must sum exactly to the pathLength (1000)
-                // for a perfect loop with dashoffset -1000
                 const gapSize = 1000 - dotSize;
                 const syncedDashArray = [dotSize, gapSize > 0 ? gapSize : 1000];
-
                 finalDashArrayStr = syncedDashArray.join(', ');
                 finalDashArraySum = 1000;
             } else {
                 pathElement.removeAttribute('pathLength');
             }
 
-            // Safety check for NaN values
             if (isNaN(finalDashArraySum)) finalDashArraySum = dashArraySum || 1000;
 
-            // DEBUG LOG for Proxmox Persistence Troubleshooting
-            console.log(`[AnimatedPath] ${uuid} init:`, {
-                style: animationStyle,
-                sync: options.syncArrival,
-                duration: duration,
-                dash: finalDashArrayStr,
-                paused: options.paused,
-                animName: uniqueAnimName
-            });
-
-            // Dynamic Style Injection (Robust CSS Class)
             const styleId = `style-path-${uuid}`;
             let styleSheet = document.getElementById(styleId);
             if (!styleSheet) {
@@ -139,7 +99,6 @@ const AnimatedPath = ({
                 document.head.appendChild(styleSheet);
             }
 
-            // Define the keyframes and the class-based animation rules with MAXIMUM priority
             styleSheet.innerText = `
                 @keyframes ${uniqueAnimName} {
                     from { stroke-dashoffset: 0; }
@@ -149,8 +108,6 @@ const AnimatedPath = ({
                     from { stroke-dashoffset: 0; }
                     to { stroke-dashoffset: ${finalDashArraySum}; }
                 }
-                
-                /* Apply animation via class with MAXIMUM priority for Proxmox stability */
                 .anim-path-${uuid} {
                     stroke-dasharray: ${finalDashArrayStr} !important;
                     animation-name: ${uniqueAnimName}${options.reverse ? '-rev' : ''} !important;
@@ -161,22 +118,86 @@ const AnimatedPath = ({
                     stroke-linecap: ${options.lineCap} !important;
                     stroke-linejoin: ${options.lineJoin} !important;
                     will-change: stroke-dashoffset;
-                }
-
-                .anim-path-${uuid} {
                     stroke: ${options.color} !important;
                 }
             `;
         }
-
-        // Cleanup function to remove style tag when component unmounts
         return () => {
             const styleSheet = document.getElementById(`style-path-${uuid}`);
-            if (styleSheet) {
-                styleSheet.remove();
-            }
+            if (styleSheet) styleSheet.remove();
         };
-    }, [dashArrayStr, duration, animName, options.paused, dashArraySum, options.color, options.lineCap, options.lineJoin, uuid, positions, options.syncArrival, animationStyle]);
+    }, [dashArrayStr, duration, animName, options, dashArraySum, uuid, positions, animationStyle]);
+
+    // Effect: Handle SVG Motion Path (Object Moving Along Line)
+    React.useEffect(() => {
+        if (!options.useMotionPath || !polylineRef.current) return;
+
+        const layer = polylineRef.current;
+        // Wait for next tick to ensure layer is rendered
+        setTimeout(() => {
+            const pathElement = layer.getElement?.() || layer._path;
+            if (!pathElement || !pathElement.parentNode) return;
+
+            // Create Motion Element (SVG)
+            let motionEl = motionElementRef.current;
+            if (!motionEl) {
+                // Determine shape based on motionType
+                if (options.motionType === 'orb') {
+                    motionEl = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    motionEl.setAttribute("r", "4");
+                    motionEl.setAttribute("class", "motion-element motion-orb");
+                } else if (options.motionType === 'packet') {
+                    motionEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    motionEl.setAttribute("width", "12");
+                    motionEl.setAttribute("height", "6");
+                    motionEl.setAttribute("rx", "2");
+                    motionEl.setAttribute("class", "motion-element motion-packet");
+                } else {
+                    // Default or Comet
+                    motionEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    motionEl.setAttribute("width", "20");
+                    motionEl.setAttribute("height", "4");
+                    motionEl.setAttribute("rx", "2");
+                    motionEl.setAttribute("class", "motion-element motion-comet");
+                }
+
+                // Set Custom Properties for Animation
+                motionEl.style.setProperty('--motion-duration', duration);
+                if (options.reverse) {
+                    motionEl.classList.add('motion-reverse');
+                }
+
+                // Append to the same SVG container as the path
+                pathElement.parentNode.appendChild(motionEl);
+                motionElementRef.current = motionEl;
+            }
+
+            // Sync Path Data
+            const syncPath = () => {
+                const d = pathElement.getAttribute('d');
+                if (d && motionElementRef.current) {
+                    motionElementRef.current.style.setProperty('--motion-path-d', `"${d}"`);
+                    motionElementRef.current.style.offsetPath = `path("${d}")`;
+                }
+            };
+
+            // Initial Sync
+            syncPath();
+
+            // Observe changes to 'd' attribute (handle zoom/pan updates)
+            const observer = new MutationObserver(syncPath);
+            observer.observe(pathElement, { attributes: true, attributeFilter: ['d'] });
+
+            return () => {
+                observer.disconnect();
+                if (motionElementRef.current) {
+                    motionElementRef.current.remove();
+                    motionElementRef.current = null;
+                }
+            };
+        }, 50);
+
+    }, [options, duration, positions]); // Re-run if path or options change
 
     return (
         <>
@@ -184,24 +205,23 @@ const AnimatedPath = ({
             <Polyline
                 positions={positions}
                 pathOptions={{
-                    color: options.pulseColor,
+                    color: options.pulseColor || options.color,
                     weight: options.weight,
-                    opacity: Math.max(0.1, options.opacity - 0.2),
+                    opacity: 0.2, // Low opacity rail for motion path
                     className: options.className ? `${options.className}-rail` : ''
                 }}
             />
 
-            {/* Foreground Moving Ants */}
+            {/* Foreground Path (Invisible if Motion Path, Visible if Standard) */}
             <Polyline
                 ref={polylineRef}
                 positions={positions}
                 pathOptions={{
                     color: options.color,
-                    weight: options.color === '#ffffff' ? options.weight + 3 : options.weight,
-                    opacity: options.opacity,
-                    // Restore dashArray to ensure Leaflet renders dashes natively
-                    dashArray: dashArrayStr,
-                    className: `ans-path-base ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
+                    weight: options.weight,
+                    opacity: options.useMotionPath ? 0 : options.opacity, // Hide line if using motion object
+                    dashArray: options.useMotionPath ? null : dashArrayStr, // No dashes for motion path
+                    className: options.useMotionPath ? '' : `ans-path-base ${uniqueClass} ${options.className || ''} ${options.paused ? 'ans-paused' : ''}`,
                     fill: false,
                     lineCap: options.lineCap || 'butt',
                     lineJoin: options.lineJoin || 'round'
