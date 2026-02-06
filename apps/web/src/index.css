@@ -357,10 +357,8 @@
         display: none !important;
     }
 
-    /* Hide Tooltips in Satellite Dark if they leak */
-    .map-type-satellite_dark .leaflet-tooltip-pane {
-        display: none !important;
-    }
+    /* Tooltips are now managed by application state (showLabels) instead of global CSS hiding */
+
 
     /* Device Label */
     .device-icon__label {

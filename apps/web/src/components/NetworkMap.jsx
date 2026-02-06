@@ -473,7 +473,7 @@ const createClusterCustomIcon = (cluster) => {
 
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
     const [mapType, setMapType] = useState('satellite_dark'); // Set to satellite_dark as default
-    const [showLabels, setShowLabels] = useState(true);
+    const [showLabels, setShowLabels] = useState(false); // Default to false for clean view in Satellite Dark
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
