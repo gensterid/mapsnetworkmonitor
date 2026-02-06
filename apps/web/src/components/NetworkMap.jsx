@@ -442,7 +442,7 @@ const createClusterCustomIcon = (cluster) => {
 };
 
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
-    const [mapType, setMapType] = useState('satellite'); // Changed default to satellite
+    const [mapType, setMapType] = useState('dark'); // Changed default to dark mode as requested
     const [showLabels, setShowLabels] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
