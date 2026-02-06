@@ -16,6 +16,9 @@
     border: none;
 }
 
+/* Device Icons - Legacy Override */
+/* Most styles are now handled in index.css for the ringless look */
+
 .device-icon {
     position: relative;
     display: flex;
@@ -24,56 +27,38 @@
     gap: 4px;
 }
 
+/* Ensure badge container is transparent and doesn't interfere */
 .device-icon__badge {
     width: 36px;
     height: 36px;
-    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    border: 2px solid white;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    transition: transform 0.2s ease;
 }
 
 .device-icon:hover .device-icon__badge {
     transform: scale(1.1);
 }
 
-/* Device type colors */
-.device-icon--router .device-icon__badge {
-    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-}
-
-.device-icon--olt .device-icon__badge {
-    background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%) !important;
-}
-
-.device-icon--odp .device-icon__badge {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-}
-
-.device-icon--client .device-icon__badge {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
+/* Device type colors - Removed gradients, now handled by text color in index.css */
+.device-icon--router .device-icon__badge,
+.device-icon--olt .device-icon__badge,
+.device-icon--odp .device-icon__badge,
+.device-icon--client .device-icon__badge,
 .device-icon--pppoe .device-icon__badge {
-    background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+    background: transparent !important;
 }
 
-/* Status colors */
-.device-icon--online .device-icon__badge {
-    box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
-}
-
-.device-icon--offline .device-icon__badge {
-    background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
-}
-
+/* Status colors - Removed shadows/backgrounds */
+.device-icon--online .device-icon__badge,
+.device-icon--offline .device-icon__badge,
 .device-icon--warning .device-icon__badge {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.6);
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 /* Smaller node icons (netwatch) */
@@ -99,6 +84,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     backdrop-filter: blur(4px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* ===== Custom Tooltip Overrides ===== */

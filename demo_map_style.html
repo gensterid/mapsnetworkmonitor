@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Map Style Recommendation</title>
+    <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@48,400,0,0" />
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --up-color: #00E676;
+            --down-color: #FF1744;
+            --odp-color: #FF9100;
+            --pppoe-color: #D500F9;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            display: flex;
+            gap: 40px;
+            padding: 40px;
+            background: #252525;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .demo-section {
+            text-align: center;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+            color: #aaa;
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 2px;
+        }
+
+        /* ICON STYLES */
+        .icon-demo {
+            width: 64px;
+            height: 64px;
+            background: #333;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid white;
+            /* HALO EFFECT */
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2), inset 0 0 10px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s;
+            cursor: pointer;
+            margin: 0 auto 10px;
+        }
+
+        .icon-demo:hover {
+            transform: scale(1.1);
+        }
+
+        .icon-demo.up {
+            border-color: var(--up-color);
+            color: var(--up-color);
+            box-shadow: 0 0 20px rgba(0, 230, 118, 0.4);
+        }
+
+        .icon-demo.down {
+            border-color: var(--down-color);
+            color: var(--down-color);
+            box-shadow: 0 0 20px rgba(255, 23, 68, 0.4);
+        }
+
+        .icon-demo.odp {
+            border-color: var(--odp-color);
+            color: var(--odp-color);
+            box-shadow: 0 0 20px rgba(255, 145, 0, 0.4);
+        }
+
+        .icon-demo.pppoe {
+            border-color: var(--pppoe-color);
+            color: var(--pppoe-color);
+            box-shadow: 0 0 20px rgba(213, 0, 249, 0.4);
+        }
+
+        .material-symbols-outlined {
+            font-size: 40px;
+        }
+
+        /* LINE STYLES */
+        .line-demo-container {
+            width: 200px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .line-wrapper {
+            position: relative;
+            width: 150px;
+            height: 4px;
+        }
+
+        .line-glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: currentColor;
+            filter: blur(4px);
+            opacity: 0.5;
+            border-radius: 4px;
+        }
+
+        .line-core {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: currentColor;
+            border-radius: 4px;
+            z-index: 1;
+        }
+
+        .line-up {
+            color: var(--up-color);
+        }
+
+        .line-down {
+            color: var(--down-color);
+        }
+
+        .line-odp {
+            color: var(--odp-color);
+        }
+
+        .label {
+            font-size: 12px;
+            margin-top: 5px;
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Map Design Recommendations</h1>
+    <p>Rekomendasi visual untuk Line dan Icon agar lebih jelas dan kontras.</p>
+
+    <div class="container">
+        <!-- ICON DEMO -->
+        <div class="demo-section">
+            <h2>Icons (Halo + Glow)</h2>
+            <div style="display: flex; gap: 20px;">
+                <div>
+                    <div class="icon-demo up"><span class="material-symbols-outlined">router</span></div>
+                    <div class="label">Router UP</div>
+                </div>
+                <div>
+                    <div class="icon-demo down"><span class="material-symbols-outlined">router</span></div>
+                    <div class="label">Router DOWN</div>
+                </div>
+                <div>
+                    <div class="icon-demo odp"><span class="material-symbols-outlined">device_hub</span></div>
+                    <div class="label">ODP</div>
+                </div>
+                <div>
+                    <div class="icon-demo pppoe"><span class="material-symbols-outlined">account_circle</span></div>
+                    <div class="label">PPPoE</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LINE DEMO -->
+        <div class="demo-section">
+            <h2>Lines (Dual Stroke Neon)</h2>
+            <div class="line-demo-container">
+                <div style="display: flex; flex-direction: column; gap: 30px;">
+                    <div class="line-wrapper line-up">
+                        <div class="line-glow"></div>
+                        <div class="line-core"></div>
+                    </div>
+                    <div class="line-wrapper line-odp">
+                        <div class="line-glow"></div>
+                        <div class="line-core"></div>
+                    </div>
+                    <div class="line-wrapper line-down">
+                        <div class="line-glow"></div>
+                        <div class="line-core"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="label" style="margin-top: 20px;">Efek Glow meningkatkan visibilitas di peta gelap atau satelit.
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>

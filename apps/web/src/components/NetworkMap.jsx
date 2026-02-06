@@ -115,6 +115,34 @@ const DARK_MAP_STYLES = [
     },
 ];
 
+const SATELLITE_DARK_STYLES = [
+    {
+        featureType: "all",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }],
+    },
+    {
+        featureType: "administrative",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }],
+    },
+    {
+        featureType: "poi",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }],
+    },
+    {
+        featureType: "road",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }],
+    },
+    {
+        featureType: "transit",
+        elementType: "labels",
+        stylers: [{ visibility: "off" }],
+    },
+];
+
 // Component to add Google Maps Layer
 const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
     const map = useMap();
@@ -155,12 +183,14 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
 
         try {
             const layerOptions = {
-                type: type === 'dark' ? 'roadmap' : type,
+                type: (type === 'dark' || type === 'satellite_dark') ? 'hybrid' : type,
             };
 
-            // Apply styles if dark mode
+            // Apply styles if dark mode or satellite dark
             if (type === 'dark') {
                 layerOptions.styles = DARK_MAP_STYLES;
+            } else if (type === 'satellite_dark') {
+                layerOptions.styles = SATELLITE_DARK_STYLES;
             }
 
             const googleLayer = L.gridLayer.googleMutant(layerOptions);
@@ -442,7 +472,7 @@ const createClusterCustomIcon = (cluster) => {
 };
 
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
-    const [mapType, setMapType] = useState('satellite'); // Reverted to satellite as requested
+    const [mapType, setMapType] = useState('satellite_dark'); // Set to satellite_dark as default
     const [showLabels, setShowLabels] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
@@ -1264,13 +1294,13 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
 
     return (
-        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#0f172a] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''}`}>
+        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} map-type-${mapType}`}>
             <MapContainer
                 center={center}
                 zoom={10}
                 maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
                 scrollWheelZoom={true}
-                style={{ height: "100%", width: "100%", background: "#0f172a" }}
+                style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
             >
                 <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
                 <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
@@ -1524,6 +1554,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             >
                                 <option value="roadmap">Roadmap</option>
                                 <option value="satellite">Satellite</option>
+                                <option value="satellite_dark">Google Satellite Dark</option>
                                 <option value="hybrid">Hybrid</option>
                                 <option value="terrain">Terrain</option>
                                 <option value="dark">Dark Mode</option>

@@ -77,14 +77,14 @@ export const createDeviceIcon = ({
 
     const sizeClass = small ? 'device-icon--small' : '';
     const statusClass = `device-icon--${normalizedStatus}`;
-    const iconSize = small ? 24 : 36;
-    const iconFontSize = small ? 14 : 20;
+    const iconSize = small ? 32 : 44;
+    const iconFontSize = small ? 18 : 28; // Smaller icon font to fit in halo
 
-    // Create minimal HTML for performance
+    // Create HTML with Halo + Glow structure
     const html = `
         <div class="device-icon ${config.colorClass} ${statusClass} ${sizeClass}">
             <div class="device-icon__badge">
-                <span class="material-symbols-outlined" style="font-size: ${iconFontSize}px; color: white;">
+                <span class="material-symbols-outlined" style="font-size: ${iconFontSize}px; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
                     ${config.icon}
                 </span>
             </div>
@@ -98,9 +98,9 @@ export const createDeviceIcon = ({
     return L.divIcon({
         className: `custom-marker-icon ${animationClass}`,
         html,
-        iconSize: [small ? 24 : 60, small ? 24 : 60],
-        iconAnchor: [small ? 12 : 30, small ? 12 : 20],
-        popupAnchor: [0, small ? -12 : -20],
+        iconSize: [small ? 32 : 64, small ? 32 : 64],
+        iconAnchor: [small ? 16 : 32, small ? 16 : 24],
+        popupAnchor: [0, small ? -16 : -24],
     });
 };
 

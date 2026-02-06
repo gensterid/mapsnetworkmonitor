@@ -26,6 +26,22 @@
     --radius-2xl: 1rem;
 }
 
+/* Material Symbols Outlined Font Definition */
+.material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-weight: normal;
+    font-style: normal;
+    font-size: 24px;
+    /* Preferred icon size */
+    display: inline-block;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: normal;
+    word-wrap: normal;
+    white-space: nowrap;
+    direction: ltr;
+}
+
 @layer utilities {
 
     /* Glass panel effect */
@@ -199,90 +215,151 @@
         border: 2px solid #ef4444;
     }
 
-    /* Base Icon Styles (Fallback if missing) */
+    /* Base Icon Styles (Ringless) */
     .device-icon {
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 9999px;
-        background-color: #0F172A;
-        /* slate-900 */
-        border-width: 2.5px;
-        border-style: solid;
-        border-color: #334155;
-        /* slate-600 */
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        color: white;
-        transition: all 0.3s ease;
         width: 100%;
         height: 100%;
         position: relative;
+        background: transparent;
+        border: none;
+        box-shadow: none;
     }
 
     .device-icon__badge {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 100%;
-        height: 100%;
-        border-radius: 9999px;
-        background-color: #1E293B;
-        /* slate-800 */
-        overflow: hidden;
+        width: 44px;
+        /* Default size for halo */
+        height: 44px;
+        background: rgba(15, 23, 42, 0.4);
+        /* Dark semi-transparent background */
+        backdrop-filter: blur(2px);
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        /* Halo color follows status */
+        overflow: visible;
+        transition: all 0.3s ease;
+        box-shadow: 0 0 10px currentColor;
+        /* Glow effect */
+        position: relative;
     }
 
-    /* Status Overrides */
+    .device-icon--small .device-icon__badge {
+        width: 32px;
+        height: 32px;
+    }
+
+    .device-icon .material-symbols-outlined {
+        color: white;
+        transition: color 0.3s ease;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
+        font-weight: bold;
+        z-index: 10;
+        /* Center the icon perfectly */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Status Coloring for Icons & Halos */
 
     /* Online (Green) */
-    .device-icon--online {
-        border-color: #10B981;
+    /* Status Coloring for Icons & Halos - Explicit for Specificity */
+
+    /* Online (Green) */
+    .device-icon--online,
+    .device-icon--up {
+        color: #10B981 !important;
     }
 
-    .device-icon--online .device-icon__badge {
-        background-color: #059669;
-        /* emerald-600 */
+    .device-icon--online .device-icon__badge,
+    .device-icon--up .device-icon__badge {
+        border-color: #10B981 !important;
+        box-shadow: 0 0 12px #10B981, inset 0 0 4px #10B981 !important;
+        background: rgba(16, 185, 129, 0.15) !important;
+    }
+
+    .device-icon--online .material-symbols-outlined,
+    .device-icon--up .material-symbols-outlined {
+        color: #10B981 !important;
     }
 
     /* Offline (Red) */
     .device-icon--offline,
     .device-icon--down {
-        border-color: #EF4444;
+        color: #EF4444 !important;
     }
 
     .device-icon--offline .device-icon__badge,
     .device-icon--down .device-icon__badge {
-        background-color: #DC2626;
-        /* red-600 */
+        border-color: #EF4444 !important;
+        box-shadow: 0 0 15px #EF4444, inset 0 0 5px #EF4444 !important;
+        background: rgba(239, 68, 68, 0.15) !important;
     }
 
-    /* Warning (Yellow) - High Latency */
+    .device-icon--offline .material-symbols-outlined,
+    .device-icon--down .material-symbols-outlined {
+        color: #EF4444 !important;
+        filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+    }
+
+    /* Warning (Yellow) */
     .device-icon--warning {
-        border-color: #EAB308;
-        /* yellow-500 */
-        animation: marker-pulse-yellow 2s infinite;
+        color: #FACC15 !important;
     }
 
     .device-icon--warning .device-icon__badge {
-        background-color: #CA8A04;
-        /* yellow-600 */
+        border-color: #FACC15 !important;
+        box-shadow: 0 0 12px #FACC15, inset 0 0 4px #FACC15 !important;
+        background: rgba(250, 204, 21, 0.15) !important;
     }
 
-    /* ODP (Orange) - Only when Online */
-    .device-icon--odp.device-icon--online {
-        border-color: #F97316;
+    .device-icon--warning .material-symbols-outlined {
+        color: #FACC15 !important;
     }
 
-    .device-icon--odp.device-icon--online .device-icon__badge {
-        background-color: #EA580C;
+    /* ODP (Orange) */
+    .device-icon--odp {
+        color: #F97316 !important;
     }
 
-    /* PPPoE (Purple) - Only when Online */
-    .device-icon--pppoe.device-icon--online {
-        border-color: #A855F7;
+    .device-icon--odp .device-icon__badge {
+        border-color: #F97316 !important;
+        box-shadow: 0 0 15px #F97316, inset 0 0 5px #F97316 !important;
+        background: rgba(249, 115, 22, 0.2) !important;
     }
 
-    .device-icon--pppoe.device-icon--online .device-icon__badge {
-        background-color: #9333EA;
+    .device-icon--odp .material-symbols-outlined {
+        color: #F97316 !important;
+    }
+
+    /* PPPoE (Purple) */
+    .device-icon--pppoe {
+        color: #A855F7 !important;
+    }
+
+    .device-icon--pppoe .device-icon__badge {
+        border-color: #A855F7 !important;
+        box-shadow: 0 0 18px #A855F7, inset 0 0 6px #A855F7 !important;
+        background: rgba(168, 85, 247, 0.2) !important;
+    }
+
+    .device-icon--pppoe .material-symbols-outlined {
+        color: #A855F7 !important;
+    }
+
+    /* Hide Device Labels in Satellite Dark mode */
+    .map-type-satellite_dark .device-icon__label {
+        display: none !important;
+    }
+
+    /* Hide Tooltips in Satellite Dark if they leak */
+    .map-type-satellite_dark .leaflet-tooltip-pane {
+        display: none !important;
     }
 
     /* Device Label */
@@ -321,6 +398,27 @@
 
 ::-webkit-scrollbar-thumb:hover {
     background: #475569;
+}
+
+@layer utilities {
+
+    /* Satellite Dark Filter - Balanced Night Mode */
+    .map-type-satellite_dark .leaflet-google-mutant,
+    .map-type-satellite_dark .leaflet-google-layer,
+    .map-type-satellite_dark .leaflet-layer {
+        filter: brightness(0.45) contrast(1.2) saturate(0.8) !important;
+        transition: filter 0.8s ease;
+    }
+
+    .map-type-satellite_dark .leaflet-container {
+        background: #0f172a !important;
+    }
+
+    /* Transition for all map types */
+    .leaflet-google-mutant,
+    .leaflet-google-layer {
+        transition: filter 0.8s ease;
+    }
 }
 
 body {
