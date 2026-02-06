@@ -61,14 +61,18 @@ export const createDeviceIcon = ({
     // Determine if there's a performance issue (high latency or packet loss)
     const hasPerformanceIssue = (latency !== null && latency > 100) || (packetLoss !== null && packetLoss > 0);
 
-    // Normalize status - prioritize 'warning' for performance issues on online devices
+    // Normalize status - prioritize 'down' first, then specific device types, then warning
     let normalizedStatus;
-    if (status === 'up' || status === 'online' || status === 'active') {
-        normalizedStatus = hasPerformanceIssue ? 'warning' : 'online';
-    } else if (status === 'down' || status === 'offline' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status) {
+    if (status === 'down' || status === 'offline' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status) {
         normalizedStatus = 'offline';
+    } else if (type === 'odp') {
+        normalizedStatus = 'odp'; // Always Orange if UP
+    } else if (type === 'pppoe') {
+        normalizedStatus = 'pppoe'; // Always Purple if UP
+    } else if (hasPerformanceIssue) {
+        normalizedStatus = 'warning'; // Yellow only for other devices with high latency
     } else {
-        normalizedStatus = 'unknown';
+        normalizedStatus = 'online'; // Green
     }
 
     const sizeClass = small ? 'device-icon--small' : '';

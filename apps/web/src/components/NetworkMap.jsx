@@ -1333,12 +1333,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                     if (line.status === 'down') {
                         railColor = "#FF0000"; // Pure Neon Red (Down - Priority)
-                    } else if (isAlert) {
-                        railColor = "#facc15"; // YELLOW Alert
                     } else if (line.deviceType === 'pppoe') {
-                        railColor = "#CD00FF"; // Neon Purple
+                        railColor = "#CD00FF"; // Neon Purple (Priority over Alert)
                     } else if (line.deviceType === 'odp') {
-                        railColor = "#FF6600"; // Vibrant Neon Orange
+                        railColor = "#FF6600"; // Vibrant Neon Orange (Priority over Alert)
+                    } else if (isAlert) {
+                        railColor = "#facc15"; // YELLOW Alert (Only for other devices)
                     } else if (line.status === 'up') {
                         railColor = "#10b981"; // Emerald Green
                     }
