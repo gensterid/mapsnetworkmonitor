@@ -101,14 +101,14 @@ export default function Netwatch() {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950">
+            <div className="flex-1 flex items-center justify-center bg-background-dark">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b border-slate-800">
                 <div className="flex items-center justify-between mb-4">

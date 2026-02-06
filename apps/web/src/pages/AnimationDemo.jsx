@@ -243,7 +243,7 @@ const AnimationDemo = () => {
     const currentStyle = animationStyles[selectedStyle];
 
     return (
-        <div className="min-h-screen bg-gray-900 text-white p-6">
+        <div className="min-h-screen bg-background-dark text-white p-6">
             <div className="max-w-7xl mx-auto">
                 <h1 className="text-3xl font-bold mb-2">🎨 Demo Animasi Garis Map</h1>
                 <p className="text-gray-400 mb-6">Klik pada style untuk melihat preview animasi</p>

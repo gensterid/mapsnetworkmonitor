@@ -436,7 +436,7 @@ export default function Users() {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950">
+            <div className="flex-1 flex items-center justify-center bg-background-dark">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
             </div>
         );
@@ -444,14 +444,14 @@ export default function Users() {
 
     if (error) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950 text-red-400">
+            <div className="flex-1 flex items-center justify-center bg-background-dark text-red-400">
                 Error loading users: {error.message}
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden" onClick={() => setActiveDropdownId(null)}>
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden" onClick={() => setActiveDropdownId(null)}>
             <div className="p-6 border-b border-slate-800 flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Users</h1>

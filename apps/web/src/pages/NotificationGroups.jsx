@@ -244,7 +244,7 @@ export default function NotificationGroups() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {groups.map(group => (
-                    <Card key={group.id} className="bg-slate-900 border-slate-800">
+                    <Card key={group.id} className="bg-surface-dark border-slate-800">
                         <CardHeader className="pb-3">
                             <CardTitle className="flex justify-between items-center text-lg">
                                 {group.name}
@@ -269,7 +269,7 @@ export default function NotificationGroups() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <div className="flex items-center justify-between p-2 rounded bg-slate-950/50 border border-slate-800/50">
+                            <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-800/50">
                                 <div className="flex items-center gap-2">
                                     <Send className={`w-4 h-4 ${group.telegramEnabled ? 'text-blue-400' : 'text-slate-600'}`} />
                                     <span className="text-sm text-slate-300">Telegram</span>
@@ -279,7 +279,7 @@ export default function NotificationGroups() {
                                 </span>
                             </div>
 
-                            <div className="flex items-center justify-between p-2 rounded bg-slate-950/50 border border-slate-800/50">
+                            <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-800/50">
                                 <div className="flex items-center gap-2">
                                     <MessageCircle className={`w-4 h-4 ${group.whatsappEnabled ? 'text-green-400' : 'text-slate-600'}`} />
                                     <span className="text-sm text-slate-300">WhatsApp</span>

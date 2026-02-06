@@ -373,7 +373,7 @@ export default function Routers() {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950">
+            <div className="flex-1 flex items-center justify-center bg-background-dark">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
             </div>
         );
@@ -381,7 +381,7 @@ export default function Routers() {
 
     if (error) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-slate-950 p-8 text-center">
+            <div className="flex-1 flex flex-col items-center justify-center bg-background-dark p-8 text-center">
                 <div className="text-red-400 mb-2">Error loading routers</div>
                 <p className="text-slate-500 text-sm">{error.message}</p>
             </div>
@@ -389,7 +389,7 @@ export default function Routers() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>

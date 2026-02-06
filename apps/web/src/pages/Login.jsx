@@ -76,7 +76,7 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen w-full flex items-center justify-center bg-[#0F172A] relative overflow-hidden">
+        <div className="min-h-screen w-full flex items-center justify-center bg-background-dark relative overflow-hidden">
             {/* Background Effects */}
             <div className="absolute inset-0 bg-gradient-to-br from-blue-900/20 via-background-dark to-background-dark z-0" />
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[100px] animate-pulse-slow" />

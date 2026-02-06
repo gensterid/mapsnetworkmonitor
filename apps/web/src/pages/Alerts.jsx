@@ -173,7 +173,7 @@ export default function Alerts() {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950">
+            <div className="flex-1 flex items-center justify-center bg-background-dark">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
             </div>
         );
@@ -181,7 +181,7 @@ export default function Alerts() {
 
     if (error) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950 text-red-400">
+            <div className="flex-1 flex items-center justify-center bg-background-dark text-red-400">
                 Error loading alerts: {error.message}
             </div>
         );
@@ -197,7 +197,7 @@ export default function Alerts() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Alerts</h1>

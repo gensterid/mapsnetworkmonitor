@@ -1,5 +1,6 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -112,54 +113,56 @@ function OperatorRoute({ children }) {
 function App() {
   return (
     <ErrorBoundary>
-      <Toaster position="top-right" />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/animation-demo" element={<AnimationDemo />} />
+      <ThemeProvider>
+        <Toaster position="top-right" />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/animation-demo" element={<AnimationDemo />} />
 
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <AppLayout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Dashboard />} />
-            <Route path="map" element={<NetworkMap />} />
-            <Route path="routers" element={
-              <ErrorBoundary>
-                <Routers />
-              </ErrorBoundary>
-            } />
-            <Route path="routers/:id" element={<RouterDetails />} />
-            <Route path="alerts" element={<Alerts />} />
-            <Route path="issues" element={<Issues />} />
-            <Route path="netwatch" element={
-              <AdminRoute>
-                <Netwatch />
-              </AdminRoute>
-            } />
-            <Route path="users" element={
-              <AdminRoute>
-                <Users />
-              </AdminRoute>
-            } />
-            <Route path="notification-groups" element={
-              <AdminRoute>
-                <NotificationGroups />
-              </AdminRoute>
-            } />
-            <Route path="analytics" element={
-              <OperatorRoute>
-                <Analytics />
-              </OperatorRoute>
-            } />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <AppLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="map" element={<NetworkMap />} />
+              <Route path="routers" element={
+                <ErrorBoundary>
+                  <Routers />
+                </ErrorBoundary>
+              } />
+              <Route path="routers/:id" element={<RouterDetails />} />
+              <Route path="alerts" element={<Alerts />} />
+              <Route path="issues" element={<Issues />} />
+              <Route path="netwatch" element={
+                <AdminRoute>
+                  <Netwatch />
+                </AdminRoute>
+              } />
+              <Route path="users" element={
+                <AdminRoute>
+                  <Users />
+                </AdminRoute>
+              } />
+              <Route path="notification-groups" element={
+                <AdminRoute>
+                  <NotificationGroups />
+                </AdminRoute>
+              } />
+              <Route path="analytics" element={
+                <OperatorRoute>
+                  <Analytics />
+                </OperatorRoute>
+              } />
+              <Route path="settings" element={<Settings />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

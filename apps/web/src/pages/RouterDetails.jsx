@@ -1608,7 +1608,7 @@ export default function RouterDetails() {
 
     if (isLoading) {
         return (
-            <div className="flex-1 flex items-center justify-center bg-slate-950">
+            <div className="flex-1 flex items-center justify-center bg-background-dark">
                 <RefreshCw className="w-8 h-8 animate-spin text-primary" />
             </div>
         );
@@ -1616,7 +1616,7 @@ export default function RouterDetails() {
 
     if (error) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-slate-950 gap-4">
+            <div className="flex-1 flex flex-col items-center justify-center bg-background-dark gap-4">
                 <AlertCircle className="w-12 h-12 text-red-500" />
                 <p className="text-red-400">Failed to load router details</p>
                 <Link to="/routers">
@@ -1627,7 +1627,7 @@ export default function RouterDetails() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
             <div className="p-4 sm:p-6 border-b border-slate-800">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">

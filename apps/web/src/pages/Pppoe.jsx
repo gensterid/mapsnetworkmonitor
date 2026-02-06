@@ -261,7 +261,7 @@ export default function Pppoe() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b border-slate-800">
                 <div className="flex items-center justify-between mb-4">

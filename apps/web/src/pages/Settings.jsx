@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2 } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette } from 'lucide-react';
 import { useExportDatabase, useImportDatabase } from '@/hooks';
+import { useTheme } from '@/context/ThemeContext';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -20,6 +21,7 @@ const TABS = [
 
 export default function Settings() {
     const queryClient = useQueryClient();
+    const { theme, setTheme, themes, themeDetails } = useTheme();
     const [activeTab, setActiveTab] = useState('profile');
     const [formData, setFormData] = useState({
         appName: 'NetMonitor',
@@ -158,7 +160,7 @@ export default function Settings() {
     }
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="p-6 border-b border-slate-800">
                 <h1 className="text-2xl font-bold text-white">Settings</h1>
                 <p className="text-slate-400 text-sm">Configure application settings</p>
@@ -278,6 +280,50 @@ export default function Settings() {
                                 {saveStatus}
                             </div>
                         )}
+
+                        {/* Theme Selection */}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Palette className="w-5 h-5" />
+                                    Appearance
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <label className="text-sm font-medium text-slate-300">Theme</label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    {Object.values(themes).map((t) => (
+                                        <button
+                                            key={t}
+                                            type="button"
+                                            onClick={() => setTheme(t)}
+                                            className={`
+                                                relative flex items-center justify-between p-3 rounded-xl border transition-all
+                                                ${theme === t
+                                                    ? 'bg-slate-800 border-primary ring-1 ring-primary'
+                                                    : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800'
+                                                }
+                                            `}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div
+                                                    className="w-8 h-8 rounded-lg shadow-lg border border-white/10"
+                                                    style={{ backgroundColor: themeDetails[t].color }}
+                                                ></div>
+                                                <div className="text-left">
+                                                    <div className={`text-sm font-medium ${theme === t ? 'text-primary' : 'text-slate-300'}`}>
+                                                        {themeDetails[t].name}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {theme === t && (
+                                                <div className="w-2 h-2 rounded-full bg-primary shadow-lg shadow-primary/50"></div>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
 
                         {/* General Settings */}
                         <Card>

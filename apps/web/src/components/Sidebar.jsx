@@ -72,10 +72,10 @@ const Sidebar = ({ isOpen, onClose }) => {
 
     return (
         <aside className={clsx(
-            "fixed lg:static inset-y-0 left-0 z-40 w-72 bg-[#0B1120] border-r border-slate-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none",
+            "fixed lg:static inset-y-0 left-0 z-40 w-72 bg-surface-dark border-r border-slate-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none",
             isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         )}>
-            <div className="flex flex-col h-full bg-gradient-to-b from-[#0B1120] to-[#0f172a]">
+            <div className="flex flex-col h-full bg-gradient-to-b from-surface-dark to-background-dark">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
                     <div className="flex gap-3 items-center">

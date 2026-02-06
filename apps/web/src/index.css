@@ -1,22 +1,112 @@
 @import "tailwindcss";
 
-@theme {
-    --color-primary: #3B82F6;
-    --color-primary-dark: #2563EB;
-    --color-background-light: #f5f7f8;
-    --color-background-dark: #0F172A;
-    --color-surface-dark: #1E293B;
-    --color-surface-darker: #020617;
-    --color-success: #10B981;
-    --color-danger: #EF4444;
-    --color-warning: #F59E0B;
-    --color-slate-surface: #1E293B;
-    --color-slate-border: #334155;
+:root {
+    /* Default Theme (Midnight Glow) */
+    --primary: #3B82F6;
+    --primary-dark: #2563EB;
+    --background-light: #f5f7f8;
+    --background-dark: #0F172A;
+    --surface-dark: #1E293B;
+    --surface-darker: #020617;
+    --success: #10B981;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --slate-surface: #1E293B;
+    --slate-border: #334155;
 
-    /* Custom Device Colors */
+    /* Device Colors Base */
     --color-orange: #F97316;
-    --color-orange-dark: #EA580C;
     --color-purple: #A855F7;
+}
+
+/* Theme: Cyberpunk Neon */
+.theme-cyberpunk {
+    --primary: #06b6d4;
+    /* Cyan */
+    --primary-dark: #0891b2;
+    --background-dark: #0f042d;
+    /* Deep Purple */
+    --surface-dark: #1a0b36;
+    --surface-darker: #050110;
+    --success: #f472b6;
+    /* Pink */
+    --danger: #ef4444;
+    --warning: #facc15;
+    /* Neon Yellow */
+    --slate-surface: #1a0b36;
+    --slate-border: #4c1d95;
+}
+
+/* Theme: Emerald Forest */
+.theme-emerald {
+    --primary: #10b981;
+    /* Emerald */
+    --primary-dark: #059669;
+    --background-dark: #050805;
+    /* Black Green */
+    --surface-dark: #0f1f15;
+    --surface-darker: #020603;
+    --success: #34d399;
+    --danger: #ef4444;
+    --warning: #d97706;
+    /* Earthy Orange */
+    --slate-surface: #0f1f15;
+    --slate-border: #064e3b;
+}
+
+/* Theme: Arctic Frost */
+.theme-arctic {
+    --primary: #38bdf8;
+    /* Sky Blue */
+    --primary-dark: #0284c7;
+    --background-dark: #111827;
+    /* Gray 900 */
+    --surface-dark: #1f2937;
+    /* Gray 800 */
+    --surface-darker: #030712;
+    /* Gray 950 */
+    --success: #2dd4bf;
+    /* Teal */
+    --danger: #f87171;
+    --warning: #fbbf24;
+    --slate-surface: #1f2937;
+    --slate-border: #374151;
+}
+
+/* Theme: Professional Slate */
+.theme-slate {
+    --primary: #94a3b8;
+    /* Slate 400 */
+    --primary-dark: #64748b;
+    --background-dark: #020617;
+    /* Slate 950 */
+    --surface-dark: #0f172a;
+    /* Slate 900 */
+    --surface-darker: #000000;
+    --success: #10b981;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --slate-surface: #0f172a;
+    --slate-border: #1e293b;
+}
+
+@theme {
+    --color-primary: var(--primary);
+    --color-primary-dark: var(--primary-dark);
+    --color-background-light: var(--background-light);
+    --color-background-dark: var(--background-dark);
+    --color-surface-dark: var(--surface-dark);
+    --color-surface-darker: var(--surface-darker);
+    --color-success: var(--success);
+    --color-danger: var(--danger);
+    --color-warning: var(--warning);
+    --color-slate-surface: var(--slate-surface);
+    --color-slate-border: var(--slate-border);
+
+    /* Keep generic device colors static for now, or variables if needed */
+    --color-orange: var(--color-orange);
+    --color-orange-dark: #EA580C;
+    --color-purple: var(--color-purple);
     --color-purple-dark: #9333EA;
 
     --font-display: "Inter", sans-serif;

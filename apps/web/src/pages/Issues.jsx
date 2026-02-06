@@ -111,8 +111,8 @@ export default function Issues() {
         return <Activity className="w-5 h-5 mt-0.5 text-yellow-500" />;
     };
 
-    if (isLoading) return <div className="flex-1 flex items-center justify-center bg-slate-950"><RefreshCw className="w-6 h-6 animate-spin text-primary" /></div>;
-    if (error) return <div className="flex-1 flex items-center justify-center bg-slate-950 text-red-400">Error loading issues: {error.message}</div>;
+    if (isLoading) return <div className="flex-1 flex items-center justify-center bg-background-dark"><RefreshCw className="w-6 h-6 animate-spin text-primary" /></div>;
+    if (error) return <div className="flex-1 flex items-center justify-center bg-background-dark text-red-400">Error loading issues: {error.message}</div>;
 
     const getSeverityColor = (severity) => {
         switch (severity) {
@@ -124,7 +124,7 @@ export default function Issues() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-950 overflow-hidden">
+        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white">Issues</h1>
