@@ -1361,10 +1361,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         motionColor = '#fdba74'; // Lighter orange
                     }
 
-                    if (styleConfig.isAntPath) {
+                    if (styleConfig.isAntPath && !lowPerfMode) {
                         return (
                             <AntPath
-                                key={`ant - line - ${line.id} `}
+                                key={`ant-line-${line.id}`}
                                 positions={[line.from, ...(line.waypoints || []), line.to]}
                                 options={{
                                     delay: styleConfig.delay,
@@ -1372,7 +1372,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     weight: lineThickness,
                                     color: styleConfig.color || railColor,
                                     pulseColor: styleConfig.pulseColor || "transparent",
-                                    paused: !enableAnimation, // REMOVED: line.status === 'down' condition
+                                    paused: !enableAnimation,
                                     reverse: false
                                 }}
                                 tooltip={tooltipContent}

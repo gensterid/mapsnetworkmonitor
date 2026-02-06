@@ -1232,5 +1232,5 @@
 .low-perf .device-icon__badge {
     animation: none !important;
     box-shadow: none !important;
-    border: 2px solid currentColor !important;
+    border: 2px solid white !important;
 }

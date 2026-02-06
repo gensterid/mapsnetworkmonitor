@@ -180,8 +180,8 @@ const AnimatedPath = ({
 
     return (
         <>
-            {/* Background Rail - Only render if not transparent */}
-            {options.pulseColor !== 'transparent' && (
+            {/* Background Rail - Only render if not transparent and NOT in Low Perf Mode (disableMotionPath) */}
+            {options.pulseColor !== 'transparent' && !disableMotionPath && (
                 <Polyline
                     positions={positions}
                     pathOptions={{
