@@ -10,6 +10,7 @@ export const Button = React.forwardRef(({
     loading = false,
     children,
     disabled,
+    asChild, // Destructure to prevent passing to DOM
     ...props
 }, ref) => {
     const variants = {
