@@ -1,6 +1,7 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { Polyline, Tooltip, Popup } from 'react-leaflet';
 import { getAnimationStyle } from './animationStyles';
+import './map.css'; // Ensure CSS variables and keyframes are loaded
 
 /**
  * AnimatedPath Component (Optimized v2)
@@ -33,7 +34,7 @@ const AnimatedPath = ({
     const options = useMemo(() => {
         const preset = animationStyle ? getAnimationStyle(animationStyle) : null;
         return {
-            color: preset?.color || color,
+            color: color || preset?.color, // Prioritize prop 'color' (status color) over preset
             pulseColor: pulseColor,
             weight: weight,
             opacity: preset?.opacity ?? opacity,
