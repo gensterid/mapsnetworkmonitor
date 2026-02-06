@@ -1,0 +1,18 @@
+﻿--- FINAL SYNC START ---
+[main 15d4c7e] fix(map): implement seamless pulse synchronization and unique keyframes for production
+ 1 file changed, 17 insertions(+), 21 deletions(-)
+f:\Antigrafity\new-monitoring-mikrotik\final_sync.bat 
+: To https://github.com/gensterid/mapsnetworkmonitor
+At line:1 char:1
++ 
+f:\Antigrafity\new-monitoring-mikrotik\final_sync.bat 
+> final_sync_ou ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (To 
+https:/    /gith...snetworkmonitor:String) [], 
+RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   e19bf4f..15d4c7e  main -> main
+--- FINAL SYNC END ---

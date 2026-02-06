@@ -1371,8 +1371,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     dashArray: styleConfig.dashArray,
                                     weight: lineThickness,
                                     color: styleConfig.color || railColor,
-                                    pulseColor: styleConfig.pulseColor || "#FFFFFF",
-                                    paused: !enableAnimation,
+                                    pulseColor: styleConfig.pulseColor || "transparent",
+                                    paused: !enableAnimation, // REMOVED: line.status === 'down' condition
                                     reverse: false
                                 }}
                                 tooltip={tooltipContent}
@@ -1399,7 +1399,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                             // FORCE NEON LOGIC
                             color={styleConfig.color || railColor} // Fixed fallback
-                            pulseColor={railColor}
+                            pulseColor={styleConfig.pulseColor ?? railColor} // Use config pulseColor if exists (transparency), else fallback to railColor
 
                             // Pass Motion Specifics (Disable if Low Perf)
                             motionColor={motionColor}
@@ -1408,7 +1408,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             disableMotionPath={lowPerfMode}
 
                             opacity={line.status === 'down' ? 1 : (styleConfig.opacity || 1)} // Keep full opacity for down red line
-                            paused={line.status === 'down'} // Pause animation on down
+                            paused={!enableAnimation} // REMOVED: line.status === 'down' condition
 
                             tooltip={tooltipContent}
                             popup={tooltipContent}

@@ -10,7 +10,8 @@ export const ANIMATION_STYLES = {
         delay: 800,
         dashArray: [10, 20],
         weight: 3,
-        isAntPath: true, // Use stable AntPath renderer
+        isAntPath: false, // Use stable AntPath renderer
+        pulseColor: 'transparent',
         description: 'Animasi standar dengan aliran smooth'
     },
 
@@ -20,7 +21,8 @@ export const ANIMATION_STYLES = {
         delay: 300,
         dashArray: [5, 10],
         weight: 3,
-        isAntPath: true,
+        isAntPath: false,
+        pulseColor: 'transparent',
         description: 'Animasi cepat untuk visualisasi data flow tinggi'
     },
 
@@ -30,6 +32,7 @@ export const ANIMATION_STYLES = {
         delay: 1500,
         dashArray: [15, 30],
         weight: 4,
+        pulseColor: 'transparent',
         description: 'Animasi lambat dan santai'
     },
 
@@ -39,7 +42,8 @@ export const ANIMATION_STYLES = {
         delay: 400,
         dashArray: [3, 12],
         weight: 4,
-        isAntPath: true, // Use stable AntPath renderer
+        isAntPath: false, // Use stable AntPath renderer
+        pulseColor: 'transparent',
         description: 'Titik-titik kecil bergerak di sepanjang garis'
     },
 
@@ -49,6 +53,7 @@ export const ANIMATION_STYLES = {
         delay: 600,
         dashArray: [20, 15],
         weight: 3,
+        pulseColor: 'transparent',
         description: 'Garis putus-putus panjang'
     },
 
@@ -58,6 +63,7 @@ export const ANIMATION_STYLES = {
         delay: 150,
         dashArray: [8, 16],
         weight: 2,
+        pulseColor: 'transparent',
         description: 'Animasi sangat cepat seperti balap'
     },
 
@@ -67,6 +73,7 @@ export const ANIMATION_STYLES = {
         delay: 500,
         dashArray: [12, 8],
         weight: 5,
+        pulseColor: 'transparent',
         description: 'Garis tebal untuk visualisasi bandwidth besar'
     },
 
@@ -76,6 +83,7 @@ export const ANIMATION_STYLES = {
         delay: 400,
         dashArray: [15, 5, 5, 5],
         weight: 3,
+        pulseColor: 'transparent',
         description: 'Pola seperti kode morse'
     },
 
@@ -85,6 +93,7 @@ export const ANIMATION_STYLES = {
         delay: 350,
         dashArray: [5, 5, 15, 5],
         weight: 3,
+        pulseColor: 'transparent',
         description: 'Pola seperti detak jantung'
     },
 
@@ -94,6 +103,7 @@ export const ANIMATION_STYLES = {
         delay: 100,
         dashArray: [2, 8],
         weight: 2,
+        pulseColor: 'transparent',
         description: 'Simulasi sinyal fiber optic super cepat'
     },
 
@@ -104,6 +114,7 @@ export const ANIMATION_STYLES = {
         dashArray: [10, 20],
         weight: 3,
         paused: true,
+        pulseColor: 'transparent',
         description: 'Garis statis tanpa animasi'
     },
 
@@ -114,6 +125,7 @@ export const ANIMATION_STYLES = {
         dashArray: [10, 20],
         weight: 3,
         reverse: true,
+        pulseColor: 'transparent',
         description: 'Animasi mengalir ke arah sebaliknya'
     },
 
@@ -134,6 +146,7 @@ export const ANIMATION_STYLES = {
         dashArray: [8, 25],
         weight: 2,
         opacity: 0.5,
+        pulseColor: 'transparent',
         description: 'Animasi minimal dan profesional'
     },
 
@@ -268,7 +281,8 @@ export const ANIMATION_STYLES = {
         delay: 1000,
         dashArray: [10, 20],
         weight: 3,
-        isAntPath: true, // Flag to identify this special renderer
+        isAntPath: false, // Flag to identify this special renderer
+        pulseColor: 'transparent',
         description: 'Efek garis berjalan klasik (Marching Ants)'
     },
 

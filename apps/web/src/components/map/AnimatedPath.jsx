@@ -180,16 +180,18 @@ const AnimatedPath = ({
 
     return (
         <>
-            {/* Background Rail */}
-            <Polyline
-                positions={positions}
-                pathOptions={{
-                    color: options.pulseColor || options.color,
-                    weight: options.weight,
-                    opacity: 0.5,
-                    className: options.className ? `${options.className}-rail` : ''
-                }}
-            />
+            {/* Background Rail - Only render if not transparent */}
+            {options.pulseColor !== 'transparent' && (
+                <Polyline
+                    positions={positions}
+                    pathOptions={{
+                        color: options.pulseColor || options.color,
+                        weight: options.weight,
+                        opacity: 0.5,
+                        className: options.className ? `${options.className}-rail` : ''
+                    }}
+                />
+            )}
 
             {/* Foreground Path */}
             <Polyline
