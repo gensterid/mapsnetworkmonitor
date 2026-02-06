@@ -1389,7 +1389,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             delay={styleConfig.delay}
                             dashArray={styleConfig.dashArray}
                             weight={lineThickness}
-                            opacity={styleConfig.opacity || 1}
+                            // opacity removed here, defined below with status logic
                             enableAnimation={enableAnimation}
                             lineCap={styleConfig.lineCap || 'butt'}
 
