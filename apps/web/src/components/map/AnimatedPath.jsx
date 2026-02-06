@@ -146,7 +146,7 @@ const AnimatedPath = ({
                 // Determine shape based on motionType
                 if (options.motionType === 'orb') {
                     motionEl = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    motionEl.setAttribute("r", "4");
+                    motionEl.setAttribute("r", "6"); // Increased orb size (was 4)
                     motionEl.setAttribute("class", "motion-element motion-orb");
                 } else if (options.motionType === 'packet') {
                     motionEl = document.createElementNS("http://www.w3.org/2000/svg", "rect");

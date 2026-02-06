@@ -451,7 +451,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [editingDevice, setEditingDevice] = useState(null);
     const [editWaypoints, setEditWaypoints] = useState([]);
     const [pathLength, setPathLength] = useState(0);
-    const [lineThickness, setLineThickness] = useState(8); // Increased default thickness for better visibility
+    const [lineThickness, setLineThickness] = useState(4); // Reverted default to 4 as requested
     const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1327,10 +1327,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     // Determine Rail Color (Background)
                     let railColor = "#06b6d4"; // Default Cyan
 
-                    if (isAlert) {
+                    if (line.status === 'down') {
+                        railColor = "#FF0000"; // Pure Neon Red (Down - Priority)
+                    } else if (isAlert) {
                         railColor = "#facc15"; // YELLOW Alert
-                    } else if (line.status === 'down') {
-                        railColor = "#FF0000"; // Pure Neon Red
                     } else if (line.deviceType === 'pppoe') {
                         railColor = "#CD00FF"; // Neon Purple
                     } else if (line.deviceType === 'odp') {
