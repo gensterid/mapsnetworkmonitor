@@ -13,6 +13,12 @@
     --color-slate-surface: #1E293B;
     --color-slate-border: #334155;
 
+    /* Custom Device Colors */
+    --color-orange: #F97316;
+    --color-orange-dark: #EA580C;
+    --color-purple: #A855F7;
+    --color-purple-dark: #9333EA;
+
     --font-display: "Inter", sans-serif;
 
     --radius-lg: 0.5rem;
@@ -89,6 +95,20 @@
 
         100% {
             box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+        }
+    }
+
+    @keyframes marker-pulse-yellow {
+        0% {
+            box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(234, 179, 8, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(234, 179, 8, 0);
         }
     }
 
@@ -177,6 +197,110 @@
     .leaflet-marker-icon.marker-pulse-danger .device-icon {
         box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.5), 0 0 25px rgba(239, 68, 68, 0.7);
         border: 2px solid #ef4444;
+    }
+
+    /* Base Icon Styles (Fallback if missing) */
+    .device-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        background-color: #0F172A;
+        /* slate-900 */
+        border-width: 2.5px;
+        border-style: solid;
+        border-color: #334155;
+        /* slate-600 */
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        color: white;
+        transition: all 0.3s ease;
+        width: 100%;
+        height: 100%;
+        position: relative;
+    }
+
+    .device-icon__badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        border-radius: 9999px;
+        background-color: #1E293B;
+        /* slate-800 */
+        overflow: hidden;
+    }
+
+    /* Status Overrides */
+
+    /* Online (Green) */
+    .device-icon--online {
+        border-color: #10B981;
+    }
+
+    .device-icon--online .device-icon__badge {
+        background-color: #059669;
+        /* emerald-600 */
+    }
+
+    /* Offline (Red) */
+    .device-icon--offline,
+    .device-icon--down {
+        border-color: #EF4444;
+    }
+
+    .device-icon--offline .device-icon__badge,
+    .device-icon--down .device-icon__badge {
+        background-color: #DC2626;
+        /* red-600 */
+    }
+
+    /* Warning (Yellow) - High Latency */
+    .device-icon--warning {
+        border-color: #EAB308;
+        /* yellow-500 */
+        animation: marker-pulse-yellow 2s infinite;
+    }
+
+    .device-icon--warning .device-icon__badge {
+        background-color: #CA8A04;
+        /* yellow-600 */
+    }
+
+    /* ODP (Orange) - Only when Online */
+    .device-icon--odp.device-icon--online {
+        border-color: #F97316;
+    }
+
+    .device-icon--odp.device-icon--online .device-icon__badge {
+        background-color: #EA580C;
+    }
+
+    /* PPPoE (Purple) - Only when Online */
+    .device-icon--pppoe.device-icon--online {
+        border-color: #A855F7;
+    }
+
+    .device-icon--pppoe.device-icon--online .device-icon__badge {
+        background-color: #9333EA;
+    }
+
+    /* Device Label */
+    .device-icon__label {
+        position: absolute;
+        bottom: -24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: rgba(15, 23, 42, 0.9);
+        color: white;
+        font-size: 10px;
+        font-weight: 500;
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid #334155;
+        white-space: nowrap;
+        z-index: 50;
+        pointer-events: none;
     }
 }
 

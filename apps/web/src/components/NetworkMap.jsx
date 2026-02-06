@@ -1397,9 +1397,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             enableAnimation={enableAnimation}
                             lineCap={styleConfig.lineCap || 'butt'}
 
-                            // FORCE NEON LOGIC
-                            color={styleConfig.color || railColor} // Fixed fallback
-                            pulseColor={styleConfig.pulseColor ?? railColor} // Use config pulseColor if exists (transparency), else fallback to railColor
+                            // FORCE NEON LOGIC - ENFORCE railColor over style defaults
+                            color={railColor} // Always use status color (ignore styleConfig.color)
+                            pulseColor={(line.status === 'down' || isAlert) ? railColor : (styleConfig.pulseColor ?? railColor)}
 
                             // Pass Motion Specifics (Disable if Low Perf)
                             motionColor={motionColor}
