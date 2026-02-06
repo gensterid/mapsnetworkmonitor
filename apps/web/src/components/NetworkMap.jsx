@@ -468,6 +468,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         const saved = localStorage.getItem('map_clustering_enabled');
         return saved !== null ? JSON.parse(saved) : true;
     });
+    const [lowPerfMode, setLowPerfMode] = useState(() => {
+        const saved = localStorage.getItem('map_low_perf_enabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
 
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
@@ -1260,7 +1264,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
 
     return (
-        <main ref={mapContainerRef} className="flex-1 relative flex flex-col bg-[#0f172a] overflow-hidden h-full">
+        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#0f172a] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''}`}>
             <MapContainer
                 center={center}
                 zoom={10}
@@ -1379,7 +1383,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                     return (
                         <AnimatedPath
-                            key={`line-${line.id}-${enableAnimation}-${currentUser?.animationStyle || 'default'}`}
+                            key={`line-${line.id}-${enableAnimation}-${currentUser?.animationStyle || 'default'}-${lowPerfMode}`}
                             positions={[line.from, ...(line.waypoints || []), line.to]}
                             status={line.status}
                             type={line.deviceType}
@@ -1397,9 +1401,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             color={styleConfig.color || railColor} // Fixed fallback
                             pulseColor={railColor}
 
-                            // Pass Motion Specifics
+                            // Pass Motion Specifics (Disable if Low Perf)
                             motionColor={motionColor}
                             motionType={motionType}
+                            // Force disable motion path in low perf mode
+                            disableMotionPath={lowPerfMode}
+
                             opacity={line.status === 'down' ? 1 : (styleConfig.opacity || 1)} // Keep full opacity for down red line
                             paused={line.status === 'down'} // Pause animation on down
 
@@ -1625,6 +1632,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             setEnableClustering(prev => {
                                 const newVal = !prev;
                                 localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
+                                return newVal;
+                            });
+                        }}
+                        lowPerfMode={lowPerfMode}
+                        onToggleLowPerf={() => {
+                            setLowPerfMode(prev => {
+                                const newVal = !prev;
+                                localStorage.setItem('map_low_perf_enabled', JSON.stringify(newVal));
                                 return newVal;
                             });
                         }}

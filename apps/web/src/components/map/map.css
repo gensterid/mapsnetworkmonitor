@@ -1148,3 +1148,89 @@
 [class*="ans-style-"]:hover {
     filter: brightness(1.2) !important;
 }
+
+/* ===== OPTIMIZATION V2: CSS Variables & Performance Mode ===== */
+
+/* 
+   Generic Animation Class
+   Replaces specific keyframes with CSS Variables.
+   Usage: set --dash-array, --dash-offset, --anim-duration
+*/
+.animated-line {
+    /* Default variables if not set inline */
+    --dash-array: 10, 20;
+    --dash-offset-target: -30;
+    /* Should match sum of dash array */
+    --anim-duration: 1000ms;
+    --anim-color: #3b82f6;
+
+    stroke-dasharray: var(--dash-array) !important;
+    stroke: var(--anim-color) !important;
+    animation-name: flow-generic !important;
+    animation-duration: var(--anim-duration) !important;
+    animation-timing-function: linear !important;
+    animation-iteration-count: infinite !important;
+    animation-play-state: running;
+    will-change: stroke-dashoffset;
+}
+
+.animated-line.reverse {
+    animation-name: flow-generic-rev !important;
+    --dash-offset-target: 30;
+    /* Positive for reverse */
+}
+
+.animated-line.paused {
+    animation-play-state: paused !important;
+}
+
+@keyframes flow-generic {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: var(--dash-offset-target, -30);
+    }
+}
+
+@keyframes flow-generic-rev {
+    from {
+        stroke-dashoffset: 0;
+    }
+
+    to {
+        stroke-dashoffset: var(--dash-offset-target, 30);
+    }
+}
+
+/* 
+   Low Performance Mode 
+   Disables heavy filters and effects. 
+   Applied to map container or individual lines.
+*/
+.low-perf .custom-map-tooltip,
+.low-perf .leaflet-tooltip {
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    background: #0f172a !important;
+    /* Solid fallback */
+}
+
+/* Disable glow filters on lines in low perf mode */
+.low-perf [class*="-glow"] {
+    filter: none !important;
+}
+
+/* Disable motion elements (orbs) in low perf mode if needed, 
+   though ideally we just don't render them in React */
+.low-perf .motion-element {
+    display: none !important;
+}
+
+/* Simplify Pulsing */
+.low-perf .device-icon__badge {
+    animation: none !important;
+    box-shadow: none !important;
+    border: 2px solid currentColor !important;
+}

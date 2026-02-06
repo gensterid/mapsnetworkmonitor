@@ -14,6 +14,8 @@ const MapLegend = ({
     onToggleAnimation,
     enableClustering = true,
     onToggleClustering,
+    lowPerfMode = false,
+    onToggleLowPerf,
 }) => {
     // Internal state for mobile responsiveness
     // On desktop, we respect the parent's prop. On mobile, we might default to hidden.
@@ -148,6 +150,33 @@ const MapLegend = ({
                                     {enableClustering ? 'group_work' : 'scatter_plot'}
                                 </span>
                                 Cluster: {enableClustering ? 'ON' : 'OFF'}
+                            </button>
+                        )}
+
+                        {/* Low Perf Mode Toggle */}
+                        {onToggleLowPerf && (
+                            <button
+                                onClick={onToggleLowPerf}
+                                className="map-legend__toggle"
+                                style={{
+                                    marginTop: 4,
+                                    padding: '5px 8px',
+                                    background: lowPerfMode ? 'rgba(239, 68, 68, 0.4)' : 'rgba(71, 85, 105, 0.4)',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    color: 'white',
+                                    fontSize: 10,
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    width: '100%',
+                                }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+                                    {lowPerfMode ? 'speed' : 'monitor_heart'}
+                                </span>
+                                Low Perf: {lowPerfMode ? 'ON' : 'OFF'}
                             </button>
                         )}
                     </div>
