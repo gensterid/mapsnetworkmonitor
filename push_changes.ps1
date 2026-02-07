@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-function Run-GitCommand {
+function Invoke-GitCommand {
     param (
         [string]$Arguments,
         [string]$LogFile
@@ -15,9 +15,9 @@ function Run-GitCommand {
     Get-Content $LogFile | Write-Host
 }
 
-Run-GitCommand -Arguments "add ." -LogFile "git_add.log"
-Run-GitCommand -Arguments "commit -m ""chore: final sync check""" -LogFile "git_commit.log"
-Run-GitCommand -Arguments "push origin main" -LogFile "git_push.log"
+Invoke-GitCommand -Arguments "add ." -LogFile "git_add.log"
+Invoke-GitCommand -Arguments "commit -m ""chore: update push script to follow PS standards""" -LogFile "git_commit.log"
+Invoke-GitCommand -Arguments "push origin main" -LogFile "git_push.log"
 
 Remove-Item git_*.log* -ErrorAction SilentlyContinue
 Write-Host "GitHub synchronization verified and completed."
