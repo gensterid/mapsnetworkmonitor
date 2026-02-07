@@ -1,0 +1,5 @@
+Testing Git... 
+git version 2.52.0.windows.1
+origin	https://github.com/gensterid/mapsnetworkmonitor (fetch)
+origin	https://github.com/gensterid/mapsnetworkmonitor (push)
+Done. 

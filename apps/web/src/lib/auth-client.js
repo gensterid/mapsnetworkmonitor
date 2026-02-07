@@ -10,7 +10,7 @@ const getBaseURL = () => {
             return ''; // Relative path - will use current origin
         }
     }
-    return 'http://localhost:3001';
+    return 'http://localhost:3002';
 };
 
 export const authClient = createAuthClient({

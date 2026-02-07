@@ -20,7 +20,7 @@ export function useSSE() {
 
         // In production, use relative path (empty string) to go through Nginx proxy
         // In development, use localhost:3001
-        let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002';
         if (typeof window !== 'undefined' &&
             !window.location.hostname.includes('localhost') &&
             !window.location.hostname.includes('127.0.0.1')) {
