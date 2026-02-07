@@ -70,3 +70,4 @@
       at async loadAndTransform (file:///F:/Antigrafity/new-monitoring-mikrotik/apps/web/node_modules/vite/dist/node/chunks/config.js:22669:26)
       at async viteTransformMiddleware (file:///F:/Antigrafity/new-monitoring-mikrotik/apps/web/node_modules/vite/dist/node/chunks/config.js:24541:20)
 [2m02.44.26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css[22m
+[2m03.55.59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/index.css, /src/components/NetworkMap.jsx[22m

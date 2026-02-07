@@ -1561,7 +1561,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             >
                                 <option value="roadmap">Roadmap</option>
                                 <option value="satellite">Satellite</option>
-                                <option value="satellite_dark">Google Satellite Dark</option>
+                                <option value="satellite_dark">Satellite Dark</option>
                                 <option value="hybrid">Hybrid</option>
                                 <option value="terrain">Terrain</option>
                                 <option value="dark">Dark Mode</option>
