@@ -7,7 +7,10 @@ export const THEMES = {
     CYBERPUNK: 'theme-cyberpunk',
     EMERALD: 'theme-emerald',
     ARCTIC: 'theme-arctic',
-    SLATE: 'theme-slate'
+    SLATE: 'theme-slate',
+    SPACEX: 'theme-spacex',
+    HOLOGRAPHIC: 'theme-holographic',
+    ENTERPRISE: 'theme-enterprise'
 };
 
 export const THEME_DETAILS = {
@@ -15,7 +18,10 @@ export const THEME_DETAILS = {
     [THEMES.CYBERPUNK]: { name: 'Cyberpunk Neon', color: '#06b6d4' },
     [THEMES.EMERALD]: { name: 'Emerald Forest', color: '#10b981' },
     [THEMES.ARCTIC]: { name: 'Arctic Frost', color: '#38bdf8' },
-    [THEMES.SLATE]: { name: 'Professional Slate', color: '#94a3b8' }
+    [THEMES.SLATE]: { name: 'Professional Slate', color: '#94a3b8' },
+    [THEMES.SPACEX]: { name: 'SpaceX Mission', color: '#000000' },
+    [THEMES.HOLOGRAPHIC]: { name: 'Holographic Blue', color: '#00D4FF' },
+    [THEMES.ENTERPRISE]: { name: 'Enterprise White', color: '#F4F7FA' }
 };
 
 export function ThemeProvider({ children }) {

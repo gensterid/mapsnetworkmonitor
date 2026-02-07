@@ -90,6 +90,69 @@
     --slate-border: #1e293b;
 }
 
+/* Theme: SpaceX / Mission Control */
+.theme-spacex {
+    --primary: #ffffff;
+    /* White for high contrast data */
+    --primary-dark: #cccccc;
+    --background-dark: #000000;
+    /* Absolute Black */
+    --surface-dark: #050505;
+    /* Near Black */
+    --surface-darker: #000000;
+    --success: #00ff00;
+    /* Terminal Green */
+    --danger: #ff0000;
+    /* Terminal Red */
+    --warning: #ffff00;
+    /* Terminal Yellow */
+    --slate-surface: #050505;
+    --slate-border: #333333;
+    /* Thin borders */
+
+    /* Font override for data numbers */
+    --font-display: "Roboto Mono", monospace;
+}
+
+/* Theme: Holographic Blue */
+.theme-holographic {
+    --primary: #00D4FF;
+    /* Electric Blue */
+    --primary-dark: #0099cc;
+    --background-dark: #020817;
+    /* Deep Space Blue */
+    --surface-dark: #0a1128;
+    --surface-darker: #050b1a;
+    --success: #00ffcc;
+    /* Cyan Green */
+    --danger: #ff0066;
+    /* Neon Pink */
+    --warning: #ffcc00;
+    /* Neon Yellow */
+    --slate-surface: #0a1128;
+    --slate-border: #1e3a8a;
+    /* Blue border */
+}
+
+/* Theme: Enterprise White (Light Mode) */
+.theme-enterprise {
+    --primary: #2563EB;
+    /* Royal Blue */
+    --primary-dark: #1e40af;
+    --background-dark: #F4F7FA;
+    /* Light Grey Surface */
+    --surface-dark: #FFFFFF;
+    /* Pure White */
+    --surface-darker: #E2E8F0;
+    /* Light Border/Divider */
+    --success: #059669;
+    --danger: #dc2626;
+    --warning: #d97706;
+    --slate-surface: #FFFFFF;
+    --slate-border: #CBD5E1;
+    /* Light Grey Border */
+}
+
 @theme {
     --color-primary: var(--primary);
     --color-primary-dark: var(--primary-dark);
@@ -513,4 +576,112 @@
 
 body {
     @apply bg-background-dark text-white font-display overflow-hidden;
+}
+
+/* 
+   --------------------------------------------------------------------------
+   THEME SPECIFIC OVERRIDES 
+   --------------------------------------------------------------------------
+*/
+
+/* --- SpaceX Theme Overrides --- */
+.theme-spacex .rounded-xl,
+.theme-spacex .rounded-lg,
+.theme-spacex .rounded-md,
+.theme-spacex .rounded {
+    border-radius: 0px !important;
+}
+
+.theme-spacex .border-slate-800 {
+    border-color: #333333 !important;
+}
+
+.theme-spacex .glass-panel {
+    background: #050505 !important;
+    border: 1px solid #333333 !important;
+    backdrop-filter: none !important;
+}
+
+
+/* --- Holographic Theme Overrides --- */
+.theme-holographic .text-primary,
+.theme-holographic .text-cyan-400 {
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.7);
+}
+
+.theme-holographic .glass-panel {
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.15), inset 0 0 20px rgba(0, 212, 255, 0.05);
+    border: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+
+/* --- Enterprise White Theme Overrides (Inversion Strategy) --- */
+
+/* 1. Invert Text Colors */
+.theme-enterprise body {
+    color: #0f172a !important;
+    /* Slate 900 */
+}
+
+.theme-enterprise .text-white {
+    color: #1e293b !important;
+    /* Slate 800 */
+}
+
+.theme-enterprise .text-slate-200,
+.theme-enterprise .text-slate-300,
+.theme-enterprise .text-slate-400 {
+    color: #475569 !important;
+    /* Slate 600 */
+}
+
+.theme-enterprise .text-slate-500 {
+    color: #64748b !important;
+    /* Slate 500 */
+}
+
+/* 2. Invert Backgrounds */
+.theme-enterprise .bg-background-dark,
+.theme-enterprise .bg-slate-950 {
+    background-color: #F4F7FA !important;
+}
+
+.theme-enterprise .bg-slate-900,
+.theme-enterprise .bg-slate-800 {
+    background-color: #FFFFFF !important;
+    border-color: #E2E8F0 !important;
+    /* Light border */
+}
+
+/* 3. Adjust Component Specifics */
+.theme-enterprise .glass-panel {
+    background: #FFFFFF !important;
+    border: 1px solid #E2E8F0 !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05) !important;
+}
+
+.theme-enterprise .border-slate-800 {
+    border-color: #E2E8F0 !important;
+}
+
+.theme-enterprise .hover\:bg-slate-800:hover {
+    background-color: #F1F5F9 !important;
+}
+
+.theme-enterprise .hover\:text-white:hover {
+    color: #0f172a !important;
+}
+
+/* Input Fields in Light Mode */
+.theme-enterprise input,
+.theme-enterprise select {
+    background-color: #FFFFFF !important;
+    color: #0f172a !important;
+    border-color: #CBD5E1 !important;
+}
+
+/* Rounded Corners for Enterprise */
+.theme-enterprise .rounded-lg,
+.theme-enterprise .rounded-xl {
+    border-radius: 12px !important;
 }

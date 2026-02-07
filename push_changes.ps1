@@ -16,7 +16,7 @@ function Run-GitCommand {
 }
 
 Run-GitCommand -Arguments "add ." -LogFile "git_add.log"
-Run-GitCommand -Arguments "commit -m ""feat: improve analytics accuracy and resolution metrics""" -LogFile "git_commit.log"
+Run-GitCommand -Arguments "commit -m ""feat: add new themes and fix satellite dark map mode""" -LogFile "git_commit.log"
 Run-GitCommand -Arguments "push origin main" -LogFile "git_push.log"
 
 Write-Host "Push completed successfully."
