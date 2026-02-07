@@ -241,5 +241,20 @@ router.get(
     })
 );
 
+/**
+ * GET /api/analytics/resolution
+ * Get resolution statistics
+ */
+router.get(
+    '/resolution',
+    asyncHandler(async (req, res) => {
+        const dateRange = parseDateRange(req.query);
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const stats = await analyticsService.getResolutionStats(dateRange, routerId, req.user?.id, req.user?.role);
+        res.json({ data: stats });
+    })
+);
+
 export default router;
 

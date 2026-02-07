@@ -288,35 +288,67 @@ class AnalyticsService {
         const stats: UptimeStats[] = [];
 
         for (const router of routerList) {
-            // Count down incidents
-            const [incidentStats] = await db
+            // Get detailed incidents to calculate actual downtime
+            const incidents = await db
                 .select({
-                    count: count(),
+                    createdAt: alerts.createdAt,
+                    resolvedAt: alerts.resolvedAt,
+                    resolved: alerts.resolved,
                 })
                 .from(alerts)
                 .where(and(
                     eq(alerts.routerId, router.id),
-                    eq(alerts.type, 'status_change'),
+                    eq(alerts.type, 'status_change'), // Only consider router status changes (up/down)
+                    eq(alerts.message, 'Router is DOWN'), // Specifically DOWN events
                     gte(alerts.createdAt, range.startDate),
                     lte(alerts.createdAt, range.endDate)
                 ));
 
-            const incidentCount = Number(incidentStats?.count) || 0;
+            const incidentCount = incidents.length;
+            let totalDowntimeMinutes = 0;
 
-            // Estimate downtime (rough calculation based on incidents)
-            // Assume average incident lasts 30 minutes
-            const estimatedDowntime = incidentCount * 30;
+            for (const incident of incidents) {
+                const start = incident.createdAt;
+                // If resolved, use resolvedAt. If not resolved yet, use current time (if within range) or endDate
+                let end = incident.resolved && incident.resolvedAt ? incident.resolvedAt : new Date();
+
+                // If end is after range end, cap it
+                if (end > range.endDate) end = range.endDate;
+
+                const durationMs = end.getTime() - start.getTime();
+                const durationMinutes = Math.max(0, durationMs / (1000 * 60));
+
+                totalDowntimeMinutes += durationMinutes;
+            }
+
+            // Fallback: If no specific DOWN alerts found but we have general status_change alerts, 
+            // use a smaller estimate per incident to avoid exaggeration
+            if (incidentCount > 0 && totalDowntimeMinutes === 0) {
+                // Try counting all status_change if precise message matching failed
+                const allStatusChanges = await db
+                    .select({ count: count() })
+                    .from(alerts)
+                    .where(and(
+                        eq(alerts.routerId, router.id),
+                        eq(alerts.type, 'status_change'),
+                        gte(alerts.createdAt, range.startDate),
+                        lte(alerts.createdAt, range.endDate)
+                    ));
+                const countVal = Number(allStatusChanges[0]?.count) || 0;
+                // Assume 5 mins per status flip if we can't determine duration
+                totalDowntimeMinutes = countVal * 5;
+            }
 
             // Calculate uptime percentage
             const totalMinutes = (range.endDate.getTime() - range.startDate.getTime()) / (1000 * 60);
             const uptimePercentage = totalMinutes > 0
-                ? Math.round(((totalMinutes - estimatedDowntime) / totalMinutes) * 100 * 10) / 10
+                ? Math.round(((totalMinutes - totalDowntimeMinutes) / totalMinutes) * 100 * 10) / 10
                 : 100;
 
             stats.push({
                 routerId: router.id,
                 routerName: router.name,
-                totalDowntime: estimatedDowntime,
+                totalDowntime: Math.round(totalDowntimeMinutes),
                 incidentCount,
                 uptimePercentage: Math.max(0, Math.min(100, uptimePercentage)),
             });
@@ -903,40 +935,66 @@ class AnalyticsService {
             alertConditions.push(inArray(alerts.routerId, allowedIds));
         }
 
-        const incidentCounts = await db
+        // Fetch detailed alerts for accurate duration calculation
+        const downAlerts = await db
             .select({
-                host: sql<string>`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`.as('host'),
-                incidents: count(),
+                message: alerts.message,
+                createdAt: alerts.createdAt,
+                resolvedAt: alerts.resolvedAt,
+                resolved: alerts.resolved
             })
             .from(alerts)
-            .where(and(...alertConditions))
-            .groupBy(sql`SUBSTRING(${alerts.message} FROM '(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})')`);
+            .where(and(...alertConditions));
 
-        const incidentMap = new Map(incidentCounts.map(i => [i.host, Number(i.incidents)]));
+        // Group alerts by host
+        const hostIncidents = new Map<string, { count: number, durationMinutes: number }>();
 
-        // Calculate downtime for each entry
+        for (const alert of downAlerts) {
+            // Extract IP from message
+            const hostMatch = alert.message?.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+            if (!hostMatch) continue;
+
+            const host = hostMatch[1];
+
+            let duration = 0;
+            if (alert.resolved && alert.resolvedAt) {
+                duration = (alert.resolvedAt.getTime() - alert.createdAt.getTime()) / (1000 * 60);
+            } else {
+                // Not resolved yet, calculate until now
+                duration = (Date.now() - alert.createdAt.getTime()) / (1000 * 60);
+            }
+
+            const current = hostIncidents.get(host) || { count: 0, durationMinutes: 0 };
+            hostIncidents.set(host, {
+                count: current.count + 1,
+                durationMinutes: current.durationMinutes + duration
+            });
+        }
+
+        // Calculate downtime for each entry combining alert history and current status
         const results: { host: string; name: string; totalDowntimeMinutes: number; incidentCount: number; routerId: string }[] = [];
 
         for (const entry of netwatchEntries) {
-            const incidents = incidentMap.get(entry.host) || 0;
+            const historyData = hostIncidents.get(entry.host) || { count: 0, durationMinutes: 0 };
+            let totalDowntime = historyData.durationMinutes;
 
-            // Estimate downtime based on incidents (average 30 min per incident) or calculate if we have timestamps
-            let downtimeMinutes = incidents * 30; // Default estimation
-
-            if (entry.lastDown && entry.lastUp && entry.lastUp > entry.lastDown) {
-                // If we have both timestamps, calculate actual downtime
-                downtimeMinutes = (entry.lastUp.getTime() - entry.lastDown.getTime()) / (1000 * 60);
-            } else if (entry.lastDown && entry.status === 'down') {
-                // Currently down, calculate from lastDown to now
-                downtimeMinutes = (Date.now() - entry.lastDown.getTime()) / (1000 * 60);
+            // Add current downtime if currently down and not covered by alerts (redundancy check)
+            // Note: usually alerts cover this, but netwatch table is source of truth for current state
+            if (entry.status === 'down' && entry.lastDown) {
+                // If the last down time is very recent (after last alert), it might be a new incident
+                // This logic is complex, for simple improvement we'll trust alert history + basic check
+                if (historyData.count === 0) {
+                    const currentDuration = (Date.now() - entry.lastDown.getTime()) / (1000 * 60);
+                    totalDowntime += currentDuration;
+                }
             }
 
-            if (downtimeMinutes >= minDowntimeMinutes || incidents > 0) {
+            if (totalDowntime >= minDowntimeMinutes || historyData.count > 0) {
                 results.push({
                     host: entry.host,
                     name: entry.name || entry.host,
-                    totalDowntimeMinutes: Math.round(downtimeMinutes),
-                    incidentCount: incidents,
+                    totalDowntimeMinutes: Math.round(totalDowntime),
+                    incidentCount: historyData.count,
                     routerId: entry.routerId,
                 });
             }
@@ -1201,7 +1259,122 @@ class AnalyticsService {
         );
 
         // Sort by incident count descending
+        // Sort by incident count descending
         return results.sort((a, b) => b.incidentCount - a.incidentCount).slice(0, 50);
+    }
+
+    /**
+     * Get resolution statistics - average time to resolve alerts
+     */
+    async getResolutionStats(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string
+    ): Promise<{
+        avgResolutionMinutes: number;
+        totalResolved: number;
+        bySeverity: {
+            critical: number; // minutes
+            warning: number;
+            info: number;
+        };
+        fastestResolution: number; // minutes
+        slowestResolution: number; // minutes
+    }> {
+        const range = dateRange || this.getDefaultDateRange();
+
+        let allowedIds: string[] = [];
+        if (userId && userRole && userRole !== 'admin') {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole);
+            if (allowedIds.length === 0) {
+                return {
+                    avgResolutionMinutes: 0,
+                    totalResolved: 0,
+                    bySeverity: { critical: 0, warning: 0, info: 0 },
+                    fastestResolution: 0,
+                    slowestResolution: 0
+                };
+            }
+        }
+
+        const conditions: any[] = [
+            eq(alerts.resolved, true),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate),
+        ];
+
+        if (routerId) {
+            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            conditions.push(eq(alerts.routerId, routerId));
+        } else if (userRole !== 'admin') {
+            conditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        const resolvedAlerts = await db
+            .select({
+                severity: alerts.severity,
+                createdAt: alerts.createdAt,
+                resolvedAt: alerts.resolvedAt,
+            })
+            .from(alerts)
+            .where(and(...conditions));
+
+        if (resolvedAlerts.length === 0) {
+            return {
+                avgResolutionMinutes: 0,
+                totalResolved: 0,
+                bySeverity: { critical: 0, warning: 0, info: 0 },
+                fastestResolution: 0,
+                slowestResolution: 0
+            };
+        }
+
+        let totalTimeMinutes = 0;
+        let criticalTime = 0, criticalCount = 0;
+        let warningTime = 0, warningCount = 0;
+        let infoTime = 0, infoCount = 0;
+        let fastest = Infinity;
+        let slowest = 0;
+
+        for (const alert of resolvedAlerts) {
+            const start = alert.createdAt;
+            const end = alert.resolvedAt || new Date(); // Should have resolvedAt
+            const durationMs = end.getTime() - start.getTime();
+            const durationMinutes = Math.max(0, durationMs / (1000 * 60)); // Prevent negative
+
+            totalTimeMinutes += durationMinutes;
+
+            if (durationMinutes < fastest) fastest = durationMinutes;
+            if (durationMinutes > slowest) slowest = durationMinutes;
+
+            if (alert.severity === 'critical') {
+                criticalTime += durationMinutes;
+                criticalCount++;
+            } else if (alert.severity === 'warning') {
+                warningTime += durationMinutes;
+                warningCount++;
+            } else {
+                infoTime += durationMinutes;
+                infoCount++;
+            }
+        }
+
+        if (fastest === Infinity) fastest = 0;
+
+        return {
+            avgResolutionMinutes: Math.round(totalTimeMinutes / resolvedAlerts.length),
+            totalResolved: resolvedAlerts.length,
+            bySeverity: {
+                critical: criticalCount > 0 ? Math.round(criticalTime / criticalCount) : 0,
+                warning: warningCount > 0 ? Math.round(warningTime / warningCount) : 0,
+                info: infoCount > 0 ? Math.round(infoTime / infoCount) : 0,
+            },
+            fastestResolution: Math.round(fastest * 10) / 10,
+            slowestResolution: Math.round(slowest)
+        };
     }
 }
 

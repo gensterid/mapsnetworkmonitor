@@ -13,13 +13,13 @@ The application is built with **Adaptive Scaling** tiers defined in `scheduler.t
 ## 2. The Real Bottleneck: Clients per Router
 The number of **Routers** is less critical than the number of **Netwatch/Clients** *inside* each router.
 
-*   **Current Ping Logic**: We recently set `Ping Concurrency = 1` (Serial) to ensure stability.
+*   **Current Ping Logic**: We have optimized this with `Ping Concurrency = 5` (Parallel) to speed up polling.
 *   **Time Calculation**:
     *   Average Ping Time: ~50ms
-    *   Timeout (Worst Case): 500ms
-    *   If a router has **100 Clients**:
-        *   Best case: 100 * 50ms = **5 seconds** (OK)
-        *   Worst case (many offline): 100 * 500ms = **50 seconds** (Critical)
+    *   Timeout (Worst Case): 1000ms
+    *   If a router has **250 Clients**:
+        *   Best case: (250 / 5) * 50ms = **2.5 seconds** (Very Fast)
+        *   Worst case (many offline): (250 / 5) * 1000ms = **50 seconds** (Acceptable for 2-min cycle)
 
 ## 3. Recommended Limits
 To keep the application "Stabil" (Server UI responsive, data fits inside 2-minute cycle):

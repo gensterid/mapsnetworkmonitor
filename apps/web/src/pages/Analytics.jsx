@@ -35,7 +35,8 @@ import {
     Router as RouterIcon,
     X,
     PhoneOff,
-    RotateCcw
+    RotateCcw,
+    CheckCircle
 } from 'lucide-react';
 import clsx from 'clsx';
 import AnalyticsDetailModal from '@/components/analytics/AnalyticsDetailModal';
@@ -545,6 +546,14 @@ export default function Analytics() {
         },
     });
 
+    const { data: resolutionStats } = useQuery({
+        queryKey: ['analytics-resolution', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/resolution', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
     // Alerts list query - for showing detailed alerts in single day view
     const { data: alertsList, isLoading: alertsListLoading } = useQuery({
         queryKey: ['analytics-alerts-list', queryParams],
@@ -926,6 +935,43 @@ export default function Analytics() {
                                         )}
                                     </div>
                                 )}
+                            </CardContent>
+                        </Card>
+
+                        {/* Resolution Stats */}
+                        <Card className="glass-panel">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                                    Waktu Penyelesaian
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-4">
+                                    <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                                        <div className="text-xs text-slate-500 mb-1">Rata-rata</div>
+                                        <div className="text-2xl font-bold text-emerald-400">
+                                            {resolutionStats?.avgResolutionMinutes ? `${Math.round(resolutionStats.avgResolutionMinutes)}m` : '-'}
+                                        </div>
+                                        <div className="text-xs text-slate-500 mt-1">
+                                            {resolutionStats?.totalResolved || 0} alerts resolved
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="bg-slate-800/30 rounded-lg p-2 text-center">
+                                            <div className="text-[10px] text-slate-500 mb-1">Tercepat</div>
+                                            <div className="text-base font-semibold text-slate-300">
+                                                {resolutionStats?.fastestResolution !== undefined ? `${resolutionStats.fastestResolution}m` : '-'}
+                                            </div>
+                                        </div>
+                                        <div className="bg-slate-800/30 rounded-lg p-2 text-center">
+                                            <div className="text-[10px] text-slate-500 mb-1">Terlambat</div>
+                                            <div className="text-base font-semibold text-slate-300">
+                                                {resolutionStats?.slowestResolution !== undefined ? `${resolutionStats.slowestResolution}m` : '-'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </CardContent>
                         </Card>
 
