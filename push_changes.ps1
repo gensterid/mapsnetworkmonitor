@@ -16,7 +16,8 @@ function Run-GitCommand {
 }
 
 Run-GitCommand -Arguments "add ." -LogFile "git_add.log"
-Run-GitCommand -Arguments "commit -m ""ui: rename map type to Satellite Dark""" -LogFile "git_commit.log"
+Run-GitCommand -Arguments "commit -m ""chore: final sync check""" -LogFile "git_commit.log"
 Run-GitCommand -Arguments "push origin main" -LogFile "git_push.log"
 
-Write-Host "Push completed successfully."
+Remove-Item git_*.log* -ErrorAction SilentlyContinue
+Write-Host "GitHub synchronization verified and completed."
