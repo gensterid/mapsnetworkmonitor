@@ -316,6 +316,8 @@
         background: transparent;
         border: none;
         box-shadow: none;
+        overflow: visible !important;
+        /* Ensure labels are seen */
     }
 
     .device-icon__badge {
@@ -442,10 +444,10 @@
         color: #A855F7 !important;
     }
 
-    /* Hide Device Labels in Satellite Dark mode */
-    .map-type-satellite_dark .device-icon__label {
+    /* Hide Device Labels in Satellite Dark mode - REMOVED so toggle works */
+    /* .map-type-satellite_dark .device-icon__label {
         display: none !important;
-    }
+    } */
 
     /* Tooltips are now managed by application state (showLabels) instead of global CSS hiding */
 

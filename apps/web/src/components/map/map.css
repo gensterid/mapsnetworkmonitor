@@ -14,6 +14,10 @@
 .custom-marker-icon {
     background: transparent;
     border: none;
+    overflow: visible !important;
+    /* Allow labels to spill out */
+    width: auto !important;
+    height: auto !important;
 }
 
 /* Device Icons - Legacy Override */
@@ -85,6 +89,16 @@
     text-overflow: ellipsis;
     backdrop-filter: blur(4px);
     border: 1px solid rgba(255, 255, 255, 0.1);
+
+    /* Absolute positioning to ensure it doesn't affect icon flow/centering */
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 4px;
+    z-index: 1000;
+    pointer-events: none;
+    /* Let clicks pass through to map/marker */
 }
 
 /* ===== Custom Tooltip Overrides ===== */
@@ -771,306 +785,7 @@
     }
 }
 
-/* Robust Animation Keyframes v3 */
-/* Standard Forward Keyframes */
-@keyframes flow-10 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -10;
-    }
-}
-
-@keyframes flow-15 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -15;
-    }
-}
-
-@keyframes flow-20 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -20;
-    }
-}
-
-@keyframes flow-24 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -24;
-    }
-}
-
-@keyframes flow-25 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -25;
-    }
-}
-
-@keyframes flow-30 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -30;
-    }
-}
-
-@keyframes flow-33 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -33;
-    }
-}
-
-@keyframes flow-35 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -35;
-    }
-}
-
-@keyframes flow-45 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -45;
-    }
-}
-
-@keyframes flow-50 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -50;
-    }
-}
-
-@keyframes flow-51 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -51;
-    }
-}
-
-@keyframes flow-52 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -52;
-    }
-}
-
-@keyframes flow-64 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -64;
-    }
-}
-
-@keyframes flow-134 {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: -134;
-    }
-}
-
-/* Standard Reverse Keyframes */
-@keyframes flow-10-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 10;
-    }
-}
-
-@keyframes flow-15-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 15;
-    }
-}
-
-@keyframes flow-20-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 20;
-    }
-}
-
-@keyframes flow-24-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 24;
-    }
-}
-
-@keyframes flow-25-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 25;
-    }
-}
-
-@keyframes flow-30-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 30;
-    }
-}
-
-@keyframes flow-33-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 33;
-    }
-}
-
-@keyframes flow-35-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 35;
-    }
-}
-
-@keyframes flow-45-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 45;
-    }
-}
-
-@keyframes flow-50-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 50;
-    }
-}
-
-@keyframes flow-51-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 51;
-    }
-}
-
-@keyframes flow-52-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 52;
-    }
-}
-
-@keyframes flow-64-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 64;
-    }
-}
-
-@keyframes flow-134-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: 134;
-    }
-}
-
-/* Base path styling and optimization */
-/* NOTE: animation-name and animation-duration are now controlled ONLY by JavaScript
-   in AnimatedPath.jsx. This prevents CSS from overriding JS before it runs. */
-.ans-path-base {
-    animation-timing-function: linear;
-    animation-iteration-count: infinite;
-    will-change: stroke-dashoffset;
-}
-
-.ans-paused {
-    animation-play-state: paused !important;
-}
-
-/* Hover effects */
-[class*="ans-style-"]:hover {
-    filter: brightness(1.2) !important;
-}
+/* Keyframes removed - now handled by FlowPathRenderer.jsx via WAAPI */
 
 /* ===== MOTION PATH ELEMENTS ===== */
 
@@ -1135,60 +850,7 @@
     filter: brightness(1.2) !important;
 }
 
-/* ===== OPTIMIZATION V2: CSS Variables & Performance Mode ===== */
-
-/* 
-   Generic Animation Class
-   Replaces specific keyframes with CSS Variables.
-   Usage: set --dash-array, --dash-offset, --anim-duration
-*/
-.animated-line {
-    /* Default variables if not set inline */
-    --dash-array: 10, 20;
-    --dash-offset-target: -30;
-    /* Should match sum of dash array */
-    --anim-duration: 1000ms;
-    --anim-color: #3b82f6;
-
-    stroke-dasharray: var(--dash-array) !important;
-    stroke: var(--anim-color) !important;
-    animation-name: flow-generic !important;
-    animation-duration: var(--anim-duration) !important;
-    animation-timing-function: linear !important;
-    animation-iteration-count: infinite !important;
-    animation-play-state: running;
-    will-change: stroke-dashoffset;
-}
-
-.animated-line.reverse {
-    animation-name: flow-generic-rev !important;
-    --dash-offset-target: 30;
-    /* Positive for reverse */
-}
-
-.animated-line.paused {
-    animation-play-state: paused !important;
-}
-
-@keyframes flow-generic {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: var(--dash-offset-target, -30);
-    }
-}
-
-@keyframes flow-generic-rev {
-    from {
-        stroke-dashoffset: 0;
-    }
-
-    to {
-        stroke-dashoffset: var(--dash-offset-target, 30);
-    }
-}
+/* Optimization V2 removed - .animated-line replaced by FlowPathRenderer */
 
 /* 
    Low Performance Mode 

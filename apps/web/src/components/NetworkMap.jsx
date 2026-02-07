@@ -473,7 +473,10 @@ const createClusterCustomIcon = (cluster) => {
 
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
     const [mapType, setMapType] = useState('satellite_dark'); // Set to satellite_dark as default
-    const [showLabels, setShowLabels] = useState(false); // Default to false for clean view in Satellite Dark
+    const [showLabels, setShowLabels] = useState(() => {
+        const saved = localStorage.getItem('map_show_labels');
+        return saved !== null ? JSON.parse(saved) : true; // Default true based on user feedback
+    });
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1042,7 +1045,11 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     }, [updatePppoeMutation]);
 
     const handleToggleLabels = useCallback(() => {
-        setShowLabels(prev => !prev);
+        setShowLabels(prev => {
+            const newValue = !prev;
+            localStorage.setItem('map_show_labels', JSON.stringify(newValue));
+            return newValue;
+        });
     }, []);
 
     // Find line for editing
