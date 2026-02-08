@@ -19,3 +19,9 @@ export {
     getAnimationStyle,
     getAnimationStyleNames
 } from './animationStyles';
+
+export {
+    DEFAULT_MAP_COLORS,
+    getMapColor
+} from './mapColors';
+
