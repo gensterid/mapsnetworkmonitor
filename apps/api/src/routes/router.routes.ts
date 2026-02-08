@@ -451,7 +451,15 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const { id } = req.params;
-        const data = createNetwatchSchema.parse(req.body);
+        console.log('[DEBUG] POST netwatch body:', JSON.stringify(req.body));
+
+        // Manual sanitization to ensure empty strings don't break Zod/DB
+        const rawData = { ...req.body };
+        if (rawData.latitude === '') rawData.latitude = undefined;
+        if (rawData.longitude === '') rawData.longitude = undefined;
+        if (rawData.host === '') rawData.host = undefined;
+
+        const data = createNetwatchSchema.parse(rawData);
         const netwatch = await routerService.createNetwatch(id, data);
 
         await settingsService.logAction(

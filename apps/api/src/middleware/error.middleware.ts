@@ -42,6 +42,11 @@ export class ApiError extends Error {
 /**
  * Error handling middleware
  */
+import * as fs from 'fs';
+import * as path from 'path';
+
+// ... imports
+
 export function errorMiddleware(
     err: Error,
     _req: Request,
@@ -49,6 +54,15 @@ export function errorMiddleware(
     _next: NextFunction
 ): void {
     console.error('Error:', err);
+
+    try {
+        const logPath = path.join(process.cwd(), 'error_debug.log');
+        const timestamp = new Date().toISOString();
+        const logMessage = `\n[${timestamp}] ${err.name}: ${err.message}\nStack: ${err.stack}\n`;
+        fs.appendFileSync(logPath, logMessage);
+    } catch (e) {
+        console.error('Failed to write to error log:', e);
+    }
 
     // Handle Zod validation errors
     if (err instanceof ZodError) {
