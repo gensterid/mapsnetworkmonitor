@@ -1,0 +1,13 @@
+﻿git : To 
+https://github.com/gensterid/mapsnetworkmonitor
+At line:1 char:181
++ ... th commit_debug.txt -Encoding utf8; git push 
+origin main *>&1 | Out-F ...
++                                         
+~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (To https 
+   ://gith...snetworkmonitor:String) [], RemoteExcep  
+  tion
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   c392616..41bd662  main -> main

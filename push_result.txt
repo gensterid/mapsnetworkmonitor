@@ -1,0 +1,9 @@
+﻿git : Everything up-to-date
+At line:1 char:1
++ git push origin main *>&1 | Out-File -FilePath 
+push_result.txt -Encod ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Everythi 
+   ng up-to-date:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
