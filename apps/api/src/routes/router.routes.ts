@@ -404,8 +404,8 @@ const createNetwatchSchema = z.object({
     deviceType: z.enum(['client', 'olt', 'odp']).optional(),
     waypoints: z.string().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
-    connectedToId: z.string().uuid().optional(),
-    targetInterface: z.string().optional(),
+    connectedToId: z.string().uuid().optional().nullable(),
+    targetInterface: z.string().optional().nullable(),
 });
 
 const updateNetwatchSchema = z.object({

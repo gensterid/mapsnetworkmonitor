@@ -1042,8 +1042,8 @@ export class RouterService {
             location?: string;
             waypoints?: string; // JSON string of coordinates
             connectionType?: 'router' | 'client';
-            connectedToId?: string;
-            targetInterface?: string;
+            connectedToId?: string | null;
+            targetInterface?: string | null;
         }
     ): Promise<RouterNetwatch> {
         // 1. Apply to Router first (only for client type with host)
