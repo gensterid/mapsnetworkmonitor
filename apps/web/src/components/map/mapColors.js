@@ -22,6 +22,11 @@ export const DEFAULT_MAP_COLORS = {
     // Links
     linkActive: '#10b981',
     linkDown: '#ef4444',
+
+    // Traffic Thresholds (Mbps) - Defaults
+    trafficThresholdIdle: 1,   // < 1 Mbps
+    trafficThresholdNormal: 20, // < 20 Mbps
+    trafficThresholdHigh: 50,   // < 50 Mbps
 };
 
 // Helper to get color from settings or fallback to default

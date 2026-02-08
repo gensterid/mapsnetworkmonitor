@@ -17,6 +17,7 @@ const MapLegend = ({
     lowPerfMode = false,
     onToggleLowPerf,
     isHeatmapMode = false,
+    mapColors,
 }) => {
     // Internal state for mobile responsiveness
     // On desktop, we respect the parent's prop. On mobile, we might default to hidden.
@@ -101,20 +102,20 @@ const MapLegend = ({
                                 <div style={{ marginTop: 8, marginBottom: 4, fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Traffic Load</div>
 
                                 <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-idle, #3b82f6)', height: 2, width: 24 }}></span>
-                                    <span className="map-legend__text">Idle (&lt; 1M)</span>
+                                    <span className="map-legend__line" style={{ background: mapColors?.trafficyIdle || '#3b82f6', height: 2, width: 24 }}></span>
+                                    <span className="map-legend__text">Idle (&lt; {mapColors?.trafficThresholdIdle || 1}M)</span>
                                 </div>
                                 <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-normal, #10b981)', height: 3, width: 24 }}></span>
-                                    <span className="map-legend__text">Normal (1-20M)</span>
+                                    <span className="map-legend__line" style={{ background: mapColors?.trafficNormal || '#10b981', height: 3, width: 24 }}></span>
+                                    <span className="map-legend__text">Normal ({mapColors?.trafficThresholdIdle || 1}-{mapColors?.trafficThresholdNormal || 20}M)</span>
                                 </div>
                                 <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-high, #facc15)', height: 4, width: 24 }}></span>
-                                    <span className="map-legend__text">High (20-50M)</span>
+                                    <span className="map-legend__line" style={{ background: mapColors?.trafficHigh || '#facc15', height: 4, width: 24 }}></span>
+                                    <span className="map-legend__text">High ({mapColors?.trafficThresholdNormal || 20}-{mapColors?.trafficThresholdHigh || 50}M)</span>
                                 </div>
                                 <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-peak, #d946ef)', height: 5, width: 24, boxShadow: '0 0 4px var(--map-traffic-peak, #d946ef)' }}></span>
-                                    <span className="map-legend__text">Peak (&gt; 50M)</span>
+                                    <span className="map-legend__line" style={{ background: mapColors?.trafficPeak || '#d946ef', height: 5, width: 24, boxShadow: `0 0 4px ${mapColors?.trafficPeak || '#d946ef'}` }}></span>
+                                    <span className="map-legend__text">Peak (&gt; {mapColors?.trafficThresholdHigh || 50}M)</span>
                                 </div>
                             </>
                         )}

@@ -820,9 +820,12 @@ export default function Settings() {
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-6">
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300">Idle (&lt; 1Mbps)</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium text-slate-300">Idle Traffic</label>
+                                            <span className="text-xs text-slate-500">Color for traffic &lt; {formData.mapColors.trafficThresholdIdle || 1} Mbps</span>
+                                        </div>
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="color"
@@ -830,19 +833,36 @@ export default function Settings() {
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficyIdle}
                                                 onChange={handleChange}
-                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                                className="h-10 w-14 rounded bg-transparent cursor-pointer shrink-0"
                                             />
                                             <Input
                                                 name="trafficyIdle"
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficyIdle}
                                                 onChange={handleChange}
-                                                className="font-mono uppercase"
+                                                className="font-mono uppercase w-28"
                                             />
+                                            <div className="flex items-center gap-2 ml-auto bg-slate-900/50 p-1.5 rounded border border-slate-800">
+                                                <span className="text-xs text-slate-400">Limit:</span>
+                                                <Input
+                                                    type="number"
+                                                    name="trafficThresholdIdle"
+                                                    data-group="mapColors"
+                                                    value={formData.mapColors.trafficThresholdIdle}
+                                                    onChange={handleChange}
+                                                    className="w-20 h-8 text-right"
+                                                    min="0"
+                                                />
+                                                <span className="text-xs text-slate-400">Mbps</span>
+                                            </div>
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300">Normal (&lt; 20Mbps)</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium text-slate-300">Normal Traffic</label>
+                                            <span className="text-xs text-slate-500">Color for traffic &lt; {formData.mapColors.trafficThresholdNormal || 20} Mbps</span>
+                                        </div>
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="color"
@@ -850,19 +870,36 @@ export default function Settings() {
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficNormal}
                                                 onChange={handleChange}
-                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                                className="h-10 w-14 rounded bg-transparent cursor-pointer shrink-0"
                                             />
                                             <Input
                                                 name="trafficNormal"
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficNormal}
                                                 onChange={handleChange}
-                                                className="font-mono uppercase"
+                                                className="font-mono uppercase w-28"
                                             />
+                                            <div className="flex items-center gap-2 ml-auto bg-slate-900/50 p-1.5 rounded border border-slate-800">
+                                                <span className="text-xs text-slate-400">Limit:</span>
+                                                <Input
+                                                    type="number"
+                                                    name="trafficThresholdNormal"
+                                                    data-group="mapColors"
+                                                    value={formData.mapColors.trafficThresholdNormal}
+                                                    onChange={handleChange}
+                                                    className="w-20 h-8 text-right"
+                                                    min="0"
+                                                />
+                                                <span className="text-xs text-slate-400">Mbps</span>
+                                            </div>
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300">High (&lt; 50Mbps)</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium text-slate-300">High Traffic</label>
+                                            <span className="text-xs text-slate-500">Color for traffic &lt; {formData.mapColors.trafficThresholdHigh || 50} Mbps</span>
+                                        </div>
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="color"
@@ -870,19 +907,36 @@ export default function Settings() {
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficHigh}
                                                 onChange={handleChange}
-                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                                className="h-10 w-14 rounded bg-transparent cursor-pointer shrink-0"
                                             />
                                             <Input
                                                 name="trafficHigh"
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficHigh}
                                                 onChange={handleChange}
-                                                className="font-mono uppercase"
+                                                className="font-mono uppercase w-28"
                                             />
+                                            <div className="flex items-center gap-2 ml-auto bg-slate-900/50 p-1.5 rounded border border-slate-800">
+                                                <span className="text-xs text-slate-400">Limit:</span>
+                                                <Input
+                                                    type="number"
+                                                    name="trafficThresholdHigh"
+                                                    data-group="mapColors"
+                                                    value={formData.mapColors.trafficThresholdHigh}
+                                                    onChange={handleChange}
+                                                    className="w-20 h-8 text-right"
+                                                    min="0"
+                                                />
+                                                <span className="text-xs text-slate-400">Mbps</span>
+                                            </div>
                                         </div>
                                     </div>
+
                                     <div className="space-y-2">
-                                        <label className="text-sm font-medium text-slate-300">Peak (&gt; 50Mbps)</label>
+                                        <div className="flex items-center justify-between">
+                                            <label className="text-sm font-medium text-slate-300">Peak Traffic</label>
+                                            <span className="text-xs text-slate-500">Color for traffic &gt; {formData.mapColors.trafficThresholdHigh || 50} Mbps</span>
+                                        </div>
                                         <div className="flex items-center gap-3">
                                             <input
                                                 type="color"
@@ -890,15 +944,18 @@ export default function Settings() {
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficPeak}
                                                 onChange={handleChange}
-                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                                className="h-10 w-14 rounded bg-transparent cursor-pointer shrink-0"
                                             />
                                             <Input
                                                 name="trafficPeak"
                                                 data-group="mapColors"
                                                 value={formData.mapColors.trafficPeak}
                                                 onChange={handleChange}
-                                                className="font-mono uppercase"
+                                                className="font-mono uppercase w-28"
                                             />
+                                            <div className="flex items-center gap-2 ml-auto px-3">
+                                                <span className="text-xs text-slate-500 italic">Upper limit automatically determined</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

@@ -1457,17 +1457,18 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     // Determine Rail Color (Background)
                     let railColor = "#06b6d4"; // Default Cyan
 
+                    // Dynamic Thresholds (converting Mbps to bps)
+                    const thresholdIdle = (Number(mapColors.trafficThresholdIdle) || 1) * 1000000;
+                    const thresholdNormal = (Number(mapColors.trafficThresholdNormal) || 20) * 1000000;
+                    const thresholdHigh = (Number(mapColors.trafficThresholdHigh) || 50) * 1000000;
+
                     if (line.status === 'down') {
                         railColor = mapColors.offline; // Pure Neon Red (Down - Priority)
                     } else if (isHeatmapActive) {
                         // Heatmap Colors based on Bandwidth
-                        // < 1Mbps (Idle): Blue
-                        if (maxRate < 1000000) railColor = mapColors.trafficyIdle;
-                        // < 20Mbps (Normal): Green
-                        else if (maxRate < 20000000) railColor = mapColors.trafficNormal;
-                        // < 50Mbps (High): Yellow
-                        else if (maxRate < 50000000) railColor = mapColors.trafficHigh;
-                        // > 50Mbps (Peak): Purple
+                        if (maxRate < thresholdIdle) railColor = mapColors.trafficyIdle;
+                        else if (maxRate < thresholdNormal) railColor = mapColors.trafficNormal;
+                        else if (maxRate < thresholdHigh) railColor = mapColors.trafficHigh;
                         else railColor = mapColors.trafficPeak;
                     } else if (line.deviceType === 'pppoe') {
                         railColor = mapColors.pppoe; // Neon Purple (Priority over Alert)
@@ -1482,9 +1483,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     // --- FORCE THICKNESS FOR HEATMAP ---
                     let effectiveThickness = lineThickness;
                     if (isHeatmapActive) {
-                        if (maxRate < 1000000) effectiveThickness = Math.max(1, lineThickness - 1);
-                        else if (maxRate > 50000000) effectiveThickness = lineThickness + 3;
-                        else if (maxRate > 20000000) effectiveThickness = lineThickness + 1;
+                        if (maxRate < thresholdIdle) effectiveThickness = Math.max(1, lineThickness - 1);
+                        else if (maxRate > thresholdHigh) effectiveThickness = lineThickness + 3;
+                        else if (maxRate > thresholdNormal) effectiveThickness = lineThickness + 1;
                     }
 
                     // --- MOTION PATH STATE LOGIC ---
@@ -1812,6 +1813,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             });
                         }}
                         isHeatmapMode={isHeatmapMode}
+                        mapColors={mapColors}
                     />
                 )
             }
