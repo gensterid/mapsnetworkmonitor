@@ -1193,7 +1193,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         return (
             <>
                 {/* Router Markers */}
-                {mapData.routers.filter(r => !searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery))).map(router => (
+                {mapData.routers.filter(r =>
+                    r.lat && r.lng && // Ensure coordinates exist
+                    (!searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery)))
+                ).map(router => (
                     <DraggableMarker
                         key={router.id}
                         status={router.status} // For cluster icon
@@ -1215,7 +1218,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 ))}
 
                 {/* Netwatch Node Markers */}
-                {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => {
+                {mapData.nodes.filter(n =>
+                    n.lat && n.lng && // Ensure coordinates exist
+                    (!searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery)))
+                ).map(node => {
                     // Optimized Lookup
                     const line = linesByNetwatchId[node.id];
 
@@ -1364,7 +1370,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                 {/* PPPoE Client Markers */}
                 {
-                    (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => {
+                    (mapData.pppoeNodes || []).filter(p =>
+                        p.lat && p.lng && // Ensure coordinates exist
+                        (!searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery)))
+                    ).map(pppoe => {
                         // Optimized Lookup
                         const line = linesByPppoeId[pppoe.id];
                         return (
