@@ -22,7 +22,6 @@ import {
     createDeviceIcon,
     LineThicknessControl,
     RouterTooltip,
-    RouterTooltip,
     getAnimationStyle, // Import helper to check style config
     DEFAULT_MAP_COLORS,
 } from './map';
