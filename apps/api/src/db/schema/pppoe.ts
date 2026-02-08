@@ -4,6 +4,7 @@ import {
     text,
     timestamp,
     integer,
+    bigint,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers';
 
@@ -30,6 +31,13 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     status: text('status').default('active'), // 'active', 'disconnected'
     lastDown: timestamp('last_down'),
     lastLatency: integer('last_latency'), // Latency in ms (if available)
+
+    // Traffic Stats
+    txBytes: bigint('tx_bytes', { mode: 'number' }).default(0),
+    rxBytes: bigint('rx_bytes', { mode: 'number' }).default(0),
+    txRate: bigint('tx_rate', { mode: 'number' }).default(0), // bits per second
+    rxRate: bigint('rx_rate', { mode: 'number' }).default(0), // bits per second
+    lastTrafficUpdate: timestamp('last_traffic_update'),
 });
 
 // Types

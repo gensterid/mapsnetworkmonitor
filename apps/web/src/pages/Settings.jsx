@@ -12,10 +12,12 @@ import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { getAnimationStyleNames } from '@/components/map/animationStyles';
+import { DEFAULT_MAP_COLORS } from '@/components/map/mapColors';
 
 const TABS = [
     { id: 'profile', label: 'My Profile', icon: User },
     { id: 'general', label: 'General', icon: SettingsIcon },
+    { id: 'map-colors', label: 'Map Colors', icon: Palette },
     { id: 'alerts', label: 'Alert Thresholds', icon: AlertTriangle },
 ];
 
@@ -35,6 +37,8 @@ export default function Settings() {
         name: '',
         username: '',
         image: '',
+        // Map Colors
+        mapColors: { ...DEFAULT_MAP_COLORS },
     });
     const [saveStatus, setSaveStatus] = useState('');
     const [pingTargets, setPingTargets] = useState([
@@ -81,6 +85,13 @@ export default function Settings() {
             if (settings.pingTargets && Array.isArray(settings.pingTargets)) {
                 setPingTargets(settings.pingTargets);
             }
+            // Load map colors
+            if (settings.mapColors) {
+                setFormData(prev => ({
+                    ...prev,
+                    mapColors: { ...DEFAULT_MAP_COLORS, ...settings.mapColors }
+                }));
+            }
         }
     }, [settings]);
 
@@ -98,7 +109,20 @@ export default function Settings() {
     }, [currentUser]);
 
     const handleChange = (e) => {
-        const { name, value, type, checked } = e.target;
+        const { name, value, type, checked, dataset } = e.target;
+
+        // Handle nested mapColors changes
+        if (dataset.group === 'mapColors') {
+            setFormData(prev => ({
+                ...prev,
+                mapColors: {
+                    ...prev.mapColors,
+                    [name]: value
+                }
+            }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
@@ -120,6 +144,7 @@ export default function Settings() {
                 // Save ping targets (filter out empty ones)
                 const validTargets = pingTargets.filter(t => t.ip.trim() !== '');
                 await updateSettingMutation.mutateAsync({ key: 'pingTargets', value: validTargets });
+                await updateSettingMutation.mutateAsync({ key: 'mapColors', value: formData.mapColors });
             }
 
             // Update User Profile (Self)
@@ -625,6 +650,276 @@ export default function Settings() {
                             <Button type="submit" loading={updateSettingMutation.isPending || updateUserMutation.isPending}>
                                 <Save className="w-4 h-4 mr-2" />
                                 Save Settings
+                            </Button>
+                        </div>
+                    </form>
+                )}
+
+                {activeTab === 'map-colors' && (
+                    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+                        {saveStatus && (
+                            <div className={`p-3 rounded-lg text-sm ${saveStatus.includes('Failed')
+                                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                }`}>
+                                {saveStatus}
+                            </div>
+                        )}
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Activity className="w-5 h-5" />
+                                    Status Colors
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Online / Up</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="online"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.online}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="online"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.online}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Offline / Down</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="offline"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.offline}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="offline"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.offline}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Warning (High Latency/Loss)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="warning"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.warning}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="warning"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.warning}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Globe className="w-5 h-5" />
+                                    Device Types
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Router / Server</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="router"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.router}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="router"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.router}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">PPPoE Client</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="pppoe"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.pppoe}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="pppoe"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.pppoe}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">ODP / Backbone</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="odp"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.odp}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="odp"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.odp}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Activity className="w-5 h-5" />
+                                    Heatmap Traffic Load
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Idle (&lt; 1Mbps)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="trafficyIdle"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficyIdle}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="trafficyIdle"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficyIdle}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Normal (&lt; 20Mbps)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="trafficNormal"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficNormal}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="trafficNormal"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficNormal}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">High (&lt; 50Mbps)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="trafficHigh"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficHigh}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="trafficHigh"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficHigh}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Peak (&gt; 50Mbps)</label>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="color"
+                                                name="trafficPeak"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficPeak}
+                                                onChange={handleChange}
+                                                className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                            />
+                                            <Input
+                                                name="trafficPeak"
+                                                data-group="mapColors"
+                                                value={formData.mapColors.trafficPeak}
+                                                onChange={handleChange}
+                                                className="font-mono uppercase"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setFormData(prev => ({
+                                    ...prev,
+                                    mapColors: { ...DEFAULT_MAP_COLORS }
+                                }))}
+                            >
+                                <RefreshCw className="w-4 h-4 mr-2" />
+                                Reset Defaults
+                            </Button>
+                            <Button type="submit" loading={updateSettingMutation.isPending}>
+                                <Save className="w-4 h-4 mr-2" />
+                                Save Map Colors
                             </Button>
                         </div>
                     </form>

@@ -26,6 +26,7 @@ import {
     getHotspotActive,
     getPppActive,
     getPppSessions,
+    getSimpleQueues,
     addNetwatchEntry,
     updateNetwatchEntry,
     removeNetwatchEntry,
@@ -527,6 +528,14 @@ export class RouterService {
                 } catch (pppoeError) {
                     console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError instanceof Error ? pppoeError.message : pppoeError);
                 }
+
+                // Fetch Simple Queues for Heatmap Traffic (PPPoE/Hotspot)
+                try {
+                    const queues = await getSimpleQueues(conn);
+                    await pppoeService.updateTraffic(id, queues);
+                } catch (qErr) {
+                    console.error(`[Router ${router.name}] Failed to sync queues:`, qErr instanceof Error ? qErr.message : qErr);
+                }
             }
 
             conn.close();
@@ -639,10 +648,29 @@ export class RouterService {
                                 status: iface.running ? 'up' : 'down',
                                 lastUpdated: new Date(),
                                 // calculated rates
-                                txRate: txRate,
-                                rxRate: rxRate,
+                                txRate,
+                                rxRate
                             })
                             .where(eq(routerInterfaces.id, existingInterface.id));
+
+                        // --- NEW: Propagate traffic to Netwatch entries linked to this interface ---
+                        if (txRate > 0 || rxRate > 0) {
+                            try {
+                                await db
+                                    .update(routerNetwatch)
+                                    .set({
+                                        txRate: txRate,
+                                        rxRate: rxRate,
+                                        updatedAt: new Date()
+                                    })
+                                    .where(and(
+                                        eq(routerNetwatch.routerId, id),
+                                        eq(routerNetwatch.targetInterface, iface.name)
+                                    ));
+                            } catch (nwUpdateErr) {
+                                console.error(`[Router ${router.name}] Failed to propagate traffic to Netwatch:`, nwUpdateErr);
+                            }
+                        }
                     } else {
                         // Create new interface
                         await db.insert(routerInterfaces).values({
@@ -1017,6 +1045,7 @@ export class RouterService {
             waypoints?: string; // JSON string of coordinates
             connectionType?: 'router' | 'client';
             connectedToId?: string;
+            targetInterface?: string;
         }
     ): Promise<RouterNetwatch> {
         // 1. Apply to Router first (only for client type with host)
@@ -1062,6 +1091,7 @@ export class RouterService {
                 waypoints: data.waypoints,
                 connectionType: data.connectionType || 'router',
                 connectedToId: data.connectedToId,
+                targetInterface: data.targetInterface, // New field for heatmap mapping
                 status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
             })
             .returning();
@@ -1086,6 +1116,7 @@ export class RouterService {
             waypoints?: string | null; // JSON string of coordinates
             connectionType?: 'router' | 'client';
             connectedToId?: string | null;
+            targetInterface?: string | null;
             status?: 'up' | 'down' | 'unknown';
         }
     ): Promise<RouterNetwatch | undefined> {
@@ -1152,6 +1183,7 @@ export class RouterService {
         if (data.waypoints !== undefined) updateData.waypoints = data.waypoints;
         if (data.connectionType !== undefined) updateData.connectionType = data.connectionType;
         if (data.connectedToId !== undefined) updateData.connectedToId = data.connectedToId;
+        if (data.targetInterface !== undefined) updateData.targetInterface = data.targetInterface;
         if (data.status !== undefined) updateData.status = data.status;
 
         const [netwatch] = await db

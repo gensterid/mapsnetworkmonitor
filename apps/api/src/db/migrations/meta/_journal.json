@@ -71,6 +71,20 @@
       "when": 1769787435361,
       "tag": "0009_last_lady_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1770550203281,
+      "tag": "0010_abnormal_meltdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1770552843160,
+      "tag": "0011_brief_warlock",
+      "breakpoints": true
     }
   ]
 }

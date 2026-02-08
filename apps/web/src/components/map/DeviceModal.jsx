@@ -16,6 +16,7 @@ const DeviceModal = ({
     onDelete,
     onEditPath,
     isSaving = false,
+    routerInterfaces = [], // List of interfaces from the router (for heatmap)
 }) => {
     const [formData, setFormData] = useState({
         name: '',
@@ -27,6 +28,7 @@ const DeviceModal = ({
         // Connection source fields
         connectionType: 'router', // 'router' or 'client'
         connectedToId: '', // ID of the router or client connected to
+        targetInterface: '', // Heatmap traffic mapping
     });
 
     // Sync form data with device prop
@@ -41,6 +43,7 @@ const DeviceModal = ({
                 longitude: device.longitude?.toString() || device.lng?.toString() || '',
                 connectionType: device.connectionType || 'router',
                 connectedToId: device.connectedToId || device.routerId || '',
+                targetInterface: device.targetInterface || '',
             });
         }
     }, [device]);
@@ -82,6 +85,7 @@ const DeviceModal = ({
                 connectionType: formData.connectionType,
                 // Ensure connectedToId is null if empty string
                 connectedToId: formData.connectedToId || null,
+                targetInterface: formData.targetInterface || null,
             };
 
             onSave(payload);
@@ -99,6 +103,20 @@ const DeviceModal = ({
                 .map(d => ({ id: d.id, name: d.name || d.host, host: d.host }));
         }
     }, [formData.connectionType, routers, devices, device]);
+
+    // Filter interfaces for heatmap mapping (exclude PPPoE)
+    const interfaceOptions = useMemo(() => {
+        return routerInterfaces
+            .filter(iface => {
+                // "Kecualikan interface ppoe" - exclude types containing 'pppoe'
+                const type = (iface.type || '').toLowerCase();
+                return !type.includes('pppoe');
+            })
+            .map(iface => ({
+                value: iface.name,
+                label: iface.name + (iface.comment ? ` (${iface.comment})` : '')
+            }));
+    }, [routerInterfaces]);
 
     if (!isOpen) return null;
 
@@ -280,6 +298,24 @@ const DeviceModal = ({
                                         disabled={isSaving}
                                     />
                                 </div>
+
+
+                                {/* Target Interface (Heatmap) */}
+                                <div className="device-modal__field">
+                                    <label className="device-modal__label">
+                                        Traffic Source Interface (Heatmap)
+                                        <span style={{ marginLeft: 6, fontSize: 10, color: '#64748b', fontWeight: 400 }}>
+                                            (Optional) Matches 'tx-rate' from router interface
+                                        </span>
+                                    </label>
+                                    <SearchableSelect
+                                        options={interfaceOptions}
+                                        value={formData.targetInterface}
+                                        onChange={(e) => handleChange({ target: { name: 'targetInterface', value: e.target.value } })}
+                                        placeholder="Select interface..."
+                                        disabled={isSaving}
+                                    />
+                                </div>
                             </>
                         )}
 
@@ -387,8 +423,8 @@ const DeviceModal = ({
                         )}
                     </div>
                 </form>
-            </div>
-        </div>
+            </div >
+        </div >
     );
 };
 

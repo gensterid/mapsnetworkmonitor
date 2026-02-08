@@ -22,7 +22,9 @@ import {
     createDeviceIcon,
     LineThicknessControl,
     RouterTooltip,
+    RouterTooltip,
     getAnimationStyle, // Import helper to check style config
+    DEFAULT_MAP_COLORS,
 } from './map';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import './map/map.css';
@@ -505,11 +507,37 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         const saved = localStorage.getItem('map_low_perf_enabled');
         return saved !== null ? JSON.parse(saved) : false;
     });
+    const [isHeatmapMode, setIsHeatmapMode] = useState(false);
 
     const queryClient = useQueryClient();
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const apiKey = settings?.googleMapsApiKey;
+
+    // Resolve Map Colors (Settings > Default)
+    const mapColors = useMemo(() => {
+        if (!settings?.mapColors) return DEFAULT_MAP_COLORS;
+        return { ...DEFAULT_MAP_COLORS, ...settings.mapColors };
+    }, [settings?.mapColors]);
+
+    // Inject CSS Variables for Map Colors
+    useEffect(() => {
+        const root = document.documentElement;
+        if (mapColors) {
+            root.style.setProperty('--map-color-online', mapColors.online);
+            root.style.setProperty('--map-color-offline', mapColors.offline);
+            root.style.setProperty('--map-color-warning', mapColors.warning);
+            root.style.setProperty('--map-color-pppoe', mapColors.pppoe);
+            root.style.setProperty('--map-color-odp', mapColors.odp);
+            root.style.setProperty('--map-color-router', mapColors.router);
+            // Heatmap
+            root.style.setProperty('--map-traffic-idle', mapColors.trafficyIdle);
+            root.style.setProperty('--map-traffic-normal', mapColors.trafficNormal);
+            root.style.setProperty('--map-traffic-high', mapColors.trafficHigh);
+            root.style.setProperty('--map-traffic-peak', mapColors.trafficPeak);
+        }
+    }, [mapColors]);
+
     const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
 
     // Fetch Routers
@@ -559,6 +587,18 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         enabled: !showRoutersOnly,
         staleTime: 30000,
         placeholderData: keepPreviousData,
+    });
+
+    // Fetch router interfaces for selected device (for dropdown)
+    const { data: routerInterfaces } = useQuery({
+        queryKey: ['router-interfaces', selectedDevice?.routerId],
+        queryFn: async () => {
+            if (!selectedDevice?.routerId) return [];
+            const res = await apiClient.get(`/routers/${selectedDevice.routerId}/interfaces`);
+            return res.data.data;
+        },
+        enabled: !!isModalOpen && !!selectedDevice?.routerId,
+        staleTime: 60000,
     });
 
     // State for syncing indicator
@@ -682,6 +722,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         if (!stableRoutersData) return { routers: [], lines: [], nodes: [] };
 
         const nodes = [];
+
         const lines = [];
         const routerNodes = [];
 
@@ -702,24 +743,37 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         });
 
         // If showRoutersOnly is true, return early with just routers
-        if (showRoutersOnly || !stableNetwatchData) {
-            return { routers: routerNodes, nodes: [], lines: [] };
+        if (showRoutersOnly) {
+            return { routers: routerNodes, nodes: [], lines: [], pppoeNodes: [] };
         }
 
         // Second pass: Create netwatch nodes and index them
-        stableNetwatchData.forEach(nwGroup => {
+        const netwatchDataToUse = stableNetwatchData || [];
+        netwatchDataToUse.forEach(nwGroup => {
             // Apply filtering
             if (filteredRouterId && nwGroup.routerId !== filteredRouterId) return;
 
             if (nwGroup.entries) {
-                nwGroup.entries.forEach(entry => {
-                    if (entry.latitude && entry.longitude) {
-                        const lat = parseFloat(entry.latitude);
-                        const lng = parseFloat(entry.longitude);
+                // Get router coordinates for fallback
+                const routerNode = routerMap.get(nwGroup.routerId);
+                const routerLat = routerNode ? routerNode.lat : 0;
+                const routerLng = routerNode ? routerNode.lng : 0;
+
+                nwGroup.entries.forEach((entry, index) => {
+                    let lat = null, lng = null;
+
+                    // Robust coordinate check
+                    if (entry.latitude && entry.longitude &&
+                        !isNaN(parseFloat(entry.latitude)) && !isNaN(parseFloat(entry.longitude)) &&
+                        parseFloat(entry.latitude) !== 0 && parseFloat(entry.longitude) !== 0) {
+                        lat = parseFloat(entry.latitude);
+                        lng = parseFloat(entry.longitude);
+
                         const node = { ...entry, lat, lng, routerId: nwGroup.routerId };
                         nodes.push(node);
                         deviceMap.set(entry.id, node);
                     }
+                    // If no valid coordinates, we simply skip this entry (do not show on map)
                 });
             }
         });
@@ -783,6 +837,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     // FIX: Pass latency/packetLoss so Yellow Alert works
                     latency: node.latency,
                     packetLoss: node.packetLoss,
+                    txRate: node.txRate,
+                    rxRate: node.rxRate,
                 });
             }
         });
@@ -848,6 +904,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 // FIX: Pass latency/packetLoss so Yellow Alert works
                                 latency: session.lastLatency || session.latency,
                                 packetLoss: session.packetLoss,
+                                txRate: session.txRate,
+                                rxRate: session.rxRate,
                             });
                         }
                     }
@@ -1093,7 +1151,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                         <MemoizedSmartMarker
                             key={`${node.routerId}-${node.id}`}
                             position={[node.lat, node.lng]}
-                            type={node.deviceType}
+                            // Force 'netwatch' icon (WiFi) if type is 'client' (Person) to distinguish from PPPoE
+                            type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
                             status={node.status}
                             name={node.name || node.host}
                             showLabel={showLabels}
@@ -1365,19 +1424,44 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     const isPacketLoss = packetLoss > 5;
                     const isAlert = isHighLatency || isPacketLoss;
 
+
+                    // --- HEATMAP & TRAFFIC LOGIC ---
+                    const txRate = line.txRate || 0;
+                    const rxRate = line.rxRate || 0;
+                    const maxRate = Math.max(txRate, rxRate);
+                    const isHeatmapActive = isHeatmapMode && line.status === 'up';
+
                     // Determine Rail Color (Background)
                     let railColor = "#06b6d4"; // Default Cyan
 
                     if (line.status === 'down') {
-                        railColor = "#FF0000"; // Pure Neon Red (Down - Priority)
+                        railColor = mapColors.offline; // Pure Neon Red (Down - Priority)
+                    } else if (isHeatmapActive) {
+                        // Heatmap Colors based on Bandwidth
+                        // < 1Mbps (Idle): Blue
+                        if (maxRate < 1000000) railColor = mapColors.trafficyIdle;
+                        // < 20Mbps (Normal): Green
+                        else if (maxRate < 20000000) railColor = mapColors.trafficNormal;
+                        // < 50Mbps (High): Yellow
+                        else if (maxRate < 50000000) railColor = mapColors.trafficHigh;
+                        // > 50Mbps (Peak): Purple
+                        else railColor = mapColors.trafficPeak;
                     } else if (line.deviceType === 'pppoe') {
-                        railColor = "#CD00FF"; // Neon Purple (Priority over Alert)
+                        railColor = mapColors.pppoe; // Neon Purple (Priority over Alert)
                     } else if (line.deviceType === 'odp') {
-                        railColor = "#FF6600"; // Vibrant Neon Orange (Priority over Alert)
+                        railColor = mapColors.odp; // Vibrant Neon Orange (Priority over Alert)
                     } else if (isAlert) {
-                        railColor = "#facc15"; // YELLOW Alert (Only for other devices)
+                        railColor = mapColors.warning; // YELLOW Alert (Only for other devices)
                     } else if (line.status === 'up') {
-                        railColor = "#10b981"; // Emerald Green
+                        railColor = mapColors.online; // Emerald Green
+                    }
+
+                    // --- FORCE THICKNESS FOR HEATMAP ---
+                    let effectiveThickness = lineThickness;
+                    if (isHeatmapActive) {
+                        if (maxRate < 1000000) effectiveThickness = Math.max(1, lineThickness - 1);
+                        else if (maxRate > 50000000) effectiveThickness = lineThickness + 3;
+                        else if (maxRate > 20000000) effectiveThickness = lineThickness + 1;
                     }
 
                     // --- MOTION PATH STATE LOGIC ---
@@ -1385,17 +1469,22 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     let motionType = 'orb'; // Default
                     let motionOpacity = 1;
 
-                    if (isAlert) {
+                    if (isHeatmapActive) {
+                        motionType = 'packet';
+                        motionColor = '#ffffff'; // White packets on colored rail
+                        // Make packets faster for high traffic?
+                        // AnimatedPath doesn't support dynamic speed per line yet easily without remounting or complex props.
+                    } else if (isAlert) {
                         motionType = 'packet'; // Show packets for data issues
-                        motionColor = '#facc15'; // Yellow packets
+                        motionColor = mapColors.warning; // Yellow packets
                     } else if (line.status === 'down') {
                         motionOpacity = 0; // Hide motion on down lines (or maybe static red X?)
                     } else if (line.deviceType === 'pppoe') {
                         motionType = 'orb';
-                        motionColor = '#e879f9'; // Lighter purple for visibility
+                        motionColor = mapColors.pppoe; // Lighter purple for visibility
                     } else if (line.deviceType === 'odp') {
                         motionType = 'comet'; // Comet for ODP backbone
-                        motionColor = '#fdba74'; // Lighter orange
+                        motionColor = mapColors.odp; // Lighter orange
                     }
 
                     if (styleConfig.isAntPath && !lowPerfMode) {
@@ -1406,7 +1495,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 options={{
                                     delay: styleConfig.delay,
                                     dashArray: styleConfig.dashArray,
-                                    weight: lineThickness,
+                                    weight: effectiveThickness,
                                     color: styleConfig.color || railColor,
                                     pulseColor: styleConfig.pulseColor || "transparent",
                                     paused: !enableAnimation,
@@ -1429,7 +1518,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             // Dynamic props from styleConfig
                             delay={styleConfig.delay}
                             dashArray={styleConfig.dashArray}
-                            weight={lineThickness}
+                            weight={effectiveThickness}
                             // opacity removed here, defined below with status logic
                             enableAnimation={enableAnimation}
                             lineCap={styleConfig.lineCap || 'butt'}
@@ -1567,6 +1656,24 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 <option value="dark">Dark Mode</option>
                             </select>
 
+                            {/* Heatmap Mode Toggle */}
+                            <div className="flex items-center justify-between sm:block mb-2 sm:mb-1 mt-2 border-t border-slate-700/50 pt-2">
+                                <label className="flex items-center justify-between cursor-pointer group">
+                                    <span className="text-xs text-white font-bold group-hover:text-blue-400 transition-colors">
+                                        Bandwidth Heatmap
+                                    </span>
+                                    <div className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            className="sr-only peer"
+                                            checked={isHeatmapMode}
+                                            onChange={(e) => setIsHeatmapMode(e.target.checked)}
+                                        />
+                                        <div className="w-9 h-5 bg-slate-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                    </div>
+                                </label>
+                            </div>
+
                             <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
 
                             {/* Line Thickness Control */}
@@ -1681,6 +1788,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 return newVal;
                             });
                         }}
+                        isHeatmapMode={isHeatmapMode}
                     />
                 )
             }
@@ -1706,6 +1814,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 onDelete={handleDeleteDevice}
                 onEditPath={handleEditPath}
                 isSaving={isSaving}
+                routerInterfaces={routerInterfaces || []}
             />
         </main >
     );

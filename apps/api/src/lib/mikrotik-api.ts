@@ -635,3 +635,36 @@ export async function getPppSessions(api: any): Promise<PppSession[]> {
     });
 }
 
+/**
+ * Simple Queue Interface
+ */
+export interface SimpleQueueData {
+    name: string;
+    target: string;
+    rate?: string; // limit-at (config)
+    maxLimit?: string; // max-limit (config)
+    bytes: string; // "upload/download" (cumulative)
+    packets: string; // "upload/download" (cumulative)
+    dynamic: boolean;
+    disabled: boolean;
+    comment?: string;
+}
+
+/**
+ * Get Simple Queues
+ */
+export async function getSimpleQueues(api: any): Promise<SimpleQueueData[]> {
+    const result = await api.write('/queue/simple/print');
+
+    return result.map((q: any) => ({
+        name: q.name,
+        target: q.target,
+        rate: q['limit-at'],
+        maxLimit: q['max-limit'],
+        bytes: q.bytes,
+        packets: q.packets,
+        dynamic: q.dynamic === 'true' || q.dynamic === true,
+        disabled: q.disabled === 'true' || q.disabled === true,
+        comment: q.comment,
+    }));
+}

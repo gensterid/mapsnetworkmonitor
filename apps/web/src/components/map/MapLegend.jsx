@@ -16,6 +16,7 @@ const MapLegend = ({
     onToggleClustering,
     lowPerfMode = false,
     onToggleLowPerf,
+    isHeatmapMode = false,
 }) => {
     // Internal state for mobile responsiveness
     // On desktop, we respect the parent's prop. On mobile, we might default to hidden.
@@ -73,25 +74,50 @@ const MapLegend = ({
             {(showContent || !isMobile) && (
                 <>
                     <div className="map-legend__items">
-                        {/* Status indicators */}
-                        <div className="map-legend__item">
-                            <span className="map-legend__dot map-legend__dot--online"></span>
-                            <span className="map-legend__text">Online / Up</span>
-                        </div>
+                        {/* Status indicators - Always show Offline as it's critical */}
                         <div className="map-legend__item">
                             <span className="map-legend__dot map-legend__dot--offline"></span>
                             <span className="map-legend__text">Offline / Down</span>
                         </div>
 
-                        {/* Line status */}
-                        <div className="map-legend__item" style={{ marginTop: 8 }}>
-                            <span className="map-legend__line map-legend__line--up"></span>
-                            <span className="map-legend__text">Active Link</span>
-                        </div>
-                        <div className="map-legend__item">
-                            <span className="map-legend__line map-legend__line--down"></span>
-                            <span className="map-legend__text">Down Link</span>
-                        </div>
+                        {!isHeatmapMode ? (
+                            <>
+                                <div className="map-legend__item">
+                                    <span className="map-legend__dot map-legend__dot--online"></span>
+                                    <span className="map-legend__text">Online / Up</span>
+                                </div>
+                                <div className="map-legend__item" style={{ marginTop: 8 }}>
+                                    <span className="map-legend__line map-legend__line--up"></span>
+                                    <span className="map-legend__text">Active Link</span>
+                                </div>
+                                <div className="map-legend__item">
+                                    <span className="map-legend__line map-legend__line--down"></span>
+                                    <span className="map-legend__text">Down Link</span>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                {/* Heatmap Legend */}
+                                <div style={{ marginTop: 8, marginBottom: 4, fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Traffic Load</div>
+
+                                <div className="map-legend__item">
+                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-idle, #3b82f6)', height: 2, width: 24 }}></span>
+                                    <span className="map-legend__text">Idle (&lt; 1M)</span>
+                                </div>
+                                <div className="map-legend__item">
+                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-normal, #10b981)', height: 3, width: 24 }}></span>
+                                    <span className="map-legend__text">Normal (1-20M)</span>
+                                </div>
+                                <div className="map-legend__item">
+                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-high, #facc15)', height: 4, width: 24 }}></span>
+                                    <span className="map-legend__text">High (20-50M)</span>
+                                </div>
+                                <div className="map-legend__item">
+                                    <span className="map-legend__line" style={{ background: 'var(--map-traffic-peak, #d946ef)', height: 5, width: 24, boxShadow: '0 0 4px var(--map-traffic-peak, #d946ef)' }}></span>
+                                    <span className="map-legend__text">Peak (&gt; 50M)</span>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Performance toggles */}

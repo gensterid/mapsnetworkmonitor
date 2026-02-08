@@ -428,83 +428,83 @@
     /* Online (Green) */
     .device-icon--online,
     .device-icon--up {
-        color: #10B981 !important;
+        color: var(--map-color-online, #10B981) !important;
     }
 
     .device-icon--online .device-icon__badge,
     .device-icon--up .device-icon__badge {
-        border-color: #10B981 !important;
-        box-shadow: 0 0 12px #10B981, inset 0 0 4px #10B981 !important;
+        border-color: var(--map-color-online, #10B981) !important;
+        box-shadow: 0 0 12px var(--map-color-online, #10B981), inset 0 0 4px var(--map-color-online, #10B981) !important;
         background: rgba(16, 185, 129, 0.15) !important;
     }
 
     .device-icon--online .material-symbols-outlined,
     .device-icon--up .material-symbols-outlined {
-        color: #10B981 !important;
+        color: var(--map-color-online, #10B981) !important;
     }
 
     /* Offline (Red) */
     .device-icon--offline,
     .device-icon--down {
-        color: #EF4444 !important;
+        color: var(--map-color-offline, #EF4444) !important;
     }
 
     .device-icon--offline .device-icon__badge,
     .device-icon--down .device-icon__badge {
-        border-color: #EF4444 !important;
-        box-shadow: 0 0 15px #EF4444, inset 0 0 5px #EF4444 !important;
+        border-color: var(--map-color-offline, #EF4444) !important;
+        box-shadow: 0 0 15px var(--map-color-offline, #EF4444), inset 0 0 5px var(--map-color-offline, #EF4444) !important;
         background: rgba(239, 68, 68, 0.15) !important;
     }
 
     .device-icon--offline .material-symbols-outlined,
     .device-icon--down .material-symbols-outlined {
-        color: #EF4444 !important;
-        filter: drop-shadow(0 0 4px rgba(239, 68, 68, 0.6));
+        color: var(--map-color-offline, #EF4444) !important;
+        filter: drop-shadow(0 0 4px var(--map-color-offline, #EF4444));
     }
 
     /* Warning (Yellow) */
     .device-icon--warning {
-        color: #FACC15 !important;
+        color: var(--map-color-warning, #FACC15) !important;
     }
 
     .device-icon--warning .device-icon__badge {
-        border-color: #FACC15 !important;
-        box-shadow: 0 0 12px #FACC15, inset 0 0 4px #FACC15 !important;
+        border-color: var(--map-color-warning, #FACC15) !important;
+        box-shadow: 0 0 12px var(--map-color-warning, #FACC15), inset 0 0 4px var(--map-color-warning, #FACC15) !important;
         background: rgba(250, 204, 21, 0.15) !important;
     }
 
     .device-icon--warning .material-symbols-outlined {
-        color: #FACC15 !important;
+        color: var(--map-color-warning, #FACC15) !important;
     }
 
     /* ODP (Orange) */
     .device-icon--odp {
-        color: #F97316 !important;
+        color: var(--map-color-odp, #F97316) !important;
     }
 
     .device-icon--odp .device-icon__badge {
-        border-color: #F97316 !important;
-        box-shadow: 0 0 15px #F97316, inset 0 0 5px #F97316 !important;
+        border-color: var(--map-color-odp, #F97316) !important;
+        box-shadow: 0 0 15px var(--map-color-odp, #F97316), inset 0 0 5px var(--map-color-odp, #F97316) !important;
         background: rgba(249, 115, 22, 0.2) !important;
     }
 
     .device-icon--odp .material-symbols-outlined {
-        color: #F97316 !important;
+        color: var(--map-color-odp, #F97316) !important;
     }
 
     /* PPPoE (Purple) */
     .device-icon--pppoe {
-        color: #A855F7 !important;
+        color: var(--map-color-pppoe, #A855F7) !important;
     }
 
     .device-icon--pppoe .device-icon__badge {
-        border-color: #A855F7 !important;
-        box-shadow: 0 0 18px #A855F7, inset 0 0 6px #A855F7 !important;
+        border-color: var(--map-color-pppoe, #A855F7) !important;
+        box-shadow: 0 0 18px var(--map-color-pppoe, #A855F7), inset 0 0 6px var(--map-color-pppoe, #A855F7) !important;
         background: rgba(168, 85, 247, 0.2) !important;
     }
 
     .device-icon--pppoe .material-symbols-outlined {
-        color: #A855F7 !important;
+        color: var(--map-color-pppoe, #A855F7) !important;
     }
 
     /* Hide Device Labels in Satellite Dark mode - REMOVED so toggle works */

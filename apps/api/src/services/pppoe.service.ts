@@ -1,4 +1,4 @@
-import { eq, and, notInArray, inArray, isNotNull, ne } from 'drizzle-orm';
+import { eq, and, notInArray, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     pppoeSessions,
@@ -7,7 +7,7 @@ import {
     type NewPppoeSession,
 } from '../db/schema/index.js';
 import { alertService } from './alert.service.js';
-import type { PppSession } from '../lib/mikrotik-api.js';
+import type { PppSession, SimpleQueueData } from '../lib/mikrotik-api.js';
 
 /**
  * PPPoE Service - handles PPPoE session tracking and alerts
@@ -280,34 +280,55 @@ class PppoeService {
         userId?: string,
         userRole?: string
     ): Promise<PppoeSession[]> {
-        let query = db.select().from(pppoeSessions).$dynamic();
-        const filters = [];
+        console.log('[PPPoE] findAll called');
 
-        if (routerId) {
-            filters.push(eq(pppoeSessions.routerId, routerId));
+        if (!pppoeSessions || !userRouters) {
+            console.error('[PPPoE] CRITICAL: pppoeSessions or userRouters schema is UNDEFINED. Circular dependency suspected.', {
+                pppoeSessions: !!pppoeSessions,
+                userRouters: !!userRouters
+            });
+            return [];
         }
 
-        // If user is not admin, filter by assigned routers
-        if (userId && userRole && userRole !== 'admin') {
-            const assigned = await db
-                .select({ routerId: userRouters.routerId })
-                .from(userRouters)
-                .where(eq(userRouters.userId, userId));
+        try {
+            const filters = [];
 
-            const assignedIds = assigned.map((a) => a.routerId);
-
-            if (assignedIds.length === 0) {
-                return []; // No routers assigned
+            if (routerId) {
+                filters.push(eq(pppoeSessions.routerId, routerId));
             }
 
-            filters.push(inArray(pppoeSessions.routerId, assignedIds));
-        }
+            // If user is not admin, filter by assigned routers
+            if (userId && userRole && userRole !== 'admin') {
+                const assigned = await db
+                    .select({ routerId: userRouters.routerId })
+                    .from(userRouters)
+                    .where(eq(userRouters.userId, userId));
 
-        if (filters.length > 0) {
-            query = query.where(and(...filters));
-        }
+                const assignedIds = assigned.map((a) => a.routerId);
 
-        return query.orderBy(pppoeSessions.name);
+                if (assignedIds.length === 0) {
+                    return []; // No routers assigned
+                }
+
+                filters.push(inArray(pppoeSessions.routerId, assignedIds));
+            }
+
+            if (filters.length > 0) {
+                return await db
+                    .select()
+                    .from(pppoeSessions)
+                    .where(and(...filters))
+                    .orderBy(pppoeSessions.name);
+            }
+
+            return await db
+                .select()
+                .from(pppoeSessions)
+                .orderBy(pppoeSessions.name);
+        } catch (error) {
+            console.error('[PPPoE] findAll failed:', error);
+            return []; // Return empty array instead of throwing to prevent 500
+        }
     }
 
     /**
@@ -332,49 +353,92 @@ class PppoeService {
         userId?: string,
         userRole?: string
     ): Promise<PppoeSession[]> {
-        let query = db.select().from(pppoeSessions).$dynamic();
-        const filters = [];
+        console.log(`[PPPoE] findAllWithCoordinates called with routerId=${routerId}, userId=${userId}`);
 
-        if (routerId) {
-            filters.push(eq(pppoeSessions.routerId, routerId));
-        }
+        // Get all sessions using the robust findAll method
+        const sessions = await this.findAll(routerId, userId, userRole);
 
-        // If user is not admin, filter by assigned routers
-        if (userId && userRole && userRole !== 'admin') {
-            const assigned = await db
-                .select({ routerId: userRouters.routerId })
-                .from(userRouters)
-                .where(eq(userRouters.userId, userId));
-
-            const assignedIds = assigned.map((a) => a.routerId);
-
-            if (assignedIds.length === 0) {
-                return []; // No routers assigned
-            }
-
-            filters.push(inArray(pppoeSessions.routerId, assignedIds));
-        }
-
-        if (filters.length > 0) {
-            query = query.where(and(
-                ...filters,
-                isNotNull(pppoeSessions.latitude),
-                ne(pppoeSessions.latitude, ''),
-                isNotNull(pppoeSessions.longitude),
-                ne(pppoeSessions.longitude, '')
-            ));
-        } else {
-            query = query.where(and(
-                isNotNull(pppoeSessions.latitude),
-                ne(pppoeSessions.latitude, ''),
-                isNotNull(pppoeSessions.longitude),
-                ne(pppoeSessions.longitude, '')
-            ));
-        }
-
-        return query.orderBy(pppoeSessions.name);
+        // Filter in memory for valid coordinates
+        // This avoids Drizzle operator issues (isNotNull, ne, sql) causing 500 errors
+        return sessions.filter(session =>
+            session.latitude &&
+            session.latitude !== '' &&
+            session.longitude &&
+            session.longitude !== ''
+        );
     }
+    /**
+     * Update traffic stats for PPPoE sessions from Simple Queues
+     */
+    async updateTraffic(routerId: string, queues: SimpleQueueData[]): Promise<void> {
+        // Get active sessions
+        const sessions = await db
+            .select()
+            .from(pppoeSessions)
+            .where(and(
+                eq(pppoeSessions.routerId, routerId),
+                eq(pppoeSessions.status, 'active')
+            ));
+
+        if (sessions.length === 0) return;
+
+        // Map queues by name for O(1) lookup
+        // Note: Simple Queue name usually matches PPPoE username
+        const queueMap = new Map<string, SimpleQueueData>();
+        queues.forEach(q => queueMap.set(q.name, q));
+
+        const now = new Date();
+
+        for (const session of sessions) {
+            const queue = queueMap.get(session.name);
+            if (queue) {
+                // simple queue 'bytes' is "upload/download" (e.g. "1234/5678")
+                // In MikroTik Simple Queue: 
+                // 1st component = Target Upload (From Client to Router) = RX
+                // 2nd component = Target Download (From Router to Client) = TX
+
+                const parts = queue.bytes.split('/');
+                const rxBytes = parseInt(parts[0] || '0', 10);
+                const txBytes = parseInt(parts[1] || '0', 10);
+
+                // Calculate rates
+                let txRate = 0;
+                let rxRate = 0;
+
+                if (session.lastTrafficUpdate) {
+                    const seconds = (now.getTime() - new Date(session.lastTrafficUpdate).getTime()) / 1000;
+                    if (seconds > 0) {
+                        const prevTx = Number(session.txBytes) || 0;
+                        const prevRx = Number(session.rxBytes) || 0;
+
+                        const txDiff = txBytes - prevTx;
+                        const rxDiff = rxBytes - prevRx;
+
+                        // Handle counter reset or wrap (if new bytes < old bytes)
+                        // If diff is negative, strictly speaking we should ignore or assume reset to 0
+                        // For simplicity, if diff >= 0 we calculate rate.
+                        if (txDiff >= 0) txRate = Math.round((txDiff * 8) / seconds);
+                        if (rxDiff >= 0) rxRate = Math.round((rxDiff * 8) / seconds);
+                    }
+                }
+
+                // Update DB
+                await db
+                    .update(pppoeSessions)
+                    .set({
+                        txBytes: txBytes,
+                        rxBytes: rxBytes,
+                        txRate: txRate,
+                        rxRate: rxRate,
+                        lastTrafficUpdate: now
+                    })
+                    .where(eq(pppoeSessions.id, session.id));
+            }
+        }
+    }
+
 }
+
 
 // Export singleton instance
 export const pppoeService = new PppoeService();

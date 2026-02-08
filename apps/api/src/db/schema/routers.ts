@@ -154,6 +154,12 @@ export const routerNetwatch = pgTable('router_netwatch', {
     connectionType: text('connection_type').default('router'), // 'router' or 'client'
     connectedToId: uuid('connected_to_id'), // ID of the device this is connected to (router or other netwatch)
 
+    // Traffic Mapping
+    targetInterface: text('target_interface'), // Interface name for traffic mapping (e.g. ether1)
+    txRate: bigint('tx_rate', { mode: 'number' }).default(0), // bits per second
+    rxRate: bigint('rx_rate', { mode: 'number' }).default(0), // bits per second
+
+
     // Waypoints for custom path on map (JSON array of [lat, lng] coordinates)
     waypoints: text('waypoints'), // JSON string: [[lat1, lng1], [lat2, lng2], ...]
     createdAt: timestamp('created_at').defaultNow().notNull(),
