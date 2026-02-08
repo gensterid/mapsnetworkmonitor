@@ -346,7 +346,9 @@ const arePropsEqual = (prev, next) => {
         prev.type === next.type &&
         prev.small === next.small &&
         // For draggable marker specifically
-        prev.icon === next.icon
+        prev.icon === next.icon &&
+        // Heatmap Mode Check
+        prev.isHeatmapMode === next.isHeatmapMode
     );
 };
 
@@ -580,7 +582,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         },
         enabled: !!routersData && !showRoutersOnly,
         placeholderData: keepPreviousData,
-        refetchInterval: 30000,
+        refetchInterval: 5000, // Faster polling for "live" traffic feeling
     });
 
     // Fetch PPPoE sessions with coordinates
@@ -668,7 +670,24 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             const res = await apiClient.put(`/routers/${routerId}/netwatch/${netwatchId}`, data);
             return res.data.data;
         },
-        onSuccess: () => {
+        onSuccess: (updatedData, variables) => {
+            // Optimistic update for instant feedback
+            queryClient.setQueryData(['netwatch-all'], (oldData) => {
+                if (!oldData) return oldData;
+                return oldData.map(group => {
+                    if (group.routerId === variables.routerId) {
+                        return {
+                            ...group,
+                            entries: group.entries.map(e =>
+                                e.id === variables.netwatchId ? { ...e, ...updatedData } : e
+                            )
+                        };
+                    }
+                    return group;
+                });
+            });
+
+            // Still invalidate to ensure consistency
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
             toast.success('Device configuration saved successfully.');
         },
@@ -1152,6 +1171,23 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         return mapData.lines.find(l => l.netwatchId === editingDevice.id || l.pppoeId === editingDevice.id);
     }, [isEditingPath, editingDevice, mapData.lines]);
 
+    // --- Optimization: Create Lookup Maps for Lines ---
+    const linesByNetwatchId = useMemo(() => {
+        const lookup = {};
+        mapData.lines.forEach(line => {
+            if (line.netwatchId) lookup[line.netwatchId] = line;
+        });
+        return lookup;
+    }, [mapData.lines]);
+
+    const linesByPppoeId = useMemo(() => {
+        const lookup = {};
+        mapData.lines.forEach(line => {
+            if (line.pppoeId) lookup[line.pppoeId] = line;
+        });
+        return lookup;
+    }, [mapData.lines]);
+
     // --- Stable Markers Generation ---
     const markers = useMemo(() => {
         return (
@@ -1180,8 +1216,13 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                 {/* Netwatch Node Markers */}
                 {mapData.nodes.filter(n => !searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery))).map(node => {
-                    // Find connected line to get source info
-                    const line = mapData.lines.find(l => l.netwatchId === node.id);
+                    // Optimized Lookup
+                    const line = linesByNetwatchId[node.id];
+
+                    // Traffic Data Source: Node (primary) -> Line (fallback for ODP)
+                    const trafficInterface = node.targetInterface || line?.targetInterface;
+                    const txRate = node.txRate || line?.txRate || 0;
+                    const rxRate = node.rxRate || line?.rxRate || 0;
                     return (
                         <MemoizedSmartMarker
                             key={`${node.routerId}-${node.id}`}
@@ -1206,6 +1247,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 });
                             }}
                             onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
+                            isHeatmapMode={isHeatmapMode} // Pass prop for memoization check
                         >
                             <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
                                 <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -1285,20 +1327,27 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                     <span className="material-symbols-outlined text-[14px] text-blue-400">monitor_heart</span>
                                                     Traffic
                                                 </div>
-                                                {node.targetInterface && (
+                                                {trafficInterface ? (
                                                     <div className="flex items-center justify-between text-xs bg-slate-900/50 px-2 py-1 rounded border border-slate-700/30">
                                                         <span className="text-slate-400">Interface</span>
-                                                        <span className="text-blue-300 font-mono font-medium truncate max-w-[100px]" title={node.targetInterface}>{node.targetInterface}</span>
+                                                        <span className="text-blue-300 font-mono font-medium truncate max-w-[100px]" title={trafficInterface}>{trafficInterface}</span>
                                                     </div>
+                                                ) : (
+                                                    node.deviceType === 'odp' && (
+                                                        <div className="flex items-center gap-1.5 text-xs text-amber-500/80 italic px-2 py-1 bg-amber-500/10 rounded border border-amber-500/20">
+                                                            <span className="material-symbols-outlined text-[14px]">link_off</span>
+                                                            <span>No Source Interface</span>
+                                                        </div>
+                                                    )
                                                 )}
                                                 <div className="grid grid-cols-2 gap-2">
                                                     <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
                                                         <span className="text-[10px] text-slate-500 uppercase tracking-wider">RX</span>
-                                                        <span className="text-emerald-400 font-mono font-bold text-xs">{formatBitrate(node.rxRate)}</span>
+                                                        <span className="text-emerald-400 font-mono font-bold text-xs">{formatBitrate(rxRate)}</span>
                                                     </div>
                                                     <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
                                                         <span className="text-[10px] text-slate-500 uppercase tracking-wider">TX</span>
-                                                        <span className="text-blue-400 font-mono font-bold text-xs">{formatBitrate(node.txRate)}</span>
+                                                        <span className="text-blue-400 font-mono font-bold text-xs">{formatBitrate(txRate)}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1316,7 +1365,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 {/* PPPoE Client Markers */}
                 {
                     (mapData.pppoeNodes || []).filter(p => !searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery))).map(pppoe => {
-                        const line = mapData.lines.find(l => l.pppoeId === pppoe.id);
+                        // Optimized Lookup
+                        const line = linesByPppoeId[pppoe.id];
                         return (
                             <MemoizedSmartMarker
                                 key={`pppoe-${pppoe.id}`}
@@ -1329,6 +1379,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 draggable={isEditMode}
                                 onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
                                 onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                                isHeatmapMode={isHeatmapMode} // Pass prop for memoization check
                             >
                                 <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
                                     <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">

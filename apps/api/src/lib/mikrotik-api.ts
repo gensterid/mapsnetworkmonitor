@@ -229,6 +229,47 @@ export async function getRouterInterfaces(
 }
 
 /**
+ * Get real-time traffic for specific interfaces
+ */
+export async function getInterfaceTraffic(
+    api: any,
+    interfaces: string[]
+): Promise<Map<string, { tx: number; rx: number }>> {
+    if (!interfaces || interfaces.length === 0) return new Map();
+
+    const trafficMap = new Map<string, { tx: number; rx: number }>();
+
+    // Process in chunks to avoid command line length limits
+    const CHUNK_SIZE = 10;
+    for (let i = 0; i < interfaces.length; i += CHUNK_SIZE) {
+        const chunk = interfaces.slice(i, i + CHUNK_SIZE);
+        try {
+            const result = await api.write([
+                '/interface/monitor-traffic',
+                `=interface=${chunk.join(',')}`,
+                '=once='
+            ]);
+
+            result.forEach((res: any) => {
+                const name = res.name;
+                // routeros-node might return rx-bits-per-second or just rx-bits-per-second
+                // Use safe parsing
+                const rx = parseInt(res['rx-bits-per-second'] || '0', 10);
+                const tx = parseInt(res['tx-bits-per-second'] || '0', 10);
+
+                if (name) {
+                    trafficMap.set(name, { tx, rx });
+                }
+            });
+        } catch (err) {
+            console.error(`Failed to monitor traffic for chunk ${chunk.join(',')}:`, err);
+        }
+    }
+
+    return trafficMap;
+}
+
+/**
  * Get router clock time
  */
 export async function getRouterClock(api: any): Promise<{ time: string; date: string; timeZoneName: string; gmtOffset: string }> {

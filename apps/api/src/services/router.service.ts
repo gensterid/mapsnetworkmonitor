@@ -31,6 +31,7 @@ import {
     updateNetwatchEntry,
     removeNetwatchEntry,
     measurePing,
+    getInterfaceTraffic,
     type RouterConnection,
     type PppSession,
 } from '../lib/mikrotik-api.js';
@@ -535,6 +536,43 @@ export class RouterService {
                     await pppoeService.updateTraffic(id, queues);
                 } catch (qErr) {
                     console.error(`[Router ${router.name}] Failed to sync queues:`, qErr instanceof Error ? qErr.message : qErr);
+                }
+
+                // Fetch Interface Traffic for Netwatch Items (Heatmap Source)
+                try {
+                    const entries = await db
+                        .select()
+                        .from(routerNetwatch)
+                        .where(eq(routerNetwatch.routerId, id));
+
+                    // Collect unique target interfaces
+                    const interfaces = [...new Set(entries
+                        .map(e => e.targetInterface)
+                        .filter(i => i && i.trim() !== '')
+                    )] as string[];
+
+                    if (interfaces.length > 0) {
+                        // console.log(`[Router ${router.name}] Fetching traffic for interfaces: ${interfaces.join(', ')}`);
+                        const trafficMap = await getInterfaceTraffic(conn, interfaces);
+
+                        // Update DB with traffic stats. 
+                        // We do this per interface to update all matching records at once
+                        for (const [iface, stats] of trafficMap.entries()) {
+                            await db
+                                .update(routerNetwatch)
+                                .set({
+                                    txRate: stats.tx,
+                                    rxRate: stats.rx,
+                                    updatedAt: new Date()
+                                })
+                                .where(and(
+                                    eq(routerNetwatch.routerId, id),
+                                    eq(routerNetwatch.targetInterface, iface)
+                                ));
+                        }
+                    }
+                } catch (trafficErr) {
+                    console.error(`[Router ${router.name}] Failed to sync interface traffic:`, trafficErr instanceof Error ? trafficErr.message : trafficErr);
                 }
             }
 
