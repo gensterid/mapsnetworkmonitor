@@ -78,6 +78,31 @@ async function runMigrations() {
                     ALTER TABLE users ADD COLUMN animation_style TEXT DEFAULT 'default';
                     RAISE NOTICE 'Added animation_style column to users';
                 END IF;
+
+                -- Add traffic mapping columns to router_netwatch
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'router_netwatch' AND column_name = 'target_interface'
+                ) THEN
+                    ALTER TABLE router_netwatch ADD COLUMN target_interface TEXT;
+                    RAISE NOTICE 'Added target_interface column to router_netwatch';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'router_netwatch' AND column_name = 'tx_rate'
+                ) THEN
+                    ALTER TABLE router_netwatch ADD COLUMN tx_rate BIGINT DEFAULT 0;
+                    RAISE NOTICE 'Added tx_rate column to router_netwatch';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'router_netwatch' AND column_name = 'rx_rate'
+                ) THEN
+                    ALTER TABLE router_netwatch ADD COLUMN rx_rate BIGINT DEFAULT 0;
+                    RAISE NOTICE 'Added rx_rate column to router_netwatch';
+                END IF;
             END $$;
         `);
         console.log('✅ Database migrations complete');

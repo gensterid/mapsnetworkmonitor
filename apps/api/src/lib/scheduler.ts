@@ -149,8 +149,8 @@ async function pollAllRouters(): Promise<void> {
         // Helper function to process a single router with timeout
         const processRouter = async (router: typeof routers[0]) => {
             try {
-                // Determine if this is a full sync poll (every 5 polling cycles)
-                const isFullSync = (date.getMinutes() % 5 === 0);
+                // Determine if this is a full sync poll (every 1 minute for traffic/resource updates)
+                const isFullSync = (date.getMinutes() % 1 === 0);
 
                 // Wrap refreshRouterStatus with timeout
                 await withTimeout(

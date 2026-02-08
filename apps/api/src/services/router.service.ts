@@ -654,22 +654,20 @@ export class RouterService {
                             .where(eq(routerInterfaces.id, existingInterface.id));
 
                         // --- NEW: Propagate traffic to Netwatch entries linked to this interface ---
-                        if (txRate > 0 || rxRate > 0) {
-                            try {
-                                await db
-                                    .update(routerNetwatch)
-                                    .set({
-                                        txRate: txRate,
-                                        rxRate: rxRate,
-                                        updatedAt: new Date()
-                                    })
-                                    .where(and(
-                                        eq(routerNetwatch.routerId, id),
-                                        eq(routerNetwatch.targetInterface, iface.name)
-                                    ));
-                            } catch (nwUpdateErr) {
-                                console.error(`[Router ${router.name}] Failed to propagate traffic to Netwatch:`, nwUpdateErr);
-                            }
+                        try {
+                            await db
+                                .update(routerNetwatch)
+                                .set({
+                                    txRate: txRate,
+                                    rxRate: rxRate,
+                                    updatedAt: new Date()
+                                })
+                                .where(and(
+                                    eq(routerNetwatch.routerId, id),
+                                    eq(routerNetwatch.targetInterface, iface.name)
+                                ));
+                        } catch (nwUpdateErr) {
+                            console.error(`[Router ${router.name}] Failed to propagate traffic to Netwatch:`, nwUpdateErr);
                         }
                     } else {
                         // Create new interface
