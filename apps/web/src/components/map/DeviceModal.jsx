@@ -359,6 +359,35 @@ const DeviceModal = ({
                                 </div>
                             </div>
                         )}
+
+                        {/* Traffic Stats (Heatmap Mode / Read Only) */}
+                        {device?.status && ['up', 'online'].includes(device.status) && (device.txRate > 0 || device.rxRate > 0) && (
+                            <div className="device-modal__field" style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                                <label className="device-modal__label">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 14, verticalAlign: 'middle', marginRight: 4, color: '#60a5fa' }}>monitor_heart</span>
+                                    Traffic Analysis
+                                </label>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: 8, borderRadius: 6, textAlign: 'center' }}>
+                                        <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 2 }}>RX (Desc)</div>
+                                        <div style={{ fontFamily: 'monospace', color: '#34d399', fontWeight: 'bold' }}>
+                                            {device.rxRate >= 1000000 ? `${(device.rxRate / 1000000).toFixed(1)} Mbps` : device.rxRate >= 1000 ? `${(device.rxRate / 1000).toFixed(1)} Kbps` : `${device.rxRate} bps`}
+                                        </div>
+                                    </div>
+                                    <div style={{ background: 'rgba(15, 23, 42, 0.5)', padding: 8, borderRadius: 6, textAlign: 'center' }}>
+                                        <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', marginBottom: 2 }}>TX (Upload)</div>
+                                        <div style={{ fontFamily: 'monospace', color: '#60a5fa', fontWeight: 'bold' }}>
+                                            {device.txRate >= 1000000 ? `${(device.txRate / 1000000).toFixed(1)} Mbps` : device.txRate >= 1000 ? `${(device.txRate / 1000).toFixed(1)} Kbps` : `${device.txRate} bps`}
+                                        </div>
+                                    </div>
+                                </div>
+                                {device.targetInterface && (
+                                    <div style={{ marginTop: 6, fontSize: 11, color: '#64748b', textAlign: 'right' }}>
+                                        Interface: <span style={{ fontFamily: 'monospace', color: '#94a3b8' }}>{device.targetInterface}</span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Actions */}

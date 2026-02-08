@@ -472,6 +472,16 @@ const createClusterCustomIcon = (cluster) => {
     });
 };
 
+
+
+// Helper to format bitrate
+const formatBitrate = (bits) => {
+    if (!bits) return '0 bps';
+    if (bits >= 1000000) return `${(bits / 1000000).toFixed(1)} Mbps`;
+    if (bits >= 1000) return `${(bits / 1000).toFixed(1)} Kbps`;
+    return `${bits} bps`;
+};
+
 const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
     const [mapType, setMapType] = useState('satellite_dark'); // Set to satellite_dark as default
     const [showLabels, setShowLabels] = useState(() => {
@@ -836,6 +846,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     // FIX: Pass latency/packetLoss so Yellow Alert works
                     latency: node.latency,
                     packetLoss: node.packetLoss,
+                    // Added for Heatmap Details
+                    targetInterface: node.targetInterface,
                     txRate: node.txRate,
                     rxRate: node.rxRate,
                 });
@@ -1250,29 +1262,52 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                                     {node.packetLoss > 0 && (
                                                         <div className="flex items-center justify-between text-xs">
                                                             <span className="text-slate-400">Packet Loss</span>
-                                                            <span className="font-mono font-bold text-red-400">
-                                                                {node.packetLoss}%
-                                                            </span>
+                                                            <span className="font-mono text-red-400 font-bold">{node.packetLoss}%</span>
                                                         </div>
                                                     )}
                                                 </div>
                                             )
                                         ) : (
-                                            <div className="flex flex-col gap-1 pt-0.5 text-xs text-red-300">
-                                                {node.lastDown && (
-                                                    <div className="flex flex-col">
-                                                        <span className="text-slate-400 mb-0.5">Down Since:</span>
-                                                        <span className="font-mono bg-red-950/50 px-1.5 py-0.5 rounded border border-red-900/50">
-                                                            {formatDateWithTimezone(node.lastDown, timezone)}
-                                                        </span>
-                                                    </div>
-                                                )}
+                                            <div className="flex flex-col gap-1 pt-0.5 border-t border-slate-700/50 mt-1">
+                                                <div className="flex flex-col">
+                                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-0.5">Down Since</span>
+                                                    <span className="font-mono text-xs bg-red-950/40 text-red-200 px-1.5 py-1 rounded border border-red-900/30">
+                                                        {formatDateWithTimezone(node.lastDown, timezone)}
+                                                    </span>
+                                                </div>
                                             </div>
                                         )}
+
+                                        {/* Heatmap Traffic Details for Device */}
+                                        {isHeatmapMode && ['up', 'online'].includes(node.status) && (
+                                            <div className="border-t border-slate-700/50 pt-2 mt-1 space-y-2">
+                                                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
+                                                    <span className="material-symbols-outlined text-[14px] text-blue-400">monitor_heart</span>
+                                                    Traffic
+                                                </div>
+                                                {node.targetInterface && (
+                                                    <div className="flex items-center justify-between text-xs bg-slate-900/50 px-2 py-1 rounded border border-slate-700/30">
+                                                        <span className="text-slate-400">Interface</span>
+                                                        <span className="text-blue-300 font-mono font-medium truncate max-w-[100px]" title={node.targetInterface}>{node.targetInterface}</span>
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">RX</span>
+                                                        <span className="text-emerald-400 font-mono font-bold text-xs">{formatBitrate(node.rxRate)}</span>
+                                                    </div>
+                                                    <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">TX</span>
+                                                        <span className="text-blue-400 font-mono font-bold text-xs">{formatBitrate(node.txRate)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
                                     </div>
                                 </div>
                             </Tooltip>
-                        </MemoizedSmartMarker>
+                        </MemoizedSmartMarker >
                     )
                 })}
 
@@ -1432,6 +1467,40 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                             ${formatDistance(line.distance)}
                                         </div>
                                     </div>
+                                    
+                                    ${isHeatmapMode && ['up', 'online'].includes(line.status) ? `
+                                    <div class="border-t border-slate-700/50 pt-2.5 mt-2.5 space-y-2">
+                                        <div class="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
+                                            <span class="material-symbols-outlined text-[14px] text-blue-400">monitor_heart</span>
+                                            Traffic Analysis
+                                        </div>
+                                        ${line.targetInterface ? `
+                                        <div class="flex items-center justify-between text-xs bg-slate-900/50 px-2 py-1.5 rounded border border-slate-700/30">
+                                            <div class="flex items-center gap-1.5">
+                                                <span class="material-symbols-outlined text-[14px] text-slate-500">settings_ethernet</span>
+                                                <span class="text-slate-400">Interface</span>
+                                            </div>
+                                            <span class="text-blue-300 font-mono font-medium">${line.targetInterface}</span>
+                                        </div>
+                                        ` : ''}
+                                        <div class="grid grid-cols-2 gap-2 mt-1.5">
+                                            <div class="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                                                <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-[12px] text-emerald-500 rotate-180">arrow_downward</span>
+                                                    RX (In)
+                                                </span>
+                                                <span class="text-emerald-400 font-mono font-bold text-xs">${formatBitrate(line.rxRate)}</span>
+                                            </div>
+                                            <div class="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                                                <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-[12px] text-blue-500">arrow_upward</span>
+                                                    TX (Out)
+                                                </span>
+                                                <span class="text-blue-400 font-mono font-bold text-xs">${formatBitrate(line.txRate)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    ` : ''}
                                 </div>
                             </div>
                         `;
