@@ -288,12 +288,13 @@ const DeviceModal = ({
                                         {formData.connectionType === 'router' ? 'Select Router' : 'Select Client'}
                                     </label>
                                     <SearchableSelect
+                                        name="connectedToId"
                                         options={connectionSources.map(source => ({
                                             value: source.id,
                                             label: `${source.name} (${source.host})`
                                         }))}
                                         value={formData.connectedToId}
-                                        onChange={(e) => handleChange({ target: { name: 'connectedToId', value: e.target.value } })}
+                                        onChange={handleChange}
                                         placeholder={formData.connectionType === 'router' ? "Select a router..." : "Select a client..."}
                                         disabled={isSaving}
                                     />
@@ -309,9 +310,10 @@ const DeviceModal = ({
                                         </span>
                                     </label>
                                     <SearchableSelect
+                                        name="targetInterface"
                                         options={interfaceOptions}
                                         value={formData.targetInterface}
-                                        onChange={(e) => handleChange({ target: { name: 'targetInterface', value: e.target.value } })}
+                                        onChange={handleChange}
                                         placeholder="Select interface..."
                                         disabled={isSaving}
                                     />

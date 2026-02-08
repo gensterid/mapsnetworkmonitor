@@ -981,9 +981,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 routerId: selectedDevice.id,
                 data: sanitizedData
             }, {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                },
+                onError: (error) => {
+                    console.error('Failed to update router:', error);
+                    alert(`Failed to save router: ${error.message || 'Unknown error'}`);
+                },
                 onSettled: () => {
                     setIsSaving(false);
-                    setIsModalOpen(false);
                 }
             });
         } else if (selectedDevice.type === 'pppoe') {
@@ -994,9 +1000,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 pppoeId: selectedDevice.id,
                 data: sanitizedData
             }, {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                },
+                onError: (error) => {
+                    console.error('Failed to update PPPoE:', error);
+                    alert(`Failed to save PPPoE: ${error.message || 'Unknown error'}`);
+                },
                 onSettled: () => {
                     setIsSaving(false);
-                    setIsModalOpen(false);
                 }
             });
         } else {
@@ -1006,9 +1018,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     routerId: selectedDevice.routerId,
                     data: sanitizedData
                 }, {
+                    onSuccess: () => {
+                        setIsModalOpen(false);
+                    },
+                    onError: (error) => {
+                        console.error('Failed to create device:', error);
+                        alert(`Failed to create device: ${error.message || 'Unknown error'}`);
+                    },
                     onSettled: () => {
                         setIsSaving(false);
-                        setIsModalOpen(false);
                     }
                 });
             } else {
@@ -1017,9 +1035,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     netwatchId: selectedDevice.id,
                     data: sanitizedData
                 }, {
+                    onSuccess: () => {
+                        setIsModalOpen(false);
+                    },
+                    onError: (error) => {
+                        console.error('Failed to update device:', error);
+                        alert(`Failed to save device: ${error.message || 'Unknown error'}`);
+                    },
                     onSettled: () => {
                         setIsSaving(false);
-                        setIsModalOpen(false);
                     }
                 });
             }

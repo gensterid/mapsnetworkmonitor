@@ -4,6 +4,7 @@ export default function SearchableSelect({
     options = [], // Array of { value, label }
     value = '',
     onChange,
+    name = '', // Added name prop
     placeholder = 'Select an option',
     disabled = false,
     className = '',
@@ -40,7 +41,8 @@ export default function SearchableSelect({
     );
 
     const handleSelect = (option) => {
-        onChange({ target: { name: 'connectedToId', value: option.value } }); // Mimic event for compatibility
+        // Use name prop if provided, fallback to empty string (or your preferred default)
+        onChange({ target: { name: name, value: option.value } });
         setIsOpen(false);
         setSearchTerm('');
     };
