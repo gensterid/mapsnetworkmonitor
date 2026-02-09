@@ -1228,8 +1228,8 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
 // Map Tab Content - Reuses the main NetworkMap component with a router filter
 function MapTab({ router }) {
     if (!router) return null;
-    return ( // Optimized for mobile: 50vh height on small screens, fixed 600px on desktop
-        <div className="h-[50vh] min-h-[400px] sm:h-[600px] w-full rounded-xl overflow-hidden border border-slate-700 relative">
+    return (
+        <div className="h-[75vh] min-h-[400px] sm:h-[600px] w-full rounded-xl overflow-hidden border border-slate-700 relative">
             <NetworkMap routerId={router.id} />
         </div>
     );

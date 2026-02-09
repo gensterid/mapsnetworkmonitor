@@ -203,43 +203,47 @@ export default function Alerts() {
                     <h1 className="text-2xl font-bold text-white">Alerts</h1>
                     <p className="text-slate-400 text-sm">Monitor system alerts and notifications</p>
                 </div>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                    <Button
-                        variant="outline"
-                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                        className="flex-1 sm:flex-none justify-center"
-                    >
-                        {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
-                        Sort Date
-                    </Button>
-                    <Button onClick={() => refetch()} variant="outline" className="flex-1 sm:flex-none justify-center">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh
-                    </Button>
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    <div className="flex flex-1 sm:flex-none gap-2 min-w-[200px]">
+                        <Button
+                            variant="outline"
+                            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                            className="flex-1 justify-center"
+                        >
+                            {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
+                            Sort
+                        </Button>
+                        <Button onClick={() => refetch()} variant="outline" className="flex-1 justify-center">
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh
+                        </Button>
+                    </div>
+
                     {hasUnacknowledged && (
                         <Button
                             onClick={handleAcknowledgeAll}
                             variant="primary"
                             loading={acknowledgeAllMutation.isPending}
-                            className="ml-0 flex-1 sm:flex-none justify-center"
+                            className="flex-1 sm:flex-none justify-center whitespace-nowrap"
                         >
                             <CheckCheck className="w-4 h-4 mr-2" />
                             Ack All
                         </Button>
                     )}
-                    <div className="flex items-center gap-2">
+
+                    <div className="flex items-center gap-2 flex-1 sm:flex-none min-w-[140px]">
                         <input
                             type="date"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary w-32 sm:w-auto"
+                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary w-full sm:w-auto"
                         />
                         {dateFilter && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setDateFilter('')}
-                                className="text-slate-400 hover:text-white"
+                                className="text-slate-400 hover:text-white shrink-0"
                             >
                                 <X className="w-4 h-4" />
                             </Button>

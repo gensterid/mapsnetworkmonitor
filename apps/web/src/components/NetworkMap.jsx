@@ -1788,6 +1788,24 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             {
                 !showRoutersOnly && (
                     <>
+                        {/* Mobile Fullscreen Button - Visible only on mobile */}
+                        <button
+                            onClick={() => {
+                                if (!document.fullscreenElement) {
+                                    mapContainerRef.current?.requestFullscreen();
+                                    setIsFullscreen(true);
+                                } else {
+                                    document.exitFullscreen();
+                                    setIsFullscreen(false);
+                                }
+                            }}
+                            className="sm:hidden absolute top-4 right-14 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                                {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                            </span>
+                        </button>
+
                         {/* Mobile Menu Button - Only visible on small screens */}
                         <button
                             onClick={() => setIsMenuOpen(!isMenuOpen)}

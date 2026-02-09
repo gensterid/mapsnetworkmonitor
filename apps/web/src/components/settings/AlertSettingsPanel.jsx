@@ -269,11 +269,15 @@ export default function AlertSettingsPanel() {
                                 style={{ left: `${thresholds.cpuCritical}%`, width: `${100 - thresholds.cpuCritical}%` }}
                             ></div>
                         </div>
-                        <div className="flex justify-between text-[10px] sm:text-xs text-slate-500 mt-1">
-                            <span className="hidden sm:inline">0%</span>
-                            <span className="text-yellow-400">{thresholds.cpuWarning}% Warning</span>
-                            <span className="text-red-400">{thresholds.cpuCritical}% Critical</span>
-                            <span className="hidden sm:inline">100%</span>
+                        <div className="flex flex-col sm:flex-row sm:justify-between text-[10px] sm:text-xs text-slate-500 mt-1 gap-1 sm:gap-0">
+                            <div className="flex justify-between w-full sm:w-auto">
+                                <span className="hidden sm:inline">0%</span>
+                                <span className="text-yellow-400">{thresholds.cpuWarning}% Warning</span>
+                            </div>
+                            <div className="flex justify-between w-full sm:w-auto sm:justify-end gap-2">
+                                <span className="text-red-400">{thresholds.cpuCritical}% Critical</span>
+                                <span className="hidden sm:inline">100%</span>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
@@ -341,11 +345,15 @@ export default function AlertSettingsPanel() {
                                 style={{ left: `${thresholds.memoryCritical}%`, width: `${100 - thresholds.memoryCritical}%` }}
                             ></div>
                         </div>
-                        <div className="flex justify-between text-[10px] sm:text-xs text-slate-500 mt-1">
-                            <span className="hidden sm:inline">0%</span>
-                            <span className="text-yellow-400">{thresholds.memoryWarning}% Warning</span>
-                            <span className="text-red-400">{thresholds.memoryCritical}% Critical</span>
-                            <span className="hidden sm:inline">100%</span>
+                        <div className="flex flex-col sm:flex-row sm:justify-between text-[10px] sm:text-xs text-slate-500 mt-1 gap-1 sm:gap-0">
+                            <div className="flex justify-between w-full sm:w-auto">
+                                <span className="hidden sm:inline">0%</span>
+                                <span className="text-yellow-400">{thresholds.memoryWarning}% Warning</span>
+                            </div>
+                            <div className="flex justify-between w-full sm:w-auto sm:justify-end gap-2">
+                                <span className="text-red-400">{thresholds.memoryCritical}% Critical</span>
+                                <span className="hidden sm:inline">100%</span>
+                            </div>
                         </div>
                     </div>
                 </CardContent>
