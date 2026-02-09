@@ -850,6 +850,37 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 const fullPath = [fromPos, ...waypoints, [node.lat, node.lng]];
                 const distance = calculatePathLength(fullPath);
 
+                // Determine Traffic Interface (with Inheritance)
+                let trafficInterface = node.targetInterface;
+                let trafficSourceDevice = null;
+
+                if (!trafficInterface) {
+                    // Recursive lookup for inherited interface
+                    const findInheritedInterface = (currentNode) => {
+                        if (currentNode.targetInterface) return { iface: currentNode.targetInterface, device: currentNode.name || currentNode.host };
+
+                        if (currentNode.connectionType === 'client' && currentNode.connectedToId) {
+                            const parent = deviceMap.get(currentNode.connectedToId);
+                            // Avoid infinite loops with simple depth check or visited set if needed, 
+                            // but here we just go up. Valid topology is tree-like.
+                            if (parent) return findInheritedInterface(parent);
+                        }
+                        return null;
+                    };
+
+                    // Start search from parent
+                    if (node.connectionType === 'client' && node.connectedToId) {
+                        const parent = deviceMap.get(node.connectedToId);
+                        if (parent) {
+                            const result = findInheritedInterface(parent);
+                            if (result) {
+                                trafficInterface = result.iface;
+                                trafficSourceDevice = result.device;
+                            }
+                        }
+                    }
+                }
+
                 lines.push({
                     id: `${node.routerId}-${node.id}`,
                     routerId: node.routerId,
@@ -866,7 +897,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                     latency: node.latency,
                     packetLoss: node.packetLoss,
                     // Added for Heatmap Details
-                    targetInterface: node.targetInterface,
+                    targetInterface: trafficInterface,
+                    inheritedFrom: trafficSourceDevice,
                     txRate: node.txRate,
                     rxRate: node.rxRate,
                 });
@@ -1536,9 +1568,12 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         </div>
                                         ${line.targetInterface ? `
                                         <div class="flex items-center justify-between text-xs bg-slate-900/50 px-2 py-1.5 rounded border border-slate-700/30">
-                                            <div class="flex items-center gap-1.5">
-                                                <span class="material-symbols-outlined text-[14px] text-slate-500">settings_ethernet</span>
-                                                <span class="text-slate-400">Interface</span>
+                                            <div class="flex flex-col gap-0.5 max-w-[140px]">
+                                                <div class="flex items-center gap-1.5">
+                                                    <span class="material-symbols-outlined text-[14px] text-slate-500">settings_ethernet</span>
+                                                    <span class="text-slate-400">Interface</span>
+                                                </div>
+                                                ${line.inheritedFrom ? `<span class="text-[9px] text-slate-500 italic truncate">via ${line.inheritedFrom}</span>` : ''}
                                             </div>
                                             <span class="text-blue-300 font-mono font-medium">${line.targetInterface}</span>
                                         </div>

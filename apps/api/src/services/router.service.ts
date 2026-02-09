@@ -538,37 +538,77 @@ export class RouterService {
                     console.error(`[Router ${router.name}] Failed to sync queues:`, qErr instanceof Error ? qErr.message : qErr);
                 }
 
-                // Fetch Interface Traffic for Netwatch Items (Heatmap Source)
+                // Fetch Interface Traffic for Netwatch Items (with Topology Inheritance)
                 try {
                     const entries = await db
                         .select()
                         .from(routerNetwatch)
                         .where(eq(routerNetwatch.routerId, id));
 
-                    // Collect unique target interfaces
-                    const interfaces = [...new Set(entries
-                        .map(e => e.targetInterface)
-                        .filter(i => i && i.trim() !== '')
-                    )] as string[];
+                    // Create a map for easy lookup of entries by ID
+                    const entryMap = new Map(entries.map(e => [e.id, e]));
 
-                    if (interfaces.length > 0) {
-                        // console.log(`[Router ${router.name}] Fetching traffic for interfaces: ${interfaces.join(', ')}`);
-                        const trafficMap = await getInterfaceTraffic(conn, interfaces);
+                    // Helper to recursively find the resolving interface
+                    const resolveInterface = (entry: typeof entries[0], visited = new Set<string>()): string | null => {
+                        // Prevent infinite loops
+                        if (visited.has(entry.id)) return null;
+                        visited.add(entry.id);
 
-                        // Update DB with traffic stats. 
-                        // We do this per interface to update all matching records at once
-                        for (const [iface, stats] of trafficMap.entries()) {
-                            await db
-                                .update(routerNetwatch)
-                                .set({
-                                    txRate: stats.tx,
-                                    rxRate: stats.rx,
-                                    updatedAt: new Date()
-                                })
-                                .where(and(
-                                    eq(routerNetwatch.routerId, id),
-                                    eq(routerNetwatch.targetInterface, iface)
-                                ));
+                        // 1. Explicit interface set on this device
+                        if (entry.targetInterface && entry.targetInterface.trim() !== '') {
+                            return entry.targetInterface;
+                        }
+
+                        // 2. Inherit from parent if connected to another device (ODP/Client)
+                        if (entry.connectionType === 'client' && entry.connectedToId) {
+                            const parent = entryMap.get(entry.connectedToId);
+                            if (parent) {
+                                return resolveInterface(parent, visited);
+                            }
+                        }
+
+                        // 3. (Optional) Could inherit from Router if connectionType is 'router'
+                        // But Routers usually have many interfaces, so we don't assume one default unless specified somewhere else.
+                        return null;
+                    };
+
+                    // Collect all unique interfaces that need monitoring
+                    const interfaceSet = new Set<string>();
+                    const entryInterfaceMap = new Map<string, string>(); // entryId -> resolvedInterface
+
+                    for (const entry of entries) {
+                        const iface = resolveInterface(entry);
+                        if (iface) {
+                            interfaceSet.add(iface);
+                            entryInterfaceMap.set(entry.id, iface);
+                        }
+                    }
+
+                    const interfacesToFetch = [...interfaceSet];
+
+                    if (interfacesToFetch.length > 0) {
+                        // console.log(`[Router ${router.name}] Fetching traffic for interfaces: ${interfacesToFetch.join(', ')}`);
+                        // Fetch traffic for all resolved interfaces
+                        const trafficMap = await getInterfaceTraffic(conn, interfacesToFetch);
+
+                        // Update DB: Iterate through ENTRIES and use their resolved interface
+                        // This ensures downstream devices get the rate of their upstream parent
+                        for (const entry of entries) {
+                            const resolvedIface = entryInterfaceMap.get(entry.id);
+
+                            if (resolvedIface) {
+                                const stats = trafficMap.get(resolvedIface);
+                                if (stats) {
+                                    await db
+                                        .update(routerNetwatch)
+                                        .set({
+                                            txRate: stats.tx,
+                                            rxRate: stats.rx,
+                                            updatedAt: new Date()
+                                        })
+                                        .where(eq(routerNetwatch.id, entry.id));
+                                }
+                            }
                         }
                     }
                 } catch (trafficErr) {
