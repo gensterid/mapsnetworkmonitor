@@ -39,13 +39,7 @@ const MapToolbar = ({
             </div>
 
             {/* Help text for path editing */}
-            <div style={{
-                fontSize: 11,
-                color: 'rgba(255,255,255,0.7)',
-                padding: '4px 12px',
-                borderLeft: '1px solid rgba(255,255,255,0.2)',
-                marginLeft: 8,
-            }}>
+            <div className="path-edit-toolbar__help">
                 💡 Klik garis → tambah titik | Geser titik → pindah | Klik kanan → hapus titik
             </div>
 

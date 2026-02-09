@@ -487,7 +487,7 @@ export default function Routers() {
                                     </div>
 
                                     {/* CPU, Memory, Uptime, Speed Grid */}
-                                    <div className="grid grid-cols-4 gap-2 text-sm">
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
                                         <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
                                             <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">CPU</div>
                                             <div className="text-slate-300 truncate">

@@ -125,8 +125,8 @@ function ActiveConnectionsTable({ routers }) {
                     <thead>
                         <tr className="bg-surface-dark/50 border-b border-slate-700/30 text-xs uppercase text-slate-500 font-semibold tracking-wider">
                             <th className="px-6 py-4">Device Name</th>
-                            <th className="px-6 py-4">IP Address</th>
-                            <th className="px-6 py-4">Location</th>
+                            <th className="px-6 py-4 hidden md:table-cell">IP Address</th>
+                            <th className="px-6 py-4 hidden lg:table-cell">Location</th>
                             <th className="px-6 py-4">Latency</th>
                             <th className="px-6 py-4">Status</th>
                         </tr>
@@ -142,8 +142,8 @@ function ActiveConnectionsTable({ routers }) {
                                         <span className="font-medium text-white hover:text-primary transition-colors">{router.name}</span>
                                     </Link>
                                 </td>
-                                <td className="px-6 py-4 font-mono text-slate-400">{router.host}</td>
-                                <td className="px-6 py-4 text-slate-400">{router.location || 'Unknown'}</td>
+                                <td className="px-6 py-4 font-mono text-slate-400 hidden md:table-cell">{router.host}</td>
+                                <td className="px-6 py-4 text-slate-400 hidden lg:table-cell">{router.location || 'Unknown'}</td>
                                 <td className="px-6 py-4">
                                     <span className={clsx(
                                         "font-medium",

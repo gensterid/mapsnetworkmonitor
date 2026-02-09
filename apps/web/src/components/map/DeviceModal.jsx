@@ -206,7 +206,7 @@ const DeviceModal = ({
                         </div>
 
                         {/* Location - Latitude */}
-                        <div className="device-modal__field-row" style={{ display: 'flex', gap: 12 }}>
+                        <div className="device-modal__field-row">
                             <div className="device-modal__field" style={{ flex: 1 }}>
                                 <label className="device-modal__label">Latitude</label>
                                 <input

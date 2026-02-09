@@ -362,6 +362,15 @@
     color: white;
 }
 
+.path-edit-toolbar__help {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 4px 12px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    margin-left: 8px;
+    white-space: nowrap;
+}
+
 /* ===== Map Legend ===== */
 .map-legend {
     position: absolute;
@@ -533,6 +542,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+}
+
+.device-modal__field-row {
+    display: flex;
+    gap: 12px;
 }
 
 .device-modal__label {
@@ -782,6 +796,54 @@
     .device-modal {
         width: calc(100% - 32px);
         margin: 16px;
+        max-height: 85vh;
+    }
+
+    .device-modal__field-row {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    /* Reset flex:1 on children when stacked */
+    .device-modal__field-row .device-modal__field {
+        flex: auto !important;
+    }
+
+    /* Path Toolbar Responsive */
+    .path-edit-toolbar {
+        width: 92%;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        padding: 8px;
+        top: 12px;
+    }
+
+    .path-edit-toolbar__help {
+        display: none;
+    }
+
+    .path-edit-toolbar__length {
+        font-size: 13px;
+        width: 100%;
+        justify-content: center;
+        margin-bottom: 4px;
+    }
+
+    .path-edit-toolbar__actions {
+        gap: 6px;
+    }
+
+    .path-edit-toolbar__btn {
+        padding: 6px 10px;
+        font-size: 11px;
+    }
+
+    .map-controls {
+        top: 12px;
+        right: 12px;
+        scale: 0.9;
+        transform-origin: top right;
     }
 }
 
