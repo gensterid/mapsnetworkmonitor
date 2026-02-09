@@ -220,12 +220,19 @@ const MapAutoFit = ({ markers, isEditing }) => {
         if (!markers || markers.length === 0 || isEditing) return;
 
         try {
-            const bounds = L.latLngBounds(markers.map(m => [m.lat, m.lng]));
+            // Filter out any markers with invalid coordinates to prevent L.latLngBounds crash
+            const validPoints = markers
+                .filter(m => m && typeof m.lat === 'number' && typeof m.lng === 'number' && isFinite(m.lat) && isFinite(m.lng))
+                .map(m => [m.lat, m.lng]);
+
+            if (validPoints.length === 0) return;
+
+            const bounds = L.latLngBounds(validPoints);
 
             if (bounds.isValid()) {
-                if (markers.length === 1) {
+                if (validPoints.length === 1) {
                     // If only one marker, center and zoom in
-                    map.setView([markers[0].lat, markers[0].lng], 15);
+                    map.setView(validPoints[0], 15);
                 } else {
                     // Fit bounds with padding for multiple markers
                     map.fitBounds(bounds, {
@@ -270,6 +277,17 @@ const DraggableMarker = ({
         },
         click: onClick,
     }), [onDragEnd, onClick]);
+
+    // Safety check: Don't render if position is invalid. 
+    // This prevents Leaflet internal errors like "Cannot read properties of undefined (reading 'x')"
+    const isValidPosition = Array.isArray(markerPosition) &&
+        markerPosition.length === 2 &&
+        typeof markerPosition[0] === 'number' &&
+        typeof markerPosition[1] === 'number' &&
+        isFinite(markerPosition[0]) &&
+        isFinite(markerPosition[1]);
+
+    if (!isValidPosition) return null;
 
     return (
         <Marker
@@ -329,13 +347,11 @@ const SmartMarker = ({
 // Custom Comparison Function to prevent re-renders when array refs change but values don't
 const arePropsEqual = (prev, next) => {
     // 1. Check position by value (lat/lng)
+    if (!prev.position || !next.position) return false;
     const posChanged = prev.position[0] !== next.position[0] || prev.position[1] !== next.position[1];
     if (posChanged) return false;
 
     // 2. Check other primitive props
-    // Note: We ignore onClick and onDragEnd as they are often new function references but same logic
-    // We ignore children (tooltip) assuming if status/name/etc match, tooltip is fine.
-    // If tooltip relies on external data not passed as props, it won't update, but that's a trade-off for performance.
     return (
         prev.status === next.status &&
         prev.name === next.name &&
@@ -1660,9 +1676,8 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
                     if (isHeatmapActive) {
                         motionType = 'packet';
-                        motionColor = '#ffffff'; // White packets on colored rail
-                        // Make packets faster for high traffic?
-                        // AnimatedPath doesn't support dynamic speed per line yet easily without remounting or complex props.
+                        motionColor = railColor; // Matches the line color for a cohesive look
+                        // Packet will be bright while the line (rail) will be semi-transparent
                     } else if (isAlert) {
                         motionType = 'packet'; // Show packets for data issues
                         motionColor = mapColors.warning; // Yellow packets
