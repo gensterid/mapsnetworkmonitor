@@ -203,7 +203,7 @@ export default function Alerts() {
                     <h1 className="text-2xl font-bold text-white">Alerts</h1>
                     <p className="text-slate-400 text-sm">Monitor system alerts and notifications</p>
                 </div>
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <Button
                         variant="outline"
                         onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}

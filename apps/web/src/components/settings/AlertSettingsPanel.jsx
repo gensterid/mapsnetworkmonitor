@@ -117,8 +117,8 @@ export default function AlertSettingsPanel() {
         <div className="space-y-6">
             {saveStatus && (
                 <div className={`p-3 rounded-lg text-sm ${saveStatus.includes('Failed')
-                        ? 'bg-red-500/10 border border-red-500/20 text-red-400'
-                        : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                    ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                    : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
                     }`}>
                     {saveStatus}
                 </div>
@@ -269,11 +269,11 @@ export default function AlertSettingsPanel() {
                                 style={{ left: `${thresholds.cpuCritical}%`, width: `${100 - thresholds.cpuCritical}%` }}
                             ></div>
                         </div>
-                        <div className="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>0%</span>
+                        <div className="flex justify-between text-[10px] sm:text-xs text-slate-500 mt-1">
+                            <span className="hidden sm:inline">0%</span>
                             <span className="text-yellow-400">{thresholds.cpuWarning}% Warning</span>
                             <span className="text-red-400">{thresholds.cpuCritical}% Critical</span>
-                            <span>100%</span>
+                            <span className="hidden sm:inline">100%</span>
                         </div>
                     </div>
                 </CardContent>
@@ -341,11 +341,11 @@ export default function AlertSettingsPanel() {
                                 style={{ left: `${thresholds.memoryCritical}%`, width: `${100 - thresholds.memoryCritical}%` }}
                             ></div>
                         </div>
-                        <div className="flex justify-between text-xs text-slate-500 mt-1">
-                            <span>0%</span>
+                        <div className="flex justify-between text-[10px] sm:text-xs text-slate-500 mt-1">
+                            <span className="hidden sm:inline">0%</span>
                             <span className="text-yellow-400">{thresholds.memoryWarning}% Warning</span>
                             <span className="text-red-400">{thresholds.memoryCritical}% Critical</span>
-                            <span>100%</span>
+                            <span className="hidden sm:inline">100%</span>
                         </div>
                     </div>
                 </CardContent>

@@ -1946,6 +1946,31 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                 )
             }
 
+            {/* Router Detail View Controls (Fullscreen Only) */}
+            {
+                showRoutersOnly && (
+                    <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+                        <button
+                            onClick={() => {
+                                if (!document.fullscreenElement) {
+                                    mapContainerRef.current?.requestFullscreen();
+                                    setIsFullscreen(true);
+                                } else {
+                                    document.exitFullscreen();
+                                    setIsFullscreen(false);
+                                }
+                            }}
+                            className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-2 border border-slate-700 shadow-lg backdrop-blur-sm flex items-center justify-center transition-colors"
+                            title="Toggle Fullscreen"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                                {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                            </span>
+                        </button>
+                    </div>
+                )
+            }
+
             {/* Legend */}
             {
                 !showRoutersOnly && (
