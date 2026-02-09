@@ -39,6 +39,7 @@ const AnimatedPath = ({
             color: color || preset?.color, // Prioritize prop 'color' (status color) over preset
             pulseColor: pulseColor,
             weight: weight,
+            // scaling logic: use preset opacity if available, multiplied by global opacity
             opacity: preset?.opacity ?? opacity,
             delay: preset?.delay ?? delay,
             dashArray: preset?.dashArray ?? dashArray,
@@ -48,10 +49,10 @@ const AnimatedPath = ({
             lineCap: preset?.lineCap || 'butt',
             lineJoin: preset?.lineJoin || 'round',
             syncArrival: preset?.syncArrival || false,
-            // Motion Path Options
-            useMotionPath: !disableMotionPath && (preset?.useMotionPath || false),
+            // Motion Path Options - Respect preset even if globally disabled IF it's an explicit motion style
+            useMotionPath: preset?.useMotionPath ? (!disableMotionPath || preset.useMotionPath) : false,
             motionType: motionType || preset?.motionType || 'orb',
-            motionColor: motionColor || preset?.color || '#ffffff',
+            motionColor: motionColor || preset?.color || color || '#ffffff',
             tooltip,
             popup,
         };

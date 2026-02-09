@@ -22,11 +22,18 @@ const MotionPathRenderer = ({
         if (!polylineRef.current || options.paused) return;
 
         const layer = polylineRef.current;
+        let retryCount = 0;
+        const maxRetries = 10;
 
-        // Small timeout to ensure DOM is ready and reduce blocking
-        const timer = setTimeout(() => {
+        const tryInitialize = () => {
             const pathElement = layer.getElement?.() || layer._path;
-            if (!pathElement || !pathElement.parentNode) return;
+            if (!pathElement || !pathElement.parentNode) {
+                if (retryCount < maxRetries) {
+                    retryCount++;
+                    setTimeout(tryInitialize, 200);
+                }
+                return;
+            }
 
             // Create Motion Element (SVG) only if it doesn't exist
             let motionEl = motionElementRef.current;
@@ -69,6 +76,7 @@ const MotionPathRenderer = ({
                 const d = pathElement.getAttribute('d');
                 if (d && motionElementRef.current) {
                     motionElementRef.current.style.setProperty('--motion-path-d', `"${d}"`);
+                    // Fallback for browsers with partial offset-path support
                     motionElementRef.current.style.offsetPath = `path("${d}")`;
                 }
             };
@@ -81,7 +89,9 @@ const MotionPathRenderer = ({
 
             // Cleanup observer on unmount
             motionElementRef.current._observer = observer;
-        }, 100); // 100ms delay to defer heavy work
+        };
+
+        const timer = setTimeout(tryInitialize, 100);
 
         return () => {
             clearTimeout(timer);
@@ -102,7 +112,7 @@ const MotionPathRenderer = ({
             pathOptions={{
                 color: options.color,
                 weight: options.weight,
-                opacity: 0.3, // Dim background line for motion paths
+                opacity: 0.3,
                 fill: false,
                 lineCap: options.lineCap,
                 lineJoin: options.lineJoin

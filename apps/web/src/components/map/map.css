@@ -934,9 +934,9 @@
 
 /* Disable motion elements (orbs) in low perf mode if needed, 
    though ideally we just don't render them in React */
-.low-perf .motion-element {
+/* .low-perf .motion-element {
     display: none !important;
-}
+} */
 
 /* Simplify Pulsing */
 .low-perf .device-icon__badge {
