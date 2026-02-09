@@ -1,3 +1,0 @@
-﻿Local Commit: fa3b4d74b26a86bcede18697eb284cd7fadb1973
-Remote Commit: fa3b4d74b26a86bcede18697eb284cd7fadb1973
-Result: FULLY SYNCED

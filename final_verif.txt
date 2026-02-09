@@ -1,5 +1,0 @@
-﻿commit 41bd662d71619cb3bb32a23fba67c50155219167
-Author: MikroTik Admin <admin@mikrotik.local>
-Date:   Mon Feb 9 02:05:26 2026 +0800
-
-    fix: resolve heatmap issues on Proxmox by adding missing DB migrations and improving traffic sync logic
