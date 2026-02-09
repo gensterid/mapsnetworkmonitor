@@ -17,6 +17,7 @@ const AntPath = ({ positions, options, tooltip, popup, onClick }) => {
             "delay": options.delay || 1000,
             "dashArray": options.dashArray || [10, 20],
             "weight": options.weight || 3,
+            "opacity": options.opacity !== undefined ? options.opacity : 0.5,
             "color": options.color || "#000000",
             "pulseColor": options.pulseColor || "#FFFFFF",
             "paused": options.paused || false,

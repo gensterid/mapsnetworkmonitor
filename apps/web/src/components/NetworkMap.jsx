@@ -498,6 +498,10 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [editWaypoints, setEditWaypoints] = useState([]);
     const [pathLength, setPathLength] = useState(0);
     const [lineThickness, setLineThickness] = useState(4); // Reverted default to 4 as requested
+    const [lineOpacity, setLineOpacity] = useState(() => {
+        const saved = localStorage.getItem('map_line_opacity');
+        return saved !== null ? parseFloat(saved) : 0.8;
+    });
     const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -1684,6 +1688,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     delay: styleConfig.delay,
                                     dashArray: styleConfig.dashArray,
                                     weight: effectiveThickness,
+                                    opacity: lineOpacity,
                                     color: styleConfig.color || railColor,
                                     pulseColor: styleConfig.pulseColor || "transparent",
                                     paused: !enableAnimation,
@@ -1721,7 +1726,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                             // Force disable motion path in low perf mode
                             disableMotionPath={lowPerfMode}
 
-                            opacity={line.status === 'down' ? 1 : (styleConfig.opacity || 1)} // Keep full opacity for down red line
+                            opacity={line.status === 'down' ? 1 : lineOpacity} // Keep full opacity for down red line
                             paused={!enableAnimation} // REMOVED: line.status === 'down' condition
 
                             tooltip={tooltipContent}
@@ -1757,7 +1762,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                     fillColor: '#3b82f6',
                                     color: '#3b82f6',
                                     weight: 1,
-                                    opacity: 1,
+                                    opacity: lineOpacity,
                                     fillOpacity: 0.1,
                                 }}
                             >
@@ -1898,6 +1903,38 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                         onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
                                         className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
                                         title="Increase (Tebal)"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="h-px bg-slate-700/50 my-1"></div>
+
+                            {/* Line Opacity Control */}
+                            <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
+                                <span className="text-xs text-white font-medium pl-1">Opacity</span>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => {
+                                            const newVal = Math.max(0.1, Number((lineOpacity - 0.1).toFixed(1)));
+                                            setLineOpacity(newVal);
+                                            localStorage.setItem('map_line_opacity', newVal);
+                                        }}
+                                        className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                        title="Decrease Opacity"
+                                    >
+                                        -
+                                    </button>
+                                    <span className="text-xs text-white font-mono w-6 text-center">{Math.round(lineOpacity * 100)}%</span>
+                                    <button
+                                        onClick={() => {
+                                            const newVal = Math.min(1.0, Number((lineOpacity + 0.1).toFixed(1)));
+                                            setLineOpacity(newVal);
+                                            localStorage.setItem('map_line_opacity', newVal);
+                                        }}
+                                        className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                        title="Increase Opacity"
                                     >
                                         +
                                     </button>
