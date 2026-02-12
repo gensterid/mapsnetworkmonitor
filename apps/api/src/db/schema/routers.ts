@@ -30,6 +30,10 @@ export const routers = pgTable('routers', {
     username: text('username').notNull(),
     passwordEncrypted: text('password_encrypted').notNull(),
 
+    // SNMP Configuration
+    snmpCommunity: text('snmp_community').default('public'),
+    snmpPort: integer('snmp_port').default(161),
+
     // Router info (fetched from RouterOS)
     routerOsVersion: text('router_os_version'),
     model: text('model'),

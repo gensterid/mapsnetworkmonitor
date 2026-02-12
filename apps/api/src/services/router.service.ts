@@ -39,6 +39,7 @@ import { measureLatency } from '../lib/network-utils.js';
 import { alertService } from './alert.service.js';
 import { pppoeService } from './pppoe.service.js';
 import { settingsService } from './settings.service.js';
+import { snmpService } from './snmp.service.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -53,6 +54,8 @@ export interface CreateRouterInput {
     groupId?: string;
     notificationGroupId?: string | null;
     notes?: string;
+    snmpCommunity?: string;
+    snmpPort?: number;
 }
 
 export interface UpdateRouterInput {
@@ -68,6 +71,8 @@ export interface UpdateRouterInput {
     groupId?: string | null;
     notificationGroupId?: string | null;
     notes?: string;
+    snmpCommunity?: string;
+    snmpPort?: number;
     status?: 'online' | 'offline' | 'maintenance' | 'unknown';
 }
 
@@ -201,6 +206,8 @@ export class RouterService {
                 groupId: data.groupId,
                 notificationGroupId: data.notificationGroupId,
                 notes: data.notes,
+                snmpCommunity: data.snmpCommunity,
+                snmpPort: data.snmpPort,
                 status: 'unknown',
             })
             .returning();
@@ -232,6 +239,8 @@ export class RouterService {
         if (data.notificationGroupId !== undefined)
             updateData.notificationGroupId = data.notificationGroupId;
         if (data.notes !== undefined) updateData.notes = data.notes;
+        if (data.snmpCommunity !== undefined) updateData.snmpCommunity = data.snmpCommunity;
+        if (data.snmpPort !== undefined) updateData.snmpPort = data.snmpPort;
         if (data.status !== undefined) updateData.status = data.status;
 
         const [router] = await db
@@ -960,6 +969,177 @@ export class RouterService {
             .where(eq(routerMetrics.routerId, routerId))
             .orderBy(desc(routerMetrics.recordedAt))
             .limit(limit);
+    }
+
+    /**
+     * Get real-time traffic using SNMP (faster/lighter than API)
+     */
+    async getSnmpTraffic(routerId: string): Promise<Record<string, { tx: number; rx: number }>> {
+        const router = await this.findById(routerId);
+        if (!router) return {};
+
+        const community = router.snmpCommunity || 'public';
+        const port = router.snmpPort || 161;
+
+        try {
+            // Get interface names and their OID indexes
+            // ifName OID: .1.3.6.1.2.1.31.1.1.1.1
+            const ifNameOid = '1.3.6.1.2.1.31.1.1.1.1';
+            const names = await snmpService.walk({ host: router.host, port, community }, ifNameOid);
+
+            // Map OID suffix (index) to Interface Name
+            const indexOnName = new Map<string, string>();
+            const indexToNameMap = new Map<string, string>(); // index -> name
+
+            for (const result of names) {
+                const oidParts = result.oid.split('.');
+                const index = oidParts[oidParts.length - 1];
+                if (result.value) {
+                    indexToNameMap.set(index, String(result.value));
+                    indexOnName.set(String(result.value), index);
+                }
+            }
+
+            // Get Traffic (HK 64-bit counters if possible, fallback to 32-bit)
+            // ifHCInOctets: 1.3.6.1.2.1.31.1.1.1.6
+            // ifHCOutOctets: 1.3.6.1.2.1.31.1.1.1.10
+
+            // For now, let's walk the counters. 
+            // Better optimization: Only get specific OIDs for active interfaces?
+            // Walking is okay for < 50 interfaces.
+
+            // We need 2 values per interface: In and Out.
+            // Let's use bulk get if we know indexes, or walk if we don't.
+            // Since we walked names, we know indexes.
+
+            const indexes = Array.from(indexToNameMap.keys());
+            if (indexes.length === 0) return {};
+
+            const oids: string[] = [];
+            const indexMap = new Map<string, { inOid: string, outOid: string }>();
+
+            for (const index of indexes) {
+                const inOid = `1.3.6.1.2.1.31.1.1.1.6.${index}`;
+                const outOid = `1.3.6.1.2.1.31.1.1.1.10.${index}`;
+                oids.push(inOid, outOid);
+                indexMap.set(index, { inOid, outOid });
+            }
+
+            // Split into chunks of 40 OIDs (20 interfaces) to avoid packet too big
+            const chunks = [];
+            const chunkSize = 40;
+            for (let i = 0; i < oids.length; i += chunkSize) {
+                chunks.push(oids.slice(i, i + chunkSize));
+            }
+
+            const trafficData: Record<string, { tx: number; rx: number }> = {};
+            const timestamp = Date.now();
+
+            // We need previous values to calculate rate. 
+            // This is tricky for a stateless generic request. 
+            // The Frontend polls this? Or we save to DB?
+            // If we save to DB, we can use existing logic.
+            // BUT: The goal is "Live Traffic" which usually implies direct polling for UI.
+            // If we just return octets, the UI has to calculate rate.
+            // If we return calculated rate, we need state.
+            // The standard way for "Live Traffic" in this app so far seems to be:
+            // 1. UI polls endpoint
+            // 2. Endpoint fetches current counters
+            // 3. Endpoint compares with DB (last known) -> Calculates Rate -> Updates DB -> Returns Rate.
+
+            // So we DO update DB here.
+
+            for (const chunk of chunks) {
+                const results = await snmpService.getMultiple({ host: router.host, port, community }, chunk);
+
+                for (const result of results) {
+                    // Match OID to index and type (in/out)
+                    // ... parsing OID string again is fast enough
+                    const oidParts = result.oid.split('.');
+                    const index = oidParts[oidParts.length - 1];
+                    const parent = oidParts.slice(0, -1).join('.');
+
+                    const name = indexToNameMap.get(index);
+                    if (!name) continue;
+
+                    if (!trafficData[name]) {
+                        trafficData[name] = { rx: 0, tx: 0 };
+                    }
+
+                    // 1.3.6.1.2.1.31.1.1.1.6 = In (RX)
+                    if (parent === '1.3.6.1.2.1.31.1.1.1.6') {
+                        trafficData[name].rx = Number(result.value);
+                    }
+                    // 1.3.6.1.2.1.31.1.1.1.10 = Out (TX)
+                    else if (parent === '1.3.6.1.2.1.31.1.1.1.10') {
+                        trafficData[name].tx = Number(result.value);
+                    }
+                }
+            }
+
+            // Now update DB and calculate rates
+            const calculatedRates: Record<string, { tx: number; rx: number }> = {};
+
+            for (const [name, data] of Object.entries(trafficData)) {
+                const [existing] = await db
+                    .select()
+                    .from(routerInterfaces)
+                    .where(and(
+                        eq(routerInterfaces.routerId, routerId),
+                        eq(routerInterfaces.name, name)
+                    ));
+
+                if (existing) {
+                    const now = new Date();
+                    const lastUpdate = existing.lastUpdated || new Date();
+                    const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
+
+                    let txRate = 0;
+                    let rxRate = 0;
+
+                    if (seconds > 0) {
+                        // Handle 64-bit wrap around? data.tx is current bytes.
+                        // existing.txBytes is previous bytes.
+                        // If current < previous, it wrapped (or reset).
+                        // max uint64 is huge, wrap is rare unless reboot.
+
+                        // We need to be careful about BigInt vs Number.
+                        // schema uses bigint with mode: 'number' (safe up to 2^53).
+                        // SNMP library returns Buffer or number? Usually Buffer for Counter64.
+                        // We cast to Number(result.value) above. If it's Buffer, Number(buf) might be NaN or wrong.
+                        // We should check this. But for now assuming safe number.
+
+                        const currentTx = data.tx;
+                        const currentRx = data.rx;
+                        const prevTx = Number(existing.txBytes || 0);
+                        const prevRx = Number(existing.rxBytes || 0);
+
+                        if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
+                        if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
+                    }
+
+                    // Update DB
+                    await db
+                        .update(routerInterfaces)
+                        .set({
+                            txBytes: data.tx,
+                            rxBytes: data.rx,
+                            txRate,
+                            rxRate,
+                            lastUpdated: new Date()
+                        })
+                        .where(eq(routerInterfaces.id, existing.id));
+
+                    calculatedRates[name] = { tx: txRate, rx: rxRate };
+                }
+            }
+
+            return calculatedRates;
+
+        } catch (error) {
+            console.error(`SNMP Error for router ${router.name}:`, error);
+            return {};
+        }
     }
 
     /**

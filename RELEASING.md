@@ -2,7 +2,7 @@
 
 This project follows [Semantic Versioning](https://semver.org/) (Major.Minor.Patch).
 
-## Current Version: 1.0.0
+## Current Version: 1.1.0
 
 ### How to Release a New Version (e.g., v1.1)
 
@@ -35,4 +35,5 @@ git push origin v1.1.0
 5. Publish!
 
 ## Version History
+*   **v1.1.0**: Integrated SNMP Live Traffic, OLT device management, and fixed various UI issues/Database schema bugs.
 *   **v1.0.0**: Initial stable release with full network monitoring, Mikrotik integration, and interactive map.

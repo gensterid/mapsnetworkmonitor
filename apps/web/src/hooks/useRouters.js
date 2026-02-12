@@ -326,3 +326,17 @@ export function useSyncNetwatch() {
     });
 }
 
+/**
+ * Hook to fetch real-time SNMP traffic
+ */
+export function useSnmpTraffic(routerId, enabled = false) {
+    return useQuery({
+        queryKey: [...routerKeys.detail(routerId), 'snmp-traffic'],
+        queryFn: () => routerService.getSnmpTraffic(routerId),
+        enabled: !!routerId && enabled,
+        refetchInterval: 2000, // Poll every 2 seconds
+        staleTime: 1000,
+        retry: false,
+    });
+}
+

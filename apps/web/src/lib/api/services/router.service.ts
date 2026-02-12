@@ -135,6 +135,12 @@ export const routerService = {
      */
     getPppActive: (routerId: string) =>
         get<{ count: number }>(`/routers/${routerId}/ppp/active`),
+
+    /**
+     * Get real-time traffic via SNMP
+     */
+    getSnmpTraffic: (routerId: string) =>
+        post<Record<string, { tx: number; rx: number }>>(`/routers/${routerId}/traffic/snmp`),
 };
 
 export default routerService;

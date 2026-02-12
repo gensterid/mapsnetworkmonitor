@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser } from '@/hooks';
+import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useSnmpTraffic } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -545,7 +545,9 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
         latitude: '',
         longitude: '',
         location: '',
-        notes: ''
+        notes: '',
+        snmpCommunity: 'public',
+        snmpPort: 161
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -561,7 +563,9 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 latitude: router.latitude || '',
                 longitude: router.longitude || '',
                 location: router.location || '',
-                notes: router.notes || ''
+                notes: router.notes || '',
+                snmpCommunity: router.snmpCommunity || 'public',
+                snmpPort: router.snmpPort || 161
             });
         }
     }, [router, isOpen]);
@@ -596,7 +600,9 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 latitude: formData.latitude,
                 longitude: formData.longitude,
                 location: formData.location,
-                notes: formData.notes
+                notes: formData.notes,
+                snmpCommunity: formData.snmpCommunity,
+                snmpPort: parseInt(formData.snmpPort, 10)
             };
 
             if (formData.password) {
@@ -683,6 +689,26 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                         className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-primary focus:border-transparent text-sm h-20"
                         placeholder="Additional notes..."
                     />
+                </div>
+
+                <div className="border-t border-slate-700 pt-4">
+                    <h4 className="text-sm font-medium text-slate-300 mb-3 block">SNMP Configuration (Live Traffic)</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <Input
+                            label="SNMP Community"
+                            name="snmpCommunity"
+                            value={formData.snmpCommunity}
+                            onChange={handleChange}
+                            placeholder="public"
+                        />
+                        <Input
+                            label="SNMP Port"
+                            name="snmpPort"
+                            type="number"
+                            value={formData.snmpPort}
+                            onChange={handleChange}
+                        />
+                    </div>
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
@@ -1566,11 +1592,34 @@ export default function RouterDetails() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
     const { data: router, isLoading, error, refetch } = useRouter(id);
-    const { data: interfaces = [] } = useRouterInterfaces(id);
+    const { data: apiInterfaces = [] } = useRouterInterfaces(id);
     const { data: metrics } = useRouterMetrics(id);
     const { data: netwatch = [], refetch: refetchNetwatch } = useRouterNetwatch(id);
     const { data: settings } = useSettings();
     const syncMutation = useSyncNetwatch();
+
+    // SNMP Live Mode
+    const [isLiveMode, setIsLiveMode] = useState(false);
+    const { data: snmpData } = useSnmpTraffic(id, isLiveMode);
+
+    // Merge interfaces with SNMP data if live mode is on
+    const interfaces = React.useMemo(() => {
+        if (!isLiveMode || !snmpData) return apiInterfaces;
+
+        return apiInterfaces.map(iface => {
+            const snmpStats = snmpData[iface.name];
+            if (snmpStats) {
+                return {
+                    ...iface,
+                    txRate: snmpStats.tx * 8, // Convert bytes to bits
+                    rxRate: snmpStats.rx * 8, // Convert bytes to bits
+                    // We don't have total bytes in this lightweight poll, keep old or estimate?
+                    // Better to just update rates for now.
+                };
+            }
+            return iface;
+        });
+    }, [apiInterfaces, snmpData, isLiveMode]);
 
     // Auto-sync netwatch every 30 seconds
     useEffect(() => {
@@ -1653,6 +1702,15 @@ export default function RouterDetails() {
                         </div>
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
+                        <Button
+                            onClick={() => setIsLiveMode(!isLiveMode)}
+                            variant={isLiveMode ? "primary" : "outline"}
+                            title="Toggle Live Traffic (SNMP)"
+                            className={clsx("transition-all duration-300", isLiveMode && "animate-pulse ring-2 ring-primary/50")}
+                        >
+                            <Activity className="w-4 h-4 sm:mr-2" />
+                            <span className="hidden sm:inline">{isLiveMode ? 'Live SNMP' : 'Live Mode'}</span>
+                        </Button>
                         <Button onClick={() => setIsEditModalOpen(true)} variant="outline" title="Edit Config">
                             <Edit className="w-4 h-4 sm:mr-2" />
                             <span className="hidden sm:inline">Edit Config</span>

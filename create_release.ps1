@@ -14,7 +14,7 @@ function Invoke-GitCommand {
     if (Test-Path "$LogFile.err") { Get-Content "$LogFile.err" | Write-Host }
 }
 
-$version = "1.0.0" # Hardcoded for first release to ensure stability
+$version = "1.1.0" # Updated to reflect SNMP and OLT features
 $tag = "v$version"
 
 Write-Host "🚀 Creating release $tag..." -ForegroundColor Cyan

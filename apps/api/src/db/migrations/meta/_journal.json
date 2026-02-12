@@ -85,6 +85,20 @@
       "when": 1770552843160,
       "tag": "0011_brief_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1770897426628,
+      "tag": "0012_fat_green_goblin",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1770897517558,
+      "tag": "0013_pink_salo",
+      "breakpoints": true
     }
   ]
 }

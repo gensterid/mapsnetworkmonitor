@@ -61,6 +61,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
         longitude: router?.longitude || '',
         location: router?.location || '',
         notificationGroupId: router?.notificationGroupId || '',
+        snmpCommunity: router?.snmpCommunity || 'public',
+        snmpPort: String(router?.snmpPort || 161),
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -78,6 +80,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 longitude: router.longitude || '',
                 location: router.location || '',
                 notificationGroupId: router.notificationGroupId || '',
+                snmpCommunity: router.snmpCommunity || 'public',
+                snmpPort: String(router.snmpPort || 161),
             });
         } else {
             setFormData({
@@ -90,6 +94,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 longitude: '',
                 location: '',
                 notificationGroupId: '',
+                snmpCommunity: 'public',
+                snmpPort: '161',
             });
         }
         setError('');
@@ -139,6 +145,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 longitude: formData.longitude || undefined,
                 location: formData.location || undefined,
                 notificationGroupId: formData.notificationGroupId || null,
+                snmpCommunity: formData.snmpCommunity || 'public',
+                snmpPort: parseInt(formData.snmpPort, 10) || 161,
             };
 
             // Only include password if provided (for edit, password is optional)
@@ -265,6 +273,32 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                         </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">Tip: Paste coordinates in "lat, long" format to auto-fill both fields</p>
+                </div>
+
+                {/* SNMP Section */}
+                <div className="pt-2 border-t border-slate-700/50">
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">SNMP Configuration (Live Traffic)</div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">SNMP Community</label>
+                            <Input
+                                name="snmpCommunity"
+                                value={formData.snmpCommunity}
+                                onChange={handleChange}
+                                placeholder="public"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">SNMP Port</label>
+                            <Input
+                                type="number"
+                                name="snmpPort"
+                                value={formData.snmpPort}
+                                onChange={handleChange}
+                                placeholder="161"
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <div className="pt-4 flex justify-end gap-2">

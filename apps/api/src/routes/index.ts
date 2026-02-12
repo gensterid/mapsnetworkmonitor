@@ -11,6 +11,8 @@ import analyticsRoutes from './analytics.routes.js';
 import pppoeRoutes from './pppoe.routes.js';
 import { notificationRoutes } from './notification.routes.js';
 import { eventsRoutes } from './events.routes.js';
+import oltRoutes from './olt.routes.js';
+import genieacsRoutes from './genieacs.routes.js';
 
 const router = Router();
 
@@ -36,6 +38,8 @@ router.use('/analytics', analyticsRoutes);
 router.use('/pppoe', pppoeRoutes);
 router.use('/notification-groups', notificationRoutes);
 router.use('/events', eventsRoutes);
+router.use('/olts', oltRoutes);
+router.use('/genieacs', genieacsRoutes);
 
 export default router;
 

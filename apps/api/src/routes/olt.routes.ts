@@ -1,0 +1,99 @@
+import { Router } from 'express';
+import { oltService } from '../services/olt.service.js';
+import { z } from 'zod';
+
+const router = Router();
+
+// Validation schemas
+const createOltSchema = z.object({
+    name: z.string().min(1),
+    host: z.string().min(1),
+    snmpPort: z.number().default(161),
+    snmpCommunity: z.string().default('public'),
+    type: z.enum(['hsgq', 'cdata', 'generic']).default('generic'),
+    description: z.string().optional(),
+});
+
+const updateOltSchema = createOltSchema.partial();
+
+// Get all OLTs
+router.get('/', async (req, res) => {
+    try {
+        const olts = await oltService.findAll();
+        res.json(olts);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch OLTs' });
+    }
+});
+
+// Get OLT by ID
+router.get('/:id', async (req, res) => {
+    try {
+        const olt = await oltService.findById(req.params.id);
+        if (!olt) {
+            return res.status(404).json({ error: 'OLT not found' });
+        }
+        res.json(olt);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to fetch OLT' });
+    }
+});
+
+// Create OLT
+router.post('/', async (req, res) => {
+    try {
+        const data = createOltSchema.parse(req.body);
+        const olt = await oltService.create(data);
+        res.status(201).json(olt);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
+        res.status(500).json({ error: 'Failed to create OLT' });
+    }
+});
+
+// Update OLT
+router.patch('/:id', async (req, res) => {
+    try {
+        const data = updateOltSchema.parse(req.body);
+        const olt = await oltService.update(req.params.id, data);
+        if (!olt) {
+            return res.status(404).json({ error: 'OLT not found' });
+        }
+        res.json(olt);
+    } catch (error) {
+        if (error instanceof z.ZodError) {
+            return res.status(400).json({ error: error.errors });
+        }
+        res.status(500).json({ error: 'Failed to update OLT' });
+    }
+});
+
+// Delete OLT
+router.delete('/:id', async (req, res) => {
+    try {
+        const success = await oltService.delete(req.params.id);
+        if (!success) {
+            return res.status(404).json({ error: 'OLT not found' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete OLT' });
+    }
+});
+
+// Refresh OLT status
+router.post('/:id/refresh', async (req, res) => {
+    try {
+        const olt = await oltService.refreshStatus(req.params.id);
+        if (!olt) {
+            return res.status(404).json({ error: 'OLT not found' });
+        }
+        res.json(olt);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to refresh OLT status' });
+    }
+});
+
+export default router;

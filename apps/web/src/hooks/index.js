@@ -20,6 +20,7 @@ export {
     useRouterHotspotActive,
     useRouterPppActive,
     usePingLatencies,
+    useSnmpTraffic,
     routerKeys,
 } from './useRouters';
 
@@ -73,6 +74,9 @@ export {
 
 // SSE (Server-Sent Events) hook
 export { useSSE } from './useSSE';
+// export * from './usePppoe'; // Skipped for now
+export * from './useOlts';
+export * from './useGenieACS';
 export * from './useBackup';
 // Utility hooks
 export { useDebounce } from './useDebounce';

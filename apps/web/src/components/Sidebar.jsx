@@ -6,6 +6,7 @@ import {
     LayoutDashboard,
     Map as MapIcon,
     Router as RouterIcon,
+    Server,
     Bell,
     Users,
     Settings,
@@ -14,7 +15,8 @@ import {
     Globe,
     X,
     BarChart3,
-    Activity
+    Activity,
+    Monitor
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -108,6 +110,8 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <NavItem path="/" icon={LayoutDashboard} label="Dashboard" isActive={isActive("/")} onClose={onClose} />
                     <NavItem path="/map" icon={MapIcon} label="Network Map" isActive={isActive("/map")} onClose={onClose} />
                     <NavItem path="/routers" icon={RouterIcon} label="Devices" badge={routers.length} isActive={isActive("/routers")} onClose={onClose} />
+                    <NavItem path="/olts" icon={Server} label="OLTs" isActive={isActive("/olts")} onClose={onClose} />
+                    <NavItem path="/genieacs" icon={Monitor} label="CPEs (ACS)" isActive={isActive("/genieacs")} onClose={onClose} />
                     <NavItem path="/alerts" icon={Bell} label="Alerts" badge={alertCount?.connectivity} badgeColor={alertCount?.connectivity > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : undefined} isActive={isActive("/alerts")} onClose={onClose} />
                     <NavItem path="/issues" icon={Activity} label="Issues" badge={alertCount?.issues} badgeColor={alertCount?.issues > 0 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : undefined} isActive={isActive("/issues")} onClose={onClose} />
 

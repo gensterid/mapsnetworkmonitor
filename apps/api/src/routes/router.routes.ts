@@ -22,6 +22,8 @@ const createRouterSchema = z.object({
     groupId: z.string().uuid().optional(),
     notificationGroupId: z.string().uuid().optional().nullable(),
     notes: z.string().optional(),
+    snmpCommunity: z.string().optional().default('public'),
+    snmpPort: z.number().int().min(1).max(65535).optional().default(161),
 });
 
 const updateRouterSchema = z.object({
@@ -38,6 +40,8 @@ const updateRouterSchema = z.object({
     notificationGroupId: z.string().uuid().optional().nullable(),
     notes: z.string().optional(),
     status: z.enum(['online', 'offline', 'maintenance', 'unknown']).optional(),
+    snmpCommunity: z.string().optional(),
+    snmpPort: z.number().int().min(1).max(65535).optional(),
 });
 
 const testConnectionSchema = z.object({
@@ -598,6 +602,20 @@ router.post(
                 errors: result.errors,
             }
         });
+    })
+);
+
+/**
+ * POST /api/routers/:id/traffic/snmp
+ * Get real-time interface traffic via SNMP
+ */
+router.post(
+    '/:id/traffic/snmp',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const traffic = await routerService.getSnmpTraffic(id);
+        res.json({ data: traffic });
     })
 );
 
