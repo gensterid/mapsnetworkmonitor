@@ -35,7 +35,7 @@ async function checkColumns() {
         console.log('Columns in "routers" table:');
         console.table(res.rows);
 
-        const snmpCommunity = res.rows.find(r => r.column_name === 'snmp_community');
+        const snmpCommunity = res.rows.find((r: any) => r.column_name === 'snmp_community');
         if (!snmpCommunity) {
             console.log('❌ Column "snmp_community" is MISSING!');
 
