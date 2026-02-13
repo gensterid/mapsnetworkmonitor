@@ -143,7 +143,7 @@ router.get(
  */
 router.get(
     '/:id',
-    requireOwnerOrAdmin((req) => req.params.id),
+    requireOwnerOrAdmin((req) => req.params.id as string),
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const user = await userService.findById(id);
@@ -163,7 +163,7 @@ router.get(
  */
 router.put(
     '/:id',
-    requireOwnerOrAdmin((req) => req.params.id),
+    requireOwnerOrAdmin((req) => req.params.id as string),
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const data = updateUserSchema.parse(req.body);
