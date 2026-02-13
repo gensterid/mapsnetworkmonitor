@@ -30,7 +30,9 @@ const AnimatedPath = ({
     enableAnimation = true,
     disableMotionPath = false, // New prop to force disable motion path (for Low Perf mode)
     motionType,
-    motionColor
+    motionColor,
+    onMouseOver,
+    onMouseOut
 }) => {
     // Memoize final options to avoid recalculation on every render
     const options = useMemo(() => {
@@ -55,8 +57,10 @@ const AnimatedPath = ({
             motionColor: motionColor || preset?.color || color || '#ffffff',
             tooltip,
             popup,
+            onMouseOver,
+            onMouseOut
         };
-    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, status, type, tooltip, popup, animationStyle, enableAnimation, motionType, motionColor]);
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, status, type, tooltip, popup, animationStyle, enableAnimation, motionType, motionColor, onMouseOver, onMouseOut]);
 
     // Render appropriate renderer based on 'useMotionPath' flag
     if (options.useMotionPath) {

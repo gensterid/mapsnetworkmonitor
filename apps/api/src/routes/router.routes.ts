@@ -140,15 +140,14 @@ router.put(
     '/:id',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const data = updateRouterSchema.parse(req.body);
 
         const updateData: any = { ...data };
         // Remove nulls if they exist, or handle them specifically if DB allows null
-        if (updateData.locationImage === null) updateData.locationImage = undefined; // App doesn't store null images probably
-        if (updateData.locationImage === null) updateData.locationImage = undefined; // App doesn't store null images probably
-        if (updateData.groupId === null) updateData.groupId = null; // groupId can be null
-        if (updateData.notificationGroupId === null) updateData.notificationGroupId = null; // notificationGroupId can be null
+        if (updateData.locationImage === null) updateData.locationImage = undefined;
+        if (updateData.groupId === null) updateData.groupId = null;
+        if (updateData.notificationGroupId === null) updateData.notificationGroupId = null;
 
         const router = await routerService.update(id, updateData);
 
@@ -182,7 +181,7 @@ router.delete(
     '/:id',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const router = await routerService.findById(id);
 
         if (!router) {
@@ -218,7 +217,7 @@ router.post(
     '/:id/test-connection',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const result = await routerService.testConnection(id);
 
         res.json({ data: result });
@@ -255,7 +254,7 @@ router.post(
     '/:id/refresh',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const router = await routerService.refreshRouterStatus(id);
 
         if (!router) {
@@ -278,7 +277,7 @@ router.post(
     '/:id/reboot',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const router = await routerService.findById(id);
 
         if (!router) {
@@ -308,7 +307,7 @@ router.post(
 router.get(
     '/:id/interfaces',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const interfaces = await routerService.getInterfaces(id);
 
         res.json({ data: interfaces });
@@ -322,7 +321,7 @@ router.get(
 router.get(
     '/:id/metrics',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const metrics = await routerService.getLatestMetrics(id);
 
         res.json({ data: metrics });
@@ -336,7 +335,7 @@ router.get(
 router.get(
     '/:id/metrics/history',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const limit = parseInt(req.query.limit as string) || 100;
         const metrics = await routerService.getMetricsHistory(id, limit);
 
@@ -351,7 +350,7 @@ router.get(
 router.get(
     '/:id/ping-latencies',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const latencies = await routerService.measurePingTargets(id);
         res.json({ data: latencies });
     })
@@ -365,7 +364,7 @@ router.get(
 router.get(
     '/:id/hotspot/active',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const count = await routerService.getHotspotActive(id);
         res.json({ data: { count } });
     })
@@ -378,7 +377,7 @@ router.get(
 router.get(
     '/:id/ppp/active',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const count = await routerService.getPppActive(id);
         res.json({ data: { count } });
     })
@@ -391,7 +390,7 @@ router.get(
 router.get(
     '/:id/ppp/sessions',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const sessions = await routerService.getPppSessions(id);
         res.json({ data: sessions });
     })
@@ -440,7 +439,7 @@ const updateNetwatchSchema = z.object({
 router.get(
     '/:id/netwatch',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const netwatch = await routerService.getNetwatch(id);
         res.json({ data: netwatch });
     })
@@ -454,7 +453,7 @@ router.post(
     '/:id/netwatch',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         console.log('[DEBUG] POST netwatch body:', JSON.stringify(req.body));
 
         // Manual sanitization to ensure empty strings don't break Zod/DB
@@ -517,12 +516,14 @@ router.put(
                 console.error('DEBUG: Schema validation failed:', JSON.stringify(errorFormatted, null, 2));
                 throw new ApiError(400, 'Validation failed: ' + parseResult.error.message);
             }
+            const id_str = id as string;
+            const netwatchId_str = netwatchId as string;
 
             const data = parseResult.data;
             console.log('DEBUG: Schema parsed successfully:', data);
 
             console.log('DEBUG: Calling routerService.updateNetwatch...');
-            const netwatch = await routerService.updateNetwatch(id, netwatchId, data);
+            const netwatch = await routerService.updateNetwatch(id_str, netwatchId_str, data);
             console.log('DEBUG: routerService returned:', netwatch);
 
             if (!netwatch) {
@@ -555,7 +556,8 @@ router.delete(
     '/:id/netwatch/:netwatchId',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id, netwatchId } = req.params;
+        const id = req.params.id as string;
+        const netwatchId = req.params.netwatchId as string;
         const deleted = await routerService.deleteNetwatch(id, netwatchId);
 
         if (!deleted) {
@@ -583,7 +585,7 @@ router.post(
     '/:id/netwatch/sync',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const result = await routerService.syncNetwatchFromRouter(id);
 
         await settingsService.logAction(
@@ -613,7 +615,7 @@ router.post(
     '/:id/traffic/snmp',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const traffic = await routerService.getSnmpTraffic(id);
         res.json({ data: traffic });
     })

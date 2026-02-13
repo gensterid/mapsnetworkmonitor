@@ -60,7 +60,7 @@ router.post('/', requireAdmin, async (req, res) => {
 // Update group
 router.put('/:id', requireAdmin, async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const validated = notificationGroupSchema.parse(req.body);
 
         const [group] = await db
@@ -89,7 +89,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 // Delete group
 router.delete('/:id', requireAdmin, async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id as string;
 
         const [deleted] = await db
             .delete(notificationGroups)

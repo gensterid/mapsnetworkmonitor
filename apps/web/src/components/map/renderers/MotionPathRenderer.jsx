@@ -17,16 +17,34 @@ const MotionPathRenderer = ({
     const motionElementRef = useRef(null);
     const durationStr = `${options.delay}ms`;
 
-    // Effect: Handle SVG Motion Path (Object Moving Along Line)
+    // Destructure to isolate dependencies
+    const {
+        motionType, motionColor, reverse, paused, delay
+    } = options;
+
+    // Effect 1: Create/Destroy Motion Element (Lifecycle) & Handle Path Sync
     useEffect(() => {
-        if (!polylineRef.current || options.paused) return;
+        if (!polylineRef.current) return;
 
         const layer = polylineRef.current;
         let retryCount = 0;
         const maxRetries = 10;
+        let observer = null;
+
+        const cleanup = () => {
+            if (motionElementRef.current) {
+                if (motionElementRef.current._observer) {
+                    motionElementRef.current._observer.disconnect();
+                }
+                motionElementRef.current.remove();
+                motionElementRef.current = null;
+            }
+        };
 
         const tryInitialize = () => {
             const pathElement = layer.getElement?.() || layer._path;
+
+            // Wait for path element to be attached to DOM
             if (!pathElement || !pathElement.parentNode) {
                 if (retryCount < maxRetries) {
                     retryCount++;
@@ -40,12 +58,12 @@ const MotionPathRenderer = ({
             if (!motionEl) {
                 const ns = "http://www.w3.org/2000/svg";
 
-                // Determine shape
-                if (options.motionType === 'orb') {
+                // Determine shape based on motionType
+                if (motionType === 'orb') {
                     motionEl = document.createElementNS(ns, "circle");
                     motionEl.setAttribute("r", "6");
                     motionEl.setAttribute("class", "motion-element motion-orb");
-                } else if (options.motionType === 'packet') {
+                } else if (motionType === 'packet') {
                     motionEl = document.createElementNS(ns, "rect");
                     motionEl.setAttribute("width", "10");
                     motionEl.setAttribute("height", "6");
@@ -59,14 +77,6 @@ const MotionPathRenderer = ({
                     motionEl.setAttribute("class", "motion-element motion-comet");
                 }
 
-                // Set styles
-                motionEl.style.setProperty('--motion-duration', durationStr);
-                motionEl.style.fill = options.motionColor;
-
-                if (options.reverse) {
-                    motionEl.classList.add('motion-reverse');
-                }
-
                 pathElement.parentNode.appendChild(motionEl);
                 motionElementRef.current = motionEl;
             }
@@ -74,9 +84,13 @@ const MotionPathRenderer = ({
             // Sync Path Data
             const syncPath = () => {
                 const d = pathElement.getAttribute('d');
+                // OPTIMIZATION: Only update if 'd' actually changed to prevent animation resets/stutter
                 if (d && motionElementRef.current) {
+                    const currentD = motionElementRef.current.getAttribute('data-d');
+                    if (currentD === d) return;
+
+                    motionElementRef.current.setAttribute('data-d', d);
                     motionElementRef.current.style.setProperty('--motion-path-d', `"${d}"`);
-                    // Fallback for browsers with partial offset-path support
                     motionElementRef.current.style.offsetPath = `path("${d}")`;
                 }
             };
@@ -84,10 +98,8 @@ const MotionPathRenderer = ({
             syncPath();
 
             // Observe 'd' attribute changes (zooming/panning)
-            const observer = new MutationObserver(syncPath);
+            observer = new MutationObserver(syncPath);
             observer.observe(pathElement, { attributes: true, attributeFilter: ['d'] });
-
-            // Cleanup observer on unmount
             motionElementRef.current._observer = observer;
         };
 
@@ -95,15 +107,31 @@ const MotionPathRenderer = ({
 
         return () => {
             clearTimeout(timer);
-            if (motionElementRef.current) {
-                if (motionElementRef.current._observer) {
-                    motionElementRef.current._observer.disconnect();
-                }
-                motionElementRef.current.remove();
-                motionElementRef.current = null;
-            }
+            cleanup();
         };
-    }, [options.motionType, options.motionColor, options.reverse, options.paused, durationStr]);
+    }, [motionType]); // Only recreate if shape type changes
+
+    // Effect 2: Update Styles & Animation State (Without destroying element)
+    useEffect(() => {
+        const motionEl = motionElementRef.current;
+        if (!motionEl) return;
+
+        motionEl.style.setProperty('--motion-duration', `${delay}ms`);
+        motionEl.style.fill = motionColor;
+
+        if (reverse) {
+            motionEl.classList.add('motion-reverse');
+        } else {
+            motionEl.classList.remove('motion-reverse');
+        }
+
+        if (paused) {
+            motionEl.style.animationPlayState = 'paused';
+        } else {
+            motionEl.style.animationPlayState = 'running';
+        }
+
+    }, [motionColor, delay, reverse, paused, motionElementRef.current]); // Dependent on style props
 
     return (
         <Polyline
@@ -117,7 +145,13 @@ const MotionPathRenderer = ({
                 lineCap: options.lineCap,
                 lineJoin: options.lineJoin
             }}
-            eventHandlers={onClick ? { click: onClick } : null}
+            eventHandlers={(() => {
+                const handlers = {};
+                if (onClick) handlers.click = onClick;
+                if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
+                if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
+                return handlers;
+            })()}
         >
             {/* Tooltips and Popups are passed through children in parent, but here we render them if provided in options */}
             {options.tooltip && (

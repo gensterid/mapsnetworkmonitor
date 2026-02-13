@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet-ant-path';
 
-const AntPath = ({ positions, options, tooltip, popup, onClick }) => {
+const AntPath = ({ positions, options, tooltip, popup, onClick, onMouseOver, onMouseOut }) => {
     const map = useMap();
     const pathRef = useRef(null);
 
@@ -28,6 +28,12 @@ const AntPath = ({ positions, options, tooltip, popup, onClick }) => {
         // Bind events
         if (onClick) {
             instance.on('click', onClick);
+        }
+        if (onMouseOver) {
+            instance.on('mouseover', onMouseOver);
+        }
+        if (onMouseOut) {
+            instance.on('mouseout', onMouseOut);
         }
 
         // Bind Tooltip
@@ -55,7 +61,7 @@ const AntPath = ({ positions, options, tooltip, popup, onClick }) => {
                 map.removeLayer(pathRef.current);
             }
         };
-    }, [map, positions, options, tooltip, popup, onClick]); // Re-create if props change significantly
+    }, [map, positions, options, tooltip, popup, onClick, onMouseOver, onMouseOut]); // Re-create if props change significantly
 
     return null; // This component handles its own rendering via Leaflet API
 };

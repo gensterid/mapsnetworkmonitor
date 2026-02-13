@@ -42,7 +42,7 @@ router.get(
 router.get(
     '/:id',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const group = await groupService.findById(id);
 
         if (!group) {
@@ -78,7 +78,7 @@ router.put(
     '/:id',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const data = updateGroupSchema.parse(req.body);
 
         const group = await groupService.update(id, data);
@@ -100,7 +100,7 @@ router.delete(
     '/:id',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const deleted = await groupService.delete(id);
 
         if (!deleted) {

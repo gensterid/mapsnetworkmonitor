@@ -30,7 +30,7 @@ router.get(
     '/devices/:id',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const device = await genieacsService.getDevice(id);
         if (!device) {
             return res.status(404).json({ error: 'Device not found' });
@@ -47,7 +47,7 @@ router.post(
     '/devices/:id/reboot',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const result = await genieacsService.rebootDevice(id);
         res.json({ data: result });
     })

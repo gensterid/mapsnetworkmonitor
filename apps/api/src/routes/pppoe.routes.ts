@@ -50,7 +50,7 @@ router.get('/map', async (req, res) => {
  */
 router.get('/:id', async (req, res) => {
     try {
-        const session = await pppoeService.findById(req.params.id);
+        const session = await pppoeService.findById(req.params.id as string);
         if (!session) {
             return res.status(404).json({ error: 'Session not found' });
         }
@@ -70,7 +70,7 @@ router.patch('/:id/coordinates', requireOperator, async (req, res) => {
         const { latitude, longitude, waypoints, connectionType, connectedToId } = req.body;
 
         const session = await pppoeService.updateCoordinates(
-            req.params.id,
+            req.params.id as string,
             latitude || null,
             longitude || null,
             waypoints || null,
@@ -98,7 +98,7 @@ router.put('/:id', requireOperator, async (req, res) => {
         const { latitude, longitude, waypoints, connectionType, connectedToId } = req.body;
 
         const session = await pppoeService.updateCoordinates(
-            req.params.id,
+            req.params.id as string,
             latitude || null,
             longitude || null,
             waypoints || null,

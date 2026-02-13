@@ -21,7 +21,7 @@ router.get(
     '/:userId/routers',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { userId } = req.params;
+        const userId = req.params.userId as string;
 
         // Verify user exists
         const [user] = await db.select().from(users).where(eq(users.id, userId));
@@ -50,7 +50,7 @@ router.post(
     '/:userId/routers',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { userId } = req.params;
+        const userId = req.params.userId as string;
         const { routerIds } = assignRoutersSchema.parse(req.body);
 
         // Verify user exists

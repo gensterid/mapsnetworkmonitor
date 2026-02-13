@@ -83,6 +83,11 @@ export async function connectToRouter(
         keepalive: true,
     });
 
+    // Add error handler to prevent uncaught exceptions
+    api.on('error', (err: any) => {
+        console.error(`[RouterOS API Error] ${config.host}:`, err instanceof Error ? err.message : err);
+    });
+
     await api.connect();
     return api;
 }

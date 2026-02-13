@@ -2,30 +2,33 @@
 description: How to update the Proxmox deployment from GitHub with minimal errors
 ---
 
-To update the Proxmox deployment safely, follow these steps on the server:
+# Proxmox Update Workflow
 
-1. **Access the Server**: SSH into your Proxmox/Linux server where the monitoring app is hosted.
-2. **Navigate to the Project Root**:
-   ```bash
-   cd /path/to/your/project
-   ```
-3. **Run the Automated Update Script**:
-   // turbo
-   ```bash
-   bash scripts/update-server.sh
-   ```
-   *Note: This script handles git-pull, npm-install, database-sync, and app-rebuild automatically.*
+Follow these steps to update your monitoring application on Proxmox (LXC/VM) while minimizing downtime and build errors.
 
-4. **Verify Process Status**:
-   ```bash
-   pm2 list
-   ```
-   Ensure both `api` and `web` (or equivalent names) are in `online` status.
+## Steps
 
-5. **Check for Runtime Errors**:
-   ```bash
-   pm2 logs
-   ```
-   Keep an eye on the logs for a few minutes to ensure no startup crashes occur.
+1. **Access the Server**
+   - Connect via SSH or open the Proxmox console for your monitoring CT/VM.
 
-6. **Clear Browser Cache**: If UI changes don't appear, try a hard refresh (Ctrl+F5) in your browser.
+2. **Navigate to the Project Directory**
+   ```bash
+   cd /path/to/project
+   ```
+
+// turbo
+3. **Run the Automated Update Script**
+   ```bash
+   chmod +x scripts/update-server.sh
+   ./scripts/update-server.sh
+   ```
+
+4. **Verify Deployment**
+   - Check if the application is running: `pm2 status`
+   - View live logs for errors: `pm2 logs`
+   - Open the web interface in your browser.
+
+## Troubleshooting
+
+- **Memory Errors**: If the build fails with "JavaScript heap out of memory", the script already tries to use `NODE_OPTIONS="--max-old-space-size=2048"`. Increase this value if your server has more than 4GB of RAM.
+- **Git Conflicts**: The script uses `git reset --hard origin/main` which overrides local changes. This is the surest way to avoid "merging" errors on the server.

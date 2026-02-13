@@ -21,9 +21,14 @@ const FlowPathRenderer = ({
     const dashArraySum = dashArrayValues.reduce((a, b) => a + b, 0);
     const dashArrayStr = dashArrayValues.join(', ');
 
-    // Effect: Apply WAAPI Animation
+    // Destructure animation-critical props to prevent unnecessary restarts
+    const {
+        dashArray, delay, paused, reverse, syncArrival, pulseColor, weight, opacity, className, lineCap, lineJoin, color
+    } = options;
+
+    // Effect: Apply WAAPI Animation (Only restarts if structural props change)
     useEffect(() => {
-        if (!polylineRef.current || options.paused) return;
+        if (!polylineRef.current || paused) return;
 
         const layer = polylineRef.current;
         const pathElement = layer.getElement?.() || layer._path;
@@ -35,11 +40,11 @@ const FlowPathRenderer = ({
         let finalDashOffsetTarget = dashArraySum * -1;
         let finalDashOffsetStart = 0;
 
-        if (options.syncArrival) {
+        if (syncArrival) {
             // Force path length to 1000 for consistent timing
             pathElement.setAttribute('pathLength', '1000');
 
-            const basePattern = Array.isArray(options.dashArray) ? [...options.dashArray] : [10, 20];
+            const basePattern = Array.isArray(dashArray) ? [...dashArray] : [10, 20];
             const dotSize = basePattern[0];
             const gapSize = 1000 - dotSize;
 
@@ -52,13 +57,13 @@ const FlowPathRenderer = ({
             pathElement.removeAttribute('pathLength');
         }
 
-        // 2. Set Static Styles
+        // 2. Set Static Styles (Initial)
         pathElement.style.strokeDasharray = finalDashArrayStr;
-        pathElement.style.stroke = options.color;
+        // pathElement.style.stroke is handled by separate effect to avoid restart
 
         // 3. Configure Animation Keyframes
         const startOffset = finalDashOffsetStart;
-        const endOffset = options.reverse ? Math.abs(finalDashOffsetTarget) : finalDashOffsetTarget;
+        const endOffset = reverse ? Math.abs(finalDashOffsetTarget) : finalDashOffsetTarget;
 
         const keyframes = [
             { strokeDashoffset: startOffset },
@@ -66,7 +71,7 @@ const FlowPathRenderer = ({
         ];
 
         const timing = {
-            duration: options.delay || 1000,
+            duration: delay || 1000,
             iterations: Infinity,
             easing: 'linear'
         };
@@ -79,7 +84,19 @@ const FlowPathRenderer = ({
             animation.cancel();
         };
 
-    }, [options, dashArrayStr, dashArraySum]);
+    }, [dashArrayStr, dashArraySum, delay, paused, reverse, syncArrival]); // Removed 'options' and 'color'
+
+    // Effect: Update Color/Weight/Opacity without restarting animation
+    useEffect(() => {
+        if (!polylineRef.current) return;
+        const layer = polylineRef.current;
+        const pathElement = layer.getElement?.() || layer._path;
+        if (pathElement) {
+            pathElement.style.stroke = color;
+            pathElement.style.strokeWidth = weight;
+            pathElement.style.opacity = opacity;
+        }
+    }, [color, weight, opacity]);
 
     return (
         <>
@@ -108,7 +125,13 @@ const FlowPathRenderer = ({
                     lineCap: options.lineCap,
                     lineJoin: options.lineJoin
                 }}
-                eventHandlers={onClick ? { click: onClick } : null}
+                eventHandlers={(() => {
+                    const handlers = {};
+                    if (onClick) handlers.click = onClick;
+                    if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
+                    if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
+                    return handlers;
+                })()}
             >
                 {options.tooltip && (
                     <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>

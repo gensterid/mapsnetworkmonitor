@@ -151,12 +151,28 @@ app.use(notFoundMiddleware);
 // Error handler
 app.use(errorMiddleware);
 
+// Create HTTP server for Socket.io
+import { createServer } from 'http';
+import { socketService } from './services/socket.service.js';
+
+const httpServer = createServer(app);
+
+// Initialize Socket.io
+socketService.initialize(httpServer, [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'https://mapsmonitor.genster.web.id',
+    'http://10.10.70.116',
+    process.env.CORS_ORIGIN || 'http://localhost:5173',
+]);
+
 // Start server
-app.listen(PORT, async () => {
+httpServer.listen(PORT, async () => {
     console.log(`🚀 Server running on http://localhost:${PORT}`);
     console.log(`📡 API available at http://localhost:${PORT}/api`);
     console.log(`🔐 Auth available at http://localhost:${PORT}/api/auth`);
     console.log(`❤️  Health check at http://localhost:${PORT}/api/health`);
+    console.log(`🔌 WebSocket server ready`);
 
     // Run migrations
     await runMigrations();

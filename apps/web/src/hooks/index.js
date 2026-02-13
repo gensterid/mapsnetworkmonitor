@@ -80,3 +80,4 @@ export * from './useGenieACS';
 export * from './useBackup';
 // Utility hooks
 export { useDebounce } from './useDebounce';
+export { useRealtimeTraffic, useAllRoutersTraffic } from './useSocket';

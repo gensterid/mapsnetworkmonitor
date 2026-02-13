@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useSnmpTraffic } from '@/hooks';
+import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useRealtimeTraffic } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -46,6 +46,15 @@ import {
     Tooltip,
     ResponsiveContainer
 } from 'recharts';
+// Helper to format bitrates
+const formatBitrate = (bits) => {
+    if (bits === undefined || bits === null || bits === 0) return '0 bps';
+    const k = 1000;
+    const sizes = ['bps', 'kbps', 'Mbps', 'Gbps'];
+    const i = Math.floor(Math.log(bits) / Math.log(k));
+    return parseFloat((bits / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+};
+
 import NetworkMap from '@/components/NetworkMap';
 
 // Tab component
@@ -129,6 +138,37 @@ function ProgressBar({ value, color = "blue", label }) {
 function InterfaceTrafficChart({ routerId, interfaces }) {
     const [selectedInterface, setSelectedInterface] = useState('');
     const [history, setHistory] = useState([]);
+    const containerRef = useRef(null);
+    const [chartAttributes, setChartAttributes] = useState({ width: 0, height: 250 });
+
+    // Measure container size to provide exact pixels to Recharts (prevents width(-1) error)
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        const updateSize = () => {
+            if (containerRef.current) {
+                const width = containerRef.current.offsetWidth;
+                // Only update if width is valid and different
+                if (width > 0 && Math.abs(width - chartAttributes.width) > 5) {
+                    setChartAttributes({ width, height: 250 });
+                }
+            }
+        };
+
+        // Initial measure
+        updateSize();
+
+        // Measure again after a delay for layout settle
+        const timer = setTimeout(updateSize, 100);
+
+        // Listen for window resize
+        window.addEventListener('resize', updateSize);
+
+        return () => {
+            clearTimeout(timer);
+            window.removeEventListener('resize', updateSize);
+        };
+    }, [chartAttributes.width]);
 
     // Find selected interface data
     const currentInterface = interfaces?.find(i => i.name === selectedInterface);
@@ -170,7 +210,7 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
             if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
             return newHistory;
         });
-    }, [currentInterface?.txRate, currentInterface?.rxRate, currentInterface?.name]); // Listen to specific values
+    }, [currentInterface]); // Listen to the object itself to trigger on every poll
 
     // Reset history when interface selection actually changes
     useEffect(() => {
@@ -207,9 +247,9 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="h-[250px] w-full mt-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={history}>
+                <div ref={containerRef} style={{ width: '100%', height: 250, minHeight: 250 }}>
+                    {chartAttributes.width > 0 && history.length > 0 ? (
+                        <AreaChart width={chartAttributes.width} height={chartAttributes.height} data={history}>
                             <defs>
                                 <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
                                     <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -264,7 +304,11 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                                 isAnimationActive={false}
                             />
                         </AreaChart>
-                    </ResponsiveContainer>
+                    ) : (
+                        <div className="flex h-full items-center justify-center text-slate-500 text-sm">
+                            {history.length === 0 ? "Waiting for traffic data..." : "Initializing chart..."}
+                        </div>
+                    )}
                 </div>
                 <div className="flex justify-center gap-6 mt-2">
                     <div className="flex items-center gap-2">
@@ -1054,6 +1098,26 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                     </div>
                                 </div>
 
+                                {/* Live Traffic Stats */}
+                                {nw.status === 'up' && (nw.txRate !== undefined || nw.rxRate !== undefined) && (
+                                    <div className="grid grid-cols-2 gap-2 mt-3 p-2 bg-slate-900/50 rounded-lg border border-slate-800/50">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                                <TrendingDown className="w-3 h-3 text-emerald-500" />
+                                                RX (In)
+                                            </span>
+                                            <span className="text-emerald-400 font-mono font-bold text-xs">{formatBitrate(nw.rxRate)}</span>
+                                        </div>
+                                        <div className="flex flex-col items-center border-l border-slate-800/50">
+                                            <span className="text-[10px] text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                                                <TrendingUp className="w-3 h-3 text-blue-500" />
+                                                TX (Out)
+                                            </span>
+                                            <span className="text-blue-400 font-mono font-bold text-xs">{formatBitrate(nw.txRate)}</span>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="grid grid-cols-2 gap-2 text-xs text-slate-500 mb-3 border-t border-slate-800/50 pt-2">
                                     <div>
                                         <div className="text-slate-600">Location</div>
@@ -1113,6 +1177,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Since</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Location</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Latency</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Traffic (In/Out)</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Coords</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Last Check</th>
                                     <th className="text-right py-3 px-4 text-xs font-medium text-slate-400 uppercase">Actions</th>
@@ -1185,6 +1250,22 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                                 <span className="text-xs text-slate-500">-</span>
                                             )}
                                         </td>
+                                        <td className="py-3 px-4 text-sm">
+                                            {nw.status === 'up' && (nw.txRate !== undefined || nw.rxRate !== undefined) ? (
+                                                <div className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-1.5 min-w-[100px]">
+                                                        <TrendingDown className="w-3 h-3 text-emerald-500" />
+                                                        <span className="text-emerald-400 font-mono font-bold">{formatBitrate(nw.rxRate)}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 min-w-[100px]">
+                                                        <TrendingUp className="w-3 h-3 text-blue-500" />
+                                                        <span className="text-blue-400 font-mono font-bold">{formatBitrate(nw.txRate)}</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <span className="text-xs text-slate-500">-</span>
+                                            )}
+                                        </td>
                                         <td className="py-3 px-4">
                                             {nw.latitude && nw.longitude ? (
                                                 <span className="flex items-center gap-1 text-xs text-purple-400">
@@ -1252,11 +1333,32 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
 }
 
 // Map Tab Content - Reuses the main NetworkMap component with a router filter
-function MapTab({ router }) {
+// Map Tab Content - Reuses the main NetworkMap component with a router filter
+function MapTab({ router, netwatch, realtimeTraffic, isLiveMode }) {
     if (!router) return null;
+
+    // Wrap netwatch data in the structure expected by NetworkMap (array of results)
+    const netwatchOverride = React.useMemo(() => [{
+        routerId: router.id,
+        entries: netwatch || []
+    }], [router.id, netwatch]);
+
     return (
         <div className="h-[75vh] min-h-[400px] sm:h-[600px] w-full rounded-xl overflow-hidden border border-slate-700 relative">
-            <NetworkMap routerId={router.id} />
+            <NetworkMap
+                routerId={router.id}
+                netwatchOverride={netwatchOverride}
+                realtimeTraffic={React.useMemo(() => {
+                    if (!realtimeTraffic) return null;
+                    // Auto-prefix keys with routerId to match NetworkMap's preferred lookup format
+                    const prefixed = { ...realtimeTraffic };
+                    Object.keys(realtimeTraffic).forEach(key => {
+                        prefixed[`${router.id}:${key}`] = realtimeTraffic[key];
+                    });
+                    return prefixed;
+                }, [realtimeTraffic, router.id])}
+                isLiveMode={isLiveMode}
+            />
         </div>
     );
 }
@@ -1585,41 +1687,112 @@ function PppoeTab({ routerId }) {
     );
 }
 
-
 export default function RouterDetails() {
     const { id } = useParams();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
+    // SNMP Live Mode (WebSocket)
+    const [isLiveMode, setIsLiveMode] = useState(false);
+    const { traffic: realtimeTraffic, isConnected } = useRealtimeTraffic(id, isLiveMode);
+
     const { data: router, isLoading, error, refetch } = useRouter(id);
     const { data: apiInterfaces = [] } = useRouterInterfaces(id);
     const { data: metrics } = useRouterMetrics(id);
-    const { data: netwatch = [], refetch: refetchNetwatch } = useRouterNetwatch(id);
+    // Netwatch still polls every 30s to sync up/down status, 
+    // but traffic data comes from WS now.
+    const { data: netwatch = [], refetch: refetchNetwatch } = useRouterNetwatch(id, {
+        refetchInterval: 30000
+    });
     const { data: settings } = useSettings();
     const syncMutation = useSyncNetwatch();
 
-    // SNMP Live Mode
-    const [isLiveMode, setIsLiveMode] = useState(false);
-    const { data: snmpData } = useSnmpTraffic(id, isLiveMode);
+    // Merge interfaces with Realtime WebSocket data if live mode is on
+    const ifaceDescriptionMap = React.useMemo(() => {
+        const map = {};
+        if (apiInterfaces) {
+            apiInterfaces.forEach(iface => {
+                // Map name to defaultName (e.g. ether1-Inet -> ether1)
+                if (iface.name && iface.defaultName) {
+                    map[iface.name] = iface.defaultName;
+                }
+            });
+        }
+        return map;
+    }, [apiInterfaces]);
 
-    // Merge interfaces with SNMP data if live mode is on
     const interfaces = React.useMemo(() => {
-        if (!isLiveMode || !snmpData) return apiInterfaces;
+        if (!isLiveMode) return apiInterfaces;
+
+        if (!realtimeTraffic) return apiInterfaces;
+
+        if (!realtimeTraffic) return apiInterfaces;
 
         return apiInterfaces.map(iface => {
-            const snmpStats = snmpData[iface.name];
+            // Try different keys to match with SNMP data:
+            // 1. Exact name (e.g. ether1-Inet)
+            // 2. Default name (e.g. ether1)
+            // 3. Description mapping
+            const snmpStats =
+                realtimeTraffic[iface.name] ||
+                realtimeTraffic[iface.defaultName] ||
+                realtimeTraffic[ifaceDescriptionMap[iface.name]];
+
             if (snmpStats) {
                 return {
                     ...iface,
-                    txRate: snmpStats.tx * 8, // Convert bytes to bits
-                    rxRate: snmpStats.rx * 8, // Convert bytes to bits
-                    // We don't have total bytes in this lightweight poll, keep old or estimate?
-                    // Better to just update rates for now.
+                    txRate: snmpStats.tx,
+                    rxRate: snmpStats.rx,
                 };
             }
             return iface;
         });
-    }, [apiInterfaces, snmpData, isLiveMode]);
+    }, [apiInterfaces, realtimeTraffic, isLiveMode]);
+
+    const mergedNetwatch = React.useMemo(() => {
+        if (!isLiveMode || !realtimeTraffic || !netwatch) return netwatch || [];
+
+        return netwatch.map(nw => {
+            const ifaceName = nw.targetInterface || nw.target_interface;
+
+            if (ifaceName) {
+                const stats =
+                    realtimeTraffic[ifaceName] ||
+                    Object.entries(realtimeTraffic).find(([key]) =>
+                        key === ifaceName ||
+                        key.split('-')[0] === ifaceName ||
+                        ifaceName.split('-')[0] === key
+                    )?.[1];
+
+                if (stats) {
+                    return {
+                        ...nw,
+                        txRate: stats.tx,
+                        rxRate: stats.rx
+                    };
+                }
+            }
+            return nw;
+        });
+    }, [netwatch, realtimeTraffic, isLiveMode]);
+
+    // Optimization: Throttled Netwatch for Map (to reduce re-renders)
+    const [mapNetwatch, setMapNetwatch] = React.useState(mergedNetwatch);
+    const lastMapUpdate = React.useRef(0);
+
+    React.useEffect(() => {
+        if (!isLiveMode) {
+            setMapNetwatch(mergedNetwatch);
+            return;
+        }
+
+        const now = Date.now();
+        // Update map data at most every 3 seconds to keep animations smooth
+        if ((now - lastMapUpdate.current) > 3000) {
+            setMapNetwatch(mergedNetwatch);
+            lastMapUpdate.current = now;
+        }
+    }, [mergedNetwatch, isLiveMode]);
 
     // Auto-sync netwatch every 30 seconds
     useEffect(() => {
@@ -1649,7 +1822,6 @@ export default function RouterDetails() {
     const handleRefresh = async () => {
         try {
             await refreshMutation.mutateAsync(id);
-            // The mutation invalidation will trigger refetch of queries
         } catch (error) {
             console.error('Failed to refresh router:', error);
         }
@@ -1695,29 +1867,63 @@ export default function RouterDetails() {
                                         ? "bg-emerald-500/10 text-emerald-400"
                                         : "bg-red-500/10 text-red-400"
                                 )}>
-                                    {router?.status || 'unknown'}
+                                    {router?.status === 'online' ? 'Online' : 'Offline'}
                                 </span>
                             </div>
-                            <p className="text-slate-400 text-sm">{router?.host}:{router?.port}</p>
+                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
+                                <div className="flex items-center gap-1.5">
+                                    <MapPin className="w-3.5 h-3.5" />
+                                    {router?.host}:{router?.port}
+                                </div>
+                                {router?.location && (
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="w-3.5 h-3.5" />
+                                        {router.location}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        {/* Live Mode Toggle */}
+                        <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
+                            <div className={clsx(
+                                "w-2 h-2 rounded-full animate-pulse",
+                                isLiveMode ? "bg-red-500" : "bg-slate-500"
+                            )} />
+                            <span className="text-xs font-medium text-slate-300">Live Mode</span>
+                            <button
+                                onClick={() => setIsLiveMode(!isLiveMode)}
+                                className={clsx(
+                                    "w-8 h-4 rounded-full transition-colors relative ml-1",
+                                    isLiveMode ? "bg-red-500/20" : "bg-slate-700"
+                                )}
+                            >
+                                <div className={clsx(
+                                    "absolute top-0.5 w-3 h-3 rounded-full transition-all",
+                                    isLiveMode ? "left-4.5 bg-red-500" : "left-0.5 bg-slate-400"
+                                )} />
+                            </button>
+                        </div>
+
                         <Button
-                            onClick={() => setIsLiveMode(!isLiveMode)}
-                            variant={isLiveMode ? "primary" : "outline"}
-                            title="Toggle Live Traffic (SNMP)"
-                            className={clsx("transition-all duration-300", isLiveMode && "animate-pulse ring-2 ring-primary/50")}
+                            variant="outline"
+                            size="sm"
+                            onClick={handleRefresh}
+                            loading={refreshMutation.isPending}
+                            className="flex-1 sm:flex-none"
                         >
-                            <Activity className="w-4 h-4 sm:mr-2" />
-                            <span className="hidden sm:inline">{isLiveMode ? 'Live SNMP' : 'Live Mode'}</span>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh
                         </Button>
-                        <Button onClick={() => setIsEditModalOpen(true)} variant="outline" title="Edit Config">
-                            <Edit className="w-4 h-4 sm:mr-2" />
-                            <span className="hidden sm:inline">Edit Config</span>
-                        </Button>
-                        <Button onClick={handleRefresh} variant="outline" disabled={refreshMutation.isPending} title="Refresh">
-                            <RefreshCw className={clsx("w-4 h-4 sm:mr-2", refreshMutation.isPending && "animate-spin")} />
-                            <span className="hidden sm:inline">Refresh</span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="flex-1 sm:flex-none"
+                        >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Edit
                         </Button>
                     </div>
                 </div>
@@ -1726,14 +1932,31 @@ export default function RouterDetails() {
                 <Tabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
             </div>
 
-            {/* Content */}
-            <div className="flex-1 overflow-auto p-6">
-                {activeTab === 'dashboard' && <DashboardTab router={router} metrics={metrics} interfaces={interfaces} />}
-                {activeTab === 'netwatch' && <NetwatchTab routerId={id} netwatch={netwatch} refetch={refetchNetwatch} />}
-                {activeTab === 'pppoe' && <PppoeTab routerId={id} />}
-                {activeTab === 'map' && <MapTab router={router} netwatch={netwatch} apiKey={settings?.googleMapsApiKey} />}
+            {/* Content Area */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
+                {activeTab === 'dashboard' && (
+                    <DashboardTab router={router} metrics={metrics} interfaces={interfaces} />
+                )}
+
+                {activeTab === 'netwatch' && (
+                    <NetwatchTab routerId={id} netwatch={mergedNetwatch} onRefresh={refetchNetwatch} />
+                )}
+
+                {activeTab === 'pppoe' && (
+                    <PppoeTab routerId={id} />
+                )}
+
+                {activeTab === 'map' && (
+                    <MapTab
+                        router={router}
+                        netwatch={mapNetwatch}
+                        realtimeTraffic={realtimeTraffic}
+                        isLiveMode={isLiveMode}
+                    />
+                )}
             </div>
 
+            {/* Edit Modal */}
             <EditRouterModal
                 isOpen={isEditModalOpen}
                 onClose={() => setIsEditModalOpen(false)}

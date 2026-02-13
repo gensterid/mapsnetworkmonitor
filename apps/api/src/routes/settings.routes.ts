@@ -37,7 +37,7 @@ router.get(
 router.get(
     '/:key',
     asyncHandler(async (req, res) => {
-        const { key } = req.params;
+        const key = req.params.key as string;
         const setting = await settingsService.getSetting(key);
 
         if (!setting) {
@@ -57,7 +57,7 @@ router.put(
     '/:key',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { key } = req.params;
+        const key = req.params.key as string;
         const { value, description } = updateSettingSchema.parse(req.body);
 
         const setting = await settingsService.setSetting(key, value, description);
@@ -85,7 +85,7 @@ router.delete(
     '/:key',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { key } = req.params;
+        const key = req.params.key as string;
         const deleted = await settingsService.deleteSetting(key);
 
         if (!deleted) {

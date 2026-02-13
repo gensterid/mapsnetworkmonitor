@@ -390,7 +390,24 @@ class PppoeService {
         const now = new Date();
 
         for (const session of sessions) {
-            const queue = queueMap.get(session.name);
+            // Try different naming variations for the queue
+            // 1. Exact match (<username>)
+            // 2. Just username (username)
+            // 3. User with pppoe- prefix
+            // 4. Common MikroTik variant: <pppoe-username>
+            const possibleNames = [
+                `<${session.name}>`,
+                session.name,
+                `pppoe-${session.name}`,
+                `<pppoe-${session.name}>`
+            ];
+
+            let queue: SimpleQueueData | undefined;
+            for (const name of possibleNames) {
+                queue = queueMap.get(name);
+                if (queue) break;
+            }
+
             if (queue) {
                 // simple queue 'bytes' is "upload/download" (e.g. "1234/5678")
                 // In MikroTik Simple Queue: 
@@ -414,9 +431,6 @@ class PppoeService {
                         const txDiff = txBytes - prevTx;
                         const rxDiff = rxBytes - prevRx;
 
-                        // Handle counter reset or wrap (if new bytes < old bytes)
-                        // If diff is negative, strictly speaking we should ignore or assume reset to 0
-                        // For simplicity, if diff >= 0 we calculate rate.
                         if (txDiff >= 0) txRate = Math.round((txDiff * 8) / seconds);
                         if (rxDiff >= 0) rxRate = Math.round((rxDiff * 8) / seconds);
                     }

@@ -97,7 +97,7 @@ router.get(
 router.get(
     '/:id',
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const alert = await alertService.findById(id);
 
         if (!alert) {
@@ -117,7 +117,7 @@ router.put(
     '/:id/acknowledge',
     requireUser,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const alert = await alertService.acknowledge(id, req.user!.id, req.user!.role);
 
         if (!alert) {
@@ -167,7 +167,7 @@ router.put(
     '/:id/resolve',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const alert = await alertService.resolve(id);
 
         if (!alert) {
@@ -187,7 +187,7 @@ router.delete(
     '/:id',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const deleted = await alertService.delete(id);
 
         if (!deleted) {

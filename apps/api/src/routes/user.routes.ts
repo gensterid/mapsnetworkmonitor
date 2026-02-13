@@ -145,7 +145,7 @@ router.get(
     '/:id',
     requireOwnerOrAdmin((req) => req.params.id),
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const user = await userService.findById(id);
 
         if (!user) {
@@ -165,7 +165,7 @@ router.put(
     '/:id',
     requireOwnerOrAdmin((req) => req.params.id),
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const data = updateUserSchema.parse(req.body);
 
         const user = await userService.update(id, data);
@@ -197,7 +197,7 @@ router.put(
     '/:id/role',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const { role } = updateRoleSchema.parse(req.body);
 
         // Prevent admin from changing their own role
@@ -234,7 +234,7 @@ router.put(
     '/:id/password',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const { password } = updatePasswordSchema.parse(req.body);
 
         // Prevent admin from changing their own password via this endpoint
@@ -271,7 +271,7 @@ router.delete(
     '/:id',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
 
         // Prevent admin from deleting themselves
         if (id === req.user!.id) {
