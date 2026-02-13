@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
@@ -276,7 +276,8 @@ const DraggableMarker = ({
             }
         },
         click: onClick,
-    }), [onDragEnd, onClick]);
+        ...(props.eventHandlers || {}) // Merge external handlers
+    }), [onDragEnd, onClick, props.eventHandlers]);
 
     // Safety check: Don't render if position is invalid. 
     // This prevents Leaflet internal errors like "Cannot read properties of undefined (reading 'x')"
@@ -302,6 +303,80 @@ const DraggableMarker = ({
     );
 };
 
+// Memoized Tooltip for Devices to prevent re-renders of the layer component itself unless props change
+const DeviceTooltip = React.memo(({ node, line, rxRate, txRate, timezone, isHeatmapMode }) => {
+    const formatBitrate = (bitsPerSecond) => {
+        if (!bitsPerSecond || isNaN(bitsPerSecond)) return '0 bps';
+        const bps = Number(bitsPerSecond);
+        if (bps >= 1000000000) return `${(bps / 1000000000).toFixed(2)} Gbps`;
+        if (bps >= 1000000) return `${(bps / 1000000).toFixed(2)} Mbps`;
+        if (bps >= 1000) return `${(bps / 1000).toFixed(2)} Kbps`;
+        return `${bps.toFixed(0)} bps`;
+    };
+
+    const status = node.status || 'unknown';
+    const isUp = ['up', 'online', 'active'].includes(status);
+
+    return (
+        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
+            <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+                <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                    <div className="flex items-center gap-2 text-white">
+                        <span className="material-symbols-outlined text-[16px]">
+                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
+                        </span>
+                        <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                    </div>
+                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                        {status}
+                    </div>
+                </div>
+                <div className="p-3 bg-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Host</span>
+                        <span className="text-slate-200 font-mono">{node.host}</span>
+                    </div>
+                    {line && (
+                        <>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400">Source</span>
+                                <span className="text-slate-200 truncate max-w-[100px]">{line.sourceName}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-400">Distance</span>
+                                <span className="text-slate-200 font-mono">{(line.distance / 1000).toFixed(2)} km</span>
+                            </div>
+                        </>
+                    )}
+                    {isUp ? (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Latency</span>
+                            <span className="text-emerald-400 font-bold">{node.latency} ms</span>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-1">
+                            <span className="text-slate-400 text-[10px] uppercase">Down Since</span>
+                            <span className="text-red-200 text-xs">{formatDateWithTimezone(node.lastDown, timezone)}</span>
+                        </div>
+                    )}
+                    {isHeatmapMode && isUp && (
+                        <div className="border-t border-slate-700/50 pt-2 mt-1 grid grid-cols-2 gap-2">
+                            <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                                <span className="text-[10px] text-slate-500">RX</span>
+                                <span className="text-emerald-400 font-mono text-xs">{formatBitrate(rxRate)}</span>
+                            </div>
+                            <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                                <span className="text-[10px] text-slate-500">TX</span>
+                                <span className="text-blue-400 font-mono text-xs">{formatBitrate(txRate)}</span>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Tooltip>
+    );
+});
+
 // Wrapper that handles icon creation internally to ensure prop stability for memoization
 const SmartMarker = ({
     position,
@@ -315,6 +390,9 @@ const SmartMarker = ({
     draggable,
     onDragEnd,
     onClick,
+    isHovered, // New prop
+    txRate, // Added for MemoizedSmartMarker
+    rxRate, // Added for MemoizedSmartMarker
     children,
     ...props
 }) => {
@@ -339,7 +417,7 @@ const SmartMarker = ({
             status={status} // Pass status for cluster icon logic
             {...props}
         >
-            {children}
+            {isHovered && children}
         </DraggableMarker>
     );
 };
@@ -361,10 +439,12 @@ const arePropsEqual = (prev, next) => {
         prev.packetLoss === next.packetLoss &&
         prev.type === next.type &&
         prev.small === next.small &&
-        // For draggable marker specifically
         prev.icon === next.icon &&
-        // Heatmap Mode Check
-        prev.isHeatmapMode === next.isHeatmapMode
+        prev.isHeatmapMode === next.isHeatmapMode &&
+        prev.txRate === next.txRate &&
+        prev.rxRate === next.rxRate &&
+        prev.isHovered === next.isHovered && // Critical for tooltips
+        (prev.isHovered ? prev.tick === next.tick : true) // Only care about tick if hovered
     );
 };
 
@@ -500,7 +580,318 @@ const formatBitrate = (bits) => {
     return `${bits} bps`;
 };
 
-const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false }) => {
+// Memoized Line Component for Performance
+const NetworkLineOriginal = ({
+    line,
+    txRate, // Throttled (4s)
+    rxRate, // Throttled (4s)
+    isHeatmapMode,
+    lineThickness,
+    mapColors,
+    currentUser,
+    enableAnimation,
+    lowPerfMode,
+    timezone,
+    onMouseOver,
+    onMouseOut,
+    isHovered,
+    tick,
+    trafficMapRef // Pass the ref explicitly
+}) => {
+    // 1. Tooltip Content (Calculated lazily only when hovered)
+    const tooltipContent = useMemo(() => {
+        if (!isHovered) return null;
+
+        // Use fresh stats from Ref for the hovered tooltip
+        const map = trafficMapRef.current;
+        const iface = line.targetInterface;
+        const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
+        const stats = iface ? (map.get(routerPrefixedKey) || map.get(iface)) : null;
+
+        // If we don't have live stats yet, fall back to throttled props
+        const txRateLive = stats?.tx ?? txRate;
+        const rxRateLive = stats?.rx ?? rxRate;
+
+        const formatBitrate = (bitsPerSecond) => {
+            if (!bitsPerSecond || isNaN(bitsPerSecond)) return '0 bps';
+            const bps = Number(bitsPerSecond);
+            if (bps >= 1000000000) return `${(bps / 1000000000).toFixed(2)} Gbps`;
+            if (bps >= 1000000) return `${(bps / 1000000).toFixed(2)} Mbps`;
+            if (bps >= 1000) return `${(bps / 1000).toFixed(2)} Kbps`;
+            return `${bps.toFixed(0)} bps`;
+        };
+
+        const isUp = ['up', 'online', 'active'].includes(line.status);
+
+        return `
+            <div class="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
+                <div class="px-3 py-2 flex items-center justify-between ${isUp ? 'bg-indigo-600' : 'bg-slate-600'}">
+                    <div class="flex items-center gap-2 text-white">
+                        <span class="material-symbols-outlined text-[16px]">cable</span>
+                        <span class="font-bold text-xs truncate max-w-[140px]">${line.targetName || 'Link'}</span>
+                    </div>
+                    <div class="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                        ${line.deviceType || 'Link'}
+                    </div>
+                </div>
+                <div class="p-3 bg-slate-800 space-y-3">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Status</span>
+                        <span class="font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}">${line.status.toUpperCase()}</span>
+                    </div>
+                    ${line.targetInterface ? `
+                    <div class="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
+                        <span class="text-slate-400">Interface</span>
+                        <span class="text-slate-200 font-mono text-[10px]">${line.targetInterface}</span>
+                    </div>
+                    ` : ''}
+                    <div class="grid grid-cols-2 gap-2 mt-2">
+                        <div class="bg-slate-900/50 p-2 rounded border border-slate-700/30 flex flex-col items-center shadow-inner">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">RX</span>
+                            <span class="text-emerald-400 font-mono font-bold text-xs">${formatBitrate(rxRateLive)}</span>
+                        </div>
+                        <div class="bg-slate-900/50 p-2 rounded border border-slate-700/30 flex flex-col items-center shadow-inner">
+                            <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">TX</span>
+                            <span class="text-blue-400 font-mono font-bold text-xs">${formatBitrate(txRateLive)}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }, [isHovered, tick, line, txRate, rxRate, timezone]);
+
+    // 2. Derive visual props
+    const renderOptions = useMemo(() => {
+        const styleConfig = getAnimationStyle(currentUser?.animationStyle || 'default');
+
+        const latency = line.latency || 0;
+        const packetLoss = line.packetLoss || 0;
+        const isHighLatency = latency > 100;
+        const isPacketLoss = packetLoss > 5;
+        const isAlert = isHighLatency || isPacketLoss;
+
+        // Use the throttled rates for visual calculations
+        const maxRate = Math.max(txRate, rxRate);
+        const isHeatmapActive = isHeatmapMode && ['up', 'online', 'active'].includes(line.status);
+
+        let railColor = "#06b6d4";
+        const thresholdIdle = (Number(mapColors.trafficThresholdIdle) || 1) * 1000000;
+        const thresholdNormal = (Number(mapColors.trafficThresholdNormal) || 20) * 1000000;
+        const thresholdHigh = (Number(mapColors.trafficThresholdHigh) || 50) * 1000000;
+
+        if (line.status === 'down') {
+            railColor = mapColors.offline;
+        } else if (isHeatmapActive) {
+            if (maxRate < thresholdIdle) railColor = mapColors.trafficyIdle;
+            else if (maxRate < thresholdNormal) railColor = mapColors.trafficNormal;
+            else if (maxRate < thresholdHigh) railColor = mapColors.trafficHigh;
+            else railColor = mapColors.trafficPeak;
+        } else if (line.deviceType === 'pppoe') {
+            railColor = mapColors.pppoe;
+        } else if (line.deviceType === 'odp') {
+            railColor = mapColors.odp;
+        } else if (isAlert) {
+            railColor = mapColors.warning;
+        } else if (line.status === 'up' || line.status === 'online') {
+            railColor = mapColors.online;
+        }
+
+        let effectiveThickness = lineThickness;
+        if (isHeatmapActive) {
+            if (maxRate < thresholdIdle) effectiveThickness = Math.max(1, lineThickness - 1);
+            else if (maxRate > thresholdHigh) effectiveThickness = lineThickness + 3;
+            else if (maxRate > thresholdNormal) effectiveThickness = lineThickness + 1;
+        }
+
+        let motionColor = railColor;
+        let motionType = 'orb';
+        if (isHeatmapActive || isAlert) {
+            motionType = 'packet';
+        } else if (line.deviceType === 'pppoe') {
+            motionType = 'orb';
+        } else if (line.deviceType === 'odp') {
+            motionType = 'comet';
+        }
+
+        return {
+            styleConfig,
+            railColor,
+            effectiveThickness,
+            motionColor,
+            motionType,
+            isAlert,
+            isAntPath: styleConfig.isAntPath && !lowPerfMode
+        };
+    }, [line.status, line.deviceType, line.latency, line.packetLoss, txRate, rxRate, isHeatmapMode, lineThickness, mapColors, currentUser?.animationStyle, lowPerfMode]);
+
+    const { styleConfig, railColor, effectiveThickness, motionColor, motionType, isAlert, isAntPath } = renderOptions;
+
+    if (isAntPath) {
+        return (
+            <AntPath
+                positions={[line.from, ...(line.waypoints || []), line.to]}
+                options={{
+                    delay: styleConfig.delay,
+                    dashArray: styleConfig.dashArray,
+                    weight: effectiveThickness,
+                    color: styleConfig.color || railColor,
+                    pulseColor: styleConfig.pulseColor || "transparent",
+                    paused: !enableAnimation,
+                    reverse: false
+                }}
+                tooltip={tooltipContent}
+                popup={tooltipContent}
+                onMouseOver={onMouseOver}
+                onMouseOut={onMouseOut}
+            />
+        );
+    }
+
+    return (
+        <AnimatedPath
+            positions={[line.from, ...(line.waypoints || []), line.to]}
+            status={line.status}
+            type={line.deviceType}
+            animationStyle={currentUser?.animationStyle || 'default'}
+            delay={styleConfig.delay}
+            dashArray={styleConfig.dashArray}
+            weight={effectiveThickness}
+            enableAnimation={enableAnimation}
+            lineCap={styleConfig.lineCap || 'butt'}
+            color={railColor}
+            pulseColor={(line.status === 'down' || isAlert) ? railColor : (styleConfig.pulseColor ?? railColor)}
+            motionColor={motionColor}
+            motionType={motionType}
+            disableMotionPath={lowPerfMode}
+            paused={!enableAnimation}
+            tooltip={tooltipContent}
+            popup={tooltipContent}
+            onMouseOver={onMouseOver}
+            onMouseOut={onMouseOut}
+        />
+    );
+};
+
+// Custom comparison to prevent re-renders when non-hovered live traffic changes
+const areLinesEqual = (prev, next) => {
+    return (
+        prev.line.id === next.line.id &&
+        prev.line.status === next.line.status &&
+        prev.txRate === next.txRate &&
+        prev.rxRate === next.rxRate &&
+        prev.isHovered === next.isHovered &&
+        (prev.isHovered ? prev.tick === next.tick : true) &&
+        prev.isHeatmapMode === next.isHeatmapMode &&
+        prev.lineThickness === next.lineThickness &&
+        prev.enableAnimation === next.enableAnimation &&
+        prev.lowPerfMode === next.lowPerfMode &&
+        prev.timezone === next.timezone &&
+        prev.trafficMapRef === next.trafficMapRef // Ref should be stable
+    );
+};
+
+const MemoizedNetworkLine = React.memo(NetworkLineOriginal, areLinesEqual);
+
+const NetworkMap = ({
+    routerId: filteredRouterId = null,
+    showRoutersOnly = false,
+    netwatchOverride = null,
+    realtimeTraffic = null,
+    isLiveMode = false,
+    onLiveModeChange = null // New prop to control live mode from parent
+}) => {
+    // 1. Traffic Hub - Dual Rate for Performance
+    const [displayTraffic, setDisplayTraffic] = useState(realtimeTraffic || {});
+    const lastDisplayUpdate = React.useRef(0);
+
+    // Performance: Store traffic in Ref to allow reading inside loops without triggering re-renders
+    const trafficMapRef = useRef(new Map());
+
+    // Performance: Only trigger re-renders for live data if an item is actually hovered
+    const [hoverTick, setHoverTick] = useState(0);
+
+    // Debounced Hover Refs
+    const lineHoverTimeout = useRef(null);
+    const markerHoverTimeout = useRef(null);
+
+    // Debounced Hover Handlers
+    const handleLineHover = (id) => {
+        if (lineHoverTimeout.current) clearTimeout(lineHoverTimeout.current);
+        if (id === null) {
+            // Immediate clear for better responsiveness when leaving
+            setHoveredLineId(null);
+            return;
+        }
+        lineHoverTimeout.current = setTimeout(() => {
+            setHoveredLineId(id);
+        }, 50); // 50ms delay to prevent jitter
+    };
+
+    const handleMarkerHover = (id) => {
+        if (markerHoverTimeout.current) clearTimeout(markerHoverTimeout.current);
+        if (id === null) {
+            setHoveredMarkerId(null);
+            return;
+        }
+        markerHoverTimeout.current = setTimeout(() => {
+            setHoveredMarkerId(id);
+        }, 50);
+    };
+
+    // Sync Live vs Display Traffic
+    useEffect(() => {
+        if (!isLiveMode || !realtimeTraffic) {
+            setDisplayTraffic({});
+            trafficMapRef.current.clear(); // Clear live ref too
+            return;
+        }
+
+        // Update the live traffic ref immediately for tooltips
+        const liveMap = new Map();
+        Object.keys(realtimeTraffic).forEach(key => liveMap.set(key, realtimeTraffic[key]));
+        Object.entries(realtimeTraffic).forEach(([key, val]) => {
+            if (key.includes(':')) {
+                const ifaceOnly = key.split(':')[1];
+                if (!liveMap.has(ifaceOnly)) liveMap.set(ifaceOnly, val);
+            }
+            if (key.includes('-')) {
+                const ifaceOnly = key.split('-')[0];
+                if (!liveMap.has(ifaceOnly)) liveMap.set(ifaceOnly, val);
+            }
+        });
+        trafficMapRef.current = liveMap;
+
+        // Update display (heatmap/thickness) at most every 4 seconds for maximum smoothness
+        const now = Date.now();
+        if (now - lastDisplayUpdate.current > 4000) {
+            setDisplayTraffic(realtimeTraffic);
+            lastDisplayUpdate.current = now;
+        }
+        // Increment tick to force re-render of hovered items
+        setHoverTick(prev => prev + 1);
+    }, [realtimeTraffic, isLiveMode]);
+
+    // --- Optimization: Pre-calculate flat traffic map for O(1) lookup ---
+    // This solves the O(N*M) performance issue that causes stutter in large maps
+    // This is for the `trafficMapRef` which is updated in the useEffect above.
+    // The `displayTrafficMap` is for visual elements (lines, markers) that update less frequently.
+    const displayTrafficMap = useMemo(() => {
+        const map = new Map();
+        const raw = displayTraffic || {};
+        Object.keys(raw).forEach(key => map.set(key, raw[key]));
+        Object.entries(raw).forEach(([key, val]) => {
+            if (key.includes(':')) {
+                const ifaceOnly = key.split(':')[1];
+                if (!map.has(ifaceOnly)) map.set(ifaceOnly, val);
+            }
+            if (key.includes('-')) {
+                const ifaceOnly = key.split('-')[0];
+                if (!map.has(ifaceOnly)) map.set(ifaceOnly, val);
+            }
+        });
+        return map;
+    }, [displayTraffic]);
+
     const [mapType, setMapType] = useState('satellite_dark'); // Set to satellite_dark as default
     const [showLabels, setShowLabels] = useState(() => {
         const saved = localStorage.getItem('map_show_labels');
@@ -520,6 +911,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu toggle
     const [hoveredRouterId, setHoveredRouterId] = useState(null); // Track hovered router for tooltip fetching
+    const [hoveredLineId, setHoveredLineId] = useState(null); // Track hovered line for live stats
     const mapContainerRef = React.useRef(null);
 
     // Performance optimization states
@@ -597,7 +989,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             );
             return Promise.all(promises);
         },
-        enabled: !!routersData && !showRoutersOnly,
+        enabled: !!routersData && !showRoutersOnly && !netwatchOverride,
         placeholderData: keepPreviousData,
         refetchInterval: 5000, // Faster polling for "live" traffic feeling
     });
@@ -759,7 +1151,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
     // Memoize dependencies to ensure mapData is only recalculated when ACTUAL data content changes
     const stableRoutersData = useDeepCompareMemoize(routersData);
-    const stableNetwatchData = useDeepCompareMemoize(netwatchData);
+    const stableNetwatchData = useDeepCompareMemoize(netwatchOverride || netwatchData);
     const stablePppoeData = useDeepCompareMemoize(pppoeData);
 
     // Combine Data
@@ -779,10 +1171,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             // Apply filtering
             if (filteredRouterId && router.id !== filteredRouterId) return;
 
-            if (!router.latitude || !router.longitude) return;
+            // Robust coordinate processing for routers
             const lat = parseFloat(router.latitude);
             const lng = parseFloat(router.longitude);
-            const rNode = { ...router, lat, lng };
+
+            if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
+                return; // Skip invalid routers
+            }
+
+            const rNode = { ...router, lat, lng, type: 'router' };
             routerNodes.push(rNode);
             routerMap.set(router.id, rNode);
         });
@@ -983,6 +1380,7 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 // FIX: Pass latency/packetLoss so Yellow Alert works
                                 latency: session.lastLatency || session.latency,
                                 packetLoss: session.packetLoss,
+                                targetInterface: session.name, // Added for Live Mode matching
                                 txRate: session.txRate,
                                 rxRate: session.rxRate,
                             });
@@ -996,7 +1394,15 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
     }, [stableRoutersData, stableNetwatchData, stablePppoeData, filteredRouterId, showRoutersOnly]);
 
     const defaultCenter = [-8.8742173, 120.7290947];
-    const center = mapData.routers.length > 0 ? [mapData.routers[0].lat, mapData.routers[0].lng] : defaultCenter;
+    const center = useMemo(() => {
+        if (mapData.routers && mapData.routers.length > 0) {
+            const firstRouter = mapData.routers[0];
+            if (typeof firstRouter.lat === 'number' && typeof firstRouter.lng === 'number' && !isNaN(firstRouter.lat)) {
+                return [firstRouter.lat, firstRouter.lng];
+            }
+        }
+        return defaultCenter;
+    }, [mapData.routers]);
 
     // Combine all points for auto-fitting
     const allMarkers = useMemo(() => [
@@ -1154,6 +1560,9 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
         setEditWaypoints([]);
     };
 
+    // Hover State for Markers (Performance Optimization)
+    const [hoveredMarkerId, setHoveredMarkerId] = useState(null);
+
     const handleSavePath = () => {
         if (!editingDevice) return;
 
@@ -1243,46 +1652,63 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
             <>
                 {/* Router Markers */}
                 {mapData.routers.filter(r =>
-                    r.lat && r.lng && // Ensure coordinates exist
+                    typeof r.lat === 'number' && typeof r.lng === 'number' &&
                     (!searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery)))
-                ).map(router => (
-                    <DraggableMarker
-                        key={router.id}
-                        status={router.status} // For cluster icon
-                        position={[router.lat, router.lng]}
-                        icon={createDeviceIcon({
-                            type: 'router',
-                            status: router.status,
-                            name: showLabels ? router.name : '',
-                            showLabel: showLabels,
-                        })}
-                        eventHandlers={{
-                            click: () => handleDeviceClick(router, 'router'),
-                            mouseover: () => setHoveredRouterId(router.id),
-                            mouseout: () => setHoveredRouterId(null)
-                        }}
-                    >
-                        <RouterTooltip router={router} isHovered={hoveredRouterId === router.id} />
-                    </DraggableMarker>
-                ))}
+                ).map(router => {
+                    const isHovered = hoveredRouterId === router.id;
+                    return (
+                        <MemoizedDraggableMarker
+                            key={router.id}
+                            status={router.status} // For cluster icon
+                            position={[router.lat, router.lng]}
+                            icon={createDeviceIcon({
+                                type: 'router',
+                                status: router.status,
+                                name: showLabels ? router.name : '',
+                                showLabel: showLabels,
+                            })}
+                            eventHandlers={{
+                                click: () => handleDeviceClick(router, 'router'),
+                                mouseover: () => setHoveredRouterId(router.id),
+                                mouseout: () => setHoveredRouterId(null)
+                            }}
+                        >
+                            {isHovered && <RouterTooltip router={router} isHovered={true} />}
+                        </MemoizedDraggableMarker>
+                    );
+                })}
 
                 {/* Netwatch Node Markers */}
                 {mapData.nodes.filter(n =>
-                    n.lat && n.lng && // Ensure coordinates exist
+                    typeof n.lat === 'number' && typeof n.lng === 'number' &&
                     (!searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery)))
                 ).map(node => {
                     // Optimized Lookup
                     const line = linesByNetwatchId[node.id];
+                    const isHovered = hoveredMarkerId === node.id;
 
-                    // Traffic Data Source: Node (primary) -> Line (fallback for ODP)
+                    // Throttled Stats (Visuals)
                     const trafficInterface = node.targetInterface || line?.targetInterface;
-                    const txRate = node.txRate || line?.txRate || 0;
-                    const rxRate = node.rxRate || line?.rxRate || 0;
+                    const routerPrefixedKey = node.routerId ? `${node.routerId}:${trafficInterface}` : null;
+                    const visualStats = trafficInterface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(trafficInterface)) : null;
+                    const txRateThrottled = visualStats?.tx || node.txRate || 0;
+                    const rxRateThrottled = visualStats?.rx || node.rxRate || 0;
+
+                    // Live Stats (Lazy)
+                    let txRateLive = 0;
+                    let rxRateLive = 0;
+
+                    if (isHovered && trafficInterface) {
+                        const map = trafficMapRef.current;
+                        const stats = map.get(routerPrefixedKey) || map.get(trafficInterface);
+                        txRateLive = stats?.tx || 0;
+                        rxRateLive = stats?.rx || 0;
+                    }
+
                     return (
                         <MemoizedSmartMarker
                             key={`${node.routerId}-${node.id}`}
                             position={[node.lat, node.lng]}
-                            // Force 'netwatch' icon (WiFi) if type is 'client' (Person) to distinguish from PPPoE
                             type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
                             status={node.status}
                             name={node.name || node.host}
@@ -1295,235 +1721,92 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                 updateNetwatchMutation.mutate({
                                     routerId: node.routerId,
                                     netwatchId: node.id,
-                                    data: {
-                                        latitude: String(pos[0]),
-                                        longitude: String(pos[1])
-                                    }
+                                    data: { latitude: String(pos[0]), longitude: String(pos[1]) }
                                 });
                             }}
                             onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
-                            isHeatmapMode={isHeatmapMode} // Pass prop for memoization check
+                            isHovered={isHovered}
+                            // Pass tick to force re-render ONLY for hovered marker
+                            tick={isHovered ? hoverTick : 0}
+                            txRate={txRateThrottled} // For visual stability
+                            rxRate={rxRateThrottled} // For visual stability
+                            eventHandlers={{
+                                mouseover: () => handleMarkerHover(node.id),
+                                mouseout: () => handleMarkerHover(null)
+                            }}
                         >
-                            <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                                    {/* Header */}
-                                    <div className={`px-3 py-2 flex items-center justify-between ${node.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'
-                                        }`}>
-                                        <div className="flex items-center gap-2 text-white">
-                                            <span className="material-symbols-outlined text-[16px]">
-                                                {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
-                                            </span>
-                                            <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
-                                        </div>
-                                        <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                            {node.status}
-                                        </div>
-                                    </div>
-                                    {/* Body */}
-                                    <div className="p-3 bg-slate-800 space-y-2">
-                                        <div className="flex items-center justify-between text-xs">
-                                            <span className="text-slate-400">Host</span>
-                                            <span className="text-slate-200 font-mono">{node.host}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
-                                            <span className="text-slate-400">Type</span>
-                                            <span className="text-slate-200 capitalize">{node.deviceType || 'client'}</span>
-                                        </div>
-
-                                        {/* Source & Distance Info */}
-                                        {line && (
-                                            <div className="space-y-2 border-b border-slate-700/50 pb-2">
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-slate-400">Source</span>
-                                                    <span className="text-slate-200 truncate max-w-[100px]" title={line.sourceName}>{line.sourceName}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs">
-                                                    <span className="text-slate-400">Distance</span>
-                                                    <span className="text-slate-200 font-mono">{formatDistance(line.distance)}</span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Status Detail: Latency/Packet Loss OR Down Info */}
-                                        {(node.status === 'up' || node.status === 'online') ? (
-                                            (node.latency !== undefined && node.latency !== null) && (
-                                                <div className="flex flex-col gap-1 pt-0.5">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Latency</span>
-                                                        <span className={`font-mono font-bold ${Number(node.latency) < 20 ? 'text-emerald-400' :
-                                                            Number(node.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
-                                                            }`}>
-                                                            {node.latency} ms
-                                                        </span>
-                                                    </div>
-                                                    {node.packetLoss > 0 && (
-                                                        <div className="flex items-center justify-between text-xs">
-                                                            <span className="text-slate-400">Packet Loss</span>
-                                                            <span className="font-mono text-red-400 font-bold">{node.packetLoss}%</span>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )
-                                        ) : (
-                                            <div className="flex flex-col gap-1 pt-0.5 border-t border-slate-700/50 mt-1">
-                                                <div className="flex flex-col">
-                                                    <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-0.5">Down Since</span>
-                                                    <span className="font-mono text-xs bg-red-950/40 text-red-200 px-1.5 py-1 rounded border border-red-900/30">
-                                                        {formatDateWithTimezone(node.lastDown, timezone)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Heatmap Traffic Details for Device */}
-                                        {isHeatmapMode && ['up', 'online'].includes(node.status) && (
-                                            <div className="border-t border-slate-700/50 pt-2 mt-1 space-y-2">
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
-                                                    <span className="material-symbols-outlined text-[14px] text-blue-400">monitor_heart</span>
-                                                    Traffic
-                                                </div>
-                                                {trafficInterface ? (
-                                                    <div className="flex items-center justify-between text-xs bg-slate-900/50 px-2 py-1 rounded border border-slate-700/30">
-                                                        <span className="text-slate-400">Interface</span>
-                                                        <span className="text-blue-300 font-mono font-medium truncate max-w-[100px]" title={trafficInterface}>{trafficInterface}</span>
-                                                    </div>
-                                                ) : (
-                                                    node.deviceType === 'odp' && (
-                                                        <div className="flex items-center gap-1.5 text-xs text-amber-500/80 italic px-2 py-1 bg-amber-500/10 rounded border border-amber-500/20">
-                                                            <span className="material-symbols-outlined text-[14px]">link_off</span>
-                                                            <span>No Source Interface</span>
-                                                        </div>
-                                                    )
-                                                )}
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
-                                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">RX</span>
-                                                        <span className="text-emerald-400 font-mono font-bold text-xs">{formatBitrate(rxRate)}</span>
-                                                    </div>
-                                                    <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
-                                                        <span className="text-[10px] text-slate-500 uppercase tracking-wider">TX</span>
-                                                        <span className="text-blue-400 font-mono font-bold text-xs">{formatBitrate(txRate)}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                    </div>
-                                </div>
-                            </Tooltip>
-                        </MemoizedSmartMarker >
-                    )
+                            <DeviceTooltip
+                                node={node}
+                                line={line}
+                                rxRate={isHovered ? rxRateLive : rxRateThrottled}
+                                txRate={isHovered ? txRateLive : txRateThrottled}
+                                timezone={timezone}
+                                isHeatmapMode={isHeatmapMode}
+                            />
+                        </MemoizedSmartMarker>
+                    );
                 })}
 
 
 
                 {/* PPPoE Client Markers */}
-                {
-                    (mapData.pppoeNodes || []).filter(p =>
-                        p.lat && p.lng && // Ensure coordinates exist
-                        (!searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery)))
-                    ).map(pppoe => {
-                        // Optimized Lookup
-                        const line = linesByPppoeId[pppoe.id];
-                        return (
-                            <MemoizedSmartMarker
-                                key={`pppoe-${pppoe.id}`}
-                                position={[pppoe.lat, pppoe.lng]}
-                                type="pppoe"
-                                status={pppoe.status}
-                                name={pppoe.name}
-                                showLabel={showLabels}
-                                small={true}
-                                draggable={isEditMode}
-                                onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                                onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
-                                isHeatmapMode={isHeatmapMode} // Pass prop for memoization check
-                            >
-                                <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-                                    <div className="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
-                                        {/* Header */}
-                                        <div className={`px-3 py-2 flex items-center justify-between ${['online', 'active', 'up'].includes(pppoe.status) ? 'bg-purple-600' : 'bg-slate-600'
-                                            }`}>
-                                            <div className="flex items-center gap-2 text-white">
-                                                <span className="material-symbols-outlined text-[16px]">account_circle</span>
-                                                <span className="font-bold text-xs truncate max-w-[140px]">{pppoe.name}</span>
-                                            </div>
-                                            <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                                PPPoE
-                                            </div>
-                                        </div>
-                                        {/* Body */}
-                                        <div className="p-3 bg-slate-800 space-y-3">
-                                            {/* System Metrics */}
-                                            {pppoe.address && (
-                                                <div className="grid grid-cols-1 gap-2 text-xs">
-                                                    <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30">
-                                                        <span className="text-slate-400 block text-[10px] uppercase tracking-wider mb-0.5">IP Address</span>
-                                                        <span className="text-slate-200 font-mono font-medium">{pppoe.address}</span>
-                                                    </div>
-                                                </div>
-                                            )}
+                {(mapData.pppoeNodes || []).filter(p =>
+                    typeof p.lat === 'number' && typeof p.lng === 'number' &&
+                    (!searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery)))
+                ).map(pppoe => {
+                    const line = linesByPppoeId[pppoe.id];
+                    const isHovered = hoveredMarkerId === pppoe.id;
 
-                                            {/* Source & Distance Info - NEW SECTION */}
-                                            {line && (
-                                                <div className="space-y-2 border-t border-slate-700/50 pt-2">
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Source</span>
-                                                        <span className="text-slate-200 truncate max-w-[100px]" title={line.sourceName}>{line.sourceName}</span>
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-xs">
-                                                        <span className="text-slate-400">Distance</span>
-                                                        <span className="text-slate-200 font-mono">{formatDistance(line.distance)}</span>
-                                                    </div>
-                                                </div>
-                                            )}
+                    // Throttled Stats (Visuals)
+                    const visualStats = displayTrafficMap.get(pppoe.name) || displayTrafficMap.get(pppoe.interface);
+                    const txRateThrottled = visualStats?.tx || pppoe.txRate || 0;
+                    const rxRateThrottled = visualStats?.rx || pppoe.rxRate || 0;
 
-                                            <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
-                                                    <span className="material-symbols-outlined text-[14px]">info</span>
-                                                    Status
-                                                </div>
-                                                <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
-                                                    <span className="text-slate-300">Connection</span>
-                                                    <span className={`font-mono font-bold ${['online', 'active', 'up'].includes(pppoe.status) ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                        {['online', 'active', 'up'].includes(pppoe.status) ? 'Online' : 'Offline'}
-                                                    </span>
-                                                </div>
+                    // Live Stats (Lazy)
+                    let txRateLive = 0;
+                    let rxRateLive = 0;
+                    if (isHovered) {
+                        const map = trafficMapRef.current;
+                        const stats = map.get(pppoe.name) || map.get(pppoe.interface);
+                        txRateLive = stats?.tx || 0;
+                        rxRateLive = stats?.rx || 0;
+                    }
 
-                                                {/* Down Since Info */}
-                                                {!['online', 'active', 'up'].includes(pppoe.status) && pppoe.lastDown && (
-                                                    <div className="flex flex-col gap-1 pt-0.5 mt-2 border-t border-slate-700/50">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-slate-400 text-[10px] uppercase tracking-wider mb-0.5">Down Since</span>
-                                                            <span className="font-mono text-xs bg-red-950/40 text-red-200 px-1.5 py-1 rounded border border-red-900/30">
-                                                                {formatDateWithTimezone(pppoe.lastDown, timezone)}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Latency Info - NEW SECTION */}
-                                                {(pppoe.lastLatency || pppoe.latency) && (
-                                                    <div className="flex items-center justify-between text-xs bg-slate-900/30 px-2 py-1 rounded">
-                                                        <span className="text-slate-300">Latency</span>
-                                                        <span className={`font-mono font-bold ${Number(pppoe.lastLatency || pppoe.latency) < 20 ? 'text-emerald-400' :
-                                                            Number(pppoe.lastLatency || pppoe.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
-                                                            }`}>
-                                                            {pppoe.lastLatency || pppoe.latency} ms
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Tooltip>
-                            </MemoizedSmartMarker>
-                        )
-                    })
-                }
+                    return (
+                        <MemoizedSmartMarker
+                            key={`pppoe-${pppoe.id}`}
+                            position={[pppoe.lat, pppoe.lng]}
+                            type="pppoe"
+                            status={pppoe.status}
+                            name={pppoe.name}
+                            showLabel={showLabels}
+                            small={true}
+                            draggable={isEditMode}
+                            onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                            onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                            isHovered={isHovered}
+                            tick={isHovered ? hoverTick : 0}
+                            txRate={txRateThrottled} // For visual stability
+                            rxRate={rxRateThrottled} // For visual stability
+                            eventHandlers={{
+                                mouseover: () => handleMarkerHover(pppoe.id),
+                                mouseout: () => handleMarkerHover(null)
+                            }}
+                        >
+                            <DeviceTooltip
+                                node={{ ...pppoe, deviceType: 'pppoe' }}
+                                line={line}
+                                rxRate={isHovered ? rxRateLive : rxRateThrottled}
+                                txRate={isHovered ? txRateLive : txRateThrottled}
+                                timezone={timezone}
+                                isHeatmapMode={isHeatmapMode}
+                            />
+                        </MemoizedSmartMarker>
+                    );
+                })}
             </>
         )
-    }, [mapData, searchQuery, showLabels, isEditMode, handleDeviceClick, handlePppoeDragEnd, updateNetwatchMutation, timezone, hoveredRouterId]);
+    }, [mapData, searchQuery, showLabels, isEditMode, handleDeviceClick, handlePppoeDragEnd, updateNetwatchMutation, timezone, hoveredRouterId, hoveredMarkerId, hoverTick, displayTrafficMap]); // Depend on hoverTick, NOT realtimeTraffic/trafficMap
 
 
     return (
@@ -1540,212 +1823,51 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
 
 
                 {/* Animated Topology Lines (show when NOT editing) */}
-                {!isEditingPath && mapData.lines.map((line) => {
-                    const tooltipContent = `
-                            <div class="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
-                                <div class="px-3 py-2 flex items-center justify-between ${line.status === 'up' ? 'bg-emerald-600' : 'bg-red-600'}">
-                                    <div class="flex items-center gap-2 text-white">
-                                        <span class="material-symbols-outlined text-[16px]">timeline</span>
-                                        <span class="font-bold text-xs uppercase tracking-wide">Connection</span>
-                                    </div>
-                                    <div class="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                                        ${line.status.toUpperCase()}
-                                    </div>
-                                </div>
-                                <div class="p-3 bg-slate-800 space-y-2.5">
-                                    <div class="space-y-2 border-b border-slate-700/50 pb-2.5">
-                                        <div class="flex items-center justify-between text-xs group/item">
-                                            <span class="text-slate-400 flex items-center gap-1">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                                                Source
-                                            </span>
-                                            <span class="text-slate-200 font-medium truncate max-w-[120px] ml-2" title="${line.sourceName}">${line.sourceName}</span>
-                                        </div>
-                                        <div class="flex items-center justify-between text-xs group/item">
-                                            <span class="text-slate-400 flex items-center gap-1">
-                                                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
-                                                Target
-                                            </span>
-                                            <span class="text-slate-200 font-medium truncate max-w-[120px] ml-2" title="${line.destName}">${line.destName}</span>
-                                        </div>
-                                    </div>
-                                    <div class="flex items-center justify-between text-xs">
-                                        <span class="text-slate-400">Distance</span>
-                                        <div class="flex items-center gap-1.5 text-slate-200 font-mono bg-slate-900/50 px-2 py-0.5 rounded">
-                                            <span class="material-symbols-outlined text-[14px] text-slate-500">straighten</span>
-                                            ${formatDistance(line.distance)}
-                                        </div>
-                                    </div>
-                                    
-                                    ${isHeatmapMode && ['up', 'online'].includes(line.status) ? `
-                                    <div class="border-t border-slate-700/50 pt-2.5 mt-2.5 space-y-2">
-                                        <div class="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider mb-1">
-                                            <span class="material-symbols-outlined text-[14px] text-blue-400">monitor_heart</span>
-                                            Traffic Analysis
-                                        </div>
-                                        ${line.targetInterface ? `
-                                        <div class="flex items-center justify-between text-xs bg-slate-900/50 px-2 py-1.5 rounded border border-slate-700/30">
-                                            <div class="flex flex-col gap-0.5 max-w-[140px]">
-                                                <div class="flex items-center gap-1.5">
-                                                    <span class="material-symbols-outlined text-[14px] text-slate-500">settings_ethernet</span>
-                                                    <span class="text-slate-400">Interface</span>
-                                                </div>
-                                                ${line.inheritedFrom ? `<span class="text-[9px] text-slate-500 italic truncate">via ${line.inheritedFrom}</span>` : ''}
-                                            </div>
-                                            <span class="text-blue-300 font-mono font-medium">${line.targetInterface}</span>
-                                        </div>
-                                        ` : ''}
-                                        <div class="grid grid-cols-2 gap-2 mt-1.5">
-                                            <div class="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
-                                                <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                                                    <span class="material-symbols-outlined text-[12px] text-emerald-500 rotate-180">arrow_downward</span>
-                                                    RX (In)
-                                                </span>
-                                                <span class="text-emerald-400 font-mono font-bold text-xs">${formatBitrate(line.rxRate)}</span>
-                                            </div>
-                                            <div class="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
-                                                <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-0.5 flex items-center gap-1">
-                                                    <span class="material-symbols-outlined text-[12px] text-blue-500">arrow_upward</span>
-                                                    TX (Out)
-                                                </span>
-                                                <span class="text-blue-400 font-mono font-bold text-xs">${formatBitrate(line.txRate)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    ` : ''}
-                                </div>
-                            </div>
-                        `;
+                {/* Animated Topology Lines (show when NOT editing) */}
+                {!isEditingPath && useMemo(() => mapData.lines.map((line) => {
+                    const iface = line.targetInterface;
+                    const isHovered = hoveredLineId === line.id;
 
-
-                    // Check if we should use AntPath renderer
-                    const styleConfig = getAnimationStyle(currentUser?.animationStyle || 'default');
-
-                    // --- HIGH LATENCY / PACKET LOSS ALERT LOGIC ---
-                    const latency = line.latency || 0;
-                    const packetLoss = line.packetLoss || 0;
-                    const isHighLatency = latency > 100;
-                    const isPacketLoss = packetLoss > 5;
-                    const isAlert = isHighLatency || isPacketLoss;
-
-
-                    // --- HEATMAP & TRAFFIC LOGIC ---
-                    const txRate = line.txRate || 0;
-                    const rxRate = line.rxRate || 0;
-                    const maxRate = Math.max(txRate, rxRate);
-                    const isHeatmapActive = isHeatmapMode && line.status === 'up';
-
-                    // Determine Rail Color (Background)
-                    let railColor = "#06b6d4"; // Default Cyan
-
-                    // Dynamic Thresholds (converting Mbps to bps)
-                    const thresholdIdle = (Number(mapColors.trafficThresholdIdle) || 1) * 1000000;
-                    const thresholdNormal = (Number(mapColors.trafficThresholdNormal) || 20) * 1000000;
-                    const thresholdHigh = (Number(mapColors.trafficThresholdHigh) || 50) * 1000000;
-
-                    if (line.status === 'down') {
-                        railColor = mapColors.offline; // Pure Neon Red (Down - Priority)
-                    } else if (isHeatmapActive) {
-                        // Heatmap Colors based on Bandwidth
-                        if (maxRate < thresholdIdle) railColor = mapColors.trafficyIdle;
-                        else if (maxRate < thresholdNormal) railColor = mapColors.trafficNormal;
-                        else if (maxRate < thresholdHigh) railColor = mapColors.trafficHigh;
-                        else railColor = mapColors.trafficPeak;
-                    } else if (line.deviceType === 'pppoe') {
-                        railColor = mapColors.pppoe; // Neon Purple (Priority over Alert)
-                    } else if (line.deviceType === 'odp') {
-                        railColor = mapColors.odp; // Vibrant Neon Orange (Priority over Alert)
-                    } else if (isAlert) {
-                        railColor = mapColors.warning; // YELLOW Alert (Only for other devices)
-                    } else if (line.status === 'up') {
-                        railColor = mapColors.online; // Emerald Green
-                    }
-
-                    // --- FORCE THICKNESS FOR HEATMAP ---
-                    let effectiveThickness = lineThickness;
-                    if (isHeatmapActive) {
-                        if (maxRate < thresholdIdle) effectiveThickness = Math.max(1, lineThickness - 1);
-                        else if (maxRate > thresholdHigh) effectiveThickness = lineThickness + 3;
-                        else if (maxRate > thresholdNormal) effectiveThickness = lineThickness + 1;
-                    }
-
-                    // --- MOTION PATH STATE LOGIC ---
-                    let motionColor = railColor;
-                    let motionType = 'orb'; // Default
-                    let motionOpacity = 1;
-
-                    if (isHeatmapActive) {
-                        motionType = 'packet';
-                        motionColor = railColor; // Matches the line color for a cohesive look
-                        // Packet will be bright while the line (rail) will be semi-transparent
-                    } else if (isAlert) {
-                        motionType = 'packet'; // Show packets for data issues
-                        motionColor = mapColors.warning; // Yellow packets
-                    } else if (line.status === 'down') {
-                        motionOpacity = 0; // Hide motion on down lines (or maybe static red X?)
-                    } else if (line.deviceType === 'pppoe') {
-                        motionType = 'orb';
-                        motionColor = mapColors.pppoe; // Lighter purple for visibility
-                    } else if (line.deviceType === 'odp') {
-                        motionType = 'comet'; // Comet for ODP backbone
-                        motionColor = mapColors.odp; // Lighter orange
-                    }
-
-                    if (styleConfig.isAntPath && !lowPerfMode) {
-                        return (
-                            <AntPath
-                                key={`ant-line-${line.id}`}
-                                positions={[line.from, ...(line.waypoints || []), line.to]}
-                                options={{
-                                    delay: styleConfig.delay,
-                                    dashArray: styleConfig.dashArray,
-                                    weight: effectiveThickness,
-
-                                    color: styleConfig.color || railColor,
-                                    pulseColor: styleConfig.pulseColor || "transparent",
-                                    paused: !enableAnimation,
-                                    reverse: false
-                                }}
-                                tooltip={tooltipContent}
-                                popup={tooltipContent}
-                            />
-                        );
-                    }
+                    // Throttled Stats for Visuals (Color/Thickness)
+                    const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
+                    const stats = iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
+                    const txRateThrottled = stats?.tx || line.txRate || 0;
+                    const rxRateThrottled = stats?.rx || line.rxRate || 0;
 
                     return (
-                        <AnimatedPath
-                            key={`line-${line.id}-${enableAnimation}-${currentUser?.animationStyle || 'default'}-${lowPerfMode}`}
-                            positions={[line.from, ...(line.waypoints || []), line.to]}
-                            status={line.status}
-                            type={line.deviceType}
-                            animationStyle={currentUser?.animationStyle || 'default'}
-
-                            // Dynamic props from styleConfig
-                            delay={styleConfig.delay}
-                            dashArray={styleConfig.dashArray}
-                            weight={effectiveThickness}
-                            // opacity removed here, defined below with status logic
+                        <MemoizedNetworkLine
+                            key={`line-${line.id}-${enableAnimation}`}
+                            line={line}
+                            txRate={txRateThrottled}
+                            rxRate={rxRateThrottled}
+                            isHeatmapMode={isHeatmapMode}
+                            lineThickness={lineThickness}
+                            mapColors={mapColors}
+                            currentUser={currentUser}
                             enableAnimation={enableAnimation}
-                            lineCap={styleConfig.lineCap || 'butt'}
-
-                            // FORCE NEON LOGIC - ENFORCE railColor over style defaults
-                            color={railColor} // Always use status color (ignore styleConfig.color)
-                            pulseColor={(line.status === 'down' || isAlert) ? railColor : (styleConfig.pulseColor ?? railColor)}
-
-                            // Pass Motion Specifics (Disable if Low Perf)
-                            motionColor={motionColor}
-                            motionType={motionType}
-                            // Force disable motion path in low perf mode
-                            disableMotionPath={lowPerfMode}
-
-
-                            paused={!enableAnimation} // REMOVED: line.status === 'down' condition
-
-                            tooltip={tooltipContent}
-                            popup={tooltipContent}
+                            lowPerfMode={lowPerfMode}
+                            timezone={timezone}
+                            isHovered={isHovered}
+                            tick={isHovered ? hoverTick : 0}
+                            trafficMapRef={trafficMapRef} // Pass the ref
+                            onMouseOver={() => handleLineHover(line.id)}
+                            onMouseOut={() => handleLineHover(null)}
                         />
                     );
-                })}
+                }), [
+                    mapData.lines,
+                    displayTrafficMap,
+                    hoveredLineId,
+                    hoverTick, // Depend on tick, not trafficMap
+                    trafficMapRef, // Stable ref
+                    isHeatmapMode,
+                    lineThickness,
+                    mapColors,
+                    currentUser,
+                    enableAnimation,
+                    lowPerfMode,
+                    timezone
+                ])}
 
                 {/* Editable Path (show when editing) */}
                 {isEditingPath && editingLine && (
@@ -1890,7 +2012,14 @@ const NetworkMap = ({ routerId: filteredRouterId = null, showRoutersOnly = false
                                             type="checkbox"
                                             className="sr-only peer"
                                             checked={isHeatmapMode}
-                                            onChange={(e) => setIsHeatmapMode(e.target.checked)}
+                                            onChange={(e) => {
+                                                const checked = e.target.checked;
+                                                setIsHeatmapMode(checked);
+                                                // If parent controls live mode, toggle it too
+                                                if (onLiveModeChange) {
+                                                    onLiveModeChange(checked);
+                                                }
+                                            }}
                                         />
                                         <div className="w-9 h-5 bg-slate-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                                     </div>

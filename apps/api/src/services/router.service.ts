@@ -304,8 +304,9 @@ export class RouterService {
 
         const previousStatus = router.status;
 
+        let conn: any;
         try {
-            const conn = await connectToRouter({
+            conn = await connectToRouter({
                 host: router.host,
                 port: router.port,
                 username: router.username,
@@ -336,6 +337,9 @@ export class RouterService {
 
                     // Create a map of existing entries by host
                     const existingMap = new Map(existingEntries.map(e => [e.host, e]));
+
+                    // Create a set of valid interface names for auto-mapping
+                    const availableInterfaces = new Set(interfaces?.map(i => i.name) || []);
 
                     // Process each MikroTik netwatch entry
                     for (const nw of mikrotikNetwatch) {
@@ -372,32 +376,46 @@ export class RouterService {
                             }
 
                             // Update existing entry
+                            const updateData: any = {
+                                name: finalName,
+                                interval: nw.interval || existing.interval,
+                                status: status,
+                                lastCheck: new Date(),
+                                lastUp: nw.sinceUp || existing.lastUp,
+                                lastDown: nw.sinceDown || existing.lastDown,
+                                updatedAt: new Date(),
+                            };
+
+                            // Auto-map interface if comment matches a known interface and not already set
+                            if (!existing.targetInterface && nw.comment && availableInterfaces.has(nw.comment)) {
+                                updateData.targetInterface = nw.comment;
+                            }
+
                             await db
                                 .update(routerNetwatch)
-                                .set({
-                                    name: finalName,
-                                    interval: nw.interval || existing.interval,
-                                    status: status,
-                                    lastCheck: new Date(),
-                                    lastUp: nw.sinceUp || existing.lastUp,
-                                    lastDown: nw.sinceDown || existing.lastDown,
-                                    updatedAt: new Date(),
-                                })
+                                .set(updateData)
                                 .where(eq(routerNetwatch.id, existing.id));
                         } else {
                             // Create new entry
+                            const insertData: any = {
+                                routerId: id,
+                                host: nw.host,
+                                name: finalName,
+                                interval: nw.interval || 30,
+                                status: status,
+                                lastCheck: new Date(),
+                                lastUp: nw.sinceUp,
+                                lastDown: nw.sinceDown,
+                            };
+
+                            // Auto-map interface if comment matches a known interface
+                            if (nw.comment && availableInterfaces.has(nw.comment)) {
+                                insertData.targetInterface = nw.comment;
+                            }
+
                             await db
                                 .insert(routerNetwatch)
-                                .values({
-                                    routerId: id,
-                                    host: nw.host,
-                                    name: finalName,
-                                    interval: nw.interval || 30,
-                                    status: status,
-                                    lastCheck: new Date(),
-                                    lastUp: nw.sinceUp,
-                                    lastDown: nw.sinceDown,
-                                });
+                                .values(insertData);
                         }
                     }
                 } catch (nwErr) {
@@ -625,7 +643,7 @@ export class RouterService {
                 }
             }
 
-            conn.close();
+
 
             const latency = await measureLatency(router.host);
 
@@ -815,6 +833,14 @@ export class RouterService {
                 // Or just log it.
                 console.error(`[Router ${router.host}] Non-connection error during refresh:`, error);
                 return router;
+            }
+        } finally {
+            if (conn) {
+                try {
+                    await conn.close();
+                } catch (closeErr) {
+                    console.error(`[Router ${router.host}] Failed to close connection in finally block:`, closeErr);
+                }
             }
         }
     }
@@ -1131,6 +1157,28 @@ export class RouterService {
                         .where(eq(routerInterfaces.id, existing.id));
 
                     calculatedRates[name] = { tx: txRate, rx: rxRate };
+
+                    // --- NEW: Propagate traffic to Netwatch entries linked to this interface ---
+                    try {
+                        // Find netwatch entries that use this interface (targetInterface)
+                        // OR are clients connected to this router with no specific interface (fallback)
+                        // But strictly, we only map if targetInterface matches.
+
+                        await db
+                            .update(routerNetwatch)
+                            .set({
+                                txRate: txRate,
+                                rxRate: rxRate,
+                                updatedAt: new Date()
+                            })
+                            .where(and(
+                                eq(routerNetwatch.routerId, routerId),
+                                eq(routerNetwatch.targetInterface, name)
+                            ));
+
+                    } catch (propagateErr) {
+                        console.error(`[SNMP] Failed to propagate rate to netwatch for ${name}:`, propagateErr);
+                    }
                 }
             }
 
@@ -1183,28 +1231,27 @@ export class RouterService {
         const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
 
         if (targets.length === 0) {
-            console.log(`[Router ${router.name}] No ping targets found in settings, returning empty array`);
             return [];
         }
 
+        let conn: any;
+        const results: { ip: string; label: string; latency: number | null; packetLoss: number | null }[] = [];
+
         try {
             console.log(`[Router ${router.name}] Connecting to measure ping targets: ${targets.map(t => t.ip).join(', ')}`);
-            const conn = await connectToRouter({
+            conn = await connectToRouter({
                 host: router.host,
                 port: router.port,
                 username: router.username,
                 password: router.password,
+                timeout: 15 // Sufficient timeout for internet ping
             });
-
-            const results: { ip: string; label: string; latency: number | null; packetLoss: number | null }[] = [];
 
             // Ping each target (sequentially to avoid overwhelming router)
             for (const target of targets.slice(0, 6)) { // Max 6 targets
                 try {
-                    console.log(`[Router ${router.name}] Pinging ${target.ip}...`);
                     // Use relaxed interval (500ms) and longer timeout (2000ms) for high latency internet targets
                     const { latency, packetLoss } = await measurePing(conn, target.ip, 3, '500ms', '2000ms');
-                    console.log(`[Router ${router.name}] Ping result for ${target.ip}: ${latency}ms, Loss: ${packetLoss}%`);
                     results.push({
                         ip: target.ip,
                         label: target.label || target.ip,
@@ -1221,14 +1268,29 @@ export class RouterService {
                     });
                 }
             }
-
-            conn.close();
-            return results;
         } catch (error) {
             console.error(`[Router ${router.name}] Failed to measure ping targets completely:`, error instanceof Error ? error.message : error);
-            // Re-throw so frontend sees the error
-            throw error;
+
+            // If connection failed, return targets with null results instead of 500
+            if (results.length === 0) {
+                return targets.slice(0, 6).map(t => ({
+                    ip: t.ip,
+                    label: t.label || t.ip,
+                    latency: null,
+                    packetLoss: null
+                }));
+            }
+        } finally {
+            if (conn) {
+                try {
+                    await conn.close();
+                } catch (e) {
+                    // Ignore close error
+                }
+            }
         }
+
+        return results;
     }
 
     // ==================== NETWATCH METHODS ====================
