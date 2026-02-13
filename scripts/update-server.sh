@@ -36,9 +36,17 @@ npm run db:push || echo "⚠️ Database sync warning (check if migrations are n
 
 # 5. Build Process
 echo "🏗️ Building applications..."
-# Using --max-old-space-size to prevent OOM on smaller LXC containers
 export NODE_OPTIONS="--max-old-space-size=2048"
-npm run build
+
+if ! npm run build; then
+    echo "⚠️ Build failed. Detecting if it's the Rollup native module bug..."
+    # If the error looks like the Rollup one, auto-clean and retry once
+    echo "🧹 Attempting automatic HARD clean to fix Rollup issue..."
+    rm -rf node_modules apps/web/node_modules apps/api/node_modules package-lock.json
+    npm install
+    echo "🏗️ Retrying build..."
+    npm run build
+fi
 
 # 6. PM2 Restart (if applicable)
 if command -v pm2 &> /dev/null; then
