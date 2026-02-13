@@ -32,6 +32,15 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { calculatePathLength, formatDistance } from '@/lib/geo';
 
+// --- Custom Context ---
+const TrafficContext = React.createContext({
+    hoverTick: 0,
+    displayTrafficMap: new Map(),
+    trafficMapRef: { current: new Map() },
+    timezone: 'UTC',
+    isHeatmapMode: false
+});
+
 // --- Custom Components ---
 
 // Custom Dark Map Style
@@ -304,7 +313,10 @@ const DraggableMarker = ({
 };
 
 // Memoized Tooltip for Devices to prevent re-renders of the layer component itself unless props change
-const DeviceTooltip = React.memo(({ node, line, rxRate, txRate, timezone, isHeatmapMode }) => {
+// Memoized Tooltip for Devices
+const DeviceTooltip = React.memo(({ node, line }) => {
+    const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode } = React.useContext(TrafficContext);
+
     const formatBitrate = (bitsPerSecond) => {
         if (!bitsPerSecond || isNaN(bitsPerSecond)) return '0 bps';
         const bps = Number(bitsPerSecond);
@@ -316,6 +328,16 @@ const DeviceTooltip = React.memo(({ node, line, rxRate, txRate, timezone, isHeat
 
     const status = node.status || 'unknown';
     const isUp = ['up', 'online', 'active'].includes(status);
+    const trafficInterface = node.targetInterface || line?.targetInterface;
+
+    // Use fresh stats from Ref for the hovered tooltip
+    const routerPrefixedKey = node.routerId ? `${node.routerId}:${trafficInterface}` : null;
+    const stats = trafficInterface ? (trafficMapRef.current.get(routerPrefixedKey) || trafficMapRef.current.get(trafficInterface)) : null;
+
+    // Use live stats if available, otherwise throttled version from displayTrafficMap
+    const visualStats = trafficInterface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(trafficInterface)) : null;
+    const rxRate = stats?.rx ?? (visualStats?.rx || 0);
+    const txRate = stats?.tx ?? (visualStats?.tx || 0);
 
     return (
         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
@@ -323,7 +345,7 @@ const DeviceTooltip = React.memo(({ node, line, rxRate, txRate, timezone, isHeat
                 <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
                     <div className="flex items-center gap-2 text-white">
                         <span className="material-symbols-outlined text-[16px]">
-                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : 'person'}
+                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : node.deviceType === 'router' ? 'router' : 'person'}
                         </span>
                         <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
                     </div>
@@ -336,6 +358,12 @@ const DeviceTooltip = React.memo(({ node, line, rxRate, txRate, timezone, isHeat
                         <span className="text-slate-400">Host</span>
                         <span className="text-slate-200 font-mono">{node.host}</span>
                     </div>
+                    {trafficInterface && (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Interface</span>
+                            <span className="text-slate-200 font-mono text-[10px]">{trafficInterface}</span>
+                        </div>
+                    )}
                     {line && (
                         <>
                             <div className="flex items-center justify-between text-xs">
@@ -359,8 +387,10 @@ const DeviceTooltip = React.memo(({ node, line, rxRate, txRate, timezone, isHeat
                             <span className="text-red-200 text-xs">{formatDateWithTimezone(node.lastDown, timezone)}</span>
                         </div>
                     )}
-                    {isHeatmapMode && isUp && (
-                        <div className="border-t border-slate-700/50 pt-2 mt-1 grid grid-cols-2 gap-2">
+
+                    {/* Always show traffic info if available, highlight more in heatmap mode */}
+                    {isUp && (
+                        <div className={`border-t border-slate-700/50 pt-2 mt-1 grid grid-cols-2 gap-2 ${isHeatmapMode ? 'opacity-100' : 'opacity-80'}`}>
                             <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
                                 <span className="text-[10px] text-slate-500">RX</span>
                                 <span className="text-emerald-400 font-mono text-xs">{formatBitrate(rxRate)}</span>
@@ -390,12 +420,11 @@ const SmartMarker = ({
     draggable,
     onDragEnd,
     onClick,
-    isHovered, // New prop
-    txRate, // Added for MemoizedSmartMarker
-    rxRate, // Added for MemoizedSmartMarker
+    isHovered,
     children,
     ...props
 }) => {
+    const { hoverTick } = React.useContext(TrafficContext);
     // Memoize the icon so it doesn't change reference on every render
     const icon = useMemo(() => createDeviceIcon({
         type,
@@ -441,10 +470,7 @@ const arePropsEqual = (prev, next) => {
         prev.small === next.small &&
         prev.icon === next.icon &&
         prev.isHeatmapMode === next.isHeatmapMode &&
-        prev.txRate === next.txRate &&
-        prev.rxRate === next.rxRate &&
-        prev.isHovered === next.isHovered && // Critical for tooltips
-        (prev.isHovered ? prev.tick === next.tick : true) // Only care about tick if hovered
+        prev.isHovered === next.isHovered
     );
 };
 
@@ -596,14 +622,17 @@ const NetworkLineOriginal = ({
     onMouseOut,
     isHovered,
     tick,
-    trafficMapRef // Pass the ref explicitly
+    trafficMapRef // Removed: now consumed from context
 }) => {
+    const { hoverTick, displayTrafficMap, trafficMapRef: contextTrafficMapRef } = React.useContext(TrafficContext);
+    const activeTrafficMapRef = contextTrafficMapRef || trafficMapRef; // Fallback
+
     // 1. Tooltip Content (Calculated lazily only when hovered)
     const tooltipContent = useMemo(() => {
         if (!isHovered) return null;
 
         // Use fresh stats from Ref for the hovered tooltip
-        const map = trafficMapRef.current;
+        const map = activeTrafficMapRef.current;
         const iface = line.targetInterface;
         const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
         const stats = iface ? (map.get(routerPrefixedKey) || map.get(iface)) : null;
@@ -1657,16 +1686,13 @@ const NetworkMap = ({
                 ).map(router => {
                     const isHovered = hoveredRouterId === router.id;
                     return (
-                        <MemoizedDraggableMarker
+                        <MemoizedSmartMarker
                             key={router.id}
-                            status={router.status} // For cluster icon
                             position={[router.lat, router.lng]}
-                            icon={createDeviceIcon({
-                                type: 'router',
-                                status: router.status,
-                                name: showLabels ? router.name : '',
-                                showLabel: showLabels,
-                            })}
+                            type="router"
+                            status={router.status}
+                            name={router.name || router.host}
+                            showLabel={showLabels}
                             isHovered={isHovered}
                             eventHandlers={{
                                 click: () => handleDeviceClick(router, 'router'),
@@ -1674,8 +1700,8 @@ const NetworkMap = ({
                                 mouseout: () => setHoveredRouterId(null)
                             }}
                         >
-                            {isHovered && <RouterTooltip router={router} isHovered={true} />}
-                        </MemoizedDraggableMarker>
+                            <DeviceTooltip node={router} line={null} />
+                        </MemoizedSmartMarker>
                     );
                 })}
 
@@ -1725,24 +1751,17 @@ const NetworkMap = ({
                                     data: { latitude: String(pos[0]), longitude: String(pos[1]) }
                                 });
                             }}
-                            onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
                             isHovered={isHovered}
-                            // Pass tick to force re-render ONLY for hovered marker
-                            tick={isHovered ? hoverTick : 0}
-                            txRate={txRateThrottled} // For visual stability
-                            rxRate={rxRateThrottled} // For visual stability
+                            onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
                             eventHandlers={{
                                 mouseover: () => handleMarkerHover(node.id),
                                 mouseout: () => handleMarkerHover(null)
                             }}
+                            isHeatmapMode={isHeatmapMode} // Ensure heatmap mode prop is passed
                         >
                             <DeviceTooltip
                                 node={node}
                                 line={line}
-                                rxRate={isHovered ? rxRateLive : rxRateThrottled}
-                                txRate={isHovered ? txRateLive : txRateThrottled}
-                                timezone={timezone}
-                                isHeatmapMode={isHeatmapMode}
                             />
                         </MemoizedSmartMarker>
                     );
@@ -1784,132 +1803,129 @@ const NetworkMap = ({
                             small={true}
                             draggable={isEditMode}
                             onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                            onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
                             isHovered={isHovered}
-                            tick={isHovered ? hoverTick : 0}
-                            txRate={txRateThrottled} // For visual stability
-                            rxRate={rxRateThrottled} // For visual stability
+                            onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
                             eventHandlers={{
                                 mouseover: () => handleMarkerHover(pppoe.id),
                                 mouseout: () => handleMarkerHover(null)
                             }}
+                            isHeatmapMode={isHeatmapMode}
                         >
                             <DeviceTooltip
                                 node={{ ...pppoe, deviceType: 'pppoe' }}
                                 line={line}
-                                rxRate={isHovered ? rxRateLive : rxRateThrottled}
-                                txRate={isHovered ? txRateLive : txRateThrottled}
-                                timezone={timezone}
-                                isHeatmapMode={isHeatmapMode}
                             />
                         </MemoizedSmartMarker>
                     );
                 })}
             </>
         )
-    }, [mapData, searchQuery, showLabels, isEditMode, handleDeviceClick, handlePppoeDragEnd, updateNetwatchMutation, timezone, hoveredRouterId, hoveredMarkerId, hoverTick, displayTrafficMap]); // Depend on hoverTick, NOT realtimeTraffic/trafficMap
+    }, [mapData, searchQuery, showLabels, isEditMode, handleDeviceClick, handlePppoeDragEnd, updateNetwatchMutation, timezone, hoveredRouterId, hoveredMarkerId, isHeatmapMode]); // Removed hoverTick and displayTrafficMap
 
 
     return (
         <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} map-type-${mapType}`}>
-            <MapContainer
-                center={center}
-                zoom={10}
-                maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
-                scrollWheelZoom={true}
-                style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
-            >
-                <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
-                <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
+            <TrafficContext.Provider value={{
+                hoverTick,
+                displayTrafficMap,
+                trafficMapRef,
+                timezone,
+                isHeatmapMode
+            }}>
+                <MapContainer
+                    center={center}
+                    zoom={10}
+                    maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
+                    scrollWheelZoom={true}
+                    style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
+                >
+                    <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
+                    <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
 
 
-                {/* Animated Topology Lines (show when NOT editing) */}
-                {/* Animated Topology Lines (show when NOT editing) */}
-                {!isEditingPath && useMemo(() => mapData.lines.map((line) => {
-                    const iface = line.targetInterface;
-                    const isHovered = hoveredLineId === line.id;
+                    {/* Animated Topology Lines (show when NOT editing) */}
+                    {/* Animated Topology Lines (show when NOT editing) */}
+                    {!isEditingPath && useMemo(() => mapData.lines.map((line) => {
+                        const iface = line.targetInterface;
+                        const isHovered = hoveredLineId === line.id;
 
-                    // Throttled Stats for Visuals (Color/Thickness)
-                    const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
-                    const stats = iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
-                    const txRateThrottled = stats?.tx || line.txRate || 0;
-                    const rxRateThrottled = stats?.rx || line.rxRate || 0;
+                        // Throttled Stats for Visuals (Color/Thickness)
+                        const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
+                        const stats = iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
+                        const txRateThrottled = stats?.tx || line.txRate || 0;
+                        const rxRateThrottled = stats?.rx || line.rxRate || 0;
 
-                    return (
-                        <MemoizedNetworkLine
-                            key={`line-${line.id}-${enableAnimation}`}
-                            line={line}
-                            txRate={txRateThrottled}
-                            rxRate={rxRateThrottled}
-                            isHeatmapMode={isHeatmapMode}
-                            lineThickness={lineThickness}
-                            mapColors={mapColors}
-                            currentUser={currentUser}
-                            enableAnimation={enableAnimation}
-                            lowPerfMode={lowPerfMode}
-                            timezone={timezone}
-                            isHovered={isHovered}
-                            tick={isHovered ? hoverTick : 0}
-                            trafficMapRef={trafficMapRef} // Pass the ref
-                            onMouseOver={() => handleLineHover(line.id)}
-                            onMouseOut={() => handleLineHover(null)}
-                        />
-                    );
-                }), [
-                    mapData.lines,
-                    displayTrafficMap,
-                    hoveredLineId,
-                    hoverTick, // Depend on tick, not trafficMap
-                    trafficMapRef, // Stable ref
-                    isHeatmapMode,
-                    lineThickness,
-                    mapColors,
-                    currentUser,
-                    enableAnimation,
-                    lowPerfMode,
-                    timezone
-                ])}
-
-                {/* Editable Path (show when editing) */}
-                {isEditingPath && editingLine && (
-                    <EditablePath
-                        fromPosition={editingLine.from}
-                        toPosition={editingLine.to}
-                        waypoints={editWaypoints}
-                        isEditing={true}
-                        color="#3b82f6"
-                        onWaypointsChange={setEditWaypoints}
-                        onLengthChange={setPathLength}
-                    />
-                )}
-
-                {/* Markers with optional Clustering */}
-                {(() => {
-                    if (enableClustering) {
                         return (
-                            <MarkerClusterGroup
-                                chunkedLoading
-                                spiderfyOnMaxZoom={true}
-                                showCoverageOnHover={false}
-                                maxClusterRadius={60}
-                                iconCreateFunction={createClusterCustomIcon}
-                                polygonOptions={{
-                                    fillColor: '#3b82f6',
-                                    color: '#3b82f6',
-                                    weight: 1,
-                                    opacity: 0.8,
-                                    fillOpacity: 0.1,
-                                }}
-                            >
-                                {markers}
-                            </MarkerClusterGroup>
+                            <MemoizedNetworkLine
+                                key={`line-${line.id}-${enableAnimation}`}
+                                line={line}
+                                txRate={txRateThrottled}
+                                rxRate={rxRateThrottled}
+                                isHeatmapMode={isHeatmapMode}
+                                lineThickness={lineThickness}
+                                mapColors={mapColors}
+                                currentUser={currentUser}
+                                enableAnimation={enableAnimation}
+                                lowPerfMode={lowPerfMode}
+                                timezone={timezone}
+                                isHovered={isHovered}
+                                onMouseOver={() => handleLineHover(line.id)}
+                                onMouseOut={() => handleLineHover(null)}
+                            />
                         );
-                    }
+                    }), [
+                        mapData.lines,
+                        hoveredLineId,
+                        isHeatmapMode,
+                        lineThickness,
+                        mapColors,
+                        currentUser,
+                        enableAnimation,
+                        lowPerfMode,
+                        timezone
+                    ])}
 
-                    return markers;
-                })()}
+                    {/* Editable Path (show when editing) */}
+                    {isEditingPath && editingLine && (
+                        <EditablePath
+                            fromPosition={editingLine.from}
+                            toPosition={editingLine.to}
+                            waypoints={editWaypoints}
+                            isEditing={true}
+                            color="#3b82f6"
+                            onWaypointsChange={setEditWaypoints}
+                            onLengthChange={setPathLength}
+                        />
+                    )}
 
-            </MapContainer >
+                    {/* Markers with optional Clustering */}
+                    {(() => {
+                        if (enableClustering) {
+                            return (
+                                <MarkerClusterGroup
+                                    chunkedLoading
+                                    spiderfyOnMaxZoom={true}
+                                    showCoverageOnHover={false}
+                                    maxClusterRadius={60}
+                                    iconCreateFunction={createClusterCustomIcon}
+                                    polygonOptions={{
+                                        fillColor: '#3b82f6',
+                                        color: '#3b82f6',
+                                        weight: 1,
+                                        opacity: 0.8,
+                                        fillOpacity: 0.1,
+                                    }}
+                                >
+                                    {markers}
+                                </MarkerClusterGroup>
+                            );
+                        }
+
+                        return markers;
+                    })()}
+
+                </MapContainer >
+            </TrafficContext.Provider>
 
             {/* Path Edit Toolbar */}
             {
