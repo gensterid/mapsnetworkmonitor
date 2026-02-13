@@ -295,8 +295,8 @@ const DraggableMarker = ({
             position={markerPosition}
             icon={icon}
             draggable={draggable}
-            eventHandlers={eventHandlers}
             {...props}
+            eventHandlers={eventHandlers}
         >
             {children}
         </Marker>
@@ -1667,6 +1667,7 @@ const NetworkMap = ({
                                 name: showLabels ? router.name : '',
                                 showLabel: showLabels,
                             })}
+                            isHovered={isHovered}
                             eventHandlers={{
                                 click: () => handleDeviceClick(router, 'router'),
                                 mouseover: () => setHoveredRouterId(router.id),
