@@ -1,6 +1,6 @@
-# Panduan Update di Proxmox / Server Linux
+# Panduan Update di Proxmox (Minimal Error)
 
-Ikuti langkah-langkah berikut untuk meng-update aplikasi di server Proxmox (LXC/VM) Anda.
+Ikuti langkah-langkah berikut untuk meng-update aplikasi di server Proxmox Anda dengan risiko error minimal.
 
 ## 1. Masuk ke Server
 Akses terminal server via SSH atau Console Proxmox.
@@ -11,41 +11,34 @@ cd /path/to/folder/project
 # Contoh: cd /var/www/mikrotik-monitor
 ```
 
-## 3. Ambil Update dari GitHub
-```bash
-git pull origin main
-```
-*Pastikan tidak ada error conflict.*
+## 3. Jalankan Update Otomatis (Rekomendasi)
+Kami telah menyediakan script untuk menangani pull, reset conflict, install dependencies, dan build dalam satu command:
 
-## 4. Install Dependencies (Penting!)
-Karena ada perubahan code, sebaiknya pastikan dependencies terinstall.
 ```bash
-npm install
+bash scripts/update-server.sh
 ```
 
-## 5. Update Database
-Kita baru saja menambahkan kolom `lastKnownLatency`. Jalankan migrasi:
-```bash
-npm run db:migrate -w apps/api
-```
-*Jika command ini error atau belum setup migrate di prod, Anda bisa gunakan `npm run db:push -w apps/api` (tapi hati-hati di production).*
+> [!IMPORTANT]
+> Script ini akan melakukan `git reset --hard`. Jika Anda memiliki perubahan code yang dibuat langsung di server, perubahan tersebut akan **DIHAPUS**. Pastikan sudah di-backup atau di-commit.
 
-## 6. Build Ulang Aplikasi
-```bash
-npm run build
-```
+## 4. Troubleshooting (Jika Ada Masalah)
 
-## 7. Restart Service (PM2)
-Jika menggunakan PM2 untuk menjalankan aplikasi:
-```bash
-pm2 restart all
-# Atau restart spesifik service api dan web
-pm2 restart api
-pm2 restart web
-```
+### Jika RAM Server Kecil
+Jika proses `npm run build` berhenti tiba-tiba, kemungkinan server kehabisan RAM. Script sudah mencoba menambah limit ke 2GB, tapi pastikan server Anda minimal memiliki 2GB RAM atau Swap.
 
-## Cek Logs (Opsional)
-Pastikan tidak ada error startup:
+### Cek Status Service
+Gunakan PM2 untuk melihat apakah aplikasi running normal:
 ```bash
+pm2 list
 pm2 logs
+```
+
+### Reset Manual (Hard Reset)
+Jika script tetap error karena git conflict:
+```bash
+git fetch --all
+git reset --hard origin/main
+npm install
+npm run build
+pm2 restart all
 ```
