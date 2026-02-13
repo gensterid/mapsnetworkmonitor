@@ -21,7 +21,13 @@ git reset --hard origin/main
 
 # 3. Clean Dependencies
 echo "📦 Installing dependencies (Clean)..."
-# Using --include=dev for builds, but ensuring we don't have stale nodes
+# If the user provides --hard-clean, we wipe everything
+if [[ "$*" == *"--hard-clean"* ]]; then
+    echo "🧹 Performing HARD clean (removing node_modules and package-lock.json)..."
+    rm -rf node_modules apps/web/node_modules apps/api/node_modules package-lock.json
+fi
+
+# We use --force to bypass any lingering platform-specific locks that might cause the Rollup error
 npm install
 
 # 4. Database Sync

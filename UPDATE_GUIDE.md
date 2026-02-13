@@ -12,6 +12,9 @@ cd /path/to/folder/project
 # Jalankan script update otomatis
 chmod +x scripts/update-server.sh
 ./scripts/update-server.sh
+
+# Jika muncul error Rollup (@rollup/rollup-linux-x64-gnu), jalankan:
+./scripts/update-server.sh --hard-clean
 ```
 
 > [!IMPORTANT]
