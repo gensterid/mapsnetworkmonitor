@@ -160,15 +160,16 @@ const SATELLITE_DARK_STYLES = [
 ];
 
 // Component to add Google Maps Layer
-const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
+const GoogleMapsLayer = ({ type = 'hybrid', apiKey, onLoaded }) => {
     const map = useMap();
-    const [scriptLoaded, setScriptLoaded] = useState(false);
+    const [scriptLoaded, setScriptLoaded] = useState(() => !!window.google?.maps);
 
     useEffect(() => {
         if (!apiKey) return;
 
         if (window.google?.maps) {
-            setScriptLoaded(true);
+            if (!scriptLoaded) setScriptLoaded(true);
+            onLoaded?.();
             return;
         }
 
@@ -177,6 +178,7 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
             const checkLoaded = setInterval(() => {
                 if (window.google?.maps) {
                     setScriptLoaded(true);
+                    onLoaded?.();
                     clearInterval(checkLoaded);
                 }
             }, 100);
@@ -189,10 +191,11 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
         script.defer = true;
         script.onload = () => {
             setScriptLoaded(true);
-            script.remove();
+            onLoaded?.();
+            // Important: Don't remove the script tag so it stays in browser cache
         };
         document.head.appendChild(script);
-    }, [apiKey]);
+    }, [apiKey, scriptLoaded, onLoaded]);
 
     useEffect(() => {
         if (!scriptLoaded || !L.gridLayer.googleMutant) return;
@@ -211,7 +214,11 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey }) => {
 
             const googleLayer = L.gridLayer.googleMutant(layerOptions);
             googleLayer.addTo(map);
-            return () => map.removeLayer(googleLayer);
+            return () => {
+                if (map.hasLayer(googleLayer)) {
+                    map.removeLayer(googleLayer);
+                }
+            };
         } catch (e) {
             console.error("Failed to init google layer", e);
         }
@@ -1214,6 +1221,7 @@ const NetworkMap = ({
     const [hoveredLineId, setHoveredLineId] = useState(null);
     const mapContainerRef = React.useRef(null);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [googleLoaded, setGoogleLoaded] = useState(() => !!window.google?.maps);
 
     // Performance optimization states
     const [enableAnimation, setEnableAnimation] = useState(() => {
@@ -2150,6 +2158,13 @@ const NetworkMap = ({
 
     return (
         <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} map-type-${mapType}`}>
+            {(!googleLoaded || !apiKey) && (
+                <div className="absolute inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                    <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-300 font-medium">Memuat Peta Google...</p>
+                    {!apiKey && <p className="text-red-400 text-xs mt-2">API Key Google Maps tidak ditemukan.</p>}
+                </div>
+            )}
             <TrafficContext.Provider value={trafficContextValue}>
                 <HoveredItemContext.Provider value={{ hoveredMarkerId, hoveredLineId }}>
                     <MapContainer
@@ -2160,7 +2175,7 @@ const NetworkMap = ({
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
-                        <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
+                        <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} onLoaded={() => setGoogleLoaded(true)} />
 
 
                         {/* Animated Topology Lines (show when NOT editing) */}
