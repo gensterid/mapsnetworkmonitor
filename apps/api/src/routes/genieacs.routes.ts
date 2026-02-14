@@ -32,7 +32,7 @@ router.get(
     '/devices/:id',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const id = req.params.id;
+        const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
         const device = await genieacsService.getDevice(id, routerId);
         if (!device) {

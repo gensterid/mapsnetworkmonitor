@@ -35,7 +35,7 @@ router.get('/', authMiddleware, async (req, res) => {
 // GET /presets/:id
 router.get('/:id', authMiddleware, async (req, res) => {
     try {
-        const preset = await presetService.findById(req.params.id);
+        const preset = await presetService.findById(req.params.id as string);
         if (!preset) return res.status(404).json({ error: 'Preset not found' });
         res.json(preset);
     } catch (error) {
@@ -61,7 +61,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
 router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const data = updateSchema.parse(req.body);
-        const preset = await presetService.update(req.params.id, data);
+        const preset = await presetService.update(req.params.id as string, data);
         if (!preset) return res.status(404).json({ error: 'Preset not found' });
         res.json(preset);
     } catch (error) {
@@ -75,7 +75,7 @@ router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
 // DELETE /presets/:id
 router.delete('/:id', authMiddleware, requireAdmin, async (req, res) => {
     try {
-        const preset = await presetService.delete(req.params.id);
+        const preset = await presetService.delete(req.params.id as string);
         if (!preset) return res.status(404).json({ error: 'Preset not found' });
         res.json({ success: true });
     } catch (error) {
