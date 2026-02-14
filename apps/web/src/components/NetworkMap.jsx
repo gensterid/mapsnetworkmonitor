@@ -521,7 +521,7 @@ const DeviceTooltipContent = ({ node, line }) => {
             <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
                 <div className="flex items-center gap-2 text-white">
                     <span className="material-symbols-outlined text-[16px]">
-                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : node.deviceType === 'router' ? 'router' : 'person'}
+                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : (node.deviceType === 'router' || node.type === 'router') ? 'router' : node.deviceType === 'pppoe' ? 'person' : 'person'}
                     </span>
                     <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
                 </div>
@@ -531,9 +531,17 @@ const DeviceTooltipContent = ({ node, line }) => {
             </div>
             <div className="p-3 bg-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs">
-                    <span className="text-slate-400">Host</span>
-                    <span className="text-slate-200 font-mono">{node.host}</span>
+                    <span className="text-slate-400">{node.deviceType === 'pppoe' ? 'IP Address' : 'Host'}</span>
+                    <span className="text-slate-200 font-mono">{node.deviceType === 'pppoe' ? node.address : node.host}</span>
                 </div>
+                {node.deviceType === 'pppoe' && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Type</span>
+                        <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 rounded text-[10px] font-bold uppercase tracking-wider border border-blue-500/30">
+                            PPPoE Client
+                        </span>
+                    </div>
+                )}
                 {isHeatmapMode && trafficInterface && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Interface</span>
