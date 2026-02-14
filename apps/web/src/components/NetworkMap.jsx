@@ -741,6 +741,7 @@ const SmartMarker = ({
             draggable={draggable}
             onDragEnd={onDragEnd}
             onClick={onClick}
+            eventHandlers={eventHandlers} // Fix: Pass eventHandlers (mouseover/out)
             status={status} // Pass status for cluster icon logic
             {...props}
         >
