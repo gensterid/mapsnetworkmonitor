@@ -5,6 +5,7 @@ import {
     integer,
     timestamp,
     pgEnum,
+    boolean,
 } from 'drizzle-orm/pg-core';
 
 export const oltTypeEnum = pgEnum('olt_type', ['hsgq', 'cdata', 'generic']);
@@ -18,6 +19,19 @@ export const olts = pgTable('olts', {
     snmpCommunity: text('snmp_community').default('public').notNull(),
     type: oltTypeEnum('type').default('generic').notNull(),
     status: oltStatusEnum('status').default('unknown').notNull(),
+    parentId: uuid('parent_id'), // Link to parent router
+
+    // Web/API Configuration
+    webPort: integer('web_port').default(80),
+    webUsername: text('web_username'),
+    webPassword: text('web_password'), // Should be encrypted
+    webProtocol: text('web_protocol').default('http'), // 'http' or 'https'
+
+    // Protocol Flags
+    useSnmp: boolean('use_snmp').default(true).notNull(),
+    useWeb: boolean('use_web').default(false).notNull(),
+    activeProtocol: text('active_protocol'), // 'snmp' or 'web'
+
     uptime: integer('uptime'), // in seconds
     description: text('description'),
     createdAt: timestamp('created_at').defaultNow().notNull(),

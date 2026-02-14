@@ -1,6 +1,6 @@
 import axios from 'axios';
-
-const GENIEACS_URL = process.env.GENIEACS_URL || 'http://localhost:7557';
+import { settingsService } from './settings.service.js';
+import { routerService } from './router.service.js';
 
 export interface GenieACSDevice {
     _id: string;
@@ -10,8 +10,65 @@ export interface GenieACSDevice {
     _mac: string;
     _productClass: string;
     _serialNumber: string;
+    _ssid?: string;
+    _manufacturer?: string;
     InternetGatewayDevice?: any;
     Device?: any;
+}
+
+export interface WanConfigPayload {
+    wanType: 'pppoe' | 'ip';
+    connectionMode?: 'route' | 'bridge';
+    username?: string;
+    password?: string;
+    ipAddress?: string;
+    subnetMask?: string;
+    defaultGateway?: string;
+    dnsServers?: string;
+    vlanId?: number;
+    enable?: boolean;
+    connectionIndex?: number;
+    addressingType?: 'Static' | 'DHCP';
+}
+
+export interface WifiConfigPayload {
+    ssidIndex: number; // 1-4
+    enable?: boolean;
+    ssid?: string;
+    password?: string;
+    securityMode?: 'Open' | 'WPA2-PSK' | 'WPA-WPA2-Mixed';
+    encryption?: 'AES' | 'TKIP+AES';
+    hidden?: boolean;
+    channel?: number | 'Auto';
+}
+
+import { encrypt, decrypt } from '../lib/encryption.js';
+
+async function getGenieAcsConfig(routerId?: string) {
+    let url = '';
+    let username = '';
+    let password = '';
+
+    if (routerId) {
+        const router = await routerService.findById(routerId);
+        if (router && router.useGenieAcs) {
+            url = router.genieacsUrl || '';
+            username = router.genieacsUsername || '';
+            password = router.genieacsPasswordEncrypted ? decrypt(router.genieacsPasswordEncrypted) : '';
+        }
+    }
+
+    if (!url) {
+        url = await settingsService.getSettingValue('genieacs_url', process.env.GENIEACS_URL || 'http://localhost:7557');
+        username = await settingsService.getSettingValue('genieacs_username', '');
+        const encryptedPassword = await settingsService.getSettingValue('genieacs_password_encrypted', '');
+        password = encryptedPassword ? decrypt(encryptedPassword) : '';
+    }
+
+    return {
+        url: url.replace(/\/$/, ''),
+        auth: username && password ? { username, password } : undefined
+    };
 }
 
 export const genieacsService = {
@@ -19,8 +76,9 @@ export const genieacsService = {
      * Get all devices from GenieACS
      * Supports MongoDB-style query
      */
-    getDevices: async (query: any = {}): Promise<GenieACSDevice[]> => {
+    getDevices: async (routerId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
         try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
             const projection = {
                 _id: 1,
                 _registered: 1,
@@ -33,13 +91,24 @@ export const genieacsService = {
                 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress': 1,
                 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID': 1,
                 'Device.WiFi.SSID.1.SSID': 1,
+                // ZTE Optical Power
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel': 1,
+                'InternetGatewayDevice.WANDevice.1.One_Optical_Module_Info.RXPower': 1,
+                // ZTE ONU Path (Alternative)
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_ONU.1.OpticalModuleInfo.RXPower': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.RxPower': 1,
+                // Huawei Optical Power
+                'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower': 1,
+                'InternetGatewayDevice.WANDevice.1.WANDSLInterfaceConfig.DownstreamAttenuation': 1,
             };
 
-            const response = await axios.get(`${GENIEACS_URL}/devices`, {
+            const response = await axios.get(`${url}/devices`, {
                 params: {
                     query: JSON.stringify(query),
                     projection: Object.keys(projection).join(',')
                 },
+                auth,
                 timeout: 5000
             });
 
@@ -51,11 +120,12 @@ export const genieacsService = {
                 _productClass: dev._deviceId?._ProductClass,
                 _manufacturer: dev._deviceId?._Manufacturer,
                 _ip: getDeviceIp(dev),
-                _ssid: getDeviceSsid(dev)
+                _ssid: getDeviceSsid(dev),
+                _rxPower: getDeviceRxPower(dev),
+                _isTr181: !!dev.Device
             }));
         } catch (error) {
             console.error('GenieACS Error:', error instanceof Error ? error.message : error);
-            // Return empty array instead of crashing if GenieACS is down
             return [];
         }
     },
@@ -63,30 +133,526 @@ export const genieacsService = {
     /**
      * Get single device details
      */
-    getDevice: async (deviceId: string) => {
+    getDevice: async (deviceId: string, routerId?: string) => {
         try {
-            const response = await axios.get(`${GENIEACS_URL}/devices/${deviceId}`, {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+
+            // Use query to avoid 405 Method Not Allowed on some GenieACS versions
+            const query = { _id: deviceId };
+            const response = await axios.get(`${url}/devices`, {
+                params: {
+                    query: JSON.stringify(query)
+                },
+                auth,
                 timeout: 5000
             });
-            return response.data;
-        } catch (error) {
-            console.error(`GenieACS Device ${deviceId} Error:`, error instanceof Error ? error.message : error);
+
+            if (response.data && response.data.length > 0) {
+                return response.data[0];
+            }
             return null;
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                console.error(`GenieACS Device ${deviceId} Error: ${error.response?.status} ${error.response?.statusText} - ${JSON.stringify(error.response?.data)}`);
+            } else {
+                console.error(`GenieACS Device ${deviceId} Error:`, error instanceof Error ? error.message : error);
+            }
+            return null;
+        }
+    },
+
+    /**
+     * Update WAN Configuration
+     */
+    updateWanConfig: async (deviceId: string, config: WanConfigPayload, routerId?: string) => {
+        try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            const encodedId = encodeURIComponent(deviceId);
+
+            // Fetch device first to determine TR version
+            // We use the existing getDevice method which uses query to avoid 405
+            // Helper to find the correct WAN path
+            function findWanPath(device: any, wanType: 'pppoe' | 'ip'): string | null {
+                try {
+                    console.log(`[WAN-Discovery] Starting discovery for ${wanType}...`);
+
+                    // Handle TR-181 (Device.IP.Interface...)
+                    if (device.Device?.IP?.Interface) {
+                        console.log('[WAN-Discovery] TR-181 detected (partial support)');
+                        // TODO: Implement thorough TR-181 logic. 
+                        // For now, check if alias IGD exists or fallback to TR-098 logic which often works on hybrid devices
+                        // If explicit TR-181 structure is found, we might need to look for Interface with Type='WAN'
+                    }
+
+                    const wanDevices = device.InternetGatewayDevice?.WANDevice;
+                    if (!wanDevices) {
+                        console.log('[WAN-Discovery] No InternetGatewayDevice.WANDevice found');
+                        return null;
+                    }
+
+                    // Iterate WANDevice (usually index 1, but maybe others)
+                    for (const wdKey in wanDevices) {
+                        if (wdKey === '_object' || wdKey === '_timestamp' || wdKey === '_writable') continue;
+
+                        const wanConnDevices = wanDevices[wdKey]?.WANConnectionDevice;
+                        if (!wanConnDevices) continue;
+
+                        console.log(`[WAN-Discovery] Checking WANDevice.${wdKey}...`);
+
+                        // Iterate WANConnectionDevice
+                        for (const wcdKey in wanConnDevices) {
+                            if (wcdKey === '_object' || wcdKey === '_timestamp' || wcdKey === '_writable') continue;
+
+                            const connectionDevice = wanConnDevices[wcdKey];
+                            const basePath = `InternetGatewayDevice.WANDevice.${wdKey}.WANConnectionDevice.${wcdKey}`;
+
+                            console.log(`[WAN-Discovery] Checking WANConnectionDevice.${wcdKey}...`);
+
+                            // Check for WANPPPConnection
+                            if (wanType === 'pppoe' && connectionDevice.WANPPPConnection) {
+                                for (const pppKey in connectionDevice.WANPPPConnection) {
+                                    if (pppKey.startsWith('_')) continue;
+                                    const pppConn = connectionDevice.WANPPPConnection[pppKey];
+
+                                    // Heuristics to find "INTERNET" connection
+                                    const name = pppConn.Name?._value || '';
+                                    const serviceList = pppConn.X_CT_COM_ServiceList?._value || pppConn['X_ZTE-COM_ServiceList']?._value || ''; // ZTE support
+                                    const connectionType = pppConn.ConnectionType?._value || '';
+
+                                    console.log(`[WAN-Discovery] Found PPPoE candidate: ${basePath}.WANPPPConnection.${pppKey}`, { name, serviceList, connectionType });
+
+                                    // Priority 1: Explicit "INTERNET" service
+                                    if (serviceList.toUpperCase().includes('INTERNET') || name.toUpperCase().includes('INTERNET')) {
+                                        return `${basePath}.WANPPPConnection.${pppKey}`;
+                                    }
+
+                                    // Priority 2: IP_Routed connection
+                                    if (connectionType === 'IP_Routed') {
+                                        return `${basePath}.WANPPPConnection.${pppKey}`;
+                                    }
+                                }
+                                // If we found a container but no "perfect" match, stick with index 1 if it exists
+                                if (connectionDevice.WANPPPConnection['1']) {
+                                    return `${basePath}.WANPPPConnection.1`;
+                                }
+                            }
+
+                            // Check for WANIPConnection
+                            if (wanType === 'ip' && connectionDevice.WANIPConnection) {
+                                for (const ipKey in connectionDevice.WANIPConnection) {
+                                    if (ipKey.startsWith('_')) continue;
+                                    const ipConn = connectionDevice.WANIPConnection[ipKey];
+
+                                    const name = ipConn.Name?._value || '';
+                                    const serviceList = ipConn.X_CT_COM_ServiceList?._value || ipConn['X_ZTE-COM_ServiceList']?._value || '';
+
+                                    console.log(`[WAN-Discovery] Found IP candidate: ${basePath}.WANIPConnection.${ipKey}`, { name, serviceList });
+
+                                    if (serviceList.toUpperCase().includes('INTERNET') || name.toUpperCase().includes('INTERNET')) {
+                                        return `${basePath}.WANIPConnection.${ipKey}`;
+                                    }
+                                }
+                                if (connectionDevice.WANIPConnection['1']) {
+                                    return `${basePath}.WANIPConnection.1`;
+                                }
+                            }
+                        }
+                    }
+
+                    console.log('[WAN-Discovery] No specific match found, falling back to default.');
+                    return null;
+                } catch (e) {
+                    console.error('[WAN-Discovery] Error:', e);
+                    return null;
+                }
+            }
+
+            const device = await genieacsService.getDevice(deviceId, routerId);
+            if (!device) {
+                return { success: false, error: 'Device not found' };
+            }
+
+            const isTr181 = !!device.Device;
+            const connectionIndex = config.connectionIndex || 1;
+
+            // Try auto-discovery
+            let connectionPath = findWanPath(device, config.wanType);
+
+            if (!connectionPath) {
+                // Fallback to strict index 1 if discovery fails
+                console.log(`[WAN-Discovery] Auto-discovery failed. Falling back to index ${connectionIndex}`);
+                const basePath = `InternetGatewayDevice.WANDevice.1.WANConnectionDevice.${connectionIndex}`;
+                connectionPath = config.wanType === 'pppoe'
+                    ? `${basePath}.WANPPPConnection.1`
+                    : `${basePath}.WANIPConnection.1`;
+            }
+
+            console.log(`[WAN-Discovery] Selected Target Path: ${connectionPath}`);
+
+            const parameters: [string, any, string?][] = [];
+
+            // Helper to add param
+            const addParam = (path: string, val: any) => {
+                parameters.push([`${connectionPath}.${path}`, val, 'xsd:string']);
+            };
+
+            // Detect Manufacturer
+            const manufacturer = device._deviceId?._Manufacturer?.toLowerCase() || '';
+            const isZte = manufacturer.includes('zte');
+            const isHuawei = manufacturer.includes('huawei');
+
+            // Common parameters
+            // Check if 'Enable' exists in the path or just set it blindly?
+            // Safer to set it as boolean true
+            if (config.enable !== undefined) addParam('Enable', config.enable);
+
+            // VLAN Handling
+            if (config.vlanId !== undefined) {
+                if (isZte) {
+                    addParam('X_ZTE-COM_VLANID', config.vlanId);
+                } else if (isHuawei) {
+                    addParam('X_HW_VLAN', config.vlanId); // Try Huawei specific
+                } else {
+                    addParam('X_CT-COM_VLANID', config.vlanId); // Default fallback
+                }
+            }
+
+            if (config.wanType === 'pppoe') {
+                if (config.username) addParam('Username', config.username);
+                if (config.password) addParam('Password', config.password);
+
+                // Handle Connection Mode (Route vs Bridge)
+                const isBridge = config.connectionMode === 'bridge';
+                const connectionType = isBridge ? 'PPPoE_Bridged' : 'IP_Routed';
+
+                addParam('ConnectionType', connectionType);
+                addParam('NATEnabled', !isBridge);
+
+                if (isZte) {
+                    addParam('X_ZTE-COM_ServiceList', 'INTERNET');
+                }
+            } else {
+                // IP Connection
+                const isBridge = config.connectionMode === 'bridge';
+                const connectionType = isBridge ? 'IP_Bridged' : 'IP_Routed';
+                addParam('ConnectionType', connectionType);
+                addParam('NATEnabled', !isBridge);
+
+                if (config.addressingType) addParam('AddressingType', config.addressingType);
+                if (config.addressingType === 'Static') {
+                    if (config.ipAddress) addParam('ExternalIPAddress', config.ipAddress);
+                    if (config.subnetMask) addParam('SubnetMask', config.subnetMask);
+                    if (config.defaultGateway) addParam('DefaultGateway', config.defaultGateway);
+                    if (config.dnsServers) addParam('DNSServers', config.dnsServers);
+                }
+            }
+
+            if (parameters.length === 0) {
+                return { success: false, error: 'No parameters to update' };
+            }
+
+            console.log(`Updating WAN config for ${deviceId} (Path: ${connectionPath}):`, JSON.stringify(parameters));
+
+            const response = await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
+                name: 'setParameterValues',
+                parameterValues: parameters
+            }, {
+                auth
+            });
+
+            console.log(`GenieACS Task Response:`, response.status, response.data);
+
+            return { success: true, taskId: response.data?._id };
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                console.error(`GenieACS updateWanConfig Error: ${error.response?.status} - ${JSON.stringify(error.response?.data)}`);
+            } else {
+                console.error(`GenieACS updateWanConfig Error:`, error instanceof Error ? error.message : error);
+            }
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    },
+
+    /**
+     * Update WiFi Configuration
+     */
+    updateWifiConfig: async (deviceId: string, config: WifiConfigPayload, routerId?: string) => {
+        try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            const encodedId = encodeURIComponent(deviceId);
+
+            // Fetch device first to determine TR version / Manufacturer
+            const device = await genieacsService.getDevice(deviceId, routerId);
+            if (!device) {
+                return { success: false, error: 'Device not found' };
+            }
+
+            // Determine Manufacturer
+            const manufacturer = device._deviceId?._Manufacturer?.toLowerCase() || '';
+            const isZte = manufacturer.includes('zte');
+            const isHuawei = manufacturer.includes('huawei');
+
+            // Paths
+            // TR-098: InternetGatewayDevice.LANDevice.1.WLANConfiguration.{i}
+            // TR-181: Device.WiFi.SSID.{i} (and Device.WiFi.AccessPoint.{i}.Security)
+
+            const index = config.ssidIndex || 1;
+            let basePath = '';
+
+            const isTr181 = !!device.Device;
+
+            if (isTr181) {
+                basePath = `Device.WiFi.SSID.${index}`;
+            } else {
+                basePath = `InternetGatewayDevice.LANDevice.1.WLANConfiguration.${index}`;
+            }
+
+            console.log(`[WiFi-Config] Target Path: ${basePath}`);
+
+            const parameters: [string, any, string?][] = [];
+            const addParam = (path: string, val: any) => {
+                parameters.push([`${basePath}.${path}`, val, 'xsd:string']);
+            };
+
+            // 1. Common Parameters
+            if (config.enable !== undefined) addParam('Enable', config.enable);
+            if (config.ssid) addParam('SSID', config.ssid);
+
+            // 2. Security & Password
+            // Note: TR-098 puts KeyPassphrase in WLANConfiguration.
+            // TR-181 puts it in Device.WiFi.AccessPoint.{i}.Security.
+
+            if (config.password) {
+                if (isTr181) {
+                    // For TR-181, Security usually in AccessPoint
+                    parameters.push([`Device.WiFi.AccessPoint.${index}.Security.KeyPassphrase`, config.password, 'xsd:string']);
+                } else {
+                    // TR-098
+                    addParam('KeyPassphrase', config.password);
+                    addParam('PreSharedKey', [config.password]); // Some devices use PreSharedKey
+                }
+            }
+
+            // 3. Configuration (BeaconType, Encryption) -> TR-098
+            if (!isTr181) {
+                if (config.securityMode) {
+                    // Map UI modes to TR-069
+                    if (config.securityMode === 'Open') {
+                        addParam('BeaconType', 'None');
+                        addParam('BasicAuthenticationMode', 'None');
+                    } else if (config.securityMode === 'WPA2-PSK') {
+                        addParam('BeaconType', 'WPAand11i'); // Or 11i
+                        addParam('BasicAuthenticationMode', 'None');
+                        addParam('WPAAuthenticationMode', 'PSKAuthentication');
+                        addParam('IEEE11iAuthenticationMode', 'PSKAuthentication');
+                    } else if (config.securityMode === 'WPA-WPA2-Mixed') {
+                        addParam('BeaconType', 'WPAand11i');
+                        addParam('BasicAuthenticationMode', 'None');
+                    }
+                }
+
+                if (config.encryption) {
+                    if (config.encryption === 'AES') {
+                        addParam('WPAEncryptionModes', 'AESEncryption');
+                        addParam('IEEE11iEncryptionModes', 'AESEncryption');
+                    } else if (config.encryption === 'TKIP+AES') {
+                        addParam('WPAEncryptionModes', 'TKIPandAESEncryption');
+                        addParam('IEEE11iEncryptionModes', 'TKIPandAESEncryption');
+                    }
+                }
+
+                // Hidden SSID
+                if (config.hidden !== undefined) {
+                    // SSIDAdvertisementEnabled: true = broadcast (visible), false = hidden
+                    addParam('SSIDAdvertisementEnabled', !config.hidden);
+                }
+
+                // Channel
+                if (config.channel) {
+                    if (config.channel === 'Auto') {
+                        addParam('AutoChannelEnable', true);
+                    } else {
+                        addParam('AutoChannelEnable', false);
+                        addParam('Channel', config.channel);
+                    }
+                }
+            } else {
+                // TR-181 logic (Security in AccessPoint)
+                if (config.securityMode) {
+                    const apSecurity = `Device.WiFi.AccessPoint.${index}.Security`;
+                    // Implementation varies heavily for TR-181
+                    // Placeholder for now
+                }
+            }
+
+            if (parameters.length === 0) {
+                return { success: false, error: 'No parameters to update' };
+            }
+
+            console.log(`Updating WiFi config for ${deviceId}:`, JSON.stringify(parameters));
+
+            const response = await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
+                name: 'setParameterValues',
+                parameterValues: parameters
+            }, {
+                auth
+            });
+
+            return { success: true, taskId: response.data?._id };
+
+        } catch (error) {
+            console.error(`GenieACS updateWifiConfig Error:`, error instanceof Error ? error.message : error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     },
 
     /**
      * Reboot device
      */
-    rebootDevice: async (deviceId: string) => {
+    rebootDevice: async (deviceId: string, routerId?: string) => {
         try {
-            await axios.post(`${GENIEACS_URL}/devices/${deviceId}/tasks?timeout=3000&connection_request`, {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            const encodedId = encodeURIComponent(deviceId);
+            await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'reboot'
+            }, {
+                auth
             });
             return { success: true };
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
+    },
+
+    /**
+     * Update device parameters (TR-069 setParameterValues)
+     */
+    setParameter: async (deviceId: string, parameterName: string, value: any, type: string = 'xsd:string', routerId?: string) => {
+        try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            const encodedId = encodeURIComponent(deviceId);
+            await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
+                name: 'setParameterValues',
+                parameterValues: [[parameterName, value, type]]
+            }, {
+                auth
+            });
+            return { success: true };
+        } catch (error) {
+            console.error(`GenieACS setParameter Error (${parameterName}):`, error instanceof Error ? error.message : error);
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    },
+
+    /**
+     * Refresh Device (Summon)
+     */
+    refreshDevice: async (deviceId: string, routerId?: string) => {
+        try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            const encodedId = encodeURIComponent(deviceId);
+
+            // Parameters to refresh (Optical Power & Status)
+            const parameterNames = [
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower',
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel',
+                'InternetGatewayDevice.WANDevice.1.One_Optical_Module_Info.RXPower',
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_ONU.1.OpticalModuleInfo.RXPower',
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.RxPower',
+                'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower',
+                'InternetGatewayDevice.WANDevice.1.WANDSLInterfaceConfig.DownstreamAttenuation'
+            ];
+
+            await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
+                name: 'getParameterValues',
+                parameterNames: parameterNames
+            }, {
+                auth
+            });
+
+            return { success: true };
+        } catch (error) {
+            console.error('Refresh Device Error:', error instanceof Error ? error.message : error);
+            // Fallback to simple refreshObject if getParameterValues fails (e.g., too many params)
+            try {
+                const { url, auth } = await getGenieAcsConfig(routerId);
+                const encodedId = encodeURIComponent(deviceId);
+                await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
+                    name: 'refreshObject',
+                    objectName: ''
+                }, { auth });
+                return { success: true };
+            } catch (retryError) {
+                return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+            }
+        }
+    },
+
+    /**
+     * Factory Reset
+     */
+    factoryReset: async (deviceId: string, routerId?: string) => {
+        try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            const encodedId = encodeURIComponent(deviceId);
+            await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
+                name: 'factoryReset'
+            }, {
+                auth
+            });
+            return { success: true };
+        } catch (error) {
+            return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+    },
+
+    /**
+     * Bulk Reboot
+     */
+    bulkReboot: async (deviceIds: string[], routerId?: string) => {
+        const results = { success: 0, failed: 0, errors: [] as string[] };
+
+        await Promise.all(deviceIds.map(async (id) => {
+            const res = await genieacsService.rebootDevice(id, routerId);
+            if (res.success) {
+                results.success++;
+            } else {
+                results.failed++;
+                results.errors.push(`Device ${id}: ${res.error}`);
+            }
+        }));
+
+        return results;
+    },
+
+    /**
+     * Bulk Push Config
+     */
+    bulkPushConfig: async (deviceIds: string[], type: 'wan' | 'wifi', config: any, routerId?: string) => {
+        const results = { success: 0, failed: 0, errors: [] as string[] };
+
+        // Process in chunks to avoid overwhelming the server if list is huge? 
+        // For now, Promise.all is fine for reasonable numbers (<100)
+
+        await Promise.all(deviceIds.map(async (id) => {
+            let res;
+            if (type === 'wan') {
+                res = await genieacsService.updateWanConfig(id, config as WanConfigPayload, routerId);
+            } else if (type === 'wifi') {
+                res = await genieacsService.updateWifiConfig(id, config as WifiConfigPayload, routerId);
+            } else {
+                res = { success: false, error: 'Invalid config type' };
+            }
+
+            if (res.success) {
+                results.success++;
+            } else {
+                results.failed++;
+                results.errors.push(`Device ${id}: ${res.error}`);
+            }
+        }));
+
+        return results;
     }
 };
 
@@ -100,5 +666,14 @@ function getDeviceIp(dev: any): string {
 function getDeviceSsid(dev: any): string {
     return dev.InternetGatewayDevice?.LANDevice?.[1]?.WLANConfiguration?.[1]?.SSID?._value ||
         dev.Device?.WiFi?.SSID?.[1]?.SSID?._value ||
+        '';
+}
+
+function getDeviceRxPower(dev: any): string {
+    return dev.InternetGatewayDevice?.WANDevice?.[1]?.X_ZTE_COM_WANDevice?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_ZTE_COM_WANDevice?.[1]?.OpticalInstance?.[1]?.OpticalSignalLevel?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.One_Optical_Module_Info?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_HUWEI_WANDevice?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.WANDSLInterfaceConfig?.DownstreamAttenuation?._value ||
         '';
 }

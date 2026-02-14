@@ -48,6 +48,8 @@ router.get(
     })
 );
 
+import { encrypt } from '../lib/encryption.js';
+
 /**
  * PUT /api/settings/:key
  * Update or create setting
@@ -58,7 +60,12 @@ router.put(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
-        const { value, description } = updateSettingSchema.parse(req.body);
+        let { value, description } = updateSettingSchema.parse(req.body);
+
+        // Encrypt special keys
+        if (key === 'genieacs_password_encrypted' && typeof value === 'string' && value) {
+            value = encrypt(value);
+        }
 
         const setting = await settingsService.setSetting(key, value, description);
 

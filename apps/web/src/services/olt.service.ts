@@ -36,4 +36,10 @@ export const oltService = {
         const response = await apiClient.post(`/olts/${id}/refresh`);
         return response.data;
     },
+
+    // Get OLT ONUs
+    getOnus: async (id: string) => {
+        const response = await apiClient.get(`/olts/${id}/onus`);
+        return response.data;
+    },
 };

@@ -13,6 +13,7 @@ import { notificationRoutes } from './notification.routes.js';
 import { eventsRoutes } from './events.routes.js';
 import oltRoutes from './olt.routes.js';
 import genieacsRoutes from './genieacs.routes.js';
+import presetRoutes from './preset.routes.js';
 
 const router = Router();
 
@@ -40,6 +41,7 @@ router.use('/notification-groups', notificationRoutes);
 router.use('/events', eventsRoutes);
 router.use('/olts', oltRoutes);
 router.use('/genieacs', genieacsRoutes);
+router.use('/presets', presetRoutes);
 
 export default router;
 

@@ -63,6 +63,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
         notificationGroupId: router?.notificationGroupId || '',
         snmpCommunity: router?.snmpCommunity || 'public',
         snmpPort: String(router?.snmpPort || 161),
+        useGenieAcs: router?.useGenieAcs || false,
+        genieacsUrl: router?.genieacsUrl || '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -82,6 +84,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: router.notificationGroupId || '',
                 snmpCommunity: router.snmpCommunity || 'public',
                 snmpPort: String(router.snmpPort || 161),
+                useGenieAcs: router.useGenieAcs || false,
+                genieacsUrl: router.genieacsUrl || '',
             });
         } else {
             setFormData({
@@ -96,6 +100,10 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: '',
                 snmpCommunity: 'public',
                 snmpPort: '161',
+                useGenieAcs: false,
+                genieacsUrl: '',
+                genieacsUsername: '',
+                genieacsPassword: '',
             });
         }
         setError('');
@@ -147,6 +155,10 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: formData.notificationGroupId || null,
                 snmpCommunity: formData.snmpCommunity || 'public',
                 snmpPort: parseInt(formData.snmpPort, 10) || 161,
+                useGenieAcs: formData.useGenieAcs,
+                genieacsUrl: formData.genieacsUrl || undefined,
+                genieacsUsername: formData.genieacsUsername || undefined,
+                genieacsPassword: formData.genieacsPassword || undefined,
             };
 
             // Only include password if provided (for edit, password is optional)
@@ -273,6 +285,62 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                         </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">Tip: Paste coordinates in "lat, long" format to auto-fill both fields</p>
+                </div>
+
+                {/* GenieACS Section */}
+                <div className="pt-2 border-t border-slate-700/50">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">GenieACS Integration</div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="useGenieAcs"
+                                checked={formData.useGenieAcs}
+                                onChange={(e) => setFormData(prev => ({ ...prev, useGenieAcs: e.target.checked }))}
+                                className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+
+                    {formData.useGenieAcs && (
+                        <div className="space-y-3">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">GenieACS URL</label>
+                                <Input
+                                    name="genieacsUrl"
+                                    value={formData.genieacsUrl}
+                                    onChange={handleChange}
+                                    placeholder="http://192.168.1.10:7557"
+                                />
+                                <p className="text-[10px] text-slate-500">
+                                    Specific GenieACS URL for this router. If left blank, it will use the global URL.
+                                </p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">ACS Username</label>
+                                    <Input
+                                        name="genieacsUsername"
+                                        value={formData.genieacsUsername}
+                                        onChange={handleChange}
+                                        placeholder="admin"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">ACS Password</label>
+                                    <Input
+                                        type="password"
+                                        name="genieacsPassword"
+                                        value={formData.genieacsPassword}
+                                        onChange={handleChange}
+                                        placeholder="••••••••"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* SNMP Section */}

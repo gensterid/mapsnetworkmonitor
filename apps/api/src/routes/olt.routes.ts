@@ -12,6 +12,15 @@ const createOltSchema = z.object({
     snmpCommunity: z.string().default('public'),
     type: z.enum(['hsgq', 'cdata', 'generic']).default('generic'),
     description: z.string().optional(),
+
+    // Web/API Fields
+    webPort: z.number().default(80),
+    webUsername: z.string().optional(),
+    webPassword: z.string().optional(),
+    webProtocol: z.enum(['http', 'https']).default('http'),
+    useSnmp: z.boolean().default(true),
+    useWeb: z.boolean().default(false),
+    parentId: z.string().uuid().optional().nullable(),
 });
 
 const updateOltSchema = createOltSchema.partial();
@@ -80,6 +89,17 @@ router.delete('/:id', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete OLT' });
+    }
+});
+
+// Get OLT ONUs (via Driver)
+router.get('/:id/onus', async (req, res) => {
+    try {
+        const onus = await oltService.getOnus(req.params.id);
+        res.json(onus);
+    } catch (error: any) {
+        console.error('API Error in /olts/:id/onus:', error);
+        res.status(500).json({ error: 'Failed to fetch ONUs', details: error.message });
     }
 });
 

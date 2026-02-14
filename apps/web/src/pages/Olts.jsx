@@ -6,8 +6,98 @@ import {
     useUpdateOlt,
     useDeleteOlt,
     useRefreshOlt,
+    useRouters,
+    useOltOnus,
 } from '@/hooks';
-import { Plus, Server, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Search } from 'lucide-react';
+import { Plus, Server, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Search, Layers } from 'lucide-react';
+
+// ONU List Modal
+function OnuListModal({ isOpen, onClose, olt }) {
+    const { data: onus = [], isLoading, error, refetch } = useOltOnus(olt?.id);
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={`ONU List - ${olt?.name}`}
+            size="lg"
+        >
+            <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                    <p className="text-sm text-gray-500">
+                        Total ONUs: {Array.isArray(onus) ? onus.length : 0}
+                    </p>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => refetch()}
+                        disabled={isLoading}
+                    >
+                        <RefreshCw className={clsx("h-4 w-4 mr-2", isLoading && "animate-spin")} />
+                        Refresh
+                    </Button>
+                </div>
+
+                {isLoading ? (
+                    <div className="flex justify-center py-8">
+                        <RefreshCw className="h-8 w-8 animate-spin text-blue-500" />
+                    </div>
+                ) : error ? (
+                    <div className="bg-red-50 text-red-600 p-4 rounded-md">
+                        <p className="font-bold">Failed to fetch ONUs:</p>
+                        <p className="text-sm whitespace-pre-wrap">{error.response?.data?.details || error.message}</p>
+                    </div>
+                ) : !onus || onus.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500 bg-gray-50 rounded-md">
+                        No ONUs found or driver output empty.
+                    </div>
+                ) : typeof onus[0] === 'object' && onus[0] !== null && 'sn' in onus[0] ? (
+                    <div className="overflow-x-auto border rounded-md">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PON/ID</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN / MAC</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {Array.isArray(onus) && onus.map((onu, index) => (
+                                    <tr key={index}>
+                                        <td className="px-4 py-2 text-sm whitespace-nowrap">
+                                            {onu.ponId}/{onu.onuId}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm font-mono whitespace-nowrap">
+                                            {onu.sn}
+                                        </td>
+                                        <td className="px-4 py-2 text-sm whitespace-nowrap">
+                                            <span className={clsx(
+                                                "px-2 py-0.5 rounded-full text-xs font-medium",
+                                                onu.status === 'online' ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                            )}>
+                                                {onu.status}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-sm whitespace-nowrap font-medium text-blue-600">
+                                            {onu.signal || '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : null}
+
+                {onus && Array.isArray(onus) && onus.length > 0 && typeof onus[0] === 'string' && (
+                    <div className="bg-gray-900 text-gray-100 p-4 rounded-md font-mono text-xs overflow-auto max-h-[500px] whitespace-pre">
+                        {onus.join('\n')}
+                    </div>
+                ) || null}
+            </div>
+        </Modal>
+    );
+}
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
@@ -19,6 +109,7 @@ import toast from 'react-hot-toast';
 function OltFormModal({ isOpen, onClose, olt = null }) {
     const createOlt = useCreateOlt();
     const updateOlt = useUpdateOlt();
+    const { data: routers = [] } = useRouters();
 
     const [formData, setFormData] = useState({
         name: '',
@@ -27,6 +118,14 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
         snmpCommunity: 'public',
         type: 'generic',
         description: '',
+        // Web Config
+        webPort: '80',
+        webUsername: '',
+        webPassword: '',
+        webProtocol: 'http',
+        useSnmp: true,
+        useWeb: false,
+        parentId: '',
     });
 
     React.useEffect(() => {
@@ -38,6 +137,14 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 snmpCommunity: olt.snmpCommunity || 'public',
                 type: olt.type || 'generic',
                 description: olt.description || '',
+                // Web Config
+                webPort: String(olt.webPort || 80),
+                webUsername: olt.webUsername || '',
+                webPassword: olt.webPassword || '',
+                webProtocol: olt.webProtocol || 'http',
+                useSnmp: olt.useSnmp !== undefined ? olt.useSnmp : true,
+                useWeb: olt.useWeb || false,
+                parentId: olt.parentId || '',
             });
         } else {
             setFormData({
@@ -47,14 +154,22 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 snmpCommunity: 'public',
                 type: 'generic',
                 description: '',
+                webPort: '80',
+                webUsername: '',
+                webPassword: '',
+                webProtocol: 'http',
+                useSnmp: true,
+                useWeb: false,
+                parentId: '',
             });
         }
     }, [olt, isOpen]);
 
     const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [e.target.name]: e.target.value
+            [name]: type === 'checkbox' ? checked : value
         }));
     };
 
@@ -63,7 +178,9 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
 
         const payload = {
             ...formData,
-            snmpPort: parseInt(formData.snmpPort, 10),
+            snmpPort: parseInt(formData.snmpPort, 10) || 161,
+            webPort: parseInt(formData.webPort, 10) || 80,
+            parentId: formData.parentId || null,
         };
 
         if (olt) {
@@ -107,16 +224,98 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">SNMP Port</label>
-                        <Input type="number" name="snmpPort" value={formData.snmpPort} onChange={handleChange} required />
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-sm font-medium text-slate-300">SNMP Community</label>
-                        <Input name="snmpCommunity" value={formData.snmpCommunity} onChange={handleChange} placeholder="public" required />
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-slate-300">Parent Router</label>
+                    <select
+                        name="parentId"
+                        value={formData.parentId}
+                        onChange={handleChange}
+                        className="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
+                    >
+                        <option value="">-- Select Parent Router --</option>
+                        {routers.map(router => (
+                            <option key={router.id} value={router.id}>
+                                {router.name} ({router.host})
+                            </option>
+                        ))}
+                    </select>
+                    <p className="text-xs text-slate-500">
+                        Link this OLT to a specific MikroTik router for topology mapping.
+                    </p>
+                </div>
+
+
+                <div className="space-y-3 pt-2">
+                    <label className="text-sm font-medium text-slate-300">Protocols</label>
+                    <div className="flex gap-6">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="useSnmp"
+                                checked={formData.useSnmp}
+                                onChange={handleChange}
+                                className="w-4 h-4 rounded border-slate-700 bg-slate-900/50 text-primary focus:ring-primary focus:ring-offset-0"
+                            />
+                            <span className="text-sm text-white">Enable SNMP</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="useWeb"
+                                checked={formData.useWeb}
+                                onChange={handleChange}
+                                className="w-4 h-4 rounded border-slate-700 bg-slate-900/50 text-primary focus:ring-primary focus:ring-offset-0"
+                            />
+                            <span className="text-sm text-white">Enable Web/API</span>
+                        </label>
                     </div>
                 </div>
+
+                {formData.useSnmp && (
+                    <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">SNMP Port</label>
+                            <Input type="number" name="snmpPort" value={formData.snmpPort} onChange={handleChange} required={formData.useSnmp} />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">SNMP Community</label>
+                            <Input name="snmpCommunity" value={formData.snmpCommunity} onChange={handleChange} placeholder="public" required={formData.useSnmp} />
+                        </div>
+                    </div>
+                )}
+
+                {formData.useWeb && (
+                    <div className="space-y-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Protocol</label>
+                                <select
+                                    name="webProtocol"
+                                    value={formData.webProtocol}
+                                    onChange={handleChange}
+                                    className="w-full bg-slate-900/50 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
+                                >
+                                    <option value="http">HTTP</option>
+                                    <option value="https">HTTPS</option>
+                                </select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Web Port</label>
+                                <Input type="number" name="webPort" value={formData.webPort} onChange={handleChange} required={formData.useWeb} />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Username</label>
+                                <Input name="webUsername" value={formData.webUsername} onChange={handleChange} placeholder="admin" />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Password</label>
+                                <Input type="password" name="webPassword" value={formData.webPassword} onChange={handleChange} placeholder="password" />
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-300">Description</label>
@@ -167,6 +366,7 @@ export default function Olts() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingOlt, setEditingOlt] = useState(null);
     const [deletingOlt, setDeletingOlt] = useState(null);
+    const [viewingOnusOlt, setViewingOnusOlt] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
 
     const { data: olts = [], isLoading, error } = useOlts();
@@ -247,12 +447,24 @@ export default function Olts() {
                                                     olt.status === 'online' ? "bg-emerald-500" : "bg-red-500"
                                                 )} />
                                                 {olt.host}
+                                                {olt.activeProtocol && olt.status === 'online' && (
+                                                    <span className="ml-2 px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                                        {olt.activeProtocol}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
                                     {(isAdmin || isOperator) && (
                                         <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => setViewingOnusOlt(olt)}
+                                                className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                                                title="View ONUs"
+                                            >
+                                                <Layers className="w-4 h-4" />
+                                            </button>
                                             <button
                                                 onClick={() => refreshOlt.mutate(olt.id)}
                                                 disabled={refreshOlt.isPending && refreshOlt.variables === olt.id}
@@ -336,6 +548,11 @@ export default function Olts() {
                 isOpen={!!deletingOlt}
                 onClose={() => setDeletingOlt(null)}
                 olt={deletingOlt}
+            />
+            <OnuListModal
+                isOpen={!!viewingOnusOlt}
+                onClose={() => setViewingOnusOlt(null)}
+                olt={viewingOnusOlt}
             />
         </div>
     );

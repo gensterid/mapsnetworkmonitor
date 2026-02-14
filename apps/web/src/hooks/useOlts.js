@@ -76,3 +76,11 @@ export function useRefreshOlt() {
         },
     });
 }
+
+export function useOltOnus(id) {
+    return useQuery({
+        queryKey: ['olts', id, 'onus'],
+        queryFn: () => oltService.getOnus(id),
+        enabled: !!id,
+    });
+}

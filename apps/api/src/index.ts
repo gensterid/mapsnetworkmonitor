@@ -103,6 +103,39 @@ async function runMigrations() {
                     ALTER TABLE router_netwatch ADD COLUMN rx_rate BIGINT DEFAULT 0;
                     RAISE NOTICE 'Added rx_rate column to router_netwatch';
                 END IF;
+
+                -- Add GenieACS columns to routers
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'routers' AND column_name = 'use_genieacs'
+                ) THEN
+                    ALTER TABLE routers ADD COLUMN use_genieacs BOOLEAN DEFAULT false NOT NULL;
+                    RAISE NOTICE 'Added use_genieacs column to routers';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'routers' AND column_name = 'genieacs_url'
+                ) THEN
+                    ALTER TABLE routers ADD COLUMN genieacs_url TEXT;
+                    RAISE NOTICE 'Added genieacs_url column to routers';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'routers' AND column_name = 'genieacs_username'
+                ) THEN
+                    ALTER TABLE routers ADD COLUMN genieacs_username TEXT;
+                    RAISE NOTICE 'Added genieacs_username column to routers';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'routers' AND column_name = 'genieacs_password_encrypted'
+                ) THEN
+                    ALTER TABLE routers ADD COLUMN genieacs_password_encrypted TEXT;
+                    RAISE NOTICE 'Added genieacs_password_encrypted column to routers';
+                END IF;
             END $$;
         `);
         console.log('✅ Database migrations complete');

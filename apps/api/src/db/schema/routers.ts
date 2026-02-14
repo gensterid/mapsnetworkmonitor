@@ -61,6 +61,12 @@ export const routers = pgTable('routers', {
     // Notes
     notes: text('notes'),
 
+    // GenieACS Integration
+    useGenieAcs: boolean('use_genieacs').default(false).notNull(),
+    genieacsUrl: text('genieacs_url'),
+    genieacsUsername: text('genieacs_username'),
+    genieacsPasswordEncrypted: text('genieacs_password_encrypted'),
+
     // Timestamps
     lastSeen: timestamp('last_seen'),
     createdAt: timestamp('created_at').defaultNow().notNull(),

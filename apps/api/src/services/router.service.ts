@@ -56,6 +56,10 @@ export interface CreateRouterInput {
     notes?: string;
     snmpCommunity?: string;
     snmpPort?: number;
+    useGenieAcs?: boolean;
+    genieacsUrl?: string | null;
+    genieacsUsername?: string | null;
+    genieacsPassword?: string | null;
 }
 
 export interface UpdateRouterInput {
@@ -73,6 +77,10 @@ export interface UpdateRouterInput {
     notes?: string;
     snmpCommunity?: string;
     snmpPort?: number;
+    useGenieAcs?: boolean;
+    genieacsUrl?: string | null;
+    genieacsUsername?: string | null;
+    genieacsPassword?: string | null;
     status?: 'online' | 'offline' | 'maintenance' | 'unknown';
 }
 
@@ -208,6 +216,10 @@ export class RouterService {
                 notes: data.notes,
                 snmpCommunity: data.snmpCommunity,
                 snmpPort: data.snmpPort,
+                useGenieAcs: data.useGenieAcs || false,
+                genieacsUrl: data.genieacsUrl,
+                genieacsUsername: data.genieacsUsername,
+                genieacsPasswordEncrypted: data.genieacsPassword ? encrypt(data.genieacsPassword) : null,
                 status: 'unknown',
             })
             .returning();
@@ -241,6 +253,12 @@ export class RouterService {
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.snmpCommunity !== undefined) updateData.snmpCommunity = data.snmpCommunity;
         if (data.snmpPort !== undefined) updateData.snmpPort = data.snmpPort;
+        if (data.useGenieAcs !== undefined) updateData.useGenieAcs = data.useGenieAcs;
+        if (data.genieacsUrl !== undefined) updateData.genieacsUrl = data.genieacsUrl;
+        if (data.genieacsUsername !== undefined) updateData.genieacsUsername = data.genieacsUsername;
+        if (data.genieacsPassword !== undefined) {
+            updateData.genieacsPasswordEncrypted = data.genieacsPassword ? encrypt(data.genieacsPassword) : null;
+        }
         if (data.status !== undefined) updateData.status = data.status;
 
         const [router] = await db

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { asyncHandler } from '../middleware/error.middleware.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { genieacsService } from '../services/genieacs.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
@@ -17,7 +17,9 @@ router.get(
     '/devices',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const devices = await genieacsService.getDevices();
+        const query = req.query.query ? JSON.parse(req.query.query as string) : {};
+        const routerId = req.query.routerId as string | undefined;
+        const devices = await genieacsService.getDevices(routerId, query);
         res.json({ data: devices });
     })
 );
@@ -30,10 +32,11 @@ router.get(
     '/devices/:id',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const id = req.params.id as string;
-        const device = await genieacsService.getDevice(id);
+        const id = req.params.id;
+        const routerId = req.query.routerId as string | undefined;
+        const device = await genieacsService.getDevice(id, routerId);
         if (!device) {
-            return res.status(404).json({ error: 'Device not found' });
+            throw ApiError.notFound('Device not found');
         }
         res.json({ data: device });
     })
@@ -48,7 +51,154 @@ router.post(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const result = await genieacsService.rebootDevice(id);
+        const routerId = req.query.routerId as string | undefined;
+        const result = await genieacsService.rebootDevice(id, routerId);
+        res.json({ data: result });
+    })
+);
+
+/**
+ * PATCH /api/genieacs/devices/:id/parameters
+ * Update device parameters
+ */
+router.patch(
+    '/devices/:id/parameters',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const { parameterName, value, type } = req.body;
+
+        if (!parameterName || value === undefined) {
+            throw ApiError.badRequest('parameterName and value are required');
+        }
+
+        const result = await genieacsService.setParameter(id, parameterName, value, type, routerId);
+        res.json({ data: result });
+    })
+);
+
+/**
+ * PATCH /api/genieacs/devices/:id/wan-config
+ * Update device WAN configuration
+ */
+router.patch(
+    '/devices/:id/wan-config',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const config = req.body;
+
+        if (!config.wanType) {
+            throw ApiError.badRequest('wanType is required');
+        }
+
+        const result = await genieacsService.updateWanConfig(id, config, routerId);
+        res.json({ data: result });
+    })
+);
+
+/**
+ * PATCH /api/genieacs/devices/:id/wifi-config
+ * Update device WiFi configuration
+ */
+router.patch(
+    '/devices/:id/wifi-config',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const config = req.body;
+
+        if (!config.ssidIndex) {
+            // Default to 1 if not provided, or throw error? 
+            // Better to default to 1.
+            config.ssidIndex = 1;
+        }
+
+        const result = await genieacsService.updateWifiConfig(id, config, routerId);
+        res.json({ data: result });
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/:id/refresh
+ * Refresh device (Summon)
+ */
+router.post(
+    '/devices/:id/refresh',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const result = await genieacsService.refreshDevice(id, routerId);
+        if (result.success) {
+            res.json({ success: true });
+        } else {
+            res.status(500).json({ error: result.error });
+        }
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/:id/factory-reset
+ * Factory Reset device
+ */
+router.post(
+    '/devices/:id/factory-reset',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const result = await genieacsService.factoryReset(id, routerId);
+        if (result.success) {
+            res.json({ success: true });
+        } else {
+            res.status(500).json({ error: result.error });
+        }
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/bulk/reboot
+ * Bulk Reboot
+ */
+router.post(
+    '/devices/bulk/reboot',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const { deviceIds } = req.body;
+        const routerId = req.query.routerId as string | undefined;
+
+        if (!deviceIds || !Array.isArray(deviceIds) || deviceIds.length === 0) {
+            throw ApiError.badRequest('deviceIds array is required');
+        }
+
+        const result = await genieacsService.bulkReboot(deviceIds, routerId);
+        res.json({ data: result });
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/bulk/config
+ * Bulk Push Config
+ */
+router.post(
+    '/devices/bulk/config',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const { deviceIds, type, config } = req.body;
+        const routerId = req.query.routerId as string | undefined;
+
+        if (!deviceIds || !Array.isArray(deviceIds) || deviceIds.length === 0) {
+            throw ApiError.badRequest('deviceIds array is required');
+        }
+        if (!type || !['wan', 'wifi'].includes(type) || !config) {
+            throw ApiError.badRequest('Valid type (wan/wifi) and config are required');
+        }
+
+        const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId);
         res.json({ data: result });
     })
 );

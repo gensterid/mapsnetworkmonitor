@@ -30,6 +30,9 @@ export interface Router {
     updatedAt: string;
     latestMetrics?: RouterMetric;
     maxInterfaceSpeed?: string;
+    useGenieAcs: boolean;
+    genieacsUrl?: string | null;
+    genieacsUsername?: string | null;
 }
 
 export interface CreateRouterInput {
@@ -45,6 +48,10 @@ export interface CreateRouterInput {
     groupId?: string;
     notificationGroupId?: string;
     notes?: string;
+    useGenieAcs?: boolean;
+    genieacsUrl?: string | null;
+    genieacsUsername?: string | null;
+    genieacsPassword?: string | null;
 }
 
 export interface UpdateRouterInput {
@@ -61,6 +68,10 @@ export interface UpdateRouterInput {
     notificationGroupId?: string;
     notes?: string;
     status?: 'online' | 'offline' | 'maintenance' | 'unknown';
+    useGenieAcs?: boolean;
+    genieacsUrl?: string | null;
+    genieacsUsername?: string | null;
+    genieacsPassword?: string | null;
 }
 
 // Router Interface types

@@ -24,6 +24,10 @@ const createRouterSchema = z.object({
     notes: z.string().optional(),
     snmpCommunity: z.string().optional().default('public'),
     snmpPort: z.number().int().min(1).max(65535).optional().default(161),
+    useGenieAcs: z.boolean().optional().default(false),
+    genieacsUrl: z.string().url().optional().nullable(),
+    genieacsUsername: z.string().optional().nullable(),
+    genieacsPassword: z.string().optional().nullable(),
 });
 
 const updateRouterSchema = z.object({
@@ -42,6 +46,10 @@ const updateRouterSchema = z.object({
     status: z.enum(['online', 'offline', 'maintenance', 'unknown']).optional(),
     snmpCommunity: z.string().optional(),
     snmpPort: z.number().int().min(1).max(65535).optional(),
+    useGenieAcs: z.boolean().optional(),
+    genieacsUrl: z.string().url().optional().nullable(),
+    genieacsUsername: z.string().optional().nullable(),
+    genieacsPassword: z.string().optional().nullable(),
 });
 
 const testConnectionSchema = z.object({

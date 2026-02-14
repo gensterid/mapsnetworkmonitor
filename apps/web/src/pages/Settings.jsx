@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info } from 'lucide-react';
 import { useExportDatabase, useImportDatabase } from '@/hooks';
 import { useTheme } from '@/context/ThemeContext';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
@@ -19,6 +19,7 @@ const TABS = [
     { id: 'general', label: 'General', icon: SettingsIcon },
     { id: 'map-colors', label: 'Map Colors', icon: Palette },
     { id: 'alerts', label: 'Alert Thresholds', icon: AlertTriangle },
+    { id: 'genieacs', label: 'GenieACS', icon: Monitor },
 ];
 
 export default function Settings() {
@@ -39,6 +40,10 @@ export default function Settings() {
         image: '',
         // Map Colors
         mapColors: { ...DEFAULT_MAP_COLORS },
+        // GenieACS
+        genieacs_url: '',
+        genieacs_username: '',
+        genieacs_password: '',
     });
     const [saveStatus, setSaveStatus] = useState('');
     const [pingTargets, setPingTargets] = useState([
@@ -80,6 +85,9 @@ export default function Settings() {
                 alertEmailEnabled: settings.alertEmailEnabled === 'true' || settings.alertEmailEnabled === true,
                 alertEmail: settings.alertEmail || '',
                 googleMapsApiKey: settings.googleMapsApiKey || '',
+                genieacs_url: settings.genieacs_url || '',
+                genieacs_username: settings.genieacs_username || '',
+                genieacs_password: settings.genieacs_password_encrypted || '',
             }));
             // Load ping targets from settings
             if (settings.pingTargets && Array.isArray(settings.pingTargets)) {
@@ -145,6 +153,9 @@ export default function Settings() {
                 const validTargets = pingTargets.filter(t => t.ip.trim() !== '');
                 await updateSettingMutation.mutateAsync({ key: 'pingTargets', value: validTargets });
                 await updateSettingMutation.mutateAsync({ key: 'mapColors', value: formData.mapColors });
+                await updateSettingMutation.mutateAsync({ key: 'genieacs_url', value: formData.genieacs_url });
+                await updateSettingMutation.mutateAsync({ key: 'genieacs_username', value: formData.genieacs_username });
+                await updateSettingMutation.mutateAsync({ key: 'genieacs_password_encrypted', value: formData.genieacs_password });
             }
 
             // Update User Profile (Self)
@@ -650,6 +661,85 @@ export default function Settings() {
                             <Button type="submit" loading={updateSettingMutation.isPending || updateUserMutation.isPending}>
                                 <Save className="w-4 h-4 mr-2" />
                                 Save Settings
+                            </Button>
+                        </div>
+                    </form>
+                )}
+
+                {activeTab === 'genieacs' && (
+                    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+                        {saveStatus && (
+                            <div className={`p-3 rounded-lg text-sm ${saveStatus.includes('Failed')
+                                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                }`}>
+                                {saveStatus}
+                            </div>
+                        )}
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Monitor className="w-5 h-5" />
+                                    GenieACS Connection
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">GenieACS API URL</label>
+                                    <Input
+                                        name="genieacs_url"
+                                        value={formData.genieacs_url}
+                                        onChange={handleChange}
+                                        placeholder="http://192.168.1.10:7557"
+                                        disabled={currentUser?.role !== 'admin'}
+                                    />
+                                    <p className="text-xs text-slate-500">
+                                        URL of your GenieACS NBI (usually port 7557). Make sure the server can reach this URL.
+                                    </p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Default ACS Username</label>
+                                        <Input
+                                            name="genieacs_username"
+                                            value={formData.genieacs_username}
+                                            onChange={handleChange}
+                                            placeholder="admin"
+                                            disabled={currentUser?.role !== 'admin'}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-slate-300">Default ACS Password</label>
+                                        <Input
+                                            type="password"
+                                            name="genieacs_password"
+                                            value={formData.genieacs_password}
+                                            onChange={handleChange}
+                                            placeholder="••••••••"
+                                            disabled={currentUser?.role !== 'admin'}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                                    <div className="flex gap-3">
+                                        <Info className="w-5 h-5 text-blue-400 shrink-0" />
+                                        <div className="text-xs text-slate-400 space-y-1">
+                                            <p className="font-bold text-blue-400">Penting:</p>
+                                            <p>Aplikasi ini akan mengambil data perangkat (CPE) secara langsung dari API GenieACS.</p>
+                                            <p>Pastikan **API GenieACS** aktif dan tidak diblokir oleh firewall di server backend.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <div className="flex justify-end">
+                            <Button type="submit" loading={updateSettingMutation.isPending || updateUserMutation.isPending}>
+                                <Save className="w-4 h-4 mr-2" />
+                                Save GenieACS Settings
                             </Button>
                         </div>
                     </form>
