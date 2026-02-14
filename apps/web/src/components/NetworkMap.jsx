@@ -319,7 +319,23 @@ const DraggableMarker = ({
     );
 };
 
-// Memoized Tooltip for Devices to prevent re-renders of the layer component itself unless props change
+// Helper to get consistent colors for tooltips and icons
+const getTooltipColor = (node) => {
+    const type = node.deviceType || node.type || 'router';
+    const status = (node.status || 'unknown').toLowerCase();
+    const isOffline = ['down', 'offline', 'disable', 'disconnected', 'unknown'].includes(status) || !node.status;
+
+    if (isOffline) return 'var(--map-color-offline, #EF4444)';
+    if (type === 'odp') return 'var(--map-color-odp, #F97316)';
+    if (type === 'pppoe') return 'var(--map-color-pppoe, #A855F7)';
+
+    // Performance warning (Yellow)
+    const hasPerformanceIssue = (node.latency !== null && node.latency > 100);
+    if (hasPerformanceIssue) return 'var(--map-color-warning, #FACC15)';
+
+    return 'var(--map-color-online, #10B981)';
+};
+
 // Memoized Tooltip for Devices
 const RouterTooltipContent = ({ node }) => {
     const { timezone } = React.useContext(TrafficContext);
@@ -355,7 +371,7 @@ const RouterTooltipContent = ({ node }) => {
     return (
         <div className="flex flex-col min-w-[240px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
             {/* Header */}
-            <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
+            <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: getTooltipColor(node) }}>
                 <div className="flex flex-col">
                     <div className="flex items-center gap-2 text-white">
                         <span className="material-symbols-outlined text-[16px]">router</span>
@@ -518,7 +534,7 @@ const DeviceTooltipContent = ({ node, line }) => {
 
     return (
         <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-            <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
+            <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: getTooltipColor(node) }}>
                 <div className="flex items-center gap-2 text-white">
                     <span className="material-symbols-outlined text-[16px]">
                         {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : (node.deviceType === 'router' || node.type === 'router') ? 'router' : node.deviceType === 'pppoe' ? 'person' : 'person'}
