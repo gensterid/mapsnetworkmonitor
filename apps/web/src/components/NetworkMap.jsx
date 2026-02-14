@@ -964,8 +964,7 @@ const NetworkMap = ({
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [hoveredRouterId, setHoveredRouterId] = useState(null);
-    const [hoveredMarkerId, setHoveredMarkerId] = useState(null); // Added missing state
+    const [hoveredMarkerId, setHoveredMarkerId] = useState(null); // Consolidating all marker hover here
     const [hoveredLineId, setHoveredLineId] = useState(null);
     const mapContainerRef = React.useRef(null);
     const [isSyncing, setIsSyncing] = useState(false);
@@ -1761,11 +1760,10 @@ const NetworkMap = ({
                     status={router.status}
                     name={router.name || router.host}
                     showLabel={showLabels}
-                    // isHovered prop removed - handled internally
                     eventHandlers={{
                         click: () => handleDeviceClick(router, 'router'),
-                        mouseover: () => setHoveredRouterId(router.id),
-                        mouseout: () => setHoveredRouterId(null)
+                        mouseover: () => handleMarkerHover(router.id),
+                        mouseout: () => handleMarkerHover(null)
                     }}
                 >
                     <DeviceTooltip node={router} line={null} />
