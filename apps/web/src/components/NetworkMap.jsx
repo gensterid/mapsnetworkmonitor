@@ -38,7 +38,13 @@ const TrafficContext = React.createContext({
     displayTrafficMap: new Map(),
     trafficMapRef: { current: new Map() },
     timezone: 'UTC',
-    isHeatmapMode: false
+    isHeatmapMode: false,
+    isLiveMode: false
+});
+
+const HoveredItemContext = React.createContext({
+    hoveredMarkerId: null,
+    hoveredLineId: null
 });
 
 // --- Custom Components ---
@@ -297,7 +303,8 @@ const DraggableMarker = ({
         isFinite(markerPosition[0]) &&
         isFinite(markerPosition[1]);
 
-    if (!isValidPosition) return null;
+    // Additional check: Ensure icon is valid
+    if (!isValidPosition || !icon) return null;
 
     return (
         <Marker
@@ -314,8 +321,34 @@ const DraggableMarker = ({
 
 // Memoized Tooltip for Devices to prevent re-renders of the layer component itself unless props change
 // Memoized Tooltip for Devices
-const DeviceTooltip = React.memo(({ node, line }) => {
-    const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode } = React.useContext(TrafficContext);
+// 1. Content Component (Heavy Logic, only rendered when hovered)
+const DeviceTooltipContent = ({ node, line }) => {
+    const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode } = React.useContext(TrafficContext);
+
+    // Logic for retrieving Traffic Data
+    const trafficInterface = node.targetInterface || line?.targetInterface;
+    const routerPrefixedKey = node.routerId && trafficInterface ? `${node.routerId}:${trafficInterface}` : null;
+    const nameKey = node.name || node.host;
+
+    // Data Sourcing Rule: 
+    // 1. If Live Mode is ON, use real-time SNMP stats
+    // 2. If Live Mode is OFF, use database stats (node.txRate/rxRate)
+    let rxRate = node.rxRate || 0;
+    let txRate = node.txRate || 0;
+
+    if (isLiveMode) {
+        const map = trafficMapRef.current;
+        let stats = null;
+        if (map) {
+            if (routerPrefixedKey) stats = map.get(routerPrefixedKey);
+            if (!stats && trafficInterface) stats = map.get(trafficInterface);
+            if (!stats && nameKey) stats = map.get(nameKey);
+        }
+
+        const visualStats = trafficInterface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(trafficInterface)) : null;
+        rxRate = stats?.rx ?? (visualStats?.rx || rxRate);
+        txRate = stats?.tx ?? (visualStats?.tx || txRate);
+    }
 
     const formatBitrate = (bitsPerSecond) => {
         if (!bitsPerSecond || isNaN(bitsPerSecond)) return '0 bps';
@@ -328,81 +361,83 @@ const DeviceTooltip = React.memo(({ node, line }) => {
 
     const status = node.status || 'unknown';
     const isUp = ['up', 'online', 'active'].includes(status);
-    const trafficInterface = node.targetInterface || line?.targetInterface;
 
-    // Use fresh stats from Ref for the hovered tooltip
-    const routerPrefixedKey = node.routerId ? `${node.routerId}:${trafficInterface}` : null;
-    const stats = trafficInterface ? (trafficMapRef.current.get(routerPrefixedKey) || trafficMapRef.current.get(trafficInterface)) : null;
+    return (
+        <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
+            <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
+                <div className="flex items-center gap-2 text-white">
+                    <span className="material-symbols-outlined text-[16px]">
+                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : node.deviceType === 'router' ? 'router' : 'person'}
+                    </span>
+                    <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                </div>
+                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                    {status}
+                </div>
+            </div>
+            <div className="p-3 bg-slate-800 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                    <span className="text-slate-400">Host</span>
+                    <span className="text-slate-200 font-mono">{node.host}</span>
+                </div>
+                {isHeatmapMode && trafficInterface && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Interface</span>
+                        <span className="text-slate-200 font-mono text-[10px]">{trafficInterface}</span>
+                    </div>
+                )}
+                {line && (
+                    <>
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Source</span>
+                            <span className="text-slate-200 truncate max-w-[100px]">{line.sourceName}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Distance</span>
+                            <span className="text-slate-200 font-mono">{line.distance.toFixed(2)} m</span>
+                        </div>
+                    </>
+                )}
+                {isUp ? (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Latency</span>
+                        <span className="text-emerald-400 font-bold">{node.latency} ms</span>
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-1">
+                        <span className="text-slate-400 text-[10px] uppercase">Down Since</span>
+                        <span className="text-red-200 text-xs">{formatDateWithTimezone(node.lastDown, timezone)}</span>
+                    </div>
+                )}
 
-    // Use live stats if available, otherwise throttled version from displayTrafficMap
-    const visualStats = trafficInterface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(trafficInterface)) : null;
-    const rxRate = stats?.rx ?? (visualStats?.rx || 0);
-    const txRate = stats?.tx ?? (visualStats?.tx || 0);
+                {/* Show traffic info only in heatmap mode */}
+                {isUp && isHeatmapMode && (
+                    <div className={`border-t border-slate-700/50 pt-2 mt-1 grid grid-cols-2 gap-2 opacity-100`}>
+                        <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                            <span className="text-[10px] text-slate-500">RX</span>
+                            <span className="text-emerald-400 font-mono text-xs">{formatBitrate(rxRate)}</span>
+                        </div>
+                        <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
+                            <span className="text-[10px] text-slate-500">TX</span>
+                            <span className="text-blue-400 font-mono text-xs">{formatBitrate(txRate)}</span>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// 2. Container Component (Lightweight, always rendered to bind Leaflet Tooltip)
+const DeviceTooltip = React.memo(({ node, line }) => {
+    const { hoveredMarkerId } = React.useContext(HoveredItemContext);
+
+    // Only render content if this specific node is hovered
+    const isHovered = hoveredMarkerId === node.id;
 
     return (
         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
-            <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
-                <div className={`px-3 py-2 flex items-center justify-between ${isUp ? 'bg-emerald-600' : 'bg-red-600'}`}>
-                    <div className="flex items-center gap-2 text-white">
-                        <span className="material-symbols-outlined text-[16px]">
-                            {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : node.deviceType === 'router' ? 'router' : 'person'}
-                        </span>
-                        <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
-                    </div>
-                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                        {status}
-                    </div>
-                </div>
-                <div className="p-3 bg-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">Host</span>
-                        <span className="text-slate-200 font-mono">{node.host}</span>
-                    </div>
-                    {trafficInterface && (
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">Interface</span>
-                            <span className="text-slate-200 font-mono text-[10px]">{trafficInterface}</span>
-                        </div>
-                    )}
-                    {line && (
-                        <>
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-400">Source</span>
-                                <span className="text-slate-200 truncate max-w-[100px]">{line.sourceName}</span>
-                            </div>
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-400">Distance</span>
-                                <span className="text-slate-200 font-mono">{(line.distance / 1000).toFixed(2)} km</span>
-                            </div>
-                        </>
-                    )}
-                    {isUp ? (
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-400">Latency</span>
-                            <span className="text-emerald-400 font-bold">{node.latency} ms</span>
-                        </div>
-                    ) : (
-                        <div className="flex flex-col gap-1">
-                            <span className="text-slate-400 text-[10px] uppercase">Down Since</span>
-                            <span className="text-red-200 text-xs">{formatDateWithTimezone(node.lastDown, timezone)}</span>
-                        </div>
-                    )}
-
-                    {/* Always show traffic info if available, highlight more in heatmap mode */}
-                    {isUp && (
-                        <div className={`border-t border-slate-700/50 pt-2 mt-1 grid grid-cols-2 gap-2 ${isHeatmapMode ? 'opacity-100' : 'opacity-80'}`}>
-                            <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
-                                <span className="text-[10px] text-slate-500">RX</span>
-                                <span className="text-emerald-400 font-mono text-xs">{formatBitrate(rxRate)}</span>
-                            </div>
-                            <div className="bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex flex-col items-center">
-                                <span className="text-[10px] text-slate-500">TX</span>
-                                <span className="text-blue-400 font-mono text-xs">{formatBitrate(txRate)}</span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
+            {isHovered && <DeviceTooltipContent node={node} line={line} />}
         </Tooltip>
     );
 });
@@ -420,11 +455,18 @@ const SmartMarker = ({
     draggable,
     onDragEnd,
     onClick,
-    isHovered,
+    id, // NEW: Need ID to check hover context
     children,
     ...props
 }) => {
-    const { hoverTick } = React.useContext(TrafficContext);
+    // Optimized: Context removed from SmartMarker to prevent re-renders on tick/hover
+    // The tooltip itself now listens to context when needed.
+
+
+    // Sanitize metrics to ensure they are numbers or null
+    const safeLatency = (typeof latency === 'number' && isFinite(latency)) ? latency : null;
+    const safePacketLoss = (typeof packetLoss === 'number' && isFinite(packetLoss)) ? packetLoss : null;
+
     // Memoize the icon so it doesn't change reference on every render
     const icon = useMemo(() => createDeviceIcon({
         type,
@@ -432,9 +474,9 @@ const SmartMarker = ({
         name: showLabel ? name : '',
         showLabel,
         small,
-        latency,
-        packetLoss
-    }), [type, status, name, showLabel, small, latency, packetLoss]);
+        latency: safeLatency,
+        packetLoss: safePacketLoss
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss]);
 
     return (
         <DraggableMarker
@@ -446,7 +488,7 @@ const SmartMarker = ({
             status={status} // Pass status for cluster icon logic
             {...props}
         >
-            {isHovered && children}
+            {children}
         </DraggableMarker>
     );
 };
@@ -470,7 +512,8 @@ const arePropsEqual = (prev, next) => {
         prev.small === next.small &&
         prev.icon === next.icon &&
         prev.isHeatmapMode === next.isHeatmapMode &&
-        prev.isHovered === next.isHovered
+        prev.id === next.id
+        // Removed isHovered from comparison since it's now internal via Context
     );
 };
 
@@ -620,26 +663,41 @@ const NetworkLineOriginal = ({
     timezone,
     onMouseOver,
     onMouseOut,
-    isHovered,
     tick,
+    isLiveMode, // New prop
     trafficMapRef // Removed: now consumed from context
 }) => {
     const { hoverTick, displayTrafficMap, trafficMapRef: contextTrafficMapRef } = React.useContext(TrafficContext);
+    const { hoveredLineId } = React.useContext(HoveredItemContext);
+    const isHovered = hoveredLineId === line.id;
+
     const activeTrafficMapRef = contextTrafficMapRef || trafficMapRef; // Fallback
 
-    // 1. Tooltip Content (Calculated lazily only when hovered)
+    // Safety check for coordinates
+    const isValidCoordinate = (coord) => Array.isArray(coord) && coord.length === 2 && Number.isFinite(coord[0]) && Number.isFinite(coord[1]);
+    if (!line || !isValidCoordinate(line.from) || !isValidCoordinate(line.to)) {
+        return null; // Skip rendering invalid lines
+    }
+
+    // 1. Tooltip Content (Always calculated but values based on isLiveMode)
     const tooltipContent = useMemo(() => {
-        if (!isHovered) return null;
+        // IMPROVEMENT: Removed "if (!isHovered) return null" to ensure Leaflet consistent binding
+        // The data sourcing follows the rule: SNMP if Live Mode ON, otherwise DB
 
-        // Use fresh stats from Ref for the hovered tooltip
-        const map = activeTrafficMapRef.current;
         const iface = line.targetInterface;
-        const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
-        const stats = iface ? (map.get(routerPrefixedKey) || map.get(iface)) : null;
+        let txRateLive = line.txRate || 0;
+        let rxRateLive = line.rxRate || 0;
 
-        // If we don't have live stats yet, fall back to throttled props
-        const txRateLive = stats?.tx ?? txRate;
-        const rxRateLive = stats?.rx ?? rxRate;
+        if (isLiveMode) {
+            // Use fresh stats from Ref for the hovered tooltip
+            const map = activeTrafficMapRef.current;
+            const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
+            const stats = iface ? (map.get(routerPrefixedKey) || map.get(iface)) : null;
+
+            // If we don't have live stats yet, fall back to throttled props (which already respect mode in caller)
+            txRateLive = stats?.tx ?? txRate;
+            rxRateLive = stats?.rx ?? rxRate;
+        }
 
         const formatBitrate = (bitsPerSecond) => {
             if (!bitsPerSecond || isNaN(bitsPerSecond)) return '0 bps';
@@ -668,12 +726,17 @@ const NetworkLineOriginal = ({
                         <span class="text-slate-400">Status</span>
                         <span class="font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}">${line.status.toUpperCase()}</span>
                     </div>
-                    ${line.targetInterface ? `
+                    ${line.distance ? `
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Distance</span>
+                        <span class="text-slate-200 font-mono text-[10px]">${line.distance.toFixed(2)} m</span>
+                    </div>
+                    ` : ''}
+                    ${isHeatmapMode && line.targetInterface ? `
                     <div class="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
                         <span class="text-slate-400">Interface</span>
                         <span class="text-slate-200 font-mono text-[10px]">${line.targetInterface}</span>
                     </div>
-                    ` : ''}
                     <div class="grid grid-cols-2 gap-2 mt-2">
                         <div class="bg-slate-900/50 p-2 rounded border border-slate-700/30 flex flex-col items-center shadow-inner">
                             <span class="text-[10px] text-slate-500 uppercase tracking-wider mb-1">RX</span>
@@ -684,10 +747,11 @@ const NetworkLineOriginal = ({
                             <span class="text-blue-400 font-mono font-bold text-xs">${formatBitrate(txRateLive)}</span>
                         </div>
                     </div>
+                    ` : ''}
                 </div>
             </div>
         `;
-    }, [isHovered, tick, line, txRate, rxRate, timezone]);
+    }, [line, txRate, rxRate, timezone, isLiveMode, isHeatmapMode]); // Added isLiveMode/isHeatmapMode dependency
 
     // 2. Derive visual props
     const renderOptions = useMemo(() => {
@@ -811,6 +875,7 @@ const areLinesEqual = (prev, next) => {
         prev.isHovered === next.isHovered &&
         (prev.isHovered ? prev.tick === next.tick : true) &&
         prev.isHeatmapMode === next.isHeatmapMode &&
+        prev.isLiveMode === next.isLiveMode && // Added
         prev.lineThickness === next.lineThickness &&
         prev.enableAnimation === next.enableAnimation &&
         prev.lowPerfMode === next.lowPerfMode &&
@@ -829,7 +894,98 @@ const NetworkMap = ({
     isLiveMode = false,
     onLiveModeChange = null // New prop to control live mode from parent
 }) => {
-    // 1. Traffic Hub - Dual Rate for Performance
+    // 1. Hooks & Data Fetching (Must be at the top)
+    const queryClient = useQueryClient();
+    const { data: settings } = useSettings();
+    const { data: currentUser } = useCurrentUser();
+    const apiKey = settings?.googleMapsApiKey;
+    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+
+    // Fetch Routers
+    const { data: routersData } = useQuery({
+        queryKey: ['routers'],
+        queryFn: async () => {
+            const res = await apiClient.get('/routers');
+            return res.data.data;
+        },
+        placeholderData: keepPreviousData,
+    });
+
+    // Fetch Netwatch
+    const { data: netwatchData, refetch: refetchNetwatch } = useQuery({
+        queryKey: ['netwatch-all'],
+        queryFn: async () => {
+            if (!routersData) return [];
+            const targetRouters = filteredRouterId ? routersData.filter(r => r.id === filteredRouterId) : routersData;
+            const promises = targetRouters.map(r =>
+                apiClient.get(`/routers/${r.id}/netwatch`).then(res => ({ routerId: r.id, entries: res.data.data }))
+            );
+            return Promise.all(promises);
+        },
+        enabled: !!routersData && !showRoutersOnly && !netwatchOverride,
+        placeholderData: keepPreviousData,
+        refetchInterval: 5000,
+    });
+
+    // Fetch PPPoE
+    const { data: pppoeData } = useQuery({
+        queryKey: ['pppoe-map', filteredRouterId],
+        queryFn: async () => {
+            const url = filteredRouterId ? `/pppoe/map?routerId=${filteredRouterId}` : '/pppoe/map';
+            const res = await apiClient.get(url);
+            return res.data.data || [];
+        },
+        enabled: !showRoutersOnly,
+        staleTime: 30000,
+        placeholderData: keepPreviousData,
+    });
+
+    // Stable Data Memoization
+    const stableRoutersData = useDeepCompareMemoize(routersData);
+    const stableNetwatchData = useDeepCompareMemoize(netwatchOverride || netwatchData);
+    const stablePppoeData = useDeepCompareMemoize(pppoeData);
+    const stableRealtimeTraffic = useDeepCompareMemoize(realtimeTraffic);
+
+    // UI & Interactive State (Moved to top to prevent ReferenceError)
+    const [mapType, setMapType] = useState('satellite_dark');
+    const [showLabels, setShowLabels] = useState(() => {
+        const saved = localStorage.getItem('map_show_labels');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedDevice, setSelectedDevice] = useState(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isEditingPath, setIsEditingPath] = useState(false);
+    const [editingDevice, setEditingDevice] = useState(null);
+    const [editWaypoints, setEditWaypoints] = useState([]);
+    const [pathLength, setPathLength] = useState(0);
+    const [lineThickness, setLineThickness] = useState(4);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [hoveredRouterId, setHoveredRouterId] = useState(null);
+    const [hoveredMarkerId, setHoveredMarkerId] = useState(null); // Added missing state
+    const [hoveredLineId, setHoveredLineId] = useState(null);
+    const mapContainerRef = React.useRef(null);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    // Performance optimization states
+    const [enableAnimation, setEnableAnimation] = useState(() => {
+        const saved = localStorage.getItem('map_animation_enabled');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
+    const [enableClustering, setEnableClustering] = useState(() => {
+        const saved = localStorage.getItem('map_clustering_enabled');
+        return saved !== null ? JSON.parse(saved) : true;
+    });
+    const [lowPerfMode, setLowPerfMode] = useState(() => {
+        const saved = localStorage.getItem('map_low_perf_enabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
+    const [isHeatmapMode, setIsHeatmapMode] = useState(false);
+
+    // 2. Traffic Hub - Dual Rate for Performance
     const [displayTraffic, setDisplayTraffic] = useState(realtimeTraffic || {});
     const lastDisplayUpdate = React.useRef(0);
 
@@ -869,7 +1025,7 @@ const NetworkMap = ({
 
     // Sync Live vs Display Traffic
     useEffect(() => {
-        if (!isLiveMode || !realtimeTraffic) {
+        if (!isLiveMode || !stableRealtimeTraffic) {
             setDisplayTraffic({});
             trafficMapRef.current.clear(); // Clear live ref too
             return;
@@ -877,8 +1033,8 @@ const NetworkMap = ({
 
         // Update the live traffic ref immediately for tooltips
         const liveMap = new Map();
-        Object.keys(realtimeTraffic).forEach(key => liveMap.set(key, realtimeTraffic[key]));
-        Object.entries(realtimeTraffic).forEach(([key, val]) => {
+        Object.keys(stableRealtimeTraffic).forEach(key => liveMap.set(key, stableRealtimeTraffic[key]));
+        Object.entries(stableRealtimeTraffic).forEach(([key, val]) => {
             if (key.includes(':')) {
                 const ifaceOnly = key.split(':')[1];
                 if (!liveMap.has(ifaceOnly)) liveMap.set(ifaceOnly, val);
@@ -893,12 +1049,16 @@ const NetworkMap = ({
         // Update display (heatmap/thickness) at most every 4 seconds for maximum smoothness
         const now = Date.now();
         if (now - lastDisplayUpdate.current > 4000) {
-            setDisplayTraffic(realtimeTraffic);
+            setDisplayTraffic(stableRealtimeTraffic);
             lastDisplayUpdate.current = now;
         }
-        // Increment tick to force re-render of hovered items
-        setHoverTick(prev => prev + 1);
-    }, [realtimeTraffic, isLiveMode]);
+
+        // Performance Improvement: Only increment tick if something is actively hovered
+        // This prevents infinite loops and saves CPU when the map is idle
+        if (hoveredMarkerId || hoveredLineId) {
+            setHoverTick(prev => prev + 1);
+        }
+    }, [stableRealtimeTraffic, isLiveMode, hoveredMarkerId, hoveredLineId]);
 
     // --- Optimization: Pre-calculate flat traffic map for O(1) lookup ---
     // This solves the O(N*M) performance issue that causes stutter in large maps
@@ -921,122 +1081,7 @@ const NetworkMap = ({
         return map;
     }, [displayTraffic]);
 
-    const [mapType, setMapType] = useState('satellite_dark'); // Set to satellite_dark as default
-    const [showLabels, setShowLabels] = useState(() => {
-        const saved = localStorage.getItem('map_show_labels');
-        return saved !== null ? JSON.parse(saved) : true; // Default true based on user feedback
-    });
-    const [searchQuery, setSearchQuery] = useState('');
-    const [selectedDevice, setSelectedDevice] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isEditingPath, setIsEditingPath] = useState(false);
-    const [editingDevice, setEditingDevice] = useState(null);
-    const [editWaypoints, setEditWaypoints] = useState([]);
-    const [pathLength, setPathLength] = useState(0);
-    const [lineThickness, setLineThickness] = useState(4); // Reverted default to 4 as requested
 
-    const [isEditMode, setIsEditMode] = useState(false); // Master edit mode for dragging
-    const [isSaving, setIsSaving] = useState(false);
-    const [isFullscreen, setIsFullscreen] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu toggle
-    const [hoveredRouterId, setHoveredRouterId] = useState(null); // Track hovered router for tooltip fetching
-    const [hoveredLineId, setHoveredLineId] = useState(null); // Track hovered line for live stats
-    const mapContainerRef = React.useRef(null);
-
-    // Performance optimization states
-    const [enableAnimation, setEnableAnimation] = useState(() => {
-        const saved = localStorage.getItem('map_animation_enabled');
-        return saved !== null ? JSON.parse(saved) : true;
-    });
-    const [enableClustering, setEnableClustering] = useState(() => {
-        const saved = localStorage.getItem('map_clustering_enabled');
-        return saved !== null ? JSON.parse(saved) : true;
-    });
-    const [lowPerfMode, setLowPerfMode] = useState(() => {
-        const saved = localStorage.getItem('map_low_perf_enabled');
-        return saved !== null ? JSON.parse(saved) : false;
-    });
-    const [isHeatmapMode, setIsHeatmapMode] = useState(false);
-
-    const queryClient = useQueryClient();
-    const { data: settings } = useSettings();
-    const { data: currentUser } = useCurrentUser();
-    const apiKey = settings?.googleMapsApiKey;
-
-    // Resolve Map Colors (Settings > Default)
-    const mapColors = useMemo(() => {
-        if (!settings?.mapColors) return DEFAULT_MAP_COLORS;
-        return { ...DEFAULT_MAP_COLORS, ...settings.mapColors };
-    }, [settings?.mapColors]);
-
-    // Inject CSS Variables for Map Colors
-    useEffect(() => {
-        const root = document.documentElement;
-        if (mapColors) {
-            root.style.setProperty('--map-color-online', mapColors.online);
-            root.style.setProperty('--map-color-offline', mapColors.offline);
-            root.style.setProperty('--map-color-warning', mapColors.warning);
-            root.style.setProperty('--map-color-pppoe', mapColors.pppoe);
-            root.style.setProperty('--map-color-odp', mapColors.odp);
-            root.style.setProperty('--map-color-router', mapColors.router);
-            // Heatmap
-            root.style.setProperty('--map-traffic-idle', mapColors.trafficyIdle);
-            root.style.setProperty('--map-traffic-normal', mapColors.trafficNormal);
-            root.style.setProperty('--map-traffic-high', mapColors.trafficHigh);
-            root.style.setProperty('--map-traffic-peak', mapColors.trafficPeak);
-        }
-    }, [mapColors]);
-
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
-
-    // Fetch Routers
-    const { data: routersData } = useQuery({
-        queryKey: ['routers'],
-        queryFn: async () => {
-            const res = await apiClient.get('/routers');
-            return res.data.data;
-        },
-        placeholderData: keepPreviousData,
-    });
-
-    // Fetch Netwatch for all routers (Disabled if showRoutersOnly is true)
-    const { data: netwatchData, refetch: refetchNetwatch } = useQuery({
-        queryKey: ['netwatch-all'],
-        queryFn: async () => {
-            if (!routersData) return [];
-
-            // If filteredRouterId is set, only fetch for that router to save bandwidth
-            const targetRouters = filteredRouterId
-                ? routersData.filter(r => r.id === filteredRouterId)
-                : routersData;
-
-            const promises = targetRouters.map(r =>
-                apiClient.get(`/routers/${r.id}/netwatch`).then(res => ({
-                    routerId: r.id,
-                    entries: res.data.data
-                }))
-            );
-            return Promise.all(promises);
-        },
-        enabled: !!routersData && !showRoutersOnly && !netwatchOverride,
-        placeholderData: keepPreviousData,
-        refetchInterval: 5000, // Faster polling for "live" traffic feeling
-    });
-
-    // Fetch PPPoE sessions with coordinates
-    const { data: pppoeData } = useQuery({
-        queryKey: ['pppoe-map', filteredRouterId],
-        queryFn: async () => {
-            const url = filteredRouterId
-                ? `/pppoe/map?routerId=${filteredRouterId}`
-                : '/pppoe/map';
-            const res = await apiClient.get(url);
-            return res.data.data || [];
-        },
-        enabled: !showRoutersOnly,
-        staleTime: 30000,
-        placeholderData: keepPreviousData,
-    });
 
     // Fetch router interfaces for selected device (for dropdown)
     const { data: routerInterfaces } = useQuery({
@@ -1050,8 +1095,7 @@ const NetworkMap = ({
         staleTime: 60000,
     });
 
-    // State for syncing indicator
-    const [isSyncing, setIsSyncing] = useState(false);
+
     // const { toast } = useToast(); // Removed: using react-hot-toast import directly
 
     // Manual sync function - syncs all routers' netwatch data
@@ -1178,10 +1222,29 @@ const NetworkMap = ({
         },
     });
 
-    // Memoize dependencies to ensure mapData is only recalculated when ACTUAL data content changes
-    const stableRoutersData = useDeepCompareMemoize(routersData);
-    const stableNetwatchData = useDeepCompareMemoize(netwatchOverride || netwatchData);
-    const stablePppoeData = useDeepCompareMemoize(pppoeData);
+    // Resolve Map Colors (Settings > Default)
+    const mapColors = useMemo(() => {
+        if (!settings?.mapColors) return DEFAULT_MAP_COLORS;
+        return { ...DEFAULT_MAP_COLORS, ...settings.mapColors };
+    }, [settings?.mapColors]);
+
+    // Inject CSS Variables for Map Colors
+    useEffect(() => {
+        const root = document.documentElement;
+        if (mapColors) {
+            root.style.setProperty('--map-color-online', mapColors.online);
+            root.style.setProperty('--map-color-offline', mapColors.offline);
+            root.style.setProperty('--map-color-warning', mapColors.warning);
+            root.style.setProperty('--map-color-pppoe', mapColors.pppoe);
+            root.style.setProperty('--map-color-odp', mapColors.odp);
+            root.style.setProperty('--map-color-router', mapColors.router);
+            // Heatmap
+            root.style.setProperty('--map-traffic-idle', mapColors.trafficyIdle);
+            root.style.setProperty('--map-traffic-normal', mapColors.trafficNormal);
+            root.style.setProperty('--map-traffic-high', mapColors.trafficHigh);
+            root.style.setProperty('--map-traffic-peak', mapColors.trafficPeak);
+        }
+    }, [mapColors]);
 
     // Combine Data
     const mapData = useMemo(() => {
@@ -1589,8 +1652,7 @@ const NetworkMap = ({
         setEditWaypoints([]);
     };
 
-    // Hover State for Markers (Performance Optimization)
-    const [hoveredMarkerId, setHoveredMarkerId] = useState(null);
+
 
     const handleSavePath = () => {
         if (!editingDevice) return;
@@ -1675,304 +1737,303 @@ const NetworkMap = ({
         return lookup;
     }, [mapData.lines]);
 
-    // --- Stable Markers Generation ---
+    // --- Stable Markers Generation (Flattened Array for Clustering) ---
+    // --- Stable Markers Generation (Flattened Array for Clustering) ---
     const markers = useMemo(() => {
-        return (
-            <>
-                {/* Router Markers */}
-                {mapData.routers.filter(r =>
-                    typeof r.lat === 'number' && typeof r.lng === 'number' &&
-                    (!searchQuery || (r.name && r.name.toLowerCase().includes(searchQuery.toLowerCase())) || (r.host && r.host.includes(searchQuery)))
-                ).map(router => {
-                    const isHovered = hoveredRouterId === router.id;
-                    return (
-                        <MemoizedSmartMarker
-                            key={router.id}
-                            position={[router.lat, router.lng]}
-                            type="router"
-                            status={router.status}
-                            name={router.name || router.host}
-                            showLabel={showLabels}
-                            isHovered={isHovered}
-                            eventHandlers={{
-                                click: () => handleDeviceClick(router, 'router'),
-                                mouseover: () => setHoveredRouterId(router.id),
-                                mouseout: () => setHoveredRouterId(null)
-                            }}
-                        >
-                            <DeviceTooltip node={router} line={null} />
-                        </MemoizedSmartMarker>
-                    );
-                })}
+        const allMarkers = [];
 
-                {/* Netwatch Node Markers */}
-                {mapData.nodes.filter(n =>
-                    typeof n.lat === 'number' && typeof n.lng === 'number' &&
-                    (!searchQuery || (n.name && n.name.toLowerCase().includes(searchQuery.toLowerCase())) || (n.host && n.host.includes(searchQuery)))
-                ).map(node => {
-                    // Optimized Lookup
-                    const line = linesByNetwatchId[node.id];
-                    const isHovered = hoveredMarkerId === node.id;
+        // 1. Router Markers
+        mapData.routers.forEach(router => {
+            if (typeof router.lat !== 'number' || typeof router.lng !== 'number' ||
+                (searchQuery && !(
+                    (router.name && router.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (router.host && router.host.includes(searchQuery))
+                ))) {
+                return;
+            }
 
-                    // Throttled Stats (Visuals)
-                    const trafficInterface = node.targetInterface || line?.targetInterface;
-                    const routerPrefixedKey = node.routerId ? `${node.routerId}:${trafficInterface}` : null;
-                    const visualStats = trafficInterface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(trafficInterface)) : null;
-                    const txRateThrottled = visualStats?.tx || node.txRate || 0;
-                    const rxRateThrottled = visualStats?.rx || node.rxRate || 0;
+            allMarkers.push(
+                <MemoizedSmartMarker
+                    key={`router-${router.id}`}
+                    id={router.id} // Pass ID for context check
+                    position={[router.lat, router.lng]}
+                    type="router"
+                    status={router.status}
+                    name={router.name || router.host}
+                    showLabel={showLabels}
+                    // isHovered prop removed - handled internally
+                    eventHandlers={{
+                        click: () => handleDeviceClick(router, 'router'),
+                        mouseover: () => setHoveredRouterId(router.id),
+                        mouseout: () => setHoveredRouterId(null)
+                    }}
+                >
+                    <DeviceTooltip node={router} line={null} />
+                </MemoizedSmartMarker>
+            );
+        });
 
-                    // Live Stats (Lazy)
-                    let txRateLive = 0;
-                    let rxRateLive = 0;
+        // 2. Netwatch Node Markers
+        mapData.nodes.forEach(node => {
+            if (typeof node.lat !== 'number' || typeof node.lng !== 'number' ||
+                (searchQuery && !(
+                    (node.name && node.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (node.host && node.host.includes(searchQuery))
+                ))) {
+                return;
+            }
 
-                    if (isHovered && trafficInterface) {
-                        const map = trafficMapRef.current;
-                        const stats = map.get(routerPrefixedKey) || map.get(trafficInterface);
-                        txRateLive = stats?.tx || 0;
-                        rxRateLive = stats?.rx || 0;
-                    }
+            // Optimized Lookup
+            const line = linesByNetwatchId[node.id];
 
-                    return (
-                        <MemoizedSmartMarker
-                            key={`${node.routerId}-${node.id}`}
-                            position={[node.lat, node.lng]}
-                            type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
-                            status={node.status}
-                            name={node.name || node.host}
-                            showLabel={showLabels}
-                            small={true}
-                            latency={Number(node.latency)}
-                            packetLoss={Number(node.packetLoss)}
-                            draggable={isEditMode}
-                            onDragEnd={(pos) => {
-                                updateNetwatchMutation.mutate({
-                                    routerId: node.routerId,
-                                    netwatchId: node.id,
-                                    data: { latitude: String(pos[0]), longitude: String(pos[1]) }
-                                });
-                            }}
-                            isHovered={isHovered}
-                            onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
-                            eventHandlers={{
-                                mouseover: () => handleMarkerHover(node.id),
-                                mouseout: () => handleMarkerHover(null)
-                            }}
-                            isHeatmapMode={isHeatmapMode} // Ensure heatmap mode prop is passed
-                        >
-                            <DeviceTooltip
-                                node={node}
-                                line={line}
-                            />
-                        </MemoizedSmartMarker>
-                    );
-                })}
+            allMarkers.push(
+                <MemoizedSmartMarker
+                    key={`netwatch-${node.routerId}-${node.id}`}
+                    id={node.id} // Pass ID for context check
+                    position={[node.lat, node.lng]}
+                    type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
+                    status={node.status}
+                    name={node.name || node.host}
+                    showLabel={showLabels}
+                    small={true}
+                    latency={Number(node.latency)}
+                    packetLoss={Number(node.packetLoss)}
+                    draggable={isEditMode}
+                    onDragEnd={(pos) => {
+                        updateNetwatchMutation.mutate({
+                            routerId: node.routerId,
+                            netwatchId: node.id,
+                            data: { latitude: String(pos[0]), longitude: String(pos[1]) }
+                        });
+                    }}
+                    // isHovered prop removed
+                    onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
+                    eventHandlers={{
+                        mouseover: () => handleMarkerHover(node.id),
+                        mouseout: () => handleMarkerHover(null)
+                    }}
+                    isHeatmapMode={isHeatmapMode}
+                >
+                    <DeviceTooltip
+                        node={node}
+                        line={line}
+                    />
+                </MemoizedSmartMarker>
+            );
+        });
+
+        // 3. PPPoE Client Markers
+        (mapData.pppoeNodes || []).forEach(pppoe => {
+            if (typeof pppoe.lat !== 'number' || typeof pppoe.lng !== 'number' ||
+                (searchQuery && !(
+                    (pppoe.name && pppoe.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                    (pppoe.address && pppoe.address.includes(searchQuery))
+                ))) {
+                return;
+            }
+
+            const line = linesByPppoeId[pppoe.id];
+
+            allMarkers.push(
+                <MemoizedSmartMarker
+                    key={`pppoe-${pppoe.id}`}
+                    id={pppoe.id} // Pass ID
+                    position={[pppoe.lat, pppoe.lng]}
+                    type="pppoe"
+                    status={pppoe.status}
+                    name={pppoe.name}
+                    showLabel={showLabels}
+                    small={true}
+                    draggable={isEditMode}
+                    onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
+                    // isHovered prop removed
+                    onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                    eventHandlers={{
+                        mouseover: () => handleMarkerHover(pppoe.id),
+                        mouseout: () => handleMarkerHover(null)
+                    }}
+                    isHeatmapMode={isHeatmapMode}
+                >
+                    <DeviceTooltip
+                        node={{ ...pppoe, deviceType: 'pppoe' }}
+                        line={line}
+                    />
+                </MemoizedSmartMarker>
+            );
+        });
+
+        return allMarkers;
+    }, [
+        mapData.routers,
+        mapData.nodes,
+        mapData.pppoeNodes,
+        searchQuery,
+        showLabels,
+        isEditMode,
+        handleDeviceClick,
+        handlePppoeDragEnd,
+        updateNetwatchMutation,
+        timezone,
+        isHeatmapMode
+    ]); // Removed mapData (whole) and hoveredRouterId to stabilize clusters
 
 
-
-                {/* PPPoE Client Markers */}
-                {(mapData.pppoeNodes || []).filter(p =>
-                    typeof p.lat === 'number' && typeof p.lng === 'number' &&
-                    (!searchQuery || (p.name && p.name.toLowerCase().includes(searchQuery.toLowerCase())) || (p.address && p.address.includes(searchQuery)))
-                ).map(pppoe => {
-                    const line = linesByPppoeId[pppoe.id];
-                    const isHovered = hoveredMarkerId === pppoe.id;
-
-                    // Throttled Stats (Visuals)
-                    const visualStats = displayTrafficMap.get(pppoe.name) || displayTrafficMap.get(pppoe.interface);
-                    const txRateThrottled = visualStats?.tx || pppoe.txRate || 0;
-                    const rxRateThrottled = visualStats?.rx || pppoe.rxRate || 0;
-
-                    // Live Stats (Lazy)
-                    let txRateLive = 0;
-                    let rxRateLive = 0;
-                    if (isHovered) {
-                        const map = trafficMapRef.current;
-                        const stats = map.get(pppoe.name) || map.get(pppoe.interface);
-                        txRateLive = stats?.tx || 0;
-                        rxRateLive = stats?.rx || 0;
-                    }
-
-                    return (
-                        <MemoizedSmartMarker
-                            key={`pppoe-${pppoe.id}`}
-                            position={[pppoe.lat, pppoe.lng]}
-                            type="pppoe"
-                            status={pppoe.status}
-                            name={pppoe.name}
-                            showLabel={showLabels}
-                            small={true}
-                            draggable={isEditMode}
-                            onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                            isHovered={isHovered}
-                            onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
-                            eventHandlers={{
-                                mouseover: () => handleMarkerHover(pppoe.id),
-                                mouseout: () => handleMarkerHover(null)
-                            }}
-                            isHeatmapMode={isHeatmapMode}
-                        >
-                            <DeviceTooltip
-                                node={{ ...pppoe, deviceType: 'pppoe' }}
-                                line={line}
-                            />
-                        </MemoizedSmartMarker>
-                    );
-                })}
-            </>
-        )
-    }, [mapData, searchQuery, showLabels, isEditMode, handleDeviceClick, handlePppoeDragEnd, updateNetwatchMutation, timezone, hoveredRouterId, hoveredMarkerId, isHeatmapMode]); // Removed hoverTick and displayTrafficMap
-
+    const trafficContextValue = useMemo(() => ({
+        hoverTick,
+        displayTrafficMap,
+        trafficMapRef,
+        timezone,
+        isHeatmapMode,
+        isLiveMode
+    }), [hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode]);
 
     return (
         <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} map-type-${mapType}`}>
-            <TrafficContext.Provider value={{
-                hoverTick,
-                displayTrafficMap,
-                trafficMapRef,
-                timezone,
-                isHeatmapMode
-            }}>
-                <MapContainer
-                    center={center}
-                    zoom={10}
-                    maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
-                    scrollWheelZoom={true}
-                    style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
-                >
-                    <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
-                    <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
+            <TrafficContext.Provider value={trafficContextValue}>
+                <HoveredItemContext.Provider value={{ hoveredMarkerId, hoveredLineId }}>
+                    <MapContainer
+                        center={center}
+                        zoom={10}
+                        maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
+                        scrollWheelZoom={true}
+                        style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
+                    >
+                        <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
+                        <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} />
 
 
-                    {/* Animated Topology Lines (show when NOT editing) */}
-                    {/* Animated Topology Lines (show when NOT editing) */}
-                    {!isEditingPath && useMemo(() => mapData.lines.map((line) => {
-                        const iface = line.targetInterface;
-                        const isHovered = hoveredLineId === line.id;
+                        {/* Animated Topology Lines (show when NOT editing) */}
+                        {!isEditingPath && useMemo(() => mapData.lines.map((line) => {
+                            const iface = line.targetInterface;
+                            const isHovered = hoveredLineId === line.id;
 
-                        // Throttled Stats for Visuals (Color/Thickness)
-                        const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
-                        const stats = iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
-                        const txRateThrottled = stats?.tx || line.txRate || 0;
-                        const rxRateThrottled = stats?.rx || line.rxRate || 0;
+                            // Throttled Stats for Visuals (Color/Thickness)
+                            // Rule: Use SNMP data only if isLiveMode is ON
+                            const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
+                            const stats = isLiveMode && iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
+                            const txRateThrottled = stats?.tx || line.txRate || 0;
+                            const rxRateThrottled = stats?.rx || line.rxRate || 0;
 
-                        return (
-                            <MemoizedNetworkLine
-                                key={`line-${line.id}-${enableAnimation}`}
-                                line={line}
-                                txRate={txRateThrottled}
-                                rxRate={rxRateThrottled}
-                                isHeatmapMode={isHeatmapMode}
-                                lineThickness={lineThickness}
-                                mapColors={mapColors}
-                                currentUser={currentUser}
-                                enableAnimation={enableAnimation}
-                                lowPerfMode={lowPerfMode}
-                                timezone={timezone}
-                                isHovered={isHovered}
-                                onMouseOver={() => handleLineHover(line.id)}
-                                onMouseOut={() => handleLineHover(null)}
-                            />
-                        );
-                    }), [
-                        mapData.lines,
-                        hoveredLineId,
-                        isHeatmapMode,
-                        lineThickness,
-                        mapColors,
-                        currentUser,
-                        enableAnimation,
-                        lowPerfMode,
-                        timezone
-                    ])}
-
-                    {/* Editable Path (show when editing) */}
-                    {isEditingPath && editingLine && (
-                        <EditablePath
-                            fromPosition={editingLine.from}
-                            toPosition={editingLine.to}
-                            waypoints={editWaypoints}
-                            isEditing={true}
-                            color="#3b82f6"
-                            onWaypointsChange={setEditWaypoints}
-                            onLengthChange={setPathLength}
-                        />
-                    )}
-
-                    {/* Markers with optional Clustering */}
-                    {(() => {
-                        if (enableClustering) {
                             return (
-                                <MarkerClusterGroup
-                                    chunkedLoading
-                                    spiderfyOnMaxZoom={true}
-                                    showCoverageOnHover={false}
-                                    maxClusterRadius={60}
-                                    iconCreateFunction={createClusterCustomIcon}
-                                    polygonOptions={{
-                                        fillColor: '#3b82f6',
-                                        color: '#3b82f6',
-                                        weight: 1,
-                                        opacity: 0.8,
-                                        fillOpacity: 0.1,
-                                    }}
-                                >
-                                    {markers}
-                                </MarkerClusterGroup>
+                                <MemoizedNetworkLine
+                                    key={`line-${line.id}-${enableAnimation}`}
+                                    line={line}
+                                    txRate={txRateThrottled}
+                                    rxRate={rxRateThrottled}
+                                    isHeatmapMode={isHeatmapMode}
+                                    isLiveMode={isLiveMode} // Added
+                                    lineThickness={lineThickness}
+                                    mapColors={mapColors}
+                                    currentUser={currentUser}
+                                    enableAnimation={enableAnimation}
+                                    lowPerfMode={lowPerfMode}
+                                    timezone={timezone}
+                                    isHovered={isHovered}
+                                    onMouseOver={() => handleLineHover(line.id)}
+                                    onMouseOut={() => handleLineHover(null)}
+                                />
                             );
-                        }
+                        }), [
+                            mapData.lines,
+                            hoveredLineId,
+                            isHeatmapMode,
+                            lineThickness,
+                            mapColors,
+                            currentUser,
+                            enableAnimation,
+                            lowPerfMode,
+                            timezone,
+                            isLiveMode
+                        ])}
 
-                        return markers;
-                    })()}
+                        {/* Editable Path (show when editing) */}
+                        {isEditingPath && editingLine && (
+                            <EditablePath
+                                fromPosition={editingLine.from}
+                                toPosition={editingLine.to}
+                                waypoints={editWaypoints}
+                                isEditing={true}
+                                color="#3b82f6"
+                                onWaypointsChange={setEditWaypoints}
+                                onLengthChange={setPathLength}
+                            />
+                        )}
 
-                </MapContainer >
-            </TrafficContext.Provider>
+                        {/* Markers with optional Clustering */}
+                        {(() => {
+                            if (enableClustering) {
+                                return (
+                                    <MarkerClusterGroup
+                                        chunkedLoading
+                                        spiderfyOnMaxZoom={true}
+                                        showCoverageOnHover={false}
+                                        maxClusterRadius={40}
+                                        animate={true}
+                                        iconCreateFunction={createClusterCustomIcon}
+                                        polygonOptions={{
+                                            fillColor: '#3b82f6',
+                                            color: '#3b82f6',
+                                            weight: 1,
+                                            opacity: 0.8,
+                                            fillOpacity: 0.1,
+                                        }}
+                                    >
+                                        {markers}
+                                    </MarkerClusterGroup>
+                                );
+                            }
 
-            {/* Path Edit Toolbar */}
-            {
-                !showRoutersOnly && (
-                    <MapToolbar
-                        isVisible={isEditingPath}
-                        pathLength={pathLength}
-                        onReset={handleResetPath}
-                        onCancel={handleCancelPathEdit}
-                        onSave={handleSavePath}
-                    />
-                )
-            }
+                            return markers;
+                        })()}
 
-            {/* Top Controls */}
-            {
-                !showRoutersOnly && (
-                    <>
-                        {/* Mobile Fullscreen Button - Visible only on mobile */}
-                        <button
-                            onClick={() => {
-                                if (!document.fullscreenElement) {
-                                    mapContainerRef.current?.requestFullscreen();
-                                    setIsFullscreen(true);
-                                } else {
-                                    document.exitFullscreen();
-                                    setIsFullscreen(false);
-                                }
-                            }}
-                            className="sm:hidden absolute top-4 right-14 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                                {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                            </span>
-                        </button>
+                    </MapContainer >
 
-                        {/* Mobile Menu Button - Only visible on small screens */}
-                        <button
-                            onClick={() => setIsMenuOpen(!isMenuOpen)}
-                            className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
-                        >
-                            <span className="material-symbols-outlined">
-                                {isMenuOpen ? 'close' : 'menu'}
-                            </span>
-                        </button>
+                    {/* Path Edit Toolbar */}
+                    {
+                        !showRoutersOnly && (
+                            <MapToolbar
+                                isVisible={isEditingPath}
+                                pathLength={pathLength}
+                                onReset={handleResetPath}
+                                onCancel={handleCancelPathEdit}
+                                onSave={handleSavePath}
+                            />
+                        )
+                    }
 
-                        <div className={`
+                    {/* Top Controls */}
+                    {
+                        !showRoutersOnly && (
+                            <>
+                                {/* Mobile Fullscreen Button - Visible only on mobile */}
+                                <button
+                                    onClick={() => {
+                                        if (!document.fullscreenElement) {
+                                            mapContainerRef.current?.requestFullscreen();
+                                            setIsFullscreen(true);
+                                        } else {
+                                            document.exitFullscreen();
+                                            setIsFullscreen(false);
+                                        }
+                                    }}
+                                    className="sm:hidden absolute top-4 right-14 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                                        {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                                    </span>
+                                </button>
+
+                                {/* Mobile Menu Button - Only visible on small screens */}
+                                <button
+                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                                    className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
+                                >
+                                    <span className="material-symbols-outlined">
+                                        {isMenuOpen ? 'close' : 'menu'}
+                                    </span>
+                                </button>
+
+                                <div className={`
                             absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
                             flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg
                             backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
@@ -1980,243 +2041,240 @@ const NetworkMap = ({
                             ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
                         `}>
 
-                            {/* Search Box */}
-                            <div className="mb-2 w-full min-w-[200px]">
-                                <div className="relative">
-                                    <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-                                    <input
-                                        type="text"
-                                        placeholder="Search map..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full bg-slate-800 text-white text-xs py-1.5 pl-8 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
-                                    />
-                                    {searchQuery && (
-                                        <button
-                                            onClick={() => setSearchQuery('')}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                                        >
-                                            <span className="material-symbols-outlined text-[14px]">close</span>
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
-                                <label className="text-xs text-white font-bold">Map Type</label>
-                            </div>
-                            <select
-                                value={mapType}
-                                onChange={(e) => setMapType(e.target.value)}
-                                className="bg-slate-800 text-white text-xs p-1.5 rounded border border-slate-600 outline-none w-full"
-                            >
-                                <option value="roadmap">Roadmap</option>
-                                <option value="satellite">Satellite</option>
-                                <option value="satellite_dark">Satellite Dark</option>
-                                <option value="hybrid">Hybrid</option>
-                                <option value="terrain">Terrain</option>
-                                <option value="dark">Dark Mode</option>
-                            </select>
-
-                            {/* Heatmap Mode Toggle */}
-                            <div className="flex items-center justify-between sm:block mb-2 sm:mb-1 mt-2 border-t border-slate-700/50 pt-2">
-                                <label className="flex items-center justify-between cursor-pointer group">
-                                    <span className="text-xs text-white font-bold group-hover:text-blue-400 transition-colors">
-                                        Bandwidth Heatmap
-                                    </span>
-                                    <div className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only peer"
-                                            checked={isHeatmapMode}
-                                            onChange={(e) => {
-                                                const checked = e.target.checked;
-                                                setIsHeatmapMode(checked);
-                                                // If parent controls live mode, toggle it too
-                                                if (onLiveModeChange) {
-                                                    onLiveModeChange(checked);
-                                                }
-                                            }}
-                                        />
-                                        <div className="w-9 h-5 bg-slate-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                    {/* Search Box */}
+                                    <div className="mb-2 w-full min-w-[200px]">
+                                        <div className="relative">
+                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
+                                            <input
+                                                type="text"
+                                                placeholder="Search map..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="w-full bg-slate-800 text-white text-xs py-1.5 pl-8 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
+                                            />
+                                            {searchQuery && (
+                                                <button
+                                                    onClick={() => setSearchQuery('')}
+                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                                                >
+                                                    <span className="material-symbols-outlined text-[14px]">close</span>
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
-                                </label>
-                            </div>
 
-                            <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
-
-                            {/* Line Thickness Control */}
-                            <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
-                                <span className="text-xs text-white font-medium pl-1">Line Size</span>
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => setLineThickness(Math.max(1, lineThickness - 1))}
-                                        className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
-                                        title="Decrease (Tipis)"
+                                    <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
+                                        <label className="text-xs text-white font-bold">Map Type</label>
+                                    </div>
+                                    <select
+                                        value={mapType}
+                                        onChange={(e) => setMapType(e.target.value)}
+                                        className="bg-slate-800 text-white text-xs p-1.5 rounded border border-slate-600 outline-none w-full"
                                     >
-                                        -
+                                        <option value="roadmap">Roadmap</option>
+                                        <option value="satellite">Satellite</option>
+                                        <option value="satellite_dark">Satellite Dark</option>
+                                        <option value="hybrid">Hybrid</option>
+                                        <option value="terrain">Terrain</option>
+                                        <option value="dark">Dark Mode</option>
+                                    </select>
+
+                                    {/* Heatmap Mode Toggle */}
+                                    <div className="flex items-center justify-between sm:block mb-2 sm:mb-1 mt-2 border-t border-slate-700/50 pt-2">
+                                        <label className="flex items-center justify-between cursor-pointer group">
+                                            <span className="text-xs text-white font-bold group-hover:text-blue-400 transition-colors">
+                                                Bandwidth Heatmap
+                                            </span>
+                                            <div className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    className="sr-only peer"
+                                                    checked={isHeatmapMode}
+                                                    onChange={(e) => {
+                                                        setIsHeatmapMode(e.target.checked);
+                                                    }}
+                                                />
+                                                <div className="w-9 h-5 bg-slate-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                            </div>
+                                        </label>
+                                    </div>
+
+                                    <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
+
+                                    {/* Line Thickness Control */}
+                                    <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
+                                        <span className="text-xs text-white font-medium pl-1">Line Size</span>
+                                        <div className="flex items-center gap-1">
+                                            <button
+                                                onClick={() => setLineThickness(Math.max(1, lineThickness - 1))}
+                                                className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                                title="Decrease (Tipis)"
+                                            >
+                                                -
+                                            </button>
+                                            <span className="text-xs text-white font-mono w-4 text-center">{lineThickness}</span>
+                                            <button
+                                                onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
+                                                className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
+                                                title="Increase (Tebal)"
+                                            >
+                                                +
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-slate-700/50 my-1"></div>
+
+                                    {/* Line Opacity Control */}
+
+
+
+
+                                    {/* Edit Mode Toggle */}
+                                    <button
+                                        onClick={() => setIsEditMode(prev => !prev)}
+                                        className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
+                                            ? 'bg-blue-600 text-white'
+                                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                                            } `}
+                                    >
+                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                                            {isEditMode ? 'lock_open' : 'lock'}
+                                        </span>
+                                        {isEditMode ? 'Editing' : 'Locked'}
                                     </button>
-                                    <span className="text-xs text-white font-mono w-4 text-center">{lineThickness}</span>
+
+                                    {/* Refresh/Sync Button */}
                                     <button
-                                        onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
-                                        className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
-                                        title="Increase (Tebal)"
+                                        onClick={handleManualSync}
+                                        disabled={isSyncing}
+                                        className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title="Sinkronisasi data dari MikroTik"
                                     >
-                                        +
+                                        <span
+                                            className="material-symbols-outlined"
+                                            style={{
+                                                fontSize: 16,
+                                                animation: isSyncing ? 'spin 1s linear infinite' : 'none'
+                                            }}
+                                        >
+                                            sync
+                                        </span>
+                                        {isSyncing ? 'Syncing...' : 'Refresh'}
+                                    </button>
+
+                                    {/* Fullscreen Button */}
+                                    <button
+                                        onClick={() => {
+                                            if (!document.fullscreenElement) {
+                                                mapContainerRef.current?.requestFullscreen();
+                                                setIsFullscreen(true);
+                                            } else {
+                                                document.exitFullscreen();
+                                                setIsFullscreen(false);
+                                            }
+                                            setIsMenuOpen(false); // Close menu on action
+                                        }}
+                                        className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
+                                        title="Toggle Fullscreen"
+                                    >
+                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
+                                            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                                        </span>
+                                        {isFullscreen ? 'Exit' : 'Full'}
                                     </button>
                                 </div>
-                            </div>
+                            </>
+                        )
+                    }
 
-                            <div className="h-px bg-slate-700/50 my-1"></div>
-
-                            {/* Line Opacity Control */}
-
-
-
-
-                            {/* Edit Mode Toggle */}
-                            <button
-                                onClick={() => setIsEditMode(prev => !prev)}
-                                className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                    } `}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                                    {isEditMode ? 'lock_open' : 'lock'}
-                                </span>
-                                {isEditMode ? 'Editing' : 'Locked'}
-                            </button>
-
-                            {/* Refresh/Sync Button */}
-                            <button
-                                onClick={handleManualSync}
-                                disabled={isSyncing}
-                                className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                title="Sinkronisasi data dari MikroTik"
-                            >
-                                <span
-                                    className="material-symbols-outlined"
-                                    style={{
-                                        fontSize: 16,
-                                        animation: isSyncing ? 'spin 1s linear infinite' : 'none'
+                    {/* Router Detail View Controls (Fullscreen Only) */}
+                    {
+                        showRoutersOnly && (
+                            <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
+                                <button
+                                    onClick={() => {
+                                        if (!document.fullscreenElement) {
+                                            mapContainerRef.current?.requestFullscreen();
+                                            setIsFullscreen(true);
+                                        } else {
+                                            document.exitFullscreen();
+                                            setIsFullscreen(false);
+                                        }
                                     }}
+                                    className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-2 border border-slate-700 shadow-lg backdrop-blur-sm flex items-center justify-center transition-colors"
+                                    title="Toggle Fullscreen"
                                 >
-                                    sync
-                                </span>
-                                {isSyncing ? 'Syncing...' : 'Refresh'}
-                            </button>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                                        {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+                                    </span>
+                                </button>
+                            </div>
+                        )
+                    }
 
-                            {/* Fullscreen Button */}
-                            <button
-                                onClick={() => {
-                                    if (!document.fullscreenElement) {
-                                        mapContainerRef.current?.requestFullscreen();
-                                        setIsFullscreen(true);
-                                    } else {
-                                        document.exitFullscreen();
-                                        setIsFullscreen(false);
-                                    }
-                                    setIsMenuOpen(false); // Close menu on action
+                    {/* Legend */}
+                    {
+                        !showRoutersOnly && (
+                            <MapLegend
+                                showLabels={showLabels}
+                                onToggleLabels={handleToggleLabels}
+                                enableAnimation={enableAnimation}
+                                onToggleAnimation={() => {
+                                    setEnableAnimation(prev => {
+                                        const newVal = !prev;
+                                        localStorage.setItem('map_animation_enabled', JSON.stringify(newVal));
+                                        return newVal;
+                                    });
                                 }}
-                                className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
-                                title="Toggle Fullscreen"
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                                    {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                                </span>
-                                {isFullscreen ? 'Exit' : 'Full'}
-                            </button>
-                        </div>
-                    </>
-                )
-            }
+                                enableClustering={enableClustering}
+                                onToggleClustering={() => {
+                                    setEnableClustering(prev => {
+                                        const newVal = !prev;
+                                        localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
+                                        return newVal;
+                                    });
+                                }}
+                                lowPerfMode={lowPerfMode}
+                                onToggleLowPerf={() => {
+                                    setLowPerfMode(prev => {
+                                        const newVal = !prev;
+                                        localStorage.setItem('map_low_perf_enabled', JSON.stringify(newVal));
+                                        return newVal;
+                                    });
+                                }}
+                                isHeatmapMode={isHeatmapMode}
+                                mapColors={mapColors}
+                            />
+                        )
+                    }
 
-            {/* Router Detail View Controls (Fullscreen Only) */}
-            {
-                showRoutersOnly && (
-                    <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-                        <button
-                            onClick={() => {
-                                if (!document.fullscreenElement) {
-                                    mapContainerRef.current?.requestFullscreen();
-                                    setIsFullscreen(true);
-                                } else {
-                                    document.exitFullscreen();
-                                    setIsFullscreen(false);
-                                }
-                            }}
-                            className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-2 border border-slate-700 shadow-lg backdrop-blur-sm flex items-center justify-center transition-colors"
-                            title="Toggle Fullscreen"
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                                {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                            </span>
-                        </button>
-                    </div>
-                )
-            }
+                    {/* Floating Action Button */}
+                    {
+                        !showRoutersOnly && (
+                            <MapFAB
+                                onAddDevice={handleAddDevice}
+                                disabled={isEditingPath}
+                            />
+                        )
+                    }
 
-            {/* Legend */}
-            {
-                !showRoutersOnly && (
-                    <MapLegend
-                        showLabels={showLabels}
-                        onToggleLabels={handleToggleLabels}
-                        enableAnimation={enableAnimation}
-                        onToggleAnimation={() => {
-                            setEnableAnimation(prev => {
-                                const newVal = !prev;
-                                localStorage.setItem('map_animation_enabled', JSON.stringify(newVal));
-                                return newVal;
-                            });
-                        }}
-                        enableClustering={enableClustering}
-                        onToggleClustering={() => {
-                            setEnableClustering(prev => {
-                                const newVal = !prev;
-                                localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
-                                return newVal;
-                            });
-                        }}
-                        lowPerfMode={lowPerfMode}
-                        onToggleLowPerf={() => {
-                            setLowPerfMode(prev => {
-                                const newVal = !prev;
-                                localStorage.setItem('map_low_perf_enabled', JSON.stringify(newVal));
-                                return newVal;
-                            });
-                        }}
-                        isHeatmapMode={isHeatmapMode}
-                        mapColors={mapColors}
+                    {/* Device Modal */}
+                    <DeviceModal
+                        isOpen={isModalOpen}
+                        device={selectedDevice}
+                        routers={mapData.routers}
+                        devices={mapData.nodes}
+                        onClose={handleCloseModal}
+                        onSave={handleSaveDevice}
+                        onDelete={handleDeleteDevice}
+                        onEditPath={handleEditPath}
+                        isSaving={isSaving}
+                        routerInterfaces={routerInterfaces || []}
                     />
-                )
-            }
-
-            {/* Floating Action Button */}
-            {
-                !showRoutersOnly && (
-                    <MapFAB
-                        onAddDevice={handleAddDevice}
-                        disabled={isEditingPath}
-                    />
-                )
-            }
-
-            {/* Device Modal */}
-            <DeviceModal
-                isOpen={isModalOpen}
-                device={selectedDevice}
-                routers={mapData.routers}
-                devices={mapData.nodes}
-                onClose={handleCloseModal}
-                onSave={handleSaveDevice}
-                onDelete={handleDeleteDevice}
-                onEditPath={handleEditPath}
-                isSaving={isSaving}
-                routerInterfaces={routerInterfaces || []}
-            />
-        </main >
+                </HoveredItemContext.Provider>
+            </TrafficContext.Provider>
+        </main>
     );
 };
 
