@@ -1045,6 +1045,13 @@ const NetworkLineOriginal = ({
 
 // Custom comparison to prevent re-renders when non-hovered live traffic changes
 const areLinesEqual = (prev, next) => {
+    // 1. Check for position changes (Essential for fixing "Centered at Router" bug)
+    const fromChanged = prev.line.from[0] !== next.line.from[0] || prev.line.from[1] !== next.line.from[1];
+    const toChanged = prev.line.to[0] !== next.line.to[0] || prev.line.to[1] !== next.line.to[1];
+
+    if (fromChanged || toChanged) return false;
+
+    // 2. Check other primitive props
     return (
         prev.line.id === next.line.id &&
         prev.line.status === next.line.status &&
@@ -1053,12 +1060,12 @@ const areLinesEqual = (prev, next) => {
         prev.isHovered === next.isHovered &&
         (prev.isHovered ? prev.tick === next.tick : true) &&
         prev.isHeatmapMode === next.isHeatmapMode &&
-        prev.isLiveMode === next.isLiveMode && // Added
+        prev.isLiveMode === next.isLiveMode &&
         prev.lineThickness === next.lineThickness &&
         prev.enableAnimation === next.enableAnimation &&
         prev.lowPerfMode === next.lowPerfMode &&
         prev.timezone === next.timezone &&
-        prev.trafficMapRef === next.trafficMapRef // Ref should be stable
+        prev.trafficMapRef === next.trafficMapRef
     );
 };
 
