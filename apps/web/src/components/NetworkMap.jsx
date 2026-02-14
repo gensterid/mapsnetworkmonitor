@@ -337,7 +337,7 @@ const getTooltipColor = (node) => {
 };
 
 // Memoized Tooltip for Devices
-const RouterTooltipContent = ({ node }) => {
+const RouterTooltipContent = ({ node, onEdit }) => {
     const { timezone } = React.useContext(TrafficContext);
     const { hoveredMarkerId } = React.useContext(HoveredItemContext);
     const isHovered = hoveredMarkerId === node.id;
@@ -381,8 +381,23 @@ const RouterTooltipContent = ({ node }) => {
                         <span className="text-[10px] text-white/80 pl-6 truncate max-w-[140px]">{node.model}</span>
                     )}
                 </div>
-                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                    {status}
+                <div className="flex items-center gap-2">
+                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                        {status}
+                    </div>
+                    {onEdit && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onEdit();
+                            }}
+                            className="w-6 h-6 flex items-center justify-center bg-white/20 hover:bg-white/40 rounded transition-colors text-white"
+                            title="Edit Router"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -424,6 +439,19 @@ const RouterTooltipContent = ({ node }) => {
                             </div>
                         )}
 
+                        <div className="col-span-2 bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between">
+                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Host</span>
+                            <span
+                                className="text-slate-200 font-mono font-medium hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const host = node.host || node.address;
+                                    if (host) window.open(`http://${host}`, '_blank');
+                                }}
+                            >
+                                {node.host || node.address || '-'}
+                            </span>
+                        </div>
                         <div className="col-span-2 bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between">
                             <span className="text-slate-400 text-[10px] uppercase tracking-wider">Uptime</span>
                             <span className="text-slate-200 font-mono font-medium">
@@ -486,13 +514,13 @@ const RouterTooltipContent = ({ node }) => {
     );
 };
 
-// 1. Content Component (Heavy Logic, only rendered when hovered)
-const DeviceTooltipContent = ({ node, line }) => {
+// 1. Content Component (Heavy Logic, only rendered when hovered or clicked)
+const DeviceTooltipContent = ({ node, line, onEdit }) => {
     const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode } = React.useContext(TrafficContext);
 
     // If it's a router, use the router specialized view
     if (node.deviceType === 'router' || node.type === 'router') {
-        return <RouterTooltipContent node={node} />;
+        return <RouterTooltipContent node={node} onEdit={onEdit} />;
     }
 
     // Logic for retrieving Traffic Data
@@ -541,14 +569,38 @@ const DeviceTooltipContent = ({ node, line }) => {
                     </span>
                     <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
                 </div>
-                <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                    {status}
+                <div className="flex items-center gap-2">
+                    <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
+                        {status}
+                    </div>
+                    {onEdit && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                onEdit();
+                            }}
+                            className="w-6 h-6 flex items-center justify-center bg-white/20 hover:bg-white/40 rounded transition-colors text-white"
+                            title="Edit Device"
+                        >
+                            <span className="material-symbols-outlined text-[16px]">edit</span>
+                        </button>
+                    )}
                 </div>
             </div>
             <div className="p-3 bg-slate-800 space-y-2">
                 <div className="flex items-center justify-between text-xs">
                     <span className="text-slate-400">{node.deviceType === 'pppoe' ? 'IP Address' : 'Host'}</span>
-                    <span className="text-slate-200 font-mono">{node.deviceType === 'pppoe' ? node.address : node.host}</span>
+                    <span
+                        className="text-slate-200 font-mono hover:text-blue-400 hover:underline cursor-pointer transition-colors"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const host = node.deviceType === 'pppoe' ? node.address : node.host;
+                            if (host) window.open(`http://${host}`, '_blank');
+                        }}
+                    >
+                        {node.deviceType === 'pppoe' ? node.address : node.host}
+                    </span>
                 </div>
                 {node.deviceType === 'pppoe' && (
                     <div className="flex items-center justify-between text-xs">
@@ -617,6 +669,15 @@ const DeviceTooltip = React.memo(({ node, line }) => {
         <Tooltip direction="top" offset={[0, -20]} opacity={1} className="custom-map-tooltip">
             {isHovered && <DeviceTooltipContent node={node} line={line} />}
         </Tooltip>
+    );
+});
+
+// 3. Popup Container (Rendered when clicked)
+const DevicePopup = React.memo(({ node, line, onEdit }) => {
+    return (
+        <Popup offset={[0, -10]} className="custom-map-popup">
+            <DeviceTooltipContent node={node} line={line} onEdit={onEdit} />
+        </Popup>
     );
 });
 
@@ -1944,14 +2005,21 @@ const NetworkMap = ({
                     type="router"
                     status={router.status}
                     name={router.name || router.host}
-                    showLabel={showLabels}
+                    small={false}
+                    draggable={isEditMode}
+                    onClick={null} // Click now handled by Popup
                     eventHandlers={{
-                        click: () => handleDeviceClick(router, 'router'),
                         mouseover: () => handleMarkerHover(router.id),
                         mouseout: () => handleMarkerHover(null)
                     }}
                 >
-                    <DeviceTooltip node={router} line={null} />
+                    <DeviceTooltip
+                        node={{ ...router, deviceType: 'router' }}
+                    />
+                    <DevicePopup
+                        node={{ ...router, deviceType: 'router' }}
+                        onEdit={() => handleDeviceClick({ ...router, deviceType: 'router' }, 'router')}
+                    />
                 </MemoizedSmartMarker>
             );
         });
@@ -1990,7 +2058,7 @@ const NetworkMap = ({
                         });
                     }}
                     // isHovered prop removed
-                    onClick={() => handleDeviceClick({ ...node, type: node.deviceType || 'client' }, node.deviceType || 'client')}
+                    onClick={null} // Click now handled by Popup
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(node.id),
                         mouseout: () => handleMarkerHover(null)
@@ -2000,6 +2068,11 @@ const NetworkMap = ({
                     <DeviceTooltip
                         node={node}
                         line={line}
+                    />
+                    <DevicePopup
+                        node={node}
+                        line={line}
+                        onEdit={() => handleDeviceClick(node, node.deviceType)}
                     />
                 </MemoizedSmartMarker>
             );
@@ -2030,7 +2103,7 @@ const NetworkMap = ({
                     draggable={isEditMode}
                     onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
                     // isHovered prop removed
-                    onClick={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                    onClick={null} // Click now handled by Popup
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(pppoe.id),
                         mouseout: () => handleMarkerHover(null)
@@ -2040,6 +2113,11 @@ const NetworkMap = ({
                     <DeviceTooltip
                         node={{ ...pppoe, deviceType: 'pppoe' }}
                         line={line}
+                    />
+                    <DevicePopup
+                        node={{ ...pppoe, deviceType: 'pppoe' }}
+                        line={line}
+                        onEdit={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
                     />
                 </MemoizedSmartMarker>
             );
