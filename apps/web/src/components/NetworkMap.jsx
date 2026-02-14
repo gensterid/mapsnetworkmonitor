@@ -475,7 +475,7 @@ const DeviceTooltipContent = ({ node, line }) => {
     const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode } = React.useContext(TrafficContext);
 
     // If it's a router, use the router specialized view
-    if (node.deviceType === 'router') {
+    if (node.deviceType === 'router' || node.type === 'router') {
         return <RouterTooltipContent node={node} />;
     }
 
@@ -1424,7 +1424,7 @@ const NetworkMap = ({
                 return; // Skip invalid routers
             }
 
-            const rNode = { ...router, lat, lng, type: 'router' };
+            const rNode = { ...router, lat, lng, type: 'router', deviceType: 'router' };
             routerNodes.push(rNode);
             routerMap.set(router.id, rNode);
         });
