@@ -202,7 +202,7 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey, onLoaded }) => {
 
         try {
             const layerOptions = {
-                type: (type === 'dark' || type === 'satellite_dark') ? 'hybrid' : type,
+                type: type === 'dark' ? 'roadmap' : (type === 'satellite_dark' ? 'hybrid' : type),
             };
 
             // Apply styles if dark mode or satellite dark
@@ -280,6 +280,7 @@ const DraggableMarker = ({
     draggable,
     onDragEnd,
     onClick,
+    eventHandlers: externalEventHandlers, // Destructure to prevent leakage into props
     children,
     ...props
 }) => {
@@ -289,17 +290,25 @@ const DraggableMarker = ({
         setMarkerPosition(position);
     }, [position]);
 
-    const eventHandlers = useMemo(() => ({
-        dragend: (e) => {
-            const newPos = e.target.getLatLng();
-            setMarkerPosition([newPos.lat, newPos.lng]);
-            if (onDragEnd) {
-                onDragEnd([newPos.lat, newPos.lng]);
-            }
-        },
-        click: onClick,
-        ...(props.eventHandlers || {}) // Merge external handlers
-    }), [onDragEnd, onClick, props.eventHandlers]);
+    const eventHandlers = useMemo(() => {
+        const handlers = {
+            dragend: (e) => {
+                const newPos = e.target.getLatLng();
+                setMarkerPosition([newPos.lat, newPos.lng]);
+                if (onDragEnd) {
+                    onDragEnd([newPos.lat, newPos.lng]);
+                }
+            },
+            ...(externalEventHandlers || {}) // Merge external handlers (mouseover, etc)
+        };
+
+        // Only add click handler if it's actually provided as a function
+        if (typeof onClick === 'function') {
+            handlers.click = onClick;
+        }
+
+        return handlers;
+    }, [onDragEnd, onClick, externalEventHandlers]);
 
     // Safety check: Don't render if position is invalid. 
     // This prevents Leaflet internal errors like "Cannot read properties of undefined (reading 'x')"
@@ -318,8 +327,8 @@ const DraggableMarker = ({
             position={markerPosition}
             icon={icon}
             draggable={draggable}
-            {...props}
             eventHandlers={eventHandlers}
+            {...props}
         >
             {children}
         </Marker>
@@ -701,6 +710,7 @@ const SmartMarker = ({
     draggable,
     onDragEnd,
     onClick,
+    eventHandlers, // Destructure to prevent leakage into props
     id, // NEW: Need ID to check hover context
     children,
     ...props

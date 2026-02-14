@@ -10,6 +10,21 @@
     max-width: none !important;
 }
 
+/* 
+   FIX: Tile Gaps (Black Grid Lines) 
+   Corrects sub-pixel rendering issues in Leaflet/GoogleMutant
+*/
+.leaflet-tile-container img {
+    /* Slight scale to overlap gaps */
+    width: 256.5px !important;
+    height: 256.5px !important;
+    /* Hardware acceleration for smoother rendering */
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    /* Prevent blurry edges during scaling */
+    image-rendering: optimizeQuality;
+}
+
 /* ===== Custom Marker Icons ===== */
 .custom-marker-icon {
     background: transparent;
