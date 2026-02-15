@@ -94,6 +94,7 @@ export const genieacsService = {
                 // ZTE Optical Power
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANPONInterfaceConfig.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.One_Optical_Module_Info.RXPower': 1,
                 // ZTE ONU Path (Alternative)
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_ONU.1.OpticalModuleInfo.RXPower': 1,
@@ -101,6 +102,11 @@ export const genieacsService = {
                 // Huawei Optical Power
                 'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.WANDSLInterfaceConfig.DownstreamAttenuation': 1,
+                // FiberHome Optical Power
+                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.RXPower': 1,
+                // Virtual Parameters (Custom GenieACS scripts)
+                'VirtualParameters.RXPower': 1,
+                'VirtualParameters.IPTR069': 1,
             };
 
             const response = await axios.get(`${url}/devices`, {
@@ -658,7 +664,8 @@ export const genieacsService = {
 
 // Helper to extract IP from common paths
 function getDeviceIp(dev: any): string {
-    return dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[1]?.WANPPPConnection?.[1]?.ExternalIPAddress?._value ||
+    return dev.VirtualParameters?.IPTR069?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[1]?.WANPPPConnection?.[1]?.ExternalIPAddress?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[1]?.WANIPConnection?.[1]?.ExternalIPAddress?._value ||
         '';
 }
@@ -670,10 +677,31 @@ function getDeviceSsid(dev: any): string {
 }
 
 function getDeviceRxPower(dev: any): string {
-    return dev.InternetGatewayDevice?.WANDevice?.[1]?.X_ZTE_COM_WANDevice?.[1]?.OpticalModuleInfo?.RXPower?._value ||
-        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_ZTE_COM_WANDevice?.[1]?.OpticalInstance?.[1]?.OpticalSignalLevel?._value ||
+    // 1. Priority: Virtual Parameter (Formatted)
+    if (dev.VirtualParameters?.RXPower?._value) {
+        return dev.VirtualParameters.RXPower._value;
+    }
+
+    // 2. Raw paths
+    const rawValue = dev.InternetGatewayDevice?.WANDevice?.[1]?.X_ZTE_COM_WANDevice?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANPONInterfaceConfig']?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.OpticalInstance?.[1]?.OpticalSignalLevel?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.One_Optical_Module_Info?.RXPower?._value ||
-        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_HUWEI_WANDevice?.[1]?.OpticalModuleInfo?.RXPower?._value ||
-        dev.InternetGatewayDevice?.WANDevice?.[1]?.WANDSLInterfaceConfig?.DownstreamAttenuation?._value ||
-        '';
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_HUWEI_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_FH_GponInterfaceConfig']?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.WANDSLInterfaceConfig?.DownstreamAttenuation?._value;
+
+    if (rawValue === undefined || rawValue === null || rawValue === '') return '';
+
+    // Convert to string and handle formatting if raw
+    const strVal = String(rawValue);
+    if (!strVal.includes('.') && strVal.length > 2 && !isNaN(Number(strVal))) {
+        // If it looks like raw integer (e.g., -2318 or 2318), format it? 
+        // But some return actual dBm already. For now return as is or if it's very large, treat as 0.01 units
+        const num = Number(strVal);
+        if (num < -500 || num > 500) return (num / 100).toFixed(2);
+    }
+
+    return strVal;
 }
