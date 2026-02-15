@@ -25,22 +25,24 @@ async function decodeJS() {
         const content = await res.text();
         console.log(`Downloaded ${content.length} characters.`);
 
-        // 1. Search for function calls that use gponont
-        console.log('\n--- SEARCHING CONTEXT FOR /gponont ---');
-        const index = content.indexOf('/gponont');
-        if (index !== -1) {
-            console.log('Context (Nearby 500 chars):');
-            console.log(content.substring(Math.max(0, index - 250), Math.min(content.length, index + 500)));
-        } else {
-            console.log('"/gponont" not found as a literal string. Searching for variables...');
-            // Maybe it's constructed?
+        // 1. Search for function calls that use gponont or ontinfo
+        console.log('\n--- SEARCHING FOR ONU LIST FETCHING LOGIC ---');
+        const searchTerms = ['/gponont', '/ontinfo', '/onu_info', 'refreshData', 'postData', 'getData'];
+
+        for (const term of searchTerms) {
+            const idx = content.indexOf(term);
+            if (idx !== -1) {
+                console.log(`\nContext for "${term}":`);
+                console.log(content.substring(Math.max(0, idx - 150), Math.min(content.length, idx + 400)));
+            }
         }
 
-        // 2. Search for common axios/fetch config or base URL
-        console.log('\n--- SEARCHING FOR baseURL OR api prefix ---');
-        const baseMatches = content.match(/baseURL\s*:\s*["']([^"']+)["']/g);
-        if (baseMatches) {
-            console.log('Potential BaseURLs found:', baseMatches);
+        // 2. Search for ALL strings starting with / and containing ont or onu
+        console.log('\n--- EXTRACTING ALL /...ont/onu... STRINGS ---');
+        const pathMatches = content.match(/\/[\w_\-\?\&\%=]{4,60}/g);
+        if (pathMatches) {
+            const filtered = pathMatches.filter(p => p.includes('ont') || p.includes('onu') || p.includes('mgmt') || p.includes('table'));
+            console.log('Detected Paths:', [...new Set(filtered)].join(', '));
         }
 
         // 3. Search for header injection
