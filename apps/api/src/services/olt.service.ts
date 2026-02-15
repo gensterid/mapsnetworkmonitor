@@ -140,7 +140,7 @@ export class OltService {
      * Refresh OLT status via SNMP
      */
     async refreshStatus(id: string): Promise<Olt | undefined> {
-        const olt = await this.findById(id);
+        const olt = await this.findByIdInternal(id);
         if (!olt) return undefined;
 
         let isOnline = false;
@@ -230,6 +230,7 @@ export class OltService {
                 if (isReachable) {
                     console.log(`OLT ${olt.name} reachable via TCP Port ${olt.webPort || 80} (Fallback)`);
                     isOnline = true;
+                    if (webStatus === 'offline') webStatus = 'online';
                 }
             } catch (e) {
                 // Ignore fallback errors
