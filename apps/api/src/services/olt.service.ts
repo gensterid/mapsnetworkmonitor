@@ -189,12 +189,13 @@ export class OltService {
         // 2. Check Web
         if (olt.useWeb) {
             try {
+                const decryptedPassword = olt.webPassword ? decrypt(olt.webPassword) : undefined;
                 const driver = OltDriverFactory.getDriver(
                     olt.type,
                     olt.host,
                     olt.webPort ?? undefined,
                     olt.webUsername ?? undefined,
-                    olt.webPassword ?? undefined,
+                    decryptedPassword,
                     olt.webProtocol ?? undefined
                 );
                 const isWebOnline = await driver.testConnection();
@@ -248,12 +249,13 @@ export class OltService {
             // Import dynamically or use factory
             const { OltDriverFactory } = await import('./olt-drivers/driver.factory.js');
 
+            const decryptedPassword = olt.webPassword ? decrypt(olt.webPassword) : undefined;
             const driver = OltDriverFactory.getDriver(
                 olt.type || 'generic',
                 olt.host,
                 olt.webPort || undefined,
                 olt.webUsername || undefined,
-                olt.webPassword || undefined,
+                decryptedPassword,
                 olt.webProtocol || undefined
             );
 
