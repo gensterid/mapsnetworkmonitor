@@ -184,12 +184,19 @@ export class HsgqDriver extends BaseOltDriver {
                 });
             }
 
-            // Attempt 3: Modern GPON WEB API (Token-based)
+            // Attempt 3: Modern GPON WEB API (Token-based & Stateful)
             if (!response.ok && response.status === 404) {
                 console.log('HSGQ: Standard APIs failed with 404. Attempting Modern GPON WEB login...');
                 const token = await this.loginModern(baseUrl);
                 if (token) {
-                    const endpoints = ['/ontinfo_table', '/ontinfo_config', '/api/onu/list'];
+                    // CRITICAL: HSGQ Modern API is stateful. We must "auth" to a port (0 for global) 
+                    // before tables like /ontinfo_table become available (otherwise 404).
+                    console.log('HSGQ: Performing stateful port auth (Port 0)...');
+                    await fetch(`${baseUrl}/gponont_mgmt?form=auth&port_id=0`, {
+                        headers: { 'x-token': token }
+                    }).catch(() => null);
+
+                    const endpoints = ['/ontinfo_table', '/onu_basic_info', '/ontinfo_config', '/api/onu/list'];
                     for (const endpoint of endpoints) {
                         const modernUrl = `${baseUrl}${endpoint}`;
                         console.log(`HSGQ: Trying Modern API at ${modernUrl}...`);
