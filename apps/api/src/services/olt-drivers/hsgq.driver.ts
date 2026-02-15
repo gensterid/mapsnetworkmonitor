@@ -74,23 +74,29 @@ export class HsgqDriver extends BaseOltDriver {
                 method: 'GET' // Just check if the login page/endpoint exists
             }).catch(() => null);
 
-            if (response && (response.ok || response.status === 401 || response.status === 403)) return true;
+            if (this.config.protocol === 'http' || this.config.protocol === 'https' || (this.config.port && [80, 443, 5785, 8080].includes(this.config.port))) {
+                const baseUrl = `${this.config.protocol}://${this.config.host}:${this.config.port}`;
+                const token = await this.loginModern(baseUrl);
+                if (token) return true;
 
-            // 4. Final attempt: actually try to login but be very forgiving
-            const token = await this.loginModern(baseUrl);
-            if (token) return true;
+                // Simple fetch without token as fallback for older firmware
+                try {
+                    const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(3000) });
+                    return res.ok || res.status === 401 || res.status === 403;
+                } catch (e) {
+                    return false;
+                }
+            }
 
-            // If we are here, we consider it offline.
-            return false;
+            try {
+                await this.connect();
+                await this.disconnect();
+                return true;
+            } catch (e) {
+                return false;
+            }
         }
-
-        try {
-            await this.connect();
-            await this.disconnect();
-            return true;
-        } catch (e) {
-            return false;
-        }
+        return false;
     }
 
     async getOnuList(): Promise<OnuInfo[]> {
@@ -147,7 +153,7 @@ export class HsgqDriver extends BaseOltDriver {
                 return null;
             }
 
-            const token = response.headers.get('x-token');
+            const token = response.headers.get('x-token') || response.headers.get('token');
             if (token) console.log('HSGQ Modern: Login successful (Token obtained)');
             return token;
         } catch (e: any) {

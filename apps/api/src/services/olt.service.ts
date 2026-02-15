@@ -213,6 +213,29 @@ export class OltService {
             }
         }
 
+        // 3. Fallback: TCP Port Check
+        // If everything above is offline, check if the IP is at least reachable via the Web Port
+        if (!isOnline) {
+            try {
+                const net = await import('node:net');
+                const isReachable = await new Promise<boolean>((resolve) => {
+                    const socket = new net.Socket();
+                    socket.setTimeout(2000);
+                    socket.on('connect', () => { socket.destroy(); resolve(true); });
+                    socket.on('timeout', () => { socket.destroy(); resolve(false); });
+                    socket.on('error', () => { socket.destroy(); resolve(false); });
+                    socket.connect(olt.webPort || 80, olt.host);
+                });
+
+                if (isReachable) {
+                    console.log(`OLT ${olt.name} reachable via TCP Port ${olt.webPort || 80} (Fallback)`);
+                    isOnline = true;
+                }
+            } catch (e) {
+                // Ignore fallback errors
+            }
+        }
+
         // Update DB
         try {
             const [updatedOlt] = await db
