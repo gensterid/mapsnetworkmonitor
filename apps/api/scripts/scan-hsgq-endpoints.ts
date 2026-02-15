@@ -7,7 +7,7 @@ import crypto from 'crypto';
 
 async function scanEndpoints() {
     const oltId = '183999af-23fb-4b85-804d-5875054e5665';
-    console.log(`--- HSGQ Ultra Scanner for OLT ${oltId} ---`);
+    console.log(`--- HSGQ OMEGA Scanner for OLT ${oltId} ---`);
 
     try {
         const [olt] = await db.select().from(olts).where(eq(olts.id, oltId));
@@ -45,85 +45,93 @@ async function scanEndpoints() {
         }
 
         const loginData = await loginRes.json() as any;
-        console.log('Login Response Body:', JSON.stringify(loginData));
-
         const token = loginRes.headers.get('x-token') || loginRes.headers.get('token');
         if (!token) {
-            console.error('No token found in response headers. Headers found:', JSON.stringify([...loginRes.headers.entries()]));
+            console.error('No token found in response headers.');
             return;
         }
 
-        console.log('Login successful! Token obtained:', token.substring(0, 10) + '...');
+        console.log('Login successful! Token obtained.');
 
-        // 2. Scan Endpoints
+        // 2. Comprehensive Scan List
         const endpoints = [
-            // Modern
-            '/ontinfo_table',
-            '/ontinfo_config',
-            '/ont_status_table',
-            '/ont_stat_table',
-            '/ont_optical_table',
-            '/ont_link_table',
-            '/ontinfo_data',
-            '/ontinfo_list',
-            '/onu_list_table',
-            '/ont_info_table',
-            '/api/onu/list',
+            // Standard HSGQ GPON/EPON
+            '/ontinfo_table', '/ontinfo_config', '/ontinfo_data', '/ontinfo_list',
+            '/gponont_table', '/eponont_table', '/gpon_ont_table', '/epon_onu_table',
+            '/ont_status_table', '/ont_info_table', '/ont_stat_table', '/ont_list_table',
+            '/ontlink_table', '/ont_optical_table', '/ont_info', '/onu_list',
 
-            // EPON Specific
-            '/epon_onu_info',
-            '/epon_onu_table',
-            '/epon_ont_table',
+            // Variants (no underscore)
+            '/ontinfotable', '/ontinfoconfig', '/ontstatus', '/onulist',
 
-            // CGI Prefixed
-            '/cgi-bin/ontinfo_table',
-            '/cgi-bin/v2/get_onu_info.cgi',
-            '/cgi-bin/v2/get_onu_list.cgi',
-            '/cgi-bin/get_onu_info.cgi',
+            // V-Sol / Rebranded patterns
+            '/api/ont/list', '/api/onu/list', '/api/gpon/ont_list', '/api/epon/onu_list',
+            '/api/onu_list', '/api/ont_list',
+
+            // CGI & Module patterns
+            '/cgi-bin/h.cgi?module=onu_list_get',
+            '/cgi-bin/h.cgi?module=ont_info_get',
+            '/cgi-bin/h.cgi?module=onu_status',
             '/cgi-bin/index.cgi?module=onu_list',
+            '/cgi-bin/v2/get_onu_info.cgi',
+            '/cgi-bin/v2/get_ont_info.cgi',
 
-            // Other variants
-            '/get_onu_info',
-            '/all_onu_info',
-            '/ontinfo',
-            '/ont_total_info',
-            '/ontlink_table'
+            // Board/Port level (sometimes needed)
+            '/board_info', '/port_info', '/onu_info',
+
+            // Misc
+            '/get_onu_info', '/get_ont_info', '/all_onu_info', '/all_ont_info'
         ];
 
-        console.log('\nScanning potential endpoints...');
+        console.log(`\nScanning ${endpoints.length} potential endpoints with multiple methods...`);
 
+        const methods = ['GET', 'POST'];
         const testHeaders = [
             { 'x-token': token },
-            { 'token': token },
-            { 'Authorization': `Bearer ${token}` }
+            { 'token': token }
         ];
 
         for (const endpoint of endpoints) {
-            for (const headers of testHeaders) {
-                const headerName = Object.keys(headers)[0];
-                process.stdout.write(`Testing ${endpoint} with ${headerName}... `);
-                try {
-                    const res = await fetch(`${baseUrl}${endpoint}`, { headers });
+            for (const method of methods) {
+                // For POST, we try with an empty object payload which is common for these APIs
+                const fetchOptions: any = {
+                    method: method,
+                    headers: {}
+                };
+                if (method === 'POST') {
+                    fetchOptions.body = JSON.stringify({ method: "get", param: {} });
+                    fetchOptions.headers['Content-Type'] = 'application/json';
+                }
 
-                    if (res.ok) {
-                        const text = await res.text();
-                        try {
-                            const data = JSON.parse(text);
-                            console.log(`\n✅ SUCCESS! ${endpoint} (${headerName})`);
-                            console.log(`   Response: Code=${data.code}, Items=${data.data?.length || data.info?.length || data.list?.length || '?'}`);
-                            console.log(`   Sample: ${JSON.stringify(data).substring(0, 150)}...\n`);
-                        } catch (e) {
-                            console.log(`PARTIAL (OK but not JSON). Preview: ${text.substring(0, 50)}...`);
+                for (const headers of testHeaders) {
+                    const headerName = Object.keys(headers)[0];
+                    const fullHeaders = { ...fetchOptions.headers, ...headers };
+
+                    try {
+                        const res = await fetch(`${baseUrl}${endpoint}`, { ...fetchOptions, headers: fullHeaders });
+
+                        if (res.ok) {
+                            const text = await res.text();
+                            if (text.length > 5 && (text.startsWith('{') || text.startsWith('['))) {
+                                try {
+                                    const data = JSON.parse(text);
+                                    console.log(`\n🌟 SUCCESS! [${method}] ${endpoint} (${headerName})`);
+                                    console.log(`   Data Preview: ${JSON.stringify(data).substring(0, 200)}...`);
+                                    console.log(`   Keep this endpoint! It works.\n`);
+                                    // continue to find more if any
+                                } catch (e) {
+                                    // Ignore parse errors if it wasn't valid JSON after all
+                                }
+                            }
                         }
-                    } else {
-                        process.stdout.write(`${res.status} `);
-                        if (headerName === 'Authorization') console.log(''); // New line after last header attempt
+                    } catch (e: any) {
+                        // Ignore connection errors during scan
                     }
-                } catch (e: any) {
-                    console.log(`Error: ${e.message}`);
                 }
             }
+            process.stdout.write('.'); // Progress indicator
         }
+        console.log('\n\nScan complete.');
 
     } catch (error) {
         console.error('Scanner error:', error);
