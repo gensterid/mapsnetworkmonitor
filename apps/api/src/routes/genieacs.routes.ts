@@ -31,7 +31,7 @@ router.get(
                 // unless we want to loop through all assigned routers (expensive).
                 throw ApiError.forbidden('Router ID is required for non-admins');
             }
-            const hasAccess = await routerService.hasAccess(req.user.id, req.user.role, routerId);
+            const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId);
             if (!hasAccess) {
                 throw ApiError.forbidden('Access denied to this router');
             }
@@ -56,7 +56,7 @@ router.get(
         // Access Control
         if (req.user?.role !== 'admin') {
             if (!routerId) throw ApiError.forbidden('Router ID is required for non-admins');
-            const hasAccess = await routerService.hasAccess(req.user.id, req.user.role, routerId);
+            const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId);
             if (!hasAccess) throw ApiError.forbidden('Access denied');
         }
 

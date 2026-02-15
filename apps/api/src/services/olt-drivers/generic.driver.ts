@@ -23,4 +23,19 @@ export class GenericDriver extends BaseOltDriver {
         console.warn('rebootOnu not supported for Generic OLT driver.');
         return false;
     }
+
+    async testConnection(): Promise<boolean> {
+        // For generic drivers, we can just check if the host responds on the web port if useWeb is enabled
+        if (this.config.protocol === 'http' || this.config.protocol === 'https' || this.config.port === 80 || this.config.port === 443) {
+            const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
+            const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
+            try {
+                const response = await fetch(baseUrl, { method: 'HEAD' }).catch(() => null);
+                return !!(response && (response.ok || response.status === 401));
+            } catch (e) {
+                return false;
+            }
+        }
+        return true; // Assume true if not web-based generic
+    }
 }

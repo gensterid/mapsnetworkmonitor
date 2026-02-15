@@ -5,19 +5,21 @@ import { GenericDriver } from './generic.driver.js';
 import { decrypt } from '../../lib/encryption.js';
 
 export class OltDriverFactory {
-    static getDriver(type: string, host: string, port?: number, username?: string, password?: string): IOltDriver {
-        let decryptedPassword = password;
-        if (password && password.includes(':')) {
+    static getDriver(type: string, host: string, port?: number, username?: string, password?: string, protocol?: string): IOltDriver {
+        let decryptedPassword = password || '';
+        while (decryptedPassword && decryptedPassword.includes(':') && decryptedPassword.split(':').length === 4) {
             try {
-                decryptedPassword = decrypt(password);
+                decryptedPassword = decrypt(decryptedPassword);
             } catch (e) {
-                console.error('Failed to decrypt OLT password:', e);
+                console.error('Failed to decrypt OLT password layer:', e);
+                break;
             }
         }
 
         const config: OltDriverConfig = {
             host,
-            port: port || 23,
+            port: port || (protocol === 'telnet' ? 23 : (protocol === 'https' ? 443 : 80)),
+            protocol: (protocol as any) || (port === 23 ? 'telnet' : 'http'),
             username,
             password: decryptedPassword,
         };
