@@ -49,51 +49,60 @@ export class HsgqDriver extends BaseOltDriver {
         const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
         const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
 
+        console.log(`HSGQ: testConnection starting for ${baseUrl}`);
+
         if (this.config.protocol === 'http' || this.config.protocol === 'https' || [80, 443, 5785, 8080].includes(this.config.port)) {
-            // 1. Fallback to basic auth check (Legacy)
+            // 1. Modern Login (Aggressive check)
+            const token = await this.loginModern(baseUrl);
+            if (token) {
+                console.log(`HSGQ: testConnection SUCCESS via Modern API for ${baseUrl}`);
+                return true;
+            }
+
+            // 2. Fallback to basic auth check (Legacy)
             const username = this.config.username || 'admin';
             const password = this.config.password || '';
             const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
-            let response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
+            console.log(`HSGQ: Attempting Legacy Auth check for ${baseUrl}`);
+            const response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
                 method: 'GET',
                 headers: { 'Authorization': `Basic ${auth}` },
-                signal: AbortSignal.timeout(3000)
+                signal: AbortSignal.timeout(5000)
             }).catch(() => null);
 
-            if (response && (response.ok || response.status === 401 || response.status === 403)) return true;
+            if (response && (response.ok || response.status === 401 || response.status === 403)) {
+                console.log(`HSGQ: testConnection SUCCESS via Legacy API for ${baseUrl}`);
+                return true;
+            }
 
-            // 2. Alternative Standard API
-            response = await fetch(`${baseUrl}/api/onu/list`, {
-                method: 'GET',
-                headers: { 'Authorization': `Basic ${auth}` },
-                signal: AbortSignal.timeout(3000)
-            }).catch(() => null);
-
-            if (response && (response.ok || response.status === 401 || response.status === 403)) return true;
-
-            // 3. Modern Login
-            console.log(`HSGQ: Attempting Modern Login in testConnection for ${baseUrl}`);
-            const token = await this.loginModern(baseUrl);
-            if (token) return true;
-
-            // 4. Simple fetch without token as fallback for older firmware
+            // 3. Simple fetch without token as fallback
             try {
-                const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(3000) });
-                return res.ok || res.status === 401 || res.status === 403;
+                const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(5000) });
+                if (res.ok || res.status === 401 || res.status === 403) {
+                    console.log(`HSGQ: testConnection SUCCESS via Simple Fetch for ${baseUrl}`);
+                    return true;
+                }
             } catch (e) {
-                // proceed to telnet if web fails
+                console.warn(`HSGQ: Simple fetch failed for ${baseUrl}`);
             }
         }
 
-        // 5. Final attempt: actually try to connect via Telnet/SSH
-        try {
-            await this.connect();
-            await this.disconnect();
-            return true;
-        } catch (e) {
-            return false;
+        // 4. Telnet/SSH fallback - Only if not explicitly HTTP
+        if (this.config.protocol !== 'http' && this.config.protocol !== 'https') {
+            console.log(`HSGQ: Falling back to Telnet/SSH check for ${this.config.host}`);
+            try {
+                await this.connect();
+                await this.disconnect();
+                console.log(`HSGQ: testConnection SUCCESS via Telnet/SSH for ${this.config.host}`);
+                return true;
+            } catch (e) {
+                console.warn(`HSGQ: Telnet/SSH check failed for ${this.config.host}`);
+            }
         }
+
+        console.error(`HSGQ: testConnection FINAL FAILURE for ${baseUrl}`);
+        return false;
     }
 
     async getOnuList(): Promise<OnuInfo[]> {
@@ -135,15 +144,23 @@ export class HsgqDriver extends BaseOltDriver {
                 method: 'POST',
                 body: JSON.stringify(payload),
                 headers: { 'Content-Type': 'application/json' },
-                signal: AbortSignal.timeout(5000)
+                signal: AbortSignal.timeout(10000)
             });
 
-            if (!response.ok) return null;
+            if (!response.ok) {
+                console.warn(`HSGQ Modern login failed for ${baseUrl}: HTTP ${response.status}`);
+                return null;
+            }
 
             const data = await response.json() as any;
-            if (data.code !== 1) return null;
+            if (data.code !== 1) {
+                console.warn(`HSGQ Modern login rejected for ${baseUrl}: Code ${data.code}`);
+                return null;
+            }
 
-            return response.headers.get('x-token') || response.headers.get('token');
+            const token = response.headers.get('x-token') || response.headers.get('token');
+            if (token) console.log(`HSGQ Modern: Login SUCCESS for ${baseUrl}`);
+            return token;
         } catch (e) {
             return null;
         }
