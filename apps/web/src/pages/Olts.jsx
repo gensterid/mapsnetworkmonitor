@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth, useRole } from '@/lib/auth-client';
 import {
     useOlts,
@@ -59,6 +60,7 @@ function OnuListModal({ isOpen, onClose, olt }) {
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PON/ID</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">SN / MAC</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
                                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal</th>
                                 </tr>
                             </thead>
@@ -69,7 +71,13 @@ function OnuListModal({ isOpen, onClose, olt }) {
                                             {onu.ponId}/{onu.onuId}
                                         </td>
                                         <td className="px-4 py-2 text-sm font-mono whitespace-nowrap">
-                                            {onu.sn}
+                                            <div className="flex flex-col">
+                                                <span>{onu.sn}</span>
+                                                {onu.name && <span className="text-xs text-gray-500 font-medium">{onu.name}</span>}
+                                                {onu.description && onu.description !== onu.name && (
+                                                    <span className="text-xs text-gray-400 italic">{onu.description}</span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-2 text-sm whitespace-nowrap">
                                             <span className={clsx(
@@ -78,6 +86,18 @@ function OnuListModal({ isOpen, onClose, olt }) {
                                             )}>
                                                 {onu.status}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-2 text-sm whitespace-nowrap">
+                                            {onu.lastDownReason ? (
+                                                <span className={clsx(
+                                                    "px-2 py-0.5 rounded-full text-xs font-medium",
+                                                    onu.lastDownReason === 'Power Down' ? "bg-amber-100 text-amber-800" :
+                                                        onu.lastDownReason === 'Optical Loss' ? "bg-orange-100 text-orange-800" :
+                                                            "bg-gray-100 text-gray-800"
+                                                )}>
+                                                    {onu.lastDownReason}
+                                                </span>
+                                            ) : '-'}
                                         </td>
                                         <td className="px-4 py-2 text-sm whitespace-nowrap font-medium text-blue-600">
                                             {onu.signal || '-'}
@@ -363,6 +383,7 @@ function DeleteOltModal({ isOpen, onClose, olt }) {
 }
 
 export default function Olts() {
+    const navigate = useNavigate();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingOlt, setEditingOlt] = useState(null);
     const [deletingOlt, setDeletingOlt] = useState(null);
@@ -429,66 +450,90 @@ export default function Olts() {
             <div className="flex-1 overflow-auto p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {filteredOlts.map((olt) => (
-                        <Card key={olt.id} className="group hover:border-slate-600 transition-colors">
+                        <Card
+                            key={olt.id}
+                            className="group hover:border-primary/50 transition-all active:scale-[0.98] cursor-pointer relative"
+                            onClick={() => navigate(`/olts/${olt.id}`)}
+                        >
+                            {(isAdmin || isOperator) && (
+                                <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 border border-slate-700/50 shadow-sm">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setViewingOnusOlt(olt); }}
+                                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                                        title="View ONUs"
+                                    >
+                                        <Layers className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); refreshOlt.mutate(olt.id); }}
+                                        disabled={refreshOlt.isPending && refreshOlt.variables === olt.id}
+                                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                        title="Refresh status"
+                                    >
+                                        <RefreshCw className={clsx("w-4 h-4", refreshOlt.isPending && refreshOlt.variables === olt.id && "animate-spin")} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setEditingOlt(olt); }}
+                                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                        title="Edit OLT"
+                                    >
+                                        <Edit className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); setDeletingOlt(olt); }}
+                                        className="p-1.5 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                                        title="Delete OLT"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            )}
                             <CardContent className="p-5">
                                 <div className="flex items-start justify-between mb-4">
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 overflow-hidden">
                                         <div className={clsx(
-                                            "p-2.5 rounded-lg",
+                                            "p-2.5 rounded-lg flex-shrink-0",
                                             olt.status === 'online' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
                                         )}>
                                             <Server className="w-6 h-6" />
                                         </div>
-                                        <div>
-                                            <h3 className="font-semibold text-white">{olt.name}</h3>
+                                        <div className="flex-1 min-w-0">
+                                            <h3 className="font-semibold text-white truncate pr-2">{olt.name}</h3>
                                             <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
                                                 <span className={clsx(
-                                                    "w-1.5 h-1.5 rounded-full",
+                                                    "w-1.5 h-1.5 rounded-full flex-shrink-0",
                                                     olt.status === 'online' ? "bg-emerald-500" : "bg-red-500"
                                                 )} />
-                                                {olt.host}
-                                                {olt.activeProtocol && olt.status === 'online' && (
-                                                    <span className="ml-2 px-1.5 py-0.5 text-[10px] uppercase font-bold tracking-wider rounded bg-slate-800 text-slate-400 border border-slate-700">
-                                                        {olt.activeProtocol}
-                                                    </span>
-                                                )}
+                                                <span className="truncate">{olt.host}</span>
+                                                <div className="ml-2 flex gap-1 items-center flex-shrink-0">
+                                                    {olt.useSnmp && (
+                                                        <span className={clsx(
+                                                            "px-1.5 py-0.5 text-[9px] uppercase font-bold tracking-tight rounded border",
+                                                            olt.lastSnmpStatus === 'online'
+                                                                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                                                : olt.lastSnmpStatus === 'offline'
+                                                                    ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                                                    : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                                                        )}>
+                                                            SNMP
+                                                        </span>
+                                                    )}
+                                                    {olt.useWeb && (
+                                                        <span className={clsx(
+                                                            "px-1.5 py-0.5 text-[9px] uppercase font-bold tracking-tight rounded border",
+                                                            olt.lastWebStatus === 'online'
+                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                                                                : olt.lastWebStatus === 'offline'
+                                                                    ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                                                    : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                                                        )}>
+                                                            WEB
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-
-                                    {(isAdmin || isOperator) && (
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => setViewingOnusOlt(olt)}
-                                                className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
-                                                title="View ONUs"
-                                            >
-                                                <Layers className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => refreshOlt.mutate(olt.id)}
-                                                disabled={refreshOlt.isPending && refreshOlt.variables === olt.id}
-                                                className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
-                                                title="Refresh status"
-                                            >
-                                                <RefreshCw className={clsx("w-4 h-4", refreshOlt.isPending && refreshOlt.variables === olt.id && "animate-spin")} />
-                                            </button>
-                                            <button
-                                                onClick={() => setEditingOlt(olt)}
-                                                className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                                                title="Edit OLT"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setDeletingOlt(olt)}
-                                                className="p-1.5 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
-                                                title="Delete OLT"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )}
                                 </div>
 
                                 <div className="space-y-2 text-sm text-slate-400">
