@@ -27,7 +27,9 @@ import {
     ChevronDown,
     Zap,
     Cpu,
-    Database
+    Database,
+    LayoutGrid,
+    List
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { genieacsService } from '@/services/genieacs.service';
@@ -301,6 +303,9 @@ export default function GenieACS() {
     const [wanDevice, setWanDevice] = useState(null);
     const [detailDeviceId, setDetailDeviceId] = useState(null);
     const [selectedRouterId, setSelectedRouterId] = useState('');
+    const [viewMode, setViewMode] = useState(() => {
+        return localStorage.getItem('genieacs-view-mode') || 'grid';
+    });
 
     const refreshMutation = useRefreshGenieACSDevice();
 
@@ -314,7 +319,9 @@ export default function GenieACS() {
         }
     }, [acsEnabledRouters, selectedRouterId]);
 
-    const { data: devices = [], isLoading, error, refetch } = useGenieACSDevices(selectedRouterId);
+    const { data: devices = [], isLoading, error, refetch, isFetching } = useGenieACSDevices(selectedRouterId, {
+        refetchInterval: 60 * 1000 // Auto-refresh every 60 seconds
+    });
 
     const { data: currentUser } = useCurrentUser();
     const { data: settings } = useSettings();
@@ -454,9 +461,44 @@ export default function GenieACS() {
                                 <Database className="w-4 h-4 mr-2" />
                                 Presets
                             </Button>
-                            <Button onClick={() => refetch()} variant="outline">
-                                <RefreshCw className="w-4 h-4 mr-2" />
+                            <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+                                <button
+                                    onClick={() => {
+                                        setViewMode('grid');
+                                        localStorage.setItem('genieacs-view-mode', 'grid');
+                                    }}
+                                    className={clsx(
+                                        "p-1.5 rounded-md transition-colors",
+                                        viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                                    )}
+                                    title="Grid View"
+                                >
+                                    <LayoutGrid className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setViewMode('list');
+                                        localStorage.setItem('genieacs-view-mode', 'list');
+                                    }}
+                                    className={clsx(
+                                        "p-1.5 rounded-md transition-colors",
+                                        viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                                    )}
+                                    title="List View"
+                                >
+                                    <List className="w-4 h-4" />
+                                </button>
+                            </div>
+
+                            <Button onClick={() => refetch()} variant="outline" className="relative">
+                                <RefreshCw className={clsx("w-4 h-4 mr-2", isFetching && "animate-spin")} />
                                 Refresh
+                                {isFetching && !isLoading && (
+                                    <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                    </span>
+                                )}
                             </Button>
                         </>
                     )}
@@ -475,151 +517,263 @@ export default function GenieACS() {
                     <span className="text-sm text-slate-400">Select All {filteredDevices.length} Devices</span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredDevices.map((dev) => (
-                        <Card
-                            key={dev._id}
-                            className={clsx(
-                                "group transition-all duration-200 relative border",
-                                selectedDeviceIds.includes(dev._id) ? "border-primary bg-primary/5" : "border-slate-800 hover:border-slate-600"
-                            )}
-                        >
-                            <div className="absolute top-3 right-3 z-10">
-                                <input
-                                    type="checkbox"
-                                    className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
-                                    checked={selectedDeviceIds.includes(dev._id)}
-                                    onChange={() => toggleSelectDevice(dev._id)}
-                                />
+                {filteredDevices.length > 0 ? (
+                    viewMode === 'list' ? (
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-slate-800/50 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                                        <tr>
+                                            <th className="px-4 py-3 w-8">
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                                                    checked={selectedDeviceIds.length === filteredDevices.length}
+                                                    onChange={toggleSelectAll}
+                                                />
+                                            </th>
+                                            <th className="px-4 py-3">Status</th>
+                                            <th className="px-4 py-3">Device ID</th>
+                                            <th className="px-4 py-3">SN / Model</th>
+                                            <th className="px-4 py-3">IP Address</th>
+                                            <th className="px-4 py-3">SSID</th>
+                                            <th className="px-4 py-3">RX Power</th>
+                                            <th className="px-4 py-3 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800">
+                                        {filteredDevices.map((dev) => (
+                                            <tr
+                                                key={dev._id}
+                                                className={clsx(
+                                                    "hover:bg-slate-800/30 transition-colors group",
+                                                    selectedDeviceIds.includes(dev._id) && "bg-primary/5"
+                                                )}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                                                        checked={selectedDeviceIds.includes(dev._id)}
+                                                        onChange={() => toggleSelectDevice(dev._id)}
+                                                    />
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={clsx("w-2 h-2 rounded-full",
+                                                            dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000)
+                                                                ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                                                                : "bg-red-500"
+                                                        )}></span>
+                                                        <span className="text-[10px] text-slate-500 uppercase font-medium">
+                                                            {dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000) ? "Online" : "Offline"}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-sm font-medium text-white">{dev._id}</div>
+                                                    <div className="text-[10px] text-slate-500 font-mono">
+                                                        Last Inform: {dev._lastInform ? formatDateWithTimezone(dev._lastInform, timezone) : 'Never'}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-sm text-primary font-mono">{dev._serialNumber || 'N/A'}</div>
+                                                    <div className="text-[10px] text-slate-400 font-bold">{dev._productClass || 'Unknown Model'}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm text-slate-300 font-mono">{dev._ip || 'N/A'}</span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-slate-300">
+                                                    <div className="truncate w-32" title={dev._ssid}>{dev._ssid || 'N/A'}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={clsx("text-sm font-mono font-bold",
+                                                        !dev._rxPower ? "text-slate-500" :
+                                                            parseFloat(dev._rxPower) < -25 ? "text-red-400" : "text-emerald-400"
+                                                    )}>
+                                                        {dev._rxPower ? `${dev._rxPower} dBm` : 'N/A'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex justify-end gap-1">
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); refreshMutation.mutate({ id: dev._id, routerId: selectedRouterId }); }}
+                                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                                                            title="Refresh (Summon)"
+                                                        >
+                                                            <RefreshCw className={clsx("w-3.5 h-3.5", refreshMutation?.isPending && refreshMutation.variables?.id === dev._id && "animate-spin")} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setWifiDevice({ ...dev, routerId: selectedRouterId }); }}
+                                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                                                            title="WiFi Settings"
+                                                        >
+                                                            <Wifi className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setDetailDeviceId(dev._id); }}
+                                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
+                                                            title="View Details"
+                                                        >
+                                                            <Info className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setRebootDevice({ ...dev, routerId: selectedRouterId }); }}
+                                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
+                                                            title="Reboot Device"
+                                                        >
+                                                            <Power className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {filteredDevices.map((dev) => (
+                                <Card
+                                    key={dev._id}
+                                    className={clsx(
+                                        "group transition-all duration-200 relative border",
+                                        selectedDeviceIds.includes(dev._id) ? "border-primary bg-primary/5" : "border-slate-800 hover:border-slate-600"
+                                    )}
+                                >
+                                    <div className="absolute top-3 right-3 z-10">
+                                        <input
+                                            type="checkbox"
+                                            className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                                            checked={selectedDeviceIds.includes(dev._id)}
+                                            onChange={() => toggleSelectDevice(dev._id)}
+                                        />
+                                    </div>
 
-                            <CardContent className="p-5 space-y-4" onClick={(e) => {
-                                // Toggle select if clicking card background (not buttons)
-                                if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'svg' && e.target.tagName !== 'path') {
-                                    toggleSelectDevice(dev._id);
-                                }
-                            }}>
-                                {/* Header */}
-                                <div className="flex items-start justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={clsx("p-2.5 rounded-lg",
-                                            dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000)
-                                                ? "bg-emerald-500/10 text-emerald-500"
-                                                : "bg-red-500/10 text-red-500"
-                                        )}>
-                                            <Wifi className="w-5 h-5" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-semibold text-white truncate w-32" title={dev._id}>{dev._id}</h3>
-                                            <div className="flex items-center gap-2">
-                                                <div className="text-xs text-slate-400">{dev._productClass || 'Unknown Model'}</div>
-                                                <span className={clsx("w-2 h-2 rounded-full",
+                                    <CardContent className="p-5 space-y-4" onClick={(e) => {
+                                        if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'svg' && e.target.tagName !== 'path') {
+                                            toggleSelectDevice(dev._id);
+                                        }
+                                    }}>
+                                        <div className="flex items-start justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className={clsx("p-2.5 rounded-lg",
                                                     dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000)
-                                                        ? "bg-emerald-500"
-                                                        : "bg-red-500"
-                                                )} title={dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000) ? "Online" : "Offline"}></span>
+                                                        ? "bg-emerald-500/10 text-emerald-500"
+                                                        : "bg-red-500/10 text-red-500"
+                                                )}>
+                                                    <Wifi className="w-5 h-5" />
+                                                </div>
+                                                <div>
+                                                    <h3 className="font-semibold text-white truncate w-32" title={dev._id}>{dev._id}</h3>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <div className="text-[10px] text-primary font-mono">{dev._serialNumber || 'No SN'}</div>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="text-[10px] text-slate-400 font-bold">{dev._productClass || 'Unknown Model'}</div>
+                                                            <span className={clsx("w-1.5 h-1.5 rounded-full",
+                                                                dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000)
+                                                                    ? "bg-emerald-500"
+                                                                    : "bg-red-500"
+                                                            )} title={dev._lastInform && (new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000) ? "Online" : "Offline"}></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-10">
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); refreshMutation.mutate({ id: dev._id, routerId: selectedRouterId }); }}
+                                                    className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                                                    title="Refresh (Summon)"
+                                                >
+                                                    <RefreshCw className={clsx("w-4 h-4", refreshMutation?.isPending && refreshMutation.variables?.id === dev._id && "animate-spin")} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setWifiDevice({ ...dev, routerId: selectedRouterId }); }}
+                                                    className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                                                    title="WiFi Settings"
+                                                >
+                                                    <Wifi className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setWanDevice({ ...dev, routerId: selectedRouterId }); }}
+                                                    className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                                                    title="WAN Settings"
+                                                >
+                                                    <Globe className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setDetailDeviceId(dev._id); }}
+                                                    className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
+                                                    title="View Details"
+                                                >
+                                                    <Info className="w-4 h-4" />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); setRebootDevice({ ...dev, routerId: selectedRouterId }); }}
+                                                    className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
+                                                    title="Reboot Device"
+                                                >
+                                                    <Power className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity mr-6">
-                                        {/* Added mr-6 to not overlap checkbox */}
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); refreshMutation.mutate({ id: dev._id, routerId: selectedRouterId }); }}
-                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
-                                            title="Refresh (Summon)"
-                                        >
-                                            <RefreshCw className={clsx("w-4 h-4", refreshMutation?.isPending && "animate-spin")} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setWifiDevice({ ...dev, routerId: selectedRouterId }); }}
-                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
-                                            title="WiFi Settings"
-                                        >
-                                            <Wifi className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setWanDevice({ ...dev, routerId: selectedRouterId }); }}
-                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
-                                            title="WAN Settings"
-                                        >
-                                            <Globe className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setDetailDeviceId(dev._id); }}
-                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
-                                            title="View Details"
-                                        >
-                                            <Info className="w-4 h-4" />
-                                        </button>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); setRebootDevice({ ...dev, routerId: selectedRouterId }); }}
-                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
-                                            title="Reboot Device"
-                                        >
-                                            <Power className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                </div>
 
-                                {/* Info Grid */}
-                                <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
-                                    <div className="flex flex-col">
-                                        <span className="text-slate-500 text-xs">IP Address</span>
-                                        <span className="text-slate-300 font-mono text-xs">{dev._ip || 'N/A'}</span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-slate-500 text-xs">RX Power</span>
-                                        <span className={clsx("font-mono text-xs",
-                                            !dev._rxPower ? "text-slate-500" :
-                                                parseFloat(dev._rxPower) < -25 ? "text-red-400" : "text-emerald-400"
-                                        )}>
-                                            {dev._rxPower ? `${dev._rxPower} dBm` : 'N/A'}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-slate-500 text-xs">SSID</span>
-                                        <span className="text-slate-300 truncate" title={dev._ssid}>{dev._ssid || 'N/A'}</span>
-                                    </div>
-                                    <div className="col-span-2 flex flex-col">
-                                        <span className="text-slate-500 text-xs">Last Inform</span>
-                                        <div className="flex items-center gap-1.5 text-slate-300">
-                                            <Clock className="w-3 h-3" />
-                                            <span className="text-xs">
-                                                {dev._lastInform
-                                                    ? formatDateWithTimezone(dev._lastInform, timezone)
-                                                    : 'Never'}
-                                            </span>
+                                        <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-sm">
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-500 text-xs">IP Address</span>
+                                                <span className="text-slate-300 font-mono text-xs">{dev._ip || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-500 text-xs">RX Power</span>
+                                                <span className={clsx("font-mono text-xs",
+                                                    !dev._rxPower ? "text-slate-500" :
+                                                        parseFloat(dev._rxPower) < -25 ? "text-red-400" : "text-emerald-400"
+                                                )}>
+                                                    {dev._rxPower ? `${dev._rxPower} dBm` : 'N/A'}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-500 text-xs">SSID</span>
+                                                <span className="text-slate-300 truncate" title={dev._ssid}>{dev._ssid || 'N/A'}</span>
+                                            </div>
+                                            <div className="col-span-2 flex flex-col">
+                                                <span className="text-slate-500 text-xs">Last Inform</span>
+                                                <div className="flex items-center gap-1.5 text-slate-300">
+                                                    <Clock className="w-3 h-3" />
+                                                    <span className="text-xs">
+                                                        {dev._lastInform ? formatDateWithTimezone(dev._lastInform, timezone) : 'Never'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
 
-                                {/* Status Bar (Last Inform freshness) */}
-                                {dev._lastInform && (
-                                    <div className="pt-2">
-                                        <div className={clsx(
-                                            "h-1 rounded-full w-full",
-                                            new Date() - new Date(dev._lastInform) < 300000 // 5 mins
-                                                ? "bg-emerald-500"
-                                                : new Date() - new Date(dev._lastInform) < 3600000 // 1 hour
-                                                    ? "bg-yellow-500"
-                                                    : "bg-red-500"
-                                        )} />
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
-                    ))}
-
-                    {filteredDevices.length === 0 && (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                            <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Monitor className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-lg font-medium text-white mb-1">No devices found</h3>
-                            <p className="text-slate-400">GenieACS didn't return any devices matching your search</p>
+                                        {dev._lastInform && (
+                                            <div className="pt-2">
+                                                <div className={clsx(
+                                                    "h-1 rounded-full w-full",
+                                                    new Date() - new Date(dev._lastInform) < 300000
+                                                        ? "bg-emerald-500"
+                                                        : new Date() - new Date(dev._lastInform) < 3600000
+                                                            ? "bg-yellow-500"
+                                                            : "bg-red-500"
+                                                )} />
+                                            </div>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            ))}
                         </div>
-                    )}
-                </div>
+                    )
+                ) : (
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                        <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Monitor className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-medium text-white mb-1">No devices found</h3>
+                        <p className="text-slate-400">GenieACS didn't return any devices matching your search</p>
+                    </div>
+                )}
             </div>
 
             <RebootModal

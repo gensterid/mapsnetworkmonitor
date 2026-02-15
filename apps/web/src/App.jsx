@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import Routers from './pages/Routers';
 import RouterDetails from './pages/RouterDetails';
 import Olts from './pages/Olts';
+import OltDetails from './pages/OltDetails';
 import GenieACS from './pages/GenieACS';
 import NetworkMap from './pages/NetworkMap';
 import Alerts from './pages/Alerts';
@@ -138,8 +139,9 @@ function App() {
                 </ErrorBoundary>
               } />
               <Route path="routers/:id" element={<RouterDetails />} />
-              <Route path="/olts" element={<Olts />} />
-              <Route path="/genieacs" element={<GenieACS />} />
+              <Route path="olts" element={<Olts />} />
+              <Route path="olts/:id" element={<OltDetails />} />
+              <Route path="genieacs" element={<GenieACS />} />
               <Route path="alerts" element={<Alerts />} />
               <Route path="issues" element={<Issues />} />
               <Route path="netwatch" element={

@@ -189,18 +189,25 @@ export class HsgqDriver extends BaseOltDriver {
                 console.log('HSGQ: Standard APIs failed with 404. Attempting Modern GPON WEB login...');
                 const token = await this.loginModern(baseUrl);
                 if (token) {
-                    const modernUrl = `${baseUrl}/ontinfo_table`;
-                    console.log(`HSGQ: Fetching ONUs from Modern API at ${modernUrl}...`);
-                    const modernResponse = await fetch(modernUrl, {
-                        headers: { 'x-token': token }
-                    });
+                    const endpoints = ['/ontinfo_table', '/ontinfo_config', '/api/onu/list'];
+                    for (const endpoint of endpoints) {
+                        const modernUrl = `${baseUrl}${endpoint}`;
+                        console.log(`HSGQ: Trying Modern API at ${modernUrl}...`);
+                        try {
+                            const modernResponse = await fetch(modernUrl, {
+                                headers: { 'x-token': token }
+                            });
 
-                    if (modernResponse.ok) {
-                        const data = await modernResponse.json();
-                        return this.parseOnuData(data);
-                    } else {
-                        throw new Error(`Modern API failed with status ${modernResponse.status}`);
+                            if (modernResponse.ok) {
+                                const data = await modernResponse.json();
+                                return this.parseOnuData(data);
+                            }
+                            console.warn(`HSGQ: Modern endpoint ${endpoint} failed with status ${modernResponse.status}`);
+                        } catch (e) {
+                            console.warn(`HSGQ: Modern endpoint ${endpoint} fetch error`);
+                        }
                     }
+                    throw new Error('All modern OLT API endpoints failed');
                 } else {
                     throw new Error('Modern login failed (No token returned)');
                 }

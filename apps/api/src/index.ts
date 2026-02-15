@@ -136,6 +136,23 @@ async function runMigrations() {
                     ALTER TABLE routers ADD COLUMN genieacs_password_encrypted TEXT;
                     RAISE NOTICE 'Added genieacs_password_encrypted column to routers';
                 END IF;
+
+                -- Add OLT status columns
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'olts' AND column_name = 'last_snmp_status'
+                ) THEN
+                    ALTER TABLE olts ADD COLUMN last_snmp_status TEXT;
+                    RAISE NOTICE 'Added last_snmp_status column to olts';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'olts' AND column_name = 'last_web_status'
+                ) THEN
+                    ALTER TABLE olts ADD COLUMN last_web_status TEXT;
+                    RAISE NOTICE 'Added last_web_status column to olts';
+                END IF;
             END $$;
         `);
         console.log('✅ Database migrations complete');

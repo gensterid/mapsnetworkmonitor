@@ -2,10 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { genieacsService } from '../services/genieacs.service';
 import toast from 'react-hot-toast';
 
-export function useGenieACSDevices(routerId) {
+export function useGenieACSDevices(routerId, options = {}) {
     return useQuery({
         queryKey: ['genieacs-devices', routerId],
         queryFn: () => genieacsService.getDevices(routerId),
+        refetchInterval: options.refetchInterval || false,
+        refetchIntervalInBackground: true,
+        ...options
     });
 }
 
