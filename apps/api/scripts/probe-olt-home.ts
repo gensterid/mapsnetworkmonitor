@@ -18,64 +18,41 @@ async function probeHome() {
         const res = await fetch(baseUrl);
         const html = await res.text();
 
-        console.log('\n--- SYSTEM INFO ---');
-        const title = html.match(/<title>(.*?)<\/title>/)?.[1];
-        console.log(`Tool: ${title}`);
+        console.log('\n--- HEADERS ---');
+        console.log(JSON.stringify([...res.headers.entries()], null, 2));
 
-        // Find scripts with more flexible regex
-        const scriptTags = html.match(/<script\s+[^>]*src=["']([^"']+)["'][^>]*>/g) || [];
-        const linkTags = html.match(/<link\s+[^>]*href=["']([^"']+\.js)["'][^>]*>/g) || [];
+        // Let's find ALL .js and .css files in the entire HTML
+        const assets = html.match(/[\/a-zA-Z0-9_\-\.]+\.(js|css)/g) || [];
+        const uniqueAssets = [...new Set(assets)];
 
-        console.log('\n--- DETECTED ASSETS ---');
-        const assets = new Set<string>();
-
-        [...scriptTags, ...linkTags].forEach(tag => {
-            const match = tag.match(/(src|href)=["']([^"']+)["']/);
-            if (match) assets.add(match[2]);
+        console.log('\n--- ALL DETECTED ASSETS (Found ${uniqueAssets.length}) ---');
+        uniqueAssets.forEach(asset => {
+            if (asset.startsWith('/')) console.log(`   ${asset}`);
+            else console.log(`   (Relative) ${asset}`);
         });
 
-        // Add some common guesses if none found
-        if (assets.size === 0) {
-            console.log('No scripts found in HTML. Trying common paths...');
-            ['/js/app.js', '/js/index.js', '/static/js/app.js', '/js/main.js'].forEach(a => assets.add(a));
-        }
-
-        for (const asset of assets) {
-            const assetUrl = asset.startsWith('http') ? asset : `${baseUrl}${asset.startsWith('/') ? '' : '/'}${asset}`;
-            console.log(`Scanning ${assetUrl}...`);
-            try {
-                const assetRes = await fetch(assetUrl);
-                if (assetRes.ok) {
-                    const content = await assetRes.text();
-                    console.log(`   [OK] Length: ${content.length}`);
-
-                    // Look for patterns like "ont_info" or "onu_list" or similar
-                    const apiMatches = content.match(/\/[\w_]{4,30}(_get|_table|_config|_data|_info|_list)/g);
-                    if (apiMatches) {
-                        const unique = [...new Set(apiMatches)];
-                        console.log(`   [FOUND API ENDPOINTS]: ${unique.join(', ')}`);
+        // Try to fetch the most likely candidates
+        for (const asset of uniqueAssets) {
+            const url = asset.startsWith('http') ? asset : `${baseUrl}${asset.startsWith('/') ? '' : '/'}${asset}`;
+            if (asset.includes('.js')) {
+                console.log(`\nScanning JS: ${url}`);
+                try {
+                    const jsRes = await fetch(url);
+                    if (jsRes.ok) {
+                        const content = await jsRes.text();
+                        console.log(`   [OK] Length: ${content.length}`);
+                        // Look for API endpoints in the JS content
+                        const apiMatches = content.match(/\/[\w_]{4,40}(_get|_table|_config|_data|_info|_list|onu|ont)/g);
+                        if (apiMatches) {
+                            console.log(`   [FOUND API HINTS]: ${[...new Set(apiMatches)].slice(0, 5).join(', ')}...`);
+                        }
+                    } else {
+                        console.log(`   [FAILED] Status: ${jsRes.status}`);
                     }
-
-                    // Look for h.cgi modules
-                    const modMatches = content.match(/module=([\w_]{4,20})/g);
-                    if (modMatches) {
-                        const uniqueMods = [...new Set(modMatches.map(m => m.split('=')[1]))];
-                        console.log(`   [FOUND MODULES]: ${uniqueMods.join(', ')}`);
-                    }
-                } else {
-                    console.log(`   [FAILED] Status: ${assetRes.status}`);
+                } catch (e) {
+                    console.log(`   [ERROR] Connection failed`);
                 }
-            } catch (e: any) {
-                console.log(`   [ERROR] ${e.message}`);
             }
-        }
-
-        console.log('\n--- HTML SCAN FOR HARDCODED PATHS ---');
-        const htmlPaths = html.match(/\/[\w_]{4,30}(_get|_table|_config|_data|_info|_list)/g);
-        if (htmlPaths) {
-            console.log(`Found in HTML: ${[...new Set(htmlPaths)].join(', ')}`);
-        } else {
-            console.log('No API-like strings found in HTML.');
         }
 
     } catch (error: any) {
