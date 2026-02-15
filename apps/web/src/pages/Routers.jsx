@@ -65,6 +65,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
         snmpPort: String(router?.snmpPort || 161),
         useGenieAcs: router?.useGenieAcs || false,
         genieacsUrl: router?.genieacsUrl || '',
+        genieacsUsername: router?.genieacsUsername || '',
+        genieacsPassword: '',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -86,6 +88,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 snmpPort: String(router.snmpPort || 161),
                 useGenieAcs: router.useGenieAcs || false,
                 genieacsUrl: router.genieacsUrl || '',
+                genieacsUsername: router.genieacsUsername || '',
+                genieacsPassword: '',
             });
         } else {
             setFormData({
