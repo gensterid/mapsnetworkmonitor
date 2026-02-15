@@ -46,7 +46,7 @@ export class HsgqDriver extends BaseOltDriver {
     }
 
     async testConnection(): Promise<boolean> {
-        if (this.config.protocol === 'http' || this.config.protocol === 'https' || this.config.port === 80 || this.config.port === 443) {
+        if (this.config.protocol === 'http' || this.config.protocol === 'https' || [80, 443, 5785, 8080].includes(this.config.port)) {
             const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
             const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
 
@@ -102,7 +102,7 @@ export class HsgqDriver extends BaseOltDriver {
     async getOnuList(): Promise<OnuInfo[]> {
         if (!this.connected) await this.connect();
 
-        if (this.config.protocol === 'http' || this.config.protocol === 'https' || this.config.port === 80 || this.config.port === 443) {
+        if (this.config.protocol === 'http' || this.config.protocol === 'https' || [80, 443, 5785, 8080].includes(this.config.port)) {
             return this.getOnuListHttp();
         }
 
