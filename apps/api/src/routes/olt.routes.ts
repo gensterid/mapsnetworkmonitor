@@ -2,7 +2,12 @@ import { Router } from 'express';
 import { oltService } from '../services/olt.service.js';
 import { z } from 'zod';
 
+import { authMiddleware } from '../middleware/auth.middleware.js';
+
 const router = Router();
+
+// Apply auth middleware to all routes
+router.use(authMiddleware);
 
 // Validation schemas
 const createOltSchema = z.object({
@@ -28,7 +33,8 @@ const updateOltSchema = createOltSchema.partial();
 // Get all OLTs
 router.get('/', async (req, res) => {
     try {
-        const olts = await oltService.findAll();
+        // @ts-ignore - user added by authMiddleware
+        const olts = await oltService.findAll(req.user?.id, req.user?.role);
         res.json(olts);
     } catch (error) {
         res.status(500).json({ error: 'Failed to fetch OLTs' });
@@ -38,7 +44,8 @@ router.get('/', async (req, res) => {
 // Get OLT by ID
 router.get('/:id', async (req, res) => {
     try {
-        const olt = await oltService.findById(req.params.id);
+        // @ts-ignore
+        const olt = await oltService.findById(req.params.id, req.user?.id, req.user?.role);
         if (!olt) {
             return res.status(404).json({ error: 'OLT not found' });
         }
@@ -95,11 +102,17 @@ router.delete('/:id', async (req, res) => {
 // Get OLT ONUs (via Driver)
 router.get('/:id/onus', async (req, res) => {
     try {
+        console.log(`GET /api/olts/${req.params.id}/onus - Fetching ONUs...`);
         const onus = await oltService.getOnus(req.params.id);
         res.json(onus);
     } catch (error: any) {
-        console.error('API Error in /olts/:id/onus:', error);
-        res.status(500).json({ error: 'Failed to fetch ONUs', details: error.message });
+        console.error(`API Error in /olts/${req.params.id}/onus:`, error);
+        res.status(500).json({
+            error: 'Failed to fetch ONUs',
+            message: error.message,
+            details: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
 });
 

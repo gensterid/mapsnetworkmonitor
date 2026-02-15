@@ -160,6 +160,25 @@ export class RouterService {
     }
 
     /**
+     * Check if a user has access to a specific router
+     */
+    async hasAccess(userId: string, userRole: string, routerId: string): Promise<boolean> {
+        if (userRole === 'admin') return true;
+        if (!userId) return false;
+
+        const { userRouters } = await import('../db/schema/index.js');
+        const [assignment] = await db
+            .select()
+            .from(userRouters)
+            .where(and(
+                eq(userRouters.userId, userId),
+                eq(userRouters.routerId, routerId)
+            ));
+
+        return !!assignment;
+    }
+
+    /**
      * Parse speed string to number for comparison (e.g., "1Gbps" -> 1000, "100Mbps" -> 100)
      */
     private parseSpeed(speed: string): number {

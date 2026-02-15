@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { genieacsService } from '../services/genieacs.service.js';
+import { routerService } from '../services/router.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = Router();
@@ -19,6 +20,23 @@ router.get(
     asyncHandler(async (req, res) => {
         const query = req.query.query ? JSON.parse(req.query.query as string) : {};
         const routerId = req.query.routerId as string | undefined;
+
+        // Access Control
+        if (req.user?.role !== 'admin') {
+            if (!routerId) {
+                // If no router specified, operator can only see devices from their assigned routers?
+                // This is hard because GenieACS service needs a specific URL/Auth.
+                // It usually defaults to global settings if routerId is missing.
+                // We should probably BLOCK access if no routerId is provided for non-admins, 
+                // unless we want to loop through all assigned routers (expensive).
+                throw ApiError.forbidden('Router ID is required for non-admins');
+            }
+            const hasAccess = await routerService.hasAccess(req.user.id, req.user.role, routerId);
+            if (!hasAccess) {
+                throw ApiError.forbidden('Access denied to this router');
+            }
+        }
+
         const devices = await genieacsService.getDevices(routerId, query);
         res.json({ data: devices });
     })
@@ -34,6 +52,14 @@ router.get(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
+
+        // Access Control
+        if (req.user?.role !== 'admin') {
+            if (!routerId) throw ApiError.forbidden('Router ID is required for non-admins');
+            const hasAccess = await routerService.hasAccess(req.user.id, req.user.role, routerId);
+            if (!hasAccess) throw ApiError.forbidden('Access denied');
+        }
+
         const device = await genieacsService.getDevice(id, routerId);
         if (!device) {
             throw ApiError.notFound('Device not found');

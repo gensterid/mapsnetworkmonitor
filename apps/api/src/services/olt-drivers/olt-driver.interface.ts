@@ -8,11 +8,15 @@ export interface OnuInfo {
     distance?: number; // meters
     name?: string;
     description?: string;
+    lastDownReason?: string; // e.g. 'Power Down', 'Optical Loss'
+    lastDownTime?: string;
+    lastUpTime?: string;
 }
 
 export interface OltDriverConfig {
     host: string;
-    port: number; // 22 (SSH) or 23 (Telnet)
+    port: number; // 22 (SSH), 23 (Telnet), 80/443 (HTTP/S)
+    protocol?: 'telnet' | 'ssh' | 'http' | 'https';
     username?: string;
     password?: string;
     timeout?: number;
@@ -31,6 +35,11 @@ export interface IOltDriver {
      * Get details for a specific ONU
      */
     getOnuDetails(ponId: string, onuId: string): Promise<OnuInfo | null>;
+
+    /**
+     * Test if the connection and credentials are valid
+     */
+    testConnection(): Promise<boolean>;
 
     /**
      * Reboot a specific ONU
@@ -54,4 +63,5 @@ export abstract class BaseOltDriver implements IOltDriver {
     abstract getOnuList(): Promise<OnuInfo[]>;
     abstract getOnuDetails(ponId: string, onuId: string): Promise<OnuInfo | null>;
     abstract rebootOnu(ponId: string, onuId: string): Promise<boolean>;
+    abstract testConnection(): Promise<boolean>;
 }

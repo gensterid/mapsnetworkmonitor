@@ -1,8 +1,9 @@
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { olts, type Olt, type NewOlt } from '../db/schema/olts.js';
 import { snmpService } from './snmp.service.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
+import { OltDriverFactory } from './olt-drivers/driver.factory.js';
 
 export class OltService {
     private static instance: OltService;
@@ -16,11 +17,82 @@ export class OltService {
         return OltService.instance;
     }
 
-    async findAll(): Promise<Olt[]> {
-        return db.select().from(olts).orderBy(olts.name);
+    async findAll(userId?: string, userRole?: string): Promise<Olt[]> {
+        let query = db.select().from(olts).orderBy(olts.name).$dynamic();
+
+        // If user is not admin, filter by assigned routers
+        if (userId && userRole && userRole !== 'admin') {
+            // Get assigned router IDs
+            const { userRouters } = await import('../db/schema/user-routers.js');
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+
+            const routerIds = assigned.map((a) => a.routerId);
+
+            if (routerIds.length === 0) {
+                // Return generic OLTs (no parent) ?? Or nothing? 
+                // Strict: Only return if parentId matches assigned router. 
+                // If parentId is null, maybe Admin only? Or everyone?
+                // Let's assume strict: Must be assigned to a router to see its OLT. 
+                // What about OLTs without parentId?
+                // Decision: Non-admin can only see OLTs linked to their routers.
+                // If they have no routers, they see nothing.
+                return [];
+            }
+
+            // Filter OLTs
+            const { inArray } = await import('drizzle-orm');
+            query = db
+                .select()
+                .from(olts)
+                .where(inArray(olts.parentId, routerIds))
+                .orderBy(olts.name)
+                .$dynamic();
+        }
+
+        const results = await query;
+        return results.map(olt => ({
+            ...olt,
+            webPassword: olt.webPassword ? '********' : null
+        }));
     }
 
-    async findById(id: string): Promise<Olt | undefined> {
+    async findById(id: string, userId?: string, userRole?: string): Promise<Olt | undefined> {
+        const [olt] = await db.select().from(olts).where(eq(olts.id, id));
+        if (!olt) return undefined;
+
+        // Access Check
+        if (userId && userRole && userRole !== 'admin') {
+            if (!olt.parentId) {
+                // If OLT has no parent router, can standard user see it? 
+                // Let's say NO for now to be safe.
+                return undefined;
+            }
+
+            const { userRouters } = await import('../db/schema/user-routers.js');
+            const [assignment] = await db
+                .select()
+                .from(userRouters)
+                .where(and(
+                    eq(userRouters.userId, userId),
+                    eq(userRouters.routerId, olt.parentId)
+                ));
+
+            if (!assignment) {
+                return undefined;
+            }
+        }
+
+        return {
+            ...olt,
+            webPassword: olt.webPassword ? '********' : null
+        };
+    }
+
+    // New internal method for tasks that need real credentials
+    private async findByIdInternal(id: string): Promise<Olt | undefined> {
         const [olt] = await db.select().from(olts).where(eq(olts.id, id));
         return olt;
     }
@@ -36,15 +108,27 @@ export class OltService {
 
     async update(id: string, data: Partial<NewOlt>): Promise<Olt | undefined> {
         const updateData = { ...data, updatedAt: new Date() };
+
+        // Only update password if it's provided and not the masked placeholder
         if (updateData.webPassword) {
-            updateData.webPassword = encrypt(updateData.webPassword);
+            if (updateData.webPassword === '********') {
+                delete updateData.webPassword;
+            } else {
+                updateData.webPassword = encrypt(updateData.webPassword);
+            }
         }
+
         const [olt] = await db
             .update(olts)
             .set(updateData)
             .where(eq(olts.id, id))
             .returning();
-        return olt;
+
+        if (!olt) return undefined;
+        return {
+            ...olt,
+            webPassword: olt.webPassword ? '********' : null
+        };
     }
 
     async delete(id: string): Promise<boolean> {
@@ -62,6 +146,8 @@ export class OltService {
         let isOnline = false;
         let uptime = olt.uptime || 0;
         let description = olt.description || '';
+        let snmpStatus: 'online' | 'offline' | null = null;
+        let webStatus: 'online' | 'offline' | null = null;
         let activeProtocol: string | null = null;
 
         // 1. Check SNMP
@@ -82,8 +168,9 @@ export class OltService {
                 const results = await snmpService.getMultiple(config, oids);
 
                 if (results && results.length > 0) {
+                    snmpStatus = 'online';
                     isOnline = true;
-                    activeProtocol = 'snmp';
+                    if (!activeProtocol) activeProtocol = 'snmp';
                     for (const res of results) {
                         if (res.oid === '1.3.6.1.2.1.1.3.0') {
                             uptime = Math.floor(Number(res.value) / 100);
@@ -91,57 +178,37 @@ export class OltService {
                             description = String(res.value);
                         }
                     }
+                } else {
+                    snmpStatus = 'offline';
                 }
             } catch (error) {
-                // console.error(`SNMP failed for OLT ${olt.name}:`, error);
-                // Continue to check Web if enabled
+                snmpStatus = 'offline';
             }
         }
 
-        // 2. Check Web (if SNMP checks failed or was disabled)
-        // If isOnline is already true, we skip Web check to save resources, 
-        // unless you specifically want to verify both. For status monitoring, one success is enough.
-        if (olt.useWeb && !isOnline) {
+        // 2. Check Web
+        if (olt.useWeb) {
             try {
-                const protocol = olt.webProtocol || 'http';
-                const url = `${protocol}://${olt.host}:${olt.webPort}`;
+                const driver = OltDriverFactory.getDriver(
+                    olt.type,
+                    olt.host,
+                    olt.webPort ?? undefined,
+                    olt.webUsername ?? undefined,
+                    olt.webPassword ?? undefined,
+                    olt.webProtocol ?? undefined
+                );
+                const isWebOnline = await driver.testConnection();
 
-                // Decrypt password if it exists
-                const password = olt.webPassword ? decrypt(olt.webPassword) : undefined;
-
-                // Construct headers with Basic Auth if credentials exist
-                const headers: any = {};
-                if (olt.webUsername && password) {
-                    const auth = Buffer.from(`${olt.webUsername}:${password}`).toString('base64');
-                    headers['Authorization'] = `Basic ${auth}`;
-                }
-
-                // Basic connectivity check using fetch (requires Node 18+)
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
-                const response = await fetch(url, {
-                    method: 'HEAD',
-                    headers,
-                    signal: controller.signal
-                }).catch(async () => {
-                    // Fallback to GET if HEAD fails
-                    return await fetch(url, {
-                        method: 'GET',
-                        headers,
-                        signal: controller.signal
-                    });
-                });
-
-                clearTimeout(timeoutId);
-
-                if (response && (response.ok || response.status === 401 || response.status === 403)) {
+                if (isWebOnline) {
+                    webStatus = 'online';
                     isOnline = true;
-                    activeProtocol = 'web';
-                    // We can't easily get uptime/description from a generic HTTP check without scraping
+                    if (!activeProtocol) activeProtocol = 'web';
+                } else {
+                    webStatus = 'offline';
                 }
             } catch (error) {
-                // console.error(`Web check failed for OLT ${olt.name}:`, error);
+                console.error(`Web check failed for OLT ${olt.name} using driver:`, error);
+                webStatus = 'offline';
             }
         }
 
@@ -154,6 +221,8 @@ export class OltService {
                     description,
                     status: isOnline ? 'online' : 'offline',
                     activeProtocol: isOnline ? activeProtocol : null,
+                    lastSnmpStatus: snmpStatus,
+                    lastWebStatus: webStatus,
                     updatedAt: new Date()
                 })
                 .where(eq(olts.id, id))
@@ -166,7 +235,7 @@ export class OltService {
         }
     }
     async getOnus(id: string): Promise<any[]> {
-        const olt = await this.findById(id);
+        const olt = await this.findByIdInternal(id);
         if (!olt) throw new Error('OLT not found');
 
         // Determine credentials (use Web/API credentials for Telnet/SSH if not specified otherwise, 
@@ -182,9 +251,10 @@ export class OltService {
             const driver = OltDriverFactory.getDriver(
                 olt.type || 'generic',
                 olt.host,
-                undefined, // Use default port
+                olt.webPort || undefined,
                 olt.webUsername || undefined,
-                olt.webPassword || undefined
+                olt.webPassword || undefined,
+                olt.webProtocol || undefined
             );
 
             await driver.connect();
