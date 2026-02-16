@@ -534,30 +534,30 @@ export async function measurePing(
     timeout: string = '1000ms'
 ): Promise<{ latency: number, packetLoss: number }> {
     if (!address) {
-        // console.log('[PING FAIL] Address is empty');
         return { latency: -1, packetLoss: 100 };
     }
 
     try {
-        const result = await api.write([
+        // node-routeros might throw if RouterOS sends unexpected tags like !empty
+        // We Use Promise.race to ensure it never hangs too long
+        const resultPromise = api.write([
             '/ping',
             `=address=${address}`,
             `=count=${count}`,
             `=interval=${interval}`
         ]);
 
-        if (result && result.length > 0) {
-            console.log(`[PING DEBUG] ${address} raw result:`, JSON.stringify(result));
+        const result = await Promise.race([
+            resultPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 10000))
+        ]) as any[];
 
+        if (result && Array.isArray(result) && result.length > 0) {
             let totalLatency = 0;
             let receivedCount = 0;
-            let sentCount = count; // Default to requested count
+            let sentCount = count;
 
-            // RouterOS API returns one entry per ping packet
-            // Each successful packet has: seq, host, size, ttl, time
-            // Timeout packets might have: seq, status='timeout'
             for (const entry of result) {
-                // Check if this entry has a valid time (successful ping)
                 if (entry['time'] !== undefined && entry['time'] !== null) {
                     const lat = parseLatencyValue(entry['time']);
                     if (lat >= 0) {
@@ -565,12 +565,10 @@ export async function measurePing(
                         receivedCount++;
                     }
                 }
-                // If entry has 'sent' and 'received', it's a summary (some ROS versions)
                 else if (entry['sent'] !== undefined && entry['received'] !== undefined) {
                     sentCount = parseInt(entry['sent']) || count;
                     receivedCount = parseInt(entry['received']) || 0;
                     if (entry['avg-rtt']) {
-                        // Use average RTT directly if available
                         const avgRtt = parseLatencyValue(entry['avg-rtt']);
                         if (avgRtt >= 0 && receivedCount > 0) {
                             return {
@@ -582,25 +580,25 @@ export async function measurePing(
                 }
             }
 
-            // Calculate packet loss
             const lossPercent = sentCount > 0
                 ? Math.round(((sentCount - receivedCount) / sentCount) * 100)
                 : 100;
 
-            // Calculate average latency
             const avgLatency = receivedCount > 0
                 ? Math.round(totalLatency / receivedCount)
                 : -1;
 
-            console.log(`[PING DEBUG] ${address} parsed: lat=${avgLatency}, loss=${lossPercent}`);
             return { latency: avgLatency, packetLoss: lossPercent };
-        } else {
-            console.log(`[PING FAIL] ${address} - No result from API`);
         }
 
         return { latency: -1, packetLoss: 100 };
-    } catch (error) {
-        console.error(`Error pinging ${address}:`, error);
+    } catch (error: any) {
+        // Specifically catch the "Tried to process unknown reply" to avoid global crash
+        if (error.message?.includes('unknown reply')) {
+            console.warn(`[Ping Warning] MikroTik sent unexpected reply for ${address}: ${error.message}`);
+        } else {
+            console.error(`Error pinging ${address}:`, error.message || error);
+        }
         return { latency: -1, packetLoss: 100 };
     }
 }

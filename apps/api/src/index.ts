@@ -229,6 +229,22 @@ httpServer.listen(PORT, async () => {
 
     // Start background router polling
     startScheduler();
+
+    // --- DEBUG: Log all registered routes ---
+    console.log('--- Registered Routes ---');
+    function logRoutes(stack: any[], prefix = '') {
+        stack.forEach((layer: any) => {
+            if (layer.route) {
+                const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
+                console.log(`${methods} ${prefix}${layer.route.path}`);
+            } else if (layer.name === 'router' && layer.handle.stack) {
+                logRoutes(layer.handle.stack, prefix + (layer.regexp.source.replace('^\\/', '').replace('\\/?(?=\\/|$)', '')).replace('\\', ''));
+            }
+        });
+    }
+    // @ts-ignore
+    logRoutes(app._router.stack);
+    console.log('-------------------------');
 });
 
 export default app;

@@ -32,6 +32,10 @@ const deviceConfig = {
         icon: 'wifi',
         colorClass: 'device-icon--client',
     },
+    onu: {
+        icon: 'settings_input_antenna',
+        colorClass: 'device-icon--client',
+    },
     pppoe: {
         icon: 'account_circle',
         colorClass: 'device-icon--pppoe',
@@ -63,7 +67,7 @@ export const createDeviceIcon = ({
 
     // Normalize status - prioritize 'down' first, then specific device types, then warning
     let normalizedStatus;
-    if (status === 'down' || status === 'offline' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status) {
+    if (status === 'down' || status === 'offline' || status === 'lost' || status === 'power_down' || status === 'dying_gasp' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status) {
         normalizedStatus = 'offline';
     } else if (type === 'odp') {
         normalizedStatus = 'odp'; // Always Orange if UP

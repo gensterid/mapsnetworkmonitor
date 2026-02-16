@@ -84,3 +84,19 @@ export function useOltOnus(id) {
         enabled: !!id,
     });
 }
+
+export function useUpdateOnu() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, onuId, data }) => oltService.updateOnu(id, onuId, data),
+        onSuccess: (data, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['olts', variables.id, 'onus'] });
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+            toast.success('ONU updated successfully');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to update ONU');
+        },
+    });
+}

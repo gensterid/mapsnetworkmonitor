@@ -42,4 +42,10 @@ export const oltService = {
         const response = await apiClient.get(`/olts/${id}/onus`);
         return response.data;
     },
+
+    // Update ONU
+    updateOnu: async (id: string, onuId: string, data: any) => {
+        const response = await apiClient.patch(`/olts/${id}/onus/${onuId}`, data);
+        return response.data;
+    },
 };

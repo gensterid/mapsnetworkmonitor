@@ -153,10 +153,24 @@ class PppoeService {
                     } catch (alertErr) {
                         console.error(`[PPPoE] Failed to create connect alert:`, alertErr);
                     }
+
+                    // UNIFIED LINKAGE: Link to ONU
+                    if (session.address) {
+                        this.linkSessionToOnu(session.name, session.address).catch(err =>
+                            console.error(`[PPPoE] Link to ONU failed for ${session.name}:`, err)
+                        );
+                    }
                 } else {
                     // Session exists, update last seen and uptime
                     const existingSession = previousSessions.find(s => s.name === session.name);
                     if (existingSession) {
+                        // Check if address changed
+                        if (existingSession.address !== session.address && session.address) {
+                            this.linkSessionToOnu(session.name, session.address).catch(err =>
+                                console.error(`[PPPoE] Link to ONU failed for ${session.name} (IP Change):`, err)
+                            );
+                        }
+
                         await this.updateSession(existingSession.id, {
                             lastSeen: new Date(),
                             uptime: session.uptime,
@@ -451,6 +465,48 @@ class PppoeService {
         }
     }
 
+    /**
+     * Link PPPoE Session to ONU
+     * If username matches an SN in 'onus', update the IP and status
+     */
+    private async linkSessionToOnu(username: string, ip: string): Promise<void> {
+        try {
+            // Lazy import to avoid circular dependency issues if any
+            const { onus } = await import('../db/schema/index.js');
+
+            // Normalize inputs
+            const sn = username.trim();
+            const host = ip.trim();
+
+            if (!sn || !host) return;
+
+            // Check if matches SN
+            const [onu] = await db
+                .select()
+                .from(onus)
+                .where(eq(onus.sn, sn));
+
+            if (onu) {
+                // Determine new sources
+                const sources = (onu.discoverySources as string[]) || [];
+                if (!sources.includes('netwatch')) sources.push('netwatch'); // Using netwatch tag as it implies connectivity source
+
+                await db.update(onus)
+                    .set({
+                        host: host,
+                        status: 'online', // PPPoE active implies online
+                        lastSeen: new Date(),
+                        discoverySources: sources,
+                        updatedAt: new Date()
+                    })
+                    .where(eq(onus.id, onu.id));
+
+                // console.log(`[PPPoE] Linked session ${username} (${ip}) to ONU ${onu.id}`);
+            }
+        } catch (e) {
+            console.error(`[PPPoE] Failed to link session ${username} to ONU:`, e);
+        }
+    }
 }
 
 

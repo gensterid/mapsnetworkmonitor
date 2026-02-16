@@ -3,7 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
     useOlt,
     useOltOnus,
-    useRefreshOlt
+    useRefreshOlt,
+    useUpdateOnu
 } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -61,7 +62,9 @@ export default function OltDetails() {
     const { data: olt, isLoading: isLoadingOlt, error: oltError } = useOlt(id);
     const { data: onus = [], isLoading: isLoadingOnus, error: onusError, refetch: refetchOnus } = useOltOnus(id);
     const refreshMutation = useRefreshOlt();
+    const updateOnuMutation = useUpdateOnu();
     const [searchTerm, setSearchTerm] = useState('');
+    const [editingOnu, setEditingOnu] = useState(null); // { id, name, latitude, longitude, ... }
 
     const handleRefresh = async () => {
         try {
@@ -329,6 +332,8 @@ export default function OltDetails() {
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Down</th>
                                                 <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Signal</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Location</th>
+                                                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-slate-800">
@@ -386,6 +391,32 @@ export default function OltDetails() {
                                                             {onu.signal || '--'}
                                                         </span>
                                                     </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <div className="flex flex-col text-xs">
+                                                            {onu.latitude && onu.longitude ? (
+                                                                <a
+                                                                    href={`https://www.google.com/maps?q=${onu.latitude},${onu.longitude}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-blue-400 hover:underline font-mono"
+                                                                >
+                                                                    {Number(onu.latitude).toFixed(5)}, {Number(onu.longitude).toFixed(5)}
+                                                                </a>
+                                                            ) : (
+                                                                <span className="text-slate-600 italic">Not set</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-7 text-xs"
+                                                            onClick={() => setEditingOnu(onu)}
+                                                        >
+                                                            Edit
+                                                        </Button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -396,6 +427,100 @@ export default function OltDetails() {
                     </Card>
                 </div>
             </div>
+            {/* Edit ONU Modal */}
+            <Modal
+                isOpen={!!editingOnu}
+                onClose={() => setEditingOnu(null)}
+                title="Edit ONU Details"
+            >
+                <form
+                    onSubmit={(e) => {
+                        e.preventDefault();
+                        const formData = new FormData(e.target);
+                        const coords = formData.get('coordinates');
+
+                        let latitude = null;
+                        let longitude = null;
+
+                        if (coords) {
+                            if (coords.includes(',')) {
+                                const [latPart, lngPart] = coords.split(',').map(s => s.trim());
+                                if (!isNaN(parseFloat(latPart)) && !isNaN(parseFloat(lngPart))) {
+                                    latitude = latPart;
+                                    longitude = lngPart;
+                                }
+                            } else {
+                                // Fallback: Maybe they pasted just one or it's a different format?
+                                // For now, strict "lat, lng" is what they Asked for "sekali paste"
+                            }
+                        }
+
+                        updateOnuMutation.mutate({
+                            id: id, // OLT ID
+                            onuId: editingOnu.id,
+                            data: {
+                                name: formData.get('name'),
+                                latitude: latitude,
+                                longitude: longitude,
+                                location: formData.get('location') || null,
+                            }
+                        }, {
+                            onSuccess: () => setEditingOnu(null)
+                        });
+                    }}
+                    className="space-y-4"
+                >
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Name / Alias</label>
+                        <input
+                            name="name"
+                            defaultValue={editingOnu?.name || ''}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                            placeholder="Customer Name"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Description / Location Info</label>
+                        <input
+                            name="location"
+                            defaultValue={editingOnu?.description || editingOnu?.location || ''}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                            placeholder="ODP / Pole / Address"
+                        />
+                    </div>
+
+                    <div className="bg-slate-900/50 p-3 rounded-lg border border-slate-800/50 space-y-3">
+                        <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-primary mb-1">Coordinates (Lat, Lng)</label>
+                            <input
+                                name="coordinates"
+                                defaultValue={editingOnu?.latitude && editingOnu?.longitude ? `${editingOnu.latitude}, ${editingOnu.longitude}` : ''}
+                                className="w-full bg-slate-950 border border-primary/30 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                                placeholder="-6.123456, 106.123456"
+                                autoFocus
+                            />
+                            <p className="text-[10px] text-slate-500 mt-1">Paste coordinates from Google Maps (Format: lat, lng)</p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => setEditingOnu(null)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="submit"
+                            disabled={updateOnuMutation.isPending}
+                        >
+                            {updateOnuMutation.isPending ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }

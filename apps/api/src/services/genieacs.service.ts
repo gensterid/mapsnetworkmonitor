@@ -12,6 +12,9 @@ export interface GenieACSDevice {
     _serialNumber: string;
     _ssid?: string;
     _manufacturer?: string;
+    _softwareVersion?: string;
+    _rxPower?: string;
+    _isTr181?: boolean;
     InternetGatewayDevice?: any;
     Device?: any;
 }
@@ -43,6 +46,9 @@ export interface WifiConfigPayload {
 }
 
 import { encrypt, decrypt } from '../lib/encryption.js';
+import { db } from '../db/index.js';
+import { onus } from '../db/schema/index.js';
+import { eq } from 'drizzle-orm';
 
 async function getGenieAcsConfig(routerId?: string) {
     let url = '';
@@ -87,6 +93,7 @@ export const genieacsService = {
                 '_deviceId._ProductClass': 1,
                 '_deviceId._OUI': 1,
                 '_deviceId._Manufacturer': 1,
+                '_deviceId._SoftwareVersion': 1,
                 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress': 1,
                 'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress': 1,
                 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID': 1,
@@ -95,10 +102,13 @@ export const genieacsService = {
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANPONInterfaceConfig.RXPower': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANPONInterfaceConfig.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.One_Optical_Module_Info.RXPower': 1,
                 // ZTE ONU Path (Alternative)
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_ONU.1.OpticalModuleInfo.RXPower': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_ONU.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.RxPower': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANDevice.1.X_ZTE_COM_Optical.1.RxPower': 1,
                 // Huawei Optical Power
                 'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.WANDSLInterfaceConfig.DownstreamAttenuation': 1,
@@ -125,6 +135,7 @@ export const genieacsService = {
                 _serialNumber: dev._deviceId?._SerialNumber,
                 _productClass: dev._deviceId?._ProductClass,
                 _manufacturer: dev._deviceId?._Manufacturer,
+                _softwareVersion: dev._deviceId?._SoftwareVersion,
                 _ip: getDeviceIp(dev),
                 _ssid: getDeviceSsid(dev),
                 _rxPower: getDeviceRxPower(dev),
@@ -133,6 +144,77 @@ export const genieacsService = {
         } catch (error) {
             console.error('GenieACS Error:', error instanceof Error ? error.message : error);
             return [];
+        }
+    },
+
+    /**
+     * UNIFIED LINKAGE: Sync GenieACS metadata to ONUS table
+     */
+    syncMetadata: async (routerId?: string) => {
+        let added = 0;
+        let updated = 0;
+        let total = 0;
+
+        try {
+            console.log(`[GenieACS] Starting metadata sync...`);
+            const devices = await genieacsService.getDevices(routerId);
+            total = devices.length;
+
+            for (const dev of devices) {
+                if (!dev._serialNumber) continue;
+
+                const sn = dev._serialNumber;
+
+                // Check if exists
+                const [existing] = await db.select().from(onus).where(eq(onus.sn, sn));
+
+                if (existing) {
+                    // Update
+                    const sources = (existing.discoverySources as string[]) || [];
+                    if (!sources.includes('acs')) sources.push('acs');
+
+                    await db.update(onus).set({
+                        model: dev._productClass || existing.model,
+                        ssid: dev._ssid || existing.ssid,
+                        firmwareVersion: dev._softwareVersion || existing.firmwareVersion,
+                        host: dev._ip || existing.host,
+                        lastRxPower: dev._rxPower || existing.lastRxPower,
+                        discoverySources: sources,
+                        updatedAt: new Date(),
+                        lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen
+                    }).where(eq(onus.id, existing.id));
+                    updated++;
+                } else {
+                    // Insert (GenieACS Only scenario)
+                    let status = 'unknown';
+                    if (dev._lastInform) {
+                        const lastInform = new Date(dev._lastInform);
+                        const diff = Date.now() - lastInform.getTime();
+                        if (diff < 300000) status = 'online'; // 5 mins
+                        else status = 'offline';
+                    }
+
+                    await db.insert(onus).values({
+                        sn: sn,
+                        name: `ACS-${sn.slice(-4)}`,
+                        model: dev._productClass,
+                        ssid: dev._ssid,
+                        firmwareVersion: dev._softwareVersion,
+                        host: dev._ip,
+                        lastRxPower: dev._rxPower,
+                        status: status as any,
+                        discoverySources: ['acs'],
+                        lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined,
+                    });
+                    added++;
+                }
+            }
+            console.log(`[GenieACS] Synced ${total} devices: +${added} added, ~${updated} updated.`);
+            return { added, updated, total };
+
+        } catch (error) {
+            console.error('GenieACS Sync Error:', error);
+            return { added, updated, total };
         }
     },
 
@@ -683,12 +765,20 @@ function getDeviceRxPower(dev: any): string {
     }
 
     // 2. Raw paths
-    const rawValue = dev.InternetGatewayDevice?.WANDevice?.[1]?.X_ZTE_COM_WANDevice?.[1]?.OpticalModuleInfo?.RXPower?._value ||
-        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+    const rawValue = dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANPONInterfaceConfig']?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_WANPONInterfaceConfig']?.RXPower?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.OpticalInstance?.[1]?.OpticalSignalLevel?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_WANDevice']?.[1]?.OpticalInstance?.[1]?.OpticalSignalLevel?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.One_Optical_Module_Info?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_ONU']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_ONU']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.['X_ZTE-COM_Optical']?.[1]?.RxPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_WANDevice']?.[1]?.['X_ZTE_COM_Optical']?.[1]?.RxPower?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_HUWEI_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_HUWEI_WANDevice']?.[1]?.OpticalModuleInfo?.RXPower?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_FH_GponInterfaceConfig']?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_FH_GponInterfaceConfig']?.RXPower?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.WANDSLInterfaceConfig?.DownstreamAttenuation?._value;
 

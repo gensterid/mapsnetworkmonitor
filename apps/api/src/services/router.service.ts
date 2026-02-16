@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, getTableColumns, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -11,6 +11,7 @@ import {
     type RouterMetric,
     type RouterNetwatch,
     userRouters,
+    onus,
 } from '../db/schema/index.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import {
@@ -678,6 +679,13 @@ export class RouterService {
                 } catch (trafficErr) {
                     console.error(`[Router ${router.name}] Failed to sync interface traffic:`, trafficErr instanceof Error ? trafficErr.message : trafficErr);
                 }
+
+                // UNIFIED LINKAGE: Sync Netwatch Status to ONUs
+                try {
+                    await this.syncNetwatchToOnus(id);
+                } catch (linkErr) {
+                    console.error(`[Router ${router.name}] Failed to sync Netwatch to ONUs:`, linkErr);
+                }
             }
 
 
@@ -1335,12 +1343,26 @@ export class RouterService {
     /**
      * Get all netwatch entries for a router
      */
-    async getNetwatch(routerId: string): Promise<RouterNetwatch[]> {
+    async getNetwatch(routerId: string): Promise<(RouterNetwatch & { model?: string | null; ssid?: string | null; firmwareVersion?: string | null; sn?: string | null; lastRxPower?: string | null; physicalStatus?: string | null; discoverySources?: any })[]> {
         const entries = await db
-            .select()
+            .select({
+                ...getTableColumns(routerNetwatch),
+                // Override coordinates with COALESCE (ONUS takes precedence)
+                latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
+                longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
+
+                model: onus.model,
+                ssid: onus.ssid,
+                firmwareVersion: onus.firmwareVersion,
+                sn: onus.sn,
+                lastRxPower: onus.lastRxPower,
+                physicalStatus: onus.status,
+                discoverySources: onus.discoverySources,
+            })
             .from(routerNetwatch)
+            .leftJoin(onus, eq(routerNetwatch.host, onus.host))
             .where(eq(routerNetwatch.routerId, routerId))
-            .orderBy(routerNetwatch.host);
+            .orderBy(routerNetwatch.host) as any;
 
         // Fetch recent 'netwatch_down' alerts to fix invalid MikroTik timestamps
         // We generally trust the server's alert timestamp over the router's "sinceDown" which might have wrong clock
@@ -1359,7 +1381,7 @@ export class RouterService {
             .orderBy(desc(alerts.createdAt))
             .limit(500); // Fetch enough history to cover active down statuses
 
-        return entries.map((entry) => {
+        return entries.map((entry: any) => {
             if (entry.status === 'down' && entry.host) {
                 // Try to find the latest alert for this host
                 // Alert message typically contains the host IP/Identifier
@@ -1857,7 +1879,70 @@ export class RouterService {
             errors.push(`Failed to sync netwatch: ${message}`);
         }
 
+        // Call bridging logic
+        await this.syncNetwatchToOnus(routerId);
+
         return { synced, errors };
+    }
+
+    /**
+     * UNIFIED LINKAGE: Sync Netwatch bridging to ONUS table
+     * Updates ONU status if IP matches a Netwatch entry
+     */
+    private async syncNetwatchToOnus(routerId: string): Promise<void> {
+        try {
+            const { onus } = await import('../db/schema/index.js');
+            const { inArray, isNotNull } = await import('drizzle-orm');
+
+            // 1. Get all Netwatch entries for this router
+            const netwatchEntries = await db
+                .select()
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.routerId, routerId));
+
+            if (netwatchEntries.length === 0) return;
+
+            // 2. Get all ONUs that have an IP address (host is not null)
+            // Optimization: Filter by IPs present in netwatchEntries?
+            // If list is small, yes. If large, maybe just get all ONUs with host.
+            // Let's get all ONUs with host for now (assuming not millions).
+            const activeOnus = await db
+                .select()
+                .from(onus)
+                .where(isNotNull(onus.host));
+
+            // Map Host -> ONU ID
+            const hostToOnuId = new Map(activeOnus.map(o => [o.host, o]));
+
+            // 3. Update Status
+            for (const entry of netwatchEntries) {
+                if (!entry.host || entry.host === '0.0.0.0') continue;
+
+                const targetOnu = hostToOnuId.get(entry.host);
+                if (targetOnu) {
+                    // Map Status
+                    let status: 'online' | 'offline' | 'unknown' = 'unknown';
+                    if (entry.status === 'up') status = 'online';
+                    else if (entry.status === 'down') status = 'offline';
+
+                    // Update if status differs or just heartbeat
+                    // We also merge discoverySources
+                    const sources = (targetOnu.discoverySources as string[]) || [];
+                    if (!sources.includes('netwatch')) sources.push('netwatch');
+
+                    await db.update(onus)
+                        .set({
+                            status: status === 'unknown' ? targetOnu.status : status, // Don't overwrite with unknown unless needed
+                            lastSeen: new Date(),
+                            discoverySources: sources,
+                            updatedAt: new Date()
+                        })
+                        .where(eq(onus.id, targetOnu.id));
+                }
+            }
+        } catch (e) {
+            console.error(`[Unified Linkage] Failed to sync Netwatch to ONUs for router ${routerId}:`, e);
+        }
     }
 }
 
