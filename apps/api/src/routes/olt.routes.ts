@@ -9,6 +9,17 @@ const router = Router();
 // --- DEBUG ROUTES (Move above auth for 404 troubleshooting) ---
 router.get('/ping', (req, res) => res.json({ status: 'ok', msg: 'OLT Router is active' }));
 
+// Get all ONUs for a specific router (via OLTs)
+router.get('/onus/by-router/:routerId', async (req, res) => {
+    try {
+        const onus = await oltService.getOnusByRouter(req.params.routerId);
+        res.json(onus);
+    } catch (error) {
+        console.error('Failed to fetch ONUs for router:', error);
+        res.status(500).json({ error: 'Failed to fetch ONUs for router' });
+    }
+});
+
 // Get all ONUs with coordinates for map display
 router.get('/onus/map', async (req, res) => {
     try {

@@ -30,26 +30,28 @@ export class CDataDriver extends BaseOltDriver {
             // Probing endpoints
             const endpoints = [
                 { path: '/cgi-bin/h.cgi', auth: 'none' },
+                { path: '/cgi-bin/h.cgi?module=sys_login', auth: 'none' },
                 { path: '/api/onu/list', auth: 'basic' },
                 { path: '/cgi-bin/system.cgi', auth: 'basic' },
                 { path: '/cgi-bin/onu_status.cgi', auth: 'basic' },
                 { path: '/cgi-bin/onu_mgmt.cgi', auth: 'basic' },
-                { path: '/index.cgi', auth: 'basic' }
+                { path: '/index.cgi', auth: 'basic' },
+                { path: '/onu_list.cgi', auth: 'basic' },
+                { path: '/login.cgi', auth: 'none' }
             ];
 
             for (const ep of endpoints) {
                 try {
-                    const headers: any = {};
+                    const headers: any = { 'User-Agent': 'Mozilla/5.0' };
                     if (ep.auth === 'basic') headers['Authorization'] = `Basic ${auth}`;
 
                     const response = await fetch(`${baseUrl}${ep.path}`, {
                         method: 'GET',
                         headers,
-                        signal: AbortSignal.timeout(5000)
+                        signal: AbortSignal.timeout(4000)
                     }).catch(() => null);
 
                     if (response && (response.ok || response.status === 401 || response.status === 403)) {
-                        console.log(`C-Data Probe: Found potential endpoint at ${ep.path} (Status: ${response.status})`);
                         return true;
                     }
                 } catch (e) {
@@ -152,40 +154,44 @@ export class CDataDriver extends BaseOltDriver {
         } catch (e) { }
 
         // 2. Comprehensive Legacy Probing
-        console.warn(`C-Data: Modern API failed. Probing legacy endpoints...`);
-
         const legacyEndpoints = [
             '/api/onu/list',
             '/cgi-bin/system.cgi?module=onu_list',
             '/cgi-bin/onu_status.cgi',
             '/cgi-bin/onu_mgmt.cgi',
             '/cgi-bin/system.cgi',
-            '/onu_list.cgi'
+            '/onu_list.cgi',
+            '/onu_mgmt.cgi',
+            '/api/v1/onu/status',
+            '/cgi-bin/h.cgi?module=onu_status_get'
         ];
 
         for (const path of legacyEndpoints) {
             try {
                 const url = `${baseUrl}${path}`;
-                console.log(`C-Data Probe: Trying legacy ${url}...`);
                 const response = await fetch(url, {
-                    headers: { 'Authorization': `Basic ${auth}` },
+                    headers: {
+                        'Authorization': `Basic ${auth}`,
+                        'User-Agent': 'Mozilla/5.0'
+                    },
                     signal: AbortSignal.timeout(8000)
                 });
 
                 if (response.ok) {
                     const text = await response.text();
+                    if (text.includes('redirect') || text.includes('login.cgi') || text.includes('<html')) {
+                        continue;
+                    }
+
                     try {
                         const data = JSON.parse(text);
                         const onus = this.parseOnuData(data);
                         if (onus && onus.length > 0) {
-                            console.log(`C-Data Probe: SUCCESS at ${path}`);
                             return onus;
                         }
-                    } catch (e) {
-                        // Not JSON, skip
-                    }
+                    } catch (e) { }
                 }
-            } catch (e) {
+            } catch (e: any) {
                 continue;
             }
         }

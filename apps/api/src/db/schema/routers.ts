@@ -172,6 +172,10 @@ export const routerNetwatch = pgTable('router_netwatch', {
 
     // Waypoints for custom path on map (JSON array of [lat, lng] coordinates)
     waypoints: text('waypoints'), // JSON string: [[lat1, lng1], [lat2, lng2], ...]
+
+    // Manual Link to ONU Inventory
+    linkedOnuId: uuid('linked_onu_id'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

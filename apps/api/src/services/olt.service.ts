@@ -260,6 +260,19 @@ export class OltService {
             return olt;
         }
     }
+
+    /**
+     * Get all ONUs associated with OLTs connected to a specific router
+     */
+    async getOnusByRouter(routerId: string): Promise<Onu[]> {
+        const oltList = await db.select({ id: olts.id }).from(olts).where(eq(olts.parentId, routerId));
+        const oltIds = oltList.map(o => o.id);
+
+        if (oltIds.length === 0) return [];
+
+        const { inArray } = await import('drizzle-orm');
+        return db.select().from(onus).where(inArray(onus.oltId, oltIds)).orderBy(onus.name);
+    }
     async getOnus(id: string): Promise<any[]> {
         const olt = await this.findByIdInternal(id);
         if (!olt) throw new Error('OLT not found');

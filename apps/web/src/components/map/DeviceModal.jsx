@@ -29,7 +29,11 @@ const DeviceModal = ({
         connectionType: 'router', // 'router' or 'client'
         connectedToId: '', // ID of the router or client connected to
         targetInterface: '', // Heatmap traffic mapping
+        linkedOnuId: '', // Manual link to ONU inventory
     });
+
+    const [availableOnus, setAvailableOnus] = useState([]);
+    const [isLoadingOnus, setIsLoadingOnus] = useState(false);
 
     // Sync form data with device prop
     useEffect(() => {
@@ -44,9 +48,40 @@ const DeviceModal = ({
                 connectionType: device.connectionType || 'router',
                 connectedToId: device.connectedToId || device.routerId || '',
                 targetInterface: device.targetInterface || '',
+                linkedOnuId: device.linkedOnuId || '',
             });
         }
     }, [device]);
+
+    // Fetch available ONUs for the selected router
+    useEffect(() => {
+        const fetchOnus = async (routerId) => {
+            if (!routerId) {
+                setAvailableOnus([]);
+                return;
+            }
+            setIsLoadingOnus(true);
+            try {
+                const { apiClient } = await import('@/lib/api');
+                const res = await apiClient.get(`/olts/onus/by-router/${routerId}`);
+                setAvailableOnus(res.data || []);
+            } catch (err) {
+                console.error('Failed to fetch ONUs for dropdown:', err);
+                setAvailableOnus([]);
+            } finally {
+                setIsLoadingOnus(false);
+            }
+        };
+
+        let targetRouterId = null;
+        if (formData.connectionType === 'router' && formData.connectedToId) {
+            targetRouterId = formData.connectedToId;
+        } else if (device?.routerId) {
+            targetRouterId = device.routerId;
+        }
+
+        fetchOnus(targetRouterId);
+    }, [formData.connectedToId, formData.connectionType, device?.routerId]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -86,6 +121,7 @@ const DeviceModal = ({
                 // Ensure connectedToId is null if empty string
                 connectedToId: formData.connectedToId || null,
                 targetInterface: formData.targetInterface || null,
+                linkedOnuId: formData.linkedOnuId || null,
             };
 
             onSave(payload);
@@ -317,6 +353,28 @@ const DeviceModal = ({
                                         placeholder="Select interface..."
                                         disabled={isSaving}
                                     />
+                                </div>
+
+                                {/* Link to ONU (Manual) */}
+                                <div className="device-modal__field" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 16, paddingTop: 16 }}>
+                                    <label className="device-modal__label">
+                                        Link to OLT ONU (Manual)
+                                        <span style={{ marginLeft: 6, fontSize: 10, color: '#64748b', fontWeight: 400 }}>
+                                            Optional fallback for passive devices
+                                        </span>
+                                    </label>
+                                    <SearchableSelect
+                                        name="linkedOnuId"
+                                        options={availableOnus.map(onu => ({
+                                            value: onu.id,
+                                            label: `${onu.name || 'Unnamed ONU'} [SN: ${onu.sn}]`
+                                        }))}
+                                        value={formData.linkedOnuId}
+                                        onChange={handleChange}
+                                        placeholder={isLoadingOnus ? "Loading ONUs..." : "Select ONU to link..."}
+                                        disabled={isSaving || isLoadingOnus}
+                                    />
+                                    {isLoadingOnus && <div className="text-[10px] text-blue-400 mt-1">Fetching ONUs from OLTs...</div>}
                                 </div>
                             </>
                         )}

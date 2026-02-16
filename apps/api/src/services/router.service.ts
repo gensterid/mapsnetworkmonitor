@@ -1,4 +1,4 @@
-import { eq, desc, and, getTableColumns, sql } from 'drizzle-orm';
+import { eq, desc, and, or, getTableColumns, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -1358,9 +1358,15 @@ export class RouterService {
                 lastRxPower: onus.lastRxPower,
                 physicalStatus: onus.status,
                 discoverySources: onus.discoverySources,
+
+                // Allow manual override if already linked via ID
+                linkedOnuId: routerNetwatch.linkedOnuId,
             })
             .from(routerNetwatch)
-            .leftJoin(onus, eq(routerNetwatch.host, onus.host))
+            .leftJoin(onus, or(
+                eq(routerNetwatch.host, onus.host),
+                eq(routerNetwatch.linkedOnuId, onus.id)
+            ))
             .where(eq(routerNetwatch.routerId, routerId))
             .orderBy(routerNetwatch.host) as any;
 
@@ -1495,6 +1501,7 @@ export class RouterService {
             connectedToId?: string | null;
             targetInterface?: string | null;
             status?: 'up' | 'down' | 'unknown';
+            linkedOnuId?: string | null;
         }
     ): Promise<RouterNetwatch | undefined> {
         // 0. Get original entry to know the host
@@ -1562,6 +1569,7 @@ export class RouterService {
         if (data.connectedToId !== undefined) updateData.connectedToId = data.connectedToId;
         if (data.targetInterface !== undefined) updateData.targetInterface = data.targetInterface;
         if (data.status !== undefined) updateData.status = data.status;
+        if (data.linkedOnuId !== undefined) updateData.linkedOnuId = data.linkedOnuId === '' ? null : data.linkedOnuId;
 
         const [netwatch] = await db
             .update(routerNetwatch)

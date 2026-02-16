@@ -103,18 +103,45 @@ const runRepair = async () => {
             }
         }
 
-        // 4. Fix: router_netwatch traffic columns
+        // 4. Fix: router_netwatch columns
         console.log('🔍 Checking router_netwatch table...');
-        const netwatchTraffic = ['tx_rate', 'rx_rate', 'target_interface'];
-        for (const col of netwatchTraffic) {
+        const netwatchCols = [
+            { name: 'tx_rate', type: 'bigint DEFAULT 0' },
+            { name: 'rx_rate', type: 'bigint DEFAULT 0' },
+            { name: 'target_interface', type: 'text' },
+            { name: 'linked_onu_id', type: 'uuid' }
+        ];
+        for (const col of netwatchCols) {
             const checkCol = await db.execute(sql.raw(`
                 SELECT column_name FROM information_schema.columns 
-                WHERE table_name='router_netwatch' AND column_name='${col}';
+                WHERE table_name='router_netwatch' AND column_name='${col.name}';
             `));
             if (checkCol.length === 0) {
-                console.log(`⚠️ Column ${col} missing in router_netwatch. Adding it...`);
-                const type = col === 'target_interface' ? 'text' : 'bigint DEFAULT 0';
-                await db.execute(sql.raw(`ALTER TABLE router_netwatch ADD COLUMN ${col} ${type};`));
+                console.log(`⚠️ Column ${col.name} missing in router_netwatch. Adding it...`);
+                await db.execute(sql.raw(`ALTER TABLE router_netwatch ADD COLUMN ${col.name} ${col.type};`));
+            }
+        }
+
+        // 5. Fix: onus inventory missing columns
+        console.log('🔍 Checking onus table...');
+        const onuCols = [
+            { name: 'model', type: 'text' },
+            { name: 'ssid', type: 'text' },
+            { name: 'firmware_version', type: 'text' },
+            { name: 'last_down_reason', type: 'text' },
+            { name: 'connection_type', type: "text DEFAULT 'router'" },
+            { name: 'connected_to_id', type: 'uuid' },
+            { name: 'waypoints', type: 'text' },
+            { name: 'target_interface', type: 'text' }
+        ];
+        for (const col of onuCols) {
+            const checkCol = await db.execute(sql.raw(`
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name='onus' AND column_name='${col.name}';
+            `));
+            if (checkCol.length === 0) {
+                console.log(`⚠️ Column ${col.name} missing in onus. Adding it...`);
+                await db.execute(sql.raw(`ALTER TABLE onus ADD COLUMN ${col.name} ${col.type};`));
             }
         }
 

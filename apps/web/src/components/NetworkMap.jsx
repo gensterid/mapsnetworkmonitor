@@ -658,6 +658,12 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         </span>
                     </div>
                 )}
+                {node.lastDownReason && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Down Reason</span>
+                        <span className="text-red-400 font-medium truncate max-w-[120px]" title={node.lastDownReason}>{node.lastDownReason}</span>
+                    </div>
+                )}
                 {node.deviceType === 'pppoe' && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Type</span>
