@@ -18,11 +18,17 @@ export class OltDriverFactory {
 
         const config: OltDriverConfig = {
             host,
-            port: port || (protocol === 'telnet' ? 23 : (protocol === 'https' ? 443 : 80)),
-            protocol: (protocol as any) || (port === 23 ? 'telnet' : 'http'),
+            port: port || (protocol === 'https' ? 443 : 80),
+            protocol: (protocol as any) || 'http',
             username,
             password: decryptedPassword,
         };
+
+        if (config.protocol === 'telnet' || config.protocol === 'ssh') {
+            console.warn(`[DriverFactory] Telnet/SSH is disabled. Falling back to HTTP for ${host}`);
+            config.protocol = 'http';
+            config.port = port || 80;
+        }
 
         switch (type.toLowerCase()) {
             case 'hsgq':

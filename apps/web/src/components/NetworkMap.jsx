@@ -339,7 +339,7 @@ const DraggableMarker = ({
 const getTooltipColor = (node) => {
     const type = node.deviceType || node.type || 'router';
     const status = (node.status || 'unknown').toLowerCase();
-    const isOffline = ['down', 'offline', 'disable', 'disconnected', 'unknown'].includes(status) || !node.status;
+    const isOffline = ['down', 'offline', 'lost', 'power_down', 'dying_gasp', 'disable', 'disconnected', 'unknown'].includes(status) || !node.status;
 
     if (isOffline) return 'var(--map-color-offline, #EF4444)';
     if (type === 'odp') return 'var(--map-color-odp, #F97316)';
@@ -348,6 +348,16 @@ const getTooltipColor = (node) => {
     // Performance warning (Yellow)
     const hasPerformanceIssue = (node.latency !== null && node.latency > 100);
     if (hasPerformanceIssue) return 'var(--map-color-warning, #FACC15)';
+
+    // Optical Power Warning (Calculated from OLT data)
+    if (node.lastRxPower) {
+        const pwr = parseFloat(node.lastRxPower);
+        if (!isNaN(pwr)) {
+            // -27 is typical receiver sensitivity limit
+            if (pwr < -27) return 'var(--map-color-offline, #EF4444)';
+            if (pwr < -24) return 'var(--map-color-warning, #FACC15)';
+        }
+    }
 
     return 'var(--map-color-online, #10B981)';
 };
@@ -581,7 +591,7 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
             <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: getTooltipColor(node) }}>
                 <div className="flex items-center gap-2 text-white">
                     <span className="material-symbols-outlined text-[16px]">
-                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : (node.deviceType === 'router' || node.type === 'router') ? 'router' : node.deviceType === 'pppoe' ? 'person' : 'person'}
+                        {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : (node.deviceType === 'router' || node.type === 'router') ? 'router' : node.deviceType === 'pppoe' ? 'person' : node.deviceType === 'onu' ? 'settings_input_antenna' : 'person'}
                     </span>
                     <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
                 </div>
@@ -618,6 +628,36 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         {node.deviceType === 'pppoe' ? node.address : node.host}
                     </span>
                 </div>
+
+                {/* Unified Linkage Metadata */}
+                {node.model && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Model</span>
+                        <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.model}>{node.model}</span>
+                    </div>
+                )}
+                {node.sn && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">SN</span>
+                        <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.sn}>{node.sn}</span>
+                    </div>
+                )}
+                {node.ssid && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">SSID</span>
+                        <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.ssid}>{node.ssid}</span>
+                    </div>
+                )}
+                {node.lastRxPower && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Signal</span>
+                        <span className={`font-mono font-bold text-xs ${parseFloat(node.lastRxPower) < -27 ? 'text-red-400' :
+                            parseFloat(node.lastRxPower) < -24 ? 'text-yellow-400' : 'text-emerald-400'
+                            }`}>
+                            {node.lastRxPower} dBm
+                        </span>
+                    </div>
+                )}
                 {node.deviceType === 'pppoe' && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Type</span>
@@ -644,15 +684,24 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         </div>
                     </>
                 )}
-                {isUp ? (
+                {isUp && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Latency</span>
                         <span className="text-emerald-400 font-bold">{node.latency} ms</span>
                     </div>
-                ) : (
-                    <div className="flex flex-col gap-1">
-                        <span className="text-slate-400 text-[10px] uppercase">Down Since</span>
-                        <span className="text-red-200 text-xs">{formatDateWithTimezone(node.lastDown, timezone)}</span>
+                )}
+                {!isUp && (
+                    <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
+                        {node.lastDownReason && (
+                            <div className="flex flex-col gap-1">
+                                <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
+                                <span className="text-orange-300 text-xs font-bold">{node.lastDownReason}</span>
+                            </div>
+                        )}
+                        <div className="flex flex-col gap-1">
+                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Down Since</span>
+                            <span className="text-red-200 text-xs font-mono">{formatDateWithTimezone(node.lastDown, timezone)}</span>
+                        </div>
                     </div>
                 )}
 
@@ -795,7 +844,7 @@ const createClusterCustomIcon = (cluster) => {
         const packetLoss = marker.options.icon?.options?.packetLoss;
 
         // Check Down
-        if (status === 'down' || status === 'offline') {
+        if (['down', 'offline', 'lost', 'power_down', 'dying_gasp'].includes(status)) {
             hasDown = true;
             downCount++;
         }
@@ -972,7 +1021,7 @@ const NetworkLineOriginal = ({
                 <div class="px-3 py-2 flex items-center justify-between ${isUp ? 'bg-indigo-600' : 'bg-slate-600'}">
                     <div class="flex items-center gap-2 text-white">
                         <span class="material-symbols-outlined text-[16px]">cable</span>
-                        <span class="font-bold text-xs truncate max-w-[140px]">${line.targetName || 'Link'}</span>
+                        <span class="font-bold text-xs truncate max-w-[140px]">${line.destName || 'Link'}</span>
                     </div>
                     <div class="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
                         ${line.deviceType || 'Link'}
@@ -982,6 +1031,14 @@ const NetworkLineOriginal = ({
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-400">Status</span>
                         <span class="font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}">${line.status.toUpperCase()}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2">
+                        <span class="text-slate-400">Source</span>
+                        <span class="text-slate-200 truncate max-w-[120px]">${line.sourceName || '-'}</span>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Destination</span>
+                        <span class="text-slate-200 truncate max-w-[120px]">${line.destName || '-'}</span>
                     </div>
                     ${line.distance ? `
                     <div class="flex items-center justify-between text-xs">
@@ -1029,7 +1086,7 @@ const NetworkLineOriginal = ({
         const thresholdNormal = (Number(mapColors.trafficThresholdNormal) || 20) * 1000000;
         const thresholdHigh = (Number(mapColors.trafficThresholdHigh) || 50) * 1000000;
 
-        if (line.status === 'down') {
+        if (line.status && !['up', 'online', 'active'].includes(line.status.toLowerCase())) {
             railColor = mapColors.offline;
         } else if (isHeatmapActive) {
             if (maxRate < thresholdIdle) railColor = mapColors.trafficyIdle;
@@ -1204,10 +1261,23 @@ const NetworkMap = ({
         placeholderData: keepPreviousData,
     });
 
+    // Fetch ONUs with coordinates (Passive Nodes)
+    const { data: onusMapData } = useQuery({
+        queryKey: ['onus-map'],
+        queryFn: async () => {
+            const res = await apiClient.get('/olts/onus/map');
+            return res.data;
+        },
+        enabled: !showRoutersOnly,
+        staleTime: 30000,
+        placeholderData: keepPreviousData,
+    });
+
     // Stable Data Memoization
     const stableRoutersData = useDeepCompareMemoize(routersData);
     const stableNetwatchData = useDeepCompareMemoize(netwatchOverride || netwatchData);
     const stablePppoeData = useDeepCompareMemoize(pppoeData);
+    const stableOnusMapData = useDeepCompareMemoize(onusMapData);
     const stableRealtimeTraffic = useDeepCompareMemoize(realtimeTraffic);
 
     // UI & Interactive State (Moved to top to prevent ReferenceError)
@@ -1486,6 +1556,22 @@ const NetworkMap = ({
         },
     });
 
+    // Mutation for updating ONU coordinates (Passive Nodes)
+    const updateOnuMutation = useMutation({
+        mutationFn: async ({ oltId, onuId, data }) => {
+            const res = await apiClient.patch(`/olts/${oltId}/onus/${onuId}`, data);
+            return res.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+            toast.success('ONU configuration saved successfully.');
+        },
+        onError: (err) => {
+            console.error('Update ONU failed:', err);
+            toast.error(`Failed to Save ONU: ${err.response?.data?.message || err.message}`);
+        },
+    });
+
     // Resolve Map Colors (Settings > Default)
     const mapColors = useMemo(() => {
         if (!settings?.mapColors) return DEFAULT_MAP_COLORS;
@@ -1513,6 +1599,8 @@ const NetworkMap = ({
     // Combine Data
     const mapData = useMemo(() => {
         if (!stableRoutersData) return { routers: [], lines: [], nodes: [] };
+        // DEBUG: Check if lastDownReason is present
+        // console.log('Map Data Debug:', stableOnusMapData?.[0]); 
 
         const nodes = [];
 
@@ -1573,6 +1661,39 @@ const NetworkMap = ({
                     }
                     // If no valid coordinates, we simply skip this entry (do not show on map)
                 });
+            }
+        });
+
+        // 2.5 pass: Create Passive Inventory nodes (ONUs with coordinates but no Netwatch)
+        const onusMapDataToUse = stableOnusMapData || [];
+        onusMapDataToUse.forEach(onu => {
+            // Apply filtering: show if no filter, or if ONU's routerId matches
+            if (filteredRouterId && onu.routerId !== filteredRouterId) return;
+
+            const lat = parseFloat(onu.latitude);
+            const lng = parseFloat(onu.longitude);
+
+            if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
+                return;
+            }
+
+            // Avoid duplication if already in Netwatch (check by Host or SN)
+            const alreadyOnMap = nodes.some(n =>
+                (n.host && n.host === onu.host) ||
+                (n.sn && n.sn === onu.sn)
+            );
+
+            if (!alreadyOnMap) {
+                const node = {
+                    ...onu,
+                    lat,
+                    lng,
+                    type: 'onu',
+                    deviceType: 'onu',
+                    isPassive: true
+                };
+                nodes.push(node);
+                deviceMap.set(onu.id, node);
             }
         });
 
@@ -1853,6 +1974,23 @@ const NetworkMap = ({
                     setIsSaving(false);
                 }
             });
+        } else if (selectedDevice.type === 'onu') {
+            updateOnuMutation.mutate({
+                oltId: selectedDevice.oltId,
+                onuId: selectedDevice.id,
+                data: sanitizedData
+            }, {
+                onSuccess: () => {
+                    setIsModalOpen(false);
+                },
+                onError: (error) => {
+                    console.error('Failed to update ONU:', error);
+                    alert(`Failed to save ONU: ${error.message || 'Unknown error'}`);
+                },
+                onSettled: () => {
+                    setIsSaving(false);
+                }
+            });
         } else {
             // Netwatch
             if (selectedDevice.isNew) {
@@ -1926,6 +2064,12 @@ const NetworkMap = ({
         if (editingDevice.type === 'pppoe') {
             updatePppoeMutation.mutate({
                 pppoeId: editingDevice.id,
+                data: { waypoints: waypointsJson }
+            });
+        } else if (editingDevice.type === 'onu') {
+            updateOnuMutation.mutate({
+                oltId: editingDevice.oltId,
+                onuId: editingDevice.id,
                 data: { waypoints: waypointsJson }
             });
         } else {

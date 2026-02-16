@@ -1,6 +1,7 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { olts, type Olt, type NewOlt } from '../db/schema/olts.js';
+import { onus, type Onu } from '../db/schema/onus.js';
 import { snmpService } from './snmp.service.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
@@ -263,12 +264,6 @@ export class OltService {
         const olt = await this.findByIdInternal(id);
         if (!olt) throw new Error('OLT not found');
 
-        // Determine credentials (use Web/API credentials for Telnet/SSH if not specified otherwise, 
-        // or we might need separate Telnet credentials in DB? 
-        // For now, assuming Web credentials are used for Remote Management too, or we fall back to defaults.)
-        // Actually, the OLT schema has webUsername/webPassword. 
-        // We might want to use those.
-
         try {
             // Import dynamically or use factory
             const { OltDriverFactory } = await import('./olt-drivers/driver.factory.js');
@@ -284,14 +279,207 @@ export class OltService {
             );
 
             await driver.connect();
-            const onus = await driver.getOnuList();
+            const driverOnus = await driver.getOnuList();
             await driver.disconnect();
 
-            return onus;
+            // UNIFIED LINKAGE: Auto-sync newly discovered ONUs and enrich with DB metadata
+            // This ensures every ONU has an ID for editing/coordinate management
+            const results: any[] = [];
+            const dbOnus = await db.select().from(onus).where(eq(onus.oltId, id));
+            const dbOnuMap = new Map(dbOnus.map(o => [o.sn, o]));
+
+            for (const device of driverOnus) {
+                if (!device.sn) {
+                    results.push(device);
+                    continue;
+                }
+
+                let dbOnu = dbOnuMap.get(device.sn);
+
+                // Normalizing status for DB insert if missing
+                let status = 'unknown';
+                const rawStatus = String(device.status || '').toLowerCase();
+                if (rawStatus === 'online' || rawStatus === 'active' || rawStatus === '1') status = 'online';
+                else if (device.lastDownReason?.toLowerCase().includes('power')) status = 'power_down';
+                else status = 'offline';
+
+                if (!dbOnu) {
+                    // Auto-insert missing ONU to provide ID
+                    const [inserted] = await db.insert(onus).values({
+                        sn: device.sn,
+                        oltId: id,
+                        ponPort: device.ponId,
+                        onuIndex: device.onuId,
+                        name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
+                        status: status as any,
+                        lastRxPower: device.signal ? String(device.signal) : null,
+                        discoverySources: ['olt'],
+                        lastSeen: status === 'online' ? new Date() : null,
+                    }).returning();
+                    dbOnu = inserted;
+                }
+
+                results.push({
+                    ...device,
+                    id: dbOnu.id,
+                    latitude: dbOnu.latitude,
+                    longitude: dbOnu.longitude,
+                    description: dbOnu.location,
+                    name: dbOnu.name || device.name,
+                    lastRxPower: device.signal || dbOnu.lastRxPower,
+                    lastDown: dbOnu.lastSeen, // Use lastSeen as lastDown for ONUs
+                    lastDownReason: dbOnu.lastDownReason || device.lastDownReason,
+                });
+            }
+
+            return results;
         } catch (error) {
             console.error(`Failed to get ONUs for OLT ${olt.name}:`, error);
             throw error;
         }
+    }
+
+    /**
+     * UNIFIED LINKAGE: Sync ONU Inventory from OLT
+     * This is the "Source of Truth" sync for Scenario A, 2, 5, 7
+     */
+    async syncOnuInventory(oltId: string): Promise<{ added: number; updated: number; total: number }> {
+        const olt = await this.findByIdInternal(oltId);
+        if (!olt) throw new Error('OLT not found');
+
+        console.log(`Starting ONU Sync for OLT: ${olt.name} (${olt.host})`);
+
+        // 1. Fetch ONUs from Driver
+        let driverOnus: any[] = [];
+        try {
+            driverOnus = await this.getOnus(oltId);
+        } catch (e: any) {
+            console.error(`Sync failed: Could not fetch ONUs from OLT ${olt.name}`, e);
+            throw e;
+        }
+
+        if (!driverOnus || driverOnus.length === 0) {
+            console.log(`No ONUs found in OLT ${olt.name}`);
+            return { added: 0, updated: 0, total: 0 };
+        }
+
+        // 2. Prepare Imports
+        const { onus, onuStatusEnum } = await import('../db/schema/onus.js');
+        const { sql } = await import('drizzle-orm');
+
+        let added = 0;
+        let updated = 0;
+
+        // 3. Process each ONU
+        for (const device of driverOnus) {
+            if (!device.sn) continue; // Skip if no SN (Generic driver might return empty)
+
+            // Map Status
+            let status: 'online' | 'offline' | 'lost' | 'power_down' | 'dying_gasp' | 'unknown' = 'unknown';
+
+            // Normalize status string
+            const rawStatus = String(device.status || '').toLowerCase();
+
+            if (rawStatus === 'online' || rawStatus === 'active' || rawStatus === '1') {
+                status = 'online';
+            } else if (device.lastDownReason) {
+                const reason = device.lastDownReason.toLowerCase();
+                if (reason.includes('power') || reason.includes('dying')) status = 'power_down';
+                else if (reason.includes('loss') || reason.includes('los')) status = 'lost';
+                else status = 'offline';
+            } else {
+                status = 'offline';
+            }
+
+            // Calculate Power (Optional)
+            const rxPower = device.signal ? String(device.signal) : null;
+
+            // 4. UPSERT Operation
+            // We use SN as the unique key. If exists, update OLT info.
+            // We append 'olt' to discovery_sources if not present.
+
+            try {
+                // Check if exists first to handle discovery_sources logic simpler
+                const [existing] = await db
+                    .select()
+                    .from(onus)
+                    .where(eq(onus.sn, device.sn));
+
+                if (existing) {
+                    // UPDATE
+                    // Merge sources uniquely
+                    const sources = (existing.discoverySources as string[]) || [];
+                    if (!sources.includes('olt')) sources.push('olt');
+
+                    await db.update(onus)
+                        .set({
+                            oltId: oltId,
+                            ponPort: device.ponId,
+                            onuIndex: device.onuId,
+                            lastRxPower: rxPower,
+                            // Only update status if the device is currently tracked by OLT
+                            // If we implement priority later, we might check if Netwatch is 'online'
+                            status: status,
+
+                            // If name is empty in DB, use OLT name. If DB has name, keep it (Manual override priority)
+                            name: existing.name || device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
+
+                            // Only update lastSeen if the device is actually online
+                            lastSeen: status === 'online' ? new Date() : existing.lastSeen,
+                            lastDownReason: device.lastDownReason, // Update Reason
+                            updatedAt: new Date(),
+                            discoverySources: sources
+                        })
+                        .where(eq(onus.id, existing.id));
+
+                    updated++;
+                } else {
+                    // INSERT
+                    await db.insert(onus).values({
+                        sn: device.sn,
+                        oltId: oltId,
+                        ponPort: device.ponId,
+                        onuIndex: device.onuId,
+                        name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
+                        status: status,
+                        lastRxPower: rxPower,
+                        discoverySources: ['olt'],
+                        lastSeen: new Date(),
+                        lastDownReason: device.lastDownReason,
+                    });
+                    added++;
+                }
+            } catch (err) {
+                console.error(`Failed to upsert ONU ${device.sn}:`, err);
+            }
+        }
+
+        console.log(`ONU Sync Complete for ${olt.name}: +${added} / ~${updated}`);
+        return { added, updated, total: driverOnus.length };
+    }
+
+    async getAllOnusWithCoordinates(): Promise<any[]> {
+        const { isNotNull, and, getTableColumns } = await import('drizzle-orm');
+        return db.select({
+            ...getTableColumns(onus),
+            lastDown: onus.lastSeen, // Alias for frontend compatibility
+            routerId: olts.parentId
+        })
+            .from(onus)
+            .leftJoin(olts, eq(onus.oltId, olts.id))
+            .where(and(
+                isNotNull(onus.latitude),
+                isNotNull(onus.longitude)
+            ));
+    }
+
+    async updateOnu(id: string, data: Partial<Onu>): Promise<Onu | undefined> {
+        const [updated] = await db
+            .update(onus)
+            .set({ ...data, updatedAt: new Date() })
+            .where(eq(onus.id, id))
+            .returning();
+        return updated;
     }
 }
 

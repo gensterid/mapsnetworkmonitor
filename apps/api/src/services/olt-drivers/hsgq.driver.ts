@@ -1,13 +1,9 @@
 import { BaseOltDriver, OnuInfo } from './olt-driver.interface.js';
-import { Telnet } from 'telnet-client';
 import crypto from 'crypto';
 
 export class HsgqDriver extends BaseOltDriver {
-    private connection: any;
-
     constructor(config: any) {
         super(config);
-        this.connection = new Telnet();
     }
 
     async connect(): Promise<void> {
@@ -17,31 +13,10 @@ export class HsgqDriver extends BaseOltDriver {
             return;
         }
 
-        const params = {
-            host: this.config.host,
-            port: this.config.port || 23,
-            username: this.config.username,
-            password: this.config.password,
-            timeout: this.config.timeout || 10000,
-            loginPrompt: /Login:|User Name:/i,
-            passwordPrompt: /Password:/i,
-            shellPrompt: />|#|HSGQ/i,
-            initialLFCR: true
-        };
-
-        try {
-            await this.connection.connect(params);
-            this.connected = true;
-        } catch (error) {
-            console.error('HSGQ Connection failed:', error);
-            throw error;
-        }
+        throw new Error('HSGQ Telnet/SSH access is disabled. Please use HTTP/HTTPS.');
     }
 
     async disconnect(): Promise<void> {
-        if (this.connected && this.config.protocol !== 'http' && this.config.protocol !== 'https' && ![80, 443, 5785, 8080].includes(this.config.port)) {
-            await this.connection.end();
-        }
         this.connected = false;
     }
 
@@ -88,19 +63,6 @@ export class HsgqDriver extends BaseOltDriver {
             }
         }
 
-        // 4. Telnet/SSH fallback - Only if not explicitly HTTP
-        if (this.config.protocol !== 'http' && this.config.protocol !== 'https') {
-            console.log(`HSGQ: Falling back to Telnet/SSH check for ${this.config.host}`);
-            try {
-                await this.connect();
-                await this.disconnect();
-                console.log(`HSGQ: testConnection SUCCESS via Telnet/SSH for ${this.config.host}`);
-                return true;
-            } catch (e) {
-                console.warn(`HSGQ: Telnet/SSH check failed for ${this.config.host}`);
-            }
-        }
-
         console.error(`HSGQ: testConnection FINAL FAILURE for ${baseUrl}`);
         return false;
     }
@@ -112,13 +74,7 @@ export class HsgqDriver extends BaseOltDriver {
             return this.getOnuListHttp();
         }
 
-        try {
-            const output = await this.connection.exec('show onu all');
-            return [output as any];
-        } catch (error) {
-            console.error('Failed to get ONU list via Telnet:', error);
-            throw error;
-        }
+        throw new Error('HSGQ Telnet/SSH access is disabled. Please use HTTP/HTTPS.');
     }
 
     private async loginModern(baseUrl: string): Promise<string | null> {
@@ -239,7 +195,7 @@ export class HsgqDriver extends BaseOltDriver {
                 const rawReason = item.last_d_cause || item.last_offline_reason || item.state_reason || item.offline_reason;
                 const reasonStr = String(rawReason || '').toLowerCase();
 
-                if (rawReason === 1 || rawReason === '1' || reasonStr.includes('dying') || reasonStr.includes('power')) {
+                if (rawReason === 1 || rawReason === '1' || reasonStr.includes('dying') || reasonStr.includes('power') || reasonStr.includes('gasp') || reasonStr.includes('dg')) {
                     lastDownReason = 'Power Down';
                 } else if (rawReason === 2 || rawReason === '2' || reasonStr.includes('los') || reasonStr.includes('loss') || reasonStr.includes('signal')) {
                     lastDownReason = 'Optical Loss';
@@ -276,13 +232,6 @@ export class HsgqDriver extends BaseOltDriver {
     }
 
     async rebootOnu(ponId: string, onuId: string): Promise<boolean> {
-        if (!this.connected) await this.connect();
-        try {
-            await this.connection.exec(`reboot onu ${ponId} ${onuId}`);
-            return true;
-        } catch (error) {
-            console.error('Failed to reboot ONU:', error);
-            return false;
-        }
+        throw new Error('HSGQ ONU Reboot via Telnet is disabled.');
     }
 }
