@@ -6,8 +6,19 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-// Apply auth middleware to all routes
-router.use(authMiddleware);
+// --- DEBUG ROUTES (Move above auth for 404 troubleshooting) ---
+router.get('/ping', (req, res) => res.json({ status: 'ok', msg: 'OLT Router is active' }));
+
+// Get all ONUs with coordinates for map display
+router.get('/onus/map', async (req, res) => {
+    try {
+        const onus = await oltService.getAllOnusWithCoordinates();
+        res.json(onus);
+    } catch (error) {
+        console.error('Failed to fetch ONUs for map:', error);
+        res.status(500).json({ error: 'Failed to fetch ONUs for map' });
+    }
+});
 
 // Validation schemas
 const createOltSchema = z.object({
@@ -29,6 +40,9 @@ const createOltSchema = z.object({
 });
 
 const updateOltSchema = createOltSchema.partial();
+
+// Apply auth middleware to all OTHER routes
+router.use(authMiddleware);
 
 // Get all OLTs
 router.get('/', async (req, res) => {
@@ -113,6 +127,36 @@ router.get('/:id/onus', async (req, res) => {
             details: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
+
+
+    }
+});
+
+// Update ONU
+router.patch('/:id/onus/:onuId', async (req, res) => {
+    try {
+        const { onuId } = req.params;
+        const { latitude, longitude, name, description, connectionType, connectedToId, waypoints, targetInterface } = req.body;
+
+        // Explicitly only allow updating specific fields
+        const updateData: any = {};
+        if (latitude !== undefined) updateData.latitude = latitude;
+        if (longitude !== undefined) updateData.longitude = longitude;
+        if (name !== undefined) updateData.name = name;
+        if (connectionType !== undefined) updateData.connectionType = connectionType;
+        if (connectedToId !== undefined) updateData.connectedToId = connectedToId;
+        if (waypoints !== undefined) updateData.waypoints = waypoints;
+        if (targetInterface !== undefined) updateData.targetInterface = targetInterface;
+        if (req.body.location !== undefined) updateData.location = req.body.location;
+
+        const updatedHook = await oltService.updateOnu(onuId, updateData);
+        if (!updatedHook) {
+            return res.status(404).json({ error: 'ONU not found' });
+        }
+        res.json(updatedHook);
+    } catch (error) {
+        console.error('Failed to update ONU:', error);
+        res.status(500).json({ error: 'Failed to update ONU' });
     }
 });
 
