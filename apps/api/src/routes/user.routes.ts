@@ -8,10 +8,13 @@ import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 const router = Router();
 
 // Validation schemas
+// Helper to convert empty strings to null
+const emptyToNull = (val: unknown) => (val === '' ? null : val);
+
 const updateUserSchema = z.object({
     name: z.string().min(1).max(100).optional(),
-    username: z.string().min(3).max(50).optional().nullable(),
-    image: z.string().url().optional().nullable(),
+    username: z.preprocess(emptyToNull, z.string().min(3).max(50).optional().nullable()),
+    image: z.preprocess(emptyToNull, z.string().url().optional().nullable()),
     timezone: z.string().optional(),
     animationStyle: z.string().optional(),
 });
