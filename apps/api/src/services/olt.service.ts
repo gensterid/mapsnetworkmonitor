@@ -277,6 +277,11 @@ export class OltService {
         const olt = await this.findByIdInternal(id);
         if (!olt) throw new Error('OLT not found');
 
+        // [SECURITY] Enforce Web API Disable Flag
+        if (!olt.useWeb) {
+            throw new Error(`Web API access is disabled for OLT ${olt.name}. Please enable 'Use Web API' in settings.`);
+        }
+
         try {
             // Import dynamically or use factory
             const { OltDriverFactory } = await import('./olt-drivers/driver.factory.js');
