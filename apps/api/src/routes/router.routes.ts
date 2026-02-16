@@ -417,6 +417,7 @@ const createNetwatchSchema = z.object({
     connectionType: z.enum(['router', 'client']).optional(),
     connectedToId: z.string().uuid().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
+    linkedOnuId: z.string().optional().nullable(),
 });
 
 const updateNetwatchSchema = z.object({
@@ -438,6 +439,7 @@ const updateNetwatchSchema = z.object({
     connectionType: z.enum(['router', 'client']).optional(),
     connectedToId: z.string().uuid().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
+    linkedOnuId: z.string().optional().nullable(),
 });
 
 /**

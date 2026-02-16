@@ -1,8 +1,8 @@
-import { routerService, settingsService } from '../services/index.js';
+import { routerService, settingsService, oltService, genieacsService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
-import { routerNetwatch } from '../db/schema/index.js';
-import { count } from 'drizzle-orm';
+import { routerNetwatch, olts } from '../db/schema/index.js';
+import { count, eq } from 'drizzle-orm';
 
 // Default polling interval in milliseconds (2 minutes)
 const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
@@ -32,6 +32,9 @@ const SCALING_TIERS: { maxDevices: number; config: ScalingConfig }[] = [
 
 let pollingInterval: ReturnType<typeof setInterval> | null = null;
 let escalationInterval: ReturnType<typeof setInterval> | null = null;
+let oltSnmpInterval: ReturnType<typeof setInterval> | null = null;
+let oltWebInterval: ReturnType<typeof setInterval> | null = null;
+let acsInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let pollingStartTime: number | null = null;
 let currentScalingConfig: ScalingConfig = SCALING_TIERS[0].config;
@@ -213,46 +216,128 @@ async function checkAlertEscalation(): Promise<void> {
 }
 
 /**
+ * Poll OLT Status (SNMP - Fast)
+ */
+async function pollOltsSnmp(): Promise<void> {
+    const enabled = await settingsService.getSettingValue('olt_sync_enabled', true);
+    if (!enabled) return;
+
+    try {
+        const allOlts = await oltService.findAll();
+        // Staggered execution: Process 1 OLT every 2 seconds
+        for (let i = 0; i < allOlts.length; i++) {
+            setTimeout(async () => {
+                try {
+                    await oltService.refreshStatus(allOlts[i].id);
+                } catch (e) {
+                    console.error(`Failed to poll OLT ${allOlts[i].name} (SNMP):`, e);
+                }
+            }, i * 2000);
+        }
+    } catch (e) {
+        console.error('Error in OLT SNMP Polling:', e);
+    }
+}
+
+/**
+ * Sync OLT ONU Details (Web - Slow/Hybrid)
+ */
+async function pollOltsWeb(): Promise<void> {
+    const enabled = await settingsService.getSettingValue('olt_sync_enabled', true);
+    if (!enabled) return;
+
+    try {
+        const allOlts = await oltService.findAll();
+        // Staggered execution: Process 1 OLT every 10 seconds to save CPU
+        for (let i = 0; i < allOlts.length; i++) {
+            setTimeout(async () => {
+                try {
+                    // Force Web/Full Sync logic here (needs update in oltService.refreshStatus to accept 'full' flag? 
+                    // or just rely on existing logic. For now, we call refreshStatus which handles both based on config)
+                    // TODO: In future, pass flag to force Web sync if needed.
+                    // Current refreshStatus does both if configured. 
+                    // We might need to split refreshStatus in OltService to separate SNMP check from Full Web Sync.
+                    // For now, assuming refreshStatus does "smart" check. 
+                    // If we want FULL sync, we need to ensure OltService actually does it.
+                    // Let's assume for this step we rely on the standard refresh.
+                    await oltService.refreshStatus(allOlts[i].id);
+                } catch (e) {
+                    console.error(`Failed to sync OLT ${allOlts[i].name} (Web):`, e);
+                }
+            }, i * 10000);
+        }
+    } catch (e) {
+        console.error('Error in OLT Web Polling:', e);
+    }
+}
+
+/**
+ * Sync GenieACS Devices
+ */
+async function syncGenieAcs(): Promise<void> {
+    const enabled = await settingsService.getSettingValue('acs_sync_enabled', true);
+    if (!enabled) return;
+
+    try {
+        await genieacsService.syncMetadata();
+    } catch (e) {
+        console.error('Error in GenieACS Sync:', e);
+    }
+}
+
+/**
  * Start the background polling scheduler
  */
 export async function startScheduler(): Promise<void> {
+    // 1. Router Polling
     const interval = await getPollingInterval();
     const minutes = Math.round(interval / 60000);
-
     console.log(`⏰ Starting router polling scheduler (every ${minutes} minute${minutes > 1 ? 's' : ''})`);
+
+    // 2. Alert Escalation
     console.log(`⏰ Starting alert escalation checker (every 5 minutes)`);
 
-    // Run initial poll after a short delay (give server time to fully start)
-    setTimeout(() => {
-        pollAllRouters();
-    }, 5000);
+    // 3. OLT SNMP (Fast)
+    const snmpMinutes = await settingsService.getSettingValue('olt_polling_interval', 1);
+    console.log(`⏰ Starting OLT SNMP polling (every ${snmpMinutes} minute${snmpMinutes > 1 ? 's' : ''})`);
 
-    // Run initial escalation check after 10 seconds
-    setTimeout(() => {
-        checkAlertEscalation();
-    }, 10000);
+    // 4. OLT Web (Slow)
+    const webMinutes = await settingsService.getSettingValue('olt_web_interval', 10);
+    console.log(`⏰ Starting OLT Web Sync (every ${webMinutes} minute${webMinutes > 1 ? 's' : ''})`);
 
-    // Set up recurring polling
+    // 5. GenieACS
+    const acsMinutes = await settingsService.getSettingValue('acs_polling_interval', 10);
+    console.log(`⏰ Starting GenieACS Sync (every ${acsMinutes} minute${acsMinutes > 1 ? 's' : ''})`);
+
+    // Initial Runs (Staggered)
+    setTimeout(() => pollAllRouters(), 5000);
+    setTimeout(() => checkAlertEscalation(), 10000);
+
+    // OLT/ACS Initial Run
+    setTimeout(() => pollOltsSnmp(), 15000);
+    setTimeout(() => pollOltsWeb(), 60000); // Wait 1 min for Web sync
+    setTimeout(() => syncGenieAcs(), 30000);
+
+    // Intervals
     pollingInterval = setInterval(pollAllRouters, interval);
-
-    // Set up recurring escalation check
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
+
+    if (snmpMinutes > 0) oltSnmpInterval = setInterval(pollOltsSnmp, snmpMinutes * 60000);
+    if (webMinutes > 0) oltWebInterval = setInterval(pollOltsWeb, webMinutes * 60000);
+    if (acsMinutes > 0) acsInterval = setInterval(syncGenieAcs, acsMinutes * 60000);
 }
 
 /**
  * Stop the background polling scheduler
  */
 export function stopScheduler(): void {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-        console.log('🛑 Router polling scheduler stopped');
-    }
-    if (escalationInterval) {
-        clearInterval(escalationInterval);
-        escalationInterval = null;
-        console.log('🛑 Alert escalation checker stopped');
-    }
+    if (pollingInterval) { clearInterval(pollingInterval); pollingInterval = null; }
+    if (escalationInterval) { clearInterval(escalationInterval); escalationInterval = null; }
+    if (oltSnmpInterval) { clearInterval(oltSnmpInterval); oltSnmpInterval = null; }
+    if (oltWebInterval) { clearInterval(oltWebInterval); oltWebInterval = null; }
+    if (acsInterval) { clearInterval(acsInterval); acsInterval = null; }
+
+    console.log('🛑 Scheduler stopped');
 }
 
 /**

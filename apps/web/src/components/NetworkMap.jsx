@@ -658,10 +658,12 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         </span>
                     </div>
                 )}
-                {node.lastDownReason && (
+                {(node.lastDownReason || node.status === 'power_down' || node.status === 'dying_gasp' || node.status === 'lost') && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Down Reason</span>
-                        <span className="text-red-400 font-medium truncate max-w-[120px]" title={node.lastDownReason}>{node.lastDownReason}</span>
+                        <span className="text-red-400 font-medium truncate max-w-[120px]" title={node.lastDownReason || (node.status === 'lost' ? 'Optical Signal Loss' : (node.status === 'power_down' ? 'Power Down' : 'Dying Gasp'))}>
+                            {node.lastDownReason || (node.status === 'lost' ? 'Optical Signal Loss' : (node.status === 'power_down' ? 'Power Down' : 'Dying Gasp'))}
+                        </span>
                     </div>
                 )}
                 {node.deviceType === 'pppoe' && (
@@ -698,10 +700,12 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                 )}
                 {!isUp && (
                     <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
-                        {node.lastDownReason && (
+                        {(node.lastDownReason || node.status === 'power_down' || node.status === 'dying_gasp' || node.status === 'lost') && (
                             <div className="flex flex-col gap-1">
                                 <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
-                                <span className="text-orange-300 text-xs font-bold">{node.lastDownReason}</span>
+                                <span className="text-orange-300 text-xs font-bold">
+                                    {node.lastDownReason || (node.status === 'lost' ? 'Optical Signal Loss' : (node.status === 'power_down' ? 'Power Down' : 'Dying Gasp'))}
+                                </span>
                             </div>
                         )}
                         <div className="flex flex-col gap-1">

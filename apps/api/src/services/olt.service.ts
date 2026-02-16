@@ -328,13 +328,46 @@ export class OltService {
                         lastRxPower: device.signal ? String(device.signal) : null,
                         discoverySources: ['olt'],
                         lastSeen: status === 'online' ? new Date() : null,
+                        lastDownReason: device.lastDownReason,
                     }).returning();
                     dbOnu = inserted;
+                } else {
+                    // [SYNC FIX] Update existing ONU status/power/reason whenever we fetch live data
+                    // This ensures the Map (which reads from DB) stays in sync with the List (which reads from OLT)
+                    try {
+                        const updateData: any = {
+                            status: status as any,
+                            lastRxPower: device.signal ? String(device.signal) : dbOnu.lastRxPower,
+                            lastDownReason: device.lastDownReason || dbOnu.lastDownReason,
+                            updatedAt: new Date(),
+                        };
+
+                        if (status === 'online') {
+                            updateData.lastSeen = new Date();
+                        }
+
+                        // Run update in background to not slow down the read request too much
+                        db.update(onus)
+                            .set(updateData)
+                            .where(eq(onus.id, dbOnu.id))
+                            .execute()
+                            .catch(err => console.error(`Failed to background sync ONU ${device.sn}:`, err));
+
+                        // Update local object for the return value immediately
+                        dbOnu.status = updateData.status;
+                        dbOnu.lastRxPower = updateData.lastRxPower;
+                        dbOnu.lastDownReason = updateData.lastDownReason;
+                        if (updateData.lastSeen) dbOnu.lastSeen = updateData.lastSeen;
+
+                    } catch (e) {
+                        // Ignore sync errors during read
+                    }
                 }
 
                 results.push({
                     ...device,
                     id: dbOnu.id,
+                    status: dbOnu.status, // [FIX] Use normalized DB status (e.g. 'power_down') instead of raw driver status
                     latitude: dbOnu.latitude,
                     longitude: dbOnu.longitude,
                     description: dbOnu.location,

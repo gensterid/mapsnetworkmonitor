@@ -5,3 +5,5 @@ export * from './alert.service.js';
 export * from './settings.service.js';
 export * from './dashboard.service.js';
 export * from './pppoe.service.js';
+export * from './olt.service.js';
+export * from './genieacs.service.js';

@@ -146,6 +146,27 @@ export class SettingsService {
             userAgent: request?.headers?.['user-agent'],
         });
     }
+
+    /**
+     * Initialize default settings if they don't exist
+     */
+    async seedDefaults(): Promise<void> {
+        const defaults = [
+            { key: 'olt_polling_interval', value: 1, description: 'SNMP Polling Interval (OLT Status) in minutes' },
+            { key: 'olt_web_interval', value: 10, description: 'Web API Polling Interval (ONU Detail Sync) in minutes' },
+            { key: 'acs_polling_interval', value: 10, description: 'GenieACS Polling Interval in minutes' },
+            { key: 'olt_sync_enabled', value: true, description: 'Enable OLT Polling' },
+            { key: 'acs_sync_enabled', value: true, description: 'Enable GenieACS Sync' }
+        ];
+
+        for (const setting of defaults) {
+            const existing = await this.getSetting(setting.key);
+            if (!existing) {
+                console.log(`Seeding default setting: ${setting.key}`);
+                await this.setSetting(setting.key, setting.value, setting.description);
+            }
+        }
+    }
 }
 
 // Export singleton instance

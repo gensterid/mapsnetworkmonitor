@@ -69,6 +69,12 @@ router.put(
 
         const setting = await settingsService.setSetting(key, value, description);
 
+        // Check if scheduler restart is needed
+        if (key.includes('interval')) {
+            const { default: scheduler } = await import('../lib/scheduler.js');
+            scheduler.restart();
+        }
+
         // Log action
         await settingsService.logAction(
             'update',
