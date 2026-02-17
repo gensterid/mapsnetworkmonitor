@@ -273,7 +273,25 @@ async function syncGenieAcs(): Promise<void> {
     if (!enabled) return;
 
     try {
+        // 1. Always attempt global sync (fallback)
+        console.log('[Scheduler] Running global GenieACS sync...');
         await genieacsService.syncMetadata();
+
+        // 2. Also sync specific routers that have dedicated GenieACS settings
+        const allRouters = await routerService.findAll();
+        const routersWithDedicatedAcs = allRouters.filter(r => r.useGenieAcs && r.genieacsUrl);
+
+        if (routersWithDedicatedAcs.length > 0) {
+            console.log(`[Scheduler] Running dedicated GenieACS sync for ${routersWithDedicatedAcs.length} routers...`);
+            for (const router of routersWithDedicatedAcs) {
+                try {
+                    console.log(`[Scheduler] Syncing GenieACS for router: ${router.name}`);
+                    await genieacsService.syncMetadata(router.id);
+                } catch (e) {
+                    console.error(`Failed to sync GenieACS for router ${router.name}:`, e);
+                }
+            }
+        }
     } catch (e) {
         console.error('Error in GenieACS Sync:', e);
     }
