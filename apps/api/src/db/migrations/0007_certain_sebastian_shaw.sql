@@ -1,6 +1,6 @@
 ALTER TYPE "public"."alert_type" ADD VALUE 'pppoe_connect';--> statement-breakpoint
 ALTER TYPE "public"."alert_type" ADD VALUE 'pppoe_disconnect';--> statement-breakpoint
-CREATE TABLE "notification_groups" (
+CREATE TABLE IF NOT EXISTS "notification_groups" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
 	"telegram_enabled" boolean DEFAULT false,
@@ -16,7 +16,7 @@ CREATE TABLE "notification_groups" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "pppoe_sessions" (
+CREATE TABLE IF NOT EXISTS "pppoe_sessions" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"router_id" uuid NOT NULL,
 	"name" text NOT NULL,
@@ -34,11 +34,20 @@ CREATE TABLE "pppoe_sessions" (
 	"last_seen" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "users" ADD COLUMN "animation_style" text DEFAULT 'default';--> statement-breakpoint
-ALTER TABLE "router_netwatch" ADD COLUMN "latency" integer;--> statement-breakpoint
-ALTER TABLE "router_netwatch" ADD COLUMN "packet_loss" integer DEFAULT 0;--> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "notification_group_id" uuid;--> statement-breakpoint
-ALTER TABLE "alerts" ADD COLUMN "escalation_level" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
-ALTER TABLE "alerts" ADD COLUMN "last_escalated_at" timestamp;--> statement-breakpoint
-ALTER TABLE "pppoe_sessions" ADD CONSTRAINT "pppoe_sessions_router_id_routers_id_fk" FOREIGN KEY ("router_id") REFERENCES "public"."routers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "routers" ADD CONSTRAINT "routers_notification_group_id_notification_groups_id_fk" FOREIGN KEY ("notification_group_id") REFERENCES "public"."notification_groups"("id") ON DELETE set null ON UPDATE no action;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "animation_style" text DEFAULT 'default';--> statement-breakpoint
+ALTER TABLE "router_netwatch" ADD COLUMN IF NOT EXISTS "latency" integer;--> statement-breakpoint
+ALTER TABLE "router_netwatch" ADD COLUMN IF NOT EXISTS "packet_loss" integer DEFAULT 0;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "notification_group_id" uuid;--> statement-breakpoint
+ALTER TABLE "alerts" ADD COLUMN IF NOT EXISTS "escalation_level" integer DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE "alerts" ADD COLUMN IF NOT EXISTS "last_escalated_at" timestamp;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "pppoe_sessions" ADD CONSTRAINT "pppoe_sessions_router_id_routers_id_fk" FOREIGN KEY ("router_id") REFERENCES "public"."routers"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "routers" ADD CONSTRAINT "routers_notification_group_id_notification_groups_id_fk" FOREIGN KEY ("notification_group_id") REFERENCES "public"."notification_groups"("id") ON DELETE set null ON UPDATE no action;
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;

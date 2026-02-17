@@ -1,25 +1,25 @@
-CREATE INDEX "alerts_router_id_idx" ON "alerts" USING btree ("router_id");--> statement-breakpoint
-CREATE INDEX "alerts_type_idx" ON "alerts" USING btree ("type");--> statement-breakpoint
-CREATE INDEX "alerts_resolved_idx" ON "alerts" USING btree ("resolved");--> statement-breakpoint
-CREATE INDEX "alerts_created_at_idx" ON "alerts" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "netwatch_hosts_router_id_idx" ON "netwatch_hosts" USING btree ("router_id");--> statement-breakpoint
-CREATE INDEX "netwatch_hosts_host_idx" ON "netwatch_hosts" USING btree ("host");--> statement-breakpoint
-CREATE INDEX "netwatch_hosts_status_idx" ON "netwatch_hosts" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "router_interfaces_router_id_idx" ON "router_interfaces" USING btree ("router_id");--> statement-breakpoint
-CREATE INDEX "router_metrics_router_id_idx" ON "router_metrics" USING btree ("router_id");--> statement-breakpoint
-CREATE INDEX "router_metrics_recorded_at_idx" ON "router_metrics" USING btree ("recorded_at");--> statement-breakpoint
-CREATE INDEX "router_netwatch_router_id_idx" ON "router_netwatch" USING btree ("router_id");--> statement-breakpoint
-CREATE INDEX "router_netwatch_host_idx" ON "router_netwatch" USING btree ("host");--> statement-breakpoint
-CREATE INDEX "router_netwatch_status_idx" ON "router_netwatch" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "routers_host_idx" ON "routers" USING btree ("host");--> statement-breakpoint
-CREATE INDEX "routers_status_idx" ON "routers" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "routers_group_id_idx" ON "routers" USING btree ("group_id");--> statement-breakpoint
-CREATE INDEX "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");--> statement-breakpoint
-CREATE INDEX "audit_logs_entity_idx" ON "audit_logs" USING btree ("entity");--> statement-breakpoint
-CREATE INDEX "audit_logs_entity_id_idx" ON "audit_logs" USING btree ("entity_id");--> statement-breakpoint
-CREATE INDEX "audit_logs_created_at_idx" ON "audit_logs" USING btree ("created_at");--> statement-breakpoint
-CREATE INDEX "olts_parent_id_idx" ON "olts" USING btree ("parent_id");--> statement-breakpoint
-CREATE INDEX "olts_host_idx" ON "olts" USING btree ("host");--> statement-breakpoint
-CREATE INDEX "olts_status_idx" ON "olts" USING btree ("status");--> statement-breakpoint
-CREATE INDEX "onus_olt_id_idx" ON "onus" USING btree ("olt_id");--> statement-breakpoint
-CREATE INDEX "onus_status_idx" ON "onus" USING btree ("status");
+CREATE INDEX IF NOT EXISTS "alerts_router_id_idx" ON "alerts" USING btree ("router_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "alerts_type_idx" ON "alerts" USING btree ("type");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "alerts_resolved_idx" ON "alerts" USING btree ("resolved");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "alerts_created_at_idx" ON "alerts" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "netwatch_hosts_router_id_idx" ON "netwatch_hosts" USING btree ("router_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "netwatch_hosts_host_idx" ON "netwatch_hosts" USING btree ("host");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "netwatch_hosts_status_idx" ON "netwatch_hosts" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_interfaces_router_id_idx" ON "router_interfaces" USING btree ("router_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_metrics_router_id_idx" ON "router_metrics" USING btree ("router_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_metrics_recorded_at_idx" ON "router_metrics" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_netwatch_router_id_idx" ON "router_netwatch" USING btree ("router_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_netwatch_host_idx" ON "router_netwatch" USING btree ("host");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_netwatch_status_idx" ON "router_netwatch" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "routers_host_idx" ON "routers" USING btree ("host");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "routers_status_idx" ON "routers" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "routers_group_id_idx" ON "routers" USING btree ("group_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "audit_logs_user_id_idx" ON "audit_logs" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "audit_logs_entity_idx" ON "audit_logs" USING btree ("entity");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "audit_logs_entity_id_idx" ON "audit_logs" USING btree ("entity_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "audit_logs_created_at_idx" ON "audit_logs" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "olts_parent_id_idx" ON "olts" USING btree ("parent_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "olts_host_idx" ON "olts" USING btree ("host");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "olts_status_idx" ON "olts" USING btree ("status");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "onus_olt_id_idx" ON "onus" USING btree ("olt_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "onus_status_idx" ON "onus" USING btree ("status");
