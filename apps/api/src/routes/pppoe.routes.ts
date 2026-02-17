@@ -71,11 +71,11 @@ router.patch('/:id/coordinates', requireOperator, async (req, res) => {
 
         const session = await pppoeService.updateCoordinates(
             req.params.id as string,
-            latitude || null,
-            longitude || null,
-            waypoints || null,
-            connectionType || null,
-            connectedToId !== undefined ? connectedToId : null
+            latitude,
+            longitude,
+            waypoints,
+            connectionType,
+            connectedToId
         );
 
         if (!session) {
@@ -99,11 +99,11 @@ router.put('/:id', requireOperator, async (req, res) => {
 
         const session = await pppoeService.updateCoordinates(
             req.params.id as string,
-            latitude || null,
-            longitude || null,
-            waypoints || null,
-            connectionType || null,
-            connectedToId !== undefined ? connectedToId : null
+            latitude,
+            longitude,
+            waypoints,
+            connectionType,
+            connectedToId
         );
 
         if (!session) {

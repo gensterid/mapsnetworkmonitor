@@ -246,30 +246,19 @@ class PppoeService {
      */
     async updateCoordinates(
         id: string,
-        latitude: string | null,
-        longitude: string | null,
-        waypoints: string | null = null,
-        connectionType: string | null = null,
-        connectedToId: string | null = null
+        latitude?: string,
+        longitude?: string,
+        waypoints?: string,
+        connectionType?: string,
+        connectedToId?: string | null
     ): Promise<PppoeSession | undefined> {
         const updateData: any = {};
 
-        // Only update latitude/longitude if explicitly provided (not null)
-        if (latitude !== undefined && latitude !== null) {
-            updateData.latitude = latitude;
-        }
-        if (longitude !== undefined && longitude !== null) {
-            updateData.longitude = longitude;
-        }
-        if (waypoints !== undefined && waypoints !== null) {
-            updateData.waypoints = waypoints;
-        }
-        if (connectionType !== undefined && connectionType !== null) {
-            updateData.connectionType = connectionType;
-        }
-        if (connectedToId !== undefined) {
-            updateData.connectedToId = connectedToId;
-        }
+        if (latitude !== undefined) updateData.latitude = latitude;
+        if (longitude !== undefined) updateData.longitude = longitude;
+        if (waypoints !== undefined) updateData.waypoints = waypoints;
+        if (connectionType !== undefined) updateData.connectionType = connectionType;
+        if (connectedToId !== undefined) updateData.connectedToId = connectedToId;
 
         // Only update if there's something to update
         if (Object.keys(updateData).length === 0) {

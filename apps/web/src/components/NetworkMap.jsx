@@ -1651,12 +1651,7 @@ const NetworkMap = ({
             if (filteredRouterId && nwGroup.routerId !== filteredRouterId) return;
 
             if (nwGroup.entries) {
-                // Get router coordinates for fallback
-                const routerNode = routerMap.get(nwGroup.routerId);
-                const routerLat = routerNode ? routerNode.lat : 0;
-                const routerLng = routerNode ? routerNode.lng : 0;
-
-                nwGroup.entries.forEach((entry, index) => {
+                nwGroup.entries.forEach((entry) => {
                     let lat = null, lng = null;
 
                     // Robust coordinate check
@@ -1666,19 +1661,17 @@ const NetworkMap = ({
                         lat = parseFloat(entry.latitude);
                         lng = parseFloat(entry.longitude);
 
-                        const node = { ...entry, lat, lng, routerId: nwGroup.routerId };
+                        const node = { ...entry, lat, lng, routerId: nwGroup.routerId, type: entry.deviceType || 'netwatch' };
                         nodes.push(node);
                         deviceMap.set(entry.id, node);
                     }
-                    // If no valid coordinates, we simply skip this entry (do not show on map)
                 });
             }
         });
 
-        // 2.5 pass: Create Passive Inventory nodes (ONUs with coordinates but no Netwatch)
+        // 2.5 pass: Create Passive Inventory nodes (ONUs)
         const onusMapDataToUse = stableOnusMapData || [];
         onusMapDataToUse.forEach(onu => {
-            // Apply filtering: show if no filter, or if ONU's routerId matches
             if (filteredRouterId && onu.routerId !== filteredRouterId) return;
 
             const lat = parseFloat(onu.latitude);
@@ -1688,7 +1681,6 @@ const NetworkMap = ({
                 return;
             }
 
-            // Avoid duplication if already in Netwatch (check by Host or SN)
             const alreadyOnMap = nodes.some(n =>
                 (n.host && n.host === onu.host) ||
                 (n.sn && n.sn === onu.sn)
@@ -1708,69 +1700,77 @@ const NetworkMap = ({
             }
         });
 
-        // Third pass: Create lines based on connections
-        nodes.forEach(node => {
+        // 2.6 pass: Create PPPoE nodes and index them
+        const pppoeNodesList = [];
+        if (stablePppoeData && Array.isArray(stablePppoeData)) {
+            stablePppoeData.forEach(session => {
+                const lat = parseFloat(session.latitude);
+                const lng = parseFloat(session.longitude);
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                    const node = {
+                        ...session,
+                        lat,
+                        lng,
+                        type: 'pppoe',
+                        deviceType: 'pppoe',
+                        status: (session.status === 'active' || session.status === 'up') ? 'online' : 'offline',
+                    };
+                    pppoeNodesList.push(node);
+                    deviceMap.set(session.id, node);
+                }
+            });
+        }
+
+        // Third pass: Create lines for ALL indexed devices
+        const allDevices = [...nodes, ...pppoeNodesList];
+        allDevices.forEach(node => {
             let fromPos = null;
+            let sourceName = 'Unknown';
 
             // Determine Source Position (Robust Fallback Logic)
             if (node.connectionType === 'client' && node.connectedToId) {
-                // 1. Try connecting to Parent Client
+                // 1. Try connecting to Parent Client (can be Netwatch or PPPoE now!)
                 const parentNode = deviceMap.get(node.connectedToId);
                 if (parentNode) {
                     fromPos = [parentNode.lat, parentNode.lng];
+                    sourceName = parentNode.name || parentNode.host || 'Unknown Client';
                 }
             } else if (node.connectionType === 'router' && node.connectedToId) {
-                // 2. Try connecting to Parent Router (if explicitly set)
+                // 2. Try connecting to Parent Router
                 const parentRouter = routerMap.get(node.connectedToId);
                 if (parentRouter) {
                     fromPos = [parentRouter.lat, parentRouter.lng];
+                    sourceName = parentRouter.name;
                 }
             }
 
-            // 3. FALLBACK: Always connect to Main Router if no other parent found
-            // This fixes "Missing Line" issues for orphaned devices (like Down/ODP with broken links)
+            // 3. FALLBACK: Connect to Main Router if no parent found
             if (!fromPos && node.routerId) {
                 const parentRouter = routerMap.get(node.routerId);
                 if (parentRouter) {
                     fromPos = [parentRouter.lat, parentRouter.lng];
+                    sourceName = parentRouter.name;
                 }
             }
 
             if (fromPos) {
-                // Determine Source Name
-                let sourceName = 'Unknown';
-                if (node.connectionType === 'client' && node.connectedToId) {
-                    sourceName = deviceMap.get(node.connectedToId)?.name || deviceMap.get(node.connectedToId)?.host || 'Unknown Client';
-                } else if (node.connectionType === 'router' && node.connectedToId) {
-                    sourceName = routerMap.get(node.connectedToId)?.name || 'Unknown Router';
-                } else if (node.routerId) {
-                    sourceName = routerMap.get(node.routerId)?.name || 'Unknown Router';
-                }
-
-                // Calculate Distance
                 const waypoints = node.waypoints ? (typeof node.waypoints === 'string' ? JSON.parse(node.waypoints) : node.waypoints) : [];
                 const fullPath = [fromPos, ...waypoints, [node.lat, node.lng]];
                 const distance = calculatePathLength(fullPath);
 
-                // Determine Traffic Interface (with Inheritance)
+                // Determine Traffic Interface (with Inheritance for Netwatch)
                 let trafficInterface = node.targetInterface;
                 let trafficSourceDevice = null;
 
-                if (!trafficInterface) {
-                    // Recursive lookup for inherited interface
+                if (!trafficInterface && node.type !== 'pppoe') {
                     const findInheritedInterface = (currentNode) => {
                         if (currentNode.targetInterface) return { iface: currentNode.targetInterface, device: currentNode.name || currentNode.host };
-
                         if (currentNode.connectionType === 'client' && currentNode.connectedToId) {
                             const parent = deviceMap.get(currentNode.connectedToId);
-                            // Avoid infinite loops with simple depth check or visited set if needed, 
-                            // but here we just go up. Valid topology is tree-like.
                             if (parent) return findInheritedInterface(parent);
                         }
                         return null;
                     };
-
-                    // Start search from parent
                     if (node.connectionType === 'client' && node.connectedToId) {
                         const parent = deviceMap.get(node.connectedToId);
                         if (parent) {
@@ -1784,22 +1784,21 @@ const NetworkMap = ({
                 }
 
                 lines.push({
-                    id: `${node.routerId}-${node.id}`,
+                    id: node.type === 'pppoe' ? `pppoe-${node.id}` : `${node.routerId}-${node.id}`,
                     routerId: node.routerId,
-                    netwatchId: node.id,
+                    netwatchId: node.type !== 'pppoe' ? node.id : undefined,
+                    pppoeId: node.type === 'pppoe' ? node.id : undefined,
                     from: fromPos,
                     to: [node.lat, node.lng],
-                    status: node.status,
+                    status: node.type === 'pppoe' ? (node.status === 'online' ? 'up' : 'down') : node.status,
                     waypoints: waypoints,
                     sourceName,
                     destName: node.name || node.host,
                     distance,
                     deviceType: node.deviceType,
-                    // FIX: Pass latency/packetLoss so Yellow Alert works
-                    latency: node.latency,
+                    latency: node.latency || node.lastLatency,
                     packetLoss: node.packetLoss,
-                    // Added for Heatmap Details
-                    targetInterface: trafficInterface,
+                    targetInterface: trafficInterface || (node.type === 'pppoe' ? node.name : undefined),
                     inheritedFrom: trafficSourceDevice,
                     txRate: node.txRate,
                     rxRate: node.rxRate,
@@ -1807,79 +1806,8 @@ const NetworkMap = ({
             }
         });
 
-        // Fourth pass: Create PPPoE nodes
-        const pppoeNodes = [];
-        if (stablePppoeData && Array.isArray(stablePppoeData)) {
-            stablePppoeData.forEach(session => {
-                if (session.latitude && session.longitude) {
-                    const lat = parseFloat(session.latitude);
-                    const lng = parseFloat(session.longitude);
-                    if (!isNaN(lat) && !isNaN(lng)) {
-                        // Find parent router for this PPPoE
-                        const parentRouter = routerMap.get(session.routerId);
-
-                        pppoeNodes.push({
-                            ...session,
-                            lat,
-                            lng,
-                            deviceType: 'pppoe',
-                            status: (session.status === 'active' || session.status === 'up') ? 'online' : 'offline',
-                        });
-
-                        // Determine source position based on connectionType
-                        let fromPos = null;
-                        let sourceName = 'Unknown';
-
-                        if (session.connectionType === 'client' && session.connectedToId) {
-                            // Connected to another client/device
-                            const parentDevice = deviceMap.get(session.connectedToId);
-                            if (parentDevice) {
-                                fromPos = [parentDevice.lat, parentDevice.lng];
-                                sourceName = parentDevice.name || parentDevice.host || 'Unknown Client';
-                            }
-                        }
-
-                        // Fallback to router if no client connection found
-                        if (!fromPos && parentRouter) {
-                            fromPos = [parentRouter.lat, parentRouter.lng];
-                            sourceName = parentRouter.name;
-                        }
-
-                        // Create line from source to PPPoE
-                        if (fromPos) {
-                            const waypoints = session.waypoints
-                                ? (typeof session.waypoints === 'string' ? JSON.parse(session.waypoints) : session.waypoints)
-                                : [];
-                            const fullPath = [fromPos, ...waypoints, [lat, lng]];
-                            const distance = calculatePathLength(fullPath);
-
-                            lines.push({
-                                id: `pppoe-${session.id}`,
-                                routerId: session.routerId,
-                                pppoeId: session.id,
-                                from: fromPos,
-                                to: [lat, lng],
-                                status: session.status === 'active' ? 'up' : 'down',
-                                waypoints: waypoints,
-                                sourceName: sourceName,
-                                destName: session.name,
-                                distance,
-                                deviceType: 'pppoe',
-                                // FIX: Pass latency/packetLoss so Yellow Alert works
-                                latency: session.lastLatency || session.latency,
-                                packetLoss: session.packetLoss,
-                                targetInterface: session.name, // Added for Live Mode matching
-                                txRate: session.txRate,
-                                rxRate: session.rxRate,
-                            });
-                        }
-                    }
-                }
-            });
-        }
-
-        return { routers: routerNodes, nodes, lines, pppoeNodes };
-    }, [stableRoutersData, stableNetwatchData, stablePppoeData, filteredRouterId, showRoutersOnly]);
+        return { routers: routerNodes, nodes, lines, pppoeNodes: pppoeNodesList };
+    }, [stableRoutersData, stableNetwatchData, stablePppoeData, stableOnusMapData, filteredRouterId, showRoutersOnly]);
 
     const defaultCenter = [-8.8742173, 120.7290947];
     const center = useMemo(() => {
@@ -2716,7 +2644,7 @@ const NetworkMap = ({
                         isOpen={isModalOpen}
                         device={selectedDevice}
                         routers={mapData.routers}
-                        devices={mapData.nodes}
+                        devices={useMemo(() => [...mapData.nodes, ...(mapData.pppoeNodes || [])], [mapData.nodes, mapData.pppoeNodes])}
                         onClose={handleCloseModal}
                         onSave={handleSaveDevice}
                         onDelete={handleDeleteDevice}
