@@ -1,1 +1,1 @@
-ALTER TABLE "users" ADD COLUMN "timezone" text DEFAULT 'Asia/Jakarta' NOT NULL;
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "timezone" text DEFAULT 'Asia/Jakarta' NOT NULL;

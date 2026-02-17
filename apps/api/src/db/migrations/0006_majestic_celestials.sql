@@ -1,1 +1,1 @@
-ALTER TABLE "routers" ADD COLUMN "latency" integer;
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "latency" integer;
