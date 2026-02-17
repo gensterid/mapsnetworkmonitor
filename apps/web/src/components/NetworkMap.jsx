@@ -1180,6 +1180,7 @@ const NetworkLineOriginal = ({
             motionColor={motionColor}
             motionType={motionType}
             disableMotionPath={lowPerfMode}
+            lowPerfMode={lowPerfMode}
             paused={!enableAnimation}
             tooltip={tooltipContent}
             popup={tooltipContent}
@@ -2407,8 +2408,9 @@ const NetworkMap = ({
                                     <MarkerClusterGroup
                                         chunkedLoading
                                         spiderfyOnMaxZoom={true}
+                                        disableClusteringAtZoom={19}
                                         showCoverageOnHover={false}
-                                        maxClusterRadius={40}
+                                        maxClusterRadius={35}
                                         animate={true}
                                         iconCreateFunction={createClusterCustomIcon}
                                         polygonOptions={{
@@ -2417,6 +2419,11 @@ const NetworkMap = ({
                                             weight: 1,
                                             opacity: 0.8,
                                             fillOpacity: 0.1,
+                                        }}
+                                        spiderLegPolylineOptions={{
+                                            weight: 1.5,
+                                            color: '#22c55e',
+                                            opacity: 0.6
                                         }}
                                     >
                                         {markers}

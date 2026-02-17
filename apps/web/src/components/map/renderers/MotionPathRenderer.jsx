@@ -134,37 +134,75 @@ const MotionPathRenderer = ({
     }, [motionColor, delay, reverse, paused, motionElementRef.current]); // Dependent on style props
 
     return (
-        <Polyline
-            ref={polylineRef}
-            positions={positions}
-            pathOptions={{
-                color: options.color,
-                weight: options.weight,
-                opacity: 0.3,
-                fill: false,
-                lineCap: options.lineCap,
-                lineJoin: options.lineJoin
-            }}
-            eventHandlers={(() => {
-                const handlers = {};
-                if (onClick) handlers.click = onClick;
-                if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
-                if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
-                return handlers;
-            })()}
-        >
-            {/* Tooltips and Popups are passed through children in parent, but here we render them if provided in options */}
-            {options.tooltip && (
-                <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
-                    <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
-                </Tooltip>
+        <>
+            {/* 1. VISUAL RAIL (Thin, Animated or Static) */}
+            <Polyline
+                ref={polylineRef}
+                positions={positions}
+                pathOptions={{
+                    color: options.color,
+                    weight: options.weight,
+                    opacity: 0.3,
+                    fill: false,
+                    lineCap: options.lineCap,
+                    lineJoin: options.lineJoin
+                }}
+                interactive={options.lowPerfMode} // Only interactive in low perf mode (to save nodes)
+                eventHandlers={options.lowPerfMode ? (() => {
+                    const handlers = {};
+                    if (onClick) handlers.click = onClick;
+                    if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
+                    if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
+                    return handlers;
+                })() : {}}
+            >
+                {options.lowPerfMode && (
+                    <>
+                        {options.tooltip && (
+                            <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
+                                <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
+                            </Tooltip>
+                        )}
+                        {options.popup && (
+                            <Popup>
+                                <div dangerouslySetInnerHTML={{ __html: options.popup }} />
+                            </Popup>
+                        )}
+                    </>
+                )}
+            </Polyline>
+
+            {/* 2. INVISIBLE HIT BOX (Wider area for easier hovering, disabled in Low Perf Mode) */}
+            {!options.lowPerfMode && (
+                <Polyline
+                    positions={positions}
+                    pathOptions={{
+                        weight: Math.max(15, options.weight * 3),
+                        opacity: 0,
+                        fill: false,
+                        color: 'transparent'
+                    }}
+                    eventHandlers={(() => {
+                        const handlers = {};
+                        if (onClick) handlers.click = onClick;
+                        if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
+                        if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
+                        return handlers;
+                    })()}
+                >
+                    {options.tooltip && (
+                        <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
+                            <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
+                        </Tooltip>
+                    )}
+                    {options.popup && (
+                        <Popup>
+                            <div dangerouslySetInnerHTML={{ __html: options.popup }} />
+                        </Popup>
+                    )}
+                </Polyline>
             )}
-            {options.popup && (
-                <Popup>
-                    <div dangerouslySetInnerHTML={{ __html: options.popup }} />
-                </Popup>
-            )}
-        </Polyline>
+        </>
     );
 };
 

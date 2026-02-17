@@ -32,7 +32,8 @@ const AnimatedPath = ({
     motionType,
     motionColor,
     onMouseOver,
-    onMouseOut
+    onMouseOut,
+    lowPerfMode = false
 }) => {
     // Memoize final options to avoid recalculation on every render
     const options = useMemo(() => {
@@ -58,9 +59,10 @@ const AnimatedPath = ({
             tooltip,
             popup,
             onMouseOver,
-            onMouseOut
+            onMouseOut,
+            lowPerfMode: lowPerfMode || disableMotionPath
         };
-    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, status, type, tooltip, popup, animationStyle, enableAnimation, motionType, motionColor, onMouseOver, onMouseOut]);
+    }, [color, pulseColor, weight, opacity, delay, dashArray, paused, reverse, status, type, tooltip, popup, animationStyle, enableAnimation, motionType, motionColor, onMouseOver, onMouseOut, lowPerfMode, disableMotionPath]);
 
     // Render appropriate renderer based on 'useMotionPath' flag
     if (options.useMotionPath) {

@@ -113,7 +113,7 @@ const FlowPathRenderer = ({
                 />
             )}
 
-            {/* Foreground Path */}
+            {/* 2. Foreground Flow Path (Animated) */}
             <Polyline
                 ref={polylineRef}
                 positions={positions}
@@ -121,29 +121,65 @@ const FlowPathRenderer = ({
                     weight: options.weight,
                     opacity: options.opacity,
                     fill: false,
-                    className: options.className || '', // Still use className for filters (glow/neon)
+                    className: options.className || '',
                     lineCap: options.lineCap,
                     lineJoin: options.lineJoin
                 }}
-                eventHandlers={(() => {
+                interactive={options.lowPerfMode}
+                eventHandlers={options.lowPerfMode ? (() => {
                     const handlers = {};
                     if (onClick) handlers.click = onClick;
                     if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
                     if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
                     return handlers;
-                })()}
+                })() : {}}
             >
-                {options.tooltip && (
-                    <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
-                        <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
-                    </Tooltip>
-                )}
-                {options.popup && (
-                    <Popup>
-                        <div dangerouslySetInnerHTML={{ __html: options.popup }} />
-                    </Popup>
+                {options.lowPerfMode && (
+                    <>
+                        {options.tooltip && (
+                            <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
+                                <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
+                            </Tooltip>
+                        )}
+                        {options.popup && (
+                            <Popup>
+                                <div dangerouslySetInnerHTML={{ __html: options.popup }} />
+                            </Popup>
+                        )}
+                    </>
                 )}
             </Polyline>
+
+            {/* 3. INVISIBLE HIT BOX (Wide area for hover) */}
+            {!options.lowPerfMode && (
+                <Polyline
+                    positions={positions}
+                    pathOptions={{
+                        weight: Math.max(15, options.weight * 3),
+                        opacity: 0,
+                        fill: false,
+                        color: 'transparent'
+                    }}
+                    eventHandlers={(() => {
+                        const handlers = {};
+                        if (onClick) handlers.click = onClick;
+                        if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
+                        if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
+                        return handlers;
+                    })()}
+                >
+                    {options.tooltip && (
+                        <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
+                            <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
+                        </Tooltip>
+                    )}
+                    {options.popup && (
+                        <Popup>
+                            <div dangerouslySetInnerHTML={{ __html: options.popup }} />
+                        </Popup>
+                    )}
+                </Polyline>
+            )}
         </>
     );
 };
