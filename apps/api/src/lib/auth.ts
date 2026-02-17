@@ -47,13 +47,8 @@ export const auth = betterAuth({
         },
     },
     trustedOrigins: [
-        'http://localhost:5173',
-        'http://localhost:5174',
         'http://localhost:3001',
-        'https://mapsmonitor.genster.web.id',
-        'http://10.10.70.116',
-        process.env.CORS_ORIGIN || 'http://localhost:5173',
-        // Support any IP-based origins for LAN deployments
+        'http://localhost:3002',
         ...(process.env.TRUSTED_ORIGINS ? process.env.TRUSTED_ORIGINS.split(',') : []),
     ].filter(Boolean),
 });

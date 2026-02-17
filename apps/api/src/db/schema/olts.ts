@@ -6,6 +6,7 @@ import {
     timestamp,
     pgEnum,
     boolean,
+    index,
 } from 'drizzle-orm/pg-core';
 
 export const oltTypeEnum = pgEnum('olt_type', ['hsgq', 'cdata', 'generic']);
@@ -38,7 +39,11 @@ export const olts = pgTable('olts', {
     description: text('description'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    parentIdIdx: index('olts_parent_id_idx').on(table.parentId),
+    hostIdx: index('olts_host_idx').on(table.host),
+    statusIdx: index('olts_status_idx').on(table.status),
+}));
 
 export type Olt = typeof olts.$inferSelect;
 export type NewOlt = typeof olts.$inferInsert;

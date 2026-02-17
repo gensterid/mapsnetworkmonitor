@@ -6,6 +6,7 @@ import {
     timestamp,
     pgEnum,
     json,
+    index,
 } from 'drizzle-orm/pg-core';
 import { olts } from './olts';
 
@@ -57,7 +58,10 @@ export const onus = pgTable('onus', {
 
     // Data Sources Tracking
     discoverySources: json('discovery_sources').$type<string[]>().default([]),
-});
+}, (table) => ({
+    oltIdIdx: index('onus_olt_id_idx').on(table.oltId),
+    statusIdx: index('onus_status_idx').on(table.status),
+}));
 
 export type Onu = typeof onus.$inferSelect;
 export type NewOnu = typeof onus.$inferInsert;

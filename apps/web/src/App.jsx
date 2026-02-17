@@ -1,23 +1,26 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import AppLayout from './components/layout/AppLayout';
-import Dashboard from './pages/Dashboard';
-import Login from './pages/Login';
-import Routers from './pages/Routers';
-import RouterDetails from './pages/RouterDetails';
-import Olts from './pages/Olts';
-import OltDetails from './pages/OltDetails';
-import GenieACS from './pages/GenieACS';
-import NetworkMap from './pages/NetworkMap';
-import Alerts from './pages/Alerts';
-import Issues from './pages/Issues';
-import Users from './pages/Users';
-import Settings from './pages/Settings';
-import Netwatch from './pages/Netwatch';
-import NotificationGroups from './pages/NotificationGroups';
-import Analytics from './pages/Analytics';
-import AnimationDemo from './pages/AnimationDemo';
+
+// Lazy load pages
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Login = lazy(() => import('./pages/Login'));
+const Routers = lazy(() => import('./pages/Routers'));
+const RouterDetails = lazy(() => import('./pages/RouterDetails'));
+const Olts = lazy(() => import('./pages/Olts'));
+const OltDetails = lazy(() => import('./pages/OltDetails'));
+const GenieACS = lazy(() => import('./pages/GenieACS'));
+const NetworkMap = lazy(() => import('./pages/NetworkMap'));
+const Alerts = lazy(() => import('./pages/Alerts'));
+const Issues = lazy(() => import('./pages/Issues'));
+const Users = lazy(() => import('./pages/Users'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Netwatch = lazy(() => import('./pages/Netwatch'));
+const NotificationGroups = lazy(() => import('./pages/NotificationGroups'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
+
 import { useSession, useRole } from './lib/auth-client';
 
 import { Toaster } from 'react-hot-toast';
@@ -114,59 +117,70 @@ function OperatorRoute({ children }) {
 }
 
 function App() {
+  const loading = (
+    <div className="min-h-[400px] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-2">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-sm text-slate-400">Loading page...</p>
+      </div>
+    </div>
+  );
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
         <Toaster position="top-right" />
         <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/animation-demo" element={<AnimationDemo />} />
+          <Suspense fallback={loading}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/animation-demo" element={<AnimationDemo />} />
 
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Dashboard />} />
-              <Route path="map" element={<NetworkMap />} />
-              <Route path="routers" element={
-                <ErrorBoundary>
-                  <Routers />
-                </ErrorBoundary>
-              } />
-              <Route path="routers/:id" element={<RouterDetails />} />
-              <Route path="olts" element={<Olts />} />
-              <Route path="olts/:id" element={<OltDetails />} />
-              <Route path="genieacs" element={<GenieACS />} />
-              <Route path="alerts" element={<Alerts />} />
-              <Route path="issues" element={<Issues />} />
-              <Route path="netwatch" element={
-                <AdminRoute>
-                  <Netwatch />
-                </AdminRoute>
-              } />
-              <Route path="users" element={
-                <AdminRoute>
-                  <Users />
-                </AdminRoute>
-              } />
-              <Route path="notification-groups" element={
-                <AdminRoute>
-                  <NotificationGroups />
-                </AdminRoute>
-              } />
-              <Route path="analytics" element={
-                <OperatorRoute>
-                  <Analytics />
-                </OperatorRoute>
-              } />
-              <Route path="settings" element={<Settings />} />
-            </Route>
-          </Routes>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Dashboard />} />
+                <Route path="map" element={<NetworkMap />} />
+                <Route path="routers" element={
+                  <ErrorBoundary>
+                    <Routers />
+                  </ErrorBoundary>
+                } />
+                <Route path="routers/:id" element={<RouterDetails />} />
+                <Route path="olts" element={<Olts />} />
+                <Route path="olts/:id" element={<OltDetails />} />
+                <Route path="genieacs" element={<GenieACS />} />
+                <Route path="alerts" element={<Alerts />} />
+                <Route path="issues" element={<Issues />} />
+                <Route path="netwatch" element={
+                  <AdminRoute>
+                    <Netwatch />
+                  </AdminRoute>
+                } />
+                <Route path="users" element={
+                  <AdminRoute>
+                    <Users />
+                  </AdminRoute>
+                } />
+                <Route path="notification-groups" element={
+                  <AdminRoute>
+                    <NotificationGroups />
+                  </AdminRoute>
+                } />
+                <Route path="analytics" element={
+                  <OperatorRoute>
+                    <Analytics />
+                  </OperatorRoute>
+                } />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Routes>
+          </Suspense>
         </BrowserRouter>
       </ThemeProvider>
     </ErrorBoundary>

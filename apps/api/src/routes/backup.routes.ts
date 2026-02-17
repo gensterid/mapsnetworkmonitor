@@ -10,7 +10,19 @@ import path from 'path';
 const router = Router();
 router.use(authMiddleware);
 
-const upload = multer({ dest: 'temp/' });
+const upload = multer({
+    dest: 'temp/',
+    limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB limit
+    },
+    fileFilter: (_req, file, cb) => {
+        const ext = path.extname(file.originalname).toLowerCase();
+        if (ext !== '.sql') {
+            return cb(new Error('Only .sql files are allowed'));
+        }
+        cb(null, true);
+    },
+});
 
 // Export Database
 router.get('/export', requireAdmin, async (_req, res) => {

@@ -12,6 +12,9 @@ import {
  * Settings Service - handles app settings and audit logs
  */
 export class SettingsService {
+    private cache: Map<string, { data: AppSetting; timestamp: number }> = new Map();
+    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
+
     /**
      * Get all settings
      */
@@ -23,10 +26,21 @@ export class SettingsService {
      * Get setting by key
      */
     async getSetting(key: string): Promise<AppSetting | undefined> {
+        // Check cache
+        const cached = this.cache.get(key);
+        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+            return cached.data;
+        }
+
         const [setting] = await db
             .select()
             .from(appSettings)
             .where(eq(appSettings.key, key));
+
+        if (setting) {
+            this.cache.set(key, { data: setting, timestamp: Date.now() });
+        }
+
         return setting;
     }
 
@@ -35,7 +49,7 @@ export class SettingsService {
      */
     async getSettingValue<T>(key: string, defaultValue: T): Promise<T> {
         const setting = await this.getSetting(key);
-        return setting?.value as T ?? defaultValue;
+        return (setting?.value as T) ?? defaultValue;
     }
 
     /**
@@ -48,23 +62,31 @@ export class SettingsService {
     ): Promise<AppSetting> {
         // Check if setting exists
         const existing = await this.getSetting(key);
+        let setting: AppSetting;
 
         if (existing) {
             // Update existing
-            const [setting] = await db
+            const [updated] = await db
                 .update(appSettings)
                 .set({ value, description, updatedAt: new Date() })
                 .where(eq(appSettings.key, key))
                 .returning();
-            return setting;
+            setting = updated;
         } else {
             // Create new
-            const [setting] = await db
+            const [created] = await db
                 .insert(appSettings)
                 .values({ key, value, description })
                 .returning();
-            return setting;
+            setting = created;
         }
+
+        // Update cache
+        if (setting) {
+            this.cache.set(key, { data: setting, timestamp: Date.now() });
+        }
+
+        return setting;
     }
 
     /**
@@ -75,6 +97,11 @@ export class SettingsService {
             .delete(appSettings)
             .where(eq(appSettings.key, key))
             .returning();
+
+        if (result.length > 0) {
+            this.cache.delete(key);
+        }
+
         return result.length > 0;
     }
 

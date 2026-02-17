@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, jsonb, timestamp, index } from 'drizzle-orm/pg-core';
 import { users } from './users';
 
 // Application settings table
@@ -21,7 +21,12 @@ export const auditLogs = pgTable('audit_logs', {
     ipAddress: text('ip_address'),
     userAgent: text('user_agent'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    userIdIdx: index('audit_logs_user_id_idx').on(table.userId),
+    entityIdx: index('audit_logs_entity_idx').on(table.entity),
+    entityIdIdx: index('audit_logs_entity_id_idx').on(table.entityId),
+    createdAtIdx: index('audit_logs_created_at_idx').on(table.createdAt),
+}));
 
 // Types
 export type AppSetting = typeof appSettings.$inferSelect;

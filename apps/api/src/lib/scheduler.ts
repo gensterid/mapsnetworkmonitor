@@ -1,8 +1,9 @@
 import { routerService, settingsService, oltService, genieacsService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
-import { routerNetwatch, olts } from '../db/schema/index.js';
-import { count, eq } from 'drizzle-orm';
+import { routerNetwatch, routerMetrics } from '../db/schema/index.js';
+import { count, eq, lt } from 'drizzle-orm';
+import { logger } from './logger.js';
 
 // Default polling interval in milliseconds (2 minutes)
 const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
@@ -35,6 +36,7 @@ let escalationInterval: ReturnType<typeof setInterval> | null = null;
 let oltSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let oltWebInterval: ReturnType<typeof setInterval> | null = null;
 let acsInterval: ReturnType<typeof setInterval> | null = null;
+let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let pollingStartTime: number | null = null;
 let currentScalingConfig: ScalingConfig = SCALING_TIERS[0].config;
@@ -83,7 +85,7 @@ async function getPollingInterval(): Promise<number> {
         lastNetwatchCount = netwatchCount;
         currentScalingConfig = getScalingConfig(netwatchCount);
 
-        console.log(`📊 Adaptive scaling: ${netwatchCount} devices → ${currentScalingConfig.intervalMs / 1000}s interval, batch=${currentScalingConfig.batchSize} (${currentScalingConfig.strategy})`);
+        logger.info(`📊 Adaptive scaling: ${netwatchCount} devices → ${currentScalingConfig.intervalMs / 1000}s interval, batch=${currentScalingConfig.batchSize} (${currentScalingConfig.strategy})`);
 
         return currentScalingConfig.intervalMs;
     } catch {
@@ -143,14 +145,14 @@ async function pollAllRouters(): Promise<void> {
     try {
         const routers = await routerService.findAll();
 
-        console.log(`🔄 Polling ${routers.length} routers (${lastNetwatchCount} netwatch, batch=${BATCH_SIZE})...`);
+        logger.debug(`🔄 Polling ${routers.length} routers (${lastNetwatchCount} netwatch, batch=${BATCH_SIZE})...`);
 
         let successCount = 0;
         let failCount = 0;
         let timeoutCount = 0;
 
         // Helper function to process a single router with timeout
-        const processRouter = async (router: typeof routers[0]) => {
+        const processRouter = async (router: any) => {
             try {
                 // Determine if this is a full sync poll (every 1 minute for traffic/resource updates)
                 const isFullSync = (date.getMinutes() % 1 === 0);
@@ -165,9 +167,9 @@ async function pollAllRouters(): Promise<void> {
             } catch (error) {
                 const isTimeout = error instanceof Error && error.message.includes('Timeout');
                 if (isTimeout) {
-                    console.error(`⏰ Timeout polling router ${router.name} (>${ROUTER_TIMEOUT / 1000}s)`);
+                    logger.error({ router: router.name }, `⏰ Timeout polling router (>${ROUTER_TIMEOUT / 1000}s)`);
                 } else {
-                    console.error(`❌ Failed to poll router ${router.name}:`, error instanceof Error ? error.message : error);
+                    logger.error({ router: router.name, err: error }, '❌ Failed to poll router');
                 }
                 return { success: false, timeout: isTimeout };
             }
@@ -195,9 +197,9 @@ async function pollAllRouters(): Promise<void> {
 
         const duration = ((Date.now() - pollingStartTime) / 1000).toFixed(1);
         const timeoutMsg = timeoutCount > 0 ? `, ${timeoutCount} timeout` : '';
-        console.log(`✅ Polling complete: ${successCount} success, ${failCount} failed${timeoutMsg} (${duration}s)`);
+        logger.info(`✅ Polling complete: ${successCount} success, ${failCount} failed${timeoutMsg} (${duration}s)`);
     } catch (error) {
-        console.error('❌ Polling error:', error instanceof Error ? error.message : error);
+        logger.error({ err: error }, '❌ Polling error');
     } finally {
         isPolling = false;
         pollingStartTime = null;
@@ -252,14 +254,6 @@ async function pollOltsWeb(): Promise<void> {
         for (let i = 0; i < allOlts.length; i++) {
             setTimeout(async () => {
                 try {
-                    // Force Web/Full Sync logic here (needs update in oltService.refreshStatus to accept 'full' flag? 
-                    // or just rely on existing logic. For now, we call refreshStatus which handles both based on config)
-                    // TODO: In future, pass flag to force Web sync if needed.
-                    // Current refreshStatus does both if configured. 
-                    // We might need to split refreshStatus in OltService to separate SNMP check from Full Web Sync.
-                    // For now, assuming refreshStatus does "smart" check. 
-                    // If we want FULL sync, we need to ensure OltService actually does it.
-                    // Let's assume for this step we rely on the standard refresh.
                     await oltService.refreshStatus(allOlts[i].id);
                 } catch (e) {
                     console.error(`Failed to sync OLT ${allOlts[i].name} (Web):`, e);
@@ -286,13 +280,34 @@ async function syncGenieAcs(): Promise<void> {
 }
 
 /**
+ * Cleanup old metrics data based on retention policy
+ */
+async function cleanupOldMetrics(): Promise<void> {
+    try {
+        const retentionDays = await settingsService.getSettingValue('metrics_retention_days', 30);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - retentionDays);
+
+        logger.info(`🧹 Starting metrics cleanup (Retention: ${retentionDays} days, Cutoff: ${cutoff.toISOString()})`);
+
+        const result = await db.delete(routerMetrics)
+            .where(lt(routerMetrics.recordedAt, cutoff))
+            .returning();
+
+        logger.info(`✅ Cleanup complete: Deleted ${result.length} old metrics records`);
+    } catch (error) {
+        logger.error({ err: error }, 'Metrics cleanup error');
+    }
+}
+
+/**
  * Start the background polling scheduler
  */
 export async function startScheduler(): Promise<void> {
     // 1. Router Polling
     const interval = await getPollingInterval();
     const minutes = Math.round(interval / 60000);
-    console.log(`⏰ Starting router polling scheduler (every ${minutes} minute${minutes > 1 ? 's' : ''})`);
+    logger.info(`⏰ Starting router polling scheduler (every ${minutes} minute${minutes > 1 ? 's' : ''})`);
 
     // 2. Alert Escalation
     console.log(`⏰ Starting alert escalation checker (every 5 minutes)`);
@@ -309,6 +324,9 @@ export async function startScheduler(): Promise<void> {
     const acsMinutes = await settingsService.getSettingValue('acs_polling_interval', 10);
     console.log(`⏰ Starting GenieACS Sync (every ${acsMinutes} minute${acsMinutes > 1 ? 's' : ''})`);
 
+    // 6. Metrics Cleanup
+    console.log(`⏰ Starting daily metrics cleanup job (every 24 hours)`);
+
     // Initial Runs (Staggered)
     setTimeout(() => pollAllRouters(), 5000);
     setTimeout(() => checkAlertEscalation(), 10000);
@@ -318,6 +336,9 @@ export async function startScheduler(): Promise<void> {
     setTimeout(() => pollOltsWeb(), 60000); // Wait 1 min for Web sync
     setTimeout(() => syncGenieAcs(), 30000);
 
+    // Initial cleanup run after 2 minutes
+    setTimeout(() => cleanupOldMetrics(), 120000);
+
     // Intervals
     pollingInterval = setInterval(pollAllRouters, interval);
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
@@ -325,6 +346,9 @@ export async function startScheduler(): Promise<void> {
     if (snmpMinutes > 0) oltSnmpInterval = setInterval(pollOltsSnmp, snmpMinutes * 60000);
     if (webMinutes > 0) oltWebInterval = setInterval(pollOltsWeb, webMinutes * 60000);
     if (acsMinutes > 0) acsInterval = setInterval(syncGenieAcs, acsMinutes * 60000);
+
+    // Daily cleanup interval (24 hours)
+    cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000);
 }
 
 /**
@@ -336,8 +360,9 @@ export function stopScheduler(): void {
     if (oltSnmpInterval) { clearInterval(oltSnmpInterval); oltSnmpInterval = null; }
     if (oltWebInterval) { clearInterval(oltWebInterval); oltWebInterval = null; }
     if (acsInterval) { clearInterval(acsInterval); acsInterval = null; }
+    if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
 
-    console.log('🛑 Scheduler stopped');
+    logger.info('🛑 Scheduler stopped');
 }
 
 /**
@@ -355,4 +380,3 @@ export default {
     pollNow: pollAllRouters,
     checkEscalation: checkAlertEscalation,
 };
-

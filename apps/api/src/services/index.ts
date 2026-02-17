@@ -7,3 +7,6 @@ export * from './dashboard.service.js';
 export * from './pppoe.service.js';
 export * from './olt.service.js';
 export * from './genieacs.service.js';
+export * from './router-netwatch.service.js';
+export * from './router-metrics.service.js';
+export * from './router-interface.service.js';

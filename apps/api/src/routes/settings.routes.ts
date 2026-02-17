@@ -25,7 +25,16 @@ router.get(
     '/',
     asyncHandler(async (_req, res) => {
         const settings = await settingsService.findAllSettings();
-        res.json({ data: settings });
+
+        // Redact sensitive settings
+        const sanitized = settings.map(s => {
+            if (s.key.includes('password') || s.key.includes('secret') || s.key.includes('encrypted')) {
+                return { ...s, value: s.value ? '********' : null };
+            }
+            return s;
+        });
+
+        res.json({ data: sanitized });
     })
 );
 
@@ -42,6 +51,11 @@ router.get(
 
         if (!setting) {
             throw ApiError.notFound('Setting not found');
+        }
+
+        // Redact sensitive settings
+        if (key.includes('password') || key.includes('secret') || key.includes('encrypted')) {
+            setting.value = setting.value ? '********' : null;
         }
 
         res.json({ data: setting });

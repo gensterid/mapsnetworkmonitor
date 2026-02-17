@@ -25,6 +25,7 @@ const NavItem = ({ path, icon: Icon, label, badge, badgeColor, isActive, onClose
     <Link
         to={path}
         onClick={() => onClose && onClose()}
+        aria-current={isActive ? 'page' : undefined}
         className={clsx(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative overflow-hidden",
             isActive
@@ -73,10 +74,12 @@ const Sidebar = ({ isOpen, onClose }) => {
     };
 
     return (
-        <aside className={clsx(
-            "fixed lg:static inset-y-0 left-0 z-40 w-72 bg-surface-dark border-r border-slate-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none",
-            isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        )}>
+        <aside
+            aria-label="Sidebar Navigation"
+            className={clsx(
+                "fixed lg:static inset-y-0 left-0 z-40 w-72 bg-surface-dark border-r border-slate-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none",
+                isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+            )}>
             <div className="flex flex-col h-full bg-gradient-to-b from-surface-dark to-background-dark">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
@@ -97,6 +100,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     {/* Mobile Close Button */}
                     <button
                         onClick={onClose}
+                        aria-label="Close sidebar"
                         className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
                     >
                         <X className="w-5 h-5" />

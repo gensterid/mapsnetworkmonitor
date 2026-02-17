@@ -14,16 +14,15 @@ import {
     onus,
 } from '../db/schema/index.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
+import { logger } from '../lib/logger.js';
 import {
     connectToRouter,
     getRouterInfo,
     getRouterResources,
     getRouterInterfaces,
-    getNetwatchHosts,
     getRouterClock,
     testConnection,
     rebootRouter,
-    parseUptimeToSeconds,
     getHotspotActive,
     getPppActive,
     getPppSessions,
@@ -41,6 +40,9 @@ import { alertService } from './alert.service.js';
 import { pppoeService } from './pppoe.service.js';
 import { settingsService } from './settings.service.js';
 import { snmpService } from './snmp.service.js';
+import { routerNetwatchService } from './router-netwatch.service.js';
+import { routerMetricsService } from './router-metrics.service.js';
+import { routerInterfaceService } from './router-interface.service.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -364,328 +366,37 @@ export class RouterService {
 
             // Fetch and sync netwatch in the same connection if requested
             if (includeNetwatch) {
+                // 1. Sync hosts (Netwatch list)
+                const availableInterfaces = new Set(interfaces?.map(i => i.name) || []);
+                await routerNetwatchService.syncHosts(id, router.name, conn, availableInterfaces);
+
+                // 2. Measure latency for synced hosts
+                const syncedEntries = await routerNetwatchService.getNetwatch(id);
+                // Filter targets for ping
+                const targets = syncedEntries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
+                await routerNetwatchService.measureLatency(id, router.name, conn, targets);
+
+                // 3. Track PPPoE sessions
                 try {
-                    const mikrotikNetwatch = await getNetwatchHosts(conn);
-
-                    // Get existing netwatch entries from DB
-                    const existingEntries = await db
-                        .select()
-                        .from(routerNetwatch)
-                        .where(eq(routerNetwatch.routerId, id));
-
-                    // Create a map of existing entries by host
-                    const existingMap = new Map(existingEntries.map(e => [e.host, e]));
-
-                    // Create a set of valid interface names for auto-mapping
-                    const availableInterfaces = new Set(interfaces?.map(i => i.name) || []);
-
-                    // Process each MikroTik netwatch entry
-                    for (const nw of mikrotikNetwatch) {
-                        const existing = existingMap.get(nw.host);
-
-                        // Map disabled status or actual status
-                        let status: 'up' | 'down' | 'unknown' = 'unknown';
-                        if (nw.status === 'up') status = 'up';
-                        else if (nw.status === 'down') status = 'down';
-
-                        // Prefix name with [DISABLED] if needed
-                        const prefix = nw.disabled ? '[DISABLED] ' : '';
-                        let baseName = nw.comment || nw.name;
-                        if (!baseName && existing) {
-                            baseName = existing.name?.replace(/^\[DISABLED\]\s*/, '') || '';
-                        }
-                        const finalName = prefix + (baseName || '');
-
-                        if (existing) {
-                            // Check for status change and create alert
-                            if (existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
-                                if (status === 'down' || status === 'up') {
-                                    try {
-                                        await alertService.createNetwatchAlert(
-                                            id,
-                                            `[${router.name}] ${finalName}`,
-                                            nw.host,
-                                            status
-                                        );
-                                    } catch (err) {
-                                        console.error('Failed to create netwatch alert:', err);
-                                    }
-                                }
-                            }
-
-                            // Update existing entry
-                            const updateData: any = {
-                                name: finalName,
-                                interval: nw.interval || existing.interval,
-                                status: status,
-                                lastCheck: new Date(),
-                                lastUp: nw.sinceUp || existing.lastUp,
-                                lastDown: nw.sinceDown || existing.lastDown,
-                                updatedAt: new Date(),
-                            };
-
-                            // Auto-map interface if comment matches a known interface and not already set
-                            if (!existing.targetInterface && nw.comment && availableInterfaces.has(nw.comment)) {
-                                updateData.targetInterface = nw.comment;
-                            }
-
-                            await db
-                                .update(routerNetwatch)
-                                .set(updateData)
-                                .where(eq(routerNetwatch.id, existing.id));
-                        } else {
-                            // Create new entry
-                            const insertData: any = {
-                                routerId: id,
-                                host: nw.host,
-                                name: finalName,
-                                interval: nw.interval || 30,
-                                status: status,
-                                lastCheck: new Date(),
-                                lastUp: nw.sinceUp,
-                                lastDown: nw.sinceDown,
-                            };
-
-                            // Auto-map interface if comment matches a known interface
-                            if (nw.comment && availableInterfaces.has(nw.comment)) {
-                                insertData.targetInterface = nw.comment;
-                            }
-
-                            await db
-                                .insert(routerNetwatch)
-                                .values(insertData);
-                        }
-                    }
-                } catch (nwErr) {
-                    console.error(`[Router ${router.name}] Failed to sync netwatch:`, nwErr instanceof Error ? nwErr.message : nwErr);
-                }
-
-                // Measure latency for Netwatch hosts (Concurrent limited)
-                if (includeNetwatch) {
-                    try {
-                        // Get all netwatch entries that are known (synced)
-                        const entries = await db
-                            .select()
-                            .from(routerNetwatch)
-                            .where(eq(routerNetwatch.routerId, id));
-
-                        // Filter those that should be pinged (e.g. valid host)
-                        // CRITICAL FIX: We must include 'unknown' status so new devices get checked!
-                        // Only exclude items with no host or invalid host.
-                        const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
-
-                        // Concurrency limit
-                        // Concurrency limit
-                        // Optimized: Increased from 1 to 5 to speed up polling for large lists (250+ devices)
-                        // This is safe for MikroTik (single connection) and reduces total time significantly.
-                        const CONCURRENCY_LIMIT = 5;
-                        const chunks = [];
-                        for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
-                            chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
-                        }
-
-                        for (const chunk of chunks) {
-                            await Promise.all(chunk.map(async (target) => {
-                                try {
-                                    // Ping with 500ms interval to avoid rate limiting on some hosts (was 100ms)
-                                    const { latency, packetLoss } = await measurePing(conn, target.host, 3, '500ms', '1000ms');
-                                    if (latency >= 0) {
-                                        await db
-                                            .update(routerNetwatch)
-                                            .set({
-                                                latency: latency,
-                                                lastKnownLatency: latency, // Update last known latency
-                                                packetLoss: packetLoss
-                                            })
-                                            .where(eq(routerNetwatch.id, target.id));
-
-                                        // Check for performance alerts (Latency > 100ms or Packet Loss > 0%)
-                                        if (latency > 100 || packetLoss > 0) {
-                                            const issueType = latency > 100 ? 'high_latency' : 'packet_loss';
-                                            const message = latency > 100
-                                                ? `High latency detected: ${latency}ms`
-                                                : `Packet loss detected: ${packetLoss}%`;
-
-                                            // Check deduplication in alert service (we'll add a generic method or use custom)
-                                            // For now, let's use a generic 'threshold' type or specific ones if we add them to enum
-                                            // Schema enum for alert type: 'status_change', 'high_cpu', 'high_memory', 'high_disk', 'interface_down', 'netwatch_down', 'threshold', 'reboot', 'pppoe_connect', 'pppoe_disconnect'
-                                            // We will use 'threshold' for now, or add new types. Let's stick to 'threshold' to avoid schema change for enum if possible, 
-                                            // OR better: we can reuse 'netwatch_down' context but that's confusing. 
-                                            // Let's assume 'threshold' is fine or check alert service capabilities.
-
-                                            try {
-                                                // Create a custom alert via alertService (we might need to expose a generic create method or add specific one)
-                                                // Using a direct create call via alertService singleton since we are in routerService
-                                                await alertService.createPerformanceAlert(
-                                                    id,
-                                                    router.name,
-                                                    target.host,
-                                                    target.name || target.host,
-                                                    latency,
-                                                    packetLoss
-                                                );
-                                            } catch (err) {
-                                                console.error('Failed to create performance alert:', err);
-                                            }
-                                        } else {
-                                            // Latency is fine (<= 100ms) and no packet loss
-                                            // Auto-resolve any existing performance alerts for this host
-                                            try {
-                                                await alertService.resolvePerformanceAlert(id, target.host);
-                                            } catch (resErr) {
-                                                console.error(`[Router ${router.name}] Failed to resolve performance alert for ${target.host}:`, resErr);
-                                            }
-                                        }
-
-                                    } else {
-                                        // Do NOT nullify lastKnownLatency
-                                        await db
-                                            .update(routerNetwatch)
-                                            .set({
-                                                latency: null,
-                                                packetLoss: packetLoss >= 0 ? packetLoss : null
-                                            })
-                                            .where(eq(routerNetwatch.id, target.id));
-
-                                        // If packet loss is 100% (or high), we should also alert!
-                                        // ping failure usually means 100% loss
-                                        if (packetLoss > 0) {
-                                            try {
-                                                await alertService.createPerformanceAlert(
-                                                    id,
-                                                    router.name,
-                                                    target.host,
-                                                    target.name || target.host,
-                                                    0, // Latency 0 or relevant value
-                                                    packetLoss
-                                                );
-                                            } catch (err) {
-                                                console.error('Failed to create packet loss alert (timeout):', err);
-                                            }
-                                        }
-                                    }
-                                } catch (e) {
-                                    // Ignore ping error
-                                }
-                            }));
-                        }
-                    } catch (pingErr) {
-                        console.error(`[Router ${router.name}] Failed to measure netwatch latency:`, pingErr);
-                    }
-                }
-            }
-
-            // Track PPPoE sessions and create connect/disconnect alerts (before closing connection)
-            if (includeNetwatch) {
-                try {
-                    console.log(`[Router ${router.name}] Fetching PPPoE sessions...`);
                     const currentPppSessions = await getPppSessions(conn);
-                    console.log(`[Router ${router.name}] Found ${currentPppSessions.length} active PPPoE sessions`);
-
-                    if (currentPppSessions.length > 0) {
-                        console.log(`[Router ${router.name}] PPPoE usernames: ${currentPppSessions.map(s => s.name).join(', ')}`);
-                    }
-
-                    const result = await pppoeService.trackSessions(id, router.name, currentPppSessions);
-
-                    if (result.connected.length > 0 || result.disconnected.length > 0) {
-                        console.log(`[Router ${router.name}] PPPoE changes: +${result.connected.length} connected, -${result.disconnected.length} disconnected`);
-                    }
+                    await pppoeService.trackSessions(id, router.name, currentPppSessions);
                 } catch (pppoeError) {
-                    console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError instanceof Error ? pppoeError.message : pppoeError);
+                    console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError);
                 }
 
-                // Fetch Simple Queues for Heatmap Traffic (PPPoE/Hotspot)
+                // 4. Fetch Simple Queues for Heatmap Traffic
                 try {
                     const queues = await getSimpleQueues(conn);
                     await pppoeService.updateTraffic(id, queues);
                 } catch (qErr) {
-                    console.error(`[Router ${router.name}] Failed to sync queues:`, qErr instanceof Error ? qErr.message : qErr);
+                    console.error(`[Router ${router.name}] Failed to sync queues:`, qErr);
                 }
 
-                // Fetch Interface Traffic for Netwatch Items (with Topology Inheritance)
-                try {
-                    const entries = await db
-                        .select()
-                        .from(routerNetwatch)
-                        .where(eq(routerNetwatch.routerId, id));
+                // 5. Propagate Interface Traffic
+                await routerNetwatchService.propagateTraffic(id, router.name, conn);
 
-                    // Create a map for easy lookup of entries by ID
-                    const entryMap = new Map(entries.map(e => [e.id, e]));
-
-                    // Helper to recursively find the resolving interface
-                    const resolveInterface = (entry: typeof entries[0], visited = new Set<string>()): string | null => {
-                        // Prevent infinite loops
-                        if (visited.has(entry.id)) return null;
-                        visited.add(entry.id);
-
-                        // 1. Explicit interface set on this device
-                        if (entry.targetInterface && entry.targetInterface.trim() !== '') {
-                            return entry.targetInterface;
-                        }
-
-                        // 2. Inherit from parent if connected to another device (ODP/Client)
-                        if (entry.connectionType === 'client' && entry.connectedToId) {
-                            const parent = entryMap.get(entry.connectedToId);
-                            if (parent) {
-                                return resolveInterface(parent, visited);
-                            }
-                        }
-
-                        // 3. (Optional) Could inherit from Router if connectionType is 'router'
-                        // But Routers usually have many interfaces, so we don't assume one default unless specified somewhere else.
-                        return null;
-                    };
-
-                    // Collect all unique interfaces that need monitoring
-                    const interfaceSet = new Set<string>();
-                    const entryInterfaceMap = new Map<string, string>(); // entryId -> resolvedInterface
-
-                    for (const entry of entries) {
-                        const iface = resolveInterface(entry);
-                        if (iface) {
-                            interfaceSet.add(iface);
-                            entryInterfaceMap.set(entry.id, iface);
-                        }
-                    }
-
-                    const interfacesToFetch = [...interfaceSet];
-
-                    if (interfacesToFetch.length > 0) {
-                        // console.log(`[Router ${router.name}] Fetching traffic for interfaces: ${interfacesToFetch.join(', ')}`);
-                        // Fetch traffic for all resolved interfaces
-                        const trafficMap = await getInterfaceTraffic(conn, interfacesToFetch);
-
-                        // Update DB: Iterate through ENTRIES and use their resolved interface
-                        // This ensures downstream devices get the rate of their upstream parent
-                        for (const entry of entries) {
-                            const resolvedIface = entryInterfaceMap.get(entry.id);
-
-                            if (resolvedIface) {
-                                const stats = trafficMap.get(resolvedIface);
-                                if (stats) {
-                                    await db
-                                        .update(routerNetwatch)
-                                        .set({
-                                            txRate: stats.tx,
-                                            rxRate: stats.rx,
-                                            updatedAt: new Date()
-                                        })
-                                        .where(eq(routerNetwatch.id, entry.id));
-                                }
-                            }
-                        }
-                    }
-                } catch (trafficErr) {
-                    console.error(`[Router ${router.name}] Failed to sync interface traffic:`, trafficErr instanceof Error ? trafficErr.message : trafficErr);
-                }
-
-                // UNIFIED LINKAGE: Sync Netwatch Status to ONUs
-                try {
-                    await this.syncNetwatchToOnus(id);
-                } catch (linkErr) {
-                    console.error(`[Router ${router.name}] Failed to sync Netwatch to ONUs:`, linkErr);
-                }
+                // 6. Sync Netwatch Status to ONUs (Bridging)
+                await routerNetwatchService.syncToOnus(id);
             }
 
 
@@ -722,114 +433,14 @@ export class RouterService {
 
             // Save metrics only if resources are available (Full Sync)
             if (resources) {
-                await db.insert(routerMetrics).values({
-                    routerId: id,
-                    cpuLoad: resources.cpuLoad,
-                    cpuCount: resources.cpuCount,
-                    cpuFrequency: resources.cpuFrequency,
-                    totalMemory: resources.totalMemory,
-                    usedMemory: resources.usedMemory,
-                    freeMemory: resources.freeMemory,
-                    totalDisk: resources.totalDisk,
-                    usedDisk: resources.usedDisk,
-                    freeDisk: resources.freeDisk,
-                    uptime: resources.uptime
-                        ? parseUptimeToSeconds(resources.uptime)
-                        : undefined,
-                    boardTemp: resources.boardTemp,
-                    voltage: resources.voltage,
-                });
-
-                // Check for metric-based alerts (CPU/Memory thresholds)
-                try {
-                    await alertService.checkAndCreateMetricAlerts(
-                        id,
-                        router.name,
-                        resources.cpuLoad,
-                        resources.totalMemory,
-                        resources.usedMemory
-                    );
-                } catch (alertError) {
-                    console.error('Failed to check metric alerts:', alertError);
-                }
+                await routerMetricsService.saveMetrics(id, router.name, resources);
             }
 
 
 
             // Update interfaces
             if (interfaces) {
-                for (const iface of interfaces) {
-                    // Check if interface exists
-                    const [existingInterface] = await db
-                        .select()
-                        .from(routerInterfaces)
-                        .where(and(
-                            eq(routerInterfaces.routerId, id),
-                            eq(routerInterfaces.name, iface.name)
-                        ));
-
-                    if (existingInterface) {
-                        // Calculate rates (bits per second)
-                        const now = new Date();
-                        const lastUpdate = existingInterface.lastUpdated || new Date();
-                        const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-
-                        let txRate = 0;
-                        let rxRate = 0;
-
-                        if (seconds > 0 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
-                            const txDiff = iface.txBytes - (existingInterface.txBytes || 0);
-                            const rxDiff = iface.rxBytes - (existingInterface.rxBytes || 0);
-
-                            // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
-                            if (txDiff >= 0) {
-                                txRate = Math.round((txDiff * 8) / seconds);
-                            }
-                            if (rxDiff >= 0) {
-                                rxRate = Math.round((rxDiff * 8) / seconds);
-                            }
-                        }
-
-                        // Update existing interface
-                        await db
-                            .update(routerInterfaces)
-                            .set({
-                                ...iface,
-                                status: iface.running ? 'up' : 'down',
-                                lastUpdated: new Date(),
-                                // calculated rates
-                                txRate,
-                                rxRate
-                            })
-                            .where(eq(routerInterfaces.id, existingInterface.id));
-
-                        // --- NEW: Propagate traffic to Netwatch entries linked to this interface ---
-                        try {
-                            await db
-                                .update(routerNetwatch)
-                                .set({
-                                    txRate: txRate,
-                                    rxRate: rxRate,
-                                    updatedAt: new Date()
-                                })
-                                .where(and(
-                                    eq(routerNetwatch.routerId, id),
-                                    eq(routerNetwatch.targetInterface, iface.name)
-                                ));
-                        } catch (nwUpdateErr) {
-                            console.error(`[Router ${router.name}] Failed to propagate traffic to Netwatch:`, nwUpdateErr);
-                        }
-                    } else {
-                        // Create new interface
-                        await db.insert(routerInterfaces).values({
-                            routerId: id,
-                            ...iface,
-                            status: iface.running ? 'up' : 'down',
-                            txRate: 0,
-                            rxRate: 0,
-                        });
-                    }
-                }
+                await routerInterfaceService.syncInterfaces(id, interfaces);
             }
 
             return updatedRouter;
@@ -932,11 +543,7 @@ export class RouterService {
      * Get router interfaces
      */
     async getInterfaces(routerId: string): Promise<RouterInterface[]> {
-        return db
-            .select()
-            .from(routerInterfaces)
-            .where(eq(routerInterfaces.routerId, routerId))
-            .orderBy(routerInterfaces.name);
+        return routerInterfaceService.getInterfaces(routerId);
     }
 
     /**
@@ -1034,12 +641,7 @@ export class RouterService {
         routerId: string,
         limit = 100
     ): Promise<RouterMetric[]> {
-        return db
-            .select()
-            .from(routerMetrics)
-            .where(eq(routerMetrics.routerId, routerId))
-            .orderBy(desc(routerMetrics.recordedAt))
-            .limit(limit);
+        return routerMetricsService.getMetricsHistory(routerId, limit);
     }
 
     /**
@@ -1048,191 +650,7 @@ export class RouterService {
     async getSnmpTraffic(routerId: string): Promise<Record<string, { tx: number; rx: number }>> {
         const router = await this.findById(routerId);
         if (!router) return {};
-
-        const community = router.snmpCommunity || 'public';
-        const port = router.snmpPort || 161;
-
-        try {
-            // Get interface names and their OID indexes
-            // ifName OID: .1.3.6.1.2.1.31.1.1.1.1
-            const ifNameOid = '1.3.6.1.2.1.31.1.1.1.1';
-            const names = await snmpService.walk({ host: router.host, port, community }, ifNameOid);
-
-            // Map OID suffix (index) to Interface Name
-            const indexOnName = new Map<string, string>();
-            const indexToNameMap = new Map<string, string>(); // index -> name
-
-            for (const result of names) {
-                const oidParts = result.oid.split('.');
-                const index = oidParts[oidParts.length - 1];
-                if (result.value) {
-                    indexToNameMap.set(index, String(result.value));
-                    indexOnName.set(String(result.value), index);
-                }
-            }
-
-            // Get Traffic (HK 64-bit counters if possible, fallback to 32-bit)
-            // ifHCInOctets: 1.3.6.1.2.1.31.1.1.1.6
-            // ifHCOutOctets: 1.3.6.1.2.1.31.1.1.1.10
-
-            // For now, let's walk the counters. 
-            // Better optimization: Only get specific OIDs for active interfaces?
-            // Walking is okay for < 50 interfaces.
-
-            // We need 2 values per interface: In and Out.
-            // Let's use bulk get if we know indexes, or walk if we don't.
-            // Since we walked names, we know indexes.
-
-            const indexes = Array.from(indexToNameMap.keys());
-            if (indexes.length === 0) return {};
-
-            const oids: string[] = [];
-            const indexMap = new Map<string, { inOid: string, outOid: string }>();
-
-            for (const index of indexes) {
-                const inOid = `1.3.6.1.2.1.31.1.1.1.6.${index}`;
-                const outOid = `1.3.6.1.2.1.31.1.1.1.10.${index}`;
-                oids.push(inOid, outOid);
-                indexMap.set(index, { inOid, outOid });
-            }
-
-            // Split into chunks of 40 OIDs (20 interfaces) to avoid packet too big
-            const chunks = [];
-            const chunkSize = 40;
-            for (let i = 0; i < oids.length; i += chunkSize) {
-                chunks.push(oids.slice(i, i + chunkSize));
-            }
-
-            const trafficData: Record<string, { tx: number; rx: number }> = {};
-            const timestamp = Date.now();
-
-            // We need previous values to calculate rate. 
-            // This is tricky for a stateless generic request. 
-            // The Frontend polls this? Or we save to DB?
-            // If we save to DB, we can use existing logic.
-            // BUT: The goal is "Live Traffic" which usually implies direct polling for UI.
-            // If we just return octets, the UI has to calculate rate.
-            // If we return calculated rate, we need state.
-            // The standard way for "Live Traffic" in this app so far seems to be:
-            // 1. UI polls endpoint
-            // 2. Endpoint fetches current counters
-            // 3. Endpoint compares with DB (last known) -> Calculates Rate -> Updates DB -> Returns Rate.
-
-            // So we DO update DB here.
-
-            for (const chunk of chunks) {
-                const results = await snmpService.getMultiple({ host: router.host, port, community }, chunk);
-
-                for (const result of results) {
-                    // Match OID to index and type (in/out)
-                    // ... parsing OID string again is fast enough
-                    const oidParts = result.oid.split('.');
-                    const index = oidParts[oidParts.length - 1];
-                    const parent = oidParts.slice(0, -1).join('.');
-
-                    const name = indexToNameMap.get(index);
-                    if (!name) continue;
-
-                    if (!trafficData[name]) {
-                        trafficData[name] = { rx: 0, tx: 0 };
-                    }
-
-                    // 1.3.6.1.2.1.31.1.1.1.6 = In (RX)
-                    if (parent === '1.3.6.1.2.1.31.1.1.1.6') {
-                        trafficData[name].rx = Number(result.value);
-                    }
-                    // 1.3.6.1.2.1.31.1.1.1.10 = Out (TX)
-                    else if (parent === '1.3.6.1.2.1.31.1.1.1.10') {
-                        trafficData[name].tx = Number(result.value);
-                    }
-                }
-            }
-
-            // Now update DB and calculate rates
-            const calculatedRates: Record<string, { tx: number; rx: number }> = {};
-
-            for (const [name, data] of Object.entries(trafficData)) {
-                const [existing] = await db
-                    .select()
-                    .from(routerInterfaces)
-                    .where(and(
-                        eq(routerInterfaces.routerId, routerId),
-                        eq(routerInterfaces.name, name)
-                    ));
-
-                if (existing) {
-                    const now = new Date();
-                    const lastUpdate = existing.lastUpdated || new Date();
-                    const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-
-                    let txRate = 0;
-                    let rxRate = 0;
-
-                    if (seconds > 0) {
-                        // Handle 64-bit wrap around? data.tx is current bytes.
-                        // existing.txBytes is previous bytes.
-                        // If current < previous, it wrapped (or reset).
-                        // max uint64 is huge, wrap is rare unless reboot.
-
-                        // We need to be careful about BigInt vs Number.
-                        // schema uses bigint with mode: 'number' (safe up to 2^53).
-                        // SNMP library returns Buffer or number? Usually Buffer for Counter64.
-                        // We cast to Number(result.value) above. If it's Buffer, Number(buf) might be NaN or wrong.
-                        // We should check this. But for now assuming safe number.
-
-                        const currentTx = data.tx;
-                        const currentRx = data.rx;
-                        const prevTx = Number(existing.txBytes || 0);
-                        const prevRx = Number(existing.rxBytes || 0);
-
-                        if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
-                        if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
-                    }
-
-                    // Update DB
-                    await db
-                        .update(routerInterfaces)
-                        .set({
-                            txBytes: data.tx,
-                            rxBytes: data.rx,
-                            txRate,
-                            rxRate,
-                            lastUpdated: new Date()
-                        })
-                        .where(eq(routerInterfaces.id, existing.id));
-
-                    calculatedRates[name] = { tx: txRate, rx: rxRate };
-
-                    // --- NEW: Propagate traffic to Netwatch entries linked to this interface ---
-                    try {
-                        // Find netwatch entries that use this interface (targetInterface)
-                        // OR are clients connected to this router with no specific interface (fallback)
-                        // But strictly, we only map if targetInterface matches.
-
-                        await db
-                            .update(routerNetwatch)
-                            .set({
-                                txRate: txRate,
-                                rxRate: rxRate,
-                                updatedAt: new Date()
-                            })
-                            .where(and(
-                                eq(routerNetwatch.routerId, routerId),
-                                eq(routerNetwatch.targetInterface, name)
-                            ));
-
-                    } catch (propagateErr) {
-                        console.error(`[SNMP] Failed to propagate rate to netwatch for ${name}:`, propagateErr);
-                    }
-                }
-            }
-
-            return calculatedRates;
-
-        } catch (error) {
-            console.error(`SNMP Error for router ${router.name}:`, error);
-            return {};
-        }
+        return routerMetricsService.getSnmpTraffic(router);
     }
 
     /**
@@ -1283,7 +701,7 @@ export class RouterService {
         const results: { ip: string; label: string; latency: number | null; packetLoss: number | null }[] = [];
 
         try {
-            console.log(`[Router ${router.name}] Connecting to measure ping targets: ${targets.map(t => t.ip).join(', ')}`);
+            logger.info({ router: router.name, targets: targets.map(t => t.ip) }, 'Connecting to measure ping targets');
             conn = await connectToRouter({
                 host: router.host,
                 port: router.port,
@@ -1343,67 +761,8 @@ export class RouterService {
     /**
      * Get all netwatch entries for a router
      */
-    async getNetwatch(routerId: string): Promise<(RouterNetwatch & { model?: string | null; ssid?: string | null; firmwareVersion?: string | null; sn?: string | null; lastRxPower?: string | null; physicalStatus?: string | null; discoverySources?: any })[]> {
-        const entries = await db
-            .select({
-                ...getTableColumns(routerNetwatch),
-                // Override coordinates with COALESCE (ONUS takes precedence)
-                latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
-                longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
-
-                model: onus.model,
-                ssid: onus.ssid,
-                firmwareVersion: onus.firmwareVersion,
-                sn: onus.sn,
-                lastRxPower: onus.lastRxPower,
-                physicalStatus: onus.status,
-                discoverySources: onus.discoverySources,
-
-                // Allow manual override if already linked via ID
-                linkedOnuId: routerNetwatch.linkedOnuId,
-            })
-            .from(routerNetwatch)
-            .leftJoin(onus, or(
-                eq(routerNetwatch.host, onus.host),
-                eq(routerNetwatch.linkedOnuId, onus.id)
-            ))
-            .where(eq(routerNetwatch.routerId, routerId))
-            .orderBy(routerNetwatch.host) as any;
-
-        // Fetch recent 'netwatch_down' alerts to fix invalid MikroTik timestamps
-        // We generally trust the server's alert timestamp over the router's "sinceDown" which might have wrong clock
-
-        // Note: We use existing imported 'alerts' from top of file
-        const downAlerts = await db
-            .select({
-                message: alerts.message,
-                createdAt: alerts.createdAt,
-            })
-            .from(alerts)
-            .where(and(
-                eq(alerts.routerId, routerId),
-                eq(alerts.type, 'netwatch_down')
-            ))
-            .orderBy(desc(alerts.createdAt))
-            .limit(500); // Fetch enough history to cover active down statuses
-
-        return entries.map((entry: any) => {
-            if (entry.status === 'down' && entry.host) {
-                // Try to find the latest alert for this host
-                // Alert message typically contains the host IP/Identifier
-                const matchingAlert = downAlerts.find(a =>
-                    a.message && a.message.includes(entry.host)
-                );
-
-                if (matchingAlert) {
-                    return {
-                        ...entry,
-                        lastDown: matchingAlert.createdAt,
-                    };
-                }
-            }
-            return entry;
-        });
+    async getNetwatch(routerId: string): Promise<any[]> {
+        return routerNetwatchService.getNetwatch(routerId);
     }
 
     /**
@@ -1584,7 +943,7 @@ export class RouterService {
      * Delete a netwatch entry
      */
     async deleteNetwatch(routerId: string, netwatchId: string): Promise<boolean> {
-        console.log(`[RouterService] Deleting netwatch entry: ${netwatchId} (router: ${routerId})`);
+        logger.info({ netwatchId, routerId }, '[RouterService] Deleting netwatch entry');
 
         // 1. Delete from DB first and get the deleted entry
         // This ensures that even if router connection fails, the item is removed from DB/Map
@@ -1598,13 +957,13 @@ export class RouterService {
             return false;
         }
 
-        console.log(`[RouterService] Deleted netwatch from DB: ${deleted.host} (${deleted.deviceType})`);
+        logger.info({ host: deleted.host, deviceType: deleted.deviceType }, '[RouterService] Deleted netwatch from DB');
 
         // 2. Apply to Router (only for client types)
         // OLT/ODP are not stored in MikroTik Netwatch
         const isClientType = deleted.deviceType === 'client' || !deleted.deviceType;
         if (isClientType) {
-            console.log(`[RouterService] Attempting to remove from MikroTik router...`);
+            logger.info('[RouterService] Attempting to remove from MikroTik router...');
             const router = await this.findByIdWithPassword(routerId);
             if (router) {
                 let conn;
@@ -1618,14 +977,14 @@ export class RouterService {
 
                     try {
                         await removeNetwatchEntry(conn, deleted.host);
-                        console.log(`[RouterService] Removed from MikroTik netwatch: ${deleted.host}`);
+                        logger.info({ host: deleted.host }, '[RouterService] Removed from MikroTik netwatch');
                     } catch (netwatchErr: any) {
                         // Ignore if entry not found, otherwise throw
                         const msg = netwatchErr.message || '';
                         if (!msg.includes('no such item') && !msg.includes('not found')) {
                             console.error(`[RouterService] Failed to remove from MikroTik:`, msg);
                         } else {
-                            console.log('Netwatch entry not found on router, skipping');
+                            logger.debug('Netwatch entry not found on router, skipping');
                         }
                     }
                 } catch (err) {
@@ -1639,7 +998,7 @@ export class RouterService {
                 console.warn(`[RouterService] Router ${routerId} not found, skipped MikroTik cleanup`);
             }
         } else {
-            console.log(`[RouterService] Device type is ${deleted.deviceType}, skipping MikroTik cleanup`);
+            logger.debug({ deviceType: deleted.deviceType }, '[RouterService] Device type skipped for MikroTik cleanup');
         }
 
         return true;
@@ -1650,307 +1009,48 @@ export class RouterService {
      * Measure latency for all netwatch hosts on a router
      */
     async measureNetwatchLatency(routerId: string, customConn?: RouterConnection | any): Promise<void> {
-        // Get router details if connection not provided
-        let conn: any = customConn;
-        let shouldClose = false;
-
-        if (!conn) {
+        // Redirection to specialized service
+        if (customConn) {
             const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-            if (!router) return;
-
-            try {
-                const password = decrypt(router.passwordEncrypted);
-                conn = await connectToRouter({
-                    host: router.host,
-                    port: router.port,
-                    username: router.username,
-                    password,
-                });
-                shouldClose = true;
-            } catch (err) {
-                console.error(`[Router ${router.name}] Failed to connect for latency measurement:`, err);
-                return;
-            }
+            const entries = await routerNetwatchService.getNetwatch(routerId);
+            const targets = entries.filter(e => e.status !== 'unknown');
+            return routerNetwatchService.measureLatency(routerId, router?.name || 'Unknown', customConn, targets);
         }
 
+        const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+        if (!router) return;
+
+        const password = decrypt(router.passwordEncrypted);
+        let conn;
         try {
-            // Get all netwatch entries that are known (synced)
-            const entries = await db
-                .select()
-                .from(routerNetwatch)
-                .where(eq(routerNetwatch.routerId, routerId));
-
+            conn = await connectToRouter({
+                host: router.host,
+                port: router.port,
+                username: router.username,
+                password,
+            });
+            const entries = await routerNetwatchService.getNetwatch(routerId);
             const targets = entries.filter(e => e.status !== 'unknown');
-
-            // Concurrency limit
-            const CONCURRENCY_LIMIT = 5;
-            const chunks = [];
-            for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
-                chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
-            }
-
-            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-
-            for (const chunk of chunks) {
-                await Promise.all(chunk.map(async (target) => {
-                    try {
-                        const { latency, packetLoss } = await measurePing(conn, target.host);
-                        if (latency >= 0) {
-                            await db
-                                .update(routerNetwatch)
-                                .set({
-                                    latency: latency,
-                                    lastKnownLatency: latency,
-                                    packetLoss: packetLoss
-                                })
-                                .where(eq(routerNetwatch.id, target.id));
-
-                            if (latency > 100 || packetLoss > 0) {
-                                try {
-                                    await alertService.createPerformanceAlert(
-                                        routerId,
-                                        router?.name || 'Unknown',
-                                        target.host,
-                                        target.name || target.host,
-                                        latency,
-                                        packetLoss
-                                    );
-                                } catch (err) {
-                                    console.error('Failed to create performance alert:', err);
-                                }
-                            }
-                        } else {
-                            await db
-                                .update(routerNetwatch)
-                                .set({
-                                    latency: null,
-                                    packetLoss: packetLoss >= 0 ? packetLoss : null
-                                })
-                                .where(eq(routerNetwatch.id, target.id));
-                        }
-                    } catch (e) {
-                        // Ignore ping error
-                    }
-                }));
-            }
+            await routerNetwatchService.measureLatency(routerId, router.name, conn, targets);
         } catch (err) {
-            console.error(`Failed to measure netwatch latency for router ${routerId}:`, err);
+            console.error(`[Router ${router.name}] Failed to measure netwatch latency:`, err);
         } finally {
-            if (shouldClose && conn) {
-                await conn.close().catch(console.error);
-            }
+            if (conn) await conn.close().catch(() => { });
         }
     }
 
     /**
      * Sync netwatch entries from MikroTik router to database
-     * This fetches the actual netwatch configuration from the router
      */
     async syncNetwatchFromRouter(routerId: string): Promise<{ synced: number; errors: string[] }> {
-        const errors: string[] = [];
-        let synced = 0;
-
-        // Get router details
-        const [router] = await db
-            .select()
-            .from(routers)
-            .where(eq(routers.id, routerId));
-
-        if (!router) {
-            throw new Error('Router not found');
-        }
-
-        // Decrypt password
-        const password = decrypt(router.passwordEncrypted);
-        const connection: RouterConnection = {
-            host: router.host,
-            port: router.port,
-            username: router.username,
-            password,
-        };
-
-        let api: any;
-
-        try {
-            // Connect to router
-            api = await connectToRouter(connection);
-
-            try {
-                // Fetch router clock for time sync
-                let routerClock;
-                try {
-                    routerClock = await getRouterClock(api);
-                } catch (clockErr) {
-                    console.warn(`[Router ${router.name}] Failed to fetch clock:`, clockErr);
-                }
-
-                // Fetch netwatch entries from MikroTik
-                const mikrotikNetwatch = await getNetwatchHosts(api, routerClock);
-
-                // Get existing netwatch entries from DB
-                const existingEntries = await db
-                    .select()
-                    .from(routerNetwatch)
-                    .where(eq(routerNetwatch.routerId, routerId));
-
-                // Create a map of existing entries by host
-                const existingMap = new Map(existingEntries.map(e => [e.host, e]));
-
-                // Process each MikroTik netwatch entry
-                for (const nw of mikrotikNetwatch) {
-                    // if (nw.disabled) continue; // Don't skip disabled entries
-
-                    const existing = existingMap.get(nw.host);
-                    // Map disabled status or actual status
-                    let status: 'up' | 'down' | 'unknown' = 'unknown';
-                    if (nw.status === 'up') status = 'up';
-                    else if (nw.status === 'down') status = 'down';
-
-                    // If disabled, we might want to still show strict status or unknown?
-                    // Let's keep strict status but maybe append (Disabled) to name if needed? 
-                    // For now just syncing them is enough for the user request.
-
-                    // Prefix name with [DISABLED] if needed
-                    const prefix = nw.disabled ? '[DISABLED] ' : '';
-                    let baseName = nw.comment || nw.name;
-                    if (!baseName && existing) {
-                        // If we don't have a name from mikrotik, use existing name (stripping old prefix if any)
-                        baseName = existing.name?.replace(/^\[DISABLED\]\s*/, '') || '';
-                    }
-                    const finalName = prefix + (baseName || '');
-
-                    if (existing) {
-                        // Check for status change and create alert
-                        if (existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
-                            console.log(`[NETWATCH] Status change detected for ${nw.host}: ${existing.status} -> ${status}`);
-                            if (status === 'down' || status === 'up') {
-                                try {
-                                    console.log(`[NETWATCH] Creating alert for ${nw.host} (${status})`);
-                                    const alert = await alertService.createNetwatchAlert(
-                                        routerId,
-                                        `[${router.name}] ${finalName}`,
-                                        nw.host,
-                                        status
-                                    );
-                                    if (alert) {
-                                        console.log(`[NETWATCH] Alert created: ${alert.id}`);
-                                    } else {
-                                        console.log(`[NETWATCH] Alert was not created (deduplication or settings)`);
-                                    }
-                                } catch (err) {
-                                    console.error('Failed to create netwatch alert:', err);
-                                }
-                            }
-                        }
-
-                        // Update existing entry
-                        await db
-                            .update(routerNetwatch)
-                            .set({
-                                name: finalName,
-                                interval: nw.interval || existing.interval,
-                                status: status,
-                                lastCheck: new Date(),
-                                lastUp: nw.sinceUp || existing.lastUp,
-                                lastDown: nw.sinceDown || existing.lastDown,
-                                updatedAt: new Date(),
-                            })
-                            .where(eq(routerNetwatch.id, existing.id));
-                        synced++;
-                    } else {
-                        // Create new entry
-                        await db
-                            .insert(routerNetwatch)
-                            .values({
-                                routerId,
-                                host: nw.host,
-                                name: finalName,
-                                interval: nw.interval || 30,
-                                status: status,
-                                lastCheck: new Date(),
-                                lastUp: nw.sinceUp,
-                                lastDown: nw.sinceDown,
-                            });
-                        synced++;
-                    }
-                }
-
-                // --- ADDED: Measure latency immediately using the existing connection ---
-                console.log(`[Router ${router.name}] Measuring latency after sync...`);
-                await this.measureNetwatchLatency(routerId, api);
-
-            } finally {
-                if (api) await api.close();
-            }
-        } catch (error) {
-            const message = error instanceof Error ? error.message : 'Unknown error';
-            errors.push(`Failed to sync netwatch: ${message}`);
-        }
-
-        // Call bridging logic
-        await this.syncNetwatchToOnus(routerId);
-
-        return { synced, errors };
+        return routerNetwatchService.fullSync(routerId);
     }
 
     /**
      * UNIFIED LINKAGE: Sync Netwatch bridging to ONUS table
-     * Updates ONU status if IP matches a Netwatch entry
      */
     private async syncNetwatchToOnus(routerId: string): Promise<void> {
-        try {
-            const { onus } = await import('../db/schema/index.js');
-            const { inArray, isNotNull } = await import('drizzle-orm');
-
-            // 1. Get all Netwatch entries for this router
-            const netwatchEntries = await db
-                .select()
-                .from(routerNetwatch)
-                .where(eq(routerNetwatch.routerId, routerId));
-
-            if (netwatchEntries.length === 0) return;
-
-            // 2. Get all ONUs that have an IP address (host is not null)
-            // Optimization: Filter by IPs present in netwatchEntries?
-            // If list is small, yes. If large, maybe just get all ONUs with host.
-            // Let's get all ONUs with host for now (assuming not millions).
-            const activeOnus = await db
-                .select()
-                .from(onus)
-                .where(isNotNull(onus.host));
-
-            // Map Host -> ONU ID
-            const hostToOnuId = new Map(activeOnus.map(o => [o.host, o]));
-
-            // 3. Update Status
-            for (const entry of netwatchEntries) {
-                if (!entry.host || entry.host === '0.0.0.0') continue;
-
-                const targetOnu = hostToOnuId.get(entry.host);
-                if (targetOnu) {
-                    // Map Status
-                    let status: 'online' | 'offline' | 'unknown' = 'unknown';
-                    if (entry.status === 'up') status = 'online';
-                    else if (entry.status === 'down') status = 'offline';
-
-                    // Update if status differs or just heartbeat
-                    // We also merge discoverySources
-                    const sources = (targetOnu.discoverySources as string[]) || [];
-                    if (!sources.includes('netwatch')) sources.push('netwatch');
-
-                    await db.update(onus)
-                        .set({
-                            status: status === 'unknown' ? targetOnu.status : status, // Don't overwrite with unknown unless needed
-                            lastSeen: new Date(),
-                            discoverySources: sources,
-                            updatedAt: new Date()
-                        })
-                        .where(eq(onus.id, targetOnu.id));
-                }
-            }
-        } catch (e) {
-            console.error(`[Unified Linkage] Failed to sync Netwatch to ONUs for router ${routerId}:`, e);
-        }
+        return routerNetwatchService.syncToOnus(routerId);
     }
 }
 

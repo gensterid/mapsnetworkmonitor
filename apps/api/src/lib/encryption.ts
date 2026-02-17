@@ -5,26 +5,26 @@ const IV_LENGTH = 16;
 const SALT_LENGTH = 32;
 
 /**
- * Get encryption key from environment
+ * Get encryption key from environment using a salt
  */
-function getKey(): Buffer {
+function deriveKey(salt: string | Buffer): Buffer {
     const secret = process.env.ENCRYPTION_KEY;
     if (!secret) {
         throw new Error('ENCRYPTION_KEY environment variable is not set');
     }
-    // Use scrypt to derive a proper 32-byte key from the secret
-    return scryptSync(secret, 'salt', 32);
+    // Use scrypt to derive a proper 32-byte key from the secret and salt
+    return scryptSync(secret, salt, 32);
 }
 
 /**
- * Encrypt a plain text string
+ * Encrypt a plain text string (V2 - with dynamic salt)
  * @param plainText - The text to encrypt
- * @returns Encrypted string in format: salt:iv:authTag:encrypted (all base64)
+ * @returns Encrypted string in format: v2:salt:iv:authTag:encrypted (all base64)
  */
 export function encrypt(plainText: string): string {
-    const key = getKey();
-    const iv = randomBytes(IV_LENGTH);
     const salt = randomBytes(SALT_LENGTH);
+    const key = deriveKey(salt);
+    const iv = randomBytes(IV_LENGTH);
 
     const cipher = createCipheriv(ALGORITHM, key, iv);
 
@@ -33,8 +33,9 @@ export function encrypt(plainText: string): string {
 
     const authTag = cipher.getAuthTag();
 
-    // Return format: salt:iv:authTag:encrypted (all base64)
+    // Return format: v2:salt:iv:authTag:encrypted (all base64)
     return [
+        'v2',
         salt.toString('base64'),
         iv.toString('base64'),
         authTag.toString('base64'),
@@ -43,27 +44,44 @@ export function encrypt(plainText: string): string {
 }
 
 /**
- * Decrypt an encrypted string
- * @param encryptedText - The encrypted text in format: salt:iv:authTag:encrypted
+ * Decrypt an encrypted string (Supports legacy and V2)
+ * @param encryptedText - The encrypted text
  * @returns Decrypted plain text
  */
 export function decrypt(encryptedText: string): string {
-    const key = getKey();
     const parts = encryptedText.split(':');
 
-    if (parts.length !== 4) {
-        throw new Error('Invalid encrypted text format');
+    // V2 Format: v2:salt:iv:authTag:encrypted
+    if (parts.length === 5 && parts[0] === 'v2') {
+        const [, saltBase64, ivBase64, authTagBase64, encrypted] = parts;
+        const salt = Buffer.from(saltBase64, 'base64');
+        const iv = Buffer.from(ivBase64, 'base64');
+        const authTag = Buffer.from(authTagBase64, 'base64');
+
+        const key = deriveKey(salt);
+        const decipher = createDecipheriv(ALGORITHM, key, iv);
+        decipher.setAuthTag(authTag);
+
+        let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
     }
 
-    const [, ivBase64, authTagBase64, encrypted] = parts;
-    const iv = Buffer.from(ivBase64, 'base64');
-    const authTag = Buffer.from(authTagBase64, 'base64');
+    // Legacy Format: salt:iv:authTag:encrypted (but uses static salt 'salt' for key derivation)
+    if (parts.length === 4) {
+        const [, ivBase64, authTagBase64, encrypted] = parts;
+        const iv = Buffer.from(ivBase64, 'base64');
+        const authTag = Buffer.from(authTagBase64, 'base64');
 
-    const decipher = createDecipheriv(ALGORITHM, key, iv);
-    decipher.setAuthTag(authTag);
+        // Legacy key used static 'salt' string
+        const key = deriveKey('salt');
+        const decipher = createDecipheriv(ALGORITHM, key, iv);
+        decipher.setAuthTag(authTag);
 
-    let decrypted = decipher.update(encrypted, 'base64', 'utf8');
-    decrypted += decipher.final('utf8');
+        let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+    }
 
-    return decrypted;
+    throw new Error('Invalid or unsupported encrypted text format');
 }

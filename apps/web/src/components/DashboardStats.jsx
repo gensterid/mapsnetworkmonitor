@@ -79,7 +79,11 @@ export default function DashboardStats() {
     };
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+            role="region"
+            aria-label="Network Statistics Overview"
+        >
             {statCards.map((stat) => (
                 <Card key={stat.label} className="hover:border-slate-600 transition-colors">
                     <CardContent className="p-5">

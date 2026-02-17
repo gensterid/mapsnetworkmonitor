@@ -2338,6 +2338,7 @@ const NetworkMap = ({
                         zoom={10}
                         maxZoom={22} // Increased to allow high zoom ungrouping
                         scrollWheelZoom={true}
+                        aria-label="Network Topology Map"
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
@@ -2504,6 +2505,7 @@ const NetworkMap = ({
                                             {searchQuery && (
                                                 <button
                                                     onClick={() => setSearchQuery('')}
+                                                    aria-label="Clear search"
                                                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                                                 >
                                                     <span className="material-symbols-outlined text-[14px]">close</span>
@@ -2624,6 +2626,7 @@ const NetworkMap = ({
                                             }
                                             setIsMenuOpen(false); // Close menu on action
                                         }}
+                                        aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
                                         className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
                                         title="Toggle Fullscreen"
                                     >

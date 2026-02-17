@@ -5,19 +5,23 @@ import helmet from 'helmet';
 import routes from './routes/index.js';
 import backupRoutes from './routes/backup.routes.js';
 import { errorMiddleware, notFoundMiddleware } from './middleware/index.js';
-import { startScheduler } from './lib/scheduler.js';
+import { startScheduler, stopScheduler } from './lib/scheduler.js';
 import { db } from './db/index.js';
 import { sql } from 'drizzle-orm';
+import { logger } from './lib/logger.js';
+import { socketService } from './services/socket.service.js';
 
 // Global error handlers to prevent server crashes from unhandled errors
 process.on('uncaughtException', (error: Error) => {
-    console.error('❌ Uncaught Exception:', error.message);
-    // Don't exit - keep the server running
+    logger.error({ err: error }, 'Uncaught Exception');
+    // In production, we might want to exit after logging
+    if (process.env.NODE_ENV === 'production') {
+        process.exit(1);
+    }
 });
 
 process.on('unhandledRejection', (reason: unknown) => {
-    console.error('❌ Unhandled Rejection:', reason instanceof Error ? reason.message : reason);
-    // Don't exit - keep the server running
+    logger.error({ reason }, 'Unhandled Rejection');
 });
 
 /**
@@ -155,9 +159,9 @@ async function runMigrations() {
                 END IF;
             END $$;
         `);
-        console.log('✅ Database migrations complete');
+        logger.info('✅ Database migrations complete');
     } catch (error) {
-        console.error('⚠️ Migration warning:', error instanceof Error ? error.message : error);
+        logger.warn({ err: error }, 'Migration warning');
         // Continue anyway - columns might already exist
     }
 }
@@ -168,19 +172,46 @@ const app = express();
 // Get port from environment
 const PORT = process.env.PORT || 3001;
 
+// Rate limiting
+import { rateLimit } from 'express-rate-limit';
+
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Limit each IP to 1000 requests per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too Many Requests',
+        message: 'Too many requests from this IP, please try again after 15 minutes',
+    },
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // Limit each IP to 20 auth attempts per 15 minutes
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too Many Requests',
+        message: 'Too many login attempts, please try again after 15 minutes',
+    },
+});
+
 // Security middleware
 app.use(helmet());
 
+// Apply rate limiters
+app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
+
 // CORS configuration
+const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',')
+    : ['http://localhost:5173'];
+
 app.use(
     cors({
-        origin: [
-            'http://localhost:5173',
-            'http://localhost:5174',
-            'https://mapsmonitor.genster.web.id',
-            'http://10.10.70.116',
-            process.env.CORS_ORIGIN || 'http://localhost:5173',
-        ],
+        origin: allowedOrigins,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization'],
@@ -203,49 +234,59 @@ app.use(errorMiddleware);
 
 // Create HTTP server for Socket.io
 import { createServer } from 'http';
-import { socketService } from './services/socket.service.js';
 
 const httpServer = createServer(app);
 
 // Initialize Socket.io
-socketService.initialize(httpServer, [
-    'http://localhost:5173',
-    'http://localhost:5174',
-    'https://mapsmonitor.genster.web.id',
-    'http://10.10.70.116',
-    process.env.CORS_ORIGIN || 'http://localhost:5173',
-]);
+socketService.initialize(httpServer, allowedOrigins);
 
 // Start server
 httpServer.listen(PORT, async () => {
-    console.log(`🚀 Server running on http://localhost:${PORT}`);
-    console.log(`📡 API available at http://localhost:${PORT}/api`);
-    console.log(`🔐 Auth available at http://localhost:${PORT}/api/auth`);
-    console.log(`❤️  Health check at http://localhost:${PORT}/api/health`);
-    console.log(`🔌 WebSocket server ready`);
+    logger.info(`🚀 Server running on http://localhost:${PORT}`);
+    logger.info(`📡 API available at http://localhost:${PORT}/api`);
+    logger.info(`🔐 Auth available at http://localhost:${PORT}/api/auth`);
+    logger.info(`❤️  Health check at http://localhost:${PORT}/api/health`);
+    logger.info(`🔌 WebSocket server ready`);
 
     // Run migrations
     await runMigrations();
 
     // Start background router polling
     startScheduler();
-
-    // --- DEBUG: Log all registered routes ---
-    console.log('--- Registered Routes ---');
-    function logRoutes(stack: any[], prefix = '') {
-        stack.forEach((layer: any) => {
-            if (layer.route) {
-                const methods = Object.keys(layer.route.methods).join(',').toUpperCase();
-                console.log(`${methods} ${prefix}${layer.route.path}`);
-            } else if (layer.name === 'router' && layer.handle.stack) {
-                logRoutes(layer.handle.stack, prefix + (layer.regexp.source.replace('^\\/', '').replace('\\/?(?=\\/|$)', '')).replace('\\', ''));
-            }
-        });
-    }
-    // @ts-ignore
-    logRoutes(app._router.stack);
-    console.log('-------------------------');
 });
+
+// Graceful Shutdown
+const gracefulShutdown = async (signal: string) => {
+    logger.info(`Received ${signal}. Starting graceful shutdown...`);
+
+    // Stop accepting new connections
+    httpServer.close(async () => {
+        logger.info('HTTP server closed');
+
+        try {
+            // Stop background scheduler
+            stopScheduler();
+
+            // Stop all socket polling
+            await socketService.stopAll();
+
+            logger.info('✅ Graceful shutdown complete');
+            process.exit(0);
+        } catch (err) {
+            logger.error({ err }, 'Error during graceful shutdown');
+            process.exit(1);
+        }
+    });
+
+    // Force close after 10s
+    setTimeout(() => {
+        logger.error('Could not close connections in time, forcefully shutting down');
+        process.exit(1);
+    }, 10000);
+};
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 export default app;
 

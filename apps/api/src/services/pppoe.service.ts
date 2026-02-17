@@ -8,6 +8,7 @@ import {
 } from '../db/schema/index.js';
 import { alertService } from './alert.service.js';
 import type { PppSession, SimpleQueueData } from '../lib/mikrotik-api.js';
+import { logger } from '../lib/logger.js';
 
 /**
  * PPPoE Service - handles PPPoE session tracking and alerts
@@ -42,7 +43,7 @@ class PppoeService {
         const connected: string[] = [];
         const disconnected: string[] = [];
 
-        console.log(`[PPPoE] Tracking sessions for ${routerName}: ${currentSessions.length} active sessions`);
+        logger.debug({ routerName, sessionCount: currentSessions.length }, '[PPPoE] Tracking sessions');
 
         try {
             // Get previously tracked sessions for this router
@@ -60,7 +61,7 @@ class PppoeService {
                 if (!currentSessionNames.has(session.name)) {
                     // Disconnection detected
                     disconnected.push(session.name);
-                    console.log(`[PPPoE] Disconnection detected: ${session.name}`);
+                    logger.info({ routerName, session: session.name }, '[PPPoE] Disconnection detected');
 
                     // Cache coordinates before deleting (to preserve for reconnection)
                     if (session.latitude || session.longitude || session.waypoints) {
@@ -109,7 +110,7 @@ class PppoeService {
                 if (!previousSessionNames.has(session.name)) {
                     // New connection detected
                     connected.push(session.name);
-                    console.log(`[PPPoE] New connection detected: ${session.name} (IP: ${session.address})`);
+                    logger.info({ routerName, session: session.name, ip: session.address }, '[PPPoE] New connection detected');
 
                     // Check if we have cached coordinates for this user
                     const cacheKey = `${routerId}:${session.name}`;
@@ -182,12 +183,12 @@ class PppoeService {
             } // End of currentSessions loop
 
             if (connected.length > 0 || disconnected.length > 0) {
-                console.log(`[PPPoE] Summary for ${routerName}: +${connected.length} connected, -${disconnected.length} disconnected`);
+                logger.info({ routerName, connected: connected.length, disconnected: disconnected.length }, '[PPPoE] Session sync summary');
             }
 
             return { connected, disconnected };
         } catch (error) {
-            console.error(`[PPPoE] Failed to track sessions for router ${routerId}:`, error);
+            logger.error({ routerId, err: error }, '[PPPoE] Failed to track sessions');
             return { connected, disconnected };
         }
     }
@@ -340,7 +341,7 @@ class PppoeService {
                 .from(pppoeSessions)
                 .orderBy(pppoeSessions.name);
         } catch (error) {
-            console.error('[PPPoE] findAll failed:', error);
+            logger.error({ err: error }, '[PPPoE] findAll failed');
             return []; // Return empty array instead of throwing to prevent 500
         }
     }

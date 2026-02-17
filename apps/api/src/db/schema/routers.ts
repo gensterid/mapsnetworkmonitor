@@ -9,6 +9,7 @@ import {
     boolean,
     real,
     pgEnum,
+    index,
 } from 'drizzle-orm/pg-core';
 import { routerGroups } from './groups';
 import { notificationGroups } from './notifications';
@@ -71,7 +72,11 @@ export const routers = pgTable('routers', {
     lastSeen: timestamp('last_seen'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    hostIdx: index('routers_host_idx').on(table.host),
+    statusIdx: index('routers_status_idx').on(table.status),
+    groupIdIdx: index('routers_group_id_idx').on(table.groupId),
+}));
 
 // Router interfaces table
 export const routerInterfaces = pgTable('router_interfaces', {
@@ -99,7 +104,9 @@ export const routerInterfaces = pgTable('router_interfaces', {
     disabled: boolean('disabled').default(false),
     comment: text('comment'),
     lastUpdated: timestamp('last_updated').defaultNow(),
-});
+}, (table) => ({
+    routerIdIdx: index('router_interfaces_router_id_idx').on(table.routerId),
+}));
 
 // Router metrics table (time-series data)
 export const routerMetrics = pgTable('router_metrics', {
@@ -123,7 +130,10 @@ export const routerMetrics = pgTable('router_metrics', {
     currentFirmware: text('current_firmware'),
     upgradeFirmware: text('upgrade_firmware'),
     recordedAt: timestamp('recorded_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    routerIdIdx: index('router_metrics_router_id_idx').on(table.routerId),
+    recordedAtIdx: index('router_metrics_recorded_at_idx').on(table.recordedAt),
+}));
 
 // Netwatch status enum
 export const netwatchStatusEnum = pgEnum('netwatch_status', [
@@ -178,7 +188,11 @@ export const routerNetwatch = pgTable('router_netwatch', {
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    routerIdIdx: index('router_netwatch_router_id_idx').on(table.routerId),
+    hostIdx: index('router_netwatch_host_idx').on(table.host),
+    statusIdx: index('router_netwatch_status_idx').on(table.status),
+}));
 
 // Types
 export type Router = typeof routers.$inferSelect;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
 
 export default function SearchableSelect({
     options = [], // Array of { value, label }
@@ -11,12 +11,19 @@ export default function SearchableSelect({
 }) {
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeIndex, setActiveIndex] = useState(-1);
     const containerRef = useRef(null);
     const inputRef = useRef(null);
+    const listboxId = useId();
 
     // Get selected label
     const selectedOption = options.find(opt => opt.value === value);
     const displayValue = selectedOption ? selectedOption.label : '';
+
+    // Filter options
+    const filteredOptions = options.filter(opt =>
+        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -32,30 +39,67 @@ export default function SearchableSelect({
     useEffect(() => {
         if (isOpen && inputRef.current) {
             inputRef.current.focus();
+            setActiveIndex(-1);
         }
     }, [isOpen]);
 
-    // Filter options
-    const filteredOptions = options.filter(opt =>
-        opt.label.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
     const handleSelect = (option) => {
-        // Use name prop if provided, fallback to empty string (or your preferred default)
         onChange({ target: { name: name, value: option.value } });
         setIsOpen(false);
         setSearchTerm('');
     };
 
+    const handleKeyDown = (e) => {
+        if (disabled) return;
+
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                if (!isOpen) {
+                    setIsOpen(true);
+                } else {
+                    setActiveIndex(prev => (prev < filteredOptions.length - 1 ? prev + 1 : prev));
+                }
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                setActiveIndex(prev => (prev > 0 ? prev - 1 : prev));
+                break;
+            case 'Enter':
+                e.preventDefault();
+                if (isOpen && activeIndex >= 0) {
+                    handleSelect(filteredOptions[activeIndex]);
+                } else if (!isOpen) {
+                    setIsOpen(true);
+                }
+                break;
+            case 'Escape':
+                if (isOpen) {
+                    e.preventDefault();
+                    setIsOpen(false);
+                }
+                break;
+            case 'Tab':
+                if (isOpen) setIsOpen(false);
+                break;
+        }
+    };
+
     return (
-        <div className={`relative ${className}`} ref={containerRef}>
+        <div className={`relative ${className}`} ref={containerRef} onKeyDown={handleKeyDown}>
             {/* Trigger Button */}
             <div
+                role="combobox"
+                aria-expanded={isOpen}
+                aria-haspopup="listbox"
+                aria-controls={listboxId}
+                aria-label={placeholder}
+                tabIndex={disabled ? -1 : 0}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 className={`
                     w-full px-3 py-2 text-left bg-slate-800/80 border rounded-md cursor-pointer flex items-center justify-between
                     ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-500'}
-                    ${isOpen ? 'border-blue-500 ring-1 ring-blue-500' : 'border-slate-700/50'}
+                    ${isOpen ? 'border-blue-500 ring-1 ring-blue-500 outline-none' : 'border-slate-700/50'}
                 `}
             >
                 <span className={`block truncate ${!displayValue ? 'text-slate-500' : 'text-slate-200'}`}>
@@ -68,7 +112,11 @@ export default function SearchableSelect({
 
             {/* Dropdown Menu */}
             {isOpen && (
-                <div className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col">
+                <div
+                    id={listboxId}
+                    role="listbox"
+                    className="absolute z-50 w-full mt-1 bg-slate-800 border border-slate-700 rounded-md shadow-lg max-h-60 overflow-hidden flex flex-col"
+                >
                     {/* Search Input */}
                     <div className="p-2 border-b border-slate-700">
                         <input
@@ -76,8 +124,12 @@ export default function SearchableSelect({
                             type="text"
                             className="w-full px-2 py-1 bg-slate-900 border border-slate-700 rounded text-sm text-slate-200 focus:outline-none focus:border-blue-500"
                             placeholder="Search..."
+                            aria-label="Filter options"
                             value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value);
+                                setActiveIndex(-1);
+                            }}
                             onClick={(e) => e.stopPropagation()}
                         />
                     </div>
@@ -85,13 +137,17 @@ export default function SearchableSelect({
                     {/* Options List */}
                     <div className="overflow-y-auto flex-1">
                         {filteredOptions.length > 0 ? (
-                            filteredOptions.map((option) => (
+                            filteredOptions.map((option, index) => (
                                 <div
                                     key={option.value}
+                                    role="option"
+                                    aria-selected={option.value === value}
                                     onClick={() => handleSelect(option)}
+                                    onMouseEnter={() => setActiveIndex(index)}
                                     className={`
                                         px-3 py-2 text-sm cursor-pointer truncate
-                                        ${option.value === value ? 'bg-blue-600/20 text-blue-400' : 'text-slate-300 hover:bg-slate-700'}
+                                        ${option.value === value ? 'bg-blue-600/30 text-blue-400' : ''}
+                                        ${index === activeIndex ? 'bg-slate-700 text-white' : 'text-slate-300'}
                                     `}
                                 >
                                     {option.label}

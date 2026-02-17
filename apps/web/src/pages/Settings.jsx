@@ -787,29 +787,69 @@ export default function Settings() {
                                     title="GenieACS Synchronization"
                                     description="Sinkronisasi data CPE dari server ACS."
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <label className="relative inline-flex items-center cursor-pointer">
-                                            <input
-                                                type="checkbox"
-                                                name="acs_sync_enabled"
-                                                checked={formData.acs_sync_enabled}
-                                                onChange={handleChange}
-                                                className="sr-only peer"
-                                            />
-                                            <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                        </label>
-                                        <div className="flex-1">
-                                            <Input
-                                                type="number"
-                                                name="acs_polling_interval"
-                                                value={formData.acs_polling_interval}
-                                                onChange={handleChange}
-                                                min={5}
-                                                max={1440}
-                                                disabled={!formData.acs_sync_enabled}
-                                            />
-                                            <p className="text-xs text-slate-500 mt-1">Dalam menit (Default: 10 min)</p>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-4">
+                                            <label className="relative inline-flex items-center cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    name="acs_sync_enabled"
+                                                    checked={formData.acs_sync_enabled}
+                                                    onChange={handleChange}
+                                                    className="sr-only peer"
+                                                />
+                                                <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                            </label>
+                                            <div className="flex-1">
+                                                <Input
+                                                    type="number"
+                                                    name="acs_polling_interval"
+                                                    value={formData.acs_polling_interval}
+                                                    onChange={handleChange}
+                                                    min={5}
+                                                    max={1440}
+                                                    disabled={!formData.acs_sync_enabled}
+                                                />
+                                                <p className="text-xs text-slate-500 mt-1">Dalam menit (Default: 10 min)</p>
+                                            </div>
                                         </div>
+
+                                        {formData.acs_sync_enabled && (
+                                            <div className="pt-4 border-t border-slate-800 space-y-4">
+                                                <div className="space-y-2">
+                                                    <label className="text-sm font-medium text-slate-300">Global GenieACS URL</label>
+                                                    <Input
+                                                        name="genieacs_url"
+                                                        value={formData.genieacs_url}
+                                                        onChange={handleChange}
+                                                        placeholder="http://192.168.1.10:7557"
+                                                    />
+                                                    <p className="text-[10px] text-slate-500">URL server GenieACS yang akan digunakan jika router tidak memiliki URL spesifik.</p>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div className="space-y-2">
+                                                        <label className="text-sm font-medium text-slate-300">Global ACS Username</label>
+                                                        <Input
+                                                            name="genieacs_username"
+                                                            value={formData.genieacs_username}
+                                                            onChange={handleChange}
+                                                            placeholder="admin"
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-sm font-medium text-slate-300">Global ACS Password</label>
+                                                        <Input
+                                                            type="password"
+                                                            name="genieacs_password"
+                                                            value={formData.genieacs_password}
+                                                            onChange={handleChange}
+                                                            placeholder="••••••••"
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <p className="text-[10px] text-slate-500 italic">Biarkan kosong jika server GenieACS tidak menggunakan autentikasi.</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </SettingSection>
                             </CardContent>

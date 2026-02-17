@@ -7,6 +7,7 @@ import {
     integer,
     decimal,
     pgEnum,
+    index,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers';
 import { users } from './users';
@@ -56,7 +57,12 @@ export const alerts = pgTable('alerts', {
     escalationLevel: integer('escalation_level').default(0).notNull(),
     lastEscalatedAt: timestamp('last_escalated_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    routerIdIdx: index('alerts_router_id_idx').on(table.routerId),
+    typeIdx: index('alerts_type_idx').on(table.type),
+    resolvedIdx: index('alerts_resolved_idx').on(table.resolved),
+    createdAtIdx: index('alerts_created_at_idx').on(table.createdAt),
+}));
 
 // Netwatch hosts table
 export const netwatchHosts = pgTable('netwatch_hosts', {
@@ -90,7 +96,11 @@ export const netwatchHosts = pgTable('netwatch_hosts', {
     connectedToId: uuid('connected_to_id'),
     disabled: boolean('disabled').default(false),
     lastUpdated: timestamp('last_updated').defaultNow(),
-});
+}, (table) => ({
+    routerIdIdx: index('netwatch_hosts_router_id_idx').on(table.routerId),
+    hostIdx: index('netwatch_hosts_host_idx').on(table.host),
+    statusIdx: index('netwatch_hosts_status_idx').on(table.status),
+}));
 
 // Types
 export type Alert = typeof alerts.$inferSelect;

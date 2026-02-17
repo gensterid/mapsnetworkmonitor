@@ -1,0 +1,11 @@
+node_modules
+dist
+.npm
+.npmrc
+*.log
+docker-compose.yml
+Dockerfile
+.git
+.vscode
+.github
+*.md

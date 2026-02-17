@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { routerInterfaces, routers } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { decrypt } from '../lib/encryption.js';
+import { logger } from '../lib/logger.js';
 import {
     connectToRouter,
     getInterfaceTraffic,
@@ -50,10 +51,10 @@ export class SocketService {
             path: '/socket.io'
         });
 
-        console.log('🔌 Socket.io initialized');
+        logger.info('🔌 Socket.io initialized');
 
         this.io.on('connection', (socket: Socket) => {
-            console.log(`🔌 Client connected: ${socket.id}`);
+            logger.info({ socketId: socket.id }, '🔌 Client connected');
 
             socket.on('subscribe_traffic', async (routerId: string) => {
                 await this.handleSubscribe(socket, routerId);
@@ -64,7 +65,7 @@ export class SocketService {
             });
 
             socket.on('disconnect', () => {
-                console.log(`🔌 Client disconnected: ${socket.id}`);
+                logger.info({ socketId: socket.id }, '🔌 Client disconnected');
                 this.handleDisconnect(socket);
             });
         });
@@ -73,7 +74,7 @@ export class SocketService {
     private async handleSubscribe(socket: Socket, routerId: string) {
         const room = `router_${routerId}`;
         socket.join(room);
-        console.log(`🔌 Socket ${socket.id} joined ${room} (Router: ${routerId})`);
+        logger.debug({ socketId: socket.id, room, routerId }, '🔌 Socket joined room');
 
         let state = this.pollStates.get(routerId);
         if (!state) {
@@ -101,7 +102,7 @@ export class SocketService {
     private handleUnsubscribe(socket: Socket, routerId: string) {
         const room = `router_${routerId}`;
         socket.leave(room);
-        console.log(`🔌 Socket ${socket.id} left ${room}`);
+        logger.debug({ socketId: socket.id, room }, '🔌 Socket left room');
 
         const state = this.pollStates.get(routerId);
         if (state) {
@@ -123,7 +124,7 @@ export class SocketService {
             const roomSize = this.io?.sockets.adapter.rooms.get(room)?.size || 0;
 
             if (roomSize === 0 && state.intervalId) {
-                console.log(`🔌 No more subscribers for ${routerId}, stopping polling`);
+                logger.debug({ routerId }, '🔌 No more subscribers, stopping polling');
                 this.stopPolling(routerId);
                 state.subscribers = 0;
             } else {
@@ -133,7 +134,7 @@ export class SocketService {
     }
 
     private async startPolling(routerId: string) {
-        console.log(`🚀 Starting REST API polling for router ${routerId}`);
+        logger.info({ routerId }, '🚀 Starting REST API polling');
         const state = this.pollStates.get(routerId);
         if (!state) {
             console.error(`❌ No poll state found for ${routerId}`);
@@ -162,7 +163,7 @@ export class SocketService {
                 timeout: 10
             };
 
-            console.log(`📋 Loaded API config for ${router.host}:${state.config.port}`);
+            logger.debug({ host: router.host, port: state.config.port }, '📋 Loaded API config');
 
             // Start simple interval
             state.intervalId = setInterval(() => this.pollRouter(routerId), 1000); // 1s interval for smoothness
@@ -189,7 +190,7 @@ export class SocketService {
             }
             state.lastBytes.clear();
             state.interfaceNames = [];
-            console.log(`🛑 Stopped polling for router ${routerId}`);
+            logger.info({ routerId }, '🛑 Stopped polling');
         }
     }
 
@@ -200,7 +201,7 @@ export class SocketService {
         try {
             // 1. Maintain Connection
             if (!state.api || !state.api.connected) {
-                console.log(`🔌 Connecting to router ${state.config.host}...`);
+                logger.debug({ host: state.config.host }, '🔌 Connecting to router');
                 state.api = await connectToRouter(state.config);
                 // Also reset interface list on reconnect
                 state.lastInterfaceSync = 0;
@@ -242,6 +243,14 @@ export class SocketService {
                 state.api = null;
             }
         }
+    }
+
+    public async stopAll() {
+        logger.info('🛑 Stopping all socket polling intervals...');
+        const stopPromises = Array.from(this.pollStates.keys()).map(routerId => this.stopPolling(routerId));
+        await Promise.all(stopPromises);
+        this.io?.close();
+        logger.info('✅ Socket server stopped');
     }
 }
 

@@ -5,6 +5,7 @@ import { onus, type Onu } from '../db/schema/onus.js';
 import { snmpService } from './snmp.service.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
+import { logger } from '../lib/logger.js';
 
 export class OltService {
     private static instance: OltService;
@@ -229,7 +230,7 @@ export class OltService {
                 });
 
                 if (isReachable) {
-                    console.log(`OLT ${olt.name} reachable via TCP Port ${olt.webPort || 80} (Fallback)`);
+                    logger.info({ olt: olt.name, port: olt.webPort || 80 }, 'OLT reachable via TCP Port (Fallback)');
                     isOnline = true;
                     if (webStatus === 'offline') webStatus = 'online';
                 }
@@ -398,7 +399,7 @@ export class OltService {
         const olt = await this.findByIdInternal(oltId);
         if (!olt) throw new Error('OLT not found');
 
-        console.log(`Starting ONU Sync for OLT: ${olt.name} (${olt.host})`);
+        logger.info({ olt: olt.name, host: olt.host }, 'Starting ONU Sync');
 
         // 1. Fetch ONUs from Driver
         let driverOnus: any[] = [];
@@ -410,7 +411,7 @@ export class OltService {
         }
 
         if (!driverOnus || driverOnus.length === 0) {
-            console.log(`No ONUs found in OLT ${olt.name}`);
+            logger.warn({ olt: olt.name }, 'No ONUs found in OLT');
             return { added: 0, updated: 0, total: 0 };
         }
 
@@ -421,14 +422,14 @@ export class OltService {
         let added = 0;
         let updated = 0;
 
-        // 3. Process each ONU
+        // 3. Prepare Batch Data
+        const valuesToUpsert: any[] = [];
+        const now = new Date();
+
         for (const device of driverOnus) {
-            if (!device.sn) continue; // Skip if no SN (Generic driver might return empty)
+            if (!device.sn) continue;
 
-            // Map Status
             let status: 'online' | 'offline' | 'lost' | 'power_down' | 'dying_gasp' | 'unknown' = 'unknown';
-
-            // Normalize status string
             const rawStatus = String(device.status || '').toLowerCase();
 
             if (rawStatus === 'online' || rawStatus === 'active' || rawStatus === '1') {
@@ -442,70 +443,56 @@ export class OltService {
                 status = 'offline';
             }
 
-            // Calculate Power (Optional)
             const rxPower = device.signal ? String(device.signal) : null;
+            const defaultName = device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`;
 
-            // 4. UPSERT Operation
-            // We use SN as the unique key. If exists, update OLT info.
-            // We append 'olt' to discovery_sources if not present.
+            valuesToUpsert.push({
+                sn: device.sn,
+                oltId: oltId,
+                ponPort: device.ponId,
+                onuIndex: device.onuId,
+                name: defaultName,
+                status: status,
+                lastRxPower: rxPower,
+                discoverySources: ['olt'],
+                lastSeen: status === 'online' ? now : null, // Handled by COALESCE in upsert logic if needed
+                lastDownReason: device.lastDownReason,
+                updatedAt: now,
+            });
+        }
 
+        // 4. BATCH UPSERT Operation
+        if (valuesToUpsert.length > 0) {
             try {
-                // Check if exists first to handle discovery_sources logic simpler
-                const [existing] = await db
-                    .select()
-                    .from(onus)
-                    .where(eq(onus.sn, device.sn));
-
-                if (existing) {
-                    // UPDATE
-                    // Merge sources uniquely
-                    const sources = (existing.discoverySources as string[]) || [];
-                    if (!sources.includes('olt')) sources.push('olt');
-
-                    await db.update(onus)
-                        .set({
-                            oltId: oltId,
-                            ponPort: device.ponId,
-                            onuIndex: device.onuId,
-                            lastRxPower: rxPower,
-                            // Only update status if the device is currently tracked by OLT
-                            // If we implement priority later, we might check if Netwatch is 'online'
-                            status: status,
-
-                            // If name is empty in DB, use OLT name. If DB has name, keep it (Manual override priority)
-                            name: existing.name || device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
-
-                            // Only update lastSeen if the device is actually online
-                            lastSeen: status === 'online' ? new Date() : existing.lastSeen,
-                            lastDownReason: device.lastDownReason, // Update Reason
-                            updatedAt: new Date(),
-                            discoverySources: sources
-                        })
-                        .where(eq(onus.id, existing.id));
-
-                    updated++;
-                } else {
-                    // INSERT
-                    await db.insert(onus).values({
-                        sn: device.sn,
-                        oltId: oltId,
-                        ponPort: device.ponId,
-                        onuIndex: device.onuId,
-                        name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
-                        status: status,
-                        lastRxPower: rxPower,
-                        discoverySources: ['olt'],
-                        lastSeen: new Date(),
-                        lastDownReason: device.lastDownReason,
+                // Perform batch upsert using Drizzle's onConflictDoUpdate
+                await db.insert(onus)
+                    .values(valuesToUpsert)
+                    .onConflictDoUpdate({
+                        target: onus.sn,
+                        set: {
+                            oltId: sql`excluded.olt_id`,
+                            ponPort: sql`excluded.pon_port`,
+                            onuIndex: sql`excluded.onu_index`,
+                            lastRxPower: sql`excluded.last_rx_power`,
+                            status: sql`excluded.status`,
+                            // Keep existing name if present, otherwise use OLT discovered name
+                            name: sql`COALESCE(onus.name, excluded.name)`,
+                            // Only update lastSeen if the new status is online
+                            lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
+                            lastDownReason: sql`excluded.last_down_reason`,
+                            updatedAt: sql`excluded.updated_at`,
+                        }
                     });
-                    added++;
-                }
-            } catch (err) {
-                console.error(`Failed to upsert ONU ${device.sn}:`, err);
+
+                added = valuesToUpsert.length; // Approximate simplified report
+                logger.info({ count: valuesToUpsert.length, olt: olt.name }, '✅ Batch Upserted ONUs');
+            } catch (err: any) {
+                console.error(`Batch upsert failed for OLT ${olt.name}:`, err);
+                throw err;
             }
         }
 
-        console.log(`ONU Sync Complete for ${olt.name}: +${added} / ~${updated}`);
+        logger.info({ olt: olt.name, added, updated }, 'ONU Sync Complete');
         return { added, updated, total: driverOnus.length };
     }
 
