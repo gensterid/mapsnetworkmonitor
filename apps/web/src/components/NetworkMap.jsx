@@ -2336,7 +2336,7 @@ const NetworkMap = ({
                     <MapContainer
                         center={center}
                         zoom={10}
-                        maxZoom={20} // Fix: Map has no maxZoom specified error for clustering
+                        maxZoom={22} // Increased to allow high zoom ungrouping
                         scrollWheelZoom={true}
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
@@ -2409,7 +2409,7 @@ const NetworkMap = ({
                                         chunkedLoading
                                         zoomToBoundsOnClick={true}
                                         spiderfyOnMaxZoom={false}
-                                        disableClusteringAtZoom={18}
+                                        disableClusteringAtZoom={21} // Ungroup at Zoom 21 as requested
                                         showCoverageOnHover={false}
                                         maxClusterRadius={40}
                                         animate={true}
