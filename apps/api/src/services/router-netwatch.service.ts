@@ -43,7 +43,7 @@ export class RouterNetwatchService {
             })
             .from(routerNetwatch)
             .leftJoin(onus, or(
-                eq(routerNetwatch.host, onus.host),
+                sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
                 eq(routerNetwatch.linkedOnuId, onus.id)
             ))
             .where(eq(routerNetwatch.routerId, routerId))
@@ -278,15 +278,25 @@ export class RouterNetwatchService {
     async syncToOnus(routerId: string): Promise<void> {
         try {
             const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
-            if (netwatchEntries.length === 0) return;
+            if (netwatchEntries.length === 0) {
+                console.log(`[Unified Linkage] No Netwatch entries to sync for router ${routerId}`);
+                return;
+            }
 
+            // Fetch all ONUs that have a host (IP) assigned
             const activeOnus = await db.select().from(onus).where(isNotNull(onus.host));
-            const hostToOnuId = new Map(activeOnus.map(o => [o.host, o]));
+
+            // Create a map for faster lookup, trimming keys to be robust
+            const hostToOnuId = new Map(activeOnus.map(o => [(o.host || '').trim(), o]));
+
+            let linkedCount = 0;
+            let missedCount = 0;
 
             for (const entry of netwatchEntries) {
-                if (!entry.host || entry.host === '0.0.0.0') continue;
+                const host = (entry.host || '').trim();
+                if (!host || host === '0.0.0.0') continue;
 
-                const targetOnu = hostToOnuId.get(entry.host);
+                const targetOnu = hostToOnuId.get(host);
                 if (targetOnu) {
                     let status: 'online' | 'offline' | 'unknown' = 'unknown';
                     if (entry.status === 'up') status = 'online';
@@ -301,7 +311,18 @@ export class RouterNetwatchService {
                         discoverySources: sources,
                         updatedAt: new Date()
                     }).where(eq(onus.id, targetOnu.id));
+                    linkedCount++;
+                } else {
+                    missedCount++;
+                    // Debug: Log missed IPs to help diagnose Proxmox issues
+                    if (process.env.NODE_ENV !== 'production' || missedCount <= 10) {
+                        console.log(`[Unified Linkage] Missed sync: No ONU found for host [${host}] (Router: ${routerId})`);
+                    }
                 }
+            }
+
+            if (linkedCount > 0 || missedCount > 0) {
+                console.log(`[Unified Linkage] Sync complete for router ${routerId}: ${linkedCount} linked, ${missedCount} missed.`);
             }
         } catch (e) {
             console.error(`[Unified Linkage] Failed to sync Netwatch to ONUs for router ${routerId}:`, e);

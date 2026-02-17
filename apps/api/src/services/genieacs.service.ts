@@ -85,6 +85,10 @@ export const genieacsService = {
     getDevices: async (routerId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
         try {
             const { url, auth } = await getGenieAcsConfig(routerId);
+
+            // Debug: Log URL to verify Proxmox connectivity
+            console.log(`[GenieACS] Fetching devices from ${url}/devices...`);
+
             const projection = {
                 _id: 1,
                 _registered: 1,
@@ -125,8 +129,10 @@ export const genieacsService = {
                     projection: Object.keys(projection).join(',')
                 },
                 auth,
-                timeout: 5000
+                timeout: 10000 // Increased timeout for Proxmox
             });
+
+            console.log(`[GenieACS] Successfully fetched ${response.data?.length || 0} devices.`);
 
             return response.data.map((dev: any) => ({
                 _id: dev._id,
@@ -142,7 +148,8 @@ export const genieacsService = {
                 _isTr181: !!dev.Device
             }));
         } catch (error) {
-            console.error('GenieACS Error:', error instanceof Error ? error.message : error);
+            const errMsg = error instanceof Error ? error.message : String(error);
+            console.error(`[GenieACS] Failed to fetch devices: ${errMsg}`);
             return [];
         }
     },
