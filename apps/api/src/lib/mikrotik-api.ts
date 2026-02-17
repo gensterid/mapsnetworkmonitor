@@ -79,7 +79,7 @@ export async function connectToRouter(
         port: config.port,
         user: config.username,
         password: config.password,
-        timeout: config.timeout || 60,
+        timeout: config.timeout || 25, // Reduced from 60 to prevent 504 Gateway Timeout
         keepalive: true,
     });
 

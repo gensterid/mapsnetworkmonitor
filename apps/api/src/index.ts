@@ -169,6 +169,9 @@ async function runMigrations() {
 // Create Express app
 const app = express();
 
+// Trust proxy for rate limiting behind Nginx/Proxmox
+app.set('trust proxy', true);
+
 // Get port from environment
 const PORT = process.env.PORT || 3001;
 
