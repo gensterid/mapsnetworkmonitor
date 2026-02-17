@@ -2407,10 +2407,11 @@ const NetworkMap = ({
                                 return (
                                     <MarkerClusterGroup
                                         chunkedLoading
-                                        spiderfyOnMaxZoom={true}
-                                        disableClusteringAtZoom={19}
+                                        zoomToBoundsOnClick={true}
+                                        spiderfyOnMaxZoom={false}
+                                        disableClusteringAtZoom={18}
                                         showCoverageOnHover={false}
-                                        maxClusterRadius={35}
+                                        maxClusterRadius={40}
                                         animate={true}
                                         iconCreateFunction={createClusterCustomIcon}
                                         polygonOptions={{
