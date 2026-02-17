@@ -1,4 +1,9 @@
-ALTER TYPE "public"."alert_type" ADD VALUE 'system';--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TYPE "public"."alert_type" ADD VALUE 'system';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
 ALTER TABLE "netwatch_hosts" ADD COLUMN IF NOT EXISTS "last_check" timestamp;--> statement-breakpoint
 ALTER TABLE "netwatch_hosts" ADD COLUMN IF NOT EXISTS "last_up" timestamp;--> statement-breakpoint
 ALTER TABLE "netwatch_hosts" ADD COLUMN IF NOT EXISTS "last_down" timestamp;--> statement-breakpoint

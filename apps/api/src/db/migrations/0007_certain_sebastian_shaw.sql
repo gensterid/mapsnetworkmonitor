@@ -1,5 +1,15 @@
-ALTER TYPE "public"."alert_type" ADD VALUE 'pppoe_connect';--> statement-breakpoint
-ALTER TYPE "public"."alert_type" ADD VALUE 'pppoe_disconnect';--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TYPE "public"."alert_type" ADD VALUE 'pppoe_connect';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TYPE "public"."alert_type" ADD VALUE 'pppoe_disconnect';
+EXCEPTION
+    WHEN duplicate_object THEN null;
+END $$;
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "notification_groups" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"name" text NOT NULL,
