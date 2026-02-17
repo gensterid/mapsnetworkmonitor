@@ -65,10 +65,14 @@ async function getGenieAcsConfig(routerId?: string) {
     }
 
     if (!url) {
-        url = await settingsService.getSettingValue('genieacs_url', process.env.GENIEACS_URL || 'http://localhost:7557');
-        username = await settingsService.getSettingValue('genieacs_username', '');
-        const encryptedPassword = await settingsService.getSettingValue('genieacs_password_encrypted', '');
-        password = encryptedPassword ? decrypt(encryptedPassword) : '';
+        const urlSetting = await settingsService.getSetting('genieacs_url') as any;
+        const userSetting = await settingsService.getSetting('genieacs_username') as any;
+        const passSetting = await settingsService.getSetting('genieacs_password_encrypted') as any;
+
+
+        url = urlSetting?.value || process.env.GENIEACS_URL || 'http://localhost:7557';
+        username = userSetting?.value || '';
+        password = passSetting?.value ? decrypt(passSetting.value) : '';
     }
 
     return {
@@ -85,6 +89,11 @@ export const genieacsService = {
     getDevices: async (routerId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
         try {
             const { url, auth } = await getGenieAcsConfig(routerId);
+
+            if (!url || url === 'http://localhost:7557') {
+                console.warn(`[GenieACS] Warning: Using default or empty URL: [${url}]. Please check Settings -> GenieACS URL.`);
+                if (!url) throw new Error('Invalid URL: URL is empty');
+            }
 
             // Debug: Log URL to verify Proxmox connectivity
             console.log(`[GenieACS] Fetching devices from ${url}/devices...`);
