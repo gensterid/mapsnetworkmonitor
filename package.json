@@ -11,7 +11,9 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "npm run build --workspaces",
-    "db:push": "npm run db:push -w apps/api"
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:push": "npm run db:push -w apps/api",
+    "db:generate": "npm run db:generate -w apps/api"
   },
   "keywords": [],
   "author": "",

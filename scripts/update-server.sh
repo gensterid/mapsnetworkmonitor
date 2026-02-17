@@ -30,9 +30,9 @@ fi
 # We use --force to bypass any lingering platform-specific locks that might cause the Rollup error
 npm install
 
-# 4. Database Sync
-echo "🗄️ Syncing database schema..."
-npm run db:push || echo "⚠️ Database sync warning (check if migrations are needed)"
+# 4. Database Migration
+echo "🗄️ Running database migrations..."
+npm run db:migrate || { echo "❌ Database migration failed!"; exit 1; }
 
 # 5. Build Process
 echo "🏗️ Building applications..."
