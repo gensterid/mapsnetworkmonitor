@@ -252,9 +252,15 @@ const csrfProtection = (req: express.Request, res: express.Response, next: expre
         // Custom header check (common for SPAs)
         const hasCustomHeader = req.get('X-Requested-With') || req.get('X-CSRF-Token') || req.get('x-requested-with');
 
-        // Origin check
+        // Origin check (more robust for production/proxies)
         const origin = req.get('Origin');
-        const isAllowedOrigin = origin && allowedOrigins.some(ao => origin === ao || origin.startsWith(ao + '/'));
+        const normalizeOrigin = (url: string) => url.replace(/\/$/, '').toLowerCase();
+
+        const isAllowedOrigin = origin && allowedOrigins.some(ao => {
+            const normalizedAo = normalizeOrigin(ao);
+            const normalizedOrigin = normalizeOrigin(origin);
+            return normalizedOrigin === normalizedAo || normalizedOrigin.startsWith(normalizedAo + '/');
+        });
 
         if (!hasCustomHeader && !isAllowedOrigin) {
             logger.warn({

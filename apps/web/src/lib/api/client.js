@@ -7,6 +7,7 @@ const apiClient = axios.create({
     baseURL: '/api',
     headers: {
         'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
     },
     withCredentials: true, // Important for Better Auth cookies
 });
