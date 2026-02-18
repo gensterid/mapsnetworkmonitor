@@ -5,6 +5,18 @@
     z-index: 0 !important;
 }
 
+/* 
+   FIX: Remove blue/white focus outline ("white box") 
+   that appears when clicking map layers (like lines/markers)
+*/
+.leaflet-interactive:focus {
+    outline: none !important;
+}
+
+svg.leaflet-zoom-animated {
+    outline: none !important;
+}
+
 /* Fix for Google Maps tiles in some frameworks */
 .leaflet-container img {
     max-width: none !important;
