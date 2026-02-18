@@ -95,8 +95,9 @@ const FlowPathRenderer = ({
             pathElement.style.stroke = color;
             pathElement.style.strokeWidth = weight;
             pathElement.style.opacity = opacity;
+            pathElement.style.animationPlayState = paused ? 'paused' : 'running';
         }
-    }, [color, weight, opacity]);
+    }, [color, weight, opacity, paused]);
 
     return (
         <>

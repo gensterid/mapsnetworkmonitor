@@ -959,3 +959,19 @@
     box-shadow: none !important;
     border: 2px solid white !important;
 }
+
+/* ===== Global Animation Toggle Support ===== */
+.animations-disabled *,
+.animations-disabled ::before,
+.animations-disabled ::after {
+    animation-play-state: paused !important;
+    transition-duration: 0ms !important;
+}
+
+/* Specific overrides for keyframes-based pulses */
+.animations-disabled .device-icon--online .device-icon__badge,
+.animations-disabled .device-icon--warning .device-icon__badge,
+.animations-disabled .marker-pulse-warning .device-icon__badge,
+.animations-disabled .custom-cluster-marker div {
+    animation: none !important;
+}

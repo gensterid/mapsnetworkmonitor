@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 import helmet from 'helmet';
 import routes from './routes/index.js';
 import backupRoutes from './routes/backup.routes.js';
@@ -157,6 +158,23 @@ async function runMigrations() {
                     ALTER TABLE olts ADD COLUMN last_web_status TEXT;
                     RAISE NOTICE 'Added last_web_status column to olts';
                 END IF;
+
+                -- Add OLT Location
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'olts' AND column_name = 'latitude'
+                ) THEN
+                    ALTER TABLE olts ADD COLUMN latitude NUMERIC(10, 7);
+                    RAISE NOTICE 'Added latitude column to olts';
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = 'olts' AND column_name = 'longitude'
+                ) THEN
+                    ALTER TABLE olts ADD COLUMN longitude NUMERIC(10, 7);
+                    RAISE NOTICE 'Added longitude column to olts';
+                END IF;
             END $$;
         `);
         logger.info('✅ Database migrations complete');
@@ -168,6 +186,9 @@ async function runMigrations() {
 
 // Create Express app
 const app = express();
+
+// Enable Gzip compression
+app.use(compression());
 
 // Trust proxy for rate limiting behind Nginx/Proxmox
 app.set('trust proxy', true);
@@ -191,21 +212,17 @@ const apiLimiter = rateLimit({
 
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // Limit each IP to 20 auth attempts per 15 minutes
+    max: 100, // Increased from 20 to 100 to accommodate frequent session checks
     standardHeaders: true,
     legacyHeaders: false,
     message: {
         error: 'Too Many Requests',
-        message: 'Too many login attempts, please try again after 15 minutes',
+        message: 'Too many authentication attempts, please try again after 15 minutes',
     },
 });
 
 // Security middleware
 app.use(helmet());
-
-// Apply rate limiters
-app.use('/api/auth', authLimiter);
-app.use('/api', apiLimiter);
 
 // CORS configuration
 const allowedOrigins = process.env.CORS_ORIGIN
@@ -220,6 +237,10 @@ app.use(
         allowedHeaders: ['Content-Type', 'Authorization'],
     })
 );
+
+// Apply rate limiters AFTER CORS
+app.use('/api/auth', authLimiter);
+app.use('/api', apiLimiter);
 
 // Body parsing
 app.use(express.json());

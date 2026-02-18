@@ -2,240 +2,126 @@ import React from 'react';
 import './map.css';
 
 /**
- * MapLegend - Legend showing status indicators
- */
-/**
- * MapLegend - Legend showing status indicators
+ * MapLegend - Legend showing status indicators (Simple Version)
  */
 const MapLegend = ({
-    showLabels: initialShowLabels = true,
-    onToggleLabels: initialOnToggleLabels,
-    enableAnimation = true,
-    onToggleAnimation,
-    enableClustering = true,
-    onToggleClustering,
-    lowPerfMode = false,
-    onToggleLowPerf,
-    isHeatmapMode = false,
+    showLabels,
+    onToggleLabels,
+    isHeatmapMode,
     mapColors,
+    enableAnimation,
+    setEnableAnimation,
+    enableClustering,
+    setEnableClustering,
+    lowPerfMode,
+    setLowPerfMode
 }) => {
-    // Internal state for mobile responsiveness
-    // On desktop, we respect the parent's prop. On mobile, we might default to hidden.
-    const [isMobile, setIsMobile] = React.useState(window.innerWidth < 640);
-    const [localShowLabels, setLocalShowLabels] = React.useState(initialShowLabels);
-
-    React.useEffect(() => {
-        const handleResize = () => {
-            const mobile = window.innerWidth < 640;
-            setIsMobile(mobile);
-            // Auto-collapse on mobile if it was previously open? Optional.
-            // keeping it simple for now.
-        };
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
-
-    // Sync local state with prop when not controlled or just for init
-    React.useEffect(() => {
-        if (isMobile) {
-            // Force minimize on mobile init if needed, effectively "default closed"
-            setLocalShowLabels(false);
-        } else {
-            setLocalShowLabels(initialShowLabels);
-        }
-    }, [initialShowLabels, isMobile]);
-
-    const toggleLabels = () => {
-        if (initialOnToggleLabels && !isMobile) {
-            initialOnToggleLabels();
-        } else {
-            setLocalShowLabels(!localShowLabels);
-        }
-    };
-
-    const showContent = isMobile ? localShowLabels : initialShowLabels;
-
     return (
-        <div className={`map-legend ${isMobile && !showContent ? 'map-legend--minimized' : ''}`}>
-            <div className="flex items-center justify-between mb-2">
-                <div className="map-legend__title mb-0">Legend</div>
-                {/* Mobile toggle button inside the header */}
-                {isMobile && (
-                    <button
-                        onClick={() => setLocalShowLabels(!localShowLabels)}
-                        className="text-slate-400 hover:text-white"
-                    >
-                        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                            {localShowLabels ? 'expand_more' : 'expand_less'}
-                        </span>
-                    </button>
+        <div className="absolute bottom-6 left-6 z-[1000] bg-slate-900/90 border border-slate-700/50 rounded-lg p-2 backdrop-blur-sm shadow-xl min-w-[160px]">
+            <div className="text-slate-400 text-[9px] uppercase font-bold tracking-wider mb-1.5 px-1">Legend</div>
+
+            <div className="flex flex-col gap-1.5 px-1">
+                {/* Status indicators */}
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_4px_rgba(16,185,129,0.4)] border border-white/10"></span>
+                    <span className="text-white text-[10px]">Online / Up</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.4)] border border-white/10"></span>
+                    <span className="text-white text-[10px]">Offline / Down</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.4)] border border-white/10"></span>
+                    <span className="text-white text-[10px]">Warning / Alert</span>
+                </div>
+
+                {/* Device categories removed for slimness */}
+
+                {!isHeatmapMode ? (
+                    <div className="space-y-1 mt-0.5">
+                        <div className="flex items-center gap-2">
+                            <span className="w-4 h-0.5 rounded-full bg-emerald-500"></span>
+                            <span className="text-white text-[10px]">Active Link</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-4 h-0.5 rounded-full bg-red-500 border-b border-dashed"></span>
+                            <span className="text-white text-[10px]">Down Link</span>
+                        </div>
+                    </div>
+                ) : (
+                    <>
+                        {/* Heatmap Legend */}
+                        <div className="mt-1 text-slate-500 text-[9px] uppercase font-semibold">Traffic Load</div>
+
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-0.5 bg-blue-500"></span>
+                            <span className="text-white text-[9px]">Idle (&lt; {mapColors?.trafficThresholdIdle || 1}M)</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-0.5 bg-emerald-500"></span>
+                            <span className="text-white text-[9px]">Normal</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-1 bg-yellow-400"></span>
+                            <span className="text-white text-[9px]">High</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-1.5 bg-fuchsia-500 shadow-[0_0_3px_rgba(217,70,239,0.6)]"></span>
+                            <span className="text-white text-[9px]">Peak (&gt; {mapColors?.trafficThresholdHigh || 50}M)</span>
+                        </div>
+                    </>
                 )}
             </div>
 
-            {(showContent || !isMobile) && (
-                <>
-                    <div className="map-legend__items">
-                        {/* Status indicators - Always show Offline as it's critical */}
-                        <div className="map-legend__item">
-                            <span className="map-legend__dot map-legend__dot--offline"></span>
-                            <span className="map-legend__text">Offline / Down</span>
-                        </div>
+            {/* PERFORMA Section (Optimization Controls) */}
+            <div className="mt-2.5 border-t border-slate-700/30 pt-2 px-1">
+                <div className="text-slate-500 text-[9px] uppercase font-bold mb-1.5 tracking-wider">Performa</div>
 
-                        {!isHeatmapMode ? (
-                            <>
-                                <div className="map-legend__item">
-                                    <span className="map-legend__dot map-legend__dot--online"></span>
-                                    <span className="map-legend__text">Online / Up</span>
-                                </div>
-                                <div className="map-legend__item" style={{ marginTop: 8 }}>
-                                    <span className="map-legend__line map-legend__line--up"></span>
-                                    <span className="map-legend__text">Active Link</span>
-                                </div>
-                                <div className="map-legend__item">
-                                    <span className="map-legend__line map-legend__line--down"></span>
-                                    <span className="map-legend__text">Down Link</span>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                {/* Heatmap Legend */}
-                                <div style={{ marginTop: 8, marginBottom: 4, fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Traffic Load</div>
+                <div className="grid grid-cols-2 gap-1.5">
+                    <button
+                        onClick={() => setEnableAnimation(!enableAnimation)}
+                        className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium transition-colors border ${enableAnimation ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700/50'
+                            }`}
+                        title="Toggle Animation"
+                    >
+                        <span className="material-symbols-outlined text-[13px]">animation</span>
+                        {enableAnimation ? 'Animasi' : 'Off'}
+                    </button>
 
-                                <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: mapColors?.trafficyIdle || '#3b82f6', height: 2, width: 24 }}></span>
-                                    <span className="map-legend__text">Idle (&lt; {mapColors?.trafficThresholdIdle || 1}M)</span>
-                                </div>
-                                <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: mapColors?.trafficNormal || '#10b981', height: 3, width: 24 }}></span>
-                                    <span className="map-legend__text">Normal ({mapColors?.trafficThresholdIdle || 1}-{mapColors?.trafficThresholdNormal || 20}M)</span>
-                                </div>
-                                <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: mapColors?.trafficHigh || '#facc15', height: 4, width: 24 }}></span>
-                                    <span className="map-legend__text">High ({mapColors?.trafficThresholdNormal || 20}-{mapColors?.trafficThresholdHigh || 50}M)</span>
-                                </div>
-                                <div className="map-legend__item">
-                                    <span className="map-legend__line" style={{ background: mapColors?.trafficPeak || '#d946ef', height: 5, width: 24, boxShadow: `0 0 4px ${mapColors?.trafficPeak || '#d946ef'}` }}></span>
-                                    <span className="map-legend__text">Peak (&gt; {mapColors?.trafficThresholdHigh || 50}M)</span>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                    <button
+                        onClick={() => setEnableClustering(!enableClustering)}
+                        className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium transition-colors border ${enableClustering ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-800 text-slate-400 border-slate-700/50'
+                            }`}
+                        title="Toggle Clustering"
+                    >
+                        <span className="material-symbols-outlined text-[13px]">group_work</span>
+                        {enableClustering ? 'Cluster' : 'Off'}
+                    </button>
 
-                    {/* Performance toggles */}
-                    <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                        <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', marginBottom: 6, textTransform: 'uppercase' }}>
-                            Performa
-                        </div>
+                    <button
+                        onClick={() => setLowPerfMode(!lowPerfMode)}
+                        className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium transition-colors border ${lowPerfMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-slate-800 text-slate-400 border-slate-700/50'
+                            }`}
+                        title="Toggle Low Performance Mode"
+                    >
+                        <span className="material-symbols-outlined text-[13px]">monitor_heart</span>
+                        {lowPerfMode ? 'LowPerf' : 'Off'}
+                    </button>
 
-                        {/* Animation toggle */}
-                        {onToggleAnimation && (
-                            <button
-                                onClick={onToggleAnimation}
-                                className="map-legend__toggle"
-                                style={{
-                                    marginBottom: 4,
-                                    padding: '5px 8px',
-                                    background: enableAnimation ? 'rgba(16, 185, 129, 0.2)' : 'rgba(71, 85, 105, 0.4)',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    color: 'white',
-                                    fontSize: 10,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    width: '100%',
-                                }}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                                    {enableAnimation ? 'animation' : 'motion_photos_off'}
-                                </span>
-                                Animasi: {enableAnimation ? 'ON' : 'OFF'}
-                            </button>
-                        )}
-
-                        {/* Clustering toggle */}
-                        {onToggleClustering && (
-                            <button
-                                onClick={onToggleClustering}
-                                className="map-legend__toggle"
-                                style={{
-                                    padding: '5px 8px',
-                                    background: enableClustering ? 'rgba(59, 130, 246, 0.2)' : 'rgba(71, 85, 105, 0.4)',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    color: 'white',
-                                    fontSize: 10,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    width: '100%',
-                                }}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                                    {enableClustering ? 'group_work' : 'scatter_plot'}
-                                </span>
-                                Cluster: {enableClustering ? 'ON' : 'OFF'}
-                            </button>
-                        )}
-
-                        {/* Low Perf Mode Toggle */}
-                        {onToggleLowPerf && (
-                            <button
-                                onClick={onToggleLowPerf}
-                                className="map-legend__toggle"
-                                style={{
-                                    marginTop: 4,
-                                    padding: '5px 8px',
-                                    background: lowPerfMode ? 'rgba(239, 68, 68, 0.4)' : 'rgba(71, 85, 105, 0.4)',
-                                    border: 'none',
-                                    borderRadius: 4,
-                                    color: 'white',
-                                    fontSize: 10,
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    width: '100%',
-                                }}
-                            >
-                                <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                                    {lowPerfMode ? 'speed' : 'monitor_heart'}
-                                </span>
-                                Low Perf: {lowPerfMode ? 'ON' : 'OFF'}
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Label toggle (Desktop only, or bottom of mobile if expanded) */}
-                    {initialOnToggleLabels && !isMobile && (
+                    {onToggleLabels && (
                         <button
-                            onClick={initialOnToggleLabels}
-                            className="map-legend__toggle"
-                            style={{
-                                marginTop: 8,
-                                padding: '6px 10px',
-                                background: showContent ? 'rgba(59, 130, 246, 0.2)' : 'rgba(71, 85, 105, 0.4)',
-                                border: 'none',
-                                borderRadius: 4,
-                                color: 'white',
-                                fontSize: 11,
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 6,
-                                width: '100%',
-                            }}
+                            onClick={onToggleLabels}
+                            className="flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/50 transition-colors"
+                            title="Toggle Labels"
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
-                                {showContent ? 'label' : 'label_off'}
+                            <span className="material-symbols-outlined text-[13px]">
+                                {showLabels ? 'label_off' : 'label'}
                             </span>
-                            {showContent ? 'Hide Labels' : 'Show Labels'}
+                            {showLabels ? 'Hide' : 'Show'}
                         </button>
                     )}
-                </>
-            )}
+                </div>
+            </div>
         </div>
     );
 };

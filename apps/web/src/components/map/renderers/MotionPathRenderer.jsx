@@ -131,6 +131,13 @@ const MotionPathRenderer = ({
             motionEl.style.animationPlayState = 'running';
         }
 
+        // Also pause any CSS animations on the path itself
+        const layer = polylineRef.current;
+        const pathElement = layer?.getElement?.() || layer?._path;
+        if (pathElement) {
+            pathElement.style.animationPlayState = paused ? 'paused' : 'running';
+        }
+
     }, [motionColor, delay, reverse, paused, motionElementRef.current]); // Dependent on style props
 
     return (

@@ -1,9 +1,10 @@
-import { eq, and, isNotNull, or, sql, desc, getTableColumns } from 'drizzle-orm';
+import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
     routerNetwatch,
     onus,
+    olts,
     alerts,
     type RouterNetwatch,
 } from '../db/schema/index.js';
@@ -37,15 +38,19 @@ export class RouterNetwatchService {
                 lastRxPower: onus.lastRxPower,
                 physicalStatus: onus.status,
                 discoverySources: onus.discoverySources,
+                ponPort: onus.ponPort,
+                onuIndex: onus.onuIndex,
 
                 // Allow manual override if already linked via ID
                 linkedOnuId: routerNetwatch.linkedOnuId,
+                oltName: olts.name
             })
             .from(routerNetwatch)
             .leftJoin(onus, or(
                 sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
                 eq(routerNetwatch.linkedOnuId, onus.id)
             ))
+            .leftJoin(olts, eq(onus.oltId, olts.id))
             .where(eq(routerNetwatch.routerId, routerId))
             .orderBy(routerNetwatch.host) as any;
 
@@ -78,6 +83,40 @@ export class RouterNetwatchService {
             }
             return entry;
         });
+    }
+
+    /**
+     * UNIFIED LINKAGE: Get all netwatch entries for multiple routers in one batch
+     */
+    async getNetwatchAll(routerIds: string[]): Promise<any[]> {
+        if (!routerIds || routerIds.length === 0) return [];
+
+        return await db
+            .select({
+                ...getTableColumns(routerNetwatch),
+                latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
+                longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
+
+                model: onus.model,
+                ssid: onus.ssid,
+                firmwareVersion: onus.firmwareVersion,
+                sn: onus.sn,
+                lastRxPower: onus.lastRxPower,
+                physicalStatus: onus.status,
+                discoverySources: onus.discoverySources,
+                ponPort: onus.ponPort,
+                onuIndex: onus.onuIndex,
+                linkedOnuId: routerNetwatch.linkedOnuId,
+                oltName: olts.name
+            })
+            .from(routerNetwatch)
+            .leftJoin(onus, or(
+                sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
+                eq(routerNetwatch.linkedOnuId, onus.id)
+            ))
+            .leftJoin(olts, eq(onus.oltId, olts.id))
+            .where(inArray(routerNetwatch.routerId, routerIds))
+            .orderBy(routerNetwatch.host) as any;
     }
 
     /**

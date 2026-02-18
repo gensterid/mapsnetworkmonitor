@@ -280,7 +280,8 @@ export class OltService {
 
         // [SECURITY] Enforce Web API Disable Flag
         if (!olt.useWeb) {
-            throw new Error(`Web API access is disabled for OLT ${olt.name}. Please enable 'Use Web API' in settings.`);
+            logger.info({ olt: olt.name }, 'Web API access is disabled for this OLT. Skipping live fetch.');
+            return [];
         }
 
         try {
@@ -501,7 +502,8 @@ export class OltService {
         return db.select({
             ...getTableColumns(onus),
             lastDown: onus.lastSeen, // Alias for frontend compatibility
-            routerId: olts.parentId
+            routerId: olts.parentId,
+            oltName: olts.name
         })
             .from(onus)
             .leftJoin(olts, eq(onus.oltId, olts.id))

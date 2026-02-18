@@ -127,7 +127,7 @@ router.delete('/:id', async (req, res) => {
 // Get OLT ONUs (via Driver)
 router.get('/:id/onus', async (req, res) => {
     try {
-        console.log(`GET /api/olts/${req.params.id}/onus - Fetching ONUs...`);
+        // console.log(`GET /api/olts/${req.params.id}/onus - Fetching ONUs...`);
         const onus = await oltService.getOnus(req.params.id);
         res.json(onus);
     } catch (error: any) {

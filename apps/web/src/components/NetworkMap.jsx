@@ -18,6 +18,7 @@ import {
     MapFAB,
     MapToolbar,
     MapLegend,
+    MapControls,
     DeviceModal,
     createDeviceIcon,
     LineThicknessControl,
@@ -629,33 +630,49 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                     </span>
                 </div>
 
-                {/* Unified Linkage Metadata */}
-                {node.model && (
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">Model</span>
-                        <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.model}>{node.model}</span>
-                    </div>
-                )}
-                {node.sn && (
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">SN</span>
-                        <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.sn}>{node.sn}</span>
-                    </div>
-                )}
-                {node.ssid && (
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">SSID</span>
-                        <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.ssid}>{node.ssid}</span>
-                    </div>
-                )}
-                {node.lastRxPower && (
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">Signal</span>
-                        <span className={`font-mono font-bold text-xs ${parseFloat(node.lastRxPower) < -27 ? 'text-red-400' :
-                            parseFloat(node.lastRxPower) < -24 ? 'text-yellow-400' : 'text-emerald-400'
-                            }`}>
-                            {node.lastRxPower} dBm
-                        </span>
+                {/* Unified Linkage Metadata (Netwatch + ACS + OLT) */}
+                {(node.model || node.sn || node.ssid || node.oltName || node.ponPort) && (
+                    <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
+                        {node.model && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Model</span>
+                                <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.model}>{node.model}</span>
+                            </div>
+                        )}
+                        {node.sn && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Serial</span>
+                                <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.sn}>{node.sn}</span>
+                            </div>
+                        )}
+                        {node.ssid && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">SSID</span>
+                                <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.ssid}>{node.ssid}</span>
+                            </div>
+                        )}
+                        {node.oltName && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">OLT</span>
+                                <span className="text-blue-400 font-mono truncate max-w-[100px]" title={node.oltName}>{node.oltName}</span>
+                            </div>
+                        )}
+                        {node.ponPort && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">PON Port</span>
+                                <span className="text-slate-200 font-mono">{node.ponPort}</span>
+                            </div>
+                        )}
+                        {node.lastRxPower && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Signal</span>
+                                <span className={`font-mono font-bold ${parseFloat(node.lastRxPower) < -27 ? 'text-red-400' :
+                                    parseFloat(node.lastRxPower) < -24 ? 'text-yellow-400' : 'text-emerald-400'
+                                    }`}>
+                                    {node.lastRxPower} dBm
+                                </span>
+                            </div>
+                        )}
                     </div>
                 )}
                 {(node.lastDownReason || node.status === 'power_down' || node.status === 'dying_gasp' || node.status === 'lost') && (
@@ -680,7 +697,7 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         <span className="text-slate-200 font-mono text-[10px]">{trafficInterface}</span>
                     </div>
                 )}
-                {line && (
+                {line ? (
                     <>
                         <div className="flex items-center justify-between text-xs">
                             <span className="text-slate-400">Source</span>
@@ -690,8 +707,41 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                             <span className="text-slate-400">Distance</span>
                             <span className="text-slate-200 font-mono">{line.distance.toFixed(2)} m</span>
                         </div>
+                        {/* Show parent specific info (OLT/ONU) */}
+                        {line.parentData && line.parentData.deviceType === 'onu' && (
+                            <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
+                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Parent OLT Info</div>
+                                {line.parentData.oltName && (
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">OLT</span>
+                                        <span className="text-blue-400 font-mono">{line.parentData.oltName}</span>
+                                    </div>
+                                )}
+                                {line.parentData.ponPort && (
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">Port</span>
+                                        <span className="text-slate-200 font-mono">{line.parentData.ponPort}</span>
+                                    </div>
+                                )}
+                                {line.parentData.lastRxPower && (
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-slate-400">ONT Signal</span>
+                                        <span className={`font-mono font-bold ${parseFloat(line.parentData.lastRxPower) < -27 ? 'text-red-400' :
+                                            parseFloat(line.parentData.lastRxPower) < -24 ? 'text-yellow-400' : 'text-emerald-400'
+                                            }`}>
+                                            {line.parentData.lastRxPower} dBm
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </>
-                )}
+                ) : (node.connectionType === 'client' && node.connectedToId) ? (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Connection</span>
+                        <span className="text-slate-200">Linked to Client</span>
+                    </div>
+                ) : null}
                 {isUp && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Latency</span>
@@ -1240,24 +1290,46 @@ const NetworkMap = ({
             const res = await apiClient.get('/routers');
             return res.data.data;
         },
+        staleTime: 60000, // 1 minute
         placeholderData: keepPreviousData,
     });
 
-    // Fetch Netwatch
-    const { data: netwatchData, refetch: refetchNetwatch } = useQuery({
+    // Batch Fetch all Netwatch entries
+    const { data: netwatchDataBatch, refetch: refetchNetwatch } = useQuery({
         queryKey: ['netwatch-all'],
         queryFn: async () => {
-            if (!routersData) return [];
-            const targetRouters = filteredRouterId ? routersData.filter(r => r.id === filteredRouterId) : routersData;
-            const promises = targetRouters.map(r =>
-                apiClient.get(`/routers/${r.id}/netwatch`).then(res => ({ routerId: r.id, entries: res.data.data }))
-            );
-            return Promise.all(promises);
+            const res = await apiClient.get('/routers/netwatch-all');
+            return res.data.data || [];
         },
-        enabled: !!routersData && !showRoutersOnly && !netwatchOverride,
+        staleTime: 60000,
         placeholderData: keepPreviousData,
-        refetchInterval: 5000,
+        refetchInterval: 30000,
+        enabled: !netwatchOverride,
     });
+
+    // Memoize and filter netwatch data locally for compatibility with existing code
+    const netwatchData = useMemo(() => {
+        if (!netwatchDataBatch) return [];
+
+        // Transform batch data into the grouped format expected by the rest of the file
+        // [{ routerId: string, entries: [] }, ...]
+        const grouped = new Map();
+        netwatchDataBatch.forEach(entry => {
+            if (!grouped.has(entry.routerId)) {
+                grouped.set(entry.routerId, []);
+            }
+            grouped.get(entry.routerId).push(entry);
+        });
+
+        const formatted = Array.from(grouped.entries()).map(([routerId, entries]) => ({
+            routerId,
+            entries
+        }));
+
+        return filteredRouterId
+            ? formatted.filter(f => f.routerId === filteredRouterId)
+            : formatted;
+    }, [netwatchDataBatch, filteredRouterId]);
 
     // Fetch PPPoE
     const { data: pppoeData } = useQuery({
@@ -1280,7 +1352,7 @@ const NetworkMap = ({
             return res.data;
         },
         enabled: !showRoutersOnly,
-        staleTime: 30000,
+        staleTime: 60000,
         placeholderData: keepPreviousData,
     });
 
@@ -1308,7 +1380,6 @@ const NetworkMap = ({
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [hoveredMarkerId, setHoveredMarkerId] = useState(null); // Consolidating all marker hover here
     const [hoveredLineId, setHoveredLineId] = useState(null);
     const mapContainerRef = React.useRef(null);
@@ -1500,18 +1571,10 @@ const NetworkMap = ({
         onSuccess: (updatedData, variables) => {
             // Optimistic update for instant feedback
             queryClient.setQueryData(['netwatch-all'], (oldData) => {
-                if (!oldData) return oldData;
-                return oldData.map(group => {
-                    if (group.routerId === variables.routerId) {
-                        return {
-                            ...group,
-                            entries: group.entries.map(e =>
-                                e.id === variables.netwatchId ? { ...e, ...updatedData } : e
-                            )
-                        };
-                    }
-                    return group;
-                });
+                if (!oldData || !Array.isArray(oldData)) return oldData;
+                return oldData.map(entry =>
+                    entry.id === variables.netwatchId ? { ...entry, ...updatedData } : entry
+                );
             });
 
             // Still invalidate to ensure consistency
@@ -1802,6 +1865,10 @@ const NetworkMap = ({
                     inheritedFrom: trafficSourceDevice,
                     txRate: node.txRate,
                     rxRate: node.rxRate,
+                    // Pass parent metadata for the tooltip/popup
+                    parentData: (node.connectionType === 'client' && node.connectedToId)
+                        ? deviceMap.get(node.connectedToId)
+                        : (node.linkedOnuId ? deviceMap.get(node.linkedOnuId) : null)
                 });
             }
         });
@@ -2251,7 +2318,7 @@ const NetworkMap = ({
     }), [hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode]);
 
     return (
-        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} map-type-${mapType}`}>
+        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} ${!enableAnimation ? 'animations-disabled' : ''} map-type-${mapType}`}>
             {(!googleLoaded || !apiKey) && (
                 <div className="absolute inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center">
                     <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -2379,255 +2446,73 @@ const NetworkMap = ({
                         )
                     }
 
-                    {/* Top Controls */}
-                    {
-                        !showRoutersOnly && (
-                            <>
-                                {/* Mobile Fullscreen Button - Visible only on mobile */}
-                                <button
-                                    onClick={() => {
-                                        if (!document.fullscreenElement) {
-                                            mapContainerRef.current?.requestFullscreen();
-                                            setIsFullscreen(true);
-                                        } else {
-                                            document.exitFullscreen();
-                                            setIsFullscreen(false);
-                                        }
-                                    }}
-                                    className="sm:hidden absolute top-4 right-14 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
-                                >
-                                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                                        {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                                    </span>
-                                </button>
+                    {/* Map Controls (Right Panel) */}
+                    {!showRoutersOnly && (
+                        <MapControls
+                            searchQuery={searchQuery}
+                            setSearchQuery={setSearchQuery}
+                            mapType={mapType}
+                            setMapType={setMapType}
+                            isHeatmapMode={isHeatmapMode}
+                            setIsHeatmapMode={setIsHeatmapMode}
+                            lineThickness={lineThickness}
+                            setLineThickness={setLineThickness}
+                            isEditMode={isEditMode}
+                            setIsEditMode={setIsEditMode}
+                            isSyncing={isSyncing}
+                            onManualSync={handleManualSync}
+                            isFullscreen={isFullscreen}
+                            onToggleFullscreen={() => {
+                                if (!document.fullscreenElement) {
+                                    mapContainerRef.current?.requestFullscreen();
+                                    setIsFullscreen(true);
+                                } else {
+                                    document.exitFullscreen();
+                                    setIsFullscreen(false);
+                                }
+                            }}
+                            enableAnimation={enableAnimation}
+                            setEnableAnimation={(val) => {
+                                setEnableAnimation(val);
+                                localStorage.setItem('map_animation_enabled', JSON.stringify(val));
+                            }}
+                            enableClustering={enableClustering}
+                            setEnableClustering={(val) => {
+                                setEnableClustering(val);
+                                localStorage.setItem('map_clustering_enabled', JSON.stringify(val));
+                            }}
+                            lowPerfMode={lowPerfMode}
+                            setLowPerfMode={(val) => {
+                                setLowPerfMode(val);
+                                localStorage.setItem('map_low_perf_enabled', JSON.stringify(val));
+                            }}
+                        />
+                    )}
 
-                                {/* Mobile Menu Button - Only visible on small screens */}
-                                <button
-                                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                                    className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
-                                >
-                                    <span className="material-symbols-outlined">
-                                        {isMenuOpen ? 'close' : 'menu'}
-                                    </span>
-                                </button>
-
-                                <div className={`
-                            absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
-                            flex flex-col gap-2 bg-slate-900/90 sm:bg-slate-900/80 p-3 rounded-lg
-                            backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none
-                            transition-all duration-200 origin-top-right
-                            ${isMenuOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
-                        `}>
-
-                                    {/* Search Box */}
-                                    <div className="mb-2 w-full min-w-[200px]">
-                                        <div className="relative">
-                                            <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">search</span>
-                                            <input
-                                                type="text"
-                                                placeholder="Search map..."
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                className="w-full bg-slate-800 text-white text-xs py-1.5 pl-8 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
-                                            />
-                                            {searchQuery && (
-                                                <button
-                                                    onClick={() => setSearchQuery('')}
-                                                    aria-label="Clear search"
-                                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
-                                                >
-                                                    <span className="material-symbols-outlined text-[14px]">close</span>
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center justify-between sm:block mb-2 sm:mb-1">
-                                        <label className="text-xs text-white font-bold">Map Type</label>
-                                    </div>
-                                    <select
-                                        value={mapType}
-                                        onChange={(e) => setMapType(e.target.value)}
-                                        className="bg-slate-800 text-white text-xs p-1.5 rounded border border-slate-600 outline-none w-full"
-                                    >
-                                        <option value="roadmap">Roadmap</option>
-                                        <option value="satellite">Satellite</option>
-                                        <option value="satellite_dark">Satellite Dark</option>
-                                        <option value="hybrid">Hybrid</option>
-                                        <option value="terrain">Terrain</option>
-                                        <option value="dark">Dark Mode</option>
-                                    </select>
-
-                                    {/* Heatmap Mode Toggle */}
-                                    <div className="flex items-center justify-between sm:block mb-2 sm:mb-1 mt-2 border-t border-slate-700/50 pt-2">
-                                        <label className="flex items-center justify-between cursor-pointer group">
-                                            <span className="text-xs text-white font-bold group-hover:text-blue-400 transition-colors">
-                                                Bandwidth Heatmap
-                                            </span>
-                                            <div className="relative inline-flex items-center cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    className="sr-only peer"
-                                                    checked={isHeatmapMode}
-                                                    onChange={(e) => {
-                                                        setIsHeatmapMode(e.target.checked);
-                                                    }}
-                                                />
-                                                <div className="w-9 h-5 bg-slate-700 rounded-full peer peer-focus:ring-2 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                                            </div>
-                                        </label>
-                                    </div>
-
-                                    <div className="h-px bg-slate-700/50 my-1 sm:hidden"></div>
-
-                                    {/* Line Thickness Control */}
-                                    <div className="flex items-center justify-between p-1.5 bg-slate-800 rounded border border-slate-600 mt-2 sm:mt-1">
-                                        <span className="text-xs text-white font-medium pl-1">Line Size</span>
-                                        <div className="flex items-center gap-1">
-                                            <button
-                                                onClick={() => setLineThickness(Math.max(1, lineThickness - 1))}
-                                                className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
-                                                title="Decrease (Tipis)"
-                                            >
-                                                -
-                                            </button>
-                                            <span className="text-xs text-white font-mono w-4 text-center">{lineThickness}</span>
-                                            <button
-                                                onClick={() => setLineThickness(Math.min(10, lineThickness + 1))}
-                                                className="w-5 h-5 flex items-center justify-center bg-slate-700 hover:bg-slate-600 text-white rounded text-xs transition-colors"
-                                                title="Increase (Tebal)"
-                                            >
-                                                +
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="h-px bg-slate-700/50 my-1"></div>
-
-                                    {/* Line Opacity Control */}
-
-
-
-
-                                    {/* Edit Mode Toggle */}
-                                    <button
-                                        onClick={() => setIsEditMode(prev => !prev)}
-                                        className={`px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors ${isEditMode
-                                            ? 'bg-blue-600 text-white'
-                                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                                            } `}
-                                    >
-                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                                            {isEditMode ? 'lock_open' : 'lock'}
-                                        </span>
-                                        {isEditMode ? 'Editing' : 'Locked'}
-                                    </button>
-
-                                    {/* Refresh/Sync Button */}
-                                    <button
-                                        onClick={handleManualSync}
-                                        disabled={isSyncing}
-                                        className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                                        title="Sinkronisasi data dari MikroTik"
-                                    >
-                                        <span
-                                            className="material-symbols-outlined"
-                                            style={{
-                                                fontSize: 16,
-                                                animation: isSyncing ? 'spin 1s linear infinite' : 'none'
-                                            }}
-                                        >
-                                            sync
-                                        </span>
-                                        {isSyncing ? 'Syncing...' : 'Refresh'}
-                                    </button>
-
-                                    {/* Fullscreen Button */}
-                                    <button
-                                        onClick={() => {
-                                            if (!document.fullscreenElement) {
-                                                mapContainerRef.current?.requestFullscreen();
-                                                setIsFullscreen(true);
-                                            } else {
-                                                document.exitFullscreen();
-                                                setIsFullscreen(false);
-                                            }
-                                            setIsMenuOpen(false); // Close menu on action
-                                        }}
-                                        aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
-                                        className="mt-1 sm:mt-2 px-2 py-1.5 text-xs rounded flex items-center gap-2 sm:gap-1 transition-colors bg-slate-700 text-slate-300 hover:bg-slate-600"
-                                        title="Toggle Fullscreen"
-                                    >
-                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>
-                                            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                                        </span>
-                                        {isFullscreen ? 'Exit' : 'Full'}
-                                    </button>
-                                </div>
-                            </>
-                        )
-                    }
-
-                    {/* Router Detail View Controls (Fullscreen Only) */}
-                    {
-                        showRoutersOnly && (
-                            <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2">
-                                <button
-                                    onClick={() => {
-                                        if (!document.fullscreenElement) {
-                                            mapContainerRef.current?.requestFullscreen();
-                                            setIsFullscreen(true);
-                                        } else {
-                                            document.exitFullscreen();
-                                            setIsFullscreen(false);
-                                        }
-                                    }}
-                                    className="bg-slate-900/90 hover:bg-slate-800 text-white rounded-lg p-2 border border-slate-700 shadow-lg backdrop-blur-sm flex items-center justify-center transition-colors"
-                                    title="Toggle Fullscreen"
-                                >
-                                    <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
-                                        {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-                                    </span>
-                                </button>
-                            </div>
-                        )
-                    }
-
-                    {/* Legend */}
-                    {
-                        !showRoutersOnly && (
-                            <MapLegend
-                                showLabels={showLabels}
-                                onToggleLabels={handleToggleLabels}
-                                enableAnimation={enableAnimation}
-                                onToggleAnimation={() => {
-                                    setEnableAnimation(prev => {
-                                        const newVal = !prev;
-                                        localStorage.setItem('map_animation_enabled', JSON.stringify(newVal));
-                                        return newVal;
-                                    });
-                                }}
-                                enableClustering={enableClustering}
-                                onToggleClustering={() => {
-                                    setEnableClustering(prev => {
-                                        const newVal = !prev;
-                                        localStorage.setItem('map_clustering_enabled', JSON.stringify(newVal));
-                                        return newVal;
-                                    });
-                                }}
-                                lowPerfMode={lowPerfMode}
-                                onToggleLowPerf={() => {
-                                    setLowPerfMode(prev => {
-                                        const newVal = !prev;
-                                        localStorage.setItem('map_low_perf_enabled', JSON.stringify(newVal));
-                                        return newVal;
-                                    });
-                                }}
-                                isHeatmapMode={isHeatmapMode}
-                                mapColors={mapColors}
-                            />
-                        )
-                    }
+                    {/* Legend (With Performance Controls) */}
+                    {!showRoutersOnly && (
+                        <MapLegend
+                            showLabels={showLabels}
+                            onToggleLabels={handleToggleLabels}
+                            isHeatmapMode={isHeatmapMode}
+                            mapColors={mapColors}
+                            enableAnimation={enableAnimation}
+                            setEnableAnimation={(val) => {
+                                setEnableAnimation(val);
+                                localStorage.setItem('map_animation_enabled', JSON.stringify(val));
+                            }}
+                            enableClustering={enableClustering}
+                            setEnableClustering={(val) => {
+                                setEnableClustering(val);
+                                localStorage.setItem('map_clustering_enabled', JSON.stringify(val));
+                            }}
+                            lowPerfMode={lowPerfMode}
+                            setLowPerfMode={(val) => {
+                                setLowPerfMode(val);
+                                localStorage.setItem('map_low_perf_enabled', JSON.stringify(val));
+                            }}
+                        />
+                    )}
 
                     {/* Floating Action Button */}
                     {

@@ -3,6 +3,7 @@ import {
     uuid,
     text,
     integer,
+    decimal,
     timestamp,
     pgEnum,
     boolean,
@@ -37,6 +38,10 @@ export const olts = pgTable('olts', {
 
     uptime: integer('uptime'), // in seconds
     description: text('description'),
+    // Location
+    latitude: decimal('latitude', { precision: 10, scale: 7 }),
+    longitude: decimal('longitude', { precision: 10, scale: 7 }),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({

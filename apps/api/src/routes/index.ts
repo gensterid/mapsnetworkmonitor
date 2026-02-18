@@ -14,6 +14,7 @@ import { eventsRoutes } from './events.routes.js';
 import oltRoutes from './olt.routes.js';
 import genieacsRoutes from './genieacs.routes.js';
 import presetRoutes from './preset.routes.js';
+import mapRoutes from './map.routes.js';
 
 const router = Router();
 
@@ -42,6 +43,7 @@ router.use('/events', eventsRoutes);
 router.use('/olts', oltRoutes);
 router.use('/genieacs', genieacsRoutes);
 router.use('/presets', presetRoutes);
+router.use('/map', mapRoutes);
 
 export default router;
 

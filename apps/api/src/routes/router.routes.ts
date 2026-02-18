@@ -5,6 +5,9 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { settingsService } from '../services/index.js';
+import { db } from '../db/index.js';
+import { inArray } from 'drizzle-orm';
+import { routerNetwatch } from '../db/schema/index.js';
 
 const router = Router();
 
@@ -79,6 +82,25 @@ router.get(
 );
 
 /**
+ * GET /api/routers/netwatch-all
+ * Get all netwatch entries for all accessible routers in one batch
+ */
+router.get(
+    '/netwatch-all',
+    asyncHandler(async (req, res) => {
+        const routers = await routerService.findAll(req.user?.id, req.user?.role);
+        const routerIds = routers.map(r => r.id);
+
+        if (routerIds.length === 0) {
+            return res.json({ data: [] });
+        }
+
+        const netwatch = await routerService.getNetwatchAll(routerIds);
+        res.json({ data: netwatch });
+    })
+);
+
+/**
  * GET /api/routers/:id
  * Get router by ID
  */
@@ -127,8 +149,8 @@ router.post(
             if (refreshed) {
                 newRouter = refreshed;
             }
-        } catch (err) {
-            console.log('Initial refresh failed for router:', newRouter.id, err);
+        } catch (err: any) {
+            console.warn('Initial refresh failed for router:', newRouter.id, err.message);
             // Router was created but connection failed - that's okay
         }
 
@@ -464,7 +486,6 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        console.log('[DEBUG] POST netwatch body:', JSON.stringify(req.body));
 
         // Manual sanitization to ensure empty strings don't break Zod/DB
         const rawData = { ...req.body };
@@ -498,43 +519,25 @@ router.put(
     asyncHandler(async (req, res) => {
         const { id, netwatchId } = req.params;
 
-        console.log('DEBUG: Netwatch update route hit');
-        console.log('DEBUG: Params:', req.params);
-        console.log('DEBUG: User:', req.user);
-        console.log('DEBUG: Body type:', typeof req.body);
-        console.log('DEBUG: Body:', req.body);
-
         if (!req.body) {
-            console.error('DEBUG: req.body is undefined!');
             throw new ApiError(400, 'Request body is missing');
         }
 
         try {
-            console.log('DEBUG: Parsing schema...');
-            // Log body types for debugging
-            console.log('DEBUG: Body types:', {
-                interval: typeof req.body.interval,
-                latitude: typeof req.body.latitude,
-                longitude: typeof req.body.longitude
-            });
-
             const parseResult = updateNetwatchSchema.safeParse(req.body);
 
             if (!parseResult.success) {
-                // Use JSON.stringify to avoid console.error crash on ZodError
                 const errorFormatted = parseResult.error.format();
-                console.error('DEBUG: Schema validation failed:', JSON.stringify(errorFormatted, null, 2));
+                // Keep error log for validatio failures but use console.error
+                console.error('Validation failed:', JSON.stringify(errorFormatted));
                 throw new ApiError(400, 'Validation failed: ' + parseResult.error.message);
             }
             const id_str = id as string;
             const netwatchId_str = netwatchId as string;
 
             const data = parseResult.data;
-            console.log('DEBUG: Schema parsed successfully:', data);
 
-            console.log('DEBUG: Calling routerService.updateNetwatch...');
             const netwatch = await routerService.updateNetwatch(id_str, netwatchId_str, data);
-            console.log('DEBUG: routerService returned:', netwatch);
 
             if (!netwatch) {
                 throw new ApiError(404, 'Netwatch entry not found');

@@ -766,6 +766,13 @@ export class RouterService {
     }
 
     /**
+     * Get all netwatch entries for all accessible routers
+     */
+    async getNetwatchAll(routerIds: string[]): Promise<any[]> {
+        return routerNetwatchService.getNetwatchAll(routerIds);
+    }
+
+    /**
      * Create a netwatch entry
      */
     /**
