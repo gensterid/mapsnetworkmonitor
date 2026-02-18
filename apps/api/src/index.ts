@@ -249,6 +249,11 @@ app.use(
 const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
     if (stateChangingMethods.includes(req.method)) {
+        // Skip auth routes as Better Auth has its own CSRF protection
+        if (req.originalUrl?.startsWith('/api/auth')) {
+            return next();
+        }
+
         // Custom header check (common for SPAs)
         const hasCustomHeader = req.get('X-Requested-With') || req.get('X-CSRF-Token') || req.get('x-requested-with');
 
