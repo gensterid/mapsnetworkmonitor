@@ -16,6 +16,7 @@ router.get('/', optionalAuthMiddleware, (req: Request, res: Response) => {
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
     res.flushHeaders();
+    if ((res as any).flush) (res as any).flush();
 
     // Generate unique client ID
     const clientId = randomUUID();
@@ -25,6 +26,7 @@ router.get('/', optionalAuthMiddleware, (req: Request, res: Response) => {
 
     // Send initial connection confirmation
     res.write(`event: connected\ndata: ${JSON.stringify({ clientId, message: 'SSE connection established' })}\n\n`);
+    if ((res as any).flush) (res as any).flush();
 
     // Handle client disconnect
     req.on('close', () => {

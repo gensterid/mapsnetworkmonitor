@@ -187,8 +187,15 @@ async function runMigrations() {
 // Create Express app
 const app = express();
 
-// Enable Gzip compression
-app.use(compression());
+// Enable Gzip compression (skip SSE routes to prevent buffering issues)
+app.use(compression({
+    filter: (req, res) => {
+        if (req.originalUrl?.includes('/api/events')) {
+            return false;
+        }
+        return compression.filter(req, res);
+    }
+}));
 
 // Trust proxy for rate limiting behind Nginx/Proxmox
 app.set('trust proxy', true);

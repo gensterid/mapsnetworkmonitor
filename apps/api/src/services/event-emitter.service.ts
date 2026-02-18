@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { logger } from '../lib/logger.js';
 
 interface SSEClient {
     id: string;
@@ -18,7 +19,7 @@ class EventEmitterService {
     addClient(clientId: string, res: Response, user?: { id: string; role: string }): void {
         const client: SSEClient = { id: clientId, res, user };
         this.clients.push(client);
-        console.log(`SSE client connected: ${clientId} (User: ${user?.id || 'anon'}). Total clients: ${this.clients.length}`);
+        logger.info({ clientId, userId: user?.id }, 'SSE client connected');
     }
 
     /**
@@ -26,7 +27,7 @@ class EventEmitterService {
      */
     removeClient(clientId: string): void {
         this.clients = this.clients.filter(c => c.id !== clientId);
-        console.log(`SSE client disconnected: ${clientId}. Total clients: ${this.clients.length}`);
+        logger.info({ clientId }, 'SSE client disconnected');
     }
 
     /**
@@ -38,8 +39,9 @@ class EventEmitterService {
         this.clients.forEach(client => {
             try {
                 client.res.write(message);
+                if ((client.res as any).flush) (client.res as any).flush();
             } catch (err) {
-                console.error(`Failed to send SSE to client ${client.id}:`, err);
+                logger.error({ err, clientId: client.id }, 'Failed to send SSE to client');
                 this.removeClient(client.id);
             }
         });
@@ -72,8 +74,9 @@ class EventEmitterService {
 
             try {
                 client.res.write(message);
+                if ((client.res as any).flush) (client.res as any).flush();
             } catch (err) {
-                console.error(`Failed to send SSE to client ${client.id}:`, err);
+                logger.error({ err, clientId: client.id }, 'Failed to send SSE to client');
                 this.removeClient(client.id);
             }
         });
@@ -87,6 +90,7 @@ class EventEmitterService {
         this.clients.forEach(client => {
             try {
                 client.res.write(message);
+                if ((client.res as any).flush) (client.res as any).flush();
             } catch {
                 this.removeClient(client.id);
             }
@@ -104,9 +108,9 @@ class EventEmitterService {
 // Singleton instance
 export const eventEmitter = new EventEmitterService();
 
-// Send heartbeat every 30 seconds to keep connections alive
+// Send heartbeat every 15 seconds to keep connections alive (prevent proxy timeouts)
 setInterval(() => {
     eventEmitter.sendHeartbeat();
-}, 30000);
+}, 15000);
 
 export default eventEmitter;
