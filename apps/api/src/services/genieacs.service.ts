@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { logger } from '../lib/logger.js';
 import { settingsService } from './settings.service.js';
 import { routerService } from './router.service.js';
 
@@ -91,12 +92,12 @@ export const genieacsService = {
             const { url, auth } = await getGenieAcsConfig(routerId);
 
             if (!url || url === 'http://localhost:7557') {
-                console.warn(`[GenieACS] Warning: Using default or empty URL: [${url}]. Please check Settings -> GenieACS URL.`);
+                logger.warn({ url }, 'GenieACS: Using default or empty URL. Please check Settings.');
                 if (!url) throw new Error('Invalid URL: URL is empty');
             }
 
             // Debug: Log URL to verify Proxmox connectivity
-            console.log(`[GenieACS] Fetching devices from ${url}/devices...`);
+            logger.info({ url }, 'GenieACS: Fetching devices');
 
             const projection = {
                 _id: 1,
@@ -141,7 +142,7 @@ export const genieacsService = {
                 timeout: 10000 // Increased timeout for Proxmox
             });
 
-            console.log(`[GenieACS] Successfully fetched ${response.data?.length || 0} devices.`);
+            logger.info({ count: response.data?.length || 0 }, 'GenieACS: Successfully fetched devices');
 
             return response.data.map((dev: any) => ({
                 _id: dev._id,
@@ -158,7 +159,7 @@ export const genieacsService = {
             }));
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : String(error);
-            console.error(`[GenieACS] Failed to fetch devices: ${errMsg}`);
+            logger.error({ err: errMsg }, 'GenieACS: Failed to fetch devices');
             return [];
         }
     },
@@ -172,7 +173,7 @@ export const genieacsService = {
         let total = 0;
 
         try {
-            console.log(`[GenieACS] Starting metadata sync...`);
+            logger.info('GenieACS: Starting metadata sync');
             const devices = await genieacsService.getDevices(routerId);
             total = devices.length;
 
@@ -225,11 +226,11 @@ export const genieacsService = {
                     added++;
                 }
             }
-            console.log(`[GenieACS] Synced ${total} devices: +${added} added, ~${updated} updated.`);
+            logger.info({ total, added, updated }, 'GenieACS: Metadata sync completed');
             return { added, updated, total };
 
         } catch (error) {
-            console.error('GenieACS Sync Error:', error);
+            logger.error({ err: error }, 'GenieACS Sync Error');
             return { added, updated, total };
         }
     },
@@ -257,9 +258,13 @@ export const genieacsService = {
             return null;
         } catch (error) {
             if (axios.isAxiosError(error)) {
-                console.error(`GenieACS Device ${deviceId} Error: ${error.response?.status} ${error.response?.statusText} - ${JSON.stringify(error.response?.data)}`);
+                logger.error({
+                    deviceId,
+                    status: error.response?.status,
+                    data: error.response?.data
+                }, 'GenieACS Device Error');
             } else {
-                console.error(`GenieACS Device ${deviceId} Error:`, error instanceof Error ? error.message : error);
+                logger.error({ deviceId, err: error }, 'GenieACS Device Error');
             }
             return null;
         }
@@ -278,11 +283,11 @@ export const genieacsService = {
             // Helper to find the correct WAN path
             function findWanPath(device: any, wanType: 'pppoe' | 'ip'): string | null {
                 try {
-                    console.log(`[WAN-Discovery] Starting discovery for ${wanType}...`);
+                    logger.info({ wanType }, 'GenieACS WAN-Discovery: Starting discovery');
 
                     // Handle TR-181 (Device.IP.Interface...)
                     if (device.Device?.IP?.Interface) {
-                        console.log('[WAN-Discovery] TR-181 detected (partial support)');
+                        logger.info('GenieACS WAN-Discovery: TR-181 detected (partial support)');
                         // TODO: Implement thorough TR-181 logic. 
                         // For now, check if alias IGD exists or fallback to TR-098 logic which often works on hybrid devices
                         // If explicit TR-181 structure is found, we might need to look for Interface with Type='WAN'
@@ -290,7 +295,7 @@ export const genieacsService = {
 
                     const wanDevices = device.InternetGatewayDevice?.WANDevice;
                     if (!wanDevices) {
-                        console.log('[WAN-Discovery] No InternetGatewayDevice.WANDevice found');
+                        logger.info('GenieACS WAN-Discovery: No InternetGatewayDevice.WANDevice found');
                         return null;
                     }
 
@@ -301,7 +306,7 @@ export const genieacsService = {
                         const wanConnDevices = wanDevices[wdKey]?.WANConnectionDevice;
                         if (!wanConnDevices) continue;
 
-                        console.log(`[WAN-Discovery] Checking WANDevice.${wdKey}...`);
+                        logger.debug({ wdKey }, 'GenieACS WAN-Discovery: Checking WANDevice');
 
                         // Iterate WANConnectionDevice
                         for (const wcdKey in wanConnDevices) {
@@ -310,7 +315,7 @@ export const genieacsService = {
                             const connectionDevice = wanConnDevices[wcdKey];
                             const basePath = `InternetGatewayDevice.WANDevice.${wdKey}.WANConnectionDevice.${wcdKey}`;
 
-                            console.log(`[WAN-Discovery] Checking WANConnectionDevice.${wcdKey}...`);
+                            logger.debug({ wcdKey }, 'GenieACS WAN-Discovery: Checking WANConnectionDevice');
 
                             // Check for WANPPPConnection
                             if (wanType === 'pppoe' && connectionDevice.WANPPPConnection) {
@@ -323,7 +328,10 @@ export const genieacsService = {
                                     const serviceList = pppConn.X_CT_COM_ServiceList?._value || pppConn['X_ZTE-COM_ServiceList']?._value || ''; // ZTE support
                                     const connectionType = pppConn.ConnectionType?._value || '';
 
-                                    console.log(`[WAN-Discovery] Found PPPoE candidate: ${basePath}.WANPPPConnection.${pppKey}`, { name, serviceList, connectionType });
+                                    logger.info({
+                                        path: `${basePath}.WANPPPConnection.${pppKey}`,
+                                        name
+                                    }, 'GenieACS WAN-Discovery: Found PPPoE candidate');
 
                                     // Priority 1: Explicit "INTERNET" service
                                     if (serviceList.toUpperCase().includes('INTERNET') || name.toUpperCase().includes('INTERNET')) {
@@ -350,7 +358,10 @@ export const genieacsService = {
                                     const name = ipConn.Name?._value || '';
                                     const serviceList = ipConn.X_CT_COM_ServiceList?._value || ipConn['X_ZTE-COM_ServiceList']?._value || '';
 
-                                    console.log(`[WAN-Discovery] Found IP candidate: ${basePath}.WANIPConnection.${ipKey}`, { name, serviceList });
+                                    logger.info({
+                                        path: `${basePath}.WANIPConnection.${ipKey}`,
+                                        name
+                                    }, 'GenieACS WAN-Discovery: Found IP candidate');
 
                                     if (serviceList.toUpperCase().includes('INTERNET') || name.toUpperCase().includes('INTERNET')) {
                                         return `${basePath}.WANIPConnection.${ipKey}`;
@@ -363,10 +374,10 @@ export const genieacsService = {
                         }
                     }
 
-                    console.log('[WAN-Discovery] No specific match found, falling back to default.');
+                    logger.info('GenieACS WAN-Discovery: No specific match found, falling back');
                     return null;
                 } catch (e) {
-                    console.error('[WAN-Discovery] Error:', e);
+                    logger.error({ err: e }, 'GenieACS WAN-Discovery logic error');
                     return null;
                 }
             }
@@ -384,14 +395,14 @@ export const genieacsService = {
 
             if (!connectionPath) {
                 // Fallback to strict index 1 if discovery fails
-                console.log(`[WAN-Discovery] Auto-discovery failed. Falling back to index ${connectionIndex}`);
+                logger.info({ connectionIndex }, 'GenieACS WAN-Discovery: Auto-discovery failed, using fallback');
                 const basePath = `InternetGatewayDevice.WANDevice.1.WANConnectionDevice.${connectionIndex}`;
                 connectionPath = config.wanType === 'pppoe'
                     ? `${basePath}.WANPPPConnection.1`
                     : `${basePath}.WANIPConnection.1`;
             }
 
-            console.log(`[WAN-Discovery] Selected Target Path: ${connectionPath}`);
+            logger.info({ path: connectionPath }, 'GenieACS WAN-Discovery: Selected path');
 
             const parameters: [string, any, string?][] = [];
 
@@ -455,7 +466,7 @@ export const genieacsService = {
                 return { success: false, error: 'No parameters to update' };
             }
 
-            console.log(`Updating WAN config for ${deviceId} (Path: ${connectionPath}):`, JSON.stringify(parameters));
+            logger.info({ deviceId, path: connectionPath }, 'GenieACS: Updating WAN config');
 
             const response = await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'setParameterValues',
@@ -464,7 +475,7 @@ export const genieacsService = {
                 auth
             });
 
-            console.log(`GenieACS Task Response:`, response.status, response.data);
+            logger.info({ status: response.status }, 'GenieACS: Task response');
 
             return { success: true, taskId: response.data?._id };
         } catch (error) {
@@ -511,7 +522,7 @@ export const genieacsService = {
                 basePath = `InternetGatewayDevice.LANDevice.1.WLANConfiguration.${index}`;
             }
 
-            console.log(`[WiFi-Config] Target Path: ${basePath}`);
+            logger.info({ path: basePath }, 'GenieACS WiFi-Config: Target path');
 
             const parameters: [string, any, string?][] = [];
             const addParam = (path: string, val: any) => {
@@ -593,7 +604,7 @@ export const genieacsService = {
                 return { success: false, error: 'No parameters to update' };
             }
 
-            console.log(`Updating WiFi config for ${deviceId}:`, JSON.stringify(parameters));
+            logger.info({ deviceId }, 'GenieACS: Updating WiFi config');
 
             const response = await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'setParameterValues',
@@ -605,7 +616,7 @@ export const genieacsService = {
             return { success: true, taskId: response.data?._id };
 
         } catch (error) {
-            console.error(`GenieACS updateWifiConfig Error:`, error instanceof Error ? error.message : error);
+            logger.error({ deviceId, err: error }, 'GenieACS updateWifiConfig Error');
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     },
@@ -643,7 +654,7 @@ export const genieacsService = {
             });
             return { success: true };
         } catch (error) {
-            console.error(`GenieACS setParameter Error (${parameterName}):`, error instanceof Error ? error.message : error);
+            logger.error({ deviceId, parameterName, err: error }, 'GenieACS setParameter Error');
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
         }
     },
@@ -676,7 +687,7 @@ export const genieacsService = {
 
             return { success: true };
         } catch (error) {
-            console.error('Refresh Device Error:', error instanceof Error ? error.message : error);
+            logger.error({ deviceId, err: error }, 'GenieACS refreshDevice Error');
             // Fallback to simple refreshObject if getParameterValues fails (e.g., too many params)
             try {
                 const { url, auth } = await getGenieAcsConfig(routerId);

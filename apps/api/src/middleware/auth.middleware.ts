@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { auth } from '../lib/auth.js';
+import { logger } from '../lib/logger.js';
 
 // Extend Express Request to include user and session
 declare global {
@@ -63,7 +64,7 @@ export async function authMiddleware(
 
         next();
     } catch (error) {
-        console.error('Auth middleware error:', error);
+        logger.error({ err: error }, 'Auth middleware error');
         res.status(401).json({
             error: 'Unauthorized',
             message: 'Invalid or expired session',

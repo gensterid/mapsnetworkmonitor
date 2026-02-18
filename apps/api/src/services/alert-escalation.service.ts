@@ -1,4 +1,5 @@
 import { db } from '../db/index.js';
+import { logger } from '../lib/logger.js';
 import { alerts, routers, routerNetwatch } from '../db/schema/index.js';
 import { eq, and, inArray } from 'drizzle-orm';
 import { notificationService } from './notification.service.js';
@@ -78,7 +79,7 @@ export class AlertEscalationService {
                                 resolvedAt: new Date(),
                             })
                             .where(eq(alerts.id, alert.id));
-                        console.log(`[ESCALATION] Auto-resolved alert ${alert.id} for router ${router.name} (router is now ONLINE)`);
+                        logger.info({ alertId: alert.id, routerName: router.name }, 'Escalation: Auto-resolved router alert');
                         continue; // Skip escalation
                     }
                 }
@@ -104,7 +105,7 @@ export class AlertEscalationService {
                                     resolvedAt: new Date(),
                                 })
                                 .where(eq(alerts.id, alert.id));
-                            console.log(`[ESCALATION] Auto-resolved alert ${alert.id} for ${ipMatch[1]} (device is now UP)`);
+                            logger.info({ alertId: alert.id, host: ipMatch[1] }, 'Escalation: Auto-resolved device alert');
                             continue; // Skip escalation
                         }
                     }
@@ -137,7 +138,7 @@ export class AlertEscalationService {
                 }
             }
         } catch (error) {
-            console.error('[ESCALATION] Error checking alerts:', error);
+            logger.error({ err: error }, 'Escalation: Error checking alerts');
         }
     }
 
@@ -150,7 +151,7 @@ export class AlertEscalationService {
         downtime: number
     ): Promise<void> {
         try {
-            console.log(`[ESCALATION] Escalating alert ${alert.id} to level ${newLevel}`);
+            logger.info({ alertId: alert.id, newLevel }, 'Escalation: Escalating alert');
 
             // Update alert with new escalation level
             await db
@@ -168,7 +169,7 @@ export class AlertEscalationService {
                 .where(eq(routers.id, alert.routerId));
 
             if (!router) {
-                console.error(`[ESCALATION] Router not found for alert ${alert.id}`);
+                logger.error({ alertId: alert.id }, 'Escalation: Router not found for alert');
                 return;
             }
 
@@ -214,9 +215,9 @@ export class AlertEscalationService {
                 netwatchData
             );
 
-            console.log(`[ESCALATION] Alert ${alert.id} escalated to level ${newLevel} successfully`);
+            logger.info({ alertId: alert.id, newLevel }, 'Escalation: Alert escalated successfully');
         } catch (error) {
-            console.error(`[ESCALATION] Failed to escalate alert ${alert.id}:`, error);
+            logger.error({ alertId: alert.id, err: error }, 'Escalation: Failed to escalate alert');
         }
     }
 }

@@ -5,6 +5,7 @@ import {
     timestamp,
     integer,
     bigint,
+    index,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers';
 
@@ -38,7 +39,12 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     txRate: bigint('tx_rate', { mode: 'number' }).default(0), // bits per second
     rxRate: bigint('rx_rate', { mode: 'number' }).default(0), // bits per second
     lastTrafficUpdate: timestamp('last_traffic_update'),
-});
+}, (table) => ({
+    routerIdIdx: index('pppoe_sessions_router_id_idx').on(table.routerId),
+    nameIdx: index('pppoe_sessions_name_idx').on(table.name),
+    statusIdx: index('pppoe_sessions_status_idx').on(table.status),
+    connectedAtIdx: index('pppoe_sessions_connected_at_idx').on(table.connectedAt),
+}));
 
 // Types
 export type PppoeSession = typeof pppoeSessions.$inferSelect;
