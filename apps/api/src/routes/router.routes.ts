@@ -8,6 +8,7 @@ import { settingsService } from '../services/index.js';
 import { db } from '../db/index.js';
 import { inArray } from 'drizzle-orm';
 import { routerNetwatch } from '../db/schema/index.js';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 
@@ -150,7 +151,7 @@ router.post(
                 newRouter = refreshed;
             }
         } catch (err: any) {
-            console.warn('Initial refresh failed for router:', newRouter.id, err.message);
+            logger.warn({ routerId: newRouter.id, err }, 'Initial refresh failed');
             // Router was created but connection failed - that's okay
         }
 
@@ -528,8 +529,8 @@ router.put(
 
             if (!parseResult.success) {
                 const errorFormatted = parseResult.error.format();
-                // Keep error log for validatio failures but use console.error
-                console.error('Validation failed:', JSON.stringify(errorFormatted));
+                // Keep error log for validation failures but use structured logger
+                logger.error({ errors: errorFormatted }, 'Validation failed');
                 throw new ApiError(400, 'Validation failed: ' + parseResult.error.message);
             }
             const id_str = id as string;
@@ -555,7 +556,7 @@ router.put(
 
             res.json({ data: netwatch });
         } catch (error: any) {
-            console.error('DEBUG: Caught error in route handler:', error.message);
+            logger.error({ err: error }, 'Caught error in route handler');
             throw error;
         }
     })

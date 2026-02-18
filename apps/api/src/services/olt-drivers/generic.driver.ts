@@ -1,4 +1,5 @@
 import { BaseOltDriver, OnuInfo } from './olt-driver.interface.js';
+import { logger } from '../../lib/logger.js';
 
 export class GenericDriver extends BaseOltDriver {
     async connect(): Promise<void> {
@@ -11,7 +12,7 @@ export class GenericDriver extends BaseOltDriver {
     }
 
     async getOnuList(): Promise<OnuInfo[]> {
-        console.warn('getOnuList not supported for Generic OLT driver.');
+        logger.warn('getOnuList not supported for Generic OLT driver.');
         return [];
     }
 
@@ -20,7 +21,7 @@ export class GenericDriver extends BaseOltDriver {
     }
 
     async rebootOnu(ponId: string, onuId: string): Promise<boolean> {
-        console.warn('rebootOnu not supported for Generic OLT driver.');
+        logger.warn('rebootOnu not supported for Generic OLT driver.');
         return false;
     }
 

@@ -210,7 +210,7 @@ export class OltService {
                     webStatus = 'offline';
                 }
             } catch (error) {
-                console.error(`Web check failed for OLT ${olt.name} using driver:`, error);
+                logger.error({ err: error, olt: olt.name }, 'Web check failed for OLT using driver');
                 webStatus = 'offline';
             }
         }
@@ -257,7 +257,7 @@ export class OltService {
 
             return updatedOlt;
         } catch (error) {
-            console.error(`Failed to update OLT ${olt.name} status:`, error);
+            logger.error({ err: error, olt: olt.name }, 'Failed to update OLT status');
             return olt;
         }
     }
@@ -358,7 +358,7 @@ export class OltService {
                             .set(updateData)
                             .where(eq(onus.id, dbOnu.id))
                             .execute()
-                            .catch(err => console.error(`Failed to background sync ONU ${device.sn}:`, err));
+                            .catch(err => logger.error({ err, sn: device.sn }, 'Failed to background sync ONU'));
 
                         // Update local object for the return value immediately
                         dbOnu.status = updateData.status;
@@ -387,7 +387,7 @@ export class OltService {
 
             return results;
         } catch (error) {
-            console.error(`Failed to get ONUs for OLT ${olt.name}:`, error);
+            logger.error({ err: error, olt: olt.name }, 'Failed to get ONUs for OLT');
             throw error;
         }
     }
@@ -407,7 +407,7 @@ export class OltService {
         try {
             driverOnus = await this.getOnus(oltId);
         } catch (e: any) {
-            console.error(`Sync failed: Could not fetch ONUs from OLT ${olt.name}`, e);
+            logger.error({ err: e, olt: olt.name }, 'Sync failed: Could not fetch ONUs from OLT');
             throw e;
         }
 
@@ -488,7 +488,7 @@ export class OltService {
                 added = valuesToUpsert.length; // Approximate simplified report
                 logger.info({ count: valuesToUpsert.length, olt: olt.name }, '✅ Batch Upserted ONUs');
             } catch (err: any) {
-                console.error(`Batch upsert failed for OLT ${olt.name}:`, err);
+                logger.error({ err, olt: olt.name }, 'Batch upsert failed for OLT');
                 throw err;
             }
         }

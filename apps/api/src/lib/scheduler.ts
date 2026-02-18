@@ -115,7 +115,7 @@ function checkPollingStuck(): void {
     if (isPolling && pollingStartTime) {
         const elapsed = Date.now() - pollingStartTime;
         if (elapsed > GLOBAL_POLLING_TIMEOUT) {
-            console.warn(`⚠️ Polling stuck for ${Math.round(elapsed / 1000)}s, force resetting...`);
+            logger.warn({ elapsedSeconds: Math.round(elapsed / 1000) }, '⚠️ Polling stuck, force resetting...');
             isPolling = false;
             pollingStartTime = null;
         }
@@ -131,7 +131,7 @@ async function pollAllRouters(): Promise<void> {
     checkPollingStuck();
 
     if (isPolling) {
-        console.log('⏳ Previous polling still in progress, skipping...');
+        logger.debug('⏳ Previous polling still in progress, skipping...');
         return;
     }
 
@@ -213,7 +213,7 @@ async function checkAlertEscalation(): Promise<void> {
     try {
         await alertEscalationService.checkAndEscalateAlerts();
     } catch (error) {
-        console.error('❌ Escalation check error:', error instanceof Error ? error.message : error);
+        logger.error({ err: error }, '❌ Escalation check error');
     }
 }
 
@@ -232,12 +232,12 @@ async function pollOltsSnmp(): Promise<void> {
                 try {
                     await oltService.refreshStatus(allOlts[i].id);
                 } catch (e) {
-                    console.error(`Failed to poll OLT ${allOlts[i].name} (SNMP):`, e);
+                    logger.error({ err: e, olt: allOlts[i].name }, 'Failed to poll OLT (SNMP)');
                 }
             }, i * 2000);
         }
     } catch (e) {
-        console.error('Error in OLT SNMP Polling:', e);
+        logger.error({ err: e }, 'Error in OLT SNMP Polling');
     }
 }
 
@@ -256,12 +256,12 @@ async function pollOltsWeb(): Promise<void> {
                 try {
                     await oltService.refreshStatus(allOlts[i].id);
                 } catch (e) {
-                    console.error(`Failed to sync OLT ${allOlts[i].name} (Web):`, e);
+                    logger.error({ err: e, olt: allOlts[i].name }, 'Failed to sync OLT (Web)');
                 }
             }, i * 10000);
         }
     } catch (e) {
-        console.error('Error in OLT Web Polling:', e);
+        logger.error({ err: e }, 'Error in OLT Web Polling');
     }
 }
 
@@ -274,7 +274,7 @@ async function syncGenieAcs(): Promise<void> {
 
     try {
         // 1. Always attempt global sync (fallback)
-        console.log('[Scheduler] Running global GenieACS sync...');
+        logger.info('[Scheduler] Running global GenieACS sync...');
         await genieacsService.syncMetadata();
 
         // 2. Also sync specific routers that have dedicated GenieACS settings
@@ -282,18 +282,18 @@ async function syncGenieAcs(): Promise<void> {
         const routersWithDedicatedAcs = allRouters.filter(r => r.useGenieAcs && r.genieacsUrl);
 
         if (routersWithDedicatedAcs.length > 0) {
-            console.log(`[Scheduler] Running dedicated GenieACS sync for ${routersWithDedicatedAcs.length} routers...`);
+            logger.info({ count: routersWithDedicatedAcs.length }, '[Scheduler] Running dedicated GenieACS sync');
             for (const router of routersWithDedicatedAcs) {
                 try {
-                    console.log(`[Scheduler] Syncing GenieACS for router: ${router.name}`);
+                    logger.debug({ router: router.name }, '[Scheduler] Syncing GenieACS for router');
                     await genieacsService.syncMetadata(router.id);
                 } catch (e) {
-                    console.error(`Failed to sync GenieACS for router ${router.name}:`, e);
+                    logger.error({ err: e, router: router.name }, 'Failed to sync GenieACS for router');
                 }
             }
         }
     } catch (e) {
-        console.error('Error in GenieACS Sync:', e);
+        logger.error({ err: e }, 'Error in GenieACS Sync');
     }
 }
 
@@ -328,22 +328,22 @@ export async function startScheduler(): Promise<void> {
     logger.info(`⏰ Starting router polling scheduler (every ${minutes} minute${minutes > 1 ? 's' : ''})`);
 
     // 2. Alert Escalation
-    console.log(`⏰ Starting alert escalation checker (every 5 minutes)`);
+    logger.info('⏰ Starting alert escalation checker (every 5 minutes)');
 
     // 3. OLT SNMP (Fast)
     const snmpMinutes = await settingsService.getSettingValue('olt_polling_interval', 1);
-    console.log(`⏰ Starting OLT SNMP polling (every ${snmpMinutes} minute${snmpMinutes > 1 ? 's' : ''})`);
+    logger.info(`⏰ Starting OLT SNMP polling (every ${snmpMinutes} minute${snmpMinutes > 1 ? 's' : ''})`);
 
     // 4. OLT Web (Slow)
     const webMinutes = await settingsService.getSettingValue('olt_web_interval', 10);
-    console.log(`⏰ Starting OLT Web Sync (every ${webMinutes} minute${webMinutes > 1 ? 's' : ''})`);
+    logger.info(`⏰ Starting OLT Web Sync (every ${webMinutes} minute${webMinutes > 1 ? 's' : ''})`);
 
     // 5. GenieACS
     const acsMinutes = await settingsService.getSettingValue('acs_polling_interval', 10);
-    console.log(`⏰ Starting GenieACS Sync (every ${acsMinutes} minute${acsMinutes > 1 ? 's' : ''})`);
+    logger.info(`⏰ Starting GenieACS Sync (every ${acsMinutes} minute${acsMinutes > 1 ? 's' : ''})`);
 
     // 6. Metrics Cleanup
-    console.log(`⏰ Starting daily metrics cleanup job (every 24 hours)`);
+    logger.info('⏰ Starting daily metrics cleanup job (every 24 hours)');
 
     // Initial Runs (Staggered)
     setTimeout(() => pollAllRouters(), 5000);

@@ -1,5 +1,6 @@
 import { BaseOltDriver, OnuInfo } from './olt-driver.interface.js';
 import crypto from 'crypto';
+import { logger } from '../../lib/logger.js';
 
 export class HsgqDriver extends BaseOltDriver {
     constructor(config: any) {
@@ -24,13 +25,13 @@ export class HsgqDriver extends BaseOltDriver {
         const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
         const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
 
-        console.log(`HSGQ: testConnection starting for ${baseUrl}`);
+        logger.info({ baseUrl }, 'HSGQ: testConnection starting');
 
         if (this.config.protocol === 'http' || this.config.protocol === 'https' || [80, 443, 5785, 8080].includes(this.config.port)) {
             // 1. Modern Login (Aggressive check)
             const token = await this.loginModern(baseUrl);
             if (token) {
-                console.log(`HSGQ: testConnection SUCCESS via Modern API for ${baseUrl}`);
+                logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Modern API');
                 return true;
             }
 
@@ -39,7 +40,7 @@ export class HsgqDriver extends BaseOltDriver {
             const password = this.config.password || '';
             const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
-            console.log(`HSGQ: Attempting Legacy Auth check for ${baseUrl}`);
+            logger.info({ baseUrl }, 'HSGQ: Attempting Legacy Auth check');
             const response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
                 method: 'GET',
                 headers: { 'Authorization': `Basic ${auth}` },
@@ -47,7 +48,7 @@ export class HsgqDriver extends BaseOltDriver {
             }).catch(() => null);
 
             if (response && (response.ok || response.status === 401 || response.status === 403)) {
-                console.log(`HSGQ: testConnection SUCCESS via Legacy API for ${baseUrl}`);
+                logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Legacy API');
                 return true;
             }
 
@@ -55,15 +56,15 @@ export class HsgqDriver extends BaseOltDriver {
             try {
                 const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(5000) });
                 if (res.ok || res.status === 401 || res.status === 403) {
-                    console.log(`HSGQ: testConnection SUCCESS via Simple Fetch for ${baseUrl}`);
+                    logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Simple Fetch');
                     return true;
                 }
             } catch (e) {
-                console.warn(`HSGQ: Simple fetch failed for ${baseUrl}`);
+                logger.warn({ err: e, baseUrl }, 'HSGQ: Simple fetch failed');
             }
         }
 
-        console.error(`HSGQ: testConnection FINAL FAILURE for ${baseUrl}`);
+        logger.error({ baseUrl }, 'HSGQ: testConnection FINAL FAILURE');
         return false;
     }
 
@@ -104,18 +105,18 @@ export class HsgqDriver extends BaseOltDriver {
             });
 
             if (!response.ok) {
-                console.warn(`HSGQ Modern login failed for ${baseUrl}: HTTP ${response.status}`);
+                logger.warn({ baseUrl, status: response.status }, 'HSGQ Modern login failed');
                 return null;
             }
 
             const data = await response.json() as any;
             if (data.code !== 1) {
-                console.warn(`HSGQ Modern login rejected for ${baseUrl}: Code ${data.code}`);
+                logger.warn({ baseUrl, code: data.code }, 'HSGQ Modern login rejected');
                 return null;
             }
 
             const token = response.headers.get('x-token') || response.headers.get('token');
-            if (token) console.log(`HSGQ Modern: Login SUCCESS for ${baseUrl}`);
+            if (token) logger.debug({ baseUrl }, 'HSGQ Modern: Login SUCCESS');
             return token;
         } catch (e) {
             return null;
@@ -167,7 +168,7 @@ export class HsgqDriver extends BaseOltDriver {
 
             throw new Error('All HSGQ Web API attempts failed');
         } catch (error: any) {
-            console.error('HSGQ HTTP Fetch failed:', error.message);
+            logger.error({ err: error }, 'HSGQ HTTP Fetch failed');
             throw error;
         }
     }

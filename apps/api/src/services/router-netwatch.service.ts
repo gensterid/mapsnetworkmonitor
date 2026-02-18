@@ -18,6 +18,7 @@ import {
 } from '../lib/mikrotik-api.js';
 import { decrypt } from '../lib/encryption.js';
 import { alertService } from './alert.service.js';
+import { logger } from '../lib/logger.js';
 
 export class RouterNetwatchService {
     /**
@@ -194,7 +195,7 @@ export class RouterNetwatchService {
                 }
             }
         } catch (err) {
-            console.error(`[Router ${routerName}] Failed to sync netwatch:`, err instanceof Error ? err.message : err);
+            logger.error({ err, router: routerName }, 'Failed to sync netwatch');
         }
     }
 
@@ -307,7 +308,7 @@ export class RouterNetwatchService {
                 }
             }
         } catch (err) {
-            console.error(`[Router ${routerName}] Failed to propagate traffic:`, err instanceof Error ? err.message : err);
+            logger.error({ err, router: routerName }, 'Failed to propagate traffic');
         }
     }
 
@@ -318,7 +319,7 @@ export class RouterNetwatchService {
         try {
             const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
             if (netwatchEntries.length === 0) {
-                console.log(`[Unified Linkage] No Netwatch entries to sync for router ${routerId}`);
+                logger.info({ routerId }, '[Unified Linkage] No Netwatch entries to sync');
                 return;
             }
 
@@ -355,16 +356,16 @@ export class RouterNetwatchService {
                     missedCount++;
                     // Debug: Log missed IPs to help diagnose Proxmox issues
                     if (process.env.NODE_ENV !== 'production' || missedCount <= 10) {
-                        console.log(`[Unified Linkage] Missed sync: No ONU found for host [${host}] (Router: ${routerId})`);
+                        logger.debug({ host, routerId }, '[Unified Linkage] Missed sync: No ONU found for host');
                     }
                 }
             }
 
             if (linkedCount > 0 || missedCount > 0) {
-                console.log(`[Unified Linkage] Sync complete for router ${routerId}: ${linkedCount} linked, ${missedCount} missed.`);
+                logger.info({ routerId, linkedCount, missedCount }, '[Unified Linkage] Sync complete');
             }
         } catch (e) {
-            console.error(`[Unified Linkage] Failed to sync Netwatch to ONUs for router ${routerId}:`, e);
+            logger.error({ err: e, routerId }, '[Unified Linkage] Failed to sync Netwatch to ONUs');
         }
     }
 

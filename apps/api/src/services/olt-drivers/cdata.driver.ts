@@ -1,5 +1,6 @@
 import { BaseOltDriver, OnuInfo } from './olt-driver.interface.js';
 import crypto from 'crypto';
+import { logger } from '../../lib/logger.js';
 
 export class CDataDriver extends BaseOltDriver {
     constructor(config: any) {
@@ -111,11 +112,11 @@ export class CDataDriver extends BaseOltDriver {
 
         // 1. Try Modern API Path (/cgi-bin/h.cgi)
         try {
-            console.log(`C-Data: Attempting modern login at ${baseUrl}...`);
+            logger.info({ baseUrl }, 'C-Data: Attempting modern login');
             const token = await this.loginModern(baseUrl);
 
             if (token) {
-                console.log('C-Data: Modern login successful, fetching ONU list...');
+                logger.info('C-Data: Modern login successful, fetching ONU list');
                 const onuUrl = `${baseUrl}/cgi-bin/h.cgi?module=onu_list_get`;
                 const response = await fetch(onuUrl, {
                     headers: { 'token': token },

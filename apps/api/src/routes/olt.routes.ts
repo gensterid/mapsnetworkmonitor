@@ -3,6 +3,7 @@ import { oltService } from '../services/olt.service.js';
 import { z } from 'zod';
 
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 
@@ -15,7 +16,7 @@ router.get('/onus/by-router/:routerId', async (req, res) => {
         const onus = await oltService.getOnusByRouter(req.params.routerId);
         res.json(onus);
     } catch (error) {
-        console.error('Failed to fetch ONUs for router:', error);
+        logger.error({ err: error, routerId: req.params.routerId }, 'Failed to fetch ONUs for router');
         res.status(500).json({ error: 'Failed to fetch ONUs for router' });
     }
 });
@@ -26,7 +27,7 @@ router.get('/onus/map', async (req, res) => {
         const onus = await oltService.getAllOnusWithCoordinates();
         res.json(onus);
     } catch (error) {
-        console.error('Failed to fetch ONUs for map:', error);
+        logger.error({ err: error }, 'Failed to fetch ONUs for map');
         res.status(500).json({ error: 'Failed to fetch ONUs for map' });
     }
 });
@@ -127,11 +128,11 @@ router.delete('/:id', async (req, res) => {
 // Get OLT ONUs (via Driver)
 router.get('/:id/onus', async (req, res) => {
     try {
-        // console.log(`GET /api/olts/${req.params.id}/onus - Fetching ONUs...`);
+        // logger.debug({ oltId: req.params.id }, 'Fetching ONUs...');
         const onus = await oltService.getOnus(req.params.id);
         res.json(onus);
     } catch (error: any) {
-        console.error(`API Error in /olts/${req.params.id}/onus:`, error);
+        logger.error({ err: error, oltId: req.params.id }, 'API Error in /olts/:id/onus');
         res.status(500).json({
             error: 'Failed to fetch ONUs',
             message: error.message,
@@ -166,7 +167,7 @@ router.patch('/:id/onus/:onuId', async (req, res) => {
         }
         res.json(updatedHook);
     } catch (error) {
-        console.error('Failed to update ONU:', error);
+        logger.error({ err: error, onuId: req.params.onuId }, 'Failed to update ONU');
         res.status(500).json({ error: 'Failed to update ONU' });
     }
 });

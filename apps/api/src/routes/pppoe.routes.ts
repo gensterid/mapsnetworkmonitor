@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { pppoeService } from '../services/pppoe.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator } from '../middleware/rbac.middleware.js';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 
@@ -19,7 +20,7 @@ router.get('/', async (req, res) => {
         );
         res.json({ data: sessions });
     } catch (error) {
-        console.error('Failed to get PPPoE sessions:', error);
+        logger.error({ err: error }, 'Failed to get PPPoE sessions');
         res.status(500).json({ error: 'Failed to get PPPoE sessions' });
     }
 });
@@ -39,7 +40,7 @@ router.get('/map', async (req, res) => {
         );
         res.json({ data: sessions });
     } catch (error) {
-        console.error('Failed to get PPPoE map data:', error);
+        logger.error({ err: error }, 'Failed to get PPPoE map data');
         res.status(500).json({ error: 'Failed to get PPPoE map data' });
     }
 });
@@ -56,7 +57,7 @@ router.get('/:id', async (req, res) => {
         }
         res.json({ data: session });
     } catch (error) {
-        console.error('Failed to get PPPoE session:', error);
+        logger.error({ err: error }, 'Failed to get PPPoE session');
         res.status(500).json({ error: 'Failed to get PPPoE session' });
     }
 });
@@ -84,7 +85,7 @@ router.patch('/:id/coordinates', requireOperator, async (req, res) => {
 
         res.json({ data: session });
     } catch (error) {
-        console.error('Failed to update PPPoE coordinates:', error);
+        logger.error({ err: error }, 'Failed to update PPPoE coordinates');
         res.status(500).json({ error: 'Failed to update coordinates' });
     }
 });
@@ -112,7 +113,7 @@ router.put('/:id', requireOperator, async (req, res) => {
 
         res.json({ data: session });
     } catch (error) {
-        console.error('Failed to update PPPoE session:', error);
+        logger.error({ err: error }, 'Failed to update PPPoE session');
         res.status(500).json({ error: 'Failed to update session' });
     }
 });

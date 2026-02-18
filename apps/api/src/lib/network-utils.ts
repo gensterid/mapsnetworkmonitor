@@ -1,4 +1,5 @@
 import ping from 'ping';
+import { logger } from './logger.js';
 
 /**
  * Measure latency to a host in milliseconds
@@ -16,7 +17,7 @@ export async function measureLatency(host: string): Promise<number> {
         }
         return -1;
     } catch (error) {
-        console.error(`Ping failed for ${host}:`, error);
+        logger.error({ err: error, host }, 'Ping failed');
         return -1;
     }
 }

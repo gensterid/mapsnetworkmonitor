@@ -3,6 +3,7 @@ import { HsgqDriver } from './hsgq.driver.js';
 import { CDataDriver } from './cdata.driver.js';
 import { GenericDriver } from './generic.driver.js';
 import { decrypt } from '../../lib/encryption.js';
+import { logger } from '../../lib/logger.js';
 
 export class OltDriverFactory {
     static getDriver(type: string, host: string, port?: number, username?: string, password?: string, protocol?: string): IOltDriver {
@@ -11,7 +12,7 @@ export class OltDriverFactory {
             try {
                 decryptedPassword = decrypt(decryptedPassword);
             } catch (e) {
-                console.error('Failed to decrypt OLT password layer:', e);
+                logger.error({ err: e }, 'Failed to decrypt OLT password layer');
                 break;
             }
         }
@@ -25,7 +26,7 @@ export class OltDriverFactory {
         };
 
         if (config.protocol === 'telnet' || config.protocol === 'ssh') {
-            console.warn(`[DriverFactory] Telnet/SSH is disabled. Falling back to HTTP for ${host}`);
+            logger.warn({ host }, '[DriverFactory] Telnet/SSH is disabled. Falling back to HTTP');
             config.protocol = 'http';
             config.port = port || 80;
         }

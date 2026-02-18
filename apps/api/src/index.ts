@@ -234,9 +234,40 @@ app.use(
         origin: allowedOrigins,
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
     })
 );
+
+// CSRF Protection Middleware
+const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
+    if (stateChangingMethods.includes(req.method)) {
+        // Custom header check (common for SPAs)
+        const hasCustomHeader = req.get('X-Requested-With') || req.get('X-CSRF-Token') || req.get('x-requested-with');
+
+        // Origin check
+        const origin = req.get('Origin');
+        const isAllowedOrigin = origin && allowedOrigins.some(ao => origin === ao || origin.startsWith(ao + '/'));
+
+        if (!hasCustomHeader && !isAllowedOrigin) {
+            logger.warn({
+                method: req.method,
+                url: req.url,
+                origin,
+                ip: req.ip
+            }, 'Potential CSRF attempt blocked');
+
+            return res.status(403).json({
+                error: 'Forbidden',
+                message: 'CSRF protection: Custom header or valid Origin required'
+            });
+        }
+    }
+    next();
+};
+
+// Apply CSRF protection to all API routes
+app.use('/api', csrfProtection);
 
 // Apply rate limiters AFTER CORS
 app.use('/api/auth', authLimiter);

@@ -11,6 +11,7 @@ import {
 } from '../db/schema/index.js';
 import { notificationService } from './notification.service.js';
 import { eventEmitter } from './event-emitter.service.js';
+import { logger } from '../lib/logger.js';
 
 // Default threshold values
 const DEFAULT_THRESHOLDS = {
@@ -371,7 +372,7 @@ export class AlertService {
         if (data.routerId) {
             // Fire and forget notification to avoid blocking the alert creation
             notificationService.notifyAlert(alert, data.routerId).catch(err =>
-                console.error('Failed to trigger notification:', err)
+                logger.error({ err }, 'Failed to trigger notification')
             );
 
             // Get users assigned to this router
@@ -790,7 +791,7 @@ export class AlertService {
             return null;
         }
 
-        console.log(`[ALERT DEBUG] createNetwatchAlert called: host=${host}, status=${status}, routerId=${routerId}`);
+        logger.debug({ host, status, routerId }, '[ALERT] createNetwatchAlert called');
 
         // If status is UP, resolve any existing DOWN alerts for this host
         if (status === 'up') {
@@ -815,7 +816,7 @@ export class AlertService {
                             resolvedAt: new Date(),
                         })
                         .where(eq(alerts.id, alert.id));
-                    console.log(`[ALERT] Auto-resolved alert ${alert.id} for ${host} (now UP)`);
+                    logger.info({ alertId: alert.id, host }, '[ALERT] Auto-resolved alert (now UP)');
                     resolvedCount++;
                 }
             }

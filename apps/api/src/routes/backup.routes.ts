@@ -4,6 +4,7 @@ import multer from 'multer';
 import { backupService } from '../services/backup.service.js';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { logger } from '../lib/logger.js';
 import fs from 'fs';
 import path from 'path';
 
@@ -30,17 +31,17 @@ router.get('/export', requireAdmin, async (_req, res) => {
         const filePath = await backupService.exportDatabase();
         res.download(filePath, path.basename(filePath), (err) => {
             if (err) {
-                console.error('Download error:', err);
+                logger.error({ err }, 'Download error');
             }
             // cleanup
             try {
                 fs.unlinkSync(filePath);
             } catch (e) {
-                console.error('Failed to cleanup backup file:', e);
+                logger.error({ err: e }, 'Failed to cleanup backup file');
             }
         });
     } catch (error: any) {
-        console.error('Export error:', error);
+        logger.error({ err: error }, 'Export error');
         res.status(500).json({ error: error.message || 'Failed to create backup' });
     }
 });
@@ -59,12 +60,12 @@ router.post('/import', requireAdmin, upload.single('backup'), async (req: Reques
         try {
             fs.unlinkSync(file.path);
         } catch (e) {
-            console.error('Failed to cleanup uploaded file:', e);
+            logger.error({ err: e }, 'Failed to cleanup uploaded file');
         }
 
         res.json({ message: 'Database restored successfully' });
     } catch (error) {
-        console.error('Import error:', error);
+        logger.error({ err: error }, 'Import error');
         res.status(500).json({ error: 'Failed to restore database' });
     }
 });

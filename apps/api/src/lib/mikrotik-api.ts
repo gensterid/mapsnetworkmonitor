@@ -1,5 +1,6 @@
 import nodeRouteros from 'node-routeros';
 const { RouterOSAPI } = nodeRouteros;
+import { logger } from './logger.js';
 
 export interface RouterConnection {
     host: string;
@@ -85,7 +86,7 @@ export async function connectToRouter(
 
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
-        console.error(`[RouterOS API Error] ${config.host}:`, err instanceof Error ? err.message : err);
+        logger.error({ err, host: config.host }, '[RouterOS API Error]');
     });
 
     await api.connect();
@@ -199,7 +200,7 @@ export async function getRouterInterfaces(
                         }
                     }
                 } catch (monitorErr) {
-                    console.error(`Failed to monitor ethernet status for ${id}:`, monitorErr instanceof Error ? monitorErr.message : monitorErr);
+                    logger.error({ err: monitorErr, ethId: id }, 'Failed to monitor ethernet status');
                 }
             }));
         }
@@ -267,7 +268,7 @@ export async function getInterfaceTraffic(
                 }
             });
         } catch (err) {
-            console.error(`Failed to monitor traffic for chunk ${chunk.join(',')}:`, err);
+            logger.error({ err, chunk }, 'Failed to monitor traffic for chunk');
         }
     }
 
@@ -314,7 +315,7 @@ export async function getNetwatchHosts(
 
             timeOffset = serverNow.getTime() - routerNow.getTime();
         } catch (e) {
-            console.warn('Failed to calculate time offset:', e);
+            logger.warn({ err: e }, 'Failed to calculate time offset');
         }
     }
 
@@ -595,9 +596,9 @@ export async function measurePing(
     } catch (error: any) {
         // Specifically catch the "Tried to process unknown reply" to avoid global crash
         if (error.message?.includes('unknown reply')) {
-            console.warn(`[Ping Warning] MikroTik sent unexpected reply for ${address}: ${error.message}`);
+            logger.warn({ err: error, address }, '[Ping Warning] MikroTik sent unexpected reply');
         } else {
-            console.error(`Error pinging ${address}:`, error.message || error);
+            logger.error({ err: error, address }, 'Error pinging host');
         }
         return { latency: -1, packetLoss: 100 };
     }

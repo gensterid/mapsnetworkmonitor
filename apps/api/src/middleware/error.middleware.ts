@@ -44,8 +44,7 @@ export class ApiError extends Error {
  */
 import * as fs from 'fs';
 import * as path from 'path';
-
-// ... imports
+import { logger } from '../lib/logger.js';
 
 export function errorMiddleware(
     err: Error,
@@ -53,7 +52,7 @@ export function errorMiddleware(
     res: Response,
     _next: NextFunction
 ): void {
-    console.error('Error:', err);
+    logger.error({ err }, 'Unhandled error');
 
     try {
         const logPath = path.join(process.cwd(), 'error_debug.log');
@@ -61,7 +60,7 @@ export function errorMiddleware(
         const logMessage = `\n[${timestamp}] ${err.name}: ${err.message}\nStack: ${err.stack}\n`;
         fs.appendFileSync(logPath, logMessage);
     } catch (e) {
-        console.error('Failed to write to error log:', e);
+        logger.error({ err: e }, 'Failed to write to error log');
     }
 
     // Handle Zod validation errors

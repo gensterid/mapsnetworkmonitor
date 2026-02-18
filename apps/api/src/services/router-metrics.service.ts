@@ -9,6 +9,7 @@ import {
 import { alertService } from './alert.service.js';
 import { snmpService } from './snmp.service.js';
 import { parseUptimeToSeconds } from '../lib/mikrotik-api.js';
+import { logger } from '../lib/logger.js';
 
 export class RouterMetricsService {
     /**
@@ -55,7 +56,7 @@ export class RouterMetricsService {
                 resources.usedMemory
             );
         } catch (err) {
-            console.error(`[Router ${routerName}] Failed to save metrics:`, err instanceof Error ? err.message : err);
+            logger.error({ err, router: routerName }, 'Failed to save metrics');
         }
     }
 
@@ -165,14 +166,14 @@ export class RouterMetricsService {
                             eq(routerNetwatch.targetInterface, name)
                         ));
                     } catch (nwErr) {
-                        console.error(`[SNMP] Failed to propagate rate to netwatch for ${name}:`, nwErr);
+                        logger.error({ err: nwErr, iface: name }, '[SNMP] Failed to propagate rate to netwatch');
                     }
                 }
             }
 
             return calculatedRates;
         } catch (error) {
-            console.error(`[Router ${router.host}] SNMP traffic failed:`, error instanceof Error ? error.message : error);
+            logger.error({ err: error, host: router.host }, 'SNMP traffic failed');
             return {};
         }
     }

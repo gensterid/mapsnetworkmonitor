@@ -137,7 +137,7 @@ export class SocketService {
         logger.info({ routerId }, '🚀 Starting REST API polling');
         const state = this.pollStates.get(routerId);
         if (!state) {
-            console.error(`❌ No poll state found for ${routerId}`);
+            logger.error({ routerId }, 'No poll state found');
             return;
         }
 
@@ -148,7 +148,7 @@ export class SocketService {
             });
 
             if (!router) {
-                console.error(`❌ Router ${routerId} not found in DB`);
+                logger.error({ routerId }, 'Router not found in DB');
                 return;
             }
 
@@ -169,7 +169,7 @@ export class SocketService {
             state.intervalId = setInterval(() => this.pollRouter(routerId), 1000); // 1s interval for smoothness
 
         } catch (err) {
-            console.error(`❌ Failed to start polling for ${routerId}:`, err);
+            logger.error({ err, routerId }, 'Failed to start polling');
         }
     }
 
@@ -236,7 +236,7 @@ export class SocketService {
             }
 
         } catch (error) {
-            console.error(`❌ Polling error for ${routerId}:`, error);
+            logger.error({ err: error, routerId }, 'Polling error');
             // If connection error, nullify api to retry next tick
             if (state.api) {
                 try { await state.api.close(); } catch (e) { }

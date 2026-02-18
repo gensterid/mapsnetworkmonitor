@@ -4,6 +4,7 @@ import { auth } from '../lib/auth.js';
 import { db } from '../db/index.js';
 import { users } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
 
@@ -49,7 +50,7 @@ router.post('/lookup-email', async (req: Request, res: Response) => {
 
         return res.json({ email: user[0].email });
     } catch (error) {
-        console.error('Error looking up email:', error);
+        logger.error({ err: error }, 'Error looking up email');
         return res.status(500).json({ error: 'Internal server error' });
     }
 });

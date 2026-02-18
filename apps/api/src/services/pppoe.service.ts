@@ -51,7 +51,7 @@ class PppoeService {
             const previousSessionNames = new Set(previousSessions.map(s => s.name));
             const currentSessionNames = new Set(currentSessions.map(s => s.name));
 
-            console.log(`[PPPoE] Previous tracked: ${previousSessions.length}, Current active: ${currentSessions.length}`);
+            logger.debug({ previous: previousSessions.length, current: currentSessions.length }, '[PPPoE] Session sync counts');
 
             // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
             for (const session of previousSessions) {
@@ -73,7 +73,7 @@ class PppoeService {
                             connectionType: session.connectionType,
                             connectedToId: session.connectedToId,
                         });
-                        console.log(`[PPPoE] Cached coordinates for ${session.name}`);
+                        logger.debug({ session: session.name }, '[PPPoE] Cached coordinates');
                     }
 
                     // Calculate session duration
@@ -90,9 +90,9 @@ class PppoeService {
                             session.address || 'N/A',
                             duration
                         );
-                        console.log(`[PPPoE] Disconnect alert created: ${alert ? alert.id : 'null (alerts disabled?)'}`);
+                        logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Disconnect alert created');
                     } catch (alertErr) {
-                        console.error(`[PPPoE] Failed to create disconnect alert:`, alertErr);
+                        logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create disconnect alert');
                     }
 
                     // Remove session from tracking
@@ -135,7 +135,7 @@ class PppoeService {
                         if (cachedCoords.waypoints) newSessionData.waypoints = cachedCoords.waypoints;
                         if (cachedCoords.connectionType) newSessionData.connectionType = cachedCoords.connectionType;
                         if (cachedCoords.connectedToId) newSessionData.connectedToId = cachedCoords.connectedToId;
-                        console.log(`[PPPoE] Restored coordinates for ${session.name} from cache`);
+                        logger.debug({ session: session.name }, '[PPPoE] Restored coordinates from cache');
                         // Remove from cache after use
                         this.coordinatesCache.delete(cacheKey);
                     }
@@ -150,15 +150,15 @@ class PppoeService {
                             session.name,
                             session.address || 'N/A'
                         );
-                        console.log(`[PPPoE] Connect alert created: ${alert ? alert.id : 'null (alerts disabled?)'}`);
+                        logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Connect alert created');
                     } catch (alertErr) {
-                        console.error(`[PPPoE] Failed to create connect alert:`, alertErr);
+                        logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create connect alert');
                     }
 
                     // UNIFIED LINKAGE: Link to ONU
                     if (session.address) {
                         this.linkSessionToOnu(session.name, session.address).catch(err =>
-                            console.error(`[PPPoE] Link to ONU failed for ${session.name}:`, err)
+                            logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed')
                         );
                     }
                 } else {
@@ -168,7 +168,7 @@ class PppoeService {
                         // Check if address changed
                         if (existingSession.address !== session.address && session.address) {
                             this.linkSessionToOnu(session.name, session.address).catch(err =>
-                                console.error(`[PPPoE] Link to ONU failed for ${session.name} (IP Change):`, err)
+                                logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed (IP Change)')
                             );
                         }
 
@@ -284,13 +284,11 @@ class PppoeService {
         userId?: string,
         userRole?: string
     ): Promise<PppoeSession[]> {
-        console.log('[PPPoE] findAll called');
-
         if (!pppoeSessions || !userRouters) {
-            console.error('[PPPoE] CRITICAL: pppoeSessions or userRouters schema is UNDEFINED. Circular dependency suspected.', {
+            logger.error({
                 pppoeSessions: !!pppoeSessions,
                 userRouters: !!userRouters
-            });
+            }, '[PPPoE] CRITICAL: Schema undefined. Circular dependency suspected.');
             return [];
         }
 
@@ -357,8 +355,6 @@ class PppoeService {
         userId?: string,
         userRole?: string
     ): Promise<PppoeSession[]> {
-        console.log(`[PPPoE] findAllWithCoordinates called with routerId=${routerId}, userId=${userId}`);
-
         // Get all sessions using the robust findAll method
         const sessions = await this.findAll(routerId, userId, userRole);
 
@@ -491,10 +487,10 @@ class PppoeService {
                     })
                     .where(eq(onus.id, onu.id));
 
-                // console.log(`[PPPoE] Linked session ${username} (${ip}) to ONU ${onu.id}`);
+                logger.debug({ username, ip, onuId: onu.id }, '[PPPoE] Linked session to ONU');
             }
         } catch (e) {
-            console.error(`[PPPoE] Failed to link session ${username} to ONU:`, e);
+            logger.error({ err: e, username }, '[PPPoE] Failed to link session to ONU');
         }
     }
 }

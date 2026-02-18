@@ -7,6 +7,7 @@ import {
     type AuditLog,
     type NewAuditLog,
 } from '../db/schema/index.js';
+import { logger } from '../lib/logger.js';
 
 /**
  * Settings Service - handles app settings and audit logs
@@ -189,7 +190,7 @@ export class SettingsService {
         for (const setting of defaults) {
             const existing = await this.getSetting(setting.key);
             if (!existing) {
-                console.log(`Seeding default setting: ${setting.key}`);
+                logger.info({ key: setting.key }, 'Seeding default setting');
                 await this.setSetting(setting.key, setting.value, setting.description);
             }
         }

@@ -381,7 +381,7 @@ export class RouterService {
                     const currentPppSessions = await getPppSessions(conn);
                     await pppoeService.trackSessions(id, router.name, currentPppSessions);
                 } catch (pppoeError) {
-                    console.error(`[Router ${router.name}] Failed to track PPPoE sessions:`, pppoeError);
+                    logger.error({ err: pppoeError, router: router.name }, 'Failed to track PPPoE sessions');
                 }
 
                 // 4. Fetch Simple Queues for Heatmap Traffic
@@ -389,7 +389,7 @@ export class RouterService {
                     const queues = await getSimpleQueues(conn);
                     await pppoeService.updateTraffic(id, queues);
                 } catch (qErr) {
-                    console.error(`[Router ${router.name}] Failed to sync queues:`, qErr);
+                    logger.error({ err: qErr, router: router.name }, 'Failed to sync queues');
                 }
 
                 // 5. Propagate Interface Traffic
@@ -445,7 +445,7 @@ export class RouterService {
 
             return updatedRouter;
         } catch (error) {
-            console.error(`[Router ${router.host}] Connection failed:`, error instanceof Error ? error.message : error);
+            logger.error({ err: error, router: router.host }, 'Connection failed');
 
             // Only mark offline if it's a connection error
             // Check if error is ETIMEDOUT, ECONNREFUSED, or login failure
@@ -478,16 +478,12 @@ export class RouterService {
                             'offline'
                         );
                     } catch (alertError) {
-                        console.error('Failed to create offline alert:', alertError);
+                        logger.error({ err: alertError }, 'Failed to create offline alert');
                     }
                 }
                 return updatedRouter;
             } else {
-                // If it's NOT a connection error (e.g. metrics parsing failed), 
-                // keep previous status or mark online?
-                // Better to throw so we see the error, but don't mark offline.
-                // Or just log it.
-                console.error(`[Router ${router.host}] Non-connection error during refresh:`, error);
+                logger.error({ err: error, router: router.host }, 'Non-connection error during refresh');
                 return router;
             }
         } finally {
@@ -495,7 +491,7 @@ export class RouterService {
                 try {
                     await conn.close();
                 } catch (closeErr) {
-                    console.error(`[Router ${router.host}] Failed to close connection in finally block:`, closeErr);
+                    logger.error({ err: closeErr, router: router.host }, 'Failed to close connection in finally block');
                 }
             }
         }
@@ -581,7 +577,7 @@ export class RouterService {
             conn.close();
             return count;
         } catch (error) {
-            console.error(`Failed to get hotspot users for ${router.host}:`, error);
+            logger.error({ err: error, host: router.host }, 'Failed to get hotspot users');
             return 0;
         }
     }
@@ -605,7 +601,7 @@ export class RouterService {
             conn.close();
             return count;
         } catch (error) {
-            console.error(`Failed to get PPP users for ${router.host}:`, error);
+            logger.error({ err: error, host: router.host }, 'Failed to get PPP users');
             return 0;
         }
     }
@@ -629,7 +625,7 @@ export class RouterService {
             conn.close();
             return sessions;
         } catch (error) {
-            console.error(`Failed to get PPP sessions for ${router.host}:`, error);
+            logger.error({ err: error, host: router.host }, 'Failed to get PPP sessions');
             return [];
         }
     }
@@ -722,7 +718,7 @@ export class RouterService {
                         packetLoss: packetLoss
                     });
                 } catch (err) {
-                    console.error(`[Router ${router.name}] Error pinging ${target.ip}:`, err);
+                    logger.error({ err, router: router.name, target: target.ip }, 'Error pinging target');
                     results.push({
                         ip: target.ip,
                         label: target.label || target.ip,
@@ -732,7 +728,7 @@ export class RouterService {
                 }
             }
         } catch (error) {
-            console.error(`[Router ${router.name}] Failed to measure ping targets completely:`, error instanceof Error ? error.message : error);
+            logger.error({ err: error, router: router.name }, 'Failed to measure ping targets completely');
 
             // If connection failed, return targets with null results instead of 500
             if (results.length === 0) {
@@ -818,10 +814,10 @@ export class RouterService {
                     comment: data.name, // Mapping name to comment
                 });
             } catch (err) {
-                console.error('Failed to add netwatch to router:', err);
+                logger.error({ err }, 'Failed to add netwatch to router');
                 throw new Error(`Failed to add to router: ${err instanceof Error ? err.message : 'Unknown error'}`);
             } finally {
-                if (conn) await conn.close().catch(console.error);
+                if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after addNetwatch'));
             }
         }
 
@@ -900,14 +896,10 @@ export class RouterService {
                         comment: data.name,
                     });
                 } catch (err) {
-                    console.error('Failed to update netwatch on router:', err);
-                    // Log more details if available
-                    if (typeof err === 'object' && err !== null) {
-                        console.error('Error details:', JSON.stringify(err, null, 2));
-                    }
+                    logger.error({ err, details: err }, 'Failed to update netwatch on router');
                     throw new Error(`Failed to update router: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
                 } finally {
-                    if (conn) await conn.close().catch(console.error);
+                    if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after updateNetwatch'));
                 }
             }
         }
@@ -960,7 +952,7 @@ export class RouterService {
             .returning();
 
         if (!deleted) {
-            console.warn(`[RouterService] Netwatch entry not found in DB for deletion: ${netwatchId}`);
+            logger.warn({ netwatchId }, '[RouterService] Netwatch entry not found in DB for deletion');
             return false;
         }
 
@@ -989,20 +981,20 @@ export class RouterService {
                         // Ignore if entry not found, otherwise throw
                         const msg = netwatchErr.message || '';
                         if (!msg.includes('no such item') && !msg.includes('not found')) {
-                            console.error(`[RouterService] Failed to remove from MikroTik:`, msg);
+                            logger.error({ err: netwatchErr }, '[RouterService] Failed to remove from MikroTik');
                         } else {
                             logger.debug('Netwatch entry not found on router, skipping');
                         }
                     }
                 } catch (err) {
-                    console.error('Failed to connect/delete netwatch from router (DB entry was already deleted):', err);
+                    logger.error({ err }, 'Failed to connect/delete netwatch from router (DB entry was already deleted)');
                     // We don't re-throw here because the DB entry is already gone, 
                     // so the "primary" goal of the user (clearing the map) is achieved.
                 } finally {
-                    if (conn) await conn.close().catch(console.error);
+                    if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after deleteNetwatch'));
                 }
             } else {
-                console.warn(`[RouterService] Router ${routerId} not found, skipped MikroTik cleanup`);
+                logger.warn({ routerId }, '[RouterService] Router not found, skipped MikroTik cleanup');
             }
         } else {
             logger.debug({ deviceType: deleted.deviceType }, '[RouterService] Device type skipped for MikroTik cleanup');
@@ -1040,7 +1032,7 @@ export class RouterService {
             const targets = entries.filter(e => e.status !== 'unknown');
             await routerNetwatchService.measureLatency(routerId, router.name, conn, targets);
         } catch (err) {
-            console.error(`[Router ${router.name}] Failed to measure netwatch latency:`, err);
+            logger.error({ err, router: router.name }, 'Failed to measure netwatch latency');
         } finally {
             if (conn) await conn.close().catch(() => { });
         }

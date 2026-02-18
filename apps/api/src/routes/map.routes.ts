@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus } from '../db/schema/index.js';
 import { eq, inArray } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { routerService } from '../services/index.js'; // Use existing services where possible
 
@@ -158,6 +159,7 @@ router.get(
  */
 router.put(
     '/nodes/:id/position',
+    requireOperator,
     asyncHandler(async (req, res) => {
         const { id } = req.params;
         const { lat, lng } = updatePositionSchema.parse(req.body);

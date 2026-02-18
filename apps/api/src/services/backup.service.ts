@@ -1,12 +1,13 @@
 
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 import { promisify } from 'util';
 import { sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
+import { logger } from '../lib/logger.js';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export class BackupService {
     private dbUrl: string;
@@ -23,7 +24,7 @@ export class BackupService {
     async exportDatabase(): Promise<string> {
         // First check if pg_dump is available
         try {
-            await execAsync(`"${this.pgDumpPath}" --version`);
+            await execFileAsync(this.pgDumpPath, ['--version']);
         } catch {
             throw new Error('pg_dump not found. Please install PostgreSQL client tools. On Ubuntu: sudo apt install postgresql-client');
         }
@@ -37,15 +38,23 @@ export class BackupService {
             fs.mkdirSync(path.join(process.cwd(), 'temp'));
         }
 
-        // Command: pg_dump "postgres://..." > output.sql
+        // Command arguments for pg_dump
         // Using --clean --if-exists to ensure restore overwrites properly
-        const command = `"${this.pgDumpPath}" "${this.dbUrl}" --clean --if-exists --no-owner --no-acl > "${outputPath}"`;
+        const args = [
+            this.dbUrl,
+            '--clean',
+            '--if-exists',
+            '--no-owner',
+            '--no-acl',
+            '-f',
+            outputPath
+        ];
 
         try {
-            await execAsync(command);
+            await execFileAsync(this.pgDumpPath, args);
             return outputPath;
         } catch (error: any) {
-            console.error('Backup failed:', error);
+            logger.error({ error }, 'Backup failed');
             throw new Error('Failed to create database backup: ' + (error.message || 'Unknown error'));
         }
     }
@@ -53,14 +62,14 @@ export class BackupService {
     async importDatabase(filePath: string): Promise<void> {
         // Try psql first
         try {
-            await execAsync(`"${this.psqlPath}" --version`);
+            await execFileAsync(this.psqlPath, ['--version']);
             // psql is available, use it
-            const command = `"${this.psqlPath}" "${this.dbUrl}" < "${filePath}"`;
-            await execAsync(command);
+            const args = [this.dbUrl, '-f', filePath];
+            await execFileAsync(this.psqlPath, args);
             return;
         } catch {
             // psql not available, fallback to JavaScript implementation
-            console.log('psql not found, using JavaScript SQL executor...');
+            logger.info('psql not found, using JavaScript SQL executor...');
         }
 
         // JavaScript fallback: read and execute SQL statements
@@ -68,7 +77,7 @@ export class BackupService {
             const sqlContent = fs.readFileSync(filePath, 'utf-8');
             await this.executeSqlStatements(sqlContent);
         } catch (error: any) {
-            console.error('Restore failed:', error);
+            logger.error({ error }, 'Restore failed');
             throw new Error('Failed to restore database backup: ' + (error.message || 'Unknown error'));
         }
     }
@@ -78,7 +87,7 @@ export class BackupService {
         // Handle multi-line statements by splitting on semicolons followed by newlines
         const statements = this.parseSqlStatements(sqlContent);
 
-        console.log(`Executing ${statements.length} SQL statements...`);
+        logger.info(`Executing ${statements.length} SQL statements...`);
 
         let executed = 0;
         let skipped = 0;
@@ -110,12 +119,12 @@ export class BackupService {
                     continue;
                 }
 
-                console.warn(`Warning executing SQL: ${errorMsg.substring(0, 100)}`);
+                logger.warn(`Warning executing SQL: ${errorMsg.substring(0, 100)}`);
                 errors++;
             }
         }
 
-        console.log(`Restore complete: ${executed} executed, ${skipped} skipped, ${errors} errors`);
+        logger.info(`Restore complete: ${executed} executed, ${skipped} skipped, ${errors} errors`);
     }
 
     private parseSqlStatements(sqlContent: string): string[] {

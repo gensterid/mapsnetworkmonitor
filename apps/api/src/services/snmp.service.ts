@@ -1,4 +1,5 @@
 import snmp from 'net-snmp';
+import { logger } from '../lib/logger.js';
 
 export interface SnmpConfig {
     host: string;
@@ -86,7 +87,7 @@ export class SnmpService {
                     const results: SnmpOidResult[] = [];
                     for (const vb of varbinds) {
                         if (snmp.isVarbindError(vb)) {
-                            console.warn(`SNMP Error for OID ${vb.oid}:`, snmp.varbindError(vb));
+                            logger.warn({ oid: vb.oid, err: snmp.varbindError(vb) }, 'SNMP Error for OID');
                         } else {
                             results.push({
                                 oid: vb.oid,

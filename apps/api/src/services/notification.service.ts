@@ -2,6 +2,7 @@ import axios from 'axios';
 import { db } from '../db/index.js';
 import { notificationGroups, routers, routerNetwatch, type Alert } from '../db/schema/index.js';
 import { eq, and } from 'drizzle-orm';
+import { logger } from '../lib/logger.js';
 
 export class NotificationService {
     /**
@@ -21,9 +22,9 @@ export class NotificationService {
             }
 
             await axios.post(url, payload);
-            console.log('Telegram message sent successfully');
+            logger.info({ chatId, threadId }, 'Telegram message sent successfully');
         } catch (error) {
-            console.error('Failed to send Telegram message:', error);
+            logger.error({ err: error, chatId }, 'Failed to send Telegram message');
         }
     }
 
@@ -59,8 +60,7 @@ export class NotificationService {
                 };
             }
 
-            console.log(`[WHATSAPP] Sending to ${to} (${isGroup ? 'group' : 'personal'}) via ${endpoint}`);
-            console.log(`[WHATSAPP] Payload:`, JSON.stringify(payload));
+            logger.debug({ to, isGroup, endpoint, payload }, '[WHATSAPP] Sending message');
 
             const headers: any = {
                 'Content-Type': 'application/json'
@@ -71,14 +71,14 @@ export class NotificationService {
             }
 
             const response = await axios.post(endpoint, payload, { headers, timeout: 10000 });
-            console.log('[WHATSAPP] Message sent successfully:', response.data);
+            logger.info({ to, responseData: response.data }, '[WHATSAPP] Message sent successfully');
         } catch (error: any) {
-            console.error('[WHATSAPP] Failed to send message:', error.response?.data || error.message);
-            // Log more details for debugging
-            if (error.response) {
-                console.error('[WHATSAPP] Status:', error.response.status);
-                console.error('[WHATSAPP] Headers:', error.response.headers);
-            }
+            logger.error({
+                err: error,
+                to,
+                responseData: error.response?.data,
+                status: error.response?.status
+            }, '[WHATSAPP] Failed to send message');
         }
     }
 
@@ -241,7 +241,7 @@ export class NotificationService {
             }
 
         } catch (error) {
-            console.error('Error in notifyAlert:', error);
+            logger.error({ err: error, alertId: alert.id }, 'Error in notifyAlert');
         }
     }
 
@@ -343,9 +343,9 @@ export class NotificationService {
                 );
             }
 
-            console.log(`[NOTIFICATION] Escalation notification sent for ${deviceName} (Level ${escalationLevel})`);
+            logger.info({ deviceName: router.name, escalationLevel }, '[NOTIFICATION] Escalation notification sent');
         } catch (error) {
-            console.error('Error in sendEscalationNotification:', error);
+            logger.error({ err: error, deviceName: router.name, escalationLevel }, 'Error in sendEscalationNotification');
         }
     }
 }
