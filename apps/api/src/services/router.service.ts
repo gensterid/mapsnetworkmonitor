@@ -136,7 +136,7 @@ export class RouterService {
         const latestMetricsRows: RouterMetric[] = await db.execute(sql`
             SELECT DISTINCT ON (router_id) *
             FROM router_metrics
-            WHERE router_id = ANY(${routerIds})
+            WHERE router_id IN (${sql.join(routerIds.map(id => sql`${id}`), sql`, `)})
             ORDER BY router_id, recorded_at DESC
         `);
 

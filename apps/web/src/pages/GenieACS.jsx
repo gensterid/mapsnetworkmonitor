@@ -9,6 +9,7 @@ import {
     useSettings,
     useRouters,
     useBulkPushConfigGenieAcs,
+    useBulkRebootGenieAcs,
     useAppTimezone
 } from '@/hooks';
 import {
