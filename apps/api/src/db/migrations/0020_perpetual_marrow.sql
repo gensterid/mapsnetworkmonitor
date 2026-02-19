@@ -1,0 +1,1 @@
+ALTER TABLE "onus" ADD COLUMN "mac_address" text;

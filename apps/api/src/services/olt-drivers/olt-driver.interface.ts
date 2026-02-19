@@ -3,6 +3,7 @@ export interface OnuInfo {
     ponId: string;
     onuId: string;
     sn: string;
+    macAddress?: string;
     status: string; // 'online' | 'offline' | 'loss_signal' etc.
     signal?: string; // e.g. -20.5 dBm
     distance?: number; // meters

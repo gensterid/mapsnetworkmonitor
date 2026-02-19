@@ -27,6 +27,7 @@ export const onus = pgTable('onus', {
         .references(() => olts.id, { onDelete: 'set null' }),
     ponPort: text('pon_port'), // Physical port (e.g. gpon0/1)
     onuIndex: text('onu_index'), // Index on OLT
+    macAddress: text('mac_address'), // ONU MAC Address
 
     name: text('name'), // Customer / Device name
     model: text('model'), // Device Model

@@ -240,6 +240,7 @@ export class CDataDriver extends BaseOltDriver {
                 ponId: String(item.PonId || item.pon_id || item.ponIndex || '0'),
                 onuId: String(item.OnuId || item.onu_id || item.onuIndex || '0'),
                 sn: item.PonSn || item.sn || item.mac || item.onu_sn || 'Unknown',
+                macAddress: item.OnuMac || item.mac_addr || item.mac || undefined,
                 status: status,
                 signal: signal,
                 name: item.OnuName || item.name || item.onu_name || undefined,

@@ -29,15 +29,16 @@ const createOltSchema = z.object({
 const updateOltSchema = createOltSchema.partial();
 
 const updateOnuSchema = z.object({
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
-    name: z.string().optional(),
-    description: z.string().optional(),
+    latitude: z.string().optional().nullable(),
+    longitude: z.string().optional().nullable(),
+    name: z.string().optional().nullable(),
+    description: z.string().optional().nullable(),
     connectionType: z.string().optional().nullable(),
     connectedToId: z.string().uuid().optional().nullable(),
-    waypoints: z.string().optional(),
-    targetInterface: z.string().optional(),
-    location: z.string().optional(),
+    waypoints: z.string().optional().nullable(),
+    targetInterface: z.string().optional().nullable(),
+    location: z.string().optional().nullable(),
+    macAddress: z.string().optional().nullable(),
 });
 
 // --- DEBUG ROUTES (Move above auth for 404 troubleshooting) ---

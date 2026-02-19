@@ -113,6 +113,10 @@ export async function runMigrations() {
                 name: 'onus.target_interface',
                 sql: sql`ALTER TABLE onus ADD COLUMN target_interface TEXT`
             },
+            {
+                name: 'onus.mac_address',
+                sql: sql`ALTER TABLE onus ADD COLUMN mac_address TEXT`
+            },
         ];
 
         for (const m of migrations) {
@@ -135,4 +139,13 @@ export async function runMigrations() {
     } catch (error) {
         logger.warn({ err: error }, 'Migration warning - some changes might already be applied');
     }
+}
+
+// Call if run directly
+import { fileURLToPath } from 'url';
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+    runMigrations().catch(err => {
+        console.error('Migration failed:', err);
+        process.exit(1);
+    });
 }

@@ -8,13 +8,14 @@ export interface GenieACSDevice {
     _registered: string;
     _lastInform: string;
     _ip: string;
-    _mac: string;
+    _mac?: string;
     _productClass: string;
     _serialNumber: string;
     _ssid?: string;
     _manufacturer?: string;
     _softwareVersion?: string;
     _rxPower?: string;
+    _macAddress?: string;
     _isTr181?: boolean;
     InternetGatewayDevice?: any;
     Device?: any;
@@ -131,6 +132,9 @@ export const genieacsService = {
                 // Virtual Parameters (Custom GenieACS scripts)
                 'VirtualParameters.RXPower': 1,
                 'VirtualParameters.IPTR069': 1,
+                '_mac': 1,
+                'InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress': 1,
+                'Device.Ethernet.Interface.1.MACAddress': 1,
             };
 
             const response = await axios.get(`${url}/devices`, {
@@ -155,6 +159,7 @@ export const genieacsService = {
                 _ip: getDeviceIp(dev),
                 _ssid: getDeviceSsid(dev),
                 _rxPower: getDeviceRxPower(dev),
+                _macAddress: getDeviceMac(dev),
                 _isTr181: !!dev.Device
             }));
         } catch (error) {
@@ -196,6 +201,7 @@ export const genieacsService = {
                         firmwareVersion: dev._softwareVersion || existing.firmwareVersion,
                         host: dev._ip || existing.host,
                         lastRxPower: dev._rxPower || existing.lastRxPower,
+                        macAddress: dev._macAddress || existing.macAddress,
                         discoverySources: sources,
                         updatedAt: new Date(),
                         lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen
@@ -219,6 +225,7 @@ export const genieacsService = {
                         firmwareVersion: dev._softwareVersion,
                         host: dev._ip,
                         lastRxPower: dev._rxPower,
+                        macAddress: dev._macAddress,
                         status: status as any,
                         discoverySources: ['acs'],
                         lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined,
@@ -821,4 +828,11 @@ function getDeviceRxPower(dev: any): string {
     }
 
     return strVal;
+}
+
+function getDeviceMac(dev: any): string {
+    return dev._mac ||
+        dev.InternetGatewayDevice?.LANDevice?.[1]?.LANEthernetInterfaceConfig?.[1]?.MACAddress?._value ||
+        dev.Device?.Ethernet?.Interface?.[1]?.MACAddress?._value ||
+        '';
 }

@@ -141,6 +141,13 @@
       "when": 1771445820137,
       "tag": "0019_next_galactus",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1771529519400,
+      "tag": "0020_perpetual_marrow",
+      "breakpoints": true
     }
   ]
 }

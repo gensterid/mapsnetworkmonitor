@@ -346,7 +346,14 @@ export default function OltDetails() {
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                         <div className="flex flex-col">
-                                                            <span className="text-sm text-white font-mono">{onu.sn}</span>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm text-white font-mono">{onu.sn}</span>
+                                                                {onu.macAddress && (
+                                                                    <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded border border-slate-700 font-mono">
+                                                                        {onu.macAddress}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                             {onu.name && <span className="text-[10px] text-slate-300 font-medium">{onu.name}</span>}
                                                             {onu.description && onu.description !== onu.name && (
                                                                 <span className="text-[10px] text-slate-500 italic">{onu.description}</span>

@@ -72,7 +72,14 @@ function OnuListModal({ isOpen, onClose, olt }) {
                                         </td>
                                         <td className="px-4 py-2 text-sm font-mono whitespace-nowrap">
                                             <div className="flex flex-col">
-                                                <span>{onu.sn}</span>
+                                                <div className="flex items-center gap-1.5 font-mono">
+                                                    <span>{onu.sn}</span>
+                                                    {onu.macAddress && (
+                                                        <span className="text-[9px] px-1 bg-gray-100 text-gray-500 rounded border border-gray-200">
+                                                            {onu.macAddress}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {onu.name && <span className="text-xs text-gray-500 font-medium">{onu.name}</span>}
                                                 {onu.description && onu.description !== onu.name && (
                                                     <span className="text-xs text-gray-400 italic">{onu.description}</span>

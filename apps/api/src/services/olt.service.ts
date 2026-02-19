@@ -330,6 +330,7 @@ export class OltService {
                         oltId: id,
                         ponPort: device.ponId,
                         onuIndex: device.onuId,
+                        macAddress: device.macAddress,
                         name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
                         status: status as any,
                         lastRxPower: device.signal ? String(device.signal) : null,
@@ -346,6 +347,7 @@ export class OltService {
                             status: status as any,
                             lastRxPower: device.signal ? String(device.signal) : dbOnu.lastRxPower,
                             lastDownReason: device.lastDownReason || dbOnu.lastDownReason,
+                            macAddress: device.macAddress || dbOnu.macAddress,
                             updatedAt: new Date(),
                         };
 
@@ -365,6 +367,7 @@ export class OltService {
                         dbOnu.lastRxPower = updateData.lastRxPower;
                         dbOnu.lastDownReason = updateData.lastDownReason;
                         if (updateData.lastSeen) dbOnu.lastSeen = updateData.lastSeen;
+                        if (updateData.macAddress) dbOnu.macAddress = updateData.macAddress;
 
                     } catch (e) {
                         // Ignore sync errors during read
@@ -381,6 +384,7 @@ export class OltService {
                     name: dbOnu.name || device.name,
                     lastRxPower: device.signal || dbOnu.lastRxPower,
                     lastDown: dbOnu.lastSeen, // Use lastSeen as lastDown for ONUs
+                    macAddress: dbOnu.macAddress,
                     lastDownReason: dbOnu.lastDownReason || device.lastDownReason,
                 });
             }
@@ -456,6 +460,7 @@ export class OltService {
                 status: status,
                 lastRxPower: rxPower,
                 discoverySources: ['olt'],
+                macAddress: device.macAddress,
                 lastSeen: status === 'online' ? now : null, // Handled by COALESCE in upsert logic if needed
                 lastDownReason: device.lastDownReason,
                 updatedAt: now,
@@ -481,6 +486,7 @@ export class OltService {
                             // Only update lastSeen if the new status is online
                             lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
                             lastDownReason: sql`excluded.last_down_reason`,
+                            macAddress: sql`COALESCE(onus.mac_address, excluded.mac_address)`,
                             updatedAt: sql`excluded.updated_at`,
                         }
                     });
@@ -499,9 +505,17 @@ export class OltService {
 
     async getAllOnusWithCoordinates(): Promise<any[]> {
         const { isNotNull, and, getTableColumns } = await import('drizzle-orm');
+        const onusColumns = getTableColumns(onus);
         return db.select({
-            ...getTableColumns(onus),
-            lastDown: onus.lastSeen, // Alias for frontend compatibility
+            ...onusColumns,
+            id: onus.id,
+            sn: onus.sn,
+            status: onus.status,
+            lastDownReason: onus.lastDownReason,
+            lastRxPower: onus.lastRxPower,
+            lastDown: onus.lastSeen,
+            lastSeen: onus.lastSeen,
+            oltId: onus.oltId, // Exposed for targeted updates
             routerId: olts.parentId,
             oltName: olts.name
         })

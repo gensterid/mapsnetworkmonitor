@@ -217,6 +217,7 @@ export class HsgqDriver extends BaseOltDriver {
                 ponId,
                 onuId,
                 sn,
+                macAddress: item.ont_mac || item.onu_mac || item.mac_addr || item.mac || undefined,
                 status,
                 signal: item.receive_power || item.rx_power || item.rxPower || item.signals || item.optical_power || undefined,
                 name,

@@ -96,7 +96,10 @@ export const DraggableMarker = ({
         isFinite(markerPosition[1]);
 
     // Additional check: Ensure icon is valid
-    if (!isValidPosition || !icon) return null;
+    if (!isValidPosition || !icon) {
+        console.warn(`[DraggableMarker] Invalid position or icon for device. Skipping render.`, { position: markerPosition, icon: !!icon });
+        return null;
+    }
 
     return (
         <Marker
@@ -359,8 +362,32 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
         return `${bps.toFixed(0)} bps`;
     };
 
-    const status = node.status || 'unknown';
+    const status = (node.status || 'unknown').toLowerCase();
     const isUp = ['up', 'online', 'active'].includes(status);
+
+    const getDownReason = (node) => {
+        // 1. Explicit reason from Database/OLT (Highest Priority)
+        const explicitReason = node.lastDownReason || node.last_down_reason;
+        if (explicitReason && explicitReason !== 'Unknown') return explicitReason;
+
+        // 2. Normalized OLT statuses (Middle Priority)
+        // If status is power_down, always call it Power Down even if reason is empty
+        if (status === 'power_down') return 'Power Down';
+        if (status === 'dying_gasp') return 'Dying Gasp';
+        if (status === 'lost') return 'Optical Signal Loss';
+
+        // 3. Last Resort Fallback (Signal Analysis)
+        const signal = parseFloat(node.lastRxPower || node.last_rx_power);
+        if (!isUp && !isNaN(signal) && signal < -27) return 'Optical Signal Loss';
+
+        // 4. Default generic status
+        if (!isUp) {
+            if (status === 'offline' || status === 'down' || status === 'unknown') return 'Connection Lost';
+            return status.charAt(0).toUpperCase() + status.slice(1);
+        }
+
+        return 'Unknown';
+    };
 
     return (
         <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -450,11 +477,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         )}
                     </div>
                 )}
-                {(node.lastDownReason || node.status === 'power_down' || node.status === 'dying_gasp' || node.status === 'lost') && (
+                {/* Show Down Reason only if UP but suspicious (e.g. low signal). If Offline, Outage Section handles it below. */}
+                {isUp && (node.lastDownReason || ['lost', 'power_down', 'dying_gasp'].includes(status) || (node.lastRxPower && parseFloat(node.lastRxPower) < -27)) && (
                     <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">Down Reason</span>
-                        <span className="text-red-400 font-medium truncate max-w-[120px]" title={node.lastDownReason || (node.status === 'lost' ? 'Optical Signal Loss' : (node.status === 'power_down' ? 'Power Down' : 'Dying Gasp'))}>
-                            {node.lastDownReason || (node.status === 'lost' ? 'Optical Signal Loss' : (node.status === 'power_down' ? 'Power Down' : 'Dying Gasp'))}
+                        <span className="text-slate-400">Status Detail</span>
+                        <span className="text-amber-400 font-medium truncate max-w-[120px]" title={getDownReason(node)}>
+                            {getDownReason(node)}
                         </span>
                     </div>
                 )}
@@ -525,14 +553,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                 )}
                 {!isUp && (
                     <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
-                        {(node.lastDownReason || node.status === 'power_down' || node.status === 'dying_gasp' || node.status === 'lost') && (
-                            <div className="flex flex-col gap-1">
-                                <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
-                                <span className="text-orange-300 text-xs font-bold">
-                                    {node.lastDownReason || (node.status === 'lost' ? 'Optical Signal Loss' : (node.status === 'power_down' ? 'Power Down' : 'Dying Gasp'))}
-                                </span>
-                            </div>
-                        )}
+                        <div className="flex flex-col gap-1">
+                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
+                            <span className="text-orange-300 text-xs font-bold">
+                                {getDownReason(node)}
+                            </span>
+                        </div>
                         <div className="flex flex-col gap-1">
                             <span className="text-slate-400 text-[10px] uppercase tracking-wider">Down Since</span>
                             <span className="text-red-200 text-xs font-mono">{formatShortDateTime(node.lastDown, timezone)}</span>
@@ -632,9 +658,20 @@ export const SmartMarker = ({
 
 // Custom Comparison Function to prevent re-renders when array refs change but values don't
 export const arePropsEqual = (prev, next) => {
-    // 1. Check position by value (lat/lng)
+    // 1. Check position by value (lat/lng) - Support both Array and Leaflet LatLng objects
     if (!prev.position || !next.position) return false;
-    const posChanged = prev.position[0] !== next.position[0] || prev.position[1] !== next.position[1];
+
+    // Normalize positions to [lat, lng] for comparison
+    const getPos = (p) => {
+        if (Array.isArray(p)) return p;
+        if (p && typeof p.lat === 'number') return [p.lat, p.lng];
+        return [0, 0];
+    };
+
+    const p1 = getPos(prev.position);
+    const p2 = getPos(next.position);
+
+    const posChanged = p1[0] !== p2[0] || p1[1] !== p2[1];
     if (posChanged) return false;
 
     // 2. Check other primitive props
@@ -650,7 +687,6 @@ export const arePropsEqual = (prev, next) => {
         prev.icon === next.icon &&
         prev.isHeatmapMode === next.isHeatmapMode &&
         prev.id === next.id
-        // Removed isHovered from comparison since it's now internal via Context
     );
 };
 

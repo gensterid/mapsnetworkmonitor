@@ -525,17 +525,17 @@ const NetworkMap = ({
             return { routers: routerNodes, nodes: [], lines: [], pppoeNodes: [] };
         }
 
-        // Second pass: Create netwatch nodes and index them
+        // Second pass: Create netwatch and PPPoE nodes and index them
+        const nodesBySN = new Map();
+        const nodesByHost = new Map();
+
         const netwatchDataToUse = stableNetwatchData || [];
         netwatchDataToUse.forEach(nwGroup => {
-            // Apply filtering
             if (filteredRouterId && nwGroup.routerId !== filteredRouterId) return;
 
             if (nwGroup.entries) {
                 nwGroup.entries.forEach((entry) => {
                     let lat = null, lng = null;
-
-                    // Robust coordinate check
                     if (entry.latitude && entry.longitude &&
                         !isNaN(parseFloat(entry.latitude)) && !isNaN(parseFloat(entry.longitude)) &&
                         parseFloat(entry.latitude) !== 0 && parseFloat(entry.longitude) !== 0) {
@@ -545,43 +545,14 @@ const NetworkMap = ({
                         const node = { ...entry, lat, lng, routerId: nwGroup.routerId, type: entry.deviceType || 'netwatch' };
                         nodes.push(node);
                         deviceMap.set(entry.id, node);
+
+                        if (node.sn) nodesBySN.set(node.sn, node);
+                        if (node.host) nodesByHost.set(node.host, node);
                     }
                 });
             }
         });
 
-        // 2.5 pass: Create Passive Inventory nodes (ONUs)
-        const onusMapDataToUse = stableOnusMapData || [];
-        onusMapDataToUse.forEach(onu => {
-            if (filteredRouterId && onu.routerId !== filteredRouterId) return;
-
-            const lat = parseFloat(onu.latitude);
-            const lng = parseFloat(onu.longitude);
-
-            if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
-                return;
-            }
-
-            const alreadyOnMap = nodes.some(n =>
-                (n.host && n.host === onu.host) ||
-                (n.sn && n.sn === onu.sn)
-            );
-
-            if (!alreadyOnMap) {
-                const node = {
-                    ...onu,
-                    lat,
-                    lng,
-                    type: 'onu',
-                    deviceType: 'onu',
-                    isPassive: true
-                };
-                nodes.push(node);
-                deviceMap.set(onu.id, node);
-            }
-        });
-
-        // 2.6 pass: Create PPPoE nodes and index them
         const pppoeNodesList = [];
         if (stablePppoeData && Array.isArray(stablePppoeData)) {
             stablePppoeData.forEach(session => {
@@ -598,11 +569,66 @@ const NetworkMap = ({
                     };
                     pppoeNodesList.push(node);
                     deviceMap.set(session.id, node);
+
+                    if (node.sn) nodesBySN.set(node.sn, node);
+                    if (node.host || node.address) nodesByHost.set(node.host || node.address, node);
                 }
             });
         }
 
-        // Third pass: Create lines for ALL indexed devices
+        // 2.5 pass: Create Passive Inventory nodes (ONUs) OR enrich existing markers
+        const onusMapDataToUse = stableOnusMapData || [];
+        onusMapDataToUse.forEach(onu => {
+            if (filteredRouterId && onu.routerId !== filteredRouterId) return;
+
+            const lat = parseFloat(onu.latitude);
+            const lng = parseFloat(onu.longitude);
+
+            if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng) || (lat === 0 && lng === 0)) {
+                return;
+            }
+
+            const existingNode = (onu.sn && nodesBySN.get(onu.sn)) || (onu.host && nodesByHost.get(onu.host));
+
+            if (existingNode) {
+                // Determine accurate OLT values (Support both camelCase and snake_case from API)
+                const onuStatus = (onu.status || '').toLowerCase();
+                const onuReason = onu.lastDownReason || onu.last_down_reason;
+                const onuLastDown = onu.lastDown || onu.last_down || onu.lastSeen || onu.last_seen;
+                const onuSignal = onu.lastRxPower || onu.last_rx_power || onu.signal;
+
+                existingNode.oltName = onu.oltName || onu.olt_name;
+                existingNode.ponPort = onu.ponPort || onu.pon_port;
+                existingNode.oltId = onu.oltId || onu.olt_id; // CRITICAL: Preserved for move mutation
+                existingNode.lastRxPower = onuSignal || existingNode.lastRxPower;
+                existingNode.linkedOnuId = onu.id;
+                existingNode.sn = onu.sn || existingNode.sn;
+
+                // Prioritize explicit OLT data over Netwatch/PPPoE generic one
+                if (onuReason) existingNode.lastDownReason = onuReason;
+                if (onuLastDown) existingNode.lastDown = onuLastDown;
+
+                // Update status if it's a specific OLT outage status (CRITICAL FIX)
+                if (['power_down', 'dying_gasp', 'lost'].includes(onuStatus)) {
+                    existingNode.status = onuStatus;
+                }
+
+                deviceMap.set(onu.id, existingNode);
+            } else {
+                const node = {
+                    ...onu,
+                    lat,
+                    lng,
+                    type: 'onu',
+                    deviceType: 'onu',
+                    isPassive: true
+                };
+                nodes.push(node);
+                deviceMap.set(onu.id, node);
+            }
+        });
+
+        // 3.0 pass: Create lines for ALL indexed devices
         const allDevices = [...nodes, ...pppoeNodesList];
         allDevices.forEach(node => {
             let fromPos = null;
@@ -1044,11 +1070,32 @@ const NetworkMap = ({
                     packetLoss={Number(node.packetLoss)}
                     draggable={isEditMode}
                     onDragEnd={(pos) => {
-                        updateNetwatchMutation.mutate({
-                            routerId: node.routerId,
-                            netwatchId: node.id,
-                            data: { latitude: String(pos[0]), longitude: String(pos[1]) }
-                        });
+                        const payload = { latitude: String(pos[0]), longitude: String(pos[1]) };
+
+                        // 1. Update specifically as ONU if it's passive OR linked
+                        if (node.isPassive || node.deviceType === 'onu' || node.linkedOnuId) {
+                            const onuId = node.linkedOnuId || node.id;
+                            const oltId = node.oltId;
+
+                            if (onuId && oltId) {
+                                updateOnuMutation.mutate({
+                                    oltId,
+                                    onuId,
+                                    data: payload
+                                });
+                            } else {
+                                console.warn('[NetworkMap] Missing onuId or oltId for ONU move', { onuId, oltId, node });
+                            }
+                        }
+
+                        // 2. Update as Netwatch if it's NOT purely passive
+                        if (!node.isPassive) {
+                            updateNetwatchMutation.mutate({
+                                routerId: node.routerId,
+                                netwatchId: node.id,
+                                data: payload
+                            });
+                        }
                     }}
                     // isHovered prop removed
                     onClick={null} // Click now handled by Popup
@@ -1263,12 +1310,12 @@ const NetworkMap = ({
                                             opacity: 0.6
                                         }}
                                     >
-                                        {markers}
+                                        {markers.filter(m => m !== null)}
                                     </MarkerClusterGroup>
                                 );
                             }
 
-                            return markers;
+                            return markers.filter(m => m !== null);
                         })()}
 
                     </MapContainer >
