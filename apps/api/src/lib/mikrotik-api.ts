@@ -548,9 +548,10 @@ export async function measurePing(
             `=interval=${interval}`
         ]);
 
+        const timeoutMs = parseInt(timeout) || 10000;
         const result = await Promise.race([
             resultPromise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), 10000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), timeoutMs))
         ]) as any[];
 
         if (result && Array.isArray(result) && result.length > 0) {

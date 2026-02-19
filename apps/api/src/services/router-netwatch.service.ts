@@ -203,7 +203,8 @@ export class RouterNetwatchService {
      * Measure latency for netwatch targets
      */
     async measureLatency(routerId: string, routerName: string, conn: any, targets: any[]): Promise<void> {
-        const CONCURRENCY_LIMIT = 5;
+        // Increase concurrency for faster batch processing (was 5)
+        const CONCURRENCY_LIMIT = 20;
         const chunks = [];
         for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
             chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
@@ -212,7 +213,9 @@ export class RouterNetwatchService {
         for (const chunk of chunks) {
             await Promise.all(chunk.map(async (target) => {
                 try {
-                    const { latency, packetLoss } = await measurePing(conn, target.host, 3, '500ms', '1000ms');
+                    // Optimized ping: 2 packets, 100ms interval = ~200ms per host
+                    // This prevents 504 timeouts when syncing many hosts
+                    const { latency, packetLoss } = await measurePing(conn, target.host, 2, '100ms', '1000ms');
                     if (latency >= 0) {
                         await db.update(routerNetwatch).set({
                             latency: latency,
