@@ -658,6 +658,16 @@ export default function Routers() {
                                                         {router.maxInterfaceSpeed || '--'}
                                                     </div>
                                                 </div>
+                                                <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                                                    <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Latency</div>
+                                                    <div className={clsx(
+                                                        "text-sm font-mono font-bold truncate",
+                                                        router.status !== 'online' ? "text-slate-500" :
+                                                            (router.latency > 100 ? "text-yellow-500" : "text-emerald-500")
+                                                    )}>
+                                                        {router.status === 'online' ? `${router.latency || '--'}ms` : '--'}
+                                                    </div>
+                                                </div>
                                             </div>
 
                                             <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
@@ -688,6 +698,7 @@ export default function Routers() {
                                             <th className="px-4 py-3">Memory</th>
                                             <th className="px-4 py-3">Uptime</th>
                                             <th className="px-4 py-3">Speed</th>
+                                            <th className="px-4 py-3">Latency</th>
                                             <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -737,6 +748,15 @@ export default function Routers() {
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <span className="text-sm text-slate-300">{router.maxInterfaceSpeed || '--'}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={clsx(
+                                                        "text-sm font-mono font-bold",
+                                                        router.status !== 'online' ? "text-slate-500" :
+                                                            (router.latency > 100 ? "text-yellow-500" : "text-emerald-500")
+                                                    )}>
+                                                        {router.status === 'online' ? `${router.latency || '--'}ms` : '--'}
+                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="flex justify-end gap-1">

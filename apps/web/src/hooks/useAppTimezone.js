@@ -1,4 +1,5 @@
-import { useSettings, useCurrentUser } from '@/hooks';
+import { useSettings } from './useSettings';
+import { useCurrentUser } from './useUsers';
 
 /**
  * Custom hook to derive the active timezone for the application.
