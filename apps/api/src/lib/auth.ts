@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 
 export const auth = betterAuth({
+    baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
     database: drizzleAdapter(db, {
         provider: 'pg',
         schema: {
@@ -22,8 +23,7 @@ export const auth = betterAuth({
         expiresIn: 60 * 60 * 24 * 7, // 7 days
         updateAge: 60 * 60 * 24, // Update session every 24 hours
         cookieCache: {
-            enabled: true,
-            maxAge: 60 * 5, // 5 minutes
+            enabled: false, // Disable cache for more reliable user switching behind proxies
         },
     },
     user: {
