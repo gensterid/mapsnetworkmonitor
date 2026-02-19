@@ -1212,7 +1212,11 @@ const NetworkMap = ({
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
-                        <MemoizedGoogleMapsLayer type={mapType} apiKey={apiKey} onLoaded={() => setGoogleLoaded(true)} />
+                        <MemoizedGoogleMapsLayer
+                            type={mapType}
+                            apiKey={apiKey}
+                            onLoaded={useCallback(() => setGoogleLoaded(true), [])}
+                        />
 
 
                         {/* Animated Topology Lines (show when NOT editing) */}
