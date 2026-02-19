@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import NetworkMap from '@/components/NetworkMap';
-import { useRouters, useAlerts, useSettings, useCurrentUser } from '@/hooks';
+import { useRouters, useAlerts, useSettings, useCurrentUser, useAppTimezone } from '@/hooks';
 import { formatRelativeTime, formatDateOnly, formatTimeOnly } from '@/lib/timezone';
 import {
     Router as RouterIcon,
@@ -174,7 +174,7 @@ function ActiveConnectionsTable({ routers }) {
 
 // Recent Alerts Component
 function RecentAlerts({ alerts, settings, currentUser }) {
-    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    const timezone = useAppTimezone();
 
     const getSeverityColor = (severity) => {
         switch (severity) {
@@ -256,7 +256,7 @@ export default function Dashboard() {
     const [filterOpen, setFilterOpen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
 
-    const userTimezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const userTimezone = useAppTimezone();
 
     // Update clock every second
     useEffect(() => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useRealtimeTraffic } from '@/hooks';
+import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useRealtimeTraffic, useAppTimezone } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -918,7 +918,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
     const syncMutation = useSyncNetwatch();
     const { data: currentUser } = useCurrentUser();
     const { data: settings } = useSettings();
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const timezone = useAppTimezone();
 
     // Count up and down hosts
     const upCount = netwatch.filter(n => n.status === 'up').length;

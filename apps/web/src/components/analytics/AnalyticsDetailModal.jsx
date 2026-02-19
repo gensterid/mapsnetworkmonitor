@@ -1,10 +1,9 @@
 import React, { useMemo, useState } from 'react';
-import { useAlerts, useResolveAlert, useResolveAllAlerts } from '@/hooks';
 import { X, RefreshCw, AlertTriangle, Wifi, WifiOff, Clock, CheckCircle, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import clsx from 'clsx';
-import { useCurrentUser, useSettings } from '@/hooks';
+import { useAlerts, useResolveAlert, useResolveAllAlerts, useCurrentUser, useSettings, useAppTimezone } from '@/hooks';
 import { toast } from 'react-hot-toast';
 
 // Helper to get formatted time
@@ -18,7 +17,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
     const [filterResolved, setFilterResolved] = useState(type === 'unresolved-alerts' ? false : undefined);
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
-    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    const timezone = useAppTimezone();
 
     const resolveAlertMutation = useResolveAlert();
     const resolveAllMutation = useResolveAllAlerts();

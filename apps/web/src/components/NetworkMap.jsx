@@ -5,7 +5,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive } from '@/hooks';
+import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone } from '@/hooks';
 import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import '@/lib/GoogleMutant';
 import { toast } from 'react-hot-toast';
@@ -38,7 +38,7 @@ const TrafficContext = React.createContext({
     hoverTick: 0,
     displayTrafficMap: new Map(),
     trafficMapRef: { current: new Map() },
-    timezone: 'UTC',
+    timezone: null,
     isHeatmapMode: false,
     isLiveMode: false
 });
@@ -1281,7 +1281,7 @@ const NetworkMap = ({
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const apiKey = settings?.googleMapsApiKey;
-    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    const timezone = useAppTimezone();
 
     // Fetch Routers
     const { data: routersData } = useQuery({

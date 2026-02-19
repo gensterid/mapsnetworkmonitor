@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser, useDebounce } from '@/hooks';
+import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser, useDebounce, useAppTimezone } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff, Search, X, Activity } from 'lucide-react';
@@ -47,7 +47,7 @@ export default function Issues() {
     const acknowledgeMutation = useAcknowledgeAlert();
     const acknowledgeAllMutation = useAcknowledgeAllAlerts();
 
-    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    const timezone = useAppTimezone();
 
     // Issue types (Performance/System)
     const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];

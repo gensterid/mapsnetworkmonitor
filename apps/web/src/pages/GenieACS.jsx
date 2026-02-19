@@ -8,8 +8,8 @@ import {
     useCurrentUser,
     useSettings,
     useRouters,
-    useBulkRebootGenieAcs,
-    useBulkPushConfigGenieAcs
+    useBulkPushConfigGenieAcs,
+    useAppTimezone
 } from '@/hooks';
 import {
     Search,
@@ -325,7 +325,7 @@ export default function GenieACS() {
 
     const { data: currentUser } = useCurrentUser();
     const { data: settings } = useSettings();
-    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+    const timezone = useAppTimezone();
 
     const filteredDevices = devices.filter(dev =>
         dev._id.toLowerCase().includes(searchQuery.toLowerCase()) ||

@@ -62,18 +62,23 @@ function parseApiDate(dateInput) {
  * @param timezone - Timezone string (e.g., 'Asia/Jakarta', 'Asia/Makassar')
  * @param options - Intl.DateTimeFormat options
  */
-export function formatDateWithTimezone(dateInput, timezone = 'Asia/Jakarta', options = {}) {
+export function formatDateWithTimezone(dateInput, timezone = null, options = {}) {
     const date = parseApiDate(dateInput);
     if (!date) return '-';
 
-    // Validate timezone string to prevent crashes
-    let validTimezone = timezone;
+    // Priority: 
+    // 1. Explicit timezone passed to function
+    // 2. Browser's detected timezone
+    // 3. Absolute fallback: Asia/Jakarta
+    let validTimezone = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
+
     try {
-        Intl.DateTimeFormat(undefined, { timeZone: timezone });
+        Intl.DateTimeFormat(undefined, { timeZone: validTimezone });
     } catch (e) {
-        console.warn(`Invalid timezone: ${timezone}, falling back to Asia/Jakarta`);
+        console.warn(`Invalid timezone: ${validTimezone}, falling back to Asia/Jakarta`);
         validTimezone = 'Asia/Jakarta';
     }
+
 
     const defaultOptions = {
         ...DATE_FORMATS.FULL,
