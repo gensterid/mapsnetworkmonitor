@@ -132,17 +132,19 @@ export class RouterService {
         const routerIds = allRouters.map(r => r.id);
         const { inArray: inArr } = await import('drizzle-orm');
 
-        // Batch query 1: Latest metrics for all routers using DISTINCT ON
-        const latestMetricsRows: RouterMetric[] = await db.execute(sql`
-            SELECT DISTINCT ON (router_id) *
-            FROM router_metrics
-            WHERE router_id IN (${sql.join(routerIds.map(id => sql`${id}`), sql`, `)})
-            ORDER BY router_id, recorded_at DESC
-        `);
+        // Batch query 1: Latest metrics for all routers using subquery approach
+        const allMetrics = await db
+            .select()
+            .from(routerMetrics)
+            .where(inArr(routerMetrics.routerId, routerIds))
+            .orderBy(desc(routerMetrics.recordedAt));
 
         const metricsMap = new Map<string, RouterMetric>();
-        for (const m of latestMetricsRows) {
-            metricsMap.set(m.routerId, m);
+        for (const m of allMetrics) {
+            // Only keep the first (latest) metric per router
+            if (!metricsMap.has(m.routerId)) {
+                metricsMap.set(m.routerId, m);
+            }
         }
 
         // Batch query 2: All running interfaces for all routers
