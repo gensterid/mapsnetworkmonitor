@@ -45,6 +45,7 @@ export class ApiError extends Error {
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger } from '../lib/logger.js';
+import { allowedOrigins } from '../config/cors.js';
 
 export function errorMiddleware(
     err: Error,
@@ -52,6 +53,23 @@ export function errorMiddleware(
     res: Response,
     _next: NextFunction
 ): void {
+    // Ensure CORS headers even on error so browser doesn't hide the 500 status
+    const origin = _req.get('Origin');
+    if (origin) {
+        const normalize = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
+        const normalizedOrigin = normalize(origin);
+
+        const isAllowed = allowedOrigins.includes('*') || allowedOrigins.some(ao => {
+            const normalizedAo = normalize(ao);
+            return normalizedOrigin === normalizedAo || normalizedOrigin.startsWith(normalizedAo + '/');
+        });
+
+        if (isAllowed) {
+            res.setHeader('Access-Control-Allow-Origin', origin);
+            res.setHeader('Access-Control-Allow-Credentials', 'true');
+        }
+    }
+
     logger.error({ err }, 'Unhandled error');
 
     // Handle Zod validation errors
