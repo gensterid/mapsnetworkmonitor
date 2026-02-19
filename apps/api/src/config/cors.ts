@@ -2,7 +2,7 @@ import cors from 'cors';
 import { logger } from '../lib/logger.js';
 
 export const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',')
+    ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
     : ['http://localhost:5173'];
 
 export const corsOptions = {

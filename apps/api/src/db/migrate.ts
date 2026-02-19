@@ -4,105 +4,133 @@ import { logger } from '../lib/logger.js';
 
 export async function runMigrations() {
     try {
-        await db.execute(sql`
-            DO $$
-            BEGIN
-                -- Alerts escalation
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'alerts' AND column_name = 'escalation_level') THEN
-                    ALTER TABLE alerts ADD COLUMN escalation_level INTEGER DEFAULT 0 NOT NULL;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'alerts' AND column_name = 'last_escalated_at') THEN
-                    ALTER TABLE alerts ADD COLUMN last_escalated_at TIMESTAMP;
-                END IF;
+        const migrations = [
+            {
+                name: 'alerts.escalation_level',
+                sql: sql`ALTER TABLE alerts ADD COLUMN escalation_level INTEGER DEFAULT 0 NOT NULL`
+            },
+            {
+                name: 'alerts.last_escalated_at',
+                sql: sql`ALTER TABLE alerts ADD COLUMN last_escalated_at TIMESTAMP`
+            },
+            {
+                name: 'pppoe_sessions.latitude',
+                sql: sql`ALTER TABLE pppoe_sessions ADD COLUMN latitude TEXT`
+            },
+            {
+                name: 'pppoe_sessions.longitude',
+                sql: sql`ALTER TABLE pppoe_sessions ADD COLUMN longitude TEXT`
+            },
+            {
+                name: 'pppoe_sessions.waypoints',
+                sql: sql`ALTER TABLE pppoe_sessions ADD COLUMN waypoints TEXT`
+            },
+            {
+                name: 'users.timezone',
+                sql: sql`ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'Asia/Jakarta' NOT NULL`
+            },
+            {
+                name: 'users.animation_style',
+                sql: sql`ALTER TABLE users ADD COLUMN animation_style TEXT DEFAULT 'default'`
+            },
+            {
+                name: 'router_netwatch.target_interface',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN target_interface TEXT`
+            },
+            {
+                name: 'router_netwatch.tx_rate',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN tx_rate BIGINT DEFAULT 0`
+            },
+            {
+                name: 'router_netwatch.rx_rate',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN rx_rate BIGINT DEFAULT 0`
+            },
+            {
+                name: 'router_netwatch.linked_onu_id',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN linked_onu_id UUID`
+            },
+            {
+                name: 'routers.use_genieacs',
+                sql: sql`ALTER TABLE routers ADD COLUMN use_genieacs BOOLEAN DEFAULT false NOT NULL`
+            },
+            {
+                name: 'routers.genieacs_url',
+                sql: sql`ALTER TABLE routers ADD COLUMN genieacs_url TEXT`
+            },
+            {
+                name: 'routers.genieacs_username',
+                sql: sql`ALTER TABLE routers ADD COLUMN genieacs_username TEXT`
+            },
+            {
+                name: 'routers.genieacs_password_encrypted',
+                sql: sql`ALTER TABLE routers ADD COLUMN genieacs_password_encrypted TEXT`
+            },
+            {
+                name: 'olts.last_snmp_status',
+                sql: sql`ALTER TABLE olts ADD COLUMN last_snmp_status TEXT`
+            },
+            {
+                name: 'olts.last_web_status',
+                sql: sql`ALTER TABLE olts ADD COLUMN last_web_status TEXT`
+            },
+            {
+                name: 'olts.latitude',
+                sql: sql`ALTER TABLE olts ADD COLUMN latitude NUMERIC(10, 7)`
+            },
+            {
+                name: 'olts.longitude',
+                sql: sql`ALTER TABLE olts ADD COLUMN longitude NUMERIC(10, 7)`
+            },
+            {
+                name: 'onus.model',
+                sql: sql`ALTER TABLE onus ADD COLUMN model TEXT`
+            },
+            {
+                name: 'onus.ssid',
+                sql: sql`ALTER TABLE onus ADD COLUMN ssid TEXT`
+            },
+            {
+                name: 'onus.firmware_version',
+                sql: sql`ALTER TABLE onus ADD COLUMN firmware_version TEXT`
+            },
+            {
+                name: 'onus.last_down_reason',
+                sql: sql`ALTER TABLE onus ADD COLUMN last_down_reason TEXT`
+            },
+            {
+                name: 'onus.connection_type',
+                sql: sql`ALTER TABLE onus ADD COLUMN connection_type TEXT DEFAULT 'router'`
+            },
+            {
+                name: 'onus.connected_to_id',
+                sql: sql`ALTER TABLE onus ADD COLUMN connected_to_id UUID`
+            },
+            {
+                name: 'onus.waypoints',
+                sql: sql`ALTER TABLE onus ADD COLUMN waypoints TEXT`
+            },
+            {
+                name: 'onus.target_interface',
+                sql: sql`ALTER TABLE onus ADD COLUMN target_interface TEXT`
+            },
+        ];
 
-                -- PPPoE coordinates
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pppoe_sessions' AND column_name = 'latitude') THEN
-                    ALTER TABLE pppoe_sessions ADD COLUMN latitude TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pppoe_sessions' AND column_name = 'longitude') THEN
-                    ALTER TABLE pppoe_sessions ADD COLUMN longitude TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'pppoe_sessions' AND column_name = 'waypoints') THEN
-                    ALTER TABLE pppoe_sessions ADD COLUMN waypoints TEXT;
-                END IF;
+        for (const m of migrations) {
+            const [tableName, columnName] = m.name.split('.');
+            try {
+                const check = await db.execute(sql`
+                    SELECT 1 FROM information_schema.columns 
+                    WHERE table_name = ${tableName} AND column_name = ${columnName}
+                `);
 
-                -- User preferences
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'timezone') THEN
-                    ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'Asia/Jakarta' NOT NULL;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'animation_style') THEN
-                    ALTER TABLE users ADD COLUMN animation_style TEXT DEFAULT 'default';
-                END IF;
-
-                -- Netwatch traffic
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'router_netwatch' AND column_name = 'target_interface') THEN
-                    ALTER TABLE router_netwatch ADD COLUMN target_interface TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'router_netwatch' AND column_name = 'tx_rate') THEN
-                    ALTER TABLE router_netwatch ADD COLUMN tx_rate BIGINT DEFAULT 0;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'router_netwatch' AND column_name = 'rx_rate') THEN
-                    ALTER TABLE router_netwatch ADD COLUMN rx_rate BIGINT DEFAULT 0;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'router_netwatch' AND column_name = 'linked_onu_id') THEN
-                    ALTER TABLE router_netwatch ADD COLUMN linked_onu_id UUID;
-                END IF;
-
-                -- OLT status and location
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routers' AND column_name = 'use_genieacs') THEN
-                    ALTER TABLE routers ADD COLUMN use_genieacs BOOLEAN DEFAULT false NOT NULL;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routers' AND column_name = 'genieacs_url') THEN
-                    ALTER TABLE routers ADD COLUMN genieacs_url TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routers' AND column_name = 'genieacs_username') THEN
-                    ALTER TABLE routers ADD COLUMN genieacs_username TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routers' AND column_name = 'genieacs_password_encrypted') THEN
-                    ALTER TABLE routers ADD COLUMN genieacs_password_encrypted TEXT;
-                END IF;
-
-                -- OLT status and location
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'olts' AND column_name = 'last_snmp_status') THEN
-                    ALTER TABLE olts ADD COLUMN last_snmp_status TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'olts' AND column_name = 'last_web_status') THEN
-                    ALTER TABLE olts ADD COLUMN last_web_status TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'olts' AND column_name = 'latitude') THEN
-                    ALTER TABLE olts ADD COLUMN latitude NUMERIC(10, 7);
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'olts' AND column_name = 'longitude') THEN
-                    ALTER TABLE olts ADD COLUMN longitude NUMERIC(10, 7);
-                END IF;
-
-                -- ONU enhancements
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'model') THEN
-                    ALTER TABLE onus ADD COLUMN model TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'ssid') THEN
-                    ALTER TABLE onus ADD COLUMN ssid TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'firmware_version') THEN
-                    ALTER TABLE onus ADD COLUMN firmware_version TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'last_down_reason') THEN
-                    ALTER TABLE onus ADD COLUMN last_down_reason TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'connection_type') THEN
-                    ALTER TABLE onus ADD COLUMN connection_type TEXT DEFAULT 'router';
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'connected_to_id') THEN
-                    ALTER TABLE onus ADD COLUMN connected_to_id UUID;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'waypoints') THEN
-                    ALTER TABLE onus ADD COLUMN waypoints TEXT;
-                END IF;
-                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'target_interface') THEN
-                    ALTER TABLE onus ADD COLUMN target_interface TEXT;
-                END IF;
-            END $$;
-        `);
+                if (check.length === 0) {
+                    logger.info(`Applying migration: ${m.name}`);
+                    await db.execute(m.sql);
+                }
+            } catch (err) {
+                logger.warn({ err, migration: m.name }, `Failed to apply optimization/migration for ${m.name}`);
+            }
+        }
         logger.info('✅ Database migrations complete');
     } catch (error) {
         logger.warn({ err: error }, 'Migration warning - some changes might already be applied');

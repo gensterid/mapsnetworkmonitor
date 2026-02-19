@@ -1,2 +1,0 @@
-﻿origin	https://github.com/gensterid/mapsnetworkmonitor (fetch)
-origin	https://github.com/gensterid/mapsnetworkmonitor (push)

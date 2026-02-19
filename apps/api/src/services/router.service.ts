@@ -791,6 +791,7 @@ export class RouterService {
             connectionType?: 'router' | 'client';
             connectedToId?: string | null;
             targetInterface?: string | null;
+            linkedOnuId?: string | null;
         }
     ): Promise<RouterNetwatch> {
         // 1. Apply to Router first (only for client type with host)
@@ -821,27 +822,34 @@ export class RouterService {
             }
         }
 
-        // 2. Insert into DB
-        const [netwatch] = await db
-            .insert(routerNetwatch)
-            .values({
-                routerId,
-                host: data.host || '', // Default to empty string for ODP without host
-                name: data.name,
-                deviceType: data.deviceType || 'client',
-                interval: data.interval || 30,
-                latitude: data.latitude,
-                longitude: data.longitude,
-                location: data.location,
-                waypoints: data.waypoints,
-                connectionType: data.connectionType || 'router',
-                connectedToId: data.connectedToId,
-                targetInterface: data.targetInterface, // New field for heatmap mapping
-                status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
-            })
-            .returning();
+        const insertData: any = {
+            routerId,
+            host: data.host || '', // Default to empty string for ODP without host
+            name: data.name,
+            deviceType: data.deviceType || 'client',
+            interval: data.interval || 30,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            location: data.location,
+            waypoints: data.waypoints,
+            connectionType: data.connectionType || 'router',
+            connectedToId: data.connectedToId,
+            targetInterface: data.targetInterface,
+            linkedOnuId: data.linkedOnuId,
+            status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
+        };
 
-        return netwatch;
+        try {
+            const [netwatch] = await db
+                .insert(routerNetwatch)
+                .values(insertData)
+                .returning();
+
+            return netwatch;
+        } catch (dbErr) {
+            logger.error({ err: dbErr, data: insertData }, 'Failed to insert netwatch into DB');
+            throw new Error(`Database error: ${dbErr instanceof Error ? dbErr.message : 'Unknown database error'}`);
+        }
     }
 
     /**
