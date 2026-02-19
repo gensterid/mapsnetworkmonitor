@@ -49,7 +49,7 @@ export default function Alerts() {
     const acknowledgeMutation = useAcknowledgeAlert();
     const acknowledgeAllMutation = useAcknowledgeAllAlerts();
 
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
 
     // Connectivity types (Up/Down/Reboot/Interface)
     const connectivityTypes = [

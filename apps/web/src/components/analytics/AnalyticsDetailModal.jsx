@@ -18,7 +18,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
     const [filterResolved, setFilterResolved] = useState(type === 'unresolved-alerts' ? false : undefined);
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
 
     const resolveAlertMutation = useResolveAlert();
     const resolveAllMutation = useResolveAllAlerts();

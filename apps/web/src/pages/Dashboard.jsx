@@ -174,7 +174,7 @@ function ActiveConnectionsTable({ routers }) {
 
 // Recent Alerts Component
 function RecentAlerts({ alerts, settings, currentUser }) {
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
 
     const getSeverityColor = (severity) => {
         switch (severity) {

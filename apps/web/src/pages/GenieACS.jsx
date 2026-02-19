@@ -325,7 +325,7 @@ export default function GenieACS() {
 
     const { data: currentUser } = useCurrentUser();
     const { data: settings } = useSettings();
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
 
     const filteredDevices = devices.filter(dev =>
         dev._id.toLowerCase().includes(searchQuery.toLowerCase()) ||

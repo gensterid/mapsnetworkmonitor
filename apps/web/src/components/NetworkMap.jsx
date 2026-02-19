@@ -1281,7 +1281,7 @@ const NetworkMap = ({
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const apiKey = settings?.googleMapsApiKey;
-    const timezone = currentUser?.timezone || settings?.timezone || 'Asia/Jakarta';
+    const timezone = currentUser?.timezone || settings?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Jakarta';
 
     // Fetch Routers
     const { data: routersData } = useQuery({

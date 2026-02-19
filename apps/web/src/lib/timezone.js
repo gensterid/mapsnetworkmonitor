@@ -41,9 +41,8 @@ export const DATE_FORMATS = {
 };
 
 /**
- * Parse a date from the API, treating it as local time (not UTC)
- * The API returns dates like "2025-12-30T21:40:50.336Z" but the value is actually local time
- * (specifically Asia/Jakarta time, but marked as Z)
+ * Parse a date from the API.
+ * The API returns true UTC dates like "2025-12-30T21:40:50.336Z".
  */
 function parseApiDate(dateInput) {
     if (!dateInput) return null;
@@ -51,42 +50,15 @@ function parseApiDate(dateInput) {
 
     const dateStr = String(dateInput);
 
-    // If it's a string ending in Z, it's likely our backend quirk (Local-as-UTC)
-    if (dateStr.endsWith('Z') && dateStr.includes('T')) {
-        // We parse it as a naive string (strip Z) to let the browser treat it as local-ish
-        // BUT to be offset-safe and dynamic, we want to convert it to a real UTC date
-        // that represents the same absolute time as intended.
-
-        // Assumption: Backend meant Asia/Jakarta (+7)
-        const naiveDate = new Date(dateStr.slice(0, -1));
-        if (!isNaN(naiveDate.getTime())) {
-            // Since new Date(naive) creates a date in BROWSER local time,
-            // and we eventually use toLocaleString with a target timezone,
-            // this actually works correctly for getting the same wall-clock components 
-            // if we use it carefully.
-
-            // However, a more robust way is to treat components as UTC components
-            // then subtract the 7 hour offset.
-            const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})/);
-            if (match) {
-                const [, y, m, d, h, min, s] = match;
-                // Create UTC date with these components (21:40 UTC)
-                const dObj = new Date(Date.UTC(parseInt(y), parseInt(m) - 1, parseInt(d), parseInt(h), parseInt(min), parseInt(s)));
-                // Subtract 7 hours to get the real UTC time (14:40 UTC)
-                // This makes it a true absolute timestamp.
-                dObj.setHours(dObj.getHours() - 7);
-                return dObj;
-            }
-        }
-    }
-
+    // If it's a string ending in Z, the browser's new Date() correctly treats it as UTC.
+    // We no longer need the hardcoded -7 shift as the backend is sending true UTC.
     const date = new Date(dateInput);
     return isNaN(date.getTime()) ? null : date;
 }
 
 /**
- * Format a date from the API to the configured timezone
- * @param dateInput - Date string from API or Date object
+ * Format a date to a specific timezone
+ * @param dateInput - Date string or Date object
  * @param timezone - Timezone string (e.g., 'Asia/Jakarta', 'Asia/Makassar')
  * @param options - Intl.DateTimeFormat options
  */
@@ -94,9 +66,18 @@ export function formatDateWithTimezone(dateInput, timezone = 'Asia/Jakarta', opt
     const date = parseApiDate(dateInput);
     if (!date) return '-';
 
+    // Validate timezone string to prevent crashes
+    let validTimezone = timezone;
+    try {
+        Intl.DateTimeFormat(undefined, { timeZone: timezone });
+    } catch (e) {
+        console.warn(`Invalid timezone: ${timezone}, falling back to Asia/Jakarta`);
+        validTimezone = 'Asia/Jakarta';
+    }
+
     const defaultOptions = {
         ...DATE_FORMATS.FULL,
-        timeZone: timezone,
+        timeZone: validTimezone,
         ...options
     };
 
