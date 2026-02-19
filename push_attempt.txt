@@ -1,0 +1,10 @@
+git : To https://github.com/gensterid/mapsnetworkmonitor
+At line:1 char:1
++ git push origin main 2>&1 | Out-File -FilePath 
+push_attempt.txt -Enco ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (To https:// 
+   gith...snetworkmonitor:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   857d22b..8c2bfa2  main -> main

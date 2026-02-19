@@ -45,7 +45,7 @@ export const csrfProtection = (req: express.Request, res: express.Response, next
         const hasCustomHeader = req.get('X-Requested-With') || req.get('X-CSRF-Token') || req.get('x-requested-with');
         const origin = req.get('Origin');
 
-        const normalize = (url: string) => url.replace(/\/$/, '').toLowerCase();
+        const normalize = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();
         const isAllowedOrigin = origin && allowedOrigins.some(ao => {
             const normalizedAo = normalize(ao);
             const normalizedOrigin = normalize(origin);

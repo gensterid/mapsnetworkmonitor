@@ -1,0 +1,1 @@
+8c2bfa2 fix: enforce CORS headers on error and implement protocol-agnostic matching
