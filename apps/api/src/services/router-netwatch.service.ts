@@ -379,16 +379,16 @@ export class RouterNetwatchService {
         const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
         if (!router) throw new Error('Router not found');
 
-        const password = decrypt(router.passwordEncrypted);
-        const connection: RouterConnection = {
-            host: router.host,
-            port: router.port,
-            username: router.username,
-            password,
-        };
-
         let api: any;
         try {
+            const password = decrypt(router.passwordEncrypted);
+            const connection: RouterConnection = {
+                host: router.host,
+                port: router.port,
+                username: router.username,
+                password,
+            };
+
             api = await connectToRouter(connection);
             const routerClock = await getRouterClock(api).catch(() => undefined);
 
@@ -401,7 +401,9 @@ export class RouterNetwatchService {
 
             syncedCount = entries.length;
         } catch (error) {
-            errors.push(`Failed to sync netwatch: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            console.error(`[RouterNetwatchService] Sync failed for router ${router.name}:`, errorMessage);
+            errors.push(`Failed to sync netwatch: ${errorMessage}`);
         } finally {
             if (api) await api.close().catch(() => { });
         }

@@ -44,8 +44,11 @@ export async function runMigrations() {
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'router_netwatch' AND column_name = 'rx_rate') THEN
                     ALTER TABLE router_netwatch ADD COLUMN rx_rate BIGINT DEFAULT 0;
                 END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'router_netwatch' AND column_name = 'linked_onu_id') THEN
+                    ALTER TABLE router_netwatch ADD COLUMN linked_onu_id UUID;
+                END IF;
 
-                -- GenieACS integration
+                -- OLT status and location
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'routers' AND column_name = 'use_genieacs') THEN
                     ALTER TABLE routers ADD COLUMN use_genieacs BOOLEAN DEFAULT false NOT NULL;
                 END IF;
@@ -71,6 +74,32 @@ export async function runMigrations() {
                 END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'olts' AND column_name = 'longitude') THEN
                     ALTER TABLE olts ADD COLUMN longitude NUMERIC(10, 7);
+                END IF;
+
+                -- ONU enhancements
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'model') THEN
+                    ALTER TABLE onus ADD COLUMN model TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'ssid') THEN
+                    ALTER TABLE onus ADD COLUMN ssid TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'firmware_version') THEN
+                    ALTER TABLE onus ADD COLUMN firmware_version TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'last_down_reason') THEN
+                    ALTER TABLE onus ADD COLUMN last_down_reason TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'connection_type') THEN
+                    ALTER TABLE onus ADD COLUMN connection_type TEXT DEFAULT 'router';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'connected_to_id') THEN
+                    ALTER TABLE onus ADD COLUMN connected_to_id UUID;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'waypoints') THEN
+                    ALTER TABLE onus ADD COLUMN waypoints TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'onus' AND column_name = 'target_interface') THEN
+                    ALTER TABLE onus ADD COLUMN target_interface TEXT;
                 END IF;
             END $$;
         `);
