@@ -1,10 +1,18 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { alertService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator, requireAdmin, requireUser } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
+
+// Validation schemas
+const acknowledgeAllSchema = z.object({
+    category: z.enum(['issues', 'alerts']).optional(),
+});
+
+const resolveAllSchema = acknowledgeAllSchema;
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -137,7 +145,7 @@ router.put(
     '/acknowledge-all',
     requireUser,
     asyncHandler(async (req, res) => {
-        const category = req.query.category as 'issues' | 'alerts' | undefined;
+        const { category } = acknowledgeAllSchema.parse(req.query);
         await alertService.acknowledgeAll(req.user!.id, req.user!.role, category);
         res.json({ message: 'All alerts acknowledged successfully' });
     })
@@ -152,7 +160,7 @@ router.put(
     '/resolve-all',
     requireUser,
     asyncHandler(async (req, res) => {
-        const category = req.query.category as 'issues' | 'alerts' | undefined;
+        const { category } = resolveAllSchema.parse(req.query);
         await alertService.resolveAll(req.user!.id, req.user!.role, category);
         res.json({ message: 'All alerts resolved successfully' });
     })

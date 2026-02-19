@@ -6,7 +6,24 @@ import { users } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 
+import { rateLimit } from 'express-rate-limit';
+import { asyncHandler } from '../middleware/error.middleware.js';
+
 const router = Router();
+
+/**
+ * Strict rate limiter for email lookup to prevent user enumeration
+ */
+const lookupLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20, // Limit to 20 lookups per window
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too Many Requests',
+        message: 'Too many lookup attempts, please try again after 15 minutes',
+    },
+});
 
 /**
  * Better Auth handles all /api/auth/* routes automatically
@@ -24,36 +41,31 @@ const router = Router();
  * Resolves username to email for login
  * If input is already an email (contains @), returns it as-is
  */
-router.post('/lookup-email', async (req: Request, res: Response) => {
-    try {
-        const { identifier } = req.body;
+router.post('/lookup-email', lookupLimiter, asyncHandler(async (req: Request, res: Response) => {
+    const { identifier } = req.body;
 
-        if (!identifier) {
-            return res.status(400).json({ error: 'Identifier is required' });
-        }
-
-        // If it's already an email, return it
-        if (identifier.includes('@')) {
-            return res.json({ email: identifier });
-        }
-
-        // Look up user by username
-        const user = await db
-            .select({ email: users.email })
-            .from(users)
-            .where(eq(users.username, identifier))
-            .limit(1);
-
-        if (user.length === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-
-        return res.json({ email: user[0].email });
-    } catch (error) {
-        logger.error({ err: error }, 'Error looking up email');
-        return res.status(500).json({ error: 'Internal server error' });
+    if (!identifier) {
+        return res.status(400).json({ error: 'Identifier is required' });
     }
-});
+
+    // If it's already an email, return it
+    if (identifier.includes('@')) {
+        return res.json({ email: identifier });
+    }
+
+    // Look up user by username
+    const user = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(eq(users.username, identifier))
+        .limit(1);
+
+    if (user.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.json({ email: user[0].email });
+}));
 
 // Convert Better Auth handler to Express middleware
 const authHandler = toNodeHandler(auth);

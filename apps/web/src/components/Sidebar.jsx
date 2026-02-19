@@ -26,6 +26,7 @@ const NavItem = ({ path, icon: Icon, label, badge, badgeColor, isActive, onClose
         to={path}
         onClick={() => onClose && onClose()}
         aria-current={isActive ? 'page' : undefined}
+        aria-label={label}
         className={clsx(
             "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative overflow-hidden",
             isActive

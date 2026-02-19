@@ -92,7 +92,10 @@ export default function DashboardStats() {
                                 <p className="text-xs text-slate-400 uppercase font-medium tracking-wide">
                                     {stat.label}
                                 </p>
-                                <p className="text-2xl font-bold text-white mt-1">
+                                <p
+                                    className="text-2xl font-bold text-white mt-1"
+                                    aria-label={`${stat.value} ${stat.label}`}
+                                >
                                     {stat.value}
                                 </p>
                             </div>

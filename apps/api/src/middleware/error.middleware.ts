@@ -54,15 +54,6 @@ export function errorMiddleware(
 ): void {
     logger.error({ err }, 'Unhandled error');
 
-    try {
-        const logPath = path.join(process.cwd(), 'error_debug.log');
-        const timestamp = new Date().toISOString();
-        const logMessage = `\n[${timestamp}] ${err.name}: ${err.message}\nStack: ${err.stack}\n`;
-        fs.appendFileSync(logPath, logMessage);
-    } catch (e) {
-        logger.error({ err: e }, 'Failed to write to error log');
-    }
-
     // Handle Zod validation errors
     if (err instanceof ZodError) {
         res.status(400).json({

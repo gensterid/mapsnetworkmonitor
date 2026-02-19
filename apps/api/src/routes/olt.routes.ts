@@ -1,36 +1,11 @@
 import { Router } from 'express';
-import { oltService } from '../services/olt.service.js';
 import { z } from 'zod';
-
+import { oltService } from '../services/olt.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
-
-// --- DEBUG ROUTES (Move above auth for 404 troubleshooting) ---
-router.get('/ping', (req, res) => res.json({ status: 'ok', msg: 'OLT Router is active' }));
-
-// Get all ONUs for a specific router (via OLTs)
-router.get('/onus/by-router/:routerId', async (req, res) => {
-    try {
-        const onus = await oltService.getOnusByRouter(req.params.routerId);
-        res.json(onus);
-    } catch (error) {
-        logger.error({ err: error, routerId: req.params.routerId }, 'Failed to fetch ONUs for router');
-        res.status(500).json({ error: 'Failed to fetch ONUs for router' });
-    }
-});
-
-// Get all ONUs with coordinates for map display
-router.get('/onus/map', async (req, res) => {
-    try {
-        const onus = await oltService.getAllOnusWithCoordinates();
-        res.json(onus);
-    } catch (error) {
-        logger.error({ err: error }, 'Failed to fetch ONUs for map');
-        res.status(500).json({ error: 'Failed to fetch ONUs for map' });
-    }
-});
 
 // Validation schemas
 const createOltSchema = z.object({
@@ -53,136 +28,102 @@ const createOltSchema = z.object({
 
 const updateOltSchema = createOltSchema.partial();
 
+const updateOnuSchema = z.object({
+    latitude: z.string().optional(),
+    longitude: z.string().optional(),
+    name: z.string().optional(),
+    description: z.string().optional(),
+    connectionType: z.string().optional().nullable(),
+    connectedToId: z.string().uuid().optional().nullable(),
+    waypoints: z.string().optional(),
+    targetInterface: z.string().optional(),
+    location: z.string().optional(),
+});
+
+// --- DEBUG ROUTES (Move above auth for 404 troubleshooting) ---
+router.get('/ping', (req, res) => res.json({ status: 'ok', msg: 'OLT Router is active' }));
+
+// Get all ONUs for a specific router (via OLTs)
+router.get('/onus/by-router/:routerId', asyncHandler(async (req, res) => {
+    const onus = await oltService.getOnusByRouter(req.params.routerId);
+    res.json(onus);
+}));
+
+// Get all ONUs with coordinates for map display
+router.get('/onus/map', asyncHandler(async (req, res) => {
+    const onus = await oltService.getAllOnusWithCoordinates();
+    res.json(onus);
+}));
+
 // Apply auth middleware to all OTHER routes
 router.use(authMiddleware);
 
 // Get all OLTs
-router.get('/', async (req, res) => {
-    try {
-        // @ts-ignore - user added by authMiddleware
-        const olts = await oltService.findAll(req.user?.id, req.user?.role);
-        res.json(olts);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch OLTs' });
-    }
-});
+router.get('/', asyncHandler(async (req, res) => {
+    const olts = await oltService.findAll(req.user?.id, req.user?.role);
+    res.json(olts);
+}));
 
 // Get OLT by ID
-router.get('/:id', async (req, res) => {
-    try {
-        // @ts-ignore
-        const olt = await oltService.findById(req.params.id, req.user?.id, req.user?.role);
-        if (!olt) {
-            return res.status(404).json({ error: 'OLT not found' });
-        }
-        res.json(olt);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to fetch OLT' });
+router.get('/:id', asyncHandler(async (req, res) => {
+    const olt = await oltService.findById(req.params.id, req.user?.id, req.user?.role);
+    if (!olt) {
+        throw ApiError.notFound('OLT not found');
     }
-});
+    res.json(olt);
+}));
 
 // Create OLT
-router.post('/', async (req, res) => {
-    try {
-        const data = createOltSchema.parse(req.body);
-        const olt = await oltService.create(data);
-        res.status(201).json(olt);
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: error.errors });
-        }
-        res.status(500).json({ error: 'Failed to create OLT' });
-    }
-});
+router.post('/', asyncHandler(async (req, res) => {
+    const data = createOltSchema.parse(req.body);
+    const olt = await oltService.create(data);
+    res.status(201).json(olt);
+}));
 
 // Update OLT
-router.patch('/:id', async (req, res) => {
-    try {
-        const data = updateOltSchema.parse(req.body);
-        const olt = await oltService.update(req.params.id, data);
-        if (!olt) {
-            return res.status(404).json({ error: 'OLT not found' });
-        }
-        res.json(olt);
-    } catch (error) {
-        if (error instanceof z.ZodError) {
-            return res.status(400).json({ error: error.errors });
-        }
-        res.status(500).json({ error: 'Failed to update OLT' });
+router.patch('/:id', asyncHandler(async (req, res) => {
+    const data = updateOltSchema.parse(req.body);
+    const olt = await oltService.update(req.params.id, data);
+    if (!olt) {
+        throw ApiError.notFound('OLT not found');
     }
-});
+    res.json(olt);
+}));
 
 // Delete OLT
-router.delete('/:id', async (req, res) => {
-    try {
-        const success = await oltService.delete(req.params.id);
-        if (!success) {
-            return res.status(404).json({ error: 'OLT not found' });
-        }
-        res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to delete OLT' });
+router.delete('/:id', asyncHandler(async (req, res) => {
+    const success = await oltService.delete(req.params.id);
+    if (!success) {
+        throw ApiError.notFound('OLT not found');
     }
-});
+    res.json({ success: true });
+}));
 
 // Get OLT ONUs (via Driver)
-router.get('/:id/onus', async (req, res) => {
-    try {
-        // logger.debug({ oltId: req.params.id }, 'Fetching ONUs...');
-        const onus = await oltService.getOnus(req.params.id);
-        res.json(onus);
-    } catch (error: any) {
-        logger.error({ err: error, oltId: req.params.id }, 'API Error in /olts/:id/onus');
-        res.status(500).json({
-            error: 'Failed to fetch ONUs',
-            message: error.message,
-            details: error.message,
-            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-        });
-
-
-    }
-});
+router.get('/:id/onus', asyncHandler(async (req, res) => {
+    const onus = await oltService.getOnus(req.params.id);
+    res.json(onus);
+}));
 
 // Update ONU
-router.patch('/:id/onus/:onuId', async (req, res) => {
-    try {
-        const { onuId } = req.params;
-        const { latitude, longitude, name, description, connectionType, connectedToId, waypoints, targetInterface } = req.body;
+router.patch('/:id/onus/:onuId', asyncHandler(async (req, res) => {
+    const { onuId } = req.params;
+    const validatedData = updateOnuSchema.parse(req.body);
 
-        // Explicitly only allow updating specific fields
-        const updateData: any = {};
-        if (latitude !== undefined) updateData.latitude = latitude;
-        if (longitude !== undefined) updateData.longitude = longitude;
-        if (name !== undefined) updateData.name = name;
-        if (connectionType !== undefined) updateData.connectionType = connectionType;
-        if (connectedToId !== undefined) updateData.connectedToId = connectedToId;
-        if (waypoints !== undefined) updateData.waypoints = waypoints;
-        if (targetInterface !== undefined) updateData.targetInterface = targetInterface;
-        if (req.body.location !== undefined) updateData.location = req.body.location;
-
-        const updatedHook = await oltService.updateOnu(onuId, updateData);
-        if (!updatedHook) {
-            return res.status(404).json({ error: 'ONU not found' });
-        }
-        res.json(updatedHook);
-    } catch (error) {
-        logger.error({ err: error, onuId: req.params.onuId }, 'Failed to update ONU');
-        res.status(500).json({ error: 'Failed to update ONU' });
+    const updatedHook = await oltService.updateOnu(onuId, validatedData);
+    if (!updatedHook) {
+        throw ApiError.notFound('ONU not found');
     }
-});
+    res.json(updatedHook);
+}));
 
 // Refresh OLT status
-router.post('/:id/refresh', async (req, res) => {
-    try {
-        const olt = await oltService.refreshStatus(req.params.id);
-        if (!olt) {
-            return res.status(404).json({ error: 'OLT not found' });
-        }
-        res.json(olt);
-    } catch (error) {
-        res.status(500).json({ error: 'Failed to refresh OLT status' });
+router.post('/:id/refresh', asyncHandler(async (req, res) => {
+    const olt = await oltService.refreshStatus(req.params.id);
+    if (!olt) {
+        throw ApiError.notFound('OLT not found');
     }
-});
+    res.json(olt);
+}));
 
 export default router;

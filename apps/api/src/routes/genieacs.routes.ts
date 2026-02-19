@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { genieacsService } from '../services/genieacs.service.js';
@@ -6,6 +7,44 @@ import { routerService } from '../services/router.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = Router();
+
+// Validation schemas
+const getDevicesSchema = z.object({
+    query: z.string().optional().transform(val => val ? JSON.parse(val) : {}),
+    routerId: z.string().optional(),
+});
+
+const setParameterSchema = z.object({
+    parameterName: z.string().min(1),
+    value: z.any(),
+    type: z.string().optional(),
+});
+
+const wanConfigSchema = z.object({
+    wanType: z.enum(['pppoe', 'ip']),
+    pppoeUser: z.string().optional(),
+    pppoePass: z.string().optional(),
+    vlanId: z.number().optional(),
+    ipAddress: z.string().optional(),
+    subnetMask: z.string().optional(),
+    gateway: z.string().optional(),
+});
+
+const wifiConfigSchema = z.object({
+    ssidIndex: z.number().default(1),
+    ssid: z.string().optional(),
+    password: z.string().optional(),
+    enabled: z.boolean().optional(),
+});
+
+const bulkActionSchema = z.object({
+    deviceIds: z.array(z.string()).min(1),
+});
+
+const bulkConfigSchema = bulkActionSchema.extend({
+    type: z.enum(['wan', 'wifi']),
+    config: z.any(),
+});
 
 // Require auth for all routes
 router.use(authMiddleware);
@@ -18,17 +57,11 @@ router.get(
     '/devices',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const query = req.query.query ? JSON.parse(req.query.query as string) : {};
-        const routerId = req.query.routerId as string | undefined;
+        const { query, routerId } = getDevicesSchema.parse(req.query);
 
         // Access Control
         if (req.user?.role !== 'admin') {
             if (!routerId) {
-                // If no router specified, operator can only see devices from their assigned routers?
-                // This is hard because GenieACS service needs a specific URL/Auth.
-                // It usually defaults to global settings if routerId is missing.
-                // We should probably BLOCK access if no routerId is provided for non-admins, 
-                // unless we want to loop through all assigned routers (expensive).
                 throw ApiError.forbidden('Router ID is required for non-admins');
             }
             const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId);
@@ -93,11 +126,7 @@ router.patch(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const { parameterName, value, type } = req.body;
-
-        if (!parameterName || value === undefined) {
-            throw ApiError.badRequest('parameterName and value are required');
-        }
+        const { parameterName, value, type } = setParameterSchema.parse(req.body);
 
         const result = await genieacsService.setParameter(id, parameterName, value, type, routerId);
         res.json({ data: result });
@@ -114,11 +143,7 @@ router.patch(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const config = req.body;
-
-        if (!config.wanType) {
-            throw ApiError.badRequest('wanType is required');
-        }
+        const config = wanConfigSchema.parse(req.body);
 
         const result = await genieacsService.updateWanConfig(id, config, routerId);
         res.json({ data: result });
@@ -135,13 +160,7 @@ router.patch(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const config = req.body;
-
-        if (!config.ssidIndex) {
-            // Default to 1 if not provided, or throw error? 
-            // Better to default to 1.
-            config.ssidIndex = 1;
-        }
+        const config = wifiConfigSchema.parse(req.body);
 
         const result = await genieacsService.updateWifiConfig(id, config, routerId);
         res.json({ data: result });
@@ -194,12 +213,8 @@ router.post(
     '/devices/bulk/reboot',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { deviceIds } = req.body;
+        const { deviceIds } = bulkActionSchema.parse(req.body);
         const routerId = req.query.routerId as string | undefined;
-
-        if (!deviceIds || !Array.isArray(deviceIds) || deviceIds.length === 0) {
-            throw ApiError.badRequest('deviceIds array is required');
-        }
 
         const result = await genieacsService.bulkReboot(deviceIds, routerId);
         res.json({ data: result });
@@ -214,15 +229,8 @@ router.post(
     '/devices/bulk/config',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const { deviceIds, type, config } = req.body;
+        const { deviceIds, type, config } = bulkConfigSchema.parse(req.body);
         const routerId = req.query.routerId as string | undefined;
-
-        if (!deviceIds || !Array.isArray(deviceIds) || deviceIds.length === 0) {
-            throw ApiError.badRequest('deviceIds array is required');
-        }
-        if (!type || !['wan', 'wifi'].includes(type) || !config) {
-            throw ApiError.badRequest('Valid type (wan/wifi) and config are required');
-        }
 
         const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId);
         res.json({ data: result });
