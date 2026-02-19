@@ -127,39 +127,51 @@ export class RouterService {
 
         const allRouters = await query;
 
-        // Fetch latest metrics and interfaces for each router
-        const routersWithData = await Promise.all(
-            allRouters.map(async (router) => {
-                // Get latest metrics
-                const [latestMetric] = await db
-                    .select()
-                    .from(routerMetrics)
-                    .where(eq(routerMetrics.routerId, router.id))
-                    .orderBy(desc(routerMetrics.recordedAt))
-                    .limit(1);
+        if (allRouters.length === 0) return [];
 
-                // Get interfaces to find max speed
-                const interfaces = await db
-                    .select()
-                    .from(routerInterfaces)
-                    .where(eq(routerInterfaces.routerId, router.id));
+        const routerIds = allRouters.map(r => r.id);
+        const { inArray: inArr } = await import('drizzle-orm');
 
-                // Find the max interface speed
-                let maxInterfaceSpeed: string | undefined;
-                for (const iface of interfaces) {
-                    if (iface.speed && iface.running) {
-                        if (!maxInterfaceSpeed ||
-                            this.parseSpeed(iface.speed) > this.parseSpeed(maxInterfaceSpeed)) {
-                            maxInterfaceSpeed = iface.speed;
-                        }
-                    }
+        // Batch query 1: Latest metrics for all routers using DISTINCT ON
+        const latestMetricsRows: RouterMetric[] = await db.execute(sql`
+            SELECT DISTINCT ON (router_id) *
+            FROM router_metrics
+            WHERE router_id = ANY(${routerIds})
+            ORDER BY router_id, recorded_at DESC
+        `);
+
+        const metricsMap = new Map<string, RouterMetric>();
+        for (const m of latestMetricsRows) {
+            metricsMap.set(m.routerId, m);
+        }
+
+        // Batch query 2: All running interfaces for all routers
+        const allInterfaces = await db
+            .select()
+            .from(routerInterfaces)
+            .where(
+                and(
+                    inArr(routerInterfaces.routerId, routerIds),
+                    eq(routerInterfaces.running, true)
+                )
+            );
+
+        const speedMap = new Map<string, string>();
+        for (const iface of allInterfaces) {
+            if (iface.speed) {
+                const current = speedMap.get(iface.routerId);
+                if (!current || this.parseSpeed(iface.speed) > this.parseSpeed(current)) {
+                    speedMap.set(iface.routerId, iface.speed);
                 }
+            }
+        }
 
-                return { ...router, latestMetrics: latestMetric, maxInterfaceSpeed };
-            })
-        );
-
-        return routersWithData;
+        // Assemble results with O(1) lookups
+        return allRouters.map(router => ({
+            ...router,
+            latestMetrics: metricsMap.get(router.id),
+            maxInterfaceSpeed: speedMap.get(router.id),
+        }));
     }
 
     /**
