@@ -9,7 +9,7 @@ import {
     useDeleteRouter,
     useRefreshRouter,
 } from '@/hooks';
-import { Plus, Router as RouterIcon, Signal, RefreshCw, Trash2, Edit, Search, ArrowUpDown } from 'lucide-react';
+import { Plus, Router as RouterIcon, Signal, RefreshCw, Trash2, Edit, Search, ArrowUpDown, LayoutGrid, List, Power } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
@@ -425,6 +425,9 @@ export default function Routers() {
     const [deletingRouter, setDeletingRouter] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('name'); // 'name', 'host', 'status'
+    const [viewMode, setViewMode] = useState(() => {
+        return localStorage.getItem('routers-view-mode') || 'grid';
+    });
 
     const { data: routers = [], isLoading, error, refetch } = useRouters();
     const refreshRouter = useRefreshRouter();
@@ -528,6 +531,35 @@ export default function Routers() {
                         <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
                     </div>
 
+                    <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+                        <button
+                            onClick={() => {
+                                setViewMode('grid');
+                                localStorage.setItem('routers-view-mode', 'grid');
+                            }}
+                            className={clsx(
+                                "p-1.5 rounded-md transition-colors",
+                                viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                            )}
+                            title="Grid View"
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={() => {
+                                setViewMode('list');
+                                localStorage.setItem('routers-view-mode', 'list');
+                            }}
+                            className={clsx(
+                                "p-1.5 rounded-md transition-colors",
+                                viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                            )}
+                            title="List View"
+                        >
+                            <List className="w-4 h-4" />
+                        </button>
+                    </div>
+
                     <Button onClick={() => setIsAddModalOpen(true)}>
                         <Plus className="w-4 h-4 mr-2" />
                         Add Router
@@ -537,137 +569,240 @@ export default function Routers() {
 
             {/* Content */}
             <div className="flex-1 overflow-auto p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredRouters.map((router) => (
-                        <Link key={router.id} to={`/routers/${router.id}`} className="block">
-                            <Card className="group hover:border-slate-600 transition-colors cursor-pointer">
-                                <CardContent className="p-5">
-                                    <div className="flex items-start justify-between mb-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={clsx(
-                                                "p-2.5 rounded-lg",
-                                                router.status === 'online' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                                            )}>
-                                                <RouterIcon className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <h3 className="font-semibold text-white">{router.name}</h3>
-                                                <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
-                                                    <span className={clsx(
-                                                        "w-1.5 h-1.5 rounded-full",
-                                                        router.status === 'online' ? "bg-emerald-500" : "bg-red-500"
-                                                    )} />
-                                                    {router.host}:{router.port}
+                <div className="space-y-4">
+                    {viewMode === 'grid' ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {filteredRouters.map((router) => (
+                                <Link key={router.id} to={`/routers/${router.id}`} className="block">
+                                    <Card className="group hover:border-slate-600 transition-colors cursor-pointer">
+                                        <CardContent className="p-5">
+                                            <div className="flex items-start justify-between mb-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={clsx(
+                                                        "p-2.5 rounded-lg",
+                                                        router.status === 'online' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                                                    )}>
+                                                        <RouterIcon className="w-6 h-6" />
+                                                    </div>
+                                                    <div>
+                                                        <h3 className="font-semibold text-white">{router.name}</h3>
+                                                        <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-0.5">
+                                                            <span className={clsx(
+                                                                "w-1.5 h-1.5 rounded-full",
+                                                                router.status === 'online' ? "bg-emerald-500" : "bg-red-500"
+                                                            )} />
+                                                            {router.host}:{router.port}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
+                                                            refreshRouter.mutate(router.id);
+                                                        }}
+                                                        disabled={refreshRouter.isPending && refreshRouter.variables === router.id}
+                                                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                                        title="Refresh connection"
+                                                    >
+                                                        <RefreshCw className={clsx("w-4 h-4", refreshRouter.isPending && refreshRouter.variables === router.id && "animate-spin")} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => handleEditClick(e, router)}
+                                                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                                        title="Edit router"
+                                                    >
+                                                        <Edit className="w-4 h-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => handleDeleteClick(e, router)}
+                                                        className="p-1.5 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                                                        title="Delete router"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.preventDefault();
-                                                    e.stopPropagation();
-                                                    refreshRouter.mutate(router.id);
-                                                }}
-                                                disabled={refreshRouter.isPending && refreshRouter.variables === router.id}
-                                                className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
-                                                title="Refresh connection"
-                                            >
-                                                <RefreshCw className={clsx("w-4 h-4", refreshRouter.isPending && refreshRouter.variables === router.id && "animate-spin")} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => handleEditClick(e, router)}
-                                                className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
-                                                title="Edit router"
-                                            >
-                                                <Edit className="w-4 h-4" />
-                                            </button>
-                                            <button
-                                                onClick={(e) => handleDeleteClick(e, router)}
-                                                className="p-1.5 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
-                                                title="Delete router"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    </div>
+                                            {/* CPU, Memory, Uptime, Speed Grid */}
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                                                <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                                                    <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">CPU</div>
+                                                    <div className="text-slate-300 truncate">
+                                                        {router.latestMetrics?.cpuLoad != null
+                                                            ? `${router.latestMetrics.cpuLoad}%`
+                                                            : '--'}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                                                    <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Memory</div>
+                                                    <div className="text-slate-300 truncate">
+                                                        {router.latestMetrics?.totalMemory && router.latestMetrics?.usedMemory
+                                                            ? `${Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%`
+                                                            : '--'}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                                                    <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Uptime</div>
+                                                    <div className="text-slate-300 truncate">
+                                                        {router.latestMetrics?.uptime
+                                                            ? formatUptime(router.latestMetrics.uptime)
+                                                            : '--'}
+                                                    </div>
+                                                </div>
+                                                <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                                                    <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Speed</div>
+                                                    <div className="text-slate-300 truncate">
+                                                        {router.maxInterfaceSpeed || '--'}
+                                                    </div>
+                                                </div>
+                                            </div>
 
-                                    {/* CPU, Memory, Uptime, Speed Grid */}
-                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                                            <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">CPU</div>
-                                            <div className="text-slate-300 truncate">
-                                                {router.latestMetrics?.cpuLoad != null
-                                                    ? `${router.latestMetrics.cpuLoad}%`
-                                                    : '--'}
+                                            <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
+                                                <div className="text-xs text-slate-500">
+                                                    {router.model || 'Unknown'} • {router.routerOsVersion || router.version || '-'}
+                                                </div>
+                                                <div className="flex items-center gap-1 text-xs text-slate-400">
+                                                    <Signal className="w-3.5 h-3.5" />
+                                                    <span>{router.latestMetrics?.uptime ? 'Online' : '--'}</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                                            <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Memory</div>
-                                            <div className="text-slate-300 truncate">
-                                                {router.latestMetrics?.totalMemory && router.latestMetrics?.usedMemory
-                                                    ? `${Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%`
-                                                    : '--'}
-                                            </div>
-                                        </div>
-                                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                                            <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Uptime</div>
-                                            <div className="text-slate-300 truncate">
-                                                {router.latestMetrics?.uptime
-                                                    ? formatUptime(router.latestMetrics.uptime)
-                                                    : '--'}
-                                            </div>
-                                        </div>
-                                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
-                                            <div className="text-[10px] uppercase text-slate-500 font-bold tracking-wide mb-1">Speed</div>
-                                            <div className="text-slate-300 truncate">
-                                                {router.maxInterfaceSpeed || '--'}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between">
-                                        <div className="text-xs text-slate-500">
-                                            {router.model || 'Unknown'} • {router.routerOsVersion || router.version || '-'}
-                                        </div>
-                                        <div className="flex items-center gap-1 text-xs text-slate-400">
-                                            <Signal className="w-3.5 h-3.5" />
-                                            <span>{router.latestMetrics?.uptime ? 'Online' : '--'}</span>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        </Link>
-                    ))}
-
-                    {routers.length > 0 && filteredRouters.length === 0 && (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                            <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <Search className="w-6 h-6" />
-                            </div>
-                            <h3 className="text-lg font-medium text-white mb-1">No matches found</h3>
-                            <p className="text-slate-400">No routers match your search "{searchQuery}"</p>
-                            <Button variant="ghost" className="mt-4" onClick={() => setSearchQuery('')}>
-                                Clear Search
-                            </Button>
+                                        </CardContent>
+                                    </Card>
+                                </Link>
+                            ))}
                         </div>
-                    )}
-
-                    {routers.length === 0 && (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                            <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <RouterIcon className="w-6 h-6" />
+                    ) : (
+                        <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead className="bg-slate-800/50 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                                        <tr>
+                                            <th className="px-4 py-3">Status</th>
+                                            <th className="px-4 py-3">Name</th>
+                                            <th className="px-4 py-3">IP Address</th>
+                                            <th className="px-4 py-3">Hardware</th>
+                                            <th className="px-4 py-3">CPU</th>
+                                            <th className="px-4 py-3">Memory</th>
+                                            <th className="px-4 py-3">Uptime</th>
+                                            <th className="px-4 py-3">Speed</th>
+                                            <th className="px-4 py-3 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800">
+                                        {filteredRouters.map((router) => (
+                                            <tr key={router.id} className="hover:bg-slate-800/30 transition-colors group">
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={clsx("w-2 h-2 rounded-full",
+                                                            router.status === 'online' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500"
+                                                        )}></span>
+                                                        <span className="text-[10px] text-slate-500 uppercase font-medium">
+                                                            {router.status === 'online' ? "Online" : "Offline"}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <Link to={`/routers/${router.id}`} className="text-sm font-medium text-white hover:text-primary transition-colors">
+                                                        {router.name}
+                                                    </Link>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-sm text-slate-300 font-mono">{router.host}:{router.port}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="text-sm text-slate-300">{router.model || 'Unknown'}</div>
+                                                    <div className="text-[10px] text-slate-500">{router.routerOsVersion || router.version || '-'}</div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={clsx("text-sm font-mono",
+                                                        (router.latestMetrics?.cpuLoad || 0) > 80 ? "text-red-400" : "text-slate-300"
+                                                    )}>
+                                                        {router.latestMetrics?.cpuLoad != null ? `${router.latestMetrics.cpuLoad}%` : '--'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm text-slate-300 font-mono">
+                                                        {router.latestMetrics?.totalMemory && router.latestMetrics?.usedMemory
+                                                            ? `${Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%`
+                                                            : '--'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm text-slate-300">
+                                                        {router.latestMetrics?.uptime ? formatUptime(router.latestMetrics.uptime) : '--'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-sm text-slate-300">{router.maxInterfaceSpeed || '--'}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex justify-end gap-1">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.preventDefault();
+                                                                e.stopPropagation();
+                                                                refreshRouter.mutate(router.id);
+                                                            }}
+                                                            disabled={refreshRouter.isPending && refreshRouter.variables === router.id}
+                                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                                            title="Refresh connection"
+                                                        >
+                                                            <RefreshCw className={clsx("w-4 h-4", refreshRouter.isPending && refreshRouter.variables === router.id && "animate-spin")} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleEditClick(e, router)}
+                                                            className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+                                                            title="Edit router"
+                                                        >
+                                                            <Edit className="w-4 h-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => handleDeleteClick(e, router)}
+                                                            className="p-1.5 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition-colors"
+                                                            title="Delete router"
+                                                        >
+                                                            <Trash2 className="w-4 h-4" />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
                             </div>
-                            <h3 className="text-lg font-medium text-white mb-1">No routers found</h3>
-                            <p className="text-slate-400 mb-4">Start monitoring by adding your first MikroTik router</p>
-                            <Button onClick={() => setIsAddModalOpen(true)}>
-                                Add your first router
-                            </Button>
                         </div>
                     )}
                 </div>
-            </div>
 
+                {routers.length > 0 && filteredRouters.length === 0 && (
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                        <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Search className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-medium text-white mb-1">No matches found</h3>
+                        <p className="text-slate-400">No routers match your search "{searchQuery}"</p>
+                        <Button variant="ghost" className="mt-4" onClick={() => setSearchQuery('')}>
+                            Clear Search
+                        </Button>
+                    </div>
+                )}
+
+                {routers.length === 0 && (
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                        <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <RouterIcon className="w-6 h-6" />
+                        </div>
+                        <h3 className="text-lg font-medium text-white mb-1">No routers found</h3>
+                        <p className="text-slate-400 mb-4">Start monitoring by adding your first MikroTik router</p>
+                        <Button onClick={() => setIsAddModalOpen(true)}>
+                            Add your first router
+                        </Button>
+                    </div>
+                )}
+            </div>
             {/* Add Router Modal */}
             <RouterFormModal
                 isOpen={isAddModalOpen}
