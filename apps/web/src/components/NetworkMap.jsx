@@ -202,7 +202,8 @@ const NetworkMap = ({
     const markerHoverTimeout = useRef(null);
 
     // Debounced Hover Handlers
-    const handleLineHover = (id) => {
+    // Debounced Hover Handlers
+    const handleLineHover = useCallback((id) => {
         if (lineHoverTimeout.current) clearTimeout(lineHoverTimeout.current);
         if (id === null) {
             // Immediate clear for better responsiveness when leaving
@@ -212,9 +213,9 @@ const NetworkMap = ({
         lineHoverTimeout.current = setTimeout(() => {
             setHoveredLineId(id);
         }, 50); // 50ms delay to prevent jitter
-    };
+    }, []);
 
-    const handleMarkerHover = (id) => {
+    const handleMarkerHover = useCallback((id) => {
         if (markerHoverTimeout.current) clearTimeout(markerHoverTimeout.current);
         if (id === null) {
             setHoveredMarkerId(null);
@@ -223,7 +224,7 @@ const NetworkMap = ({
         markerHoverTimeout.current = setTimeout(() => {
             setHoveredMarkerId(id);
         }, 50);
-    };
+    }, []);
 
     // Sync Live vs Display Traffic
     useEffect(() => {
@@ -1136,7 +1137,7 @@ const NetworkMap = ({
     const topologyLines = useMemo(() => {
         return mapData.lines.map((line) => {
             const iface = line.targetInterface;
-            const isHovered = hoveredLineId === line.id;
+            // Removed isHovered calculation - handled by Context in child component
 
             // Throttled Stats for Visuals (Color/Thickness)
             // Rule: Use SNMP data only if isLiveMode is ON
@@ -1159,7 +1160,7 @@ const NetworkMap = ({
                     enableAnimation={enableAnimation}
                     lowPerfMode={lowPerfMode}
                     timezone={timezone}
-                    isHovered={isHovered}
+                    // Removed isHovered prop
                     onMouseOver={() => handleLineHover(line.id)}
                     onMouseOut={() => handleLineHover(null)}
                 />
@@ -1167,7 +1168,7 @@ const NetworkMap = ({
         });
     }, [
         mapData.lines,
-        hoveredLineId,
+        // hoveredLineId removed
         isHeatmapMode,
         lineThickness,
         mapColors,
@@ -1176,7 +1177,8 @@ const NetworkMap = ({
         lowPerfMode,
         timezone,
         isLiveMode,
-        displayTrafficMap
+        displayTrafficMap,
+        handleLineHover // Added dependency
     ]);
 
     // Device modal data

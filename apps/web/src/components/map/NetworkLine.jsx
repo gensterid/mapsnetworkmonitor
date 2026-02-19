@@ -30,9 +30,10 @@ const NetworkLineOriginal = ({
     isLiveMode, // New prop
     trafficMapRef // Removed: now consumed from context
 }) => {
-    const { hoverTick, displayTrafficMap, trafficMapRef: contextTrafficMapRef } = React.useContext(TrafficContext);
-    const { hoveredLineId } = React.useContext(HoveredItemContext);
-    const isHovered = hoveredLineId === line.id;
+    const { displayTrafficMap, trafficMapRef: contextTrafficMapRef } = React.useContext(TrafficContext);
+    // Removed HoveredItemContext subscription to preventing re-renders on hover
+    // const { hoveredLineId } = React.useContext(HoveredItemContext);
+    // const isHovered = hoveredLineId === line.id;
 
     const activeTrafficMapRef = contextTrafficMapRef || trafficMapRef; // Fallback
 
@@ -245,8 +246,8 @@ export const areLinesEqual = (prev, next) => {
         prev.line.status === next.line.status &&
         prev.txRate === next.txRate &&
         prev.rxRate === next.rxRate &&
-        prev.isHovered === next.isHovered &&
-        (prev.isHovered ? prev.tick === next.tick : true) &&
+        // isHovered check removed (handled by Context)
+        // tick check removed (handled by Context)
         prev.isHeatmapMode === next.isHeatmapMode &&
         prev.isLiveMode === next.isLiveMode &&
         prev.lineThickness === next.lineThickness &&
