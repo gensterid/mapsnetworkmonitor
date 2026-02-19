@@ -64,8 +64,8 @@ socketService.initialize(httpServer, allowedOrigins);
 const PORT = process.env.PORT || 3001;
 
 // Start server
-httpServer.listen(Number(PORT), '127.0.0.1', async () => {
-    logger.info(`🚀 Server running on http://127.0.0.1:${PORT}`);
+httpServer.listen(Number(PORT), '0.0.0.0', async () => {
+    logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
 
     // Run migrations
     await runMigrations();

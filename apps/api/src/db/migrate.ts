@@ -27,6 +27,9 @@ export async function runMigrations() {
                 END IF;
 
                 -- User preferences
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'timezone') THEN
+                    ALTER TABLE users ADD COLUMN timezone TEXT DEFAULT 'Asia/Jakarta' NOT NULL;
+                END IF;
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'animation_style') THEN
                     ALTER TABLE users ADD COLUMN animation_style TEXT DEFAULT 'default';
                 END IF;
