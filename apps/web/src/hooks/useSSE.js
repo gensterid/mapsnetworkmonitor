@@ -20,12 +20,9 @@ export function useSSE() {
 
         // In production, use relative path (empty string) to go through Nginx proxy
         // In development, use localhost:3001
-        let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3002';
-        if (typeof window !== 'undefined' &&
-            !window.location.hostname.includes('localhost') &&
-            !window.location.hostname.includes('127.0.0.1')) {
-            apiUrl = ''; // Use current origin
-        }
+        // Use relative path to go through Vite proxy in dev or current origin in prod
+        // This ensures the connection is persistent and uses correct session cookies
+        const apiUrl = '';
 
         const eventSource = new EventSource(`${apiUrl}/api/events`, {
             withCredentials: true

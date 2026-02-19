@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import NetworkMap from '@/components/NetworkMap';
 import { useRouters, useAlerts, useSettings, useCurrentUser } from '@/hooks';
-import { formatRelativeTime } from '@/lib/timezone';
+import { formatRelativeTime, formatDateOnly, formatTimeOnly } from '@/lib/timezone';
 import {
     Router as RouterIcon,
     Wifi,
@@ -290,22 +290,10 @@ export default function Dashboard() {
                             <p className="text-slate-400 text-sm mt-1">Real-time monitoring of all network devices.</p>
                             <p className="text-primary text-sm font-medium mt-2 flex items-center gap-2">
                                 <Clock className="w-4 h-4" />
-                                {currentTime.toLocaleDateString('id-ID', {
-                                    weekday: 'long',
-                                    day: 'numeric',
-                                    month: 'long',
-                                    year: 'numeric',
-                                    timeZone: userTimezone
-                                })}
+                                {formatDateOnly(currentTime, userTimezone)}
                                 <span className="text-slate-500">|</span>
                                 <span className="text-white font-bold tabular-nums">
-                                    {currentTime.toLocaleTimeString('id-ID', {
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit',
-                                        hour12: false,
-                                        timeZone: userTimezone
-                                    })}
+                                    {formatTimeOnly(currentTime, userTimezone)}
                                 </span>
                                 <span className="text-slate-500 text-xs">
                                     ({userTimezone})

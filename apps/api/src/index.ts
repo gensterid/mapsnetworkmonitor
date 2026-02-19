@@ -314,11 +314,11 @@ const httpServer = createServer(app);
 socketService.initialize(httpServer, allowedOrigins);
 
 // Start server
-httpServer.listen(PORT, async () => {
-    logger.info(`🚀 Server running on http://localhost:${PORT}`);
-    logger.info(`📡 API available at http://localhost:${PORT}/api`);
-    logger.info(`🔐 Auth available at http://localhost:${PORT}/api/auth`);
-    logger.info(`❤️  Health check at http://localhost:${PORT}/api/health`);
+httpServer.listen(Number(PORT), '127.0.0.1', async () => {
+    logger.info(`🚀 Server running on http://127.0.0.1:${PORT}`);
+    logger.info(`📡 API available at http://127.0.0.1:${PORT}/api`);
+    logger.info(`🔐 Auth available at http://127.0.0.1:${PORT}/api/auth`);
+    logger.info(`❤️  Health check at http://127.0.0.1:${PORT}/api/health`);
     logger.info(`🔌 WebSocket server ready`);
 
     // Run migrations

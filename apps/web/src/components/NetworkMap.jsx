@@ -26,7 +26,7 @@ import {
     getAnimationStyle, // Import helper to check style config
     DEFAULT_MAP_COLORS,
 } from './map';
-import { formatDateWithTimezone } from '@/lib/timezone';
+import { formatDateWithTimezone, formatShortDateTime } from '@/lib/timezone';
 import './map/map.css';
 // Marker Cluster CSS
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
@@ -760,7 +760,7 @@ const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         )}
                         <div className="flex flex-col gap-1">
                             <span className="text-slate-400 text-[10px] uppercase tracking-wider">Down Since</span>
-                            <span className="text-red-200 text-xs font-mono">{formatDateWithTimezone(node.lastDown, timezone)}</span>
+                            <span className="text-red-200 text-xs font-mono">{formatShortDateTime(node.lastDown, timezone)}</span>
                         </div>
                     </div>
                 )}
@@ -1568,22 +1568,25 @@ const NetworkMap = ({
             const res = await apiClient.put(`/routers/${routerId}/netwatch/${netwatchId}`, data);
             return res.data.data;
         },
-        onSuccess: (updatedData, variables) => {
-            // Optimistic update for instant feedback
-            queryClient.setQueryData(['netwatch-all'], (oldData) => {
-                if (!oldData || !Array.isArray(oldData)) return oldData;
-                return oldData.map(entry =>
-                    entry.id === variables.netwatchId ? { ...entry, ...updatedData } : entry
+        onMutate: async ({ netwatchId, data }) => {
+            await queryClient.cancelQueries({ queryKey: ['netwatch-all'] });
+            const previousData = queryClient.getQueryData(['netwatch-all']);
+            queryClient.setQueryData(['netwatch-all'], (old) => {
+                if (!old || !Array.isArray(old)) return old;
+                return old.map(item =>
+                    item.id === netwatchId ? { ...item, ...data } : item
                 );
             });
-
-            // Still invalidate to ensure consistency
+            return { previousData };
+        },
+        onError: (err, variables, context) => {
+            if (context?.previousData) {
+                queryClient.setQueryData(['netwatch-all'], context.previousData);
+            }
+        },
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
             toast.success('Device configuration saved successfully.');
-        },
-        onError: (err) => {
-            console.error('Update failed:', err);
-            toast.error(`Failed to Save Device: ${err.response?.data?.message || err.message}`);
         },
     });
 
@@ -1625,6 +1628,22 @@ const NetworkMap = ({
             const res = await apiClient.patch(`/pppoe/${pppoeId}/coordinates`, data);
             return res.data.data;
         },
+        onMutate: async ({ pppoeId, data }) => {
+            await queryClient.cancelQueries({ queryKey: ['pppoe-map'] });
+            const previousData = queryClient.getQueryData(['pppoe-map']);
+            queryClient.setQueryData(['pppoe-map'], (old) => {
+                if (!old || !Array.isArray(old)) return old;
+                return old.map(item =>
+                    item.id === pppoeId ? { ...item, ...data } : item
+                );
+            });
+            return { previousData };
+        },
+        onError: (err, variables, context) => {
+            if (context?.previousData) {
+                queryClient.setQueryData(['pppoe-map'], context.previousData);
+            }
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
         },
@@ -1636,13 +1655,25 @@ const NetworkMap = ({
             const res = await apiClient.patch(`/olts/${oltId}/onus/${onuId}`, data);
             return res.data;
         },
+        onMutate: async ({ onuId, data }) => {
+            await queryClient.cancelQueries({ queryKey: ['onus-map'] });
+            const previousData = queryClient.getQueryData(['onus-map']);
+            queryClient.setQueryData(['onus-map'], (old) => {
+                if (!old || !Array.isArray(old)) return old;
+                return old.map(item =>
+                    item.id === onuId ? { ...item, ...data } : item
+                );
+            });
+            return { previousData };
+        },
+        onError: (err, variables, context) => {
+            if (context?.previousData) {
+                queryClient.setQueryData(['onus-map'], context.previousData);
+            }
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['onus-map'] });
             toast.success('ONU configuration saved successfully.');
-        },
-        onError: (err) => {
-            console.error('Update ONU failed:', err);
-            toast.error(`Failed to Save ONU: ${err.response?.data?.message || err.message}`);
         },
     });
 
@@ -2061,34 +2092,41 @@ const NetworkMap = ({
     };
 
 
-
     const handleSavePath = () => {
         if (!editingDevice) return;
 
         const waypointsJson = JSON.stringify(editWaypoints);
 
+        const onSuccess = () => {
+            setIsEditingPath(false);
+            setEditingDevice(null);
+            setEditWaypoints([]);
+            toast.success('Path saved successfully');
+        };
+
+        const onError = (error) => {
+            console.error('Failed to save path:', error);
+            toast.error(`Failed to save path: ${error.message}`);
+        };
+
         if (editingDevice.type === 'pppoe') {
             updatePppoeMutation.mutate({
                 pppoeId: editingDevice.id,
                 data: { waypoints: waypointsJson }
-            });
+            }, { onSuccess, onError });
         } else if (editingDevice.type === 'onu') {
             updateOnuMutation.mutate({
                 oltId: editingDevice.oltId,
                 onuId: editingDevice.id,
                 data: { waypoints: waypointsJson }
-            });
+            }, { onSuccess, onError });
         } else {
             updateNetwatchMutation.mutate({
                 routerId: editingDevice.routerId,
                 netwatchId: editingDevice.id,
                 data: { waypoints: waypointsJson }
-            });
+            }, { onSuccess, onError });
         }
-
-        setIsEditingPath(false);
-        setEditingDevice(null);
-        setEditWaypoints([]);
     };
 
     const handleAddDevice = (type) => {
@@ -2151,7 +2189,6 @@ const NetworkMap = ({
         return lookup;
     }, [mapData.lines]);
 
-    // --- Stable Markers Generation (Flattened Array for Clustering) ---
     // --- Stable Markers Generation (Flattened Array for Clustering) ---
     const markers = useMemo(() => {
         const allMarkers = [];
@@ -2304,8 +2341,60 @@ const NetworkMap = ({
         handlePppoeDragEnd,
         updateNetwatchMutation,
         timezone,
-        isHeatmapMode
-    ]); // Removed mapData (whole) and hoveredRouterId to stabilize clusters
+        isHeatmapMode,
+        linesByNetwatchId,
+        linesByPppoeId
+    ]);
+
+    // --- Memoized Topology Lines (Moved to component body to obey rules of hooks) ---
+    const topologyLines = useMemo(() => {
+        return mapData.lines.map((line) => {
+            const iface = line.targetInterface;
+            const isHovered = hoveredLineId === line.id;
+
+            // Throttled Stats for Visuals (Color/Thickness)
+            // Rule: Use SNMP data only if isLiveMode is ON
+            const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
+            const stats = isLiveMode && iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
+            const txRateThrottled = stats?.tx || line.txRate || 0;
+            const rxRateThrottled = stats?.rx || line.rxRate || 0;
+
+            return (
+                <MemoizedNetworkLine
+                    key={`line-${line.id}-${enableAnimation}`}
+                    line={line}
+                    txRate={txRateThrottled}
+                    rxRate={rxRateThrottled}
+                    isHeatmapMode={isHeatmapMode}
+                    isLiveMode={isLiveMode}
+                    lineThickness={lineThickness}
+                    mapColors={mapColors}
+                    currentUser={currentUser}
+                    enableAnimation={enableAnimation}
+                    lowPerfMode={lowPerfMode}
+                    timezone={timezone}
+                    isHovered={isHovered}
+                    onMouseOver={() => handleLineHover(line.id)}
+                    onMouseOut={() => handleLineHover(null)}
+                />
+            );
+        });
+    }, [
+        mapData.lines,
+        hoveredLineId,
+        isHeatmapMode,
+        lineThickness,
+        mapColors,
+        currentUser,
+        enableAnimation,
+        lowPerfMode,
+        timezone,
+        isLiveMode,
+        displayTrafficMap
+    ]);
+
+    // Device modal data
+    const allDevicesList = useMemo(() => [...mapData.nodes, ...(mapData.pppoeNodes || [])], [mapData.nodes, mapData.pppoeNodes]);
 
 
     const trafficContextValue = useMemo(() => ({
@@ -2341,48 +2430,7 @@ const NetworkMap = ({
 
 
                         {/* Animated Topology Lines (show when NOT editing) */}
-                        {!isEditingPath && useMemo(() => mapData.lines.map((line) => {
-                            const iface = line.targetInterface;
-                            const isHovered = hoveredLineId === line.id;
-
-                            // Throttled Stats for Visuals (Color/Thickness)
-                            // Rule: Use SNMP data only if isLiveMode is ON
-                            const routerPrefixedKey = line.routerId ? `${line.routerId}:${iface}` : null;
-                            const stats = isLiveMode && iface ? (displayTrafficMap.get(routerPrefixedKey) || displayTrafficMap.get(iface)) : null;
-                            const txRateThrottled = stats?.tx || line.txRate || 0;
-                            const rxRateThrottled = stats?.rx || line.rxRate || 0;
-
-                            return (
-                                <MemoizedNetworkLine
-                                    key={`line-${line.id}-${enableAnimation}`}
-                                    line={line}
-                                    txRate={txRateThrottled}
-                                    rxRate={rxRateThrottled}
-                                    isHeatmapMode={isHeatmapMode}
-                                    isLiveMode={isLiveMode} // Added
-                                    lineThickness={lineThickness}
-                                    mapColors={mapColors}
-                                    currentUser={currentUser}
-                                    enableAnimation={enableAnimation}
-                                    lowPerfMode={lowPerfMode}
-                                    timezone={timezone}
-                                    isHovered={isHovered}
-                                    onMouseOver={() => handleLineHover(line.id)}
-                                    onMouseOut={() => handleLineHover(null)}
-                                />
-                            );
-                        }), [
-                            mapData.lines,
-                            hoveredLineId,
-                            isHeatmapMode,
-                            lineThickness,
-                            mapColors,
-                            currentUser,
-                            enableAnimation,
-                            lowPerfMode,
-                            timezone,
-                            isLiveMode
-                        ])}
+                        {!isEditingPath && topologyLines}
 
                         {/* Editable Path (show when editing) */}
                         {isEditingPath && editingLine && (
@@ -2529,7 +2577,7 @@ const NetworkMap = ({
                         isOpen={isModalOpen}
                         device={selectedDevice}
                         routers={mapData.routers}
-                        devices={useMemo(() => [...mapData.nodes, ...(mapData.pppoeNodes || [])], [mapData.nodes, mapData.pppoeNodes])}
+                        devices={allDevicesList}
                         onClose={handleCloseModal}
                         onSave={handleSaveDevice}
                         onDelete={handleDeleteDevice}

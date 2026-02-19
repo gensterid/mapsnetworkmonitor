@@ -3,7 +3,7 @@ import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, u
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff, Search, X } from 'lucide-react';
-import { formatDateWithTimezone } from '@/lib/timezone';
+import { formatShortDateTime, formatFullDateTime } from '@/lib/timezone';
 import clsx from 'clsx';
 
 export default function Alerts() {
@@ -97,7 +97,7 @@ export default function Alerts() {
     });
 
     const formatAlertTime = (dateStr) => {
-        return formatDateWithTimezone(dateStr, timezone);
+        return formatShortDateTime(dateStr, timezone);
     };
 
     const acknowledgeAlert = async (alertId) => {
@@ -336,7 +336,7 @@ export default function Alerts() {
                                                 {alert.acknowledgedByName && (
                                                     <div>by {alert.acknowledgedByName}</div>
                                                 )}
-                                                <div>{formatAlertTime(alert.acknowledgedAt)}</div>
+                                                <div>{formatFullDateTime(alert.acknowledgedAt, timezone)}</div>
                                             </div>
                                         )}
                                     </div>

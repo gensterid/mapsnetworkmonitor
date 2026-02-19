@@ -74,21 +74,13 @@ const EditablePath = ({
 
     // Handle waypoint drag end
     const handleWaypointDragEnd = useCallback(() => {
-        if (onWaypointsChange) {
-            onWaypointsChange(localWaypoints);
-        }
-    }, [localWaypoints, onWaypointsChange]);
+        // No longer calling onWaypointsChange here, handled by useEffect
+    }, []);
 
     // Handle right-click to remove waypoint
     const handleWaypointRightClick = useCallback((index) => {
-        setLocalWaypoints(prev => {
-            const updated = prev.filter((_, i) => i !== index);
-            if (onWaypointsChange) {
-                onWaypointsChange(updated);
-            }
-            return updated;
-        });
-    }, [onWaypointsChange]);
+        setLocalWaypoints(prev => prev.filter((_, i) => i !== index));
+    }, []);
 
     // Handle click on line to add waypoint
     const handleLineClick = useCallback((event) => {
@@ -105,7 +97,6 @@ const EditablePath = ({
             const start = fullPath[i];
             const end = fullPath[i + 1];
 
-            // Calculate distance from click to line segment
             const distance = L.latLng(clickLatLng).distanceTo(
                 L.latLng((start[0] + end[0]) / 2, (start[1] + end[1]) / 2)
             );
@@ -118,20 +109,27 @@ const EditablePath = ({
 
         setLocalWaypoints(prev => {
             const updated = [...prev];
-            // Adjust index because fullPath includes fromPosition at index 0
-            const waypointIndex = insertIndex;
-            updated.splice(waypointIndex, 0, newWaypoint);
-            if (onWaypointsChange) {
-                onWaypointsChange(updated);
-            }
+            updated.splice(insertIndex, 0, newWaypoint);
             return updated;
         });
-    }, [isEditing, fullPath, onWaypointsChange]);
+    }, [isEditing, fullPath]);
 
-    // Sync local state with props
+    // Sync local state with parent waypoints prop
+    const isFirstRender = useRef(true);
     useEffect(() => {
+        if (isFirstRender.current) {
+            isFirstRender.current = false;
+            return;
+        }
         setLocalWaypoints(waypoints);
     }, [waypoints]);
+
+    // Notify parent of local waypoint changes during the "safe" commit phase
+    useEffect(() => {
+        if (onWaypointsChange && localWaypoints !== waypoints) {
+            onWaypointsChange(localWaypoints);
+        }
+    }, [localWaypoints, onWaypointsChange, waypoints]);
 
     if (!fromPosition || !toPosition) return null;
 
@@ -173,13 +171,9 @@ const EditablePath = ({
                     position={pos}
                     icon={createEditHandleIcon(false)}
                     onDragEnd={(newPos) => {
-                        // Update position immediately and notify parent
                         setLocalWaypoints(prev => {
                             const updated = [...prev];
                             updated[index] = newPos;
-                            if (onWaypointsChange) {
-                                onWaypointsChange(updated);
-                            }
                             return updated;
                         });
                     }}
@@ -197,16 +191,9 @@ const EditablePath = ({
                         position={midpoint}
                         icon={createEditHandleIcon(true)}
                         onDragEnd={(newPos) => {
-                            // Insert waypoint at this midpoint position
-                            const newWaypoint = newPos;
                             setLocalWaypoints(prev => {
                                 const updated = [...prev];
-                                // Calculate correct insert index (account for start position)
-                                const insertIdx = idx;
-                                updated.splice(insertIdx, 0, newWaypoint);
-                                if (onWaypointsChange) {
-                                    onWaypointsChange(updated);
-                                }
+                                updated.splice(idx, 0, newPos);
                                 return updated;
                             });
                         }}

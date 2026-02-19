@@ -1,0 +1,18 @@
+﻿
+> api@1.1.0 dev
+> tsx watch src/index.ts
+
+[08:55:13 UTC] [32mINFO[39m: [36m≡ƒöî Socket.io initialized[39m
+[08:55:13 UTC] [32mINFO[39m: [36m≡ƒÜÇ Server running on http://localhost:3002[39m
+[08:55:13 UTC] [32mINFO[39m: [36m≡ƒôí API available at http://localhost:3002/api[39m
+[08:55:13 UTC] [32mINFO[39m: [36m≡ƒöÉ Auth available at http://localhost:3002/api/auth[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓ¥ñ∩╕Å  Health check at http://localhost:3002/api/health[39m
+[08:55:13 UTC] [32mINFO[39m: [36m≡ƒöî WebSocket server ready[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓ£à Database migrations complete[39m
+[08:55:13 UTC] [32mINFO[39m: [36m≡ƒôè Adaptive scaling: 294 devices ΓåÆ 120s interval, batch=10 (Priority + Batching)[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓÅ░ Starting router polling scheduler (every 2 minutes)[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓÅ░ Starting alert escalation checker (every 5 minutes)[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓÅ░ Starting OLT SNMP polling (every 1 minute)[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓÅ░ Starting OLT Web Sync (every 10 minutes)[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓÅ░ Starting GenieACS Sync (every 10 minutes)[39m
+[08:55:13 UTC] [32mINFO[39m: [36mΓÅ░ Starting daily metrics cleanup job (every 24 hours)[39m

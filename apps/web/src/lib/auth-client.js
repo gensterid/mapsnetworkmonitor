@@ -5,12 +5,13 @@ import { createAuthClient } from 'better-auth/react';
 // In development, use localhost:3001
 const getBaseURL = () => {
     if (typeof window !== 'undefined') {
-        // If running in browser and not on localhost, use relative path
-        if (!window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
-            return ''; // Relative path - will use current origin
-        }
+        // In local development, we want to use the Vite proxy (/api)
+        // rather than hitting port 3002 directly. This ensures cookies are
+        // sent correctly from the web origin (e.g., port 5173).
+        // note: better-auth requires a full URL with protocol and path to the auth mount point
+        return window.location.origin + '/api/auth';
     }
-    return 'http://localhost:3002';
+    return 'http://127.0.0.1:3002/api/auth';
 };
 
 export const authClient = createAuthClient({
