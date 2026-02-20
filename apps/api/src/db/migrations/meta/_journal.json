@@ -148,6 +148,13 @@
       "when": 1771529519400,
       "tag": "0020_perpetual_marrow",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1771615993189,
+      "tag": "0021_worried_deadpool",
+      "breakpoints": true
     }
   ]
 }

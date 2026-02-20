@@ -4,12 +4,16 @@ import compression from 'compression';
 import routes from './routes/index.js';
 import backupRoutes from './routes/backup.routes.js';
 import { errorMiddleware, notFoundMiddleware } from './middleware/index.js';
-import { startScheduler, stopScheduler } from './lib/scheduler.js';
+import { stopScheduler } from './lib/scheduler.js';
 import { logger } from './lib/logger.js';
 import { socketService } from './services/socket.service.js';
 import { corsMiddleware, allowedOrigins } from './config/cors.js';
 import { securityMiddleware, apiLimiter, authLimiter } from './config/security.js';
 import { runMigrations } from './db/migrate.js';
+import { Worker } from 'worker_threads';
+import { join, extname, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import { eventEmitter } from './services/event-emitter.service.js';
 
 // ─── Startup Security Validation ────────────────────────────────────────
 const INSECURE_DEFAULTS = [
@@ -97,6 +101,37 @@ socketService.initialize(httpServer, allowedOrigins);
 
 const PORT = process.env.PORT || 3001;
 
+// Worker Thread setup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+let schedulerWorker: Worker | null = null;
+
+function startSchedulerWorker() {
+    // In dev it's .ts, in prod it's .js
+    const ext = extname(__filename);
+    const workerPath = join(__dirname, 'lib', 'scheduler-worker' + ext);
+    logger.info({ workerPath }, '🧵 Spawning scheduler worker thread');
+
+    schedulerWorker = new Worker(workerPath);
+
+    schedulerWorker.on('message', (msg) => {
+        if (msg.type === 'sse_broadcast') {
+            eventEmitter.broadcast(msg.eventType, msg.data);
+        } else if (msg.type === 'sse_broadcast_users') {
+            eventEmitter.broadcastToUsers(msg.eventType, msg.data, msg.allowedUserIds);
+        }
+    });
+
+    schedulerWorker.on('error', (err) => logger.error({ err }, 'Scheduler worker error'));
+    schedulerWorker.on('exit', (code) => {
+        if (code !== 0) {
+            logger.error(new Error(`Worker stopped with exit code ${code}`));
+            // Restart worker after 5 seconds
+            setTimeout(() => startSchedulerWorker(), 5000);
+        }
+    });
+}
+
 // Start server
 httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
@@ -104,8 +139,8 @@ httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     // Run migrations
     await runMigrations();
 
-    // Start background scheduler
-    startScheduler();
+    // Start background scheduler in separate thread
+    startSchedulerWorker();
 });
 
 // Graceful Shutdown
@@ -113,7 +148,10 @@ const gracefulShutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
     httpServer.close(async () => {
         try {
-            stopScheduler();
+            if (schedulerWorker) {
+                schedulerWorker.postMessage('shutdown');
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
             await socketService.stopAll();
             logger.info('✅ Graceful shutdown complete');
             process.exit(0);

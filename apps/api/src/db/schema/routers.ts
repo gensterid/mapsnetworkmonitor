@@ -192,6 +192,9 @@ export const routerNetwatch = pgTable('router_netwatch', {
     routerIdIdx: index('router_netwatch_router_id_idx').on(table.routerId),
     hostIdx: index('router_netwatch_host_idx').on(table.host),
     statusIdx: index('router_netwatch_status_idx').on(table.status),
+    routerStatusIdx: index('router_netwatch_router_status_idx').on(table.routerId, table.status),
+    lastUpIdx: index('router_netwatch_last_up_idx').on(table.lastUp),
+    lastDownIdx: index('router_netwatch_last_down_idx').on(table.lastDown),
 }));
 
 // Types

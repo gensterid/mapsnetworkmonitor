@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { isMainThread, parentPort } from 'worker_threads';
 import { logger } from '../lib/logger.js';
 
 interface SSEClient {
@@ -34,6 +35,11 @@ class EventEmitterService {
      * Broadcast event to all connected clients
      */
     broadcast(eventType: string, data: any): void {
+        if (!isMainThread && parentPort) {
+            parentPort.postMessage({ type: 'sse_broadcast', eventType, data });
+            return;
+        }
+
         const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
 
         this.clients.forEach(client => {
@@ -51,6 +57,11 @@ class EventEmitterService {
      * Broadcast event to specific users (and admins/operators)
      */
     broadcastToUsers(eventType: string, data: any, allowedUserIds: string[]): void {
+        if (!isMainThread && parentPort) {
+            parentPort.postMessage({ type: 'sse_broadcast_users', eventType, data, allowedUserIds });
+            return;
+        }
+
         const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
 
         this.clients.forEach(client => {
@@ -60,15 +71,11 @@ class EventEmitterService {
 
             if (!hasAccess && client.user) {
                 // Skip if user is logged in but doesn't have access
-                // If user is NOT logged in (anon), we currently skip or send? 
-                // Let's skip anonymous users for targeted alerts to be safe.
                 return;
             }
 
-            // If client has no user info attached (anonymous), maybe we shouldn't send sensitive alerts?
-            // Assuming targeted alerts are sensitive.
             if (!client.user) {
-                // For now, let's not send to anonymous if targeting is used
+                // Skip anonymous users for targeted alerts to be safe.
                 return;
             }
 

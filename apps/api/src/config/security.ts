@@ -23,7 +23,7 @@ export const apiLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100,
+    max: 20, // Strict limit for all auth routes (login, register, forgot password)
     standardHeaders: true,
     legacyHeaders: false,
     message: {
