@@ -1257,7 +1257,7 @@ const NetworkMap = ({
                         zoom={10}
                         maxZoom={22} // Increased to allow high zoom ungrouping
                         scrollWheelZoom={true}
-                        preferCanvas={true} // Enable canvas rendering for high performance
+                        preferCanvas={lowPerfMode} // Enable canvas rendering only in low-performance mode to preserve animations
                         aria-label="Network Topology Map"
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >

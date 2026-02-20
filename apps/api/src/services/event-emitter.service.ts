@@ -56,7 +56,7 @@ class EventEmitterService {
     /**
      * Broadcast event to specific users (and admins/operators)
      */
-    broadcastToUsers(eventType: string, data: any, allowedUserIds: string[]): void {
+    broadcastToUsers(eventType: string, data: any, allowedUserIds: string[] = []): void {
         if (!isMainThread && parentPort) {
             parentPort.postMessage({ type: 'sse_broadcast_users', eventType, data, allowedUserIds });
             return;

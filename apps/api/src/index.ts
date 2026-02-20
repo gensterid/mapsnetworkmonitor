@@ -115,10 +115,14 @@ function startSchedulerWorker() {
     schedulerWorker = new Worker(workerPath);
 
     schedulerWorker.on('message', (msg) => {
-        if (msg.type === 'sse_broadcast') {
-            eventEmitter.broadcast(msg.eventType, msg.data);
-        } else if (msg.type === 'sse_broadcast_users') {
-            eventEmitter.broadcastToUsers(msg.eventType, msg.data, msg.allowedUserIds);
+        try {
+            if (msg.type === 'sse_broadcast') {
+                eventEmitter.broadcast(msg.eventType, msg.data);
+            } else if (msg.type === 'sse_broadcast_users') {
+                eventEmitter.broadcastToUsers(msg.eventType, msg.data, msg.allowedUserIds);
+            }
+        } catch (err) {
+            logger.error({ err, msg }, 'Error handling worker message in main thread');
         }
     });
 
