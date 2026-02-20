@@ -6,6 +6,7 @@ import { snmpService } from './snmp.service.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
 import { logger } from '../lib/logger.js';
+import { ApiError } from '../middleware/error.middleware.js';
 
 export class OltService {
     private static instance: OltService;
@@ -288,7 +289,14 @@ export class OltService {
             // Import dynamically or use factory
             const { OltDriverFactory } = await import('./olt-drivers/driver.factory.js');
 
-            const decryptedPassword = olt.webPassword ? decrypt(olt.webPassword) : undefined;
+            let decryptedPassword;
+            try {
+                decryptedPassword = olt.webPassword ? decrypt(olt.webPassword) : undefined;
+            } catch (decryptError) {
+                logger.error({ err: decryptError, oltId: id }, 'Failed to decrypt OLT password. The ENCRYPTION_KEY might have changed.');
+                throw new ApiError(401, 'Please re-enter the OLT password in Settings. The encryption key has changed.');
+            }
+
             const driver = OltDriverFactory.getDriver(
                 olt.type || 'generic',
                 olt.host,
