@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { Polyline, Tooltip, Popup } from 'react-leaflet';
+import { sanitizeHtml } from '@/lib/sanitize';
 import '../map.css';
 
 /**
@@ -167,12 +168,12 @@ const MotionPathRenderer = ({
                     <>
                         {options.tooltip && (
                             <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
-                                <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
+                                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(options.tooltip) }} />
                             </Tooltip>
                         )}
                         {options.popup && (
                             <Popup>
-                                <div dangerouslySetInnerHTML={{ __html: options.popup }} />
+                                <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(options.popup) }} />
                             </Popup>
                         )}
                     </>
@@ -199,12 +200,12 @@ const MotionPathRenderer = ({
                 >
                     {options.tooltip && (
                         <Tooltip sticky direction="top" className="custom-map-tooltip" opacity={1}>
-                            <div dangerouslySetInnerHTML={{ __html: options.tooltip }} />
+                            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(options.tooltip) }} />
                         </Tooltip>
                     )}
                     {options.popup && (
                         <Popup>
-                            <div dangerouslySetInnerHTML={{ __html: options.popup }} />
+                            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(options.popup) }} />
                         </Popup>
                     )}
                 </Polyline>

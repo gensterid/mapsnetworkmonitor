@@ -1,5 +1,6 @@
 import { routerService } from './router.service.js';
 import { alertService } from './alert.service.js';
+import { logger } from '../lib/logger.js';
 
 interface DashboardStats {
     routers: {
@@ -28,18 +29,59 @@ interface MapMarker {
     lastSeen: Date | null;
 }
 
+// ─── Simple In-Memory Cache ──────────────────────────────────────
+interface CacheEntry<T> {
+    data: T;
+    expiresAt: number;
+}
+
+class MemoryCache {
+    private store = new Map<string, CacheEntry<unknown>>();
+
+    get<T>(key: string): T | null {
+        const entry = this.store.get(key);
+        if (!entry) return null;
+        if (Date.now() > entry.expiresAt) {
+            this.store.delete(key);
+            return null;
+        }
+        return entry.data as T;
+    }
+
+    set<T>(key: string, data: T, ttlMs: number): void {
+        this.store.set(key, { data, expiresAt: Date.now() + ttlMs });
+    }
+
+    invalidate(key?: string): void {
+        if (key) {
+            this.store.delete(key);
+        } else {
+            this.store.clear();
+        }
+    }
+}
+// ──────────────────────────────────────────────────────────────────
+
+const CACHE_TTL = 30_000; // 30 seconds
+
 /**
  * Dashboard Service - aggregates data for dashboard display
+ * Uses in-memory cache to reduce database load
  */
 export class DashboardService {
+    private cache = new MemoryCache();
+
     /**
-     * Get dashboard statistics
+     * Get dashboard statistics (cached 30s)
      */
     async getStats(): Promise<DashboardStats> {
+        const cached = this.cache.get<DashboardStats>('stats');
+        if (cached) return cached;
+
         const routerStats = await routerService.countByStatus();
         const alertStats = await alertService.countBySeverity();
 
-        return {
+        const stats: DashboardStats = {
             routers: {
                 total: routerStats.total,
                 online: routerStats.online,
@@ -53,15 +95,21 @@ export class DashboardService {
                 info: alertStats.info,
             },
         };
+
+        this.cache.set('stats', stats, CACHE_TTL);
+        return stats;
     }
 
     /**
-     * Get map markers for all routers
+     * Get map markers for all routers (cached 30s)
      */
     async getMapMarkers(): Promise<MapMarker[]> {
+        const cached = this.cache.get<MapMarker[]>('mapMarkers');
+        if (cached) return cached;
+
         const routers = await routerService.findAll();
 
-        return routers.map((router) => ({
+        const markers = routers.map((router) => ({
             id: router.id,
             name: router.name,
             host: router.host,
@@ -72,6 +120,9 @@ export class DashboardService {
             groupId: router.groupId,
             lastSeen: router.lastSeen,
         }));
+
+        this.cache.set('mapMarkers', markers, CACHE_TTL);
+        return markers;
     }
 
     /**
@@ -80,6 +131,14 @@ export class DashboardService {
     async getRecentAlerts(limit = 10) {
         const result = await alertService.findUnacknowledged({ limit });
         return result.data;
+    }
+
+    /**
+     * Invalidate dashboard cache (called after router/alert changes)
+     */
+    invalidateCache(): void {
+        this.cache.invalidate();
+        logger.debug('Dashboard cache invalidated');
     }
 }
 

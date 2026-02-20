@@ -11,6 +11,40 @@ import { corsMiddleware, allowedOrigins } from './config/cors.js';
 import { securityMiddleware, apiLimiter, authLimiter } from './config/security.js';
 import { runMigrations } from './db/migrate.js';
 
+// ─── Startup Security Validation ────────────────────────────────────────
+const INSECURE_DEFAULTS = [
+    'your-secret-key-change-in-production',
+    'your-32-byte-encryption-key-here',
+    'change-me',
+    'secret',
+];
+
+function validateSecrets(): void {
+    const issues: string[] = [];
+
+    if (!process.env.BETTER_AUTH_SECRET || INSECURE_DEFAULTS.includes(process.env.BETTER_AUTH_SECRET)) {
+        issues.push('BETTER_AUTH_SECRET is missing or using an insecure default value');
+    }
+    if (!process.env.ENCRYPTION_KEY || INSECURE_DEFAULTS.includes(process.env.ENCRYPTION_KEY)) {
+        issues.push('ENCRYPTION_KEY is missing or using an insecure default value');
+    }
+    if (!process.env.DATABASE_URL) {
+        issues.push('DATABASE_URL is not set');
+    }
+
+    if (issues.length > 0) {
+        if (process.env.NODE_ENV === 'production') {
+            logger.fatal({ issues }, '🚨 FATAL: Insecure configuration detected. Server cannot start in production with default secrets.');
+            process.exit(1);
+        } else {
+            logger.warn({ issues }, '⚠️ WARNING: Insecure configuration detected. Fix before deploying to production.');
+        }
+    }
+}
+
+validateSecrets();
+// ─────────────────────────────────────────────────────────────────────────
+
 // Global error handlers
 process.on('uncaughtException', (error: Error) => {
     logger.error({ err: error }, 'Uncaught Exception');

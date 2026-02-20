@@ -78,34 +78,40 @@ router.post(
         }
 
         // Hash password using scrypt (same as Better Auth)
-        // Better Auth uses this format: hashedPassword:salt
         const crypto = await import('crypto');
         const salt = crypto.randomBytes(16).toString('hex');
         const hashedBuffer = crypto.scryptSync(data.password, salt, 64, { N: 16384, r: 16, p: 1, maxmem: 67108864 });
         const hashedPassword = `${salt}:${hashedBuffer.toString('hex')}`;
 
-        const user = await userService.create({
-            id: crypto.randomUUID(),
-            name: data.name,
-            username: data.username || null,
-            email: data.email,
-            emailVerified: true, // Admin-created users are auto-verified
-            role: data.role || 'user',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-        });
-
-        // Create the credential account for authentication
+        // Use transaction to ensure user + account are created atomically
         const { db } = await import('../db/index.js');
-        const { accounts } = await import('../db/schema/index.js');
-        await db.insert(accounts).values({
-            id: crypto.randomUUID(),
-            accountId: user.id,
-            providerId: 'credential',
-            userId: user.id,
-            password: hashedPassword,
-            createdAt: new Date(),
-            updatedAt: new Date(),
+        const { users, accounts } = await import('../db/schema/index.js');
+
+        const user = await db.transaction(async (tx) => {
+            // Create user
+            const [newUser] = await tx.insert(users).values({
+                id: crypto.randomUUID(),
+                name: data.name,
+                username: data.username || null,
+                email: data.email,
+                emailVerified: true, // Admin-created users are auto-verified
+                role: data.role || 'user',
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            }).returning();
+
+            // Create the credential account for authentication
+            await tx.insert(accounts).values({
+                id: crypto.randomUUID(),
+                accountId: newUser.id,
+                providerId: 'credential',
+                userId: newUser.id,
+                password: hashedPassword,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+
+            return newUser;
         });
 
         // Log action

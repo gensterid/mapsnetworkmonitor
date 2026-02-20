@@ -623,6 +623,18 @@
     }
 }
 
+/* ─── Accessibility: Focus Indicators (WCAG 2.1) ─── */
+*:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+    border-radius: 4px;
+}
+
+/* Don't show focus ring for mouse clicks */
+*:focus:not(:focus-visible) {
+    outline: none;
+}
+
 body {
     @apply bg-background-dark text-white font-display overflow-hidden;
 }

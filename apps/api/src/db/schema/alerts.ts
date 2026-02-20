@@ -62,6 +62,9 @@ export const alerts = pgTable('alerts', {
     typeIdx: index('alerts_type_idx').on(table.type),
     resolvedIdx: index('alerts_resolved_idx').on(table.resolved),
     createdAtIdx: index('alerts_created_at_idx').on(table.createdAt),
+    // Composite indexes for common query patterns
+    routerResolvedIdx: index('alerts_router_resolved_idx').on(table.routerId, table.resolved),
+    routerCreatedAtIdx: index('alerts_router_created_at_idx').on(table.routerId, table.createdAt),
 }));
 
 // Netwatch hosts table
