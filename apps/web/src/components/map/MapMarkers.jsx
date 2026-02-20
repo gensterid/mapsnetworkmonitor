@@ -362,8 +362,18 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
         return `${bps.toFixed(0)} bps`;
     };
 
-    const status = (node.status || 'unknown').toLowerCase();
-    const isUp = ['up', 'online', 'active'].includes(status);
+    const rawStatus = (node.status || 'unknown').toLowerCase();
+    const isUp = ['up', 'online', 'active'].includes(rawStatus);
+
+    // Some OLTs provide detailed status like 'power_down', but it might be mapped
+    // to just 'offline' in some places, while we still have 'lastDownReason'.
+    // Let's create a displayStatus that prioritizes detail.
+    let displayStatus = rawStatus;
+    if (!isUp) {
+        if (rawStatus === 'power_down' || node.lastDownReason === 'Power Down') displayStatus = 'power_down';
+        else if (rawStatus === 'lost' || node.lastDownReason === 'Optical Loss') displayStatus = 'optical_loss';
+        else if (rawStatus === 'offline' || rawStatus === 'down') displayStatus = 'down';
+    }
 
     const getDownReason = (node) => {
         // 1. Explicit reason from Database/OLT (Highest Priority)
@@ -371,10 +381,9 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
         if (explicitReason && explicitReason !== 'Unknown') return explicitReason;
 
         // 2. Normalized OLT statuses (Middle Priority)
-        // If status is power_down, always call it Power Down even if reason is empty
-        if (status === 'power_down') return 'Power Down';
-        if (status === 'dying_gasp') return 'Dying Gasp';
-        if (status === 'lost') return 'Optical Signal Loss';
+        if (displayStatus === 'power_down') return 'Power Down';
+        if (displayStatus === 'dying_gasp') return 'Dying Gasp';
+        if (displayStatus === 'optical_loss' || displayStatus === 'lost') return 'Optical Signal Loss';
 
         // 3. Last Resort Fallback (Signal Analysis)
         const signal = parseFloat(node.lastRxPower || node.last_rx_power);
@@ -382,8 +391,8 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
 
         // 4. Default generic status
         if (!isUp) {
-            if (status === 'offline' || status === 'down' || status === 'unknown') return 'Connection Lost';
-            return status.charAt(0).toUpperCase() + status.slice(1);
+            if (displayStatus === 'offline' || displayStatus === 'down' || displayStatus === 'unknown') return 'Connection Lost';
+            return displayStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
         }
 
         return 'Unknown';
@@ -400,7 +409,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                        {status}
+                        {displayStatus.replace(/_/g, ' ')}
                     </div>
                     {onEdit && (
                         <button
@@ -482,8 +491,8 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                 <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Status</span>
-                        <span className={isUp ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
-                            {status.toUpperCase()}
+                        <span className={isUp ? 'text-emerald-400 font-bold uppercase' : 'text-red-400 font-bold uppercase'}>
+                            {displayStatus.replace(/_/g, ' ')}
                         </span>
                     </div>
                     {isUp && (node.lastUpTime || node.lastUp) && (
