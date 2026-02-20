@@ -107,10 +107,22 @@ const __dirname = dirname(__filename);
 let schedulerWorker: Worker | null = null;
 
 function startSchedulerWorker() {
-    // In dev it's .ts, in prod it's .js
-    const ext = extname(__filename);
-    const workerPath = join(__dirname, 'lib', 'scheduler-worker' + ext);
-    logger.info({ workerPath }, '🧵 Spawning scheduler worker thread');
+    // In production, we always want to load the compiled .js file from the dist folder.
+    // Even if the main thread was started with a .ts loader, the native Worker needs a supported file.
+    const isProd = process.env.NODE_ENV === 'production';
+    let baseDir = __dirname;
+    let ext = extname(__filename);
+
+    if (isProd) {
+        ext = '.js';
+        // If we are somehow in 'src', point to 'dist'
+        if (baseDir.endsWith('src')) {
+            baseDir = baseDir.replace(/src$/, 'dist');
+        }
+    }
+
+    const workerPath = join(baseDir, 'lib', 'scheduler-worker' + ext);
+    logger.info({ workerPath, isProd }, '🧵 Spawning scheduler worker thread');
 
     schedulerWorker = new Worker(workerPath);
 

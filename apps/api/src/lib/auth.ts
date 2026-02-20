@@ -41,12 +41,19 @@ function collectTrustedOrigins(baseURL: string): string[] {
         process.env.TRUSTED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean).forEach(o => origins.add(o));
     }
 
-    // Also merge from CORS_ORIGIN env var — these origins should also be trusted
+    // Also merge from CORS_ORIGIN env var — these origins MUST also be trusted for Better Auth CSRF
     if (process.env.CORS_ORIGIN) {
         process.env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean).forEach(o => origins.add(o));
     }
 
-    return Array.from(origins);
+    // Log the configuration for easier debugging in production
+    const finalOrigins = Array.from(origins);
+    logger.info({
+        baseURL,
+        trustedOrigins: finalOrigins
+    }, 'Better Auth origin configuration initialized');
+
+    return finalOrigins;
 }
 
 const resolvedBaseURL = resolveBaseURL();
