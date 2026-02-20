@@ -8,35 +8,59 @@ async function checkDatabase() {
         process.exit(1);
     }
 
-    console.log('🔍 Connecting to database...');
+    console.log('🔍 Connecting to database for deep inspection...');
     const sql = postgres(url);
 
     try {
-        // 1. Check connection
-        const now = await sql`SELECT NOW()`;
-        console.log('✅ Connection established at:', now[0].now);
-
-        // 2. Check for required tables
+        // 1. Check for required tables
         const tables = ['users', 'sessions', 'accounts', 'verifications'];
-        console.log('\n📊 Checking for required tables:');
+        console.log('\n📊 Checking tables and columns:');
 
         for (const table of tables) {
-            const result = await sql`
+            const tableResult = await sql`
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
                     WHERE table_name = ${table}
                 );
             `;
-            const exists = result[0].exists;
-            console.log(`${exists ? '✅' : '❌'} Table "${table}": ${exists ? 'Found' : 'MISSING'}`);
+            const exists = tableResult[0].exists;
+
+            if (!exists) {
+                console.log(`❌ Table "${table}": MISSING`);
+                continue;
+            }
+
+            // Check columns
+            const cols = await sql`
+                SELECT column_name, data_type 
+                FROM information_schema.columns 
+                WHERE table_name = ${table}
+            `;
+            console.log(`✅ Table "${table}": Found (${cols.length} columns)`);
+
+            // Critical column checks
+            if (table === 'accounts') {
+                const hasPassword = cols.some(c => c.column_name === 'password');
+                console.log(`   - Column "password": ${hasPassword ? '✅ Found' : '❌ MISSING'}`);
+            }
+            if (table === 'users') {
+                const hasRole = cols.some(c => c.column_name === 'role');
+                const hasEmail = cols.some(c => c.column_name === 'email');
+                console.log(`   - Column "email": ${hasEmail ? '✅ Found' : '❌ MISSING'}`);
+                console.log(`   - Column "role": ${hasRole ? '✅ Found' : '❌ MISSING'}`);
+            }
         }
 
-        // 3. If users table exists, check for admins
-        const usersExist = (await sql`SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')`)[0].exists;
-        if (usersExist) {
-            const userCount = await sql`SELECT COUNT(*) FROM users`;
-            console.log(`\n👥 Total users: ${userCount[0].count}`);
-        }
+        // 2. Check users
+        const users = await sql`SELECT id, email, role FROM users LIMIT 5`;
+        console.log(`\n👥 Sample Users (Total: ${users.length}):`);
+        users.forEach(u => console.log(`   - ${u.email} (${u.role})`));
+
+        // 3. Check for auth failures in log (simulated check)
+        console.log('\n🔐 Auth Environment Check:');
+        console.log(`   - BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL || '❌ MISSING'}`);
+        console.log(`   - CORS_ORIGIN: ${process.env.CORS_ORIGIN || '❌ MISSING'}`);
+        console.log(`   - TRUSTED_ORIGINS: ${process.env.TRUSTED_ORIGINS || '❌ MISSING'}`);
 
         process.exit(0);
     } catch (err) {
