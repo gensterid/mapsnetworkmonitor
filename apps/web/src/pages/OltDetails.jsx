@@ -328,6 +328,7 @@ export default function OltDetails() {
                                             <tr className="bg-slate-900/50 border-b border-slate-800">
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">PON / ID</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">SN / Alias</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">MAC Address</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Down</th>
@@ -348,17 +349,21 @@ export default function OltDetails() {
                                                         <div className="flex flex-col">
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-sm text-white font-mono">{onu.sn}</span>
-                                                                {onu.macAddress && (
-                                                                    <span className="text-[9px] px-1 bg-slate-800 text-slate-400 rounded border border-slate-700 font-mono">
-                                                                        {onu.macAddress}
-                                                                    </span>
-                                                                )}
                                                             </div>
                                                             {onu.name && <span className="text-[10px] text-slate-300 font-medium">{onu.name}</span>}
                                                             {onu.description && onu.description !== onu.name && (
                                                                 <span className="text-[10px] text-slate-500 italic">{onu.description}</span>
                                                             )}
                                                         </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        {onu.macAddress ? (
+                                                            <span className="text-xs px-2 py-0.5 bg-slate-800 text-slate-300 rounded border border-slate-700 font-mono tracking-widest">
+                                                                {onu.macAddress}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-xs text-slate-600 font-mono">-</span>
+                                                        )}
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                         <span className={clsx(
