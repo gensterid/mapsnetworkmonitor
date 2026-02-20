@@ -170,8 +170,33 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
         return 'text-red-400';
     };
 
-    const status = node.status || 'unknown';
-    const isUp = ['up', 'online', 'active'].includes(status);
+    const rawStatus = (node.status || 'unknown').toLowerCase();
+    const isUp = ['up', 'online', 'active'].includes(rawStatus);
+
+    let displayStatus = rawStatus;
+    if (!isUp) {
+        if (rawStatus === 'power_down' || node.lastDownReason === 'Power Down') displayStatus = 'power_down';
+        else if (rawStatus === 'lost' || node.lastDownReason === 'Optical Loss') displayStatus = 'optical_loss';
+        else if (rawStatus === 'offline' || rawStatus === 'down') displayStatus = 'down';
+    }
+
+    const getDownReason = (node) => {
+        const explicitReason = node.lastDownReason || node.last_down_reason;
+        if (explicitReason && explicitReason !== 'Unknown') return explicitReason;
+
+        if (displayStatus === 'power_down') return 'Power Down';
+        if (displayStatus === 'dying_gasp') return 'Dying Gasp';
+        if (displayStatus === 'optical_loss' || displayStatus === 'lost') return 'Optical Signal Loss';
+
+        const signal = parseFloat(node.lastRxPower || node.last_rx_power);
+        if (!isUp && !isNaN(signal) && signal < -27) return 'Optical Signal Loss';
+
+        if (!isUp) {
+            if (displayStatus === 'offline' || displayStatus === 'down' || displayStatus === 'unknown') return 'Connection Lost';
+            return displayStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        }
+        return 'Unknown';
+    };
 
     return (
         <div className="flex flex-col min-w-[240px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
@@ -188,7 +213,7 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                        {status}
+                        {displayStatus.replace(/_/g, ' ')}
                     </div>
                     {onEdit && (
                         <button
@@ -274,6 +299,34 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
                     </div>
                 )}
 
+                {/* Netwatch Timestamp Status Block if available */}
+                {(!isUp || node.lastUpTime || node.lastDownTime) && (
+                    <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Status</span>
+                            <span className={isUp ? 'text-emerald-400 font-bold uppercase' : 'text-red-400 font-bold uppercase'}>
+                                {displayStatus.replace(/_/g, ' ')}
+                            </span>
+                        </div>
+                        {isUp && (node.lastUpTime || node.lastUp) && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Up</span>
+                                <span className="text-emerald-400 font-mono text-[10px] truncate max-w-[120px]">
+                                    {node.lastUpTime || (node.lastUp ? formatShortDateTime(node.lastUp, timezone) : '-')}
+                                </span>
+                            </div>
+                        )}
+                        {(!isUp || node.lastDownTime || node.lastDown) && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
+                                <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]">
+                                    {node.lastDownTime || (node.lastDown ? formatShortDateTime(node.lastDown, timezone) : '-')}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {/* Ping Latency List */}
                 <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
                     <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium uppercase tracking-wider">
@@ -314,6 +367,17 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
                         </div>
                     )}
                 </div>
+
+                {!isUp && (
+                    <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
+                            <span className="text-orange-300 text-xs font-bold">
+                                {getDownReason(node)}
+                            </span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
