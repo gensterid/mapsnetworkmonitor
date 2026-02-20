@@ -4,6 +4,91 @@ import { logger } from '../lib/logger.js';
 
 export async function runMigrations() {
     try {
+        console.log('🔄 Checking core database schema...');
+
+        // 1. Ensure user_role enum exists
+        try {
+            await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'operator', 'user'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+        } catch (e) { /* ignore if already exists */ }
+
+        // 2. Ensure Better Auth tables exist
+        const authTables = [
+            {
+                name: 'users',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS users (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        email TEXT NOT NULL UNIQUE,
+                        username TEXT UNIQUE,
+                        name TEXT NOT NULL,
+                        image TEXT,
+                        email_verified BOOLEAN NOT NULL DEFAULT false,
+                        role TEXT NOT NULL DEFAULT 'user',
+                        timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+                        animation_style TEXT DEFAULT 'default',
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
+            },
+            {
+                name: 'sessions',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS sessions (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        token TEXT NOT NULL UNIQUE,
+                        expires_at TIMESTAMP NOT NULL,
+                        ip_address TEXT,
+                        user_agent TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
+            },
+            {
+                name: 'accounts',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS accounts (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        account_id TEXT NOT NULL,
+                        provider_id TEXT NOT NULL,
+                        access_token TEXT,
+                        refresh_token TEXT,
+                        access_token_expires_at TIMESTAMP,
+                        refresh_token_expires_at TIMESTAMP,
+                        scope TEXT,
+                        password TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
+            },
+            {
+                name: 'verifications',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS verifications (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        identifier TEXT NOT NULL,
+                        value TEXT NOT NULL,
+                        expires_at TIMESTAMP NOT NULL,
+                        created_at TIMESTAMP DEFAULT NOW(),
+                        updated_at TIMESTAMP DEFAULT NOW()
+                    )
+                `
+            }
+        ];
+
+        for (const table of authTables) {
+            try {
+                await db.execute(table.sql);
+                // console.log(`✅ Ensured table: ${table.name}`);
+            } catch (err) {
+                logger.error({ err, table: table.name }, 'Failed to ensure auth table exists');
+            }
+        }
+
         const migrations = [
             {
                 name: 'alerts.escalation_level',
