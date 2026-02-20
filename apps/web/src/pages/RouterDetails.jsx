@@ -57,6 +57,9 @@ const formatBitrate = (bits) => {
 
 import NetworkMap from '@/components/NetworkMap';
 
+// Static empty array to prevent infinite re-render loops when used as dependency
+const EMPTY_ARRAY = [];
+
 // Tab component
 function Tabs({ tabs, activeTab, onTabChange }) {
     return (
@@ -1697,11 +1700,11 @@ export default function RouterDetails() {
     const { traffic: realtimeTraffic, isConnected } = useRealtimeTraffic(id, isLiveMode);
 
     const { data: router, isLoading, error, refetch } = useRouter(id);
-    const { data: apiInterfaces = [] } = useRouterInterfaces(id);
+    const { data: apiInterfaces = EMPTY_ARRAY } = useRouterInterfaces(id);
     const { data: metrics } = useRouterMetrics(id);
     // Netwatch still polls every 30s to sync up/down status, 
     // but traffic data comes from WS now.
-    const { data: netwatch = [], refetch: refetchNetwatch } = useRouterNetwatch(id, {
+    const { data: netwatch = EMPTY_ARRAY, refetch: refetchNetwatch } = useRouterNetwatch(id, {
         refetchInterval: 30000
     });
     const { data: settings } = useSettings();
@@ -1782,17 +1785,22 @@ export default function RouterDetails() {
 
     React.useEffect(() => {
         if (!isLiveMode) {
-            setMapNetwatch(mergedNetwatch);
+            // Only update if it actually changed to avoid cycles
+            if (mapNetwatch !== mergedNetwatch) {
+                setMapNetwatch(mergedNetwatch);
+            }
             return;
         }
 
         const now = Date.now();
         // Update map data at most every 3 seconds to keep animations smooth
         if ((now - lastMapUpdate.current) > 3000) {
-            setMapNetwatch(mergedNetwatch);
+            if (mapNetwatch !== mergedNetwatch) {
+                setMapNetwatch(mergedNetwatch);
+            }
             lastMapUpdate.current = now;
         }
-    }, [mergedNetwatch, isLiveMode]);
+    }, [mergedNetwatch, isLiveMode, mapNetwatch]);
 
     // Auto-sync netwatch every 30 seconds
     useEffect(() => {
