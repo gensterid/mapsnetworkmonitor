@@ -8,11 +8,10 @@ async function checkDatabase() {
         process.exit(1);
     }
 
-    console.log('🔍 Connecting to database for deep inspection...');
+    console.log('🔍 Connecting to database for FINAL inspection...');
     const sql = postgres(url);
 
     try {
-        // 1. Check for required tables
         const tables = ['users', 'sessions', 'accounts', 'verifications'];
         console.log('\n📊 Checking tables and columns:');
 
@@ -30,7 +29,6 @@ async function checkDatabase() {
                 continue;
             }
 
-            // Check columns
             const cols = await sql`
                 SELECT column_name, data_type 
                 FROM information_schema.columns 
@@ -38,29 +36,31 @@ async function checkDatabase() {
             `;
             console.log(`✅ Table "${table}": Found (${cols.length} columns)`);
 
-            // Critical column checks
-            if (table === 'accounts') {
-                const hasPassword = cols.some(c => c.column_name === 'password');
-                console.log(`   - Column "password": ${hasPassword ? '✅ Found' : '❌ MISSING'}`);
-            }
             if (table === 'users') {
-                const hasRole = cols.some(c => c.column_name === 'role');
-                const hasEmail = cols.some(c => c.column_name === 'email');
-                console.log(`   - Column "email": ${hasEmail ? '✅ Found' : '❌ MISSING'}`);
-                console.log(`   - Column "role": ${hasRole ? '✅ Found' : '❌ MISSING'}`);
+                ['email', 'username', 'role', 'name'].forEach(colName => {
+                    const hasCol = cols.some(c => c.column_name === colName);
+                    console.log(`   - Column "${colName}": ${hasCol ? '✅ Found' : '❌ MISSING'}`);
+                });
+            }
+            if (table === 'accounts') {
+                ['password', 'provider_id', 'account_id'].forEach(colName => {
+                    const hasCol = cols.some(c => c.column_name === colName);
+                    console.log(`   - Column "${colName}": ${hasCol ? '✅ Found' : '❌ MISSING'}`);
+                });
             }
         }
 
-        // 2. Check users
-        const users = await sql`SELECT id, email, role FROM users LIMIT 5`;
-        console.log(`\n👥 Sample Users (Total: ${users.length}):`);
-        users.forEach(u => console.log(`   - ${u.email} (${u.role})`));
+        console.log('\n👥 User List (first 10):');
+        const users = await sql`SELECT id, email, username, role FROM users LIMIT 10`;
+        if (users.length === 0) {
+            console.log('   ⚠️ NO USERS FOUND IN DATABASE');
+        } else {
+            users.forEach(u => console.log(`   - Email: ${u.email} | Username: ${u.username || '(null)'} | Role: ${u.role}`));
+        }
 
-        // 3. Check for auth failures in log (simulated check)
-        console.log('\n🔐 Auth Environment Check:');
-        console.log(`   - BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL || '❌ MISSING'}`);
-        console.log(`   - CORS_ORIGIN: ${process.env.CORS_ORIGIN || '❌ MISSING'}`);
-        console.log(`   - TRUSTED_ORIGINS: ${process.env.TRUSTED_ORIGINS || '❌ MISSING'}`);
+        console.log('\n🔐 Auth Config:');
+        console.log(`   - BETTER_AUTH_URL: ${process.env.BETTER_AUTH_URL}`);
+        console.log(`   - CORS_ORIGIN: ${process.env.CORS_ORIGIN}`);
 
         process.exit(0);
     } catch (err) {
