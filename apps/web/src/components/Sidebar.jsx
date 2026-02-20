@@ -70,8 +70,14 @@ const Sidebar = ({ isOpen, onClose }) => {
     const isActive = (path) => location.pathname === path;
 
     const handleLogout = async () => {
-        await signOut();
-        navigate('/login');
+        try {
+            await signOut();
+        } catch {
+            // Even if signOut API call fails, force redirect to clear client state
+        }
+        // Use hard redirect instead of navigate() to fully clear all in-memory state
+        // (React Query cache, Better Auth session cache, etc.)
+        window.location.href = '/login';
     };
 
     return (

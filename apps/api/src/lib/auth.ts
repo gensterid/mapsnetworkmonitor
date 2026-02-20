@@ -2,9 +2,60 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
+import { logger } from './logger.js';
+
+/**
+ * Resolve the Better Auth baseURL.
+ * Ensures the URL always ends with /api/auth.
+ */
+function resolveBaseURL(): string {
+    const raw = process.env.BETTER_AUTH_URL || 'http://localhost:3001/api/auth';
+    // If user provided just the domain (e.g., https://example.com), append /api/auth
+    if (!raw.includes('/api/auth')) {
+        return raw.replace(/\/+$/, '') + '/api/auth';
+    }
+    return raw;
+}
+
+/**
+ * Collect all trusted origins from multiple env sources.
+ * This prevents 403 "Invalid origin" errors when any env var is misconfigured.
+ */
+function collectTrustedOrigins(baseURL: string): string[] {
+    const origins = new Set<string>();
+
+    // Always trust localhost for development
+    origins.add('http://localhost:3001');
+    origins.add('http://localhost:3002');
+    origins.add('http://localhost:5173');
+    origins.add('http://127.0.0.1:5173');
+
+    // Extract origin from the resolved baseURL (e.g., https://example.com from https://example.com/api/auth)
+    try {
+        const baseOrigin = new URL(baseURL).origin;
+        origins.add(baseOrigin);
+    } catch { /* ignore parse errors */ }
+
+    // Merge from TRUSTED_ORIGINS env var
+    if (process.env.TRUSTED_ORIGINS) {
+        process.env.TRUSTED_ORIGINS.split(',').map(s => s.trim()).filter(Boolean).forEach(o => origins.add(o));
+    }
+
+    // Also merge from CORS_ORIGIN env var — these origins should also be trusted
+    if (process.env.CORS_ORIGIN) {
+        process.env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean).forEach(o => origins.add(o));
+    }
+
+    return Array.from(origins);
+}
+
+const resolvedBaseURL = resolveBaseURL();
+const resolvedTrustedOrigins = collectTrustedOrigins(resolvedBaseURL);
+
+logger.info({ baseURL: resolvedBaseURL, trustedOrigins: resolvedTrustedOrigins }, 'Better Auth config resolved');
 
 export const auth = betterAuth({
-    baseURL: process.env.BETTER_AUTH_URL || 'http://localhost:3001',
+    baseURL: resolvedBaseURL,
     database: drizzleAdapter(db, {
         provider: 'pg',
         schema: {
@@ -46,11 +97,7 @@ export const auth = betterAuth({
             generateId: () => crypto.randomUUID(),
         },
     },
-    trustedOrigins: [
-        'http://localhost:3001',
-        'http://localhost:3002',
-        ...(process.env.TRUSTED_ORIGINS ? process.env.TRUSTED_ORIGINS.split(',') : []),
-    ].filter(Boolean),
+    trustedOrigins: resolvedTrustedOrigins,
 });
 
 // Export auth types
