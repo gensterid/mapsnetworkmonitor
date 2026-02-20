@@ -30,9 +30,12 @@ fi
 # We use --force to bypass any lingering platform-specific locks that might cause the Rollup error
 npm install
 
-# 4. Database Migration
-echo "🗄️ Running database migrations..."
+# 4. Database Migration & Schema Sync
+echo "🗄️ Running database migrations & schema sync..."
+# db:migrate handles custom column additions
 npm run db:migrate || { echo "❌ Database migration failed!"; exit 1; }
+# db:push ensures all tables (including Auth) exist
+npm run db:push || { echo "❌ Database schema push failed!"; exit 1; }
 
 # 5. Build Process
 echo "🏗️ Building applications..."
