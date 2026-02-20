@@ -170,15 +170,22 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
         return 'text-red-400';
     };
 
-    const rawStatus = (node.status || 'unknown').toLowerCase();
+    // Prioritize physical OLT status if this Router/Netwatch node is linked to an ONU
+    const rawStatus = (node.physicalStatus && node.physicalStatus !== 'unknown'
+        ? node.physicalStatus
+        : (node.status || 'unknown')).toLowerCase();
+
+    // An ONU physical status of 'online' or Netwatch 'up' means it's up.
     const isUp = ['up', 'online', 'active'].includes(rawStatus);
 
     let displayStatus = rawStatus;
     if (!isUp) {
         if (rawStatus === 'power_down' || node.lastDownReason === 'Power Down') displayStatus = 'power_down';
+        else if (rawStatus === 'dying_gasp' || node.lastDownReason === 'Dying Gasp') displayStatus = 'dying_gasp';
         else if (rawStatus === 'lost' || node.lastDownReason === 'Optical Loss') displayStatus = 'optical_loss';
         else if (rawStatus === 'offline' || rawStatus === 'down') displayStatus = 'down';
     }
+
 
     const getDownReason = (node) => {
         const explicitReason = node.lastDownReason || node.last_down_reason;
@@ -426,7 +433,10 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
         return `${bps.toFixed(0)} bps`;
     };
 
-    const rawStatus = (node.status || 'unknown').toLowerCase();
+    const rawStatus = (node.physicalStatus && node.physicalStatus !== 'unknown'
+        ? node.physicalStatus
+        : (node.status || 'unknown')).toLowerCase();
+
     const isUp = ['up', 'online', 'active'].includes(rawStatus);
 
     // Some OLTs provide detailed status like 'power_down', but it might be mapped
@@ -435,6 +445,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
     let displayStatus = rawStatus;
     if (!isUp) {
         if (rawStatus === 'power_down' || node.lastDownReason === 'Power Down') displayStatus = 'power_down';
+        else if (rawStatus === 'dying_gasp' || node.lastDownReason === 'Dying Gasp') displayStatus = 'dying_gasp';
         else if (rawStatus === 'lost' || node.lastDownReason === 'Optical Loss') displayStatus = 'optical_loss';
         else if (rawStatus === 'offline' || rawStatus === 'down') displayStatus = 'down';
     }

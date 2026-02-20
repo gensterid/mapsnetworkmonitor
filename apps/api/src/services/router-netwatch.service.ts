@@ -103,6 +103,8 @@ export class RouterNetwatchService {
                 firmwareVersion: onus.firmwareVersion,
                 sn: onus.sn,
                 lastRxPower: onus.lastRxPower,
+                lastDownReason: onus.lastDownReason,
+                lastSeen: onus.lastSeen,
                 physicalStatus: onus.status,
                 discoverySources: onus.discoverySources,
                 ponPort: onus.ponPort,
@@ -110,6 +112,7 @@ export class RouterNetwatchService {
                 linkedOnuId: routerNetwatch.linkedOnuId,
                 oltName: olts.name
             })
+
             .from(routerNetwatch)
             .leftJoin(onus, or(
                 sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
