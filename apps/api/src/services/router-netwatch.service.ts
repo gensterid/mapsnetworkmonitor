@@ -414,6 +414,20 @@ export class RouterNetwatchService {
         await this.syncToOnus(routerId);
         return { synced: syncedCount, errors };
     }
+
+    /**
+     * Update a single netwatch entry in the real-time cache or trigger related updates
+     */
+    async update(entry: RouterNetwatch): Promise<void> {
+        // Trigger status sync to ONUs if needed
+        if (entry.host) {
+            await this.syncToOnus(entry.routerId);
+        }
+
+        // This is a placeholder for any other real-time update logic needed
+        // for the map (e.g., Socket.io broadcasts if they existed here)
+        logger.debug({ netwatchId: entry.id }, 'Netwatch entry updated in real-time service');
+    }
 }
 
 export const routerNetwatchService = new RouterNetwatchService();

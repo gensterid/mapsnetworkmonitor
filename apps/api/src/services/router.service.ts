@@ -14,6 +14,7 @@ import {
     onus,
 } from '../db/schema/index.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
+import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 import {
     connectToRouter,
@@ -810,7 +811,10 @@ export class RouterService {
     ): Promise<RouterNetwatch> {
         // 1. Apply to Router first (only for client type with host)
         const router = await this.findByIdWithPassword(routerId);
-        if (!router) throw new Error('Router not found');
+        if (!router) {
+            logger.warn({ routerId }, 'Router not found for netwatch creation');
+            throw new ApiError(404, 'Router not found');
+        }
 
         // Only add to MikroTik if it's a netwatch client type (has IP to ping)
         if ((data.deviceType === 'client' || !data.deviceType) && data.host) {
@@ -828,9 +832,10 @@ export class RouterService {
                     interval: data.interval,
                     comment: data.name, // Mapping name to comment
                 });
+                logger.info({ routerId, host: data.host, name: data.name }, 'Netwatch entry added to MikroTik router');
             } catch (err) {
-                logger.error({ err }, 'Failed to add netwatch to router');
-                throw new Error(`Failed to add to router: ${err instanceof Error ? err.message : 'Unknown error'}`);
+                logger.error({ err, routerId, host: data.host }, 'Failed to add netwatch to router');
+                throw new ApiError(500, `Failed to add to router: ${err instanceof Error ? err.message : 'Unknown error'}`);
             } finally {
                 if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after addNetwatch'));
             }
@@ -859,10 +864,19 @@ export class RouterService {
                 .values(insertData)
                 .returning();
 
+            // Update netwatch in routerNetwatchService (for caching/real-time updates)
+            try {
+                await routerNetwatchService.update(netwatch);
+            } catch (serviceError: any) {
+                logger.error({ err: serviceError, routerId, netwatchId: netwatch.id }, 'Failed to update netwatch in real-time service after creation');
+                // We don't necessarily want to fail the whole update if the real-time cache update fails,
+                // but we should log it. However, if it's a critical failure, we might re-throw.
+            }
+
             return netwatch;
         } catch (dbErr) {
-            logger.error({ err: dbErr, data: insertData }, 'Failed to insert netwatch into DB');
-            throw new Error(`Database error: ${dbErr instanceof Error ? dbErr.message : 'Unknown database error'}`);
+            logger.error({ err: dbErr, data: insertData, routerId }, 'Failed to insert netwatch into DB');
+            throw new ApiError(500, `Database error: ${dbErr instanceof Error ? dbErr.message : 'Unknown database error'}`);
         }
     }
 

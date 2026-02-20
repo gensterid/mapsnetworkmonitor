@@ -520,6 +520,12 @@ router.put(
     asyncHandler(async (req, res) => {
         const { id, netwatchId } = req.params;
 
+        // Basic UUID validation for parameters to prevent DB syntax errors
+        const uuidSchema = z.string().uuid();
+        if (!uuidSchema.safeParse(id).success || !uuidSchema.safeParse(netwatchId).success) {
+            throw new ApiError(400, 'Invalid router ID or netwatch ID format');
+        }
+
         if (!req.body) {
             throw new ApiError(400, 'Request body is missing');
         }
