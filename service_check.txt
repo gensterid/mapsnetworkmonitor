@@ -1,2 +1,0 @@
-Web (5173): UP (Status: 200)
-API (3002): DOWN (Request failed with status code 404)
