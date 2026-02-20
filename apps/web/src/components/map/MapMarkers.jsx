@@ -433,7 +433,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                 </div>
 
                 {/* Unified Linkage Metadata (Netwatch + ACS + OLT) */}
-                {(node.model || node.sn || node.ssid || node.oltName || node.ponPort) && (
+                {(node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastUpTime || node.lastDownTime) && (
                     <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
                         {node.model && (
                             <div className="flex items-center justify-between text-xs">
@@ -473,6 +473,18 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                                     }`}>
                                     {node.lastRxPower} dBm
                                 </span>
+                            </div>
+                        )}
+                        {node.lastUpTime && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Up</span>
+                                <span className="text-emerald-400 font-mono text-[10px] truncate max-w-[120px]" title={node.lastUpTime}>{node.lastUpTime}</span>
+                            </div>
+                        )}
+                        {node.lastDownTime && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
+                                <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]" title={node.lastDownTime}>{node.lastDownTime}</span>
                             </div>
                         )}
                     </div>
