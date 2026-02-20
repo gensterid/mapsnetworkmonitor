@@ -281,7 +281,7 @@ export const ANIMATION_STYLES = {
         delay: 1000,
         dashArray: [10, 20],
         weight: 3,
-        isAntPath: false, // Flag to identify this special renderer
+        isAntPath: true, // Flag to identify this special renderer
         pulseColor: 'transparent',
         description: 'Efek garis berjalan klasik (Marching Ants)'
     },

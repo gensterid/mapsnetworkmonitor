@@ -53,7 +53,7 @@ const AnimatedPath = ({
             lineJoin: preset?.lineJoin || 'round',
             syncArrival: preset?.syncArrival || false,
             // Motion Path Options - Respect preset even if globally disabled IF it's an explicit motion style
-            useMotionPath: preset?.useMotionPath ? (!disableMotionPath || preset.useMotionPath) : false,
+            useMotionPath: !disableMotionPath && (preset?.useMotionPath || false),
             motionType: motionType || preset?.motionType || 'orb',
             motionColor: motionColor || preset?.color || color || '#ffffff',
             tooltip,

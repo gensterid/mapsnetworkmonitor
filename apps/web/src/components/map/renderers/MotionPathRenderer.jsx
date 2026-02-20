@@ -155,14 +155,14 @@ const MotionPathRenderer = ({
                     lineCap: options.lineCap,
                     lineJoin: options.lineJoin
                 }}
-                interactive={options.lowPerfMode} // Only interactive in low perf mode (to save nodes)
-                eventHandlers={options.lowPerfMode ? (() => {
+                interactive={true}
+                eventHandlers={(() => {
                     const handlers = {};
                     if (onClick) handlers.click = onClick;
                     if (options.onMouseOver) handlers.mouseover = options.onMouseOver;
                     if (options.onMouseOut) handlers.mouseout = options.onMouseOut;
                     return handlers;
-                })() : {}}
+                })()}
             >
                 {options.lowPerfMode && (
                     <>
