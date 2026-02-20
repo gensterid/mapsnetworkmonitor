@@ -433,7 +433,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                 </div>
 
                 {/* Unified Linkage Metadata (Netwatch + ACS + OLT) */}
-                {(node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastUpTime || node.lastDownTime) && (
+                {(node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastRxPower) && (
                     <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
                         {node.model && (
                             <div className="flex items-center justify-between text-xs">
@@ -475,20 +475,34 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                                 </span>
                             </div>
                         )}
-                        {node.lastUpTime && (
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Up</span>
-                                <span className="text-emerald-400 font-mono text-[10px] truncate max-w-[120px]" title={node.lastUpTime}>{node.lastUpTime}</span>
-                            </div>
-                        )}
-                        {node.lastDownTime && (
-                            <div className="flex items-center justify-between text-xs">
-                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
-                                <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]" title={node.lastDownTime}>{node.lastDownTime}</span>
-                            </div>
-                        )}
                     </div>
                 )}
+
+                {/* Status & Timing Block (Always shown if data exists) */}
+                <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Status</span>
+                        <span className={isUp ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
+                            {status.toUpperCase()}
+                        </span>
+                    </div>
+                    {isUp && (node.lastUpTime || node.lastUp) && (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Up</span>
+                            <span className="text-emerald-400 font-mono text-[10px] truncate max-w-[120px]">
+                                {node.lastUpTime || (node.lastUp ? formatShortDateTime(node.lastUp, timezone) : '-')}
+                            </span>
+                        </div>
+                    )}
+                    {(!isUp || node.lastDownTime || node.lastDown) && (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
+                            <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]">
+                                {node.lastDownTime || (node.lastDown ? formatShortDateTime(node.lastDown, timezone) : '-')}
+                            </span>
+                        </div>
+                    )}
+                </div>
                 {/* Show Down Reason only if UP but suspicious (e.g. low signal). If Offline, Outage Section handles it below. */}
                 {isUp && (node.lastDownReason || ['lost', 'power_down', 'dying_gasp'].includes(status) || (node.lastRxPower && parseFloat(node.lastRxPower) < -27)) && (
                     <div className="flex items-center justify-between text-xs">
@@ -570,10 +584,6 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                             <span className="text-orange-300 text-xs font-bold">
                                 {getDownReason(node)}
                             </span>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Down Since</span>
-                            <span className="text-red-200 text-xs font-mono">{formatShortDateTime(node.lastDown, timezone)}</span>
                         </div>
                     </div>
                 )}
