@@ -8,7 +8,7 @@ import {
     json,
     index,
 } from 'drizzle-orm/pg-core';
-import { olts } from './olts';
+import { olts } from './olts.js';
 
 export const onuStatusEnum = pgEnum('onu_status', [
     'online',

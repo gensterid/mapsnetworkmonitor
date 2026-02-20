@@ -11,8 +11,8 @@ import {
     pgEnum,
     index,
 } from 'drizzle-orm/pg-core';
-import { routerGroups } from './groups';
-import { notificationGroups } from './notifications';
+import { routerGroups } from './groups.js';
+import { notificationGroups } from './notifications.js';
 
 // Router status enum
 export const routerStatusEnum = pgEnum('router_status', [

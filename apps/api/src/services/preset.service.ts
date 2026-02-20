@@ -1,5 +1,5 @@
-import { db } from '../db';
-import { presets, NewPreset, Preset } from '../db/schema/presets';
+import { db } from '../db/index.js';
+import { presets, NewPreset, Preset } from '../db/schema/presets.js';
 import { eq, desc } from 'drizzle-orm';
 
 export const presetService = {

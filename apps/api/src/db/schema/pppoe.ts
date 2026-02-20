@@ -7,7 +7,7 @@ import {
     bigint,
     index,
 } from 'drizzle-orm/pg-core';
-import { routers } from './routers';
+import { routers } from './routers.js';
 
 // PPPoE Sessions table - tracks active PPPoE sessions for detecting connect/disconnect
 export const pppoeSessions = pgTable('pppoe_sessions', {

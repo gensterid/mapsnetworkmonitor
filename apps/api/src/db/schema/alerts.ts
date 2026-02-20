@@ -9,8 +9,8 @@ import {
     pgEnum,
     index,
 } from 'drizzle-orm/pg-core';
-import { routers } from './routers';
-import { users } from './users';
+import { routers } from './routers.js';
+import { users } from './users.js';
 
 // Alert type enum
 export const alertTypeEnum = pgEnum('alert_type', [
