@@ -59,11 +59,18 @@ export const createDeviceIcon = ({
     small = false,
     latency = null,
     packetLoss = null,
+    lastRxPower = null,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
-    // Determine if there's a performance issue (high latency or packet loss)
-    const hasPerformanceIssue = (latency !== null && latency > 100) || (packetLoss !== null && packetLoss > 0);
+    // Normalize signal to number
+    const signalPower = lastRxPower !== null ? parseFloat(lastRxPower) : null;
+
+    // Determine if there's a performance issue (high latency, packet loss, or bad signal)
+    const hasPerformanceIssue =
+        (latency !== null && latency > 100) ||
+        (packetLoss !== null && packetLoss > 0) ||
+        (signalPower !== null && signalPower < -24);
 
     // Normalize status - prioritize 'down' first, then specific device types, then warning
     let normalizedStatus;
@@ -74,7 +81,7 @@ export const createDeviceIcon = ({
     } else if (type === 'pppoe') {
         normalizedStatus = 'pppoe'; // Always Purple if UP
     } else if (hasPerformanceIssue) {
-        normalizedStatus = 'warning'; // Yellow only for other devices with high latency
+        normalizedStatus = 'warning'; // Yellow for devices with performance issues
     } else {
         normalizedStatus = 'online'; // Green
     }

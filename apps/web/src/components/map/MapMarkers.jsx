@@ -194,11 +194,12 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
 
         // 2. Normal Up states but with warnings (New Logic)
         if (isUp) {
-            if (node.latency !== null && node.latency > 100) return 'High Latency (> 100ms)';
             if (node.lastRxPower) {
                 const pwr = parseFloat(node.lastRxPower);
                 if (!isNaN(pwr) && pwr < -24) return 'Low Optical Power (Warning)';
             }
+            if (node.packetLoss !== null && node.packetLoss > 0) return `Packet Loss Detected (${node.packetLoss}%)`;
+            if (node.latency !== null && node.latency > 100) return 'High Latency (> 100ms)';
             return 'Performance Issues';
         }
 
@@ -218,7 +219,10 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
     };
 
     // Determine if we should show the outage/warning reason section
-    const showReasonSection = !isUp || (node.latency !== null && node.latency > 100);
+    const showReasonSection = !isUp ||
+        (node.latency !== null && node.latency > 100) ||
+        (node.packetLoss !== null && node.packetLoss > 0) ||
+        (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
     return (
         <div className="flex flex-col min-w-[240px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
@@ -492,11 +496,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
 
         // 2. Normal Up states but with warnings (New Logic)
         if (isUp) {
-            if (node.latency !== null && node.latency > 100) return 'High Latency (> 100ms)';
             if (node.lastRxPower) {
                 const pwr = parseFloat(node.lastRxPower);
                 if (!isNaN(pwr) && pwr < -24) return 'Low Optical Power (Warning)';
             }
+            if (node.packetLoss !== null && node.packetLoss > 0) return `Packet Loss Detected (${node.packetLoss}%)`;
+            if (node.latency !== null && node.latency > 100) return 'High Latency (> 100ms)';
             return 'Performance Issues';
         }
 
@@ -519,7 +524,10 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
     };
 
     // Determine if we should show the outage/warning reason section
-    const showReasonSection = !isUp || (node.latency !== null && node.latency > 100) || (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
+    const showReasonSection = !isUp ||
+        (node.latency !== null && node.latency > 100) ||
+        (node.packetLoss !== null && node.packetLoss > 0) ||
+        (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
     return (
         <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -799,8 +807,9 @@ export const SmartMarker = ({
         showLabel,
         small,
         latency: safeLatency,
-        packetLoss: safePacketLoss
-    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss]);
+        packetLoss: safePacketLoss,
+        lastRxPower: props.lastRxPower || props.last_rx_power || null
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, props.lastRxPower, props.last_rx_power]);
 
     return (
         <DraggableMarker
