@@ -453,13 +453,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
     const formatOnuId = (ponId, onuId) => {
         if (!ponId || !onuId) return null;
 
-        // If it looks like an absolute ID (contains 256+), it's likely HSGQ or similar OLT
-        // We'll apply the logic if ponId is small and onuId >= 256
-        const pId = parseInt(ponId);
         const oId = parseInt(onuId);
 
-        if (!isNaN(pId) && !isNaN(oId) && oId >= 256) {
-            const formattedPon = `PON${String(pId + 1).padStart(2, '0')}`;
+        if (!isNaN(oId) && oId >= 256) {
+            // Absolute ID mapping: 256-511 = PON01, 512-767 = PON02, etc.
+            const ponNumber = Math.floor(oId / 256);
+            const formattedPon = `PON${String(ponNumber).padStart(2, '0')}`;
             const formattedOnu = oId % 256;
             return `${formattedPon}/${formattedOnu}`;
         }
