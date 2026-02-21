@@ -1063,6 +1063,7 @@ const NetworkMap = ({
                     key={`netwatch-${node.routerId}-${node.id}`}
                     id={node.id} // Pass ID for context check
                     position={[node.lat, node.lng]}
+                    type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
                     status={node.status}
                     name={node.name || node.host}
                     host={node.host}
