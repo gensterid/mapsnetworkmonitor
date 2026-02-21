@@ -1025,6 +1025,8 @@ const NetworkMap = ({
                     status={router.status}
                     name={router.name || router.host}
                     small={false}
+                    latency={router.latency || (router.latestMetrics?.latency)}
+                    packetLoss={router.packetLoss || (router.latestMetrics?.packetLoss)}
                     draggable={isEditMode}
                     onClick={null} // Click now handled by Popup
                     eventHandlers={{
@@ -1068,6 +1070,7 @@ const NetworkMap = ({
                     small={true}
                     latency={Number(node.latency)}
                     packetLoss={Number(node.packetLoss)}
+                    lastRxPower={node.lastRxPower}
                     draggable={isEditMode}
                     onDragEnd={(pos) => {
                         const payload = { latitude: String(pos[0]), longitude: String(pos[1]) };
@@ -1139,6 +1142,8 @@ const NetworkMap = ({
                     status={pppoe.status}
                     name={pppoe.name}
                     showLabel={showLabels}
+                    latency={pppoe.latency}
+                    packetLoss={pppoe.packetLoss}
                     small={true}
                     draggable={isEditMode}
                     onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}

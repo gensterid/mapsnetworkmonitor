@@ -124,19 +124,13 @@ export const getTooltipColor = (node) => {
     if (type === 'odp') return 'var(--map-color-odp, #F97316)';
     if (type === 'pppoe') return 'var(--map-color-pppoe, #A855F7)';
 
-    // Performance warning (Yellow)
-    const hasPerformanceIssue = (node.latency !== null && node.latency > 100);
-    if (hasPerformanceIssue) return 'var(--map-color-warning, #FACC15)';
+    // Performance/Warning checks (Consistent with DeviceIcon)
+    const hasPerformanceIssue =
+        (node.latency !== null && node.latency > 100) ||
+        (node.packetLoss !== null && node.packetLoss > 0) ||
+        (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
-    // Optical Power Warning (Calculated from OLT data)
-    if (node.lastRxPower) {
-        const pwr = parseFloat(node.lastRxPower);
-        if (!isNaN(pwr)) {
-            // -27 is typical receiver sensitivity limit
-            if (pwr < -27) return 'var(--map-color-offline, #EF4444)';
-            if (pwr < -24) return 'var(--map-color-warning, #FACC15)';
-        }
-    }
+    if (hasPerformanceIssue) return 'var(--map-color-warning, #FACC15)';
 
     return 'var(--map-color-online, #10B981)';
 };
