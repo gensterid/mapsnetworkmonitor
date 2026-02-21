@@ -53,134 +53,136 @@ class PppoeService {
 
             logger.debug({ previous: previousSessions.length, current: currentSessions.length }, '[PPPoE] Session sync counts');
 
-            // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
-            for (const session of previousSessions) {
-                // Skip if already disconnected
-                if (session.status === 'disconnected') continue;
+            await db.transaction(async (tx) => {
+                // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
+                for (const session of previousSessions) {
+                    // Skip if already disconnected
+                    if (session.status === 'disconnected') continue;
 
-                if (!currentSessionNames.has(session.name)) {
-                    // Disconnection detected
-                    disconnected.push(session.name);
-                    logger.info({ routerName, session: session.name }, '[PPPoE] Disconnection detected');
+                    if (!currentSessionNames.has(session.name)) {
+                        // Disconnection detected
+                        disconnected.push(session.name);
+                        logger.info({ routerName, session: session.name }, '[PPPoE] Disconnection detected');
 
-                    // Cache coordinates before deleting (to preserve for reconnection)
-                    if (session.latitude || session.longitude || session.waypoints) {
-                        const cacheKey = `${routerId}:${session.name}`;
-                        this.coordinatesCache.set(cacheKey, {
-                            latitude: session.latitude,
-                            longitude: session.longitude,
-                            waypoints: session.waypoints,
-                            connectionType: session.connectionType,
-                            connectedToId: session.connectedToId,
-                        });
-                        logger.debug({ session: session.name }, '[PPPoE] Cached coordinates');
-                    }
-
-                    // Calculate session duration
-                    const duration = Math.floor(
-                        (Date.now() - new Date(session.connectedAt).getTime()) / 1000
-                    );
-
-                    // Create disconnect alert
-                    try {
-                        const alert = await alertService.createPppoeDisconnectAlert(
-                            routerId,
-                            routerName,
-                            session.name,
-                            session.address || 'N/A',
-                            duration
-                        );
-                        logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Disconnect alert created');
-                    } catch (alertErr) {
-                        logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create disconnect alert');
-                    }
-
-                    // Remove session from tracking
-                    // Update session status to disconnected instead of deleting
-                    await this.updateSession(session.id, {
-                        lastSeen: new Date(),
-                        lastDown: new Date(),
-                        status: 'disconnected'
-                    });
-                }
-            }
-
-            // Detect new connections (in current but not in previous)
-            for (const session of currentSessions) {
-                if (!previousSessionNames.has(session.name)) {
-                    // New connection detected
-                    connected.push(session.name);
-                    logger.info({ routerName, session: session.name, ip: session.address }, '[PPPoE] New connection detected');
-
-                    // Check if we have cached coordinates for this user
-                    const cacheKey = `${routerId}:${session.name}`;
-                    const cachedCoords = this.coordinatesCache.get(cacheKey);
-
-                    // Create new session record (with cached coordinates if available)
-                    const newSessionData: NewPppoeSession = {
-                        routerId,
-                        name: session.name,
-                        sessionId: session.sessionId,
-                        callerId: session.callerId,
-                        address: session.address,
-                        service: session.service,
-                        uptime: session.uptime,
-                        status: 'active', // Explicitly set status to active
-                    };
-
-                    // Transfer cached coordinates to new session
-                    if (cachedCoords) {
-                        if (cachedCoords.latitude) newSessionData.latitude = cachedCoords.latitude;
-                        if (cachedCoords.longitude) newSessionData.longitude = cachedCoords.longitude;
-                        if (cachedCoords.waypoints) newSessionData.waypoints = cachedCoords.waypoints;
-                        if (cachedCoords.connectionType) newSessionData.connectionType = cachedCoords.connectionType;
-                        if (cachedCoords.connectedToId) newSessionData.connectedToId = cachedCoords.connectedToId;
-                        logger.debug({ session: session.name }, '[PPPoE] Restored coordinates from cache');
-                        // Remove from cache after use
-                        this.coordinatesCache.delete(cacheKey);
-                    }
-
-                    await this.createSession(newSessionData);
-
-                    // Create connect alert
-                    try {
-                        const alert = await alertService.createPppoeConnectAlert(
-                            routerId,
-                            routerName,
-                            session.name,
-                            session.address || 'N/A'
-                        );
-                        logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Connect alert created');
-                    } catch (alertErr) {
-                        logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create connect alert');
-                    }
-
-                    // UNIFIED LINKAGE: Link to ONU
-                    if (session.address) {
-                        this.linkSessionToOnu(session.name, session.address).catch(err =>
-                            logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed')
-                        );
-                    }
-                } else {
-                    // Session exists, update last seen and uptime
-                    const existingSession = previousSessions.find(s => s.name === session.name);
-                    if (existingSession) {
-                        // Check if address changed
-                        if (existingSession.address !== session.address && session.address) {
-                            this.linkSessionToOnu(session.name, session.address).catch(err =>
-                                logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed (IP Change)')
-                            );
+                        // Cache coordinates before deleting (to preserve for reconnection)
+                        if (session.latitude || session.longitude || session.waypoints) {
+                            const cacheKey = `${routerId}:${session.name}`;
+                            this.coordinatesCache.set(cacheKey, {
+                                latitude: session.latitude,
+                                longitude: session.longitude,
+                                waypoints: session.waypoints,
+                                connectionType: session.connectionType,
+                                connectedToId: session.connectedToId,
+                            });
+                            logger.debug({ session: session.name }, '[PPPoE] Cached coordinates');
                         }
 
-                        await this.updateSession(existingSession.id, {
+                        // Calculate session duration
+                        const duration = Math.floor(
+                            (Date.now() - new Date(session.connectedAt).getTime()) / 1000
+                        );
+
+                        // Create disconnect alert
+                        try {
+                            const alert = await alertService.createPppoeDisconnectAlert(
+                                routerId,
+                                routerName,
+                                session.name,
+                                session.address || 'N/A',
+                                duration
+                            );
+                            logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Disconnect alert created');
+                        } catch (alertErr) {
+                            logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create disconnect alert');
+                        }
+
+                        // Remove session from tracking
+                        // Update session status to disconnected instead of deleting
+                        await this.updateSession(session.id, {
                             lastSeen: new Date(),
-                            uptime: session.uptime,
-                            address: session.address,
-                            status: 'active'
-                        });
+                            lastDown: new Date(),
+                            status: 'disconnected'
+                        }, tx);
                     }
                 }
-            } // End of currentSessions loop
+
+                // Detect new connections (in current but not in previous)
+                for (const session of currentSessions) {
+                    if (!previousSessionNames.has(session.name)) {
+                        // New connection detected
+                        connected.push(session.name);
+                        logger.info({ routerName, session: session.name, ip: session.address }, '[PPPoE] New connection detected');
+
+                        // Check if we have cached coordinates for this user
+                        const cacheKey = `${routerId}:${session.name}`;
+                        const cachedCoords = this.coordinatesCache.get(cacheKey);
+
+                        // Create new session record (with cached coordinates if available)
+                        const newSessionData: NewPppoeSession = {
+                            routerId,
+                            name: session.name,
+                            sessionId: session.sessionId,
+                            callerId: session.callerId,
+                            address: session.address,
+                            service: session.service,
+                            uptime: session.uptime,
+                            status: 'active', // Explicitly set status to active
+                        };
+
+                        // Transfer cached coordinates to new session
+                        if (cachedCoords) {
+                            if (cachedCoords.latitude) newSessionData.latitude = cachedCoords.latitude;
+                            if (cachedCoords.longitude) newSessionData.longitude = cachedCoords.longitude;
+                            if (cachedCoords.waypoints) newSessionData.waypoints = cachedCoords.waypoints;
+                            if (cachedCoords.connectionType) newSessionData.connectionType = cachedCoords.connectionType;
+                            if (cachedCoords.connectedToId) newSessionData.connectedToId = cachedCoords.connectedToId;
+                            logger.debug({ session: session.name }, '[PPPoE] Restored coordinates from cache');
+                            // Remove from cache after use
+                            this.coordinatesCache.delete(cacheKey);
+                        }
+
+                        await this.createSession(newSessionData, tx);
+
+                        // Create connect alert
+                        try {
+                            const alert = await alertService.createPppoeConnectAlert(
+                                routerId,
+                                routerName,
+                                session.name,
+                                session.address || 'N/A'
+                            );
+                            logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Connect alert created');
+                        } catch (alertErr) {
+                            logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create connect alert');
+                        }
+
+                        // UNIFIED LINKAGE: Link to ONU
+                        if (session.address) {
+                            this.linkSessionToOnu(session.name, session.address).catch(err =>
+                                logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed')
+                            );
+                        }
+                    } else {
+                        // Session exists, update last seen and uptime
+                        const existingSession = previousSessions.find(s => s.name === session.name);
+                        if (existingSession) {
+                            // Check if address changed
+                            if (existingSession.address !== session.address && session.address) {
+                                this.linkSessionToOnu(session.name, session.address).catch(err =>
+                                    logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed (IP Change)')
+                                );
+                            }
+
+                            await this.updateSession(existingSession.id, {
+                                lastSeen: new Date(),
+                                uptime: session.uptime,
+                                address: session.address,
+                                status: 'active'
+                            }, tx);
+                        }
+                    }
+                } // End of currentSessions loop
+            }); // End transaction
 
             if (connected.length > 0 || disconnected.length > 0) {
                 logger.info({ routerName, connected: connected.length, disconnected: disconnected.length }, '[PPPoE] Session sync summary');
@@ -206,8 +208,8 @@ class PppoeService {
     /**
      * Create a new session record
      */
-    async createSession(data: NewPppoeSession): Promise<PppoeSession> {
-        const [session] = await db
+    async createSession(data: NewPppoeSession, tx: any = db): Promise<PppoeSession> {
+        const [session] = await tx
             .insert(pppoeSessions)
             .values(data)
             .returning();
@@ -219,9 +221,10 @@ class PppoeService {
      */
     async updateSession(
         id: string,
-        data: Partial<Pick<PppoeSession, 'lastSeen' | 'uptime' | 'address' | 'status' | 'lastDown'>>
+        data: Partial<Pick<PppoeSession, 'lastSeen' | 'uptime' | 'address' | 'status' | 'lastDown'>>,
+        tx: any = db
     ): Promise<void> {
-        await db
+        await tx
             .update(pppoeSessions)
             .set(data)
             .where(eq(pppoeSessions.id, id));
@@ -230,8 +233,8 @@ class PppoeService {
     /**
      * Delete a session
      */
-    async deleteSession(id: string): Promise<void> {
-        await db.delete(pppoeSessions).where(eq(pppoeSessions.id, id));
+    async deleteSession(id: string, tx: any = db): Promise<void> {
+        await tx.delete(pppoeSessions).where(eq(pppoeSessions.id, id));
     }
 
     /**

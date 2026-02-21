@@ -7,6 +7,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { routerService } from '../services/index.js'; // Use existing services where possible
+import { cacheService } from '../lib/cache.js'; // New: Inject cache service
 
 const router = Router();
 
@@ -25,6 +26,16 @@ router.use(authMiddleware);
 router.get(
     '/layout',
     asyncHandler(async (req, res) => {
+        // Simple optimization: Check cache first based on user role and id
+        const role = req.user?.role || 'anonymous';
+        const userId = req.user?.id || 'none';
+        const cacheKey = `map_layout_${role}_${userId}`;
+
+        const cachedData = cacheService.get(cacheKey);
+        if (cachedData) {
+            return res.json({ data: cachedData, _source: 'cache' });
+        }
+
         // 1. Fetch Routers
         const allRouters = await routerService.findAll(req.user?.id, req.user?.role);
 
@@ -144,11 +155,16 @@ router.get(
         // For now, OLTs might just sit there or need manual linking logic. 
         // If OLTs have coordinates, they show up.
 
+        const responseData = {
+            nodes: nodes.filter(n => n.lat !== 0 && n.lng !== 0), // Only return nodes with coordinates? Or return all and let frontend handle? Frontend filters [0,0] usually.
+            lines
+        };
+
+        // Cache the heavy response for 10 seconds to protect DB against refresh spam
+        cacheService.set(cacheKey, responseData, 10000);
+
         res.json({
-            data: {
-                nodes: nodes.filter(n => n.lat !== 0 && n.lng !== 0), // Only return nodes with coordinates? Or return all and let frontend handle? Frontend filters [0,0] usually.
-                lines
-            }
+            data: responseData
         });
     })
 );

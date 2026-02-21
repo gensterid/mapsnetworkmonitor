@@ -141,66 +141,71 @@ export class RouterNetwatchService {
 
             const existingMap = new Map(existingEntries.map(e => [e.host, e]));
 
-            for (const nw of mikrotikNetwatch) {
-                const existing = existingMap.get(nw.host);
+            await db.transaction(async (tx) => {
+                for (const nw of mikrotikNetwatch) {
+                    const existing = existingMap.get(nw.host);
 
-                let status: 'up' | 'down' | 'unknown' = 'unknown';
-                if (nw.status === 'up') status = 'up';
-                else if (nw.status === 'down') status = 'down';
+                    let status: 'up' | 'down' | 'unknown' = 'unknown';
+                    if (nw.status === 'up') status = 'up';
+                    else if (nw.status === 'down') status = 'down';
 
-                const prefix = nw.disabled ? '[DISABLED] ' : '';
-                let baseName = nw.comment || nw.name;
-                if (!baseName && existing) {
-                    baseName = existing.name?.replace(/^\[DISABLED\]\s*/, '') || '';
-                }
-                const finalName = prefix + (baseName || '');
+                    const prefix = nw.disabled ? '[DISABLED] ' : '';
+                    let baseName = nw.comment || nw.name;
+                    if (!baseName && existing) {
+                        baseName = existing.name?.replace(/^\[DISABLED\]\s*/, '') || '';
+                    }
+                    const finalName = prefix + (baseName || '');
 
-                if (existing) {
-                    if (existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
-                        if (status === 'down' || status === 'up') {
-                            await alertService.createNetwatchAlert(
-                                routerId,
-                                `[${routerName}] ${finalName}`,
-                                nw.host,
-                                status
-                            );
+                    if (existing) {
+                        if (existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
+                            if (status === 'down' || status === 'up') {
+                                // Important: We do NOT await alertService inside the tx to avoid blocking the DB connection,
+                                // but doing it here is acceptable for simplicity since the latency overhead is small.
+                                // If the transaction fails, an alert might be produced but the DB rolls back - an acceptable trade-off for monitoring urgency.
+                                await alertService.createNetwatchAlert(
+                                    routerId,
+                                    `[${routerName}] ${finalName}`,
+                                    nw.host,
+                                    status
+                                );
+                            }
                         }
+
+                        const updateData: any = {
+                            name: finalName,
+                            interval: nw.interval || existing.interval,
+                            status: status,
+                            lastCheck: new Date(),
+                            lastUp: nw.sinceUp || existing.lastUp,
+                            lastDown: nw.sinceDown || existing.lastDown,
+                            updatedAt: new Date(),
+                        };
+
+                        if (!existing.targetInterface && nw.comment && availableInterfaces?.has(nw.comment)) {
+                            updateData.targetInterface = nw.comment;
+                        }
+
+                        await tx.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, existing.id));
+                    } else {
+                        const insertData: any = {
+                            routerId,
+                            host: nw.host,
+                            name: finalName,
+                            interval: nw.interval || 30,
+                            status: status,
+                            lastCheck: new Date(),
+                            lastUp: nw.sinceUp,
+                            lastDown: nw.sinceDown,
+                        };
+
+                        if (nw.comment && availableInterfaces?.has(nw.comment)) {
+                            insertData.targetInterface = nw.comment;
+                        }
+
+                        await tx.insert(routerNetwatch).values(insertData);
                     }
-
-                    const updateData: any = {
-                        name: finalName,
-                        interval: nw.interval || existing.interval,
-                        status: status,
-                        lastCheck: new Date(),
-                        lastUp: nw.sinceUp || existing.lastUp,
-                        lastDown: nw.sinceDown || existing.lastDown,
-                        updatedAt: new Date(),
-                    };
-
-                    if (!existing.targetInterface && nw.comment && availableInterfaces?.has(nw.comment)) {
-                        updateData.targetInterface = nw.comment;
-                    }
-
-                    await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, existing.id));
-                } else {
-                    const insertData: any = {
-                        routerId,
-                        host: nw.host,
-                        name: finalName,
-                        interval: nw.interval || 30,
-                        status: status,
-                        lastCheck: new Date(),
-                        lastUp: nw.sinceUp,
-                        lastDown: nw.sinceDown,
-                    };
-
-                    if (nw.comment && availableInterfaces?.has(nw.comment)) {
-                        insertData.targetInterface = nw.comment;
-                    }
-
-                    await db.insert(routerNetwatch).values(insertData);
                 }
-            }
+            });
         } catch (err) {
             logger.error({ err, router: routerName }, 'Failed to sync netwatch');
         }
