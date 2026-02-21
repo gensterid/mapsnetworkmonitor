@@ -177,7 +177,6 @@ const MotionPathRenderer = ({
 
         if (motionColor) {
             motionEl.style.setProperty('--motion-color', motionColor);
-            motionEl.style.fill = motionColor;
         }
 
         if (animation) {

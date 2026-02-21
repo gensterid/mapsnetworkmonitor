@@ -913,17 +913,19 @@ svg.leaflet-zoom-animated {
 
 /* Motion Element Styles (SVG Compatible) */
 .motion-orb {
-    fill: var(--motion-color, #ffffff);
+    fill: #ffffff;
+    /* White core */
     filter: drop-shadow(0 0 8px var(--motion-color, #ffffff));
-    /* Stronger glow */
+    /* Colored glow */
     r: 4px;
-    /* Slightly smaller for better precision */
 }
 
 .motion-comet {
-    fill: var(--motion-color, #ffffff);
+    fill: #ffffff;
+    /* White core */
     stroke: none;
     filter: drop-shadow(0 0 5px var(--motion-color, #ffffff));
+    /* Colored glow */
     width: 45px;
     /* Extremely long for needle/bolt effect */
     height: 2px;
@@ -932,8 +934,10 @@ svg.leaflet-zoom-animated {
 }
 
 .motion-packet {
-    fill: var(--motion-color, #00f2ff);
-    filter: drop-shadow(0 0 4px var(--motion-color, #00f2ff));
+    fill: #ffffff;
+    /* White core */
+    filter: drop-shadow(0 0 6px var(--motion-color, #00f2ff));
+    /* Colored glow */
     width: 12px;
     height: 12px;
     /* Square cube look */
