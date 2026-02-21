@@ -914,28 +914,30 @@ svg.leaflet-zoom-animated {
 /* Motion Element Styles (SVG Compatible) */
 .motion-orb {
     fill: var(--motion-color, #ffffff);
-    filter: drop-shadow(0 0 6px var(--motion-color, #ffffff));
-    r: 5px;
+    filter: drop-shadow(0 0 8px var(--motion-color, #ffffff));
+    /* Stronger glow */
+    r: 4px;
+    /* Slightly smaller for better precision */
 }
 
 .motion-comet {
     fill: var(--motion-color, #ffffff);
     stroke: none;
-    filter: drop-shadow(0 0 4px var(--motion-color, #ffffff));
-    width: 25px;
-    /* Longer for speed effect */
-    height: 3px;
-    /* Thinner */
-    rx: 1.5px;
+    filter: drop-shadow(0 0 5px var(--motion-color, #ffffff));
+    width: 45px;
+    /* Extremely long for needle/bolt effect */
+    height: 2px;
+    /* Very thin */
+    rx: 1px;
 }
 
 .motion-packet {
     fill: var(--motion-color, #00f2ff);
-    /* Cyber Cyan */
     filter: drop-shadow(0 0 4px var(--motion-color, #00f2ff));
-    width: 10px;
-    height: 6px;
-    rx: 1px;
+    width: 12px;
+    height: 12px;
+    /* Square cube look */
+    rx: 2px;
 }
 
 /* Reverse Animation */

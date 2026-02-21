@@ -105,15 +105,15 @@ const MotionPathRenderer = ({
                     motionEl.setAttribute("class", "motion-element motion-orb");
                 } else if (motionType === 'packet') {
                     motionEl = document.createElementNS(ns, "rect");
-                    motionEl.setAttribute("width", "10");
-                    motionEl.setAttribute("height", "6");
-                    motionEl.setAttribute("rx", "1");
+                    motionEl.setAttribute("width", "12");
+                    motionEl.setAttribute("height", "12");
+                    motionEl.setAttribute("rx", "2");
                     motionEl.setAttribute("class", "motion-element motion-packet");
                 } else {
                     motionEl = document.createElementNS(ns, "rect");
-                    motionEl.setAttribute("width", "25");
-                    motionEl.setAttribute("height", "3");
-                    motionEl.setAttribute("rx", "1.5");
+                    motionEl.setAttribute("width", "45");
+                    motionEl.setAttribute("height", "2");
+                    motionEl.setAttribute("rx", "1");
                     motionEl.setAttribute("class", "motion-element motion-comet");
                 }
 
