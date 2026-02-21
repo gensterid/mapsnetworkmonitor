@@ -58,7 +58,11 @@ export class RouterNetwatchService {
                 SELECT id FROM onus o
                 WHERE 
                     o.id = ${routerNetwatch.linkedOnuId} OR
-                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL) OR
+                    (
+                        TRIM(o.host) = TRIM(${routerNetwatch.host}) AND 
+                        o.host IS NOT NULL AND
+                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
+                    ) OR
                     (
                         TRIM(o.name) = TRIM(${routerNetwatch.name}) AND 
                         o.name IS NOT NULL AND 
@@ -152,7 +156,11 @@ export class RouterNetwatchService {
                 SELECT id FROM onus o
                 WHERE 
                     o.id = ${routerNetwatch.linkedOnuId} OR
-                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL) OR
+                    (
+                        TRIM(o.host) = TRIM(${routerNetwatch.host}) AND 
+                        o.host IS NOT NULL AND
+                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
+                    ) OR
                     (
                         TRIM(o.name) = TRIM(${routerNetwatch.name}) AND 
                         o.name IS NOT NULL AND 

@@ -49,8 +49,8 @@ export interface WifiConfigPayload {
 
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { db } from '../db/index.js';
-import { onus } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { onus, olts } from '../db/schema/index.js';
+import { eq, inArray } from 'drizzle-orm';
 
 async function getGenieAcsConfig(routerId?: string) {
     let url = '';
@@ -98,7 +98,26 @@ export const genieacsService = {
             }
 
             // Debug: Log URL to verify Proxmox connectivity
-            logger.info({ url }, 'GenieACS: Fetching devices');
+            logger.info({ url, routerId }, 'GenieACS: Fetching devices');
+
+            // Apply Router Filter: Only show devices that exist in our inventory for this router
+            if (routerId) {
+                const routerOnus = await db
+                    .select({ sn: onus.sn })
+                    .from(onus)
+                    .innerJoin(olts, eq(onus.oltId, olts.id))
+                    .where(eq(olts.parentId, routerId));
+
+                const snFilter = routerOnus.map(o => o.sn).filter(Boolean);
+
+                if (snFilter.length > 0) {
+                    // Merge with existing query if any
+                    query['_deviceId._SerialNumber'] = { '$in': snFilter };
+                } else {
+                    // If no ONUs registered for this router, return empty to prevent data leakage
+                    return [];
+                }
+            }
 
             const projection = {
                 _id: 1,
@@ -250,7 +269,24 @@ export const genieacsService = {
             const { url, auth } = await getGenieAcsConfig(routerId);
 
             // Use query to avoid 405 Method Not Allowed on some GenieACS versions
-            const query = { _id: deviceId };
+            const query: any = { _id: deviceId };
+
+            // Security: If routerId is provided, also verify Serial Number belongs to router
+            if (routerId) {
+                const routerOnus = await db
+                    .select({ sn: onus.sn })
+                    .from(onus)
+                    .innerJoin(olts, eq(onus.oltId, olts.id))
+                    .where(eq(olts.parentId, routerId));
+
+                const snFilter = routerOnus.map(o => o.sn).filter(Boolean);
+                if (snFilter.length > 0) {
+                    query['_deviceId._SerialNumber'] = { '$in': snFilter };
+                } else {
+                    return null;
+                }
+            }
+
             const response = await axios.get(`${url}/devices`, {
                 params: {
                     query: JSON.stringify(query)
