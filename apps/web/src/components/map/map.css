@@ -202,10 +202,6 @@ svg.leaflet-zoom-animated {
 }
 
 /* Cluster Scaling - Restored standard Leaflet behavior */
-.custom-cluster-marker {
-    /* Remove any transform overrides to allow Leaflet's translate3d to work */
-}
-
 .custom-cluster-marker>div {
     /* Optional: very subtle scaling for clusters if desired, but default is safer */
     transition: transform 0.2s ease;
