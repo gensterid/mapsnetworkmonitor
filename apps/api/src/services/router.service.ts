@@ -144,8 +144,20 @@ export class RouterService {
         `);
 
         const metricsMap = new Map<string, RouterMetric>();
-        for (const m of latestMetricsRows) {
-            metricsMap.set(m.routerId, m);
+        for (const raw of latestMetricsRows as any[]) {
+            metricsMap.set(raw.router_id, {
+                id: raw.id,
+                routerId: raw.router_id,
+                cpuLoad: raw.cpu_load,
+                totalMemory: raw.total_memory,
+                freeMemory: raw.free_memory,
+                usedMemory: raw.used_memory,
+                totalDisk: raw.total_disk,
+                freeDisk: raw.free_disk,
+                usedDisk: raw.used_disk,
+                uptime: raw.uptime,
+                recordedAt: raw.recorded_at,
+            });
         }
 
         // Batch query 2: All running interfaces for all routers
