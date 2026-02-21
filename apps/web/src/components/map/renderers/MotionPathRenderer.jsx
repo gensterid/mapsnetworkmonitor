@@ -95,13 +95,12 @@ const MotionPathRenderer = ({
                 return;
             }
 
-            let motionEl = motionElementRef.current;
             if (!motionEl) {
                 const ns = "http://www.w3.org/2000/svg";
 
                 if (motionType === 'orb') {
                     motionEl = document.createElementNS(ns, "circle");
-                    motionEl.setAttribute("r", "5");
+                    motionEl.setAttribute("r", "4");
                     motionEl.setAttribute("class", "motion-element motion-orb");
                 } else if (motionType === 'packet') {
                     motionEl = document.createElementNS(ns, "rect");
@@ -115,6 +114,12 @@ const MotionPathRenderer = ({
                     motionEl.setAttribute("height", "2");
                     motionEl.setAttribute("rx", "1");
                     motionEl.setAttribute("class", "motion-element motion-comet");
+                }
+
+                // Apply initial styles immediately
+                if (motionColor) {
+                    motionEl.style.setProperty('--motion-color', motionColor);
+                    motionEl.style.fill = motionColor;
                 }
 
                 pathElement.parentNode.appendChild(motionEl);
@@ -196,7 +201,7 @@ const MotionPathRenderer = ({
             pathElement.style.animationPlayState = paused ? 'paused' : 'running';
         }
 
-    }, [motionColor, delay, reverse, paused, isVisible]); // Dependent on style props
+    }, [motionColor, delay, reverse, paused, isVisible, motionElementRef.current]); // Added ref to deps
 
     return (
         <>
