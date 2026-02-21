@@ -54,10 +54,25 @@ export class RouterNetwatchService {
                 oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId')
             })
             .from(routerNetwatch)
-            .leftJoin(onus, or(
-                sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
-                eq(routerNetwatch.linkedOnuId, onus.id)
-            ))
+            .leftJoin(onus, eq(onus.id, sql`(
+                SELECT id FROM onus o
+                WHERE 
+                    o.id = ${routerNetwatch.linkedOnuId} OR
+                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL) OR
+                    (
+                        TRIM(o.name) = TRIM(${routerNetwatch.name}) AND 
+                        o.name IS NOT NULL AND 
+                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
+                    )
+                ORDER BY (
+                    CASE 
+                        WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
+                        ELSE 3
+                    END
+                ) ASC
+                LIMIT 1
+            )`))
             .leftJoin(olts, eq(onus.oltId, olts.id))
             .leftJoin(directOlts, and(
                 sql`TRIM(${routerNetwatch.name}) = TRIM(${directOlts.name})`,
@@ -133,10 +148,25 @@ export class RouterNetwatchService {
             })
 
             .from(routerNetwatch)
-            .leftJoin(onus, or(
-                sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
-                eq(routerNetwatch.linkedOnuId, onus.id)
-            ))
+            .leftJoin(onus, eq(onus.id, sql`(
+                SELECT id FROM onus o
+                WHERE 
+                    o.id = ${routerNetwatch.linkedOnuId} OR
+                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL) OR
+                    (
+                        TRIM(o.name) = TRIM(${routerNetwatch.name}) AND 
+                        o.name IS NOT NULL AND 
+                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
+                    )
+                ORDER BY (
+                    CASE 
+                        WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
+                        ELSE 3
+                    END
+                ) ASC
+                LIMIT 1
+            )`))
             .leftJoin(olts, eq(onus.oltId, olts.id))
             .leftJoin(directOlts, and(
                 sql`TRIM(${routerNetwatch.name}) = TRIM(${directOlts.name})`,
