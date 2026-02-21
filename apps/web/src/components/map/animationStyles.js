@@ -228,7 +228,6 @@ export const ANIMATION_STYLES = {
         delay: 4000,
         dashArray: [4, 1000],
         weight: 4,
-        color: '#ffffff',
         className: 'neon-pulse',
         lineCap: 'round',
         syncArrival: true, // Flag for constant-time travel across path
@@ -241,7 +240,6 @@ export const ANIMATION_STYLES = {
         delay: 3000,
         dashArray: [50, 800],
         weight: 5,
-        color: '#ffffff',
         opacity: 0.9,
         className: 'neon-comet',
         lineCap: 'round',
@@ -255,7 +253,6 @@ export const ANIMATION_STYLES = {
         delay: 4000,
         dashArray: [5, 40, 5, 40, 5, 800],
         weight: 4,
-        color: '#ffffff',
         className: 'neon-burst',
         lineCap: 'round',
         syncArrival: true,
@@ -268,7 +265,6 @@ export const ANIMATION_STYLES = {
         delay: 6000,
         dashArray: [10, 800],
         weight: 4,
-        color: '#ffffff',
         className: 'neon-warning',
         lineCap: 'round',
         syncArrival: true,
@@ -296,7 +292,6 @@ export const ANIMATION_STYLES = {
         opacity: 0.3, // Dim background line
         useMotionPath: true, // Flag for new renderer
         motionType: 'orb',
-        color: '#ffffff',
         description: 'Bola kemilau bergerak di atas jalur'
     },
 
@@ -308,7 +303,6 @@ export const ANIMATION_STYLES = {
         opacity: 0.3,
         useMotionPath: true,
         motionType: 'comet',
-        color: '#ffffff',
         description: 'Efek meteor dengan ekor'
     },
 
@@ -320,7 +314,6 @@ export const ANIMATION_STYLES = {
         opacity: 0.4,
         useMotionPath: true,
         motionType: 'packet',
-        color: '#FFD700',
         description: 'Paket data fisik yang dikirimkan'
     }
 };

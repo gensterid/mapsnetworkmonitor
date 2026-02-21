@@ -913,15 +913,15 @@ svg.leaflet-zoom-animated {
 
 /* Motion Element Styles (SVG Compatible) */
 .motion-orb {
-    fill: #ffffff;
-    filter: drop-shadow(0 0 6px #ffffff);
+    fill: var(--motion-color, #ffffff);
+    filter: drop-shadow(0 0 6px var(--motion-color, #ffffff));
     r: 5px;
 }
 
 .motion-comet {
-    fill: #ffffff;
+    fill: var(--motion-color, #ffffff);
     stroke: none;
-    filter: drop-shadow(0 0 4px #ffffff);
+    filter: drop-shadow(0 0 4px var(--motion-color, #ffffff));
     width: 25px;
     /* Longer for speed effect */
     height: 3px;
@@ -930,9 +930,9 @@ svg.leaflet-zoom-animated {
 }
 
 .motion-packet {
-    fill: #00f2ff;
+    fill: var(--motion-color, #00f2ff);
     /* Cyber Cyan */
-    filter: drop-shadow(0 0 4px #00f2ff);
+    filter: drop-shadow(0 0 4px var(--motion-color, #00f2ff));
     width: 10px;
     height: 6px;
     rx: 1px;
