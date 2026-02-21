@@ -44,6 +44,10 @@ export class RouterNetwatchService {
                 ponPort: onus.ponPort,
                 onuIndex: onus.onuIndex,
 
+                // Added for friendly OLT-style formatting (e.g. PON02/1)
+                ponId: onus.ponPort,
+                onuId: onus.onuIndex,
+
                 // Allow manual override if already linked via ID
                 linkedOnuId: routerNetwatch.linkedOnuId,
                 oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
@@ -126,6 +130,11 @@ export class RouterNetwatchService {
                 discoverySources: onus.discoverySources,
                 ponPort: onus.ponPort,
                 onuIndex: onus.onuIndex,
+
+                // Added for friendly OLT-style formatting (e.g. PON02/1)
+                ponId: onus.ponPort,
+                onuId: onus.onuIndex,
+
                 linkedOnuId: routerNetwatch.linkedOnuId,
                 oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
                 oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId')
