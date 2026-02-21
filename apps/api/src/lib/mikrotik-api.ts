@@ -86,6 +86,11 @@ export async function connectToRouter(
 
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
+        // Specific handling for known MikroTik API quirks (like !empty unknown reply)
+        if (err.message?.includes('unknown reply')) {
+            logger.warn({ err: err.message, host: config.host }, '[RouterOS API Warning] Ignoring unexpected reply');
+            return;
+        }
         logger.error({ err, host: config.host }, '[RouterOS API Error]');
     });
 
