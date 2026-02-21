@@ -72,16 +72,21 @@ export const createDeviceIcon = ({
         (packetLoss !== null && packetLoss > 0) ||
         (signalPower !== null && signalPower < -24);
 
-    // Normalize status - prioritize 'down' first, then specific device types, then warning
+    // Determine normalized status - prioritize 'down' first
     let normalizedStatus;
-    if (status === 'down' || status === 'offline' || status === 'lost' || status === 'power_down' || status === 'dying_gasp' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status) {
+    const isOffline = status === 'down' || status === 'offline' || status === 'lost' || status === 'power_down' || status === 'dying_gasp' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status;
+
+    if (isOffline) {
         normalizedStatus = 'offline';
+    }
+    // Smart Warning: ODP only shows warning if it has an IP host (monitored via latency/loss)
+    // PPPoE always supports warnings as it has an inherent IP
+    else if (hasPerformanceIssue && (type !== 'odp' || (latency !== null || packetLoss !== null))) {
+        normalizedStatus = 'warning';
     } else if (type === 'odp') {
-        normalizedStatus = 'odp'; // Always Orange if UP
+        normalizedStatus = 'odp'; // Orange
     } else if (type === 'pppoe') {
-        normalizedStatus = 'pppoe'; // Always Purple if UP
-    } else if (hasPerformanceIssue) {
-        normalizedStatus = 'warning'; // Yellow for devices with performance issues
+        normalizedStatus = 'pppoe'; // Purple
     } else {
         normalizedStatus = 'online'; // Green
     }
