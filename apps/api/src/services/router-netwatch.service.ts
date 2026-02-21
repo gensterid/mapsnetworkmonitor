@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray } from 'drizzle-orm';
+import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, aliasedTable } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -25,6 +25,8 @@ export class RouterNetwatchService {
      * Get all netwatch entries for a router with detailed info (ONUs/Alerts)
      */
     async getNetwatch(routerId: string): Promise<any[]> {
+        const directOlts = aliasedTable(olts, 'directOlts');
+
         const entries = await db
             .select({
                 ...getTableColumns(routerNetwatch),
@@ -44,7 +46,8 @@ export class RouterNetwatchService {
 
                 // Allow manual override if already linked via ID
                 linkedOnuId: routerNetwatch.linkedOnuId,
-                oltName: olts.name
+                oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
+                oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId')
             })
             .from(routerNetwatch)
             .leftJoin(onus, or(
@@ -52,6 +55,10 @@ export class RouterNetwatchService {
                 eq(routerNetwatch.linkedOnuId, onus.id)
             ))
             .leftJoin(olts, eq(onus.oltId, olts.id))
+            .leftJoin(directOlts, and(
+                sql`TRIM(${routerNetwatch.name}) = TRIM(${directOlts.name})`,
+                eq(directOlts.parentId, routerNetwatch.routerId)
+            ))
             .where(eq(routerNetwatch.routerId, routerId))
             .orderBy(routerNetwatch.host) as any;
 
@@ -92,6 +99,8 @@ export class RouterNetwatchService {
     async getNetwatchAll(routerIds: string[]): Promise<any[]> {
         if (!routerIds || routerIds.length === 0) return [];
 
+        const directOlts = aliasedTable(olts, 'directOlts');
+
         return await db
             .select({
                 ...getTableColumns(routerNetwatch),
@@ -110,7 +119,8 @@ export class RouterNetwatchService {
                 ponPort: onus.ponPort,
                 onuIndex: onus.onuIndex,
                 linkedOnuId: routerNetwatch.linkedOnuId,
-                oltName: olts.name
+                oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
+                oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId')
             })
 
             .from(routerNetwatch)
@@ -119,6 +129,10 @@ export class RouterNetwatchService {
                 eq(routerNetwatch.linkedOnuId, onus.id)
             ))
             .leftJoin(olts, eq(onus.oltId, olts.id))
+            .leftJoin(directOlts, and(
+                sql`TRIM(${routerNetwatch.name}) = TRIM(${directOlts.name})`,
+                eq(directOlts.parentId, routerNetwatch.routerId)
+            ))
             .where(inArray(routerNetwatch.routerId, routerIds))
             .orderBy(routerNetwatch.host) as any;
     }
