@@ -814,6 +814,9 @@ export const SmartMarker = ({
             onClick={onClick}
             eventHandlers={eventHandlers} // Fix: Pass eventHandlers (mouseover/out)
             status={status} // Pass status for cluster icon logic
+            latency={safeLatency} // New: Pass for cluster color logic
+            packetLoss={safePacketLoss} // New: Pass for cluster color logic
+            lastRxPower={props.lastRxPower || props.last_rx_power || null} // New: Pass for cluster color logic
             {...props}
         >
             {children}

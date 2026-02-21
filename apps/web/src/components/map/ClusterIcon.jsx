@@ -11,8 +11,9 @@ const createClusterCustomIcon = (cluster) => {
     for (const marker of markers) {
         // Access options passed to Marker via DraggableMarker
         const status = marker.options.status;
-        const latency = marker.options.icon?.options?.latency;
-        const packetLoss = marker.options.icon?.options?.packetLoss;
+        const latency = marker.options.latency;
+        const packetLoss = marker.options.packetLoss;
+        const lastRxPower = marker.options.lastRxPower;
 
         // Check Down
         if (['down', 'offline', 'lost', 'power_down', 'dying_gasp'].includes(status)) {
@@ -21,7 +22,12 @@ const createClusterCustomIcon = (cluster) => {
         }
         // Check Issue (if not down)
         else {
-            const isWarning = (latency !== undefined && latency > 100) || (packetLoss !== undefined && packetLoss > 0);
+            const signalPower = lastRxPower !== null ? parseFloat(lastRxPower) : null;
+            const isWarning =
+                (latency !== null && latency > 100) ||
+                (packetLoss !== null && packetLoss > 0) ||
+                (signalPower !== null && signalPower < -24);
+
             if (isWarning) {
                 hasIssue = true;
                 issueCount++;
