@@ -112,8 +112,10 @@ export default function OltDetails() {
             const oId = parseInt(onuId);
 
             if (!isNaN(oId) && oId >= 256) {
-                // Absolute ID mapping: 256-511 = PON01, 512-767 = PON02, etc.
-                const ponNumber = Math.floor(oId / 256);
+                // Absolute ID mapping: (Base | Port) << 8 | ONU
+                // We use % 256 to safely strip the Base offset (often 256)
+                const portPart = Math.floor(oId / 256);
+                const ponNumber = portPart % 256;
                 const formattedPon = `PON${String(ponNumber).padStart(2, '0')}`;
                 const formattedOnu = oId % 256;
                 return `${formattedPon}/${formattedOnu}`;
