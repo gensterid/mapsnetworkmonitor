@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { parentPort } from 'worker_threads';
 import { startScheduler, stopScheduler } from './scheduler.js';
 import { logger } from './logger.js';
