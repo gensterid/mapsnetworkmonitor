@@ -30,6 +30,9 @@ function collectTrustedOrigins(baseURL: string): string[] {
     origins.add('http://localhost:5173');
     origins.add('http://127.0.0.1:5173');
 
+    // Always trust local Proxmox IP for direct access
+    origins.add('http://10.10.70.116');
+
     // Extract origin from the resolved baseURL (e.g., https://example.com from https://example.com/api/auth)
     try {
         const baseOrigin = new URL(baseURL).origin;
