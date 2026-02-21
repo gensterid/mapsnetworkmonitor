@@ -188,9 +188,21 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
 
 
     const getDownReason = (node) => {
+        // 1. Explicit reason from Database/OLT (Highest Priority)
         const explicitReason = node.lastDownReason || node.last_down_reason;
         if (explicitReason && explicitReason !== 'Unknown') return explicitReason;
 
+        // 2. Normal Up states but with warnings (New Logic)
+        if (isUp) {
+            if (node.latency !== null && node.latency > 100) return 'High Latency (> 100ms)';
+            if (node.lastRxPower) {
+                const pwr = parseFloat(node.lastRxPower);
+                if (!isNaN(pwr) && pwr < -24) return 'Low Optical Power (Warning)';
+            }
+            return 'Performance Issues';
+        }
+
+        // 3. Normalized OLT statuses
         if (displayStatus === 'power_down') return 'Power Down';
         if (displayStatus === 'dying_gasp') return 'Dying Gasp';
         if (displayStatus === 'optical_loss' || displayStatus === 'lost') return 'Optical Signal Loss';
@@ -204,6 +216,9 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
         }
         return 'Unknown';
     };
+
+    // Determine if we should show the outage/warning reason section
+    const showReasonSection = !isUp || (node.latency !== null && node.latency > 100);
 
     return (
         <div className="flex flex-col min-w-[240px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
@@ -375,11 +390,13 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
                     )}
                 </div>
 
-                {!isUp && (
+                {showReasonSection && (
                     <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
                         <div className="flex flex-col gap-1">
-                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
-                            <span className="text-orange-300 text-xs font-bold">
+                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">
+                                {isUp ? 'Warning Reason' : 'Outage Reason'}
+                            </span>
+                            <span className={isUp ? 'text-yellow-400 text-xs font-bold' : 'text-orange-300 text-xs font-bold'}>
                                 {getDownReason(node)}
                             </span>
                         </div>
@@ -455,16 +472,26 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
         const explicitReason = node.lastDownReason || node.last_down_reason;
         if (explicitReason && explicitReason !== 'Unknown') return explicitReason;
 
-        // 2. Normalized OLT statuses (Middle Priority)
+        // 2. Normal Up states but with warnings (New Logic)
+        if (isUp) {
+            if (node.latency !== null && node.latency > 100) return 'High Latency (> 100ms)';
+            if (node.lastRxPower) {
+                const pwr = parseFloat(node.lastRxPower);
+                if (!isNaN(pwr) && pwr < -24) return 'Low Optical Power (Warning)';
+            }
+            return 'Performance Issues';
+        }
+
+        // 3. Normalized OLT statuses
         if (displayStatus === 'power_down') return 'Power Down';
         if (displayStatus === 'dying_gasp') return 'Dying Gasp';
         if (displayStatus === 'optical_loss' || displayStatus === 'lost') return 'Optical Signal Loss';
 
-        // 3. Last Resort Fallback (Signal Analysis)
+        // 4. Last Resort Fallback (Signal Analysis)
         const signal = parseFloat(node.lastRxPower || node.last_rx_power);
         if (!isUp && !isNaN(signal) && signal < -27) return 'Optical Signal Loss';
 
-        // 4. Default generic status
+        // 5. Default generic status
         if (!isUp) {
             if (displayStatus === 'offline' || displayStatus === 'down' || displayStatus === 'unknown') return 'Connection Lost';
             return displayStatus.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -472,6 +499,9 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
 
         return 'Unknown';
     };
+
+    // Determine if we should show the outage/warning reason section
+    const showReasonSection = !isUp || (node.latency !== null && node.latency > 100) || (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
     return (
         <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -661,11 +691,13 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         <span className="text-emerald-400 font-bold">{node.latency} ms</span>
                     </div>
                 )}
-                {!isUp && (
+                {showReasonSection && (
                     <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
                         <div className="flex flex-col gap-1">
-                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">Outage Reason</span>
-                            <span className="text-orange-300 text-xs font-bold">
+                            <span className="text-slate-400 text-[10px] uppercase tracking-wider">
+                                {isUp ? 'Warning Reason' : 'Outage Reason'}
+                            </span>
+                            <span className={isUp ? 'text-yellow-400 text-xs font-bold' : 'text-orange-300 text-xs font-bold'}>
                                 {getDownReason(node)}
                             </span>
                         </div>
