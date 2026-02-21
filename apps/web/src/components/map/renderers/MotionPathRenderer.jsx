@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Polyline, Tooltip, Popup } from 'react-leaflet';
+import { Polyline, Tooltip, Popup, useMap } from 'react-leaflet';
 import { sanitizeHtml } from '@/lib/sanitize';
 import '../map.css';
 
@@ -16,23 +16,65 @@ const MotionPathRenderer = ({
 }) => {
     const polylineRef = useRef(null);
     const motionElementRef = useRef(null);
+    const animationRef = useRef(null);
+    const [isVisible, setIsVisible] = React.useState(true);
+    const map = useMap();
     const durationStr = `${options.delay}ms`;
 
     // Destructure to isolate dependencies
     const {
-        motionType, motionColor, reverse, paused, delay
+        motionType, motionColor, reverse, paused, delay, lowPerfMode
     } = options;
+
+    // Effect: Viewport Culling
+    useEffect(() => {
+        if (lowPerfMode) {
+            setIsVisible(false);
+            return;
+        }
+
+        const checkVisibility = Throttled(() => {
+            if (!polylineRef.current) return;
+            const bounds = polylineRef.current.getBounds();
+            const mapBounds = map.getBounds();
+            setIsVisible(mapBounds.intersects(bounds));
+        }, 500);
+
+        map.on('moveend zoomend', checkVisibility);
+        checkVisibility();
+
+        return () => {
+            map.off('moveend zoomend', checkVisibility);
+        };
+    }, [map, lowPerfMode]);
+
+    function Throttled(func, delay) {
+        let lastCall = 0;
+        return (...args) => {
+            const now = new Date().getTime();
+            if (now - lastCall < delay) return;
+            lastCall = now;
+            return func(...args);
+        };
+    }
 
     // Effect 1: Create/Destroy Motion Element (Lifecycle) & Handle Path Sync
     useEffect(() => {
-        if (!polylineRef.current) return;
+        if (!polylineRef.current || !isVisible) {
+            cleanup();
+            return;
+        }
 
         const layer = polylineRef.current;
         let retryCount = 0;
         const maxRetries = 10;
         let observer = null;
 
-        const cleanup = () => {
+        function cleanup() {
+            if (animationRef.current) {
+                animationRef.current.cancel();
+                animationRef.current = null;
+            }
             if (motionElementRef.current) {
                 if (motionElementRef.current._observer) {
                     motionElementRef.current._observer.disconnect();
@@ -40,12 +82,11 @@ const MotionPathRenderer = ({
                 motionElementRef.current.remove();
                 motionElementRef.current = null;
             }
-        };
+        }
 
         const tryInitialize = () => {
             const pathElement = layer.getElement?.() || layer._path;
 
-            // Wait for path element to be attached to DOM
             if (!pathElement || !pathElement.parentNode) {
                 if (retryCount < maxRetries) {
                     retryCount++;
@@ -54,15 +95,13 @@ const MotionPathRenderer = ({
                 return;
             }
 
-            // Create Motion Element (SVG) only if it doesn't exist
             let motionEl = motionElementRef.current;
             if (!motionEl) {
                 const ns = "http://www.w3.org/2000/svg";
 
-                // Determine shape based on motionType
                 if (motionType === 'orb') {
                     motionEl = document.createElementNS(ns, "circle");
-                    motionEl.setAttribute("r", "6");
+                    motionEl.setAttribute("r", "5");
                     motionEl.setAttribute("class", "motion-element motion-orb");
                 } else if (motionType === 'packet') {
                     motionEl = document.createElementNS(ns, "rect");
@@ -72,7 +111,7 @@ const MotionPathRenderer = ({
                     motionEl.setAttribute("class", "motion-element motion-packet");
                 } else {
                     motionEl = document.createElementNS(ns, "rect");
-                    motionEl.setAttribute("width", "20");
+                    motionEl.setAttribute("width", "18");
                     motionEl.setAttribute("height", "4");
                     motionEl.setAttribute("rx", "2");
                     motionEl.setAttribute("class", "motion-element motion-comet");
@@ -82,26 +121,38 @@ const MotionPathRenderer = ({
                 motionElementRef.current = motionEl;
             }
 
-            // Sync Path Data
             const syncPath = () => {
                 const d = pathElement.getAttribute('d');
-                // OPTIMIZATION: Only update if 'd' actually changed to prevent animation resets/stutter
                 if (d && motionElementRef.current) {
                     const currentD = motionElementRef.current.getAttribute('data-d');
                     if (currentD === d) return;
 
                     motionElementRef.current.setAttribute('data-d', d);
-                    motionElementRef.current.style.setProperty('--motion-path-d', `"${d}"`);
                     motionElementRef.current.style.offsetPath = `path("${d}")`;
                 }
             };
 
             syncPath();
 
-            // Observe 'd' attribute changes (zooming/panning)
             observer = new MutationObserver(syncPath);
             observer.observe(pathElement, { attributes: true, attributeFilter: ['d'] });
             motionElementRef.current._observer = observer;
+
+            // Initialize Animation (WAAPI)
+            if (motionElementRef.current && !animationRef.current) {
+                const keyframes = [
+                    { offsetDistance: "0%" },
+                    { offsetDistance: "100%" }
+                ];
+                const timing = {
+                    duration: delay || 2000,
+                    iterations: Infinity,
+                    direction: reverse ? 'reverse' : 'normal',
+                    easing: 'linear'
+                };
+                animationRef.current = motionElementRef.current.animate(keyframes, timing);
+                if (paused) animationRef.current.pause();
+            }
         };
 
         const timer = setTimeout(tryInitialize, 100);
@@ -110,36 +161,39 @@ const MotionPathRenderer = ({
             clearTimeout(timer);
             cleanup();
         };
-    }, [motionType]); // Only recreate if shape type changes
+    }, [motionType, isVisible]);
 
     // Effect 2: Update Styles & Animation State (Without destroying element)
     useEffect(() => {
         const motionEl = motionElementRef.current;
+        const animation = animationRef.current;
         if (!motionEl) return;
 
-        motionEl.style.setProperty('--motion-duration', `${delay}ms`);
         motionEl.style.fill = motionColor;
 
-        if (reverse) {
-            motionEl.classList.add('motion-reverse');
-        } else {
-            motionEl.classList.remove('motion-reverse');
+        if (animation) {
+            animation.playbackRate = 1;
+            if (animation.effect) {
+                animation.effect.updateTiming({
+                    duration: delay || 2000,
+                    direction: reverse ? 'reverse' : 'normal'
+                });
+            }
+
+            if (paused) {
+                animation.pause();
+            } else {
+                animation.play();
+            }
         }
 
-        if (paused) {
-            motionEl.style.animationPlayState = 'paused';
-        } else {
-            motionEl.style.animationPlayState = 'running';
-        }
-
-        // Also pause any CSS animations on the path itself
         const layer = polylineRef.current;
         const pathElement = layer?.getElement?.() || layer?._path;
         if (pathElement) {
             pathElement.style.animationPlayState = paused ? 'paused' : 'running';
         }
 
-    }, [motionColor, delay, reverse, paused, motionElementRef.current]); // Dependent on style props
+    }, [motionColor, delay, reverse, paused, isVisible]); // Dependent on style props
 
     return (
         <>

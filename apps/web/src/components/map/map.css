@@ -914,30 +914,23 @@ svg.leaflet-zoom-animated {
 /* Motion Element Styles (SVG Compatible) */
 .motion-orb {
     fill: white;
-    filter: drop-shadow(0 0 4px white) drop-shadow(0 0 8px white);
+    filter: drop-shadow(0 0 5px white);
     r: 4px;
-    /* Radius for circle */
 }
 
 .motion-comet {
-    fill: url(#gradient-comet);
-    /* Needs defs injection or simple fill fallback */
     fill: white;
     stroke: none;
-    filter: drop-shadow(0 0 5px white);
-    width: 20px;
-    /* For rect */
+    filter: drop-shadow(0 0 4px white);
+    width: 18px;
     height: 4px;
-    /* For rect */
     rx: 2px;
-    /* For rect border-radius */
 }
 
 .motion-packet {
     fill: #FFD700;
-    /* Gold */
-    filter: drop-shadow(0 0 4px #FFD700);
-    width: 12px;
+    filter: drop-shadow(0 0 3px #FFD700);
+    width: 10px;
     height: 6px;
     rx: 2px;
 }
@@ -972,11 +965,9 @@ svg.leaflet-zoom-animated {
     filter: none !important;
 }
 
-/* Disable motion elements (orbs) in low perf mode if needed, 
-   though ideally we just don't render them in React */
-/* .low-perf .motion-element {
+.low-perf .motion-element {
     display: none !important;
-} */
+}
 
 /* Simplify Pulsing */
 .low-perf .device-icon__badge {
