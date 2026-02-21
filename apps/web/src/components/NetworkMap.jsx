@@ -505,12 +505,11 @@ const NetworkMap = ({
     useEffect(() => {
         const root = document.documentElement;
         if (root) {
-            // Aggressive Squared Scaling: 
-            // Zoom 18: 1.0x
-            // Zoom 15: 0.69x
-            // Zoom 12: 0.44x
-            // Zoom 10: 0.3x
-            const scale = Math.max(0.2, Math.min(1.2, (zoomLevel / 18) ** 2));
+            // Scaled scaling logic for 32px Max Size (0.89x of base 36px)
+            // Zoom 18+: 0.89x (32px)
+            // Zoom 15: ~0.62x (22px)
+            // Zoom 12: ~0.40x (14px)
+            const scale = Math.max(0.15, Math.min(0.89, (zoomLevel / 18) ** 2 * 0.89));
             root.style.setProperty('--map-zoom-scale', scale.toFixed(2));
         }
 
