@@ -51,8 +51,16 @@ export class RouterNetwatchService {
             })
             .from(routerNetwatch)
             .leftJoin(onus, or(
-                sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
-                eq(routerNetwatch.linkedOnuId, onus.id)
+                eq(routerNetwatch.linkedOnuId, onus.id),
+                and(
+                    sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
+                    isNotNull(onus.host)
+                ),
+                and(
+                    isNotNull(onus.name),
+                    sql`TRIM(${onus.name}) = TRIM(${routerNetwatch.name})`,
+                    sql`${onus.oltId} IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})`
+                )
             ))
             .leftJoin(olts, eq(onus.oltId, olts.id))
             .leftJoin(directOlts, and(
@@ -125,8 +133,16 @@ export class RouterNetwatchService {
 
             .from(routerNetwatch)
             .leftJoin(onus, or(
-                sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
-                eq(routerNetwatch.linkedOnuId, onus.id)
+                eq(routerNetwatch.linkedOnuId, onus.id),
+                and(
+                    sql`TRIM(${routerNetwatch.host}) = TRIM(${onus.host})`,
+                    isNotNull(onus.host)
+                ),
+                and(
+                    isNotNull(onus.name),
+                    sql`TRIM(${onus.name}) = TRIM(${routerNetwatch.name})`,
+                    sql`${onus.oltId} IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})`
+                )
             ))
             .leftJoin(olts, eq(onus.oltId, olts.id))
             .leftJoin(directOlts, and(
