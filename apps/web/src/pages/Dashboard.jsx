@@ -389,7 +389,7 @@ export default function Dashboard() {
                                     <span className="text-xs font-bold text-white uppercase tracking-wider">Live Map</span>
                                 </div>
                                 <div className="w-full h-full rounded-lg overflow-hidden relative z-0">
-                                    <NetworkMap showRoutersOnly={true} />
+                                    <NetworkMap showRoutersOnly={true} disableScaling={true} />
                                 </div>
                             </div>
                             <ActiveConnectionsTable routers={filteredRouters} />

@@ -72,7 +72,8 @@ const NetworkMap = ({
     netwatchOverride = null,
     realtimeTraffic = null,
     isLiveMode = false,
-    onLiveModeChange = null // New prop to control live mode from parent
+    onLiveModeChange = null, // New prop to control live mode from parent
+    disableScaling = false // New prop to disable dynamic icon scaling
 }) => {
     // 1. Hooks & Data Fetching (Must be at the top)
     const queryClient = useQueryClient();
@@ -509,27 +510,27 @@ const NetworkMap = ({
             // Zoom 18+: 0.89x (32px)
             // Zoom 15: ~0.62x (22px)
             // Zoom 12: ~0.40x (14px)
-            const scale = Math.max(0.15, Math.min(0.89, (zoomLevel / 18) ** 2 * 0.89));
+            const scale = disableScaling ? 1 : Math.max(0.15, Math.min(0.89, (zoomLevel / 18) ** 2 * 0.89));
             root.style.setProperty('--map-zoom-scale', scale.toFixed(2));
         }
 
         const mapContainer = mapContainerRef.current;
         if (mapContainer) {
             // Auto-hide labels logic - Conservative (Zoom < 15)
-            if (zoomLevel < 15) {
+            if (zoomLevel < 15 && !disableScaling) {
                 mapContainer.classList.add('hide-labels-auto');
             } else {
                 mapContainer.classList.remove('hide-labels-auto');
             }
 
             // Dot mode logic - Conservative (Zoom < 12)
-            if (zoomLevel < 12) {
+            if (zoomLevel < 12 && !disableScaling) {
                 mapContainer.classList.add('dot-mode');
             } else {
                 mapContainer.classList.remove('dot-mode');
             }
         }
-    }, [zoomLevel]);
+    }, [zoomLevel, disableScaling]);
 
     // Combine Data
     const mapData = useMemo(() => {
