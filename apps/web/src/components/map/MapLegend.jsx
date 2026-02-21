@@ -42,9 +42,10 @@ const MapLegend = ({
                     }}
                     className={`flex items-center justify-center rounded transition-colors ${isMinimized ? 'w-full h-full' : 'w-5 h-5 bg-slate-800 hover:bg-slate-700 text-slate-400'
                         }`}
+                    aria-label={isMinimized ? "Expand Legend" : "Minimize Legend"}
                     title={isMinimized ? "Expand Legend" : "Minimize Legend"}
                 >
-                    <span className="material-symbols-outlined text-[16px]">
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
                         {isMinimized ? 'legend_toggle' : 'keyboard_arrow_down'}
                     </span>
                 </button>
@@ -109,9 +110,10 @@ const MapLegend = ({
                                 onClick={() => setEnableAnimation(!enableAnimation)}
                                 className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium transition-colors border ${enableAnimation ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-slate-800 text-slate-400 border-slate-700/50'
                                     }`}
-                                title="Toggle Animation"
+                                title={enableAnimation ? "Matikan Animasi Peta" : "Aktifkan Animasi Peta"}
+                                aria-label={enableAnimation ? "Matikan Animasi Peta" : "Aktifkan Animasi Peta"}
                             >
-                                <span className="material-symbols-outlined text-[13px]">animation</span>
+                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">animation</span>
                                 {enableAnimation ? 'Animasi' : 'Off'}
                             </button>
 
@@ -119,9 +121,10 @@ const MapLegend = ({
                                 onClick={() => setEnableClustering(!enableClustering)}
                                 className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium transition-colors border ${enableClustering ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' : 'bg-slate-800 text-slate-400 border-slate-700/50'
                                     }`}
-                                title="Toggle Clustering"
+                                title={enableClustering ? "Matikan Pengelompokan Cluster" : "Aktifkan Pengelompokan Cluster"}
+                                aria-label={enableClustering ? "Matikan Pengelompokan Cluster" : "Aktifkan Pengelompokan Cluster"}
                             >
-                                <span className="material-symbols-outlined text-[13px]">group_work</span>
+                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">group_work</span>
                                 {enableClustering ? 'Cluster' : 'Off'}
                             </button>
 
@@ -129,9 +132,10 @@ const MapLegend = ({
                                 onClick={() => setLowPerfMode(!lowPerfMode)}
                                 className={`flex items-center justify-center gap-1 px-1.5 py-1 rounded text-[9px] font-medium transition-colors border ${lowPerfMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-slate-800 text-slate-400 border-slate-700/50'
                                     }`}
-                                title="Toggle Low Performance Mode"
+                                title={lowPerfMode ? "Matikan Mode Performa Rendah" : "Aktifkan Mode Performa Rendah (Hemat CPU)"}
+                                aria-label={lowPerfMode ? "Matikan Mode Performa Rendah" : "Aktifkan Mode Performa Rendah (Hemat CPU)"}
                             >
-                                <span className="material-symbols-outlined text-[13px]">monitor_heart</span>
+                                <span className="material-symbols-outlined text-[13px]" aria-hidden="true">monitor_heart</span>
                                 {lowPerfMode ? 'LowPerf' : 'Off'}
                             </button>
 

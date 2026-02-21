@@ -806,9 +806,12 @@ svg.leaflet-zoom-animated {
     }
 
     .map-legend {
-        left: 16px;
-        bottom: 16px;
-        padding: 8px;
+        left: 12px;
+        bottom: 12px;
+        padding: 6px;
+        max-width: 140px;
+        /* Prevent legend from taking too much horizontal space */
+        font-size: 10px;
     }
 
     .map-legend--minimized {
@@ -821,9 +824,10 @@ svg.leaflet-zoom-animated {
     }
 
     .device-modal {
-        width: calc(100% - 32px);
-        margin: 16px;
-        max-height: 85vh;
+        width: calc(100% - 24px);
+        margin: 12px;
+        max-height: 90vh;
+        max-height: 90dvh;
     }
 
     .device-modal__field-row {
@@ -869,8 +873,17 @@ svg.leaflet-zoom-animated {
     .map-controls {
         top: 12px;
         right: 12px;
-        scale: 0.9;
+        scale: 0.85;
+        /* Slightly smaller for mobile */
         transform-origin: top right;
+        z-index: 1100;
+        /* Ensure controls are above legend if they somehow overlap */
+    }
+
+    /* Prevent legend and FAB overlap if both are visible */
+    .map-legend {
+        bottom: 80px;
+        /* Move legend up slightly on mobile to clear the FAB */
     }
 }
 

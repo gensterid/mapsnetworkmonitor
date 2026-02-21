@@ -6,25 +6,30 @@ import './map.css';
  */
 const LineThicknessControl = ({ thickness, onChange }) => {
     return (
-        <div className="map-control-group" style={{ position: 'absolute', top: 80, right: 16, zIndex: 1000 }}>
-            <div className="flex flex-col items-center gap-2">
-                <button
-                    className="map-control-btn"
-                    onClick={() => onChange(Math.min(thickness + 1, 10))}
-                    title="Increase Line Thickness"
-                >
-                    <span className="material-symbols-outlined">add</span>
-                </button>
-                <div className="text-white text-xs font-mono">{thickness}</div>
-                <button
-                    className="map-control-btn"
-                    onClick={() => onChange(Math.max(thickness - 1, 1))}
-                    title="Decrease Line Thickness"
-                >
-                    <span className="material-symbols-outlined">remove</span>
-                </button>
-                <div className="text-[10px] text-slate-400 uppercase tracking-wider mt-1" style={{ writingMode: 'vertical-rl' }}>
-                    Lines
+        <div className="map-control-group hidden sm:block" style={{ position: 'absolute', top: 80, right: 16, zIndex: 1000 }}>
+            <div className="flex flex-col items-center gap-3 p-1">
+                <div className="text-white text-[10px] font-bold uppercase tracking-wider mb-1">Size</div>
+
+                <div className="h-24 py-2">
+                    <input
+                        type="range"
+                        min="1"
+                        max="10"
+                        step="1"
+                        value={thickness}
+                        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+                        className="thickness-slider"
+                        style={{
+                            writingMode: 'bt-lr', /* IE */
+                            WebkitAppearance: 'slider-vertical', /* WebKit */
+                            width: '4px',
+                            height: '100%',
+                        }}
+                    />
+                </div>
+
+                <div className="text-white text-xs font-mono bg-slate-800 w-6 h-6 rounded flex items-center justify-center border border-slate-700">
+                    {thickness}
                 </div>
             </div>
         </div>

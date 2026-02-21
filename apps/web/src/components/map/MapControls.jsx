@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export const MapControls = ({
     searchQuery,
@@ -17,6 +17,23 @@ export const MapControls = ({
     onToggleFullscreen
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [localSearch, setLocalSearch] = useState(searchQuery);
+
+    // Debounce search update
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            if (localSearch !== searchQuery) {
+                setSearchQuery(localSearch);
+            }
+        }, 500); // 500ms debounce for complex map filtering
+
+        return () => clearTimeout(timer);
+    }, [localSearch, setSearchQuery, searchQuery]);
+
+    // Sync local search if searchQuery changes from outside (e.g. click in table)
+    useEffect(() => {
+        setLocalSearch(searchQuery);
+    }, [searchQuery]);
 
     return (
         <>
@@ -24,8 +41,9 @@ export const MapControls = ({
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="sm:hidden absolute top-4 right-4 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
+                aria-label={isOpen ? 'Close menu' : 'Open map controls menu'}
             >
-                <span className="material-symbols-outlined">
+                <span className="material-symbols-outlined" aria-hidden="true">
                     {isOpen ? 'close' : 'menu'}
                 </span>
             </button>
@@ -33,9 +51,11 @@ export const MapControls = ({
             {/* Mobile Fullscreen Button (Separate) */}
             <button
                 onClick={onToggleFullscreen}
+                aria-label={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
+                title={isFullscreen ? 'Exit full screen' : 'Enter full screen'}
                 className="sm:hidden absolute top-4 right-14 z-[1000] w-9 h-9 bg-slate-900/90 rounded-lg flex items-center justify-center text-white border border-slate-700 shadow-lg backdrop-blur-sm"
             >
-                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 20 }} aria-hidden="true">
                     {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
                 </span>
             </button>
@@ -57,13 +77,20 @@ export const MapControls = ({
                             <input
                                 type="text"
                                 placeholder="Search map..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
+                                value={localSearch}
+                                onChange={(e) => {
+                                    setLocalSearch(e.target.value);
+                                    // Handle clearing immediately if empty
+                                    if (!e.target.value) setSearchQuery('');
+                                }}
                                 className="w-full bg-slate-800 text-white text-[11px] py-1 pl-7 pr-2 rounded border border-slate-600 outline-none focus:border-blue-500 transition-colors"
                             />
-                            {searchQuery && (
+                            {(localSearch || searchQuery) && (
                                 <button
-                                    onClick={() => setSearchQuery('')}
+                                    onClick={() => {
+                                        setLocalSearch('');
+                                        setSearchQuery('');
+                                    }}
                                     aria-label="Clear search"
                                     className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
                                 >
@@ -102,6 +129,7 @@ export const MapControls = ({
                                     className="sr-only peer"
                                     checked={isHeatmapMode}
                                     onChange={(e) => setIsHeatmapMode(e.target.checked)}
+                                    aria-label="Toggle Heatmap Overlay"
                                 />
                                 <div className="w-7 h-4 bg-slate-700 rounded-full peer peer-focus:ring-1 peer-focus:ring-blue-800 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
                             </div>
@@ -139,12 +167,14 @@ export const MapControls = ({
                         {/* Edit Mode Toggle */}
                         <button
                             onClick={() => setIsEditMode(prev => !prev)}
+                            aria-label={isEditMode ? 'Lock map - disable drag and drop' : 'Unlock map - enable drag and drop'}
+                            title={isEditMode ? 'Lock map' : 'Unlock map'}
                             className={`px-1.5 py-1 text-[10px] rounded flex items-center justify-center gap-1 transition-colors border ${isEditMode
                                 ? 'bg-blue-600 text-white border-blue-500'
                                 : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
                                 } `}
                         >
-                            <span className="material-symbols-outlined" style={{ fontSize: 13 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
                                 {isEditMode ? 'lock_open' : 'lock'}
                             </span>
                             {isEditMode ? 'Edit' : 'Lock'}

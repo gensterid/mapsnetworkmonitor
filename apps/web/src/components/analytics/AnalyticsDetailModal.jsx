@@ -106,8 +106,8 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-            <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-hidden shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4" onClick={onClose}>
+            <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-2xl max-h-[90vh] max-h-[90dvh] overflow-hidden shadow-2xl flex flex-col" onClick={(e) => e.stopPropagation()}>
                 {/* Modal Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-slate-700 bg-slate-900/50">
                     <div className="flex flex-col">
@@ -223,17 +223,17 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
                 </div>
 
                 {/* Modal Footer */}
-                <div className="px-5 py-4 border-t border-slate-700 flex justify-between items-center bg-slate-900/50">
-                    <div className="text-xs text-slate-500">
+                <div className="px-4 py-3 sm:px-5 sm:py-4 border-t border-slate-700 flex flex-col sm:flex-row justify-between items-center gap-3 bg-slate-900/50">
+                    <div className="text-xs text-slate-500 order-3 sm:order-1">
                         {alertList.length} alert ditampilkan
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 order-1 sm:order-2 w-full sm:w-auto">
                         {alertList.some(a => !a.resolved) && (
-                            <Button variant="outline" size="sm" color="warning" onClick={handleResolveAll} disabled={resolveAllMutation.isLoading}>
-                                Resolve All Unresolved
+                            <Button variant="outline" size="sm" color="warning" onClick={handleResolveAll} disabled={resolveAllMutation.isLoading} className="flex-1 sm:flex-none text-[11px] sm:text-sm">
+                                Resolve All
                             </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={onClose}>
+                        <Button variant="outline" size="sm" onClick={onClose} className="flex-1 sm:flex-none">
                             Tutup
                         </Button>
                     </div>

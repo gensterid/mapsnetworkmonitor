@@ -57,6 +57,8 @@ export const DraggableMarker = ({
     onDragEnd,
     onClick,
     eventHandlers: externalEventHandlers, // Destructure to prevent leakage into props
+    title,
+    alt,
     children,
     ...props
 }) => {
@@ -107,6 +109,8 @@ export const DraggableMarker = ({
             icon={icon}
             draggable={draggable}
             eventHandlers={eventHandlers}
+            title={title}
+            alt={alt}
             {...props}
         >
             {children}
