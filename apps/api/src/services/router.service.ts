@@ -149,6 +149,8 @@ export class RouterService {
                 id: raw.id,
                 routerId: raw.router_id,
                 cpuLoad: raw.cpu_load,
+                cpuCount: raw.cpu_count,
+                cpuFrequency: raw.cpu_frequency,
                 totalMemory: raw.total_memory,
                 freeMemory: raw.free_memory,
                 usedMemory: raw.used_memory,
@@ -156,6 +158,11 @@ export class RouterService {
                 freeDisk: raw.free_disk,
                 usedDisk: raw.used_disk,
                 uptime: raw.uptime,
+                temperature: raw.temperature,
+                voltage: raw.voltage,
+                boardTemp: raw.board_temp,
+                currentFirmware: raw.current_firmware,
+                upgradeFirmware: raw.upgrade_firmware,
                 recordedAt: raw.recorded_at,
             });
         }
