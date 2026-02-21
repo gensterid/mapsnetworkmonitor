@@ -10,6 +10,18 @@ import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import '@/lib/GoogleMutant';
 import { toast } from 'react-hot-toast';
 
+const MapZoomHandler = ({ onZoomChange }) => {
+    const map = useMap();
+    useEffect(() => {
+        const handleZoom = () => onZoomChange(map.getZoom());
+        map.on('zoomend', handleZoom);
+        // Initial set
+        handleZoom();
+        return () => map.off('zoomend', handleZoom);
+    }, [map, onZoomChange]);
+    return null;
+};
+
 // Import map components (existing + newly extracted)
 import {
     AnimatedPath,
@@ -171,6 +183,7 @@ const NetworkMap = ({
     const mapContainerRef = React.useRef(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [googleLoaded, setGoogleLoaded] = useState(() => !!window.google?.maps);
+    const [zoomLevel, setZoomLevel] = useState(10);
 
     // Performance optimization states
     const [enableAnimation, setEnableAnimation] = useState(() => {
@@ -487,6 +500,37 @@ const NetworkMap = ({
             root.style.setProperty('--map-traffic-peak', mapColors.trafficPeak);
         }
     }, [mapColors]);
+
+    // Inject CSS variable for dynamic zoom scaling
+    useEffect(() => {
+        const root = document.documentElement;
+        if (root) {
+            // Aggressive Squared Scaling: 
+            // Zoom 18: 1.0x
+            // Zoom 15: 0.69x
+            // Zoom 12: 0.44x
+            // Zoom 10: 0.3x
+            const scale = Math.max(0.2, Math.min(1.2, (zoomLevel / 18) ** 2));
+            root.style.setProperty('--map-zoom-scale', scale.toFixed(2));
+        }
+
+        const mapContainer = mapContainerRef.current;
+        if (mapContainer) {
+            // Auto-hide labels logic - Conservative (Zoom < 15)
+            if (zoomLevel < 15) {
+                mapContainer.classList.add('hide-labels-auto');
+            } else {
+                mapContainer.classList.remove('hide-labels-auto');
+            }
+
+            // Dot mode logic - Conservative (Zoom < 12)
+            if (zoomLevel < 12) {
+                mapContainer.classList.add('dot-mode');
+            } else {
+                mapContainer.classList.remove('dot-mode');
+            }
+        }
+    }, [zoomLevel]);
 
     // Combine Data
     const mapData = useMemo(() => {
@@ -1267,6 +1311,7 @@ const NetworkMap = ({
                         aria-label="Network Topology Map"
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
+                        <MapZoomHandler onZoomChange={setZoomLevel} />
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
                         <MemoizedGoogleMapsLayer
                             type={mapType}
