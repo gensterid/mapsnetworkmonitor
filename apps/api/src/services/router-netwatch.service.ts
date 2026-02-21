@@ -128,7 +128,11 @@ export class RouterNetwatchService {
      */
     async syncHosts(routerId: string, routerName: string, conn: any, availableInterfaces?: Set<string>): Promise<void> {
         try {
-            const mikrotikNetwatch = await getNetwatchHosts(conn);
+            // First fetch the router's current clock to calculate the exact offset
+            // We need this because MikroTik sends times without timezone info
+            const routerClock = await getRouterClock(conn).catch(() => undefined);
+            const mikrotikNetwatch = await getNetwatchHosts(conn, routerClock);
+
 
             const existingEntries = await db
                 .select()
