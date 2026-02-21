@@ -163,13 +163,18 @@ const NetworkLineOriginal = ({
         }
 
         let motionColor = railColor;
-        let motionType = 'orb';
-        if (isHeatmapActive || isAlert) {
-            motionType = 'packet';
-        } else if (line.deviceType === 'pppoe') {
+        // Prioritize motionType from styleConfig, otherwise fall back to status-based defaults
+        let motionType = styleConfig.motionType;
+
+        if (!motionType) {
             motionType = 'orb';
-        } else if (line.deviceType === 'odp') {
-            motionType = 'comet';
+            if (isHeatmapActive || isAlert) {
+                motionType = 'packet';
+            } else if (line.deviceType === 'pppoe') {
+                motionType = 'orb';
+            } else if (line.deviceType === 'odp') {
+                motionType = 'comet';
+            }
         }
 
         return {

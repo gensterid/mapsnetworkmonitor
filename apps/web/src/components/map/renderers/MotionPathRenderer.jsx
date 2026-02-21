@@ -101,26 +101,31 @@ const MotionPathRenderer = ({
 
                 if (motionType === 'orb') {
                     motionEl = document.createElementNS(ns, "circle");
-                    motionEl.setAttribute("r", "4");
+                    motionEl.setAttribute("r", "4.5");
+                    motionEl.setAttribute("cx", "0");
+                    motionEl.setAttribute("cy", "0");
                     motionEl.setAttribute("class", "motion-element motion-orb");
                 } else if (motionType === 'packet') {
                     motionEl = document.createElementNS(ns, "rect");
-                    motionEl.setAttribute("width", "12");
-                    motionEl.setAttribute("height", "12");
-                    motionEl.setAttribute("rx", "2");
+                    motionEl.setAttribute("width", "16");
+                    motionEl.setAttribute("height", "5");
+                    motionEl.setAttribute("x", "-8");
+                    motionEl.setAttribute("y", "-2.5");
+                    motionEl.setAttribute("rx", "2.5");
                     motionEl.setAttribute("class", "motion-element motion-packet");
                 } else {
                     motionEl = document.createElementNS(ns, "rect");
-                    motionEl.setAttribute("width", "45");
-                    motionEl.setAttribute("height", "2");
-                    motionEl.setAttribute("rx", "1");
+                    motionEl.setAttribute("width", "40");
+                    motionEl.setAttribute("height", "3");
+                    motionEl.setAttribute("x", "-20");
+                    motionEl.setAttribute("y", "-1.5");
+                    motionEl.setAttribute("rx", "1.5");
                     motionEl.setAttribute("class", "motion-element motion-comet");
                 }
 
                 // Apply initial styles immediately
                 if (motionColor) {
                     motionEl.style.setProperty('--motion-color', motionColor);
-                    motionEl.style.fill = motionColor;
                 }
 
                 pathElement.parentNode.appendChild(motionEl);

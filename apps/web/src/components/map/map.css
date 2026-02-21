@@ -899,6 +899,8 @@ svg.leaflet-zoom-animated {
     pointer-events: none;
     /* Let clicks pass through to the line */
     will-change: offset-distance;
+    mix-blend-mode: screen;
+    /* Additive blending for light effects */
 }
 
 @keyframes motion-move {
@@ -913,35 +915,36 @@ svg.leaflet-zoom-animated {
 
 /* Motion Element Styles (SVG Compatible) */
 .motion-orb {
-    fill: #ffffff;
-    /* White core */
-    filter: drop-shadow(0 0 8px var(--motion-color, #ffffff));
-    /* Colored glow */
-    r: 4px;
+    fill: var(--motion-color, #ffffff);
+    filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 8px var(--motion-color, #ffffff));
+    r: 4.5px;
+    /* Focused point */
+    opacity: 0.95;
 }
 
 .motion-comet {
-    fill: #ffffff;
-    /* White core */
+    fill: var(--motion-color, #ffffff);
     stroke: none;
-    filter: drop-shadow(0 0 5px var(--motion-color, #ffffff));
-    /* Colored glow */
-    width: 45px;
-    /* Extremely long for needle/bolt effect */
-    height: 2px;
-    /* Very thin */
-    rx: 1px;
+    filter: drop-shadow(0 0 2px #ffffff) drop-shadow(0 0 6px var(--motion-color, #ffffff));
+    width: 40px;
+    /* Long energetic streak */
+    height: 3px;
+    rx: 1.5px;
+    /* Pill shape */
+    opacity: 0.7;
+    /* Softer trail look */
 }
 
 .motion-packet {
-    fill: #ffffff;
-    /* White core */
-    filter: drop-shadow(0 0 6px var(--motion-color, #00f2ff));
-    /* Colored glow */
-    width: 12px;
-    height: 12px;
-    /* Square cube look */
-    rx: 2px;
+    fill: var(--motion-color, #00f2ff);
+    filter: drop-shadow(0 0 3px #ffffff) drop-shadow(0 0 8px var(--motion-color, #00f2ff));
+    width: 16px;
+    /* Perfect pill width */
+    height: 5px;
+    /* Perfect pill height */
+    rx: 2.5px;
+    /* Fully rounded ends */
+    opacity: 0.9;
 }
 
 /* Reverse Animation */

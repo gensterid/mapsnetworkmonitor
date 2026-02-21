@@ -292,29 +292,29 @@ export const ANIMATION_STYLES = {
         opacity: 0.3, // Dim background line
         useMotionPath: true, // Flag for new renderer
         motionType: 'orb',
-        description: 'Bola kemilau bergerak di atas jalur'
+        description: 'Bola kemilau terfokus (Circle) bergerak di atas jalur'
     },
 
     // Meteor / Comet (Motion Path)
     meteor: {
         name: 'Meteor (Motion)',
-        delay: 2000,
+        delay: 1500, /* Faster for sense of energy */
         weight: 2,
         opacity: 0.3,
         useMotionPath: true,
         motionType: 'comet',
-        description: 'Efek meteor dengan ekor'
+        description: 'Kilatan cahaya panjang (Streak) yang meluncur cepat'
     },
 
     // Data Packet (Motion Path)
     dataPacket: {
         name: 'Data Packet (Motion)',
-        delay: 4000,
+        delay: 4500, /* Slower, more rhythmic */
         weight: 2,
         opacity: 0.4,
         useMotionPath: true,
         motionType: 'packet',
-        description: 'Paket data fisik yang dikirimkan'
+        description: 'Paket data berbentuk kapsul (Pill) yang bergerak teratur'
     }
 };
 
