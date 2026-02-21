@@ -23,10 +23,13 @@ const createClusterCustomIcon = (cluster) => {
         // Check Issue (if not down)
         else {
             const signalPower = lastRxPower !== null ? parseFloat(lastRxPower) : null;
-            const isWarning =
+            const hasPerformanceIssue =
                 (latency !== null && latency > 100) ||
                 (packetLoss !== null && packetLoss > 0) ||
                 (signalPower !== null && signalPower < -24);
+
+            // Smart Warning: ODP only shows warning if it has an IP host (monitored via latency/loss)
+            const isWarning = hasPerformanceIssue && (marker.options.type !== 'odp' || (marker.options.host));
 
             if (isWarning) {
                 hasIssue = true;

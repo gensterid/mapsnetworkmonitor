@@ -1063,13 +1063,13 @@ const NetworkMap = ({
                     key={`netwatch-${node.routerId}-${node.id}`}
                     id={node.id} // Pass ID for context check
                     position={[node.lat, node.lng]}
-                    type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
                     status={node.status}
                     name={node.name || node.host}
+                    host={node.host}
                     showLabel={showLabels}
                     small={true}
-                    latency={Number(node.latency)}
-                    packetLoss={Number(node.packetLoss)}
+                    latency={node.latency}
+                    packetLoss={node.packetLoss}
                     lastRxPower={node.lastRxPower}
                     draggable={isEditMode}
                     onDragEnd={(pos) => {

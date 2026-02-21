@@ -128,8 +128,8 @@ export const getTooltipColor = (node) => {
         (node.packetLoss !== null && node.packetLoss > 0) ||
         (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
-    // Smart Warning: ODP only shows yellow if it has an IP host (monitored via latency/loss)
-    if (hasPerformanceIssue && (type !== 'odp' || (node.latency !== null || node.packetLoss !== null))) {
+    // Smart Warning: ODP only shows yellow if it has an IP host (monitored)
+    if (hasPerformanceIssue && (type !== 'odp' || node.host)) {
         return 'var(--map-color-warning, #FACC15)';
     }
 
@@ -806,8 +806,9 @@ export const SmartMarker = ({
         small,
         latency: safeLatency,
         packetLoss: safePacketLoss,
-        lastRxPower: props.lastRxPower || props.last_rx_power || null
-    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, props.lastRxPower, props.last_rx_power]);
+        lastRxPower: props.lastRxPower || props.last_rx_power || null,
+        host: props.host || null
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, props.lastRxPower, props.last_rx_power, props.host]);
 
     return (
         <DraggableMarker
@@ -821,6 +822,7 @@ export const SmartMarker = ({
             latency={safeLatency} // New: Pass for cluster color logic
             packetLoss={safePacketLoss} // New: Pass for cluster color logic
             lastRxPower={props.lastRxPower || props.last_rx_power || null} // New: Pass for cluster color logic
+            host={props.host} // New: Pass for cluster color logic (Smart ODP)
             {...props}
         >
             {children}

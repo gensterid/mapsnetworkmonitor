@@ -60,6 +60,7 @@ export const createDeviceIcon = ({
     latency = null,
     packetLoss = null,
     lastRxPower = null,
+    host = null,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
@@ -79,9 +80,9 @@ export const createDeviceIcon = ({
     if (isOffline) {
         normalizedStatus = 'offline';
     }
-    // Smart Warning: ODP only shows warning if it has an IP host (monitored via latency/loss)
+    // Smart Warning: ODP only shows warning if it has an IP host (monitored)
     // PPPoE always supports warnings as it has an inherent IP
-    else if (hasPerformanceIssue && (type !== 'odp' || (latency !== null || packetLoss !== null))) {
+    else if (hasPerformanceIssue && (type !== 'odp' || host)) {
         normalizedStatus = 'warning';
     } else if (type === 'odp') {
         normalizedStatus = 'odp'; // Orange
