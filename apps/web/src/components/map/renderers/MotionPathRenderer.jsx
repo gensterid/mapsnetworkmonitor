@@ -107,13 +107,13 @@ const MotionPathRenderer = ({
                     motionEl = document.createElementNS(ns, "rect");
                     motionEl.setAttribute("width", "10");
                     motionEl.setAttribute("height", "6");
-                    motionEl.setAttribute("rx", "2");
+                    motionEl.setAttribute("rx", "1");
                     motionEl.setAttribute("class", "motion-element motion-packet");
                 } else {
                     motionEl = document.createElementNS(ns, "rect");
-                    motionEl.setAttribute("width", "18");
-                    motionEl.setAttribute("height", "4");
-                    motionEl.setAttribute("rx", "2");
+                    motionEl.setAttribute("width", "25");
+                    motionEl.setAttribute("height", "3");
+                    motionEl.setAttribute("rx", "1.5");
                     motionEl.setAttribute("class", "motion-element motion-comet");
                 }
 

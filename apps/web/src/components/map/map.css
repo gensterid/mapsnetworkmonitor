@@ -913,26 +913,29 @@ svg.leaflet-zoom-animated {
 
 /* Motion Element Styles (SVG Compatible) */
 .motion-orb {
-    fill: white;
-    filter: drop-shadow(0 0 5px white);
-    r: 4px;
+    fill: #ffffff;
+    filter: drop-shadow(0 0 6px #ffffff);
+    r: 5px;
 }
 
 .motion-comet {
-    fill: white;
+    fill: #ffffff;
     stroke: none;
-    filter: drop-shadow(0 0 4px white);
-    width: 18px;
-    height: 4px;
-    rx: 2px;
+    filter: drop-shadow(0 0 4px #ffffff);
+    width: 25px;
+    /* Longer for speed effect */
+    height: 3px;
+    /* Thinner */
+    rx: 1.5px;
 }
 
 .motion-packet {
-    fill: #FFD700;
-    filter: drop-shadow(0 0 3px #FFD700);
+    fill: #00f2ff;
+    /* Cyber Cyan */
+    filter: drop-shadow(0 0 4px #00f2ff);
     width: 10px;
     height: 6px;
-    rx: 2px;
+    rx: 1px;
 }
 
 /* Reverse Animation */
