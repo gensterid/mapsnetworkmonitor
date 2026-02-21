@@ -450,6 +450,23 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
         return `${bps.toFixed(0)} bps`;
     };
 
+    const formatOnuId = (ponId, onuId) => {
+        if (!ponId || !onuId) return null;
+
+        // If it looks like an absolute ID (contains 256+), it's likely HSGQ or similar OLT
+        // We'll apply the logic if ponId is small and onuId >= 256
+        const pId = parseInt(ponId);
+        const oId = parseInt(onuId);
+
+        if (!isNaN(pId) && !isNaN(oId) && oId >= 256) {
+            const formattedPon = `PON${String(pId + 1).padStart(2, '0')}`;
+            const formattedOnu = oId % 256;
+            return `${formattedPon}/${formattedOnu}`;
+        }
+
+        return `${ponId}-${onuId}`;
+    };
+
     const rawStatus = (node.physicalStatus && node.physicalStatus !== 'unknown'
         ? node.physicalStatus
         : (node.status || 'unknown')).toLowerCase();
@@ -573,7 +590,13 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                                 <span className="text-blue-400 font-mono truncate max-w-[100px]" title={node.oltName}>{node.oltName}</span>
                             </div>
                         )}
-                        {node.ponPort && (
+                        {node.ponId && node.onuId && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">PON / ID</span>
+                                <span className="text-slate-200 font-mono">{formatOnuId(node.ponId, node.onuId)}</span>
+                            </div>
+                        )}
+                        {!node.ponId && node.ponPort && (
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">PON Port</span>
                                 <span className="text-slate-200 font-mono">{node.ponPort}</span>

@@ -104,6 +104,24 @@ export default function OltDetails() {
         );
     }, [onus, searchTerm]);
 
+    const formatOnuId = (ponId, onuId) => {
+        if (!olt || !ponId || !onuId) return `${ponId}-${onuId}`;
+
+        // HSGQ Style: PON01/0
+        if (olt.type?.toLowerCase() === 'hsgq') {
+            const pId = parseInt(ponId);
+            const oId = parseInt(onuId);
+
+            if (!isNaN(pId) && !isNaN(oId)) {
+                const formattedPon = `PON${String(pId + 1).padStart(2, '0')}`;
+                const formattedOnu = oId % 256;
+                return `${formattedPon}/${formattedOnu}`;
+            }
+        }
+
+        return `${ponId}-${onuId}`;
+    };
+
     if (isLoadingOlt) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-950">
@@ -342,7 +360,7 @@ export default function OltDetails() {
                                                 <tr key={index} className="hover:bg-slate-800/30 transition-colors">
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                         <div className="flex flex-col">
-                                                            <span className="text-sm font-medium text-white">{onu.ponId}-{onu.onuId}</span>
+                                                            <span className="text-sm font-medium text-white">{formatOnuId(onu.ponId, onu.onuId)}</span>
                                                         </div>
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
