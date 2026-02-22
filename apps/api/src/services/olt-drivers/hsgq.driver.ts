@@ -220,8 +220,8 @@ export class HsgqDriver extends BaseOltDriver {
                 macAddress: item.ont_mac || item.onu_mac || item.mac_addr || item.mac || undefined,
                 status,
                 signal: item.receive_power || item.rx_power || item.rxPower || item.signals || item.optical_power || undefined,
-                name,
-                description: item.ont_description || item.description || undefined,
+                name: item.ont_name || item.Name || item.name || item.onu_name || undefined,
+                description: item.ont_description || item.Description || item.description || item.remark || undefined,
                 lastDownReason,
                 lastDownTime: item.last_d_time || undefined,
                 lastUpTime: item.last_u_time || undefined

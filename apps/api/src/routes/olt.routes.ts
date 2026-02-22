@@ -46,7 +46,7 @@ router.get('/ping', (req, res) => res.json({ status: 'ok', msg: 'OLT Router is a
 
 // Get all ONUs for a specific router (via OLTs)
 router.get('/onus/by-router/:routerId', asyncHandler(async (req, res) => {
-    const onus = await oltService.getOnusByRouter(req.params.routerId);
+    const onus = await oltService.getOnusByRouter(req.params.routerId as string);
     res.json(onus);
 }));
 
@@ -67,7 +67,7 @@ router.get('/', asyncHandler(async (req, res) => {
 
 // Get OLT by ID
 router.get('/:id', asyncHandler(async (req, res) => {
-    const olt = await oltService.findById(req.params.id, req.user?.id, req.user?.role);
+    const olt = await oltService.findById(req.params.id as string, req.user?.id, req.user?.role);
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
@@ -84,7 +84,7 @@ router.post('/', asyncHandler(async (req, res) => {
 // Update OLT
 router.patch('/:id', asyncHandler(async (req, res) => {
     const data = updateOltSchema.parse(req.body);
-    const olt = await oltService.update(req.params.id, data);
+    const olt = await oltService.update(req.params.id as string, data);
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
@@ -93,7 +93,7 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 
 // Delete OLT
 router.delete('/:id', asyncHandler(async (req, res) => {
-    const success = await oltService.delete(req.params.id);
+    const success = await oltService.delete(req.params.id as string);
     if (!success) {
         throw ApiError.notFound('OLT not found');
     }
@@ -102,7 +102,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 
 // Get OLT ONUs (via Driver)
 router.get('/:id/onus', asyncHandler(async (req, res) => {
-    const onus = await oltService.getOnus(req.params.id);
+    const onus = await oltService.getOnus(req.params.id as string);
     res.json(onus);
 }));
 
@@ -111,7 +111,7 @@ router.patch('/:id/onus/:onuId', asyncHandler(async (req, res) => {
     const { onuId } = req.params;
     const validatedData = updateOnuSchema.parse(req.body);
 
-    const updatedHook = await oltService.updateOnu(onuId, validatedData);
+    const updatedHook = await oltService.updateOnu(onuId as string, validatedData);
     if (!updatedHook) {
         throw ApiError.notFound('ONU not found');
     }
@@ -120,7 +120,7 @@ router.patch('/:id/onus/:onuId', asyncHandler(async (req, res) => {
 
 // Refresh OLT status
 router.post('/:id/refresh', asyncHandler(async (req, res) => {
-    const olt = await oltService.refreshStatus(req.params.id);
+    const olt = await oltService.refreshStatus(req.params.id as string);
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }

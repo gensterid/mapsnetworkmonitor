@@ -349,6 +349,7 @@ export default function OltDetails() {
                                             <tr className="bg-slate-900/50 border-b border-slate-800">
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">PON / ID</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">SN / Alias</th>
+                                                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">MAC Address</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
                                                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Reason</th>
@@ -372,10 +373,12 @@ export default function OltDetails() {
                                                                 <span className="text-sm text-white font-mono">{onu.sn}</span>
                                                             </div>
                                                             {onu.name && <span className="text-[10px] text-slate-300 font-medium">{onu.name}</span>}
-                                                            {onu.description && onu.description !== onu.name && (
-                                                                <span className="text-[10px] text-slate-500 italic">{onu.description}</span>
-                                                            )}
                                                         </div>
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <span className="text-xs text-slate-400 truncate max-w-[150px]" title={onu.description}>
+                                                            {onu.description || '-'}
+                                                        </span>
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                         {onu.macAddress ? (
@@ -493,6 +496,7 @@ export default function OltDetails() {
                             onuId: editingOnu.id,
                             data: {
                                 name: formData.get('name'),
+                                description: formData.get('description') || null,
                                 latitude: latitude,
                                 longitude: longitude,
                                 location: formData.get('location') || null,
@@ -514,10 +518,20 @@ export default function OltDetails() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-medium text-slate-400 mb-1">Description / Location Info</label>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">OLT Description</label>
+                        <input
+                            name="description"
+                            defaultValue={editingOnu?.description || ''}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
+                            placeholder="Description from OLT"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1">Physical Location / Notes</label>
                         <input
                             name="location"
-                            defaultValue={editingOnu?.description || editingOnu?.location || ''}
+                            defaultValue={editingOnu?.location || ''}
                             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-primary"
                             placeholder="ODP / Pole / Address"
                         />

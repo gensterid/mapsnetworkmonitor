@@ -12,7 +12,7 @@ async function checkDatabase() {
     const sql = postgres(url);
 
     try {
-        const tables = ['users', 'sessions', 'accounts', 'verifications'];
+        const tables = ['users', 'sessions', 'accounts', 'verifications', 'onus'];
         console.log('\n📊 Checking tables and columns:');
 
         for (const table of tables) {
@@ -44,6 +44,12 @@ async function checkDatabase() {
             }
             if (table === 'accounts') {
                 ['password', 'provider_id', 'account_id'].forEach(colName => {
+                    const hasCol = cols.some(c => c.column_name === colName);
+                    console.log(`   - Column "${colName}": ${hasCol ? '✅ Found' : '❌ MISSING'}`);
+                });
+            }
+            if (table === 'onus') {
+                ['sn', 'router_id', 'olt_id', 'host'].forEach(colName => {
                     const hasCol = cols.some(c => c.column_name === colName);
                     console.log(`   - Column "${colName}": ${hasCol ? '✅ Found' : '❌ MISSING'}`);
                 });

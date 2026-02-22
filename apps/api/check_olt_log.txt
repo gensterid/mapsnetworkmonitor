@@ -1,0 +1,26 @@
+﻿Checking OLT 63bfb5eb-33bd-4622-a633-e90d2f7f754c...
+OLT Record: {
+  "id": "63bfb5eb-33bd-4622-a633-e90d2f7f754c",
+  "name": "Cdata01",
+  "host": "192.168.87.10",
+  "snmp_port": 161,
+  "snmp_community": "public",
+  "type": "cdata",
+  "status": "online",
+  "uptime": 0,
+  "description": "tes",
+  "created_at": "2026-02-14T16:25:43.260Z",
+  "updated_at": "2026-02-22T08:54:05.975Z",
+  "web_port": 80,
+  "web_username": "maps",
+  "web_password": "v2:qZ+2hKFifr1p81MdmRDHfIphq/f4D8/ZMEQbGqUJn1U=:VFfs0Fqdp5U4kXs9khfiew==:yJYi+3MILi3GCQS1KzmmwA==:1Z4d56H5+CU=",
+  "web_protocol": "http",
+  "use_snmp": false,
+  "use_web": true,
+  "parent_id": "d9328185-2fb1-49cb-a51f-3ec7449d5ad3",
+  "active_protocol": null,
+  "last_snmp_status": null,
+  "last_web_status": null,
+  "latitude": null,
+  "longitude": null
+}

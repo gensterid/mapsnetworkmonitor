@@ -133,6 +133,7 @@ router.get(
                 sn: linkedOnu?.sn,
                 model: linkedOnu?.model,
                 ssid: linkedOnu?.ssid,
+                description: linkedOnu?.description,
                 lastRxPower: linkedOnu?.lastRxPower,
                 physicalStatus: linkedOnu?.status,
                 data: {
@@ -159,6 +160,7 @@ router.get(
                     sn: o.sn,
                     model: o.model,
                     ssid: o.ssid,
+                    description: o.description,
                     status: o.status === 'online' ? 'online' : 'offline',
                     physicalStatus: o.status,
                     lastRxPower: o.lastRxPower,
@@ -239,7 +241,7 @@ router.put(
     '/nodes/:id/position',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id } = req.params;
+        const id = req.params.id as string;
         const { lat, lng } = updatePositionSchema.parse(req.body);
 
         // Try update Router

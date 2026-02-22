@@ -1,0 +1,200 @@
+﻿[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.200"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.193"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.244"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.234"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.89"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.76"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.88.17"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.130"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.122"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.155"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.144"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.151"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.1.32"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.1.28"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.126"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.251"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.82"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.5.20"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "10.20.40.6"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.102"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.66"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.5.104"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.160"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "10.10.2.17"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.105"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.127"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.136"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.148"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.169"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.185"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.198"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.40"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.67"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.125"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.250"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "10.10.2.18"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.103"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.118"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.165"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.236"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.253"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "10.10.94.10"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "10.10.70.43"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.1.31"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.228"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.5.110"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.88.20"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.1.212"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.157"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.213"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.248"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "172.18.19.1"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.10.103"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.161"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.204"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.217"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.230"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.33.2"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.131"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.207"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.50"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.191"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.212"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.237"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [34mDEBUG[39m: [36m[Unified Linkage] Missed sync: No ONU found for host[39m
+    [35mhost[39m: "192.168.19.137"
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+[20:48:51 UTC] [32mINFO[39m: [36m[Unified Linkage] Sync complete[39m
+    [35mrouterId[39m: "d9328185-2fb1-49cb-a51f-3ec7449d5ad3"
+    [35mlinkedCount[39m: 26
+    [35mmissedCount[39m: 203
+[20:48:52 UTC] [32mINFO[39m: [36mâœ… Polling complete: 4 success, 0 failed (21.9s)[39m

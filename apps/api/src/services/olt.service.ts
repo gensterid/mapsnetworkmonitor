@@ -351,7 +351,7 @@ export class OltService {
                             discoverySources: ['olt'],
                             lastSeen: status === 'online' ? new Date() : null,
                             lastDownReason: device.lastDownReason,
-                        })
+                        } as any)
                             .onConflictDoUpdate({
                                 target: onus.sn,
                                 set: {
@@ -365,7 +365,7 @@ export class OltService {
                                     lastDownReason: device.lastDownReason || sql`onus.last_down_reason`,
                                     macAddress: device.macAddress || sql`onus.mac_address`,
                                     updatedAt: new Date(),
-                                }
+                                } as any
                             });
 
                         const [inserted] = await insertQuery.returning();
@@ -389,7 +389,7 @@ export class OltService {
                             lastRxPower: device.signal ? String(device.signal) : dbOnu.lastRxPower,
                             lastDownReason: device.lastDownReason || dbOnu.lastDownReason,
                             macAddress: device.macAddress || dbOnu.macAddress,
-                            description: device.description || dbOnu.description,
+                            description: device.description || (dbOnu as any).description,
                             updatedAt: new Date(),
                         };
 
@@ -425,7 +425,7 @@ export class OltService {
                     status: dbOnu.status, // [FIX] Use normalized DB status (e.g. 'power_down') instead of raw driver status
                     latitude: dbOnu.latitude,
                     longitude: dbOnu.longitude,
-                    description: dbOnu.description,
+                    description: (dbOnu as any).description,
                     name: dbOnu.name || device.name,
                     lastRxPower: device.signal || dbOnu.lastRxPower,
                     lastDown: dbOnu.lastSeen, // Use lastSeen as lastDown for ONUs
@@ -519,7 +519,7 @@ export class OltService {
             try {
                 // Perform batch upsert using Drizzle's onConflictDoUpdate
                 await db.insert(onus)
-                    .values(valuesToUpsert)
+                    .values(valuesToUpsert as any)
                     .onConflictDoUpdate({
                         target: onus.sn,
                         set: {
@@ -537,7 +537,7 @@ export class OltService {
                             lastDownReason: sql`excluded.last_down_reason`,
                             macAddress: sql`COALESCE(onus.mac_address, excluded.mac_address)`,
                             updatedAt: sql`excluded.updated_at`,
-                        }
+                        } as any
                     });
 
                 added = valuesToUpsert.length; // Approximate simplified report

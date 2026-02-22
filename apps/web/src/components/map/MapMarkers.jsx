@@ -594,6 +594,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                                 <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.sn}>{node.sn}</span>
                             </div>
                         )}
+                        {node.description && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Desc</span>
+                                <span className="text-slate-200 font-mono truncate max-w-[120px]" title={node.description}>{node.description}</span>
+                            </div>
+                        )}
                         {node.ssid && (
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">SSID</span>

@@ -1,0 +1,9 @@
+﻿<!doctype html><html lang=""><head><meta charset="utf-8"/><meta content="IE=edge" http-equiv="X-UA-Compatible"/><link href="/favicon.ico" rel="icon"/><title id="page-title">OLT Web Management System</title><meta name="author" content="1.0.0.1760408701082_3.4.12_2F5E3D13"><script defer="defer" src="/js/chunk-vendors.ea70d27c.js"></script><script defer="defer" src="/js/app.80e05741.js"></script><link href="/css/app.2051834a.css" rel="stylesheet"></head><body><noscript><strong>We're sorry but olt doesn't work properly without JavaScript enabled. Please enable it to continue.</strong></noscript><div id="app"></div></body></html><script>// function changeTitle() {
+  //   // Σ╗Ä localStorage Σ╕¡ΦÄ╖σÅû BrowserSign τÜäσÇ╝
+  //   let browserSign = String(localStorage.getItem('BrowserSign'));
+
+  //   if (browserSign) {
+  //     browserSign = browserSign.replace(/['"]/g, '');
+  //     // µ¢┤µö╣Θí╡Θ¥óµáçΘóÿ
+  //     document.getElementById('page-title').innerText = browserSign || 'OLT Web Management System';
+  //

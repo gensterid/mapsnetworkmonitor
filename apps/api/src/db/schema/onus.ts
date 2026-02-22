@@ -34,6 +34,7 @@ export const onus = pgTable('onus', {
     macAddress: text('mac_address'), // ONU MAC Address
 
     name: text('name'), // Customer / Device name
+    description: text('description'), // Description from OLT
     model: text('model'), // Device Model
     ssid: text('ssid'), // WiFi SSID
     firmwareVersion: text('firmware_version'), // Firmware Version
