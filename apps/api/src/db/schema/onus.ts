@@ -7,10 +7,12 @@ import {
     pgEnum,
     json,
     index,
+    foreignKey,
 } from 'drizzle-orm/pg-core';
 import { olts } from './olts.js';
+import { routers } from './routers.js';
 
-export const onuStatusEnum = pgEnum('onu_status', [
+export const onusStatusEnum = pgEnum('onu_status', [
     'online',
     'offline',
     'lost',
@@ -25,6 +27,8 @@ export const onus = pgTable('onus', {
     sn: text('sn').notNull().unique(), // Serial Number - Main Key
     oltId: uuid('olt_id')
         .references(() => olts.id, { onDelete: 'set null' }),
+    routerId: uuid('router_id')
+        .references(() => routers.id, { onDelete: 'set null' }),
     ponPort: text('pon_port'), // Physical port (e.g. gpon0/1)
     onuIndex: text('onu_index'), // Index on OLT
     macAddress: text('mac_address'), // ONU MAC Address
@@ -37,7 +41,7 @@ export const onus = pgTable('onus', {
 
     // Physical Metrics
     lastRxPower: text('last_rx_power'),
-    status: onuStatusEnum('status').default('unknown').notNull(),
+    status: onusStatusEnum('status').default('unknown').notNull(),
     lastSeen: timestamp('last_seen'),
     lastDownReason: text('last_down_reason'),
 
@@ -61,6 +65,7 @@ export const onus = pgTable('onus', {
     discoverySources: json('discovery_sources').$type<string[]>().default([]),
 }, (table) => ({
     oltIdIdx: index('onus_olt_id_idx').on(table.oltId),
+    routerIdIdx: index('onus_router_id_idx').on(table.routerId),
     statusIdx: index('onus_status_idx').on(table.status),
 }));
 

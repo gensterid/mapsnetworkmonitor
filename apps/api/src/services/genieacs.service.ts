@@ -220,6 +220,7 @@ export const genieacsService = {
                     if (!sources.includes('acs')) sources.push('acs');
 
                     await db.update(onus).set({
+                        routerId: routerId || existing.routerId,
                         model: dev._productClass || existing.model,
                         ssid: dev._ssid || existing.ssid,
                         firmwareVersion: dev._softwareVersion || existing.firmwareVersion,
@@ -243,6 +244,7 @@ export const genieacsService = {
 
                     await db.insert(onus).values({
                         sn: sn,
+                        routerId: routerId,
                         name: `ACS-${sn.slice(-4)}`,
                         model: dev._productClass,
                         ssid: dev._ssid,

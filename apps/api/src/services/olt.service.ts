@@ -336,6 +336,7 @@ export class OltService {
                     const [inserted] = await db.insert(onus).values({
                         sn: device.sn,
                         oltId: id,
+                        routerId: olt.parentId,
                         ponPort: device.ponId,
                         onuIndex: device.onuId,
                         macAddress: device.macAddress,
@@ -365,7 +366,10 @@ export class OltService {
 
                         // Run update in background to not slow down the read request too much
                         db.update(onus)
-                            .set(updateData)
+                            .set({
+                                ...updateData,
+                                routerId: olt.parentId || dbOnu.routerId
+                            })
                             .where(eq(onus.id, dbOnu.id))
                             .execute()
                             .catch(err => logger.error({ err, sn: device.sn }, 'Failed to background sync ONU'));
@@ -429,7 +433,7 @@ export class OltService {
         }
 
         // 2. Prepare Imports
-        const { onus, onuStatusEnum } = await import('../db/schema/onus.js');
+        const { onus, onusStatusEnum } = await import('../db/schema/onus.js');
         const { sql } = await import('drizzle-orm');
 
         let added = 0;
@@ -462,6 +466,7 @@ export class OltService {
             valuesToUpsert.push({
                 sn: device.sn,
                 oltId: oltId,
+                routerId: olt.parentId,
                 ponPort: device.ponId,
                 onuIndex: device.onuId,
                 name: defaultName,
@@ -485,6 +490,7 @@ export class OltService {
                         target: onus.sn,
                         set: {
                             oltId: sql`excluded.olt_id`,
+                            routerId: sql`COALESCE(excluded.router_id, onus.router_id)`,
                             ponPort: sql`excluded.pon_port`,
                             onuIndex: sql`excluded.onu_index`,
                             lastRxPower: sql`excluded.last_rx_power`,

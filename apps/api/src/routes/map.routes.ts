@@ -56,10 +56,27 @@ router.get(
         }
 
         // 3. Fetch OLTs
-        // TODO: Filter OLTs by permissions if needed
         const allOlts = await db.select().from(olts);
 
-        // 4. Construct Nodes
+        // 4. Fetch ONUs (Inventory) for enrichment and Scenario 5-6
+        const routerIds = allRouters.map(r => r.id);
+        let allOnus: any[] = [];
+        if (routerIds.length > 0) {
+            allOnus = await db
+                .select()
+                .from(onus)
+                .where(inArray(onus.routerId, routerIds));
+        }
+
+        // Create a map for fast lookup: key = routerId:host
+        const onuLookup = new Map();
+        allOnus.forEach(o => {
+            if (o.host && o.routerId) {
+                onuLookup.set(`${o.routerId}:${o.host}`, o);
+            }
+        });
+
+        // 5. Construct Nodes
         const nodes: any[] = [];
 
         // Add Routers
@@ -91,8 +108,17 @@ router.get(
             });
         });
 
+        // Track which ONUs are already linked to Netwatch
+        const linkedOnuIds = new Set<string>();
+
         // Add Netwatch (Clients/ODPs)
         netwatchEntries.forEach(n => {
+            // Find linked ONU metadata (Unified Linkage)
+            const linkedOnu = onuLookup.get(`${n.routerId}:${n.host}`);
+            if (linkedOnu) {
+                linkedOnuIds.add(linkedOnu.id);
+            }
+
             nodes.push({
                 id: n.id,
                 type: n.deviceType || 'client',
@@ -103,8 +129,44 @@ router.get(
                 lng: parseFloat(n.longitude || '0'),
                 latency: n.latency,
                 packetLoss: n.packetLoss,
-                data: n
+                // Enrich data with ONU info if available
+                sn: linkedOnu?.sn,
+                model: linkedOnu?.model,
+                ssid: linkedOnu?.ssid,
+                lastRxPower: linkedOnu?.lastRxPower,
+                physicalStatus: linkedOnu?.status,
+                data: {
+                    ...n,
+                    onu: linkedOnu // Keep original object too
+                }
             });
+        });
+
+        // Add Standalone ONUs (Scenario 5-6)
+        allOnus.forEach(o => {
+            if (linkedOnuIds.has(o.id)) return; // Already linked via Netwatch
+
+            // Only show if it has coordinates
+            const lat = parseFloat(o.latitude || '0');
+            const lng = parseFloat(o.longitude || '0');
+
+            if (lat !== 0 && lng !== 0) {
+                nodes.push({
+                    id: o.id,
+                    type: 'onu',
+                    name: o.name || o.sn,
+                    host: o.host,
+                    sn: o.sn,
+                    model: o.model,
+                    ssid: o.ssid,
+                    status: o.status === 'online' ? 'online' : 'offline',
+                    physicalStatus: o.status,
+                    lastRxPower: o.lastRxPower,
+                    lat,
+                    lng,
+                    data: o
+                });
+            }
         });
 
         // 5. Construct Lines (Connections)
