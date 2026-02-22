@@ -58,8 +58,13 @@ export class RouterNetwatchService {
                 SELECT id FROM onus o
                 WHERE 
                     o.id = ${routerNetwatch.linkedOnuId} OR
-                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
-                    (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
+                    (
+                        o.router_id = ${routerNetwatch.routerId} AND 
+                        (
+                            (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                            (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
+                        )
+                    )
                 ORDER BY (
                     CASE 
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
@@ -150,8 +155,13 @@ export class RouterNetwatchService {
                 SELECT id FROM onus o
                 WHERE 
                     o.id = ${routerNetwatch.linkedOnuId} OR
-                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
-                    (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
+                    (
+                        o.router_id = ${routerNetwatch.routerId} AND 
+                        (
+                            (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                            (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
+                        )
+                    )
                 ORDER BY (
                     CASE 
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
