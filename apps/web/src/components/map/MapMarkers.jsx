@@ -17,33 +17,38 @@ export const MapAutoFit = ({ markers, isEditing }) => {
         // Don't auto-fit if we have no markers, OR if we are in an editing mode
         if (!markers || markers.length === 0 || isEditing) return;
 
-        try {
-            // Filter out any markers with invalid coordinates to prevent L.latLngBounds crash
-            const validPoints = markers
-                .filter(m => m && typeof m.lat === 'number' && typeof m.lng === 'number' && isFinite(m.lat) && isFinite(m.lng))
-                .map(m => [m.lat, m.lng]);
+        // Use a small delay to allow all data (Netwatch, PPPoE, etc.) to settle
+        const timer = setTimeout(() => {
+            try {
+                // Filter out any markers with invalid coordinates to prevent L.latLngBounds crash
+                const validPoints = markers
+                    .filter(m => m && typeof m.lat === 'number' && typeof m.lng === 'number' && isFinite(m.lat) && isFinite(m.lng))
+                    .map(m => [m.lat, m.lng]);
 
-            if (validPoints.length === 0) return;
+                if (validPoints.length === 0) return;
 
-            const bounds = L.latLngBounds(validPoints);
+                const bounds = L.latLngBounds(validPoints);
 
-            if (bounds.isValid()) {
-                if (validPoints.length === 1) {
-                    // If only one marker, center and zoom in
-                    map.setView(validPoints[0], 15);
-                } else {
-                    // Fit bounds with padding for multiple markers
-                    map.fitBounds(bounds, {
-                        padding: [50, 50],
-                        maxZoom: 16
-                    });
+                if (bounds.isValid()) {
+                    if (validPoints.length === 1) {
+                        // If only one marker, center and zoom in
+                        map.setView(validPoints[0], 15);
+                    } else {
+                        // Fit bounds with padding for multiple markers
+                        map.fitBounds(bounds, {
+                            padding: [50, 50],
+                            maxZoom: 16
+                        });
+                    }
+                    // Mark as initialized
+                    hasInitialFit.current = true;
                 }
-                // Mark as initialized
-                hasInitialFit.current = true;
+            } catch (e) {
+                console.error("Error fitting bounds:", e);
             }
-        } catch (e) {
-            console.error("Error fitting bounds:", e);
-        }
+        }, 1000); // 1s debounce
+
+        return () => clearTimeout(timer);
     }, [markers, map, isEditing]);
 
     return null;

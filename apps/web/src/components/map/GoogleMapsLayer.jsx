@@ -9,37 +9,35 @@ const GoogleMapsLayer = ({ type = 'hybrid', apiKey, onLoaded }) => {
     const [scriptLoaded, setScriptLoaded] = useState(() => !!window.google?.maps);
 
     useEffect(() => {
-        if (!apiKey) return;
-
-        if (window.google?.maps) {
-            if (!scriptLoaded) setScriptLoaded(true);
-            onLoaded?.();
+        if (!apiKey || window.google?.maps) {
+            if (window.google?.maps && !scriptLoaded) {
+                setScriptLoaded(true);
+                onLoaded?.();
+            }
             return;
         }
 
         const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
         if (existingScript) {
-            const checkLoaded = setInterval(() => {
-                if (window.google?.maps) {
-                    setScriptLoaded(true);
-                    onLoaded?.();
-                    clearInterval(checkLoaded);
-                }
-            }, 100);
-            return () => clearInterval(checkLoaded);
+            // If script exists but not loaded, wait for it
+            const handleLoad = () => {
+                setScriptLoaded(true);
+                onLoaded?.();
+            };
+            existingScript.addEventListener('load', handleLoad);
+            return () => existingScript.removeEventListener('load', handleLoad);
         }
 
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&loading=async&libraries=places,geometry`;
         script.async = true;
         script.defer = true;
         script.onload = () => {
             setScriptLoaded(true);
             onLoaded?.();
-            // Important: Don't remove the script tag so it stays in browser cache
         };
         document.head.appendChild(script);
-    }, [apiKey, scriptLoaded, onLoaded]);
+    }, [apiKey, onLoaded]);
 
     useEffect(() => {
         if (!scriptLoaded || !L.gridLayer.googleMutant) return;
