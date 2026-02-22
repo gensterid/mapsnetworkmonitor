@@ -6,7 +6,12 @@
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Network Map Visualization</title>
-  <!-- Fonts and Icons -->
+  <!-- Preload Critical Fonts (Prevents FOUT/Layout Shifts) -->
+  <link rel="preload" href="/fonts/material-symbols-outlined.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+  <link rel="preload" href="/fonts/inter-400.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+  <link rel="preload" href="/fonts/inter-500.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+  <link rel="preload" href="/fonts/inter-600.ttf" as="font" type="font/ttf" crossorigin="anonymous">
+
   <!-- Local Fonts -->
   <link rel="manifest" href="/manifest.json" />
   <meta name="theme-color" content="#0B1120" />
