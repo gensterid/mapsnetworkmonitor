@@ -219,13 +219,17 @@ export const genieacsService = {
                     const sources = (existing.discoverySources as string[]) || [];
                     if (!sources.includes('acs')) sources.push('acs');
 
+                    const hasOltSource = sources.includes('olt');
+                    const shouldKeepOltSignal = hasOltSource && existing.lastRxPower !== null;
+                    const newRxPower = shouldKeepOltSignal ? existing.lastRxPower : (dev._rxPower || existing.lastRxPower);
+
                     await db.update(onus).set({
                         routerId: routerId || existing.routerId,
                         model: dev._productClass || existing.model,
                         ssid: dev._ssid || existing.ssid,
                         firmwareVersion: dev._softwareVersion || existing.firmwareVersion,
                         host: dev._ip || existing.host,
-                        lastRxPower: dev._rxPower || existing.lastRxPower,
+                        lastRxPower: newRxPower,
                         macAddress: dev._macAddress || existing.macAddress,
                         discoverySources: sources,
                         updatedAt: new Date(),

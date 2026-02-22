@@ -58,21 +58,15 @@ export class RouterNetwatchService {
                 SELECT id FROM onus o
                 WHERE 
                     o.id = ${routerNetwatch.linkedOnuId} OR
-                    (
-                        TRIM(o.host) = TRIM(${routerNetwatch.host}) AND 
-                        o.host IS NOT NULL AND
-                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
-                    ) OR
-                    (
-                        TRIM(o.name) = TRIM(${routerNetwatch.name}) AND 
-                        o.name IS NOT NULL AND 
-                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
-                    )
+                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                    (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
                 ORDER BY (
                     CASE 
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
-                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
-                        ELSE 3
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 2
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 3
+                        WHEN TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 4
+                        ELSE 5
                     END
                 ) ASC
                 LIMIT 1
@@ -156,21 +150,15 @@ export class RouterNetwatchService {
                 SELECT id FROM onus o
                 WHERE 
                     o.id = ${routerNetwatch.linkedOnuId} OR
-                    (
-                        TRIM(o.host) = TRIM(${routerNetwatch.host}) AND 
-                        o.host IS NOT NULL AND
-                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
-                    ) OR
-                    (
-                        TRIM(o.name) = TRIM(${routerNetwatch.name}) AND 
-                        o.name IS NOT NULL AND 
-                        o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId})
-                    )
+                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                    (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
                 ORDER BY (
                     CASE 
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
-                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
-                        ELSE 3
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 2
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 3
+                        WHEN TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 4
+                        ELSE 5
                     END
                 ) ASC
                 LIMIT 1
