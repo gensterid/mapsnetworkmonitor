@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { olts, type Olt, type NewOlt } from '../db/schema/olts.js';
 import { onus, type Onu } from '../db/schema/onus.js';
@@ -149,8 +149,8 @@ export class OltService {
         let isOnline = false;
         let uptime = olt.uptime || 0;
         let description = olt.description || '';
-        let snmpStatus: 'online' | 'offline' | null = null;
-        let webStatus: 'online' | 'offline' | null = null;
+        let snmpStatus: 'online' | 'offline' | null = olt.useSnmp ? 'offline' : null;
+        let webStatus: 'online' | 'offline' | null = olt.useWeb ? 'offline' : null;
         let activeProtocol: string | null = null;
 
         // 1. Check SNMP
@@ -207,6 +207,9 @@ export class OltService {
                     webStatus = 'online';
                     isOnline = true;
                     if (!activeProtocol) activeProtocol = 'web';
+
+                    // Trigger ONU sync in background to update descriptors/signals
+                    this.getOnus(id).catch(err => logger.error({ err, olt: olt.name }, 'Background ONU refresh failed'));
                 } else {
                     webStatus = 'offline';
                 }
@@ -332,22 +335,51 @@ export class OltService {
                 else status = 'offline';
 
                 if (!dbOnu) {
-                    // Auto-insert missing ONU to provide ID
-                    const [inserted] = await db.insert(onus).values({
-                        sn: device.sn,
-                        oltId: id,
-                        routerId: olt.parentId,
-                        ponPort: device.ponId,
-                        onuIndex: device.onuId,
-                        macAddress: device.macAddress,
-                        name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
-                        status: status as any,
-                        lastRxPower: device.signal ? String(device.signal) : null,
-                        discoverySources: ['olt'],
-                        lastSeen: status === 'online' ? new Date() : null,
-                        lastDownReason: device.lastDownReason,
-                    }).returning();
-                    dbOnu = inserted;
+                    try {
+                        // Auto-insert missing ONU to provide ID
+                        const insertQuery = db.insert(onus).values({
+                            sn: device.sn,
+                            oltId: id,
+                            routerId: olt.parentId,
+                            ponPort: device.ponId,
+                            onuIndex: device.onuId,
+                            macAddress: device.macAddress,
+                            name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
+                            description: device.description,
+                            status: status as any,
+                            lastRxPower: device.signal ? String(device.signal) : null,
+                            discoverySources: ['olt'],
+                            lastSeen: status === 'online' ? new Date() : null,
+                            lastDownReason: device.lastDownReason,
+                        })
+                            .onConflictDoUpdate({
+                                target: onus.sn,
+                                set: {
+                                    oltId: id,
+                                    routerId: olt.parentId,
+                                    ponPort: device.ponId,
+                                    onuIndex: device.onuId,
+                                    description: device.description || sql`onus.description`,
+                                    status: status as any,
+                                    lastRxPower: device.signal ? String(device.signal) : sql`onus.last_rx_power`,
+                                    lastDownReason: device.lastDownReason || sql`onus.last_down_reason`,
+                                    macAddress: device.macAddress || sql`onus.mac_address`,
+                                    updatedAt: new Date(),
+                                }
+                            });
+
+                        const [inserted] = await insertQuery.returning();
+                        dbOnu = inserted;
+                        // Map update fix to prevent subsequent duplicates in the same loop
+                        dbOnuMap.set(device.sn, dbOnu);
+                    } catch (insertErr: any) {
+                        logger.error({
+                            err: insertErr,
+                            sn: device.sn,
+                            msg: 'HARD DB INSERT FAILURE'
+                        }, 'Failed to UPSERT ONU. Drizzle syntax flaw?');
+                        throw insertErr;
+                    }
                 } else {
                     // [SYNC FIX] Update existing ONU status/power/reason whenever we fetch live data
                     // This ensures the Map (which reads from DB) stays in sync with the List (which reads from OLT)
@@ -357,6 +389,7 @@ export class OltService {
                             lastRxPower: device.signal ? String(device.signal) : dbOnu.lastRxPower,
                             lastDownReason: device.lastDownReason || dbOnu.lastDownReason,
                             macAddress: device.macAddress || dbOnu.macAddress,
+                            description: device.description || dbOnu.description,
                             updatedAt: new Date(),
                         };
 
@@ -392,7 +425,7 @@ export class OltService {
                     status: dbOnu.status, // [FIX] Use normalized DB status (e.g. 'power_down') instead of raw driver status
                     latitude: dbOnu.latitude,
                     longitude: dbOnu.longitude,
-                    description: dbOnu.location,
+                    description: dbOnu.description,
                     name: dbOnu.name || device.name,
                     lastRxPower: device.signal || dbOnu.lastRxPower,
                     lastDown: dbOnu.lastSeen, // Use lastSeen as lastDown for ONUs
@@ -470,6 +503,7 @@ export class OltService {
                 ponPort: device.ponId,
                 onuIndex: device.onuId,
                 name: defaultName,
+                description: device.description,
                 status: status,
                 lastRxPower: rxPower,
                 discoverySources: ['olt'],
@@ -493,6 +527,7 @@ export class OltService {
                             routerId: sql`COALESCE(excluded.router_id, onus.router_id)`,
                             ponPort: sql`excluded.pon_port`,
                             onuIndex: sql`excluded.onu_index`,
+                            description: sql`COALESCE(onus.description, excluded.description)`,
                             lastRxPower: sql`excluded.last_rx_power`,
                             status: sql`excluded.status`,
                             // Keep existing name if present, otherwise use OLT discovered name
