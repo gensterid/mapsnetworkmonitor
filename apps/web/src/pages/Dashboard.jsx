@@ -16,7 +16,9 @@ import {
     Clock,
     Zap,
     MapPin,
-    Settings
+    Settings,
+    Maximize,
+    Minimize
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import clsx from 'clsx';
@@ -255,6 +257,7 @@ export default function Dashboard() {
     const [statusFilter, setStatusFilter] = useState('all');
     const [filterOpen, setFilterOpen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
+    const [isFullscreen, setIsFullscreen] = useState(false);
 
     const userTimezone = useAppTimezone();
 
@@ -380,13 +383,26 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 min-h-[500px]">
                         {/* Left Column: Map & Table */}
                         <div className="xl:col-span-2 flex flex-col gap-6">
-                            <div className="glass-panel rounded-xl p-1 flex flex-col h-[400px] relative overflow-hidden">
-                                <div className="absolute top-4 left-4 z-[500] bg-slate-900/90 backdrop-blur border border-slate-700/50 px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-2 pointer-events-none">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                    </span>
-                                    <span className="text-xs font-bold text-white uppercase tracking-wider">Live Map</span>
+                            <div className={clsx(
+                                "glass-panel p-1 flex flex-col relative overflow-hidden transition-all duration-300",
+                                isFullscreen ? "fixed inset-4 z-[60] h-[calc(100vh-2rem)] rounded-xl shadow-2xl shadow-black/50 ring-1 ring-slate-700/50 bg-background-dark/95 backdrop-blur" : "rounded-xl h-[400px]"
+                            )}>
+                                <div className="absolute top-4 left-4 z-[500] bg-slate-900/90 backdrop-blur border border-slate-700/50 px-3 py-1.5 rounded-lg shadow-lg flex items-center justify-between gap-2 pointer-events-auto">
+                                    <div className="flex items-center gap-2 pointer-events-none">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                        </span>
+                                        <span className="text-xs font-bold text-white uppercase tracking-wider">Live Map</span>
+                                    </div>
+                                    <div className="w-px h-4 bg-slate-700 mx-2"></div>
+                                    <button
+                                        onClick={() => setIsFullscreen(!isFullscreen)}
+                                        className="text-slate-400 hover:text-white transition-colors"
+                                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                                    >
+                                        {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                                    </button>
                                 </div>
                                 <div className="w-full h-full rounded-lg overflow-hidden relative z-0">
                                     <NetworkMap showRoutersOnly={true} disableScaling={true} />
