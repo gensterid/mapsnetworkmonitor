@@ -811,6 +811,39 @@ export const genieacsService = {
         }));
 
         return results;
+    },
+
+    /**
+     * Test connection to GenieACS
+     */
+    testConnection: async (routerId?: string) => {
+        try {
+            const { url, auth } = await getGenieAcsConfig(routerId);
+            if (!url) throw new Error('URL is not configured');
+
+            const response = await axios.get(`${url}/devices`, {
+                params: {
+                    projection: '_id',
+                    limit: 1
+                },
+                auth,
+                timeout: 5000
+            });
+
+            return {
+                success: true,
+                url,
+                status: response.status
+            };
+        } catch (error) {
+            const errMsg = error instanceof Error ? error.message : String(error);
+            logger.error({ err: errMsg, routerId }, 'GenieACS: Connection test failed');
+            return {
+                success: false,
+                error: errMsg,
+                details: axios.isAxiosError(error) ? error.response?.data : undefined
+            };
+        }
     }
 };
 

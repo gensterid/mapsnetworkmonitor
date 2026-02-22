@@ -70,6 +70,31 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [connStatus, setConnStatus] = useState({ state: 'idle', message: '' });
+
+    const handleTestConnection = async () => {
+        setConnStatus({ state: 'testing', message: 'Testing...' });
+        try {
+            // Test connection using the current router ID if editing
+            // Note: This tests the SAVED configuration. 
+            const url = isEditing
+                ? `/genieacs/test-connection?routerId=${router.id}`
+                : '/genieacs/test-connection';
+
+            const res = await apiClient.get(url);
+            if (res.data.success) {
+                setConnStatus({ state: 'success', message: 'Connected' });
+                toast.success('GenieACS Connected Successfully');
+            } else {
+                setConnStatus({ state: 'error', message: res.data.error || 'Connection failed' });
+                toast.error(`GenieACS Error: ${res.data.error || 'Connection failed'}`);
+            }
+        } catch (err) {
+            const msg = err.response?.data?.message || err.message;
+            setConnStatus({ state: 'error', message: msg });
+            toast.error(`Connection Error: ${msg}`);
+        }
+    };
 
     // Reset form when router changes
     React.useEffect(() => {
@@ -310,7 +335,37 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     {formData.useGenieAcs && (
                         <div className="space-y-3">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">GenieACS URL</label>
+                                <div className="flex items-center justify-between">
+                                    <label className="text-sm font-medium text-slate-300">GenieACS URL</label>
+                                    {isEditing && (
+                                        <div className="flex items-center gap-2">
+                                            {connStatus.state !== 'idle' && (
+                                                <div className={clsx(
+                                                    "flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider",
+                                                    connStatus.state === 'testing' && "bg-blue-500/10 text-blue-400 animate-pulse",
+                                                    connStatus.state === 'success' && "bg-emerald-500/10 text-emerald-400",
+                                                    connStatus.state === 'error' && "bg-red-500/10 text-red-400"
+                                                )}>
+                                                    <span className={clsx(
+                                                        "w-1.5 h-1.5 rounded-full",
+                                                        connStatus.state === 'testing' && "bg-blue-400",
+                                                        connStatus.state === 'success' && "bg-emerald-400",
+                                                        connStatus.state === 'error' && "bg-red-400"
+                                                    )} />
+                                                    {connStatus.state === 'testing' ? 'Testing...' : connStatus.state === 'success' ? 'Connected' : 'Failed'}
+                                                </div>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={handleTestConnection}
+                                                disabled={connStatus.state === 'testing'}
+                                                className="text-[10px] font-bold text-primary hover:text-primary-light transition-colors disabled:opacity-50"
+                                            >
+                                                Test Connection
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 <Input
                                     name="genieacsUrl"
                                     value={formData.genieacsUrl}

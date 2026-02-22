@@ -237,4 +237,18 @@ router.post(
     })
 );
 
+/**
+ * GET /api/genieacs/test-connection
+ * Test connection to GenieACS
+ */
+router.get(
+    '/test-connection',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const routerId = req.query.routerId as string | undefined;
+        const result = await genieacsService.testConnection(routerId);
+        res.json(result);
+    })
+);
+
 export default router;
