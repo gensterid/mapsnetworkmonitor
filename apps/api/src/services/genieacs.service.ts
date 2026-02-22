@@ -56,6 +56,7 @@ async function getGenieAcsConfig(routerId?: string) {
     let url = '';
     let username = '';
     let password = '';
+    let isDedicated = false;
 
     if (routerId) {
         const router = await routerService.findById(routerId);
@@ -63,6 +64,7 @@ async function getGenieAcsConfig(routerId?: string) {
             url = router.genieacsUrl || '';
             username = router.genieacsUsername || '';
             password = router.genieacsPasswordEncrypted ? decrypt(router.genieacsPasswordEncrypted) : '';
+            if (url) isDedicated = true;
         }
     }
 
@@ -71,15 +73,16 @@ async function getGenieAcsConfig(routerId?: string) {
         const userSetting = await settingsService.getSetting('genieacs_username') as any;
         const passSetting = await settingsService.getSetting('genieacs_password_encrypted') as any;
 
-
         url = urlSetting?.value || process.env.GENIEACS_URL || 'http://localhost:7557';
         username = userSetting?.value || '';
         password = passSetting?.value ? decrypt(passSetting.value) : '';
+        isDedicated = false; // Using global/fallback
     }
 
     return {
         url: url.replace(/\/$/, ''),
-        auth: username && password ? { username, password } : undefined
+        auth: username && password ? { username, password } : undefined,
+        isDedicated
     };
 }
 
@@ -90,7 +93,7 @@ export const genieacsService = {
      */
     getDevices: async (routerId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId);
 
             if (!url || url === 'http://localhost:7557') {
                 logger.warn({ url }, 'GenieACS: Using default or empty URL. Please check Settings.');
@@ -98,10 +101,12 @@ export const genieacsService = {
             }
 
             // Debug: Log URL to verify Proxmox connectivity
-            logger.info({ url, routerId }, 'GenieACS: Fetching devices');
+            logger.info({ url, routerId, isDedicated }, 'GenieACS: Fetching devices');
 
             // Apply Router Filter: Only show devices that exist in our inventory for this router
-            if (routerId) {
+            // IMPORTANT: If ACS is dedicated to this router, show ALL devices in that ACS.
+            // If it's a shared/global ACS (!isDedicated), we MUST filter by SN.
+            if (routerId && !isDedicated) {
                 const routerOnus = await db
                     .select({ sn: onus.sn })
                     .from(onus)
@@ -114,7 +119,7 @@ export const genieacsService = {
                     // Merge with existing query if any
                     query['_deviceId._SerialNumber'] = { '$in': snFilter };
                 } else {
-                    // If no ONUs registered for this router, return empty to prevent data leakage
+                    // If no ONUs registered for this router on shared ACS, return empty
                     return [];
                 }
             }
@@ -266,13 +271,13 @@ export const genieacsService = {
      */
     getDevice: async (deviceId: string, routerId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId);
 
             // Use query to avoid 405 Method Not Allowed on some GenieACS versions
             const query: any = { _id: deviceId };
 
-            // Security: If routerId is provided, also verify Serial Number belongs to router
-            if (routerId) {
+            // Security: If shared ACS (!isDedicated), verify Serial Number belongs to router
+            if (routerId && !isDedicated) {
                 const routerOnus = await db
                     .select({ sn: onus.sn })
                     .from(onus)
