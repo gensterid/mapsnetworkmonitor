@@ -840,6 +840,7 @@ const NetworkMap = ({
             }, {
                 onSuccess: () => {
                     setIsModalOpen(false);
+                    setSelectedDevice(null);
                 },
                 onError: (error) => {
                     console.error('Failed to update router:', error);
@@ -859,6 +860,7 @@ const NetworkMap = ({
             }, {
                 onSuccess: () => {
                     setIsModalOpen(false);
+                    setSelectedDevice(null);
                 },
                 onError: (error) => {
                     console.error('Failed to update PPPoE:', error);
@@ -876,6 +878,7 @@ const NetworkMap = ({
             }, {
                 onSuccess: () => {
                     setIsModalOpen(false);
+                    setSelectedDevice(null);
                 },
                 onError: (error) => {
                     console.error('Failed to update ONU:', error);
@@ -894,6 +897,7 @@ const NetworkMap = ({
                 }, {
                     onSuccess: () => {
                         setIsModalOpen(false);
+                        setSelectedDevice(null);
                     },
                     onError: (error) => {
                         console.error('Failed to create device:', error);
@@ -911,6 +915,7 @@ const NetworkMap = ({
                 }, {
                     onSuccess: () => {
                         setIsModalOpen(false);
+                        setSelectedDevice(null);
                     },
                     onError: (error) => {
                         console.error('Failed to update device:', error);

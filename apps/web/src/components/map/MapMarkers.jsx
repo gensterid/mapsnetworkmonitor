@@ -868,6 +868,7 @@ export const arePropsEqual = (prev, next) => {
     return (
         prev.status === next.status &&
         prev.name === next.name &&
+        prev.host === next.host &&
         prev.showLabel === next.showLabel &&
         prev.draggable === next.draggable &&
         prev.latency === next.latency &&

@@ -249,6 +249,8 @@ export const areLinesEqual = (prev, next) => {
     return (
         prev.line.id === next.line.id &&
         prev.line.status === next.line.status &&
+        prev.line.destName === next.line.destName &&
+        prev.line.sourceName === next.line.sourceName &&
         prev.txRate === next.txRate &&
         prev.rxRate === next.rxRate &&
         // isHovered check removed (handled by Context)
