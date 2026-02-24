@@ -11,7 +11,8 @@ export const getSocket = () => {
         // Vite proxy handles /api, but socket.io needs explicit URL if on different port in dev
         // In production (same origin), it works automatically.
         // For this setup: 
-        const url = import.meta.env.VITE_API_URL || 'http://localhost:3002';
+        const envUrl = import.meta.env.VITE_API_URL || '';
+        const url = envUrl.startsWith('http') ? envUrl : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
 
         socket = io(url, {
             path: '/socket.io',

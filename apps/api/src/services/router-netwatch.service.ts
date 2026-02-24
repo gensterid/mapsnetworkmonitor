@@ -14,10 +14,13 @@ import {
     getInterfaceTraffic,
     getRouterClock,
     connectToRouter,
+    configureNetwatchWebhook,
+    removeNetwatchWebhook,
     type RouterConnection,
 } from '../lib/mikrotik-api.js';
 import { decrypt } from '../lib/encryption.js';
 import { alertService } from './alert.service.js';
+import { settingsService } from './settings.service.js';
 import { logger } from '../lib/logger.js';
 
 export class RouterNetwatchService {
@@ -51,7 +54,8 @@ export class RouterNetwatchService {
                 // Allow manual override if already linked via ID
                 linkedOnuId: routerNetwatch.linkedOnuId,
                 oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
-                oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId')
+                oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId'),
+                hasWebhook: routerNetwatch.hasWebhook,
             })
             .from(routerNetwatch)
             .leftJoin(onus, eq(onus.id, sql`(
@@ -147,7 +151,8 @@ export class RouterNetwatchService {
 
                 linkedOnuId: routerNetwatch.linkedOnuId,
                 oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
-                oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId')
+                oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId'),
+                hasWebhook: routerNetwatch.hasWebhook,
             })
 
             .from(routerNetwatch)
@@ -187,6 +192,11 @@ export class RouterNetwatchService {
      */
     async syncHosts(routerId: string, routerName: string, conn: any, availableInterfaces?: Set<string>): Promise<void> {
         try {
+            // Fetch Router settings to check if Webhook is enabled
+            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+            const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret;
+            const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!) : '';
+
             // First fetch the router's current clock to calculate the exact offset
             // We need this because MikroTik sends times without timezone info
             const routerClock = await getRouterClock(conn).catch(() => undefined);
@@ -238,6 +248,7 @@ export class RouterNetwatchService {
                             lastUp: nw.sinceUp || existing.lastUp,
                             lastDown: nw.sinceDown || existing.lastDown,
                             updatedAt: new Date(),
+                            hasWebhook: !!nw.upScript?.includes('/api/webhook/netwatch') || !!nw.downScript?.includes('/api/webhook/netwatch'),
                         };
 
                         if (!existing.targetInterface && nw.comment && availableInterfaces?.has(nw.comment)) {
@@ -255,6 +266,7 @@ export class RouterNetwatchService {
                             lastCheck: new Date(),
                             lastUp: nw.sinceUp,
                             lastDown: nw.sinceDown,
+                            hasWebhook: !!nw.upScript?.includes('/api/webhook/netwatch') || !!nw.downScript?.includes('/api/webhook/netwatch'),
                         };
 
                         if (nw.comment && availableInterfaces?.has(nw.comment)) {
@@ -262,6 +274,26 @@ export class RouterNetwatchService {
                         }
 
                         await tx.insert(routerNetwatch).values(insertData);
+                    }
+
+                    // Smart Append Webhook scripts if Webhook feature is enabled
+                    // Exclude infrastructure items like ODP or Hub if they are tagged somehow.
+                    // Given Mikrotik sync doesn't know deviceType upfront unless we look at the existing record,
+                    // we'll rely on the existing DB record type (or default to client)
+                    const deviceType = existing?.deviceType || 'client';
+                    if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
+                        try {
+                            await configureNetwatchWebhook(conn, nw.host, webhookUrl);
+                        } catch (webhookErr: any) {
+                            logger.warn({ err: webhookErr?.message, host: nw.host }, 'Failed to smart-append webhook script during sync');
+                        }
+                    } else if (!shouldInjectWebhook && (nw.upScript?.includes('/api/webhook/netwatch') || nw.downScript?.includes('/api/webhook/netwatch'))) {
+                        // Smart Cleanup: Remove webhook if disabled but still present on router
+                        try {
+                            await removeNetwatchWebhook(conn, nw.host);
+                        } catch (cleanupErr: any) {
+                            logger.warn({ err: cleanupErr?.message, host: nw.host }, 'Failed to smart-cleanup webhook script during sync');
+                        }
                     }
                 }
             });

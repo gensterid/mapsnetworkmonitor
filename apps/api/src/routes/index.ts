@@ -15,6 +15,7 @@ import oltRoutes from './olt.routes.js';
 import genieacsRoutes from './genieacs.routes.js';
 import presetRoutes from './preset.routes.js';
 import mapRoutes from './map.routes.js';
+import webhookRoutes from './webhook.routes.js';
 
 const router = Router();
 
@@ -44,6 +45,7 @@ router.use('/olts', oltRoutes);
 router.use('/genieacs', genieacsRoutes);
 router.use('/presets', presetRoutes);
 router.use('/map', mapRoutes);
+router.use('/webhook', webhookRoutes);
 
 export default router;
 

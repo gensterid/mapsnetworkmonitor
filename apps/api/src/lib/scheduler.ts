@@ -2,7 +2,7 @@ import { routerService, settingsService, oltService, genieacsService } from '../
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routerNetwatch, routerMetrics } from '../db/schema/index.js';
-import { count, eq, lt } from 'drizzle-orm';
+import { count, eq, lt, and } from 'drizzle-orm';
 import { logger } from './logger.js';
 
 // Default polling interval in milliseconds (2 minutes)
@@ -154,16 +154,40 @@ async function pollAllRouters(): Promise<void> {
         // Helper function to process a single router with timeout
         const processRouter = async (router: any) => {
             try {
-                // Determine if this is a full sync poll (every 1 minute for traffic/resource updates)
-                const isFullSync = (date.getMinutes() % 1 === 0);
+                // Read router's polling interval for metrics (default 300s = 5 minutes)
+                const metricsIntervalMs = (router.pollingIntervalMetrics || 300) * 1000;
+
+                const now = Date.now();
+                const lastUpdatedTime = router.updatedAt ? new Date(router.updatedAt).getTime() : 0;
+                const timeSinceLastUpdate = now - lastUpdatedTime;
+
+                // Trigger full sync (slow poll) if it's been longer than the configured interval
+                const isFullSync = timeSinceLastUpdate >= metricsIntervalMs || lastUpdatedTime === 0;
+
+                // For fast polling, if Webhook is enabled, we skip Netwatch API sync to save resources.
+                // UNLESS we haven't detected the webhook yet (hasWebhook is false in at least one entry).
+                // It will only run Netwatch API sync during the Full Sync as a fallback if detected.
+
+                // We'll check if any netwatch entry for this router is missing the hasWebhook flag
+                const needsDetection = await db.select({ count: count() })
+                    .from(routerNetwatch)
+                    .where(and(eq(routerNetwatch.routerId, router.id), eq(routerNetwatch.hasWebhook, false)))
+                    .then(res => (res[0]?.count || 0) > 0);
+
+                const includeNetwatch = !(router.useWebhook && !isFullSync && !needsDetection);
+
+                if (!includeNetwatch && !isFullSync) {
+                    // Skip polling completely for this tick: Webhook handles status, and metrics isn't due yet
+                    return { success: true, timeout: false, skipped: true };
+                }
 
                 // Wrap refreshRouterStatus with timeout
                 await withTimeout(
-                    routerService.refreshRouterStatus(router.id, true, isFullSync),
+                    routerService.refreshRouterStatus(router.id, includeNetwatch, isFullSync),
                     ROUTER_TIMEOUT,
                     `Timeout polling router ${router.name}`
                 );
-                return { success: true, timeout: false };
+                return { success: true, timeout: false, skipped: false };
             } catch (error) {
                 const isTimeout = error instanceof Error && error.message.includes('Timeout');
                 if (isTimeout) {

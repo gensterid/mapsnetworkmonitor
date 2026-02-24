@@ -67,6 +67,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
         genieacsUrl: router?.genieacsUrl || '',
         genieacsUsername: router?.genieacsUsername || '',
         genieacsPassword: '',
+        useWebhook: router?.useWebhook || false,
+        pollingIntervalMetrics: router?.pollingIntervalMetrics ? String(router.pollingIntervalMetrics) : '300',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -115,6 +117,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 genieacsUrl: router.genieacsUrl || '',
                 genieacsUsername: router.genieacsUsername || '',
                 genieacsPassword: '',
+                useWebhook: router.useWebhook || false,
+                pollingIntervalMetrics: router.pollingIntervalMetrics ? String(router.pollingIntervalMetrics) : '300',
             });
         } else {
             setFormData({
@@ -133,15 +137,18 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 genieacsUrl: '',
                 genieacsUsername: '',
                 genieacsPassword: '',
+                useWebhook: false,
+                pollingIntervalMetrics: '300',
             });
         }
         setError('');
     }, [router, isOpen]);
 
     const handleChange = (e) => {
+        const { name, value, type, checked } = e.target;
         setFormData(prev => ({
             ...prev,
-            [e.target.name]: e.target.value
+            [name]: type === 'checkbox' ? checked : value
         }));
     };
 
@@ -188,6 +195,8 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 genieacsUrl: formData.genieacsUrl || undefined,
                 genieacsUsername: formData.genieacsUsername || undefined,
                 genieacsPassword: formData.genieacsPassword || undefined,
+                useWebhook: formData.useWebhook,
+                pollingIntervalMetrics: parseInt(formData.pollingIntervalMetrics, 10) || 300,
             };
 
             // Only include password if provided (for edit, password is optional)
@@ -316,8 +325,45 @@ function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     <p className="text-xs text-slate-500 mt-2">Tip: Paste coordinates in "lat, long" format to auto-fill both fields</p>
                 </div>
 
+                {/* Webhook Settings Section */}
+                <div className="pt-2 border-t border-slate-700/50">
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">Monitoring Webhooks</div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="useWebhook"
+                                checked={formData.useWebhook}
+                                onChange={handleChange}
+                                className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+
+                    {formData.useWebhook && (
+                        <div className="space-y-3">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Metrics Polling Interval</label>
+                                <Input
+                                    type="number"
+                                    name="pollingIntervalMetrics"
+                                    value={formData.pollingIntervalMetrics}
+                                    onChange={handleChange}
+                                    placeholder="300"
+                                    min="60"
+                                />
+                                <p className="text-[10px] text-slate-500">
+                                    Refresh interval in seconds for traffic metrics when webhooks handles Up/Down status.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+
                 {/* GenieACS Section */}
                 <div className="pt-2 border-t border-slate-700/50">
+
                     <div className="flex items-center justify-between mb-3">
                         <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">GenieACS Integration</div>
                         <label className="relative inline-flex items-center cursor-pointer">

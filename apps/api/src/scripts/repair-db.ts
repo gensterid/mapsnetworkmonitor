@@ -109,7 +109,8 @@ const runRepair = async () => {
             { name: 'tx_rate', type: 'bigint DEFAULT 0' },
             { name: 'rx_rate', type: 'bigint DEFAULT 0' },
             { name: 'target_interface', type: 'text' },
-            { name: 'linked_onu_id', type: 'uuid' }
+            { name: 'linked_onu_id', type: 'uuid' },
+            { name: 'has_webhook', type: 'boolean DEFAULT false' }
         ];
         for (const col of netwatchCols) {
             const checkCol = await db.execute(sql.raw(`

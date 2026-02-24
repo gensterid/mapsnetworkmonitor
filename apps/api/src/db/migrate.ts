@@ -139,6 +139,18 @@ export async function runMigrations() {
                 sql: sql`ALTER TABLE routers ADD COLUMN use_genieacs BOOLEAN DEFAULT false NOT NULL`
             },
             {
+                name: 'routers.use_webhook',
+                sql: sql`ALTER TABLE routers ADD COLUMN use_webhook BOOLEAN DEFAULT false NOT NULL`
+            },
+            {
+                name: 'routers.webhook_secret',
+                sql: sql`ALTER TABLE routers ADD COLUMN webhook_secret TEXT`
+            },
+            {
+                name: 'routers.polling_interval_metrics',
+                sql: sql`ALTER TABLE routers ADD COLUMN polling_interval_metrics INTEGER DEFAULT 300 NOT NULL`
+            },
+            {
                 name: 'routers.genieacs_url',
                 sql: sql`ALTER TABLE routers ADD COLUMN genieacs_url TEXT`
             },

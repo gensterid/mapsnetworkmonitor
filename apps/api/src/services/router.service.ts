@@ -33,6 +33,7 @@ import {
     removeNetwatchEntry,
     measurePing,
     getInterfaceTraffic,
+    configureNetwatchWebhook,
     type RouterConnection,
     type PppSession,
 } from '../lib/mikrotik-api.js';
@@ -65,6 +66,8 @@ export interface CreateRouterInput {
     genieacsUrl?: string | null;
     genieacsUsername?: string | null;
     genieacsPassword?: string | null;
+    useWebhook?: boolean;
+    pollingIntervalMetrics?: number;
 }
 
 export interface UpdateRouterInput {
@@ -86,6 +89,8 @@ export interface UpdateRouterInput {
     genieacsUrl?: string | null;
     genieacsUsername?: string | null;
     genieacsPassword?: string | null;
+    useWebhook?: boolean;
+    pollingIntervalMetrics?: number;
     status?: 'online' | 'offline' | 'maintenance' | 'unknown';
 }
 
@@ -277,6 +282,8 @@ export class RouterService {
                 genieacsUrl: data.genieacsUrl,
                 genieacsUsername: data.genieacsUsername,
                 genieacsPasswordEncrypted: data.genieacsPassword ? encrypt(data.genieacsPassword) : null,
+                useWebhook: data.useWebhook || false,
+                pollingIntervalMetrics: data.pollingIntervalMetrics || 300,
                 status: 'unknown',
             })
             .returning();
@@ -324,6 +331,8 @@ export class RouterService {
         if (data.genieacsPassword !== undefined) {
             updateData.genieacsPasswordEncrypted = data.genieacsPassword ? encrypt(data.genieacsPassword) : null;
         }
+        if (data.useWebhook !== undefined) updateData.useWebhook = data.useWebhook;
+        if (data.pollingIntervalMetrics !== undefined) updateData.pollingIntervalMetrics = data.pollingIntervalMetrics;
         if (data.status !== undefined) updateData.status = data.status;
 
         const [router] = await db
@@ -879,6 +888,13 @@ export class RouterService {
                     interval: data.interval,
                     comment: data.name, // Mapping name to comment
                 });
+
+                // Smart Append Webhook scripts if Webhook feature is enabled
+                if (router.useWebhook && router.webhookSecret) {
+                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret);
+                    await configureNetwatchWebhook(conn, data.host, webhookUrl);
+                }
+
                 logger.info({ routerId, host: data.host, name: data.name }, 'Netwatch entry added to MikroTik router');
             } catch (err: any) {
                 const msg = err?.message || String(err);
@@ -986,6 +1002,13 @@ export class RouterService {
                         interval: data.interval,
                         comment: data.name,
                     });
+
+                    // Smart Append Webhook scripts if Webhook feature is enabled
+                    if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
+                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret);
+                        const hostToConfigure = data.host || original.host;
+                        await configureNetwatchWebhook(conn, hostToConfigure, webhookUrl);
+                    }
                 } catch (err: any) {
                     const msg = err?.message || String(err);
                     logger.error({ err: msg, host: original.host }, 'Failed to update netwatch on router');

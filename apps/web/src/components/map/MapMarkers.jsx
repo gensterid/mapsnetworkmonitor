@@ -149,8 +149,9 @@ export const getTooltipColor = (node) => {
 };
 
 // Memoized Tooltip for Devices
-export const RouterTooltipContent = ({ node, onEdit }) => {
-    const { timezone } = React.useContext(TrafficContext);
+export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
+    const { timezone, isLiveMode } = React.useContext(TrafficContext);
+    const hasWebhook = node.hasWebhook;
     const { hoveredMarkerId } = React.useContext(HoveredItemContext);
     const isHovered = hoveredMarkerId === node.id;
 
@@ -237,8 +238,14 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
             <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: getTooltipColor(node) }}>
                 <div className="flex flex-col">
                     <div className="flex items-center gap-2 text-white">
-                        <span className="material-symbols-outlined text-[16px]">router</span>
-                        <span className="font-bold text-xs truncate max-w-[140px]">{node.name || node.host}</span>
+                        <span className="material-symbols-outlined text-[16px] text-white">router</span>
+                        <span className="font-bold text-xs truncate max-w-[120px]">{node.name || node.host}</span>
+                        {hasWebhook && (
+                            <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-400 text-slate-900 rounded text-[9px] font-bold animate-pulse shadow-[0_0_10px_rgba(250,204,21,0.5)]">
+                                <span className="material-symbols-outlined text-[10px]">bolt</span>
+                                REAL-TIME
+                            </div>
+                        )}
                     </div>
                     {node.model && (
                         <span className="text-[10px] text-white/80 pl-6 truncate max-w-[140px]">{node.model}</span>
@@ -416,7 +423,7 @@ export const RouterTooltipContent = ({ node, onEdit }) => {
             </div>
         </div>
     );
-};
+});
 
 // 1. Content Component (Heavy Logic, only rendered when hovered or clicked)
 export const DeviceTooltipContent = ({ node, line, onEdit }) => {
@@ -544,6 +551,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         {node.deviceType === 'olt' ? 'hub' : node.deviceType === 'odp' ? 'settings_input_component' : (node.deviceType === 'router' || node.type === 'router') ? 'router' : node.deviceType === 'pppoe' ? 'person' : node.deviceType === 'onu' ? 'settings_input_antenna' : 'person'}
                     </span>
                     <span className="font-bold text-xs truncate max-w-[100px]">{node.name || node.host}</span>
+                    {node.hasWebhook && (
+                        <div className="flex items-center gap-1 px-1 py-0.5 bg-yellow-400 text-slate-900 rounded text-[8px] font-bold animate-pulse">
+                            <span className="material-symbols-outlined text-[10px]">bolt</span>
+                            REAL-TIME
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2">
                     <div className="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
@@ -800,6 +813,7 @@ export const SmartMarker = ({
     small,
     latency,
     packetLoss,
+    hasWebhook,
     draggable,
     onDragEnd,
     onClick,
@@ -821,6 +835,7 @@ export const SmartMarker = ({
         small,
         latency: safeLatency,
         packetLoss: safePacketLoss,
+        hasWebhook,
         lastRxPower: props.lastRxPower || props.last_rx_power || null,
         host: props.host || null
     }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, props.lastRxPower, props.last_rx_power, props.host]);

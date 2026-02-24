@@ -184,7 +184,8 @@ export class SettingsService {
             { key: 'olt_web_interval', value: 10, description: 'Web API Polling Interval (ONU Detail Sync) in minutes' },
             { key: 'acs_polling_interval', value: 10, description: 'GenieACS Polling Interval in minutes' },
             { key: 'olt_sync_enabled', value: true, description: 'Enable OLT Polling' },
-            { key: 'acs_sync_enabled', value: true, description: 'Enable GenieACS Sync' }
+            { key: 'acs_sync_enabled', value: true, description: 'Enable GenieACS Sync' },
+            { key: 'webhook_base_url', value: 'http://localhost:5173', description: 'Base URL for Webhooks (e.g. https://domain.com)' }
         ];
 
         for (const setting of defaults) {
@@ -194,6 +195,16 @@ export class SettingsService {
                 await this.setSetting(setting.key, setting.value, setting.description);
             }
         }
+    }
+
+    /**
+     * Generate the full webhook URL for a given router secret
+     */
+    async getWebhookUrl(secret: string): Promise<string> {
+        const baseUrl = await this.getSettingValue<string>('webhook_base_url', 'http://localhost:5173');
+        // Remove trailing slash if exists
+        const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+        return `${cleanBaseUrl}/api/webhook/netwatch?token=${secret}`;
     }
 }
 

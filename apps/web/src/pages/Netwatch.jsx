@@ -4,7 +4,7 @@ import { apiClient } from '@/lib/api';
 import { useRouters } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Globe, RefreshCw, Wifi, WifiOff, MapPin, Clock, Search, Filter, ChevronDown } from 'lucide-react';
+import { Globe, RefreshCw, Wifi, WifiOff, MapPin, Clock, Search, Filter, ChevronDown, Zap } from 'lucide-react';
 import clsx from 'clsx';
 
 // Fetch all netwatch entries from all routers
@@ -203,7 +203,15 @@ export default function Netwatch() {
                                             <h3 className="font-medium text-white">{entry.name || entry.host}</h3>
                                             <p className="text-xs text-slate-500">{entry.host}</p>
                                         </div>
-                                        {getStatusBadge(entry.status)}
+                                        <div className="flex flex-col items-end gap-1">
+                                            {getStatusBadge(entry.status)}
+                                            {entry.hasWebhook && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20" title="Real-time Webhook Active">
+                                                    <Zap className="w-2.5 h-2.5 fill-amber-400" />
+                                                    REAL-TIME
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     <div className="space-y-1 text-xs text-slate-400">

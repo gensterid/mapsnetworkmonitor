@@ -61,6 +61,7 @@ export const createDeviceIcon = ({
     packetLoss = null,
     lastRxPower = null,
     host = null,
+    hasWebhook = false,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
@@ -104,6 +105,10 @@ export const createDeviceIcon = ({
                 <span class="material-symbols-outlined" style="font-size: ${iconFontSize}px; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
                     ${config.icon}
                 </span>
+                ${hasWebhook ? `
+                <div class="device-icon__webhook" title="Real-time Webhook Active">
+                    <span class="material-symbols-outlined">bolt</span>
+                </div>` : ''}
             </div>
             ${showLabel && name ? `<span class="device-icon__label">${escapeHtml(name)}</span>` : ''}
         </div>

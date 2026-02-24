@@ -3,17 +3,20 @@ import express from 'express';
 import compression from 'compression';
 import routes from './routes/index.js';
 import backupRoutes from './routes/backup.routes.js';
-import { errorMiddleware, notFoundMiddleware } from './middleware/index.js';
 import { stopScheduler } from './lib/scheduler.js';
+import { errorMiddleware, notFoundMiddleware } from './middleware/index.js';
 import { logger } from './lib/logger.js';
 import { socketService } from './services/socket.service.js';
 import { corsMiddleware, allowedOrigins } from './config/cors.js';
 import { securityMiddleware, apiLimiter, authLimiter } from './config/security.js';
 import { runMigrations } from './db/migrate.js';
-import { Worker } from 'worker_threads';
+import { fork, ChildProcess } from 'child_process';
 import { join, extname, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 import { eventEmitter } from './services/event-emitter.service.js';
+import { createRequire } from 'module';
+
+const REQUIRE = createRequire(import.meta.url);
 
 // ─── Startup Security Validation ────────────────────────────────────────
 const INSECURE_DEFAULTS = [
@@ -104,18 +107,15 @@ const PORT = process.env.PORT || 3001;
 // Worker Thread setup
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-let schedulerWorker: Worker | null = null;
+let schedulerProcess: ChildProcess | null = null;
 
 function startSchedulerWorker() {
-    // In production, we always want to load the compiled .js file from the dist folder.
-    // Even if the main thread was started with a .ts loader, the native Worker needs a supported file.
     const isProd = process.env.NODE_ENV === 'production';
     let baseDir = __dirname;
     let ext = extname(__filename);
 
     if (isProd) {
         ext = '.js';
-        // If we are somehow in 'src', point to 'dist'
         if (baseDir.includes(join('apps', 'api', 'src'))) {
             baseDir = baseDir.replace(join('apps', 'api', 'src'), join('apps', 'api', 'dist'));
         } else if (baseDir.endsWith('src')) {
@@ -124,13 +124,14 @@ function startSchedulerWorker() {
     }
 
     const workerPath = join(baseDir, 'lib', 'scheduler-worker' + ext);
-    logger.info({ workerPath, isProd }, '🧵 Spawning scheduler worker thread');
+    logger.info({ workerPath, isProd }, '🧵 Spawning scheduler background process');
 
-    schedulerWorker = new Worker(workerPath, {
+    schedulerProcess = fork(workerPath, [], {
         execArgv: isProd ? [] : ['--import', 'tsx'],
+        stdio: 'inherit'
     });
 
-    schedulerWorker.on('message', (msg) => {
+    schedulerProcess.on('message', (msg: any) => {
         try {
             if (msg.type === 'sse_broadcast') {
                 eventEmitter.broadcast(msg.eventType, msg.data);
@@ -142,11 +143,10 @@ function startSchedulerWorker() {
         }
     });
 
-    schedulerWorker.on('error', (err) => logger.error({ err: err?.message || String(err) }, 'Scheduler worker error'));
-    schedulerWorker.on('exit', (code) => {
-        if (code !== 0) {
-            logger.error(new Error(`Worker stopped with exit code ${code}`));
-            // Restart worker after 5 seconds
+    schedulerProcess.on('error', (err) => logger.error({ err: err?.message || String(err) }, 'Scheduler process error'));
+    schedulerProcess.on('exit', (code) => {
+        if (code !== 0 && code !== null) {
+            logger.error(new Error(`Scheduler process stopped with exit code ${code}`));
             setTimeout(() => startSchedulerWorker(), 5000);
         }
     });
@@ -168,8 +168,8 @@ const gracefulShutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
     httpServer.close(async () => {
         try {
-            if (schedulerWorker) {
-                schedulerWorker.postMessage('shutdown');
+            if (schedulerProcess) {
+                schedulerProcess.send('shutdown');
                 await new Promise(resolve => setTimeout(resolve, 1000));
             }
             await socketService.stopAll();

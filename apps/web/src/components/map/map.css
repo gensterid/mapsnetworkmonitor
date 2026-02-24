@@ -139,6 +139,43 @@ svg.leaflet-zoom-animated {
     transition: opacity 0.3s ease;
 }
 
+/* Webhook Indicator Badge */
+.device-icon__webhook {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    width: 16px;
+    height: 16px;
+    background: #facc15;
+    /* Yellow-400 */
+    color: #1e293b;
+    /* Slate-800 */
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1.5px solid #1e293b;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.6);
+    z-index: 20;
+}
+
+.device-icon__webhook .material-symbols-outlined {
+    font-size: 11px !important;
+    font-weight: bold;
+}
+
+/* Small icons adjustment */
+.device-icon--small .device-icon__webhook {
+    width: 12px;
+    height: 12px;
+    top: -2px;
+    right: -2px;
+}
+
+.device-icon--small .device-icon__webhook .material-symbols-outlined {
+    font-size: 9px !important;
+}
+
 /* Auto-hide labels at low zoom levels */
 .hide-labels-auto .device-icon__label {
     opacity: 0 !important;
@@ -147,7 +184,8 @@ svg.leaflet-zoom-animated {
 }
 
 /* DOT MODE: Extreme zoom-out simplification */
-.dot-mode .device-icon__badge .material-symbols-outlined {
+.dot-mode .device-icon__badge .material-symbols-outlined,
+.dot-mode .device-icon__webhook {
     display: none !important;
 }
 

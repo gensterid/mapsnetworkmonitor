@@ -62,6 +62,11 @@ export const routers = pgTable('routers', {
     // Notes
     notes: text('notes'),
 
+    // Hybrid Monitoring (Webhook + API)
+    useWebhook: boolean('use_webhook').default(false).notNull(),
+    webhookSecret: text('webhook_secret'), // Generated token for secure webhook endpoint
+    pollingIntervalMetrics: integer('polling_interval_metrics').default(300).notNull(), // Interval for traffic/resources in seconds
+
     // GenieACS Integration
     useGenieAcs: boolean('use_genieacs').default(false).notNull(),
     genieacsUrl: text('genieacs_url'),
@@ -188,6 +193,8 @@ export const routerNetwatch = pgTable('router_netwatch', {
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    hasWebhook: boolean('has_webhook').default(false).notNull(),
+
 }, (table) => ({
     routerIdIdx: index('router_netwatch_router_id_idx').on(table.routerId),
     hostIdx: index('router_netwatch_host_idx').on(table.host),

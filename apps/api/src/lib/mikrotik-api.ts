@@ -65,6 +65,8 @@ export interface NetwatchData {
     sinceUp?: Date;
     sinceDown?: Date;
     disabled?: boolean;
+    upScript?: string;
+    downScript?: string;
     _id?: string;
 }
 
@@ -384,6 +386,8 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
+            upScript: host['up-script'],
+            downScript: host['down-script'],
             _id: host['.id'],
         };
     });
@@ -489,6 +493,95 @@ export async function updateNetwatchEntry(
 
     if (params.length > 1) {
         await safeWrite(api, ['/tool/netwatch/set', ...params]);
+    }
+}
+
+/**
+ * Smart Script Append: injects Webhook URL into netwatch up/down scripts
+ * safely without overwriting existing commands.
+ */
+export async function configureNetwatchWebhook(
+    api: any,
+    host: string,
+    webhookUrl: string
+): Promise<void> {
+    const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
+    if (entries.length === 0) return;
+
+    const entry = entries[0];
+    const id = entry['.id'];
+
+    // Read existing scripts (fallback to empty string)
+    const currentUp = entry['up-script'] || '';
+    const currentDown = entry['down-script'] || '';
+
+    // Formulate the fetch command
+    // RouterOS fetch command for webhooks
+    const upCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no`;
+    const downCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no`;
+
+    let newUp = currentUp;
+    let newDown = currentDown;
+    let needsUpdate = false;
+
+    // Check and append if missing
+    if (!currentUp.includes('/api/webhook/netwatch')) {
+        newUp = currentUp ? `${currentUp}\n${upCommand}` : upCommand;
+        needsUpdate = true;
+    }
+
+    if (!currentDown.includes('/api/webhook/netwatch')) {
+        newDown = currentDown ? `${currentDown}\n${downCommand}` : downCommand;
+        needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+        await safeWrite(api, [
+            '/tool/netwatch/set',
+            `=.id=${id}`,
+            `=up-script=${newUp}`,
+            `=down-script=${newDown}`
+        ]);
+        logger.debug({ host }, 'Smart Append applied webhook scripts');
+    }
+}
+
+/**
+ * Smart Script Remove: removes ONLY the Webhook lines from netwatch scripts
+ */
+export async function removeNetwatchWebhook(
+    api: any,
+    host: string
+): Promise<void> {
+    const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
+    if (entries.length === 0) return;
+
+    const entry = entries[0];
+    const id = entry['.id'];
+
+    const currentUp = entry['up-script'] || '';
+    const currentDown = entry['down-script'] || '';
+
+    // Filter out our lines
+    const cleanScript = (script: string) => {
+        return script
+            .split('\n')
+            .filter(line => !line.includes('/api/webhook/netwatch'))
+            .join('\n')
+            .trim();
+    };
+
+    const newUp = cleanScript(currentUp);
+    const newDown = cleanScript(currentDown);
+
+    if (newUp !== currentUp.trim() || newDown !== currentDown.trim()) {
+        await safeWrite(api, [
+            '/tool/netwatch/set',
+            `=.id=${id}`,
+            `=up-script=${newUp}`,
+            `=down-script=${newDown}`
+        ]);
+        logger.info({ host }, 'Smart Cleanup: Webhook lines removed from netwatch scripts');
     }
 }
 

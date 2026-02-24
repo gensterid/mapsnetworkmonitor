@@ -1120,6 +1120,7 @@ const NetworkMap = ({
                     small={true}
                     latency={node.latency}
                     packetLoss={node.packetLoss}
+                    hasWebhook={node.hasWebhook}
                     lastRxPower={node.lastRxPower}
                     draggable={isEditMode}
                     onDragEnd={(pos) => {

@@ -61,6 +61,7 @@ export default function Settings() {
         genieacs_url: '',
         genieacs_username: '',
         genieacs_password: '',
+        webhook_base_url: 'http://localhost:5173',
     });
     const [saveStatus, setSaveStatus] = useState('');
     const [pingTargets, setPingTargets] = useState([
@@ -102,6 +103,7 @@ export default function Settings() {
                 alertEmailEnabled: settings.alertEmailEnabled === 'true' || settings.alertEmailEnabled === true,
                 alertEmail: settings.alertEmail || '',
                 googleMapsApiKey: settings.googleMapsApiKey || '',
+                webhook_base_url: settings.webhook_base_url || 'http://localhost:5173',
                 genieacs_url: settings.genieacs_url || '',
                 genieacs_username: settings.genieacs_username || '',
                 genieacs_password: settings.genieacs_password_encrypted || '',
@@ -173,6 +175,7 @@ export default function Settings() {
                 const validTargets = pingTargets.filter(t => t.ip.trim() !== '');
                 await updateSettingMutation.mutateAsync({ key: 'pingTargets', value: validTargets });
                 await updateSettingMutation.mutateAsync({ key: 'mapColors', value: formData.mapColors });
+                await updateSettingMutation.mutateAsync({ key: 'webhook_base_url', value: formData.webhook_base_url });
                 await updateSettingMutation.mutateAsync({ key: 'genieacs_url', value: formData.genieacs_url });
                 await updateSettingMutation.mutateAsync({ key: 'genieacs_username', value: formData.genieacs_username });
                 await updateSettingMutation.mutateAsync({ key: 'genieacs_password_encrypted', value: formData.genieacs_password });
@@ -413,6 +416,18 @@ export default function Settings() {
                                         min={10}
                                         max={300}
                                     />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">Webhook Base URL</label>
+                                    <Input
+                                        type="url"
+                                        name="webhook_base_url"
+                                        value={formData.webhook_base_url}
+                                        onChange={handleChange}
+                                        placeholder="https://mapsmonitor.genster.web.id"
+                                        disabled={currentUser?.role !== 'admin'}
+                                    />
+                                    <p className="text-xs text-slate-500">Base URL used by MikroTik routers to send status updates. Must be accessible from the routers.</p>
                                 </div>
                             </CardContent>
                         </Card>

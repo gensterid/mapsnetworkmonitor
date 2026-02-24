@@ -33,6 +33,7 @@ import {
     PhoneCall,
     Timer,
     Search,
+    Zap,
     X
 } from 'lucide-react';
 import clsx from 'clsx';
@@ -594,7 +595,9 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
         location: '',
         notes: '',
         snmpCommunity: 'public',
-        snmpPort: 161
+        snmpPort: 161,
+        useWebhook: false,
+        pollingIntervalMetrics: '300',
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -612,13 +615,16 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 location: router.location || '',
                 notes: router.notes || '',
                 snmpCommunity: router.snmpCommunity || 'public',
-                snmpPort: router.snmpPort || 161
+                snmpPort: router.snmpPort || 161,
+                useWebhook: router.useWebhook || false,
+                pollingIntervalMetrics: router.pollingIntervalMetrics ? String(router.pollingIntervalMetrics) : '300',
             });
         }
     }, [router, isOpen]);
 
     const handleChange = (e) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
     const handleCoordinateInput = (e) => {
@@ -649,7 +655,9 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 location: formData.location,
                 notes: formData.notes,
                 snmpCommunity: formData.snmpCommunity,
-                snmpPort: parseInt(formData.snmpPort, 10)
+                snmpPort: parseInt(formData.snmpPort, 10),
+                useWebhook: formData.useWebhook,
+                pollingIntervalMetrics: parseInt(formData.pollingIntervalMetrics, 10) || 300,
             };
 
             if (formData.password) {
@@ -736,6 +744,36 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                         className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-primary focus:border-transparent text-sm h-20"
                         placeholder="Additional notes..."
                     />
+                </div>
+
+                <div className="border-t border-slate-700 pt-4">
+                    <h4 className="text-sm font-medium text-slate-300 mb-3 block">Monitoring Webhooks</h4>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="text-sm text-slate-400">Enable Webhook for Instant Up/Down Detection</div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="useWebhook"
+                                checked={formData.useWebhook}
+                                onChange={handleChange}
+                                className="sr-only peer"
+                            />
+                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                    {formData.useWebhook && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <Input
+                                label="Metrics Polling Interval (s)"
+                                name="pollingIntervalMetrics"
+                                type="number"
+                                value={formData.pollingIntervalMetrics}
+                                onChange={handleChange}
+                                placeholder="300"
+                                min="60"
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <div className="border-t border-slate-700 pt-4">
@@ -1098,6 +1136,12 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                         {nw.name?.startsWith('[DISABLED]') && (
                                             <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">Disabled</span>
                                         )}
+                                        {nw.hasWebhook && (
+                                            <span className="inline-flex items-center gap-1 text-[9px] font-bold text-amber-400 bg-amber-400/5 px-1.5 py-0.5 rounded border border-amber-400/20">
+                                                <Zap className="w-2.5 h-2.5 fill-amber-400" />
+                                                REAL-TIME
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
 
@@ -1205,6 +1249,12 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                                 {nw.name?.startsWith('[DISABLED]') && (
                                                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
                                                         Disabled
+                                                    </span>
+                                                )}
+                                                {nw.hasWebhook && (
+                                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20" title="Real-time Webhook Active">
+                                                        <Zap className="w-3 h-3 fill-amber-400" />
+                                                        REAL-TIME
                                                     </span>
                                                 )}
                                             </div>

@@ -32,6 +32,8 @@ const createRouterSchema = z.object({
     genieacsUrl: z.string().url().optional().nullable(),
     genieacsUsername: z.string().optional().nullable(),
     genieacsPassword: z.string().optional().nullable(),
+    useWebhook: z.boolean().optional().default(false),
+    pollingIntervalMetrics: z.number().int().min(60).optional().default(300),
 });
 
 const updateRouterSchema = z.object({
@@ -54,6 +56,8 @@ const updateRouterSchema = z.object({
     genieacsUrl: z.string().url().optional().nullable(),
     genieacsUsername: z.string().optional().nullable(),
     genieacsPassword: z.string().optional().nullable(),
+    useWebhook: z.boolean().optional(),
+    pollingIntervalMetrics: z.number().int().min(60).optional(),
 });
 
 const testConnectionSchema = z.object({
