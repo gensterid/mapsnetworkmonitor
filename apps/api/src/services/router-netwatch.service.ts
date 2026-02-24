@@ -265,8 +265,8 @@ export class RouterNetwatchService {
                     }
                 }
             });
-        } catch (err) {
-            logger.error({ err, router: routerName }, 'Failed to sync netwatch');
+        } catch (err: any) {
+            logger.error({ err: err?.message || String(err), router: routerName }, 'Failed to sync netwatch');
         }
     }
 
@@ -381,8 +381,8 @@ export class RouterNetwatchService {
                     }
                 }
             }
-        } catch (err) {
-            logger.error({ err, router: routerName }, 'Failed to propagate traffic');
+        } catch (err: any) {
+            logger.error({ err: err?.message || String(err), router: routerName }, 'Failed to propagate traffic');
         }
     }
 
@@ -474,8 +474,8 @@ export class RouterNetwatchService {
             await this.measureLatency(routerId, router.name, api, entries);
 
             syncedCount = entries.length;
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        } catch (error: any) {
+            const errorMessage = error?.message || String(error);
             console.error(`[RouterNetwatchService] Sync failed for router ${router.name}:`, errorMessage);
             errors.push(`Failed to sync netwatch: ${errorMessage}`);
         } finally {

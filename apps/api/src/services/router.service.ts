@@ -44,6 +44,7 @@ import { snmpService } from './snmp.service.js';
 import { routerNetwatchService } from './router-netwatch.service.js';
 import { routerMetricsService } from './router-metrics.service.js';
 import { routerInterfaceService } from './router-interface.service.js';
+import { eventEmitter } from './event-emitter.service.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -280,6 +281,14 @@ export class RouterService {
             })
             .returning();
 
+        if (router) {
+            eventEmitter.broadcast('map_update', {
+                type: 'router',
+                id: router.id,
+                action: 'create',
+            });
+        }
+
         return router;
     }
 
@@ -323,6 +332,14 @@ export class RouterService {
             .where(eq(routers.id, id))
             .returning();
 
+        if (router) {
+            eventEmitter.broadcast('map_update', {
+                type: 'router',
+                id: router.id,
+                action: 'update',
+            });
+        }
+
         return router;
     }
 
@@ -331,7 +348,15 @@ export class RouterService {
      */
     async delete(id: string): Promise<boolean> {
         const result = await db.delete(routers).where(eq(routers.id, id)).returning();
-        return result.length > 0;
+        if (result.length > 0) {
+            eventEmitter.broadcast('map_update', {
+                type: 'router',
+                id: id,
+                action: 'delete',
+            });
+            return true;
+        }
+        return false;
     }
 
     /**
@@ -478,18 +503,19 @@ export class RouterService {
             }
 
             return updatedRouter;
-        } catch (error) {
-            logger.error({ err: error, router: router.host }, 'Connection failed');
+        } catch (error: any) {
+            const errMsg = error?.message || String(error);
+            logger.error({ err: errMsg, router: router.host }, 'Connection failed during refresh');
 
             // Only mark offline if it's a connection error
             // Check if error is ETIMEDOUT, ECONNREFUSED, or login failure
-            const errMsg = error instanceof Error ? error.message : String(error);
             const isConnectionError =
                 errMsg.includes('timeout') ||
                 errMsg.includes('ECONNREFUSED') ||
                 errMsg.includes('EHOSTUNREACH') ||
                 errMsg.includes('login failure') ||
-                errMsg.includes('cannot connect');
+                errMsg.includes('cannot connect') ||
+                errMsg.includes('Username or password is invalid');
 
             if (isConnectionError) {
 
@@ -511,13 +537,13 @@ export class RouterService {
                             previousStatus,
                             'offline'
                         );
-                    } catch (alertError) {
-                        logger.error({ err: alertError }, 'Failed to create offline alert');
+                    } catch (alertError: any) {
+                        logger.error({ err: alertError?.message || String(alertError) }, 'Failed to create offline alert');
                     }
                 }
                 return updatedRouter;
             } else {
-                logger.error({ err: error, router: router.host }, 'Non-connection error during refresh');
+                logger.error({ err: errMsg, router: router.host }, 'Non-connection error during refresh');
                 return router;
             }
         } finally {
@@ -561,10 +587,11 @@ export class RouterService {
                 .where(eq(routers.id, id));
 
             return { success: true };
-        } catch (error) {
+        } catch (error: any) {
+            const errMsg = error?.message || String(error);
             return {
                 success: false,
-                error: error instanceof Error ? error.message : 'Unknown error',
+                error: errMsg,
             };
         }
     }
@@ -610,8 +637,8 @@ export class RouterService {
             const count = await getHotspotActive(conn);
             conn.close();
             return count;
-        } catch (error) {
-            logger.error({ err: error, host: router.host }, 'Failed to get hotspot users');
+        } catch (error: any) {
+            logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get hotspot users');
             return 0;
         }
     }
@@ -634,8 +661,8 @@ export class RouterService {
             const count = await getPppActive(conn);
             conn.close();
             return count;
-        } catch (error) {
-            logger.error({ err: error, host: router.host }, 'Failed to get PPP users');
+        } catch (error: any) {
+            logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get PPP users');
             return 0;
         }
     }
@@ -658,8 +685,8 @@ export class RouterService {
             const sessions = await getPppSessions(conn);
             conn.close();
             return sessions;
-        } catch (error) {
-            logger.error({ err: error, host: router.host }, 'Failed to get PPP sessions');
+        } catch (error: any) {
+            logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get PPP sessions');
             return [];
         }
     }
@@ -761,8 +788,9 @@ export class RouterService {
                     });
                 }
             }
-        } catch (error) {
-            logger.error({ err: error, router: router.name }, 'Failed to measure ping targets completely');
+        } catch (error: any) {
+            const errMsg = error?.message || String(error);
+            logger.error({ err: errMsg, router: router.name }, 'Failed to measure ping targets completely');
 
             // If connection failed, return targets with null results instead of 500
             if (results.length === 0) {
@@ -852,9 +880,10 @@ export class RouterService {
                     comment: data.name, // Mapping name to comment
                 });
                 logger.info({ routerId, host: data.host, name: data.name }, 'Netwatch entry added to MikroTik router');
-            } catch (err) {
-                logger.error({ err, routerId, host: data.host }, 'Failed to add netwatch to router');
-                throw new ApiError(500, `Failed to add to router: ${err instanceof Error ? err.message : 'Unknown error'}`);
+            } catch (err: any) {
+                const msg = err?.message || String(err);
+                logger.error({ err: msg, routerId, host: data.host }, 'Failed to add netwatch to router');
+                throw new ApiError(500, `Failed to add to router: ${msg}`);
             } finally {
                 if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after addNetwatch'));
             }
@@ -938,6 +967,13 @@ export class RouterService {
             if (router) {
                 let conn;
                 try {
+                    logger.debug({
+                        routerId,
+                        host: router.host,
+                        username: router.username,
+                        pwLength: router.password?.length
+                    }, 'Attempting MikroTik connection for Netwatch update');
+
                     conn = await connectToRouter({
                         host: router.host,
                         port: router.port,
@@ -950,9 +986,10 @@ export class RouterService {
                         interval: data.interval,
                         comment: data.name,
                     });
-                } catch (err) {
-                    logger.error({ err, details: err }, 'Failed to update netwatch on router');
-                    throw new Error(`Failed to update router: ${err instanceof Error ? err.message : JSON.stringify(err)}`);
+                } catch (err: any) {
+                    const msg = err?.message || String(err);
+                    logger.error({ err: msg, host: original.host }, 'Failed to update netwatch on router');
+                    throw new Error(`Failed to update router: ${msg}`);
                 } finally {
                     if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after updateNetwatch'));
                 }
@@ -990,6 +1027,15 @@ export class RouterService {
             .where(eq(routerNetwatch.id, netwatchId))
             .returning();
 
+        if (netwatch) {
+            eventEmitter.broadcast('map_update', {
+                type: 'netwatch',
+                id: netwatch.id,
+                routerId: netwatch.routerId,
+                action: 'update',
+            });
+        }
+
         return netwatch;
     }
 
@@ -1005,6 +1051,15 @@ export class RouterService {
             .delete(routerNetwatch)
             .where(eq(routerNetwatch.id, netwatchId))
             .returning();
+
+        if (deleted) {
+            eventEmitter.broadcast('map_update', {
+                type: 'netwatch',
+                id: netwatchId,
+                routerId,
+                action: 'delete',
+            });
+        }
 
         if (!deleted) {
             logger.warn({ netwatchId }, '[RouterService] Netwatch entry not found in DB for deletion');

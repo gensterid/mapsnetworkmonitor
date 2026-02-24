@@ -86,12 +86,18 @@ export async function connectToRouter(
 
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
+        const errorMsg = err?.message || String(err || 'Unknown RouterOS error');
+
         // Specific handling for known MikroTik API quirks (like !empty unknown reply)
-        if (err.message?.includes('unknown reply')) {
-            logger.warn({ err: err.message, host: config.host }, '[RouterOS API Warning] Ignoring unexpected reply');
-            return;
+        // RouterOS 7.18+ introduces !empty tag which node-routeros doesn't recognize
+        if (errorMsg.includes('unknown reply')) {
+            const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown tag');
+            if (isKnownQuirk) {
+                logger.debug({ err: errorMsg, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk');
+                return;
+            }
         }
-        logger.error({ err, host: config.host }, '[RouterOS API Error]');
+        logger.error({ err: errorMsg, host: config.host }, '[RouterOS API Error]');
     });
 
     await api.connect();
@@ -99,15 +105,34 @@ export async function connectToRouter(
 }
 
 /**
+ * Resilient wrapper for api.write that handles RouterOS 7.18+ !empty tag
+ */
+export async function safeWrite(api: any, command: string | string[]): Promise<any[]> {
+    try {
+        if (!api || typeof api.write !== 'function') {
+            throw new Error('Invalid API instance provided to safeWrite');
+        }
+        return await api.write(command);
+    } catch (error: any) {
+        const errorMsg = error?.message || String(error || '');
+        // If it's the known !empty tag error, treat it as success with empty result
+        if (errorMsg.includes('unknown reply') && errorMsg.includes('!empty')) {
+            return [];
+        }
+        throw error;
+    }
+}
+
+/**
  * Get router system identity
  */
 export async function getRouterInfo(api: any): Promise<RouterInfo> {
-    const identityResult = await api.write('/system/identity/print');
-    const resourceResult = await api.write('/system/resource/print');
+    const identityResult = await safeWrite(api, '/system/identity/print');
+    const resourceResult = await safeWrite(api, '/system/resource/print');
 
     let routerboardResult: any[] = [];
     try {
-        routerboardResult = await api.write('/system/routerboard/print');
+        routerboardResult = await safeWrite(api, '/system/routerboard/print');
     } catch {
         // Not all devices have routerboard info
     }
@@ -132,12 +157,12 @@ export async function getRouterInfo(api: any): Promise<RouterInfo> {
 export async function getRouterResources(
     api: any
 ): Promise<RouterResources> {
-    const resourceResult = await api.write('/system/resource/print');
+    const resourceResult = await safeWrite(api, '/system/resource/print');
     const resource = resourceResult[0] || {};
 
     let health: any = {};
     try {
-        const healthResult = await api.write('/system/health/print');
+        const healthResult = await safeWrite(api, '/system/health/print');
         health = healthResult[0] || {};
     } catch {
         // Not all devices have health info
@@ -168,11 +193,11 @@ export async function getRouterResources(
 export async function getRouterInterfaces(
     api: any
 ): Promise<RouterInterfaceData[]> {
-    const interfacesResult = await api.write('/interface/print');
+    const interfacesResult = await safeWrite(api, '/interface/print');
 
     let ethernetSpeeds: Map<string, string> = new Map();
     try {
-        const ethernetResult = await api.write('/interface/ethernet/print');
+        const ethernetResult = await safeWrite(api, '/interface/ethernet/print');
         const runningEthernetIds: string[] = [];
 
         ethernetResult.forEach((eth: any) => {
@@ -190,7 +215,7 @@ export async function getRouterInterfaces(
                 try {
                     // Monitor individual calling
                     const monitorResult = await Promise.race([
-                        api.write([
+                        safeWrite(api, [
                             '/interface/ethernet/monitor',
                             `=numbers=${id}`,
                             '=once='
@@ -255,7 +280,7 @@ export async function getInterfaceTraffic(
     for (let i = 0; i < interfaces.length; i += CHUNK_SIZE) {
         const chunk = interfaces.slice(i, i + CHUNK_SIZE);
         try {
-            const result = await api.write([
+            const result = await safeWrite(api, [
                 '/interface/monitor-traffic',
                 `=interface=${chunk.join(',')}`,
                 '=once='
@@ -284,7 +309,7 @@ export async function getInterfaceTraffic(
  * Get router clock time
  */
 export async function getRouterClock(api: any): Promise<{ time: string; date: string; timeZoneName: string; gmtOffset: string }> {
-    const clockResult = await api.write('/system/clock/print');
+    const clockResult = await safeWrite(api, '/system/clock/print');
     return clockResult[0] || {};
 }
 
@@ -295,7 +320,7 @@ export async function getNetwatchHosts(
     api: any,
     routerClock?: { time: string; date: string; timeZoneName: string; gmtOffset: string }
 ): Promise<NetwatchData[]> {
-    const hostsResult = await api.write('/tool/netwatch/print');
+    const hostsResult = await safeWrite(api, '/tool/netwatch/print');
 
     // Calculate time offset if clock provided
     let timeOffset = 0;
@@ -441,7 +466,7 @@ export async function addNetwatchEntry(
     else params.push('=timeout=1000ms');
     if (data.comment) params.push(`=comment=${data.comment}`);
 
-    await api.write(['/tool/netwatch/add', ...params]);
+    await safeWrite(api, ['/tool/netwatch/add', ...params]);
 }
 
 export async function updateNetwatchEntry(
@@ -449,7 +474,7 @@ export async function updateNetwatchEntry(
     host: string,
     data: { host?: string; interval?: number; timeout?: number; comment?: string }
 ): Promise<void> {
-    const entries = await api.write(['/tool/netwatch/print', `?host=${host}`]);
+    const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
     if (entries.length === 0) {
         throw new Error(`Netwatch entry for host ${host} not found`);
     }
@@ -463,7 +488,7 @@ export async function updateNetwatchEntry(
     if (data.comment !== undefined) params.push(`=comment=${data.comment}`);
 
     if (params.length > 1) {
-        await api.write(['/tool/netwatch/set', ...params]);
+        await safeWrite(api, ['/tool/netwatch/set', ...params]);
     }
 }
 
@@ -471,15 +496,15 @@ export async function removeNetwatchEntry(
     api: any,
     host: string
 ): Promise<void> {
-    const entries = await api.write(['/tool/netwatch/print', `?host=${host}`]);
+    const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
     if (entries.length > 0) {
         const id = entries[0]['.id'];
-        await api.write(['/tool/netwatch/remove', `=.id=${id}`]);
+        await safeWrite(api, ['/tool/netwatch/remove', `=.id=${id}`]);
     }
 }
 
 export async function rebootRouter(api: any): Promise<void> {
-    await api.write('/system/reboot');
+    await safeWrite(api, '/system/reboot');
 }
 
 export async function testConnection(
@@ -512,7 +537,7 @@ export function parseUptimeToSeconds(uptime: string): number {
  * Get active hotspot users
  */
 export async function getHotspotActive(api: any): Promise<number> {
-    const result = await api.write('/ip/hotspot/active/print');
+    const result = await safeWrite(api, '/ip/hotspot/active/print');
     return result.length;
 }
 
@@ -520,7 +545,7 @@ export async function getHotspotActive(api: any): Promise<number> {
  * Get active PPP connections
  */
 export async function getPppActive(api: any): Promise<number> {
-    const result = await api.write('/ppp/active/print');
+    const result = await safeWrite(api, '/ppp/active/print');
     return result.length;
 }
 
@@ -546,7 +571,7 @@ export async function measurePing(
     try {
         // node-routeros might throw if RouterOS sends unexpected tags like !empty
         // We Use Promise.race to ensure it never hangs too long
-        const resultPromise = api.write([
+        const resultPromise = safeWrite(api, [
             '/ping',
             `=address=${address}`,
             `=count=${count}`,
@@ -662,7 +687,7 @@ export interface PppSession {
  * Get active PPP sessions with details
  */
 export async function getPppSessions(api: any): Promise<PppSession[]> {
-    const result = await api.write('/ppp/active/print');
+    const result = await safeWrite(api, '/ppp/active/print');
 
     return result.map((session: any) => {
         // Parse uptime to seconds for sorting
@@ -705,7 +730,7 @@ export interface SimpleQueueData {
  * Get Simple Queues
  */
 export async function getSimpleQueues(api: any): Promise<SimpleQueueData[]> {
-    const result = await api.write('/queue/simple/print');
+    const result = await safeWrite(api, '/queue/simple/print');
 
     return result.map((q: any) => ({
         name: q.name,

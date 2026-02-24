@@ -116,7 +116,9 @@ function startSchedulerWorker() {
     if (isProd) {
         ext = '.js';
         // If we are somehow in 'src', point to 'dist'
-        if (baseDir.endsWith('src')) {
+        if (baseDir.includes(join('apps', 'api', 'src'))) {
+            baseDir = baseDir.replace(join('apps', 'api', 'src'), join('apps', 'api', 'dist'));
+        } else if (baseDir.endsWith('src')) {
             baseDir = baseDir.replace(/src$/, 'dist');
         }
     }
@@ -124,7 +126,9 @@ function startSchedulerWorker() {
     const workerPath = join(baseDir, 'lib', 'scheduler-worker' + ext);
     logger.info({ workerPath, isProd }, '🧵 Spawning scheduler worker thread');
 
-    schedulerWorker = new Worker(workerPath);
+    schedulerWorker = new Worker(workerPath, {
+        execArgv: isProd ? [] : ['--import', 'tsx'],
+    });
 
     schedulerWorker.on('message', (msg) => {
         try {

@@ -67,6 +67,24 @@ export function useSSE() {
             queryClient.invalidateQueries({ queryKey: ['unread-alert-count'] });
         });
 
+        // Handle map update events (manual edits, deletions, additions)
+        eventSource.addEventListener('map_update', (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Map update received:', data);
+
+            // Invalidate all map-related data
+            queryClient.invalidateQueries({ queryKey: ['routers'] });
+            queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
+            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+
+            // Optional: Show a small notification if it's a specific change
+            if (data.action === 'update' && data.type === 'netwatch') {
+                // We don't want to be too noisy, but for testing it's good
+                console.log(`Device ${data.id} updated on router ${data.routerId}`);
+            }
+        });
+
         eventSourceRef.current = eventSource;
     }, [queryClient]);
 
