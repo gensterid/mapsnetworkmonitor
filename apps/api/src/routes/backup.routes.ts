@@ -31,7 +31,7 @@ router.get('/export', requireAdmin, async (_req, res) => {
         const filePath = await backupService.exportDatabase();
         res.download(filePath, path.basename(filePath), (err) => {
             if (err) {
-                logger.error({ err }, 'Download error');
+                logger.error({ err: err?.message || String(err) }, 'Download error');
             }
             // cleanup
             try {

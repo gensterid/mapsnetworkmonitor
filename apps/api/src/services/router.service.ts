@@ -1091,17 +1091,17 @@ export class RouterService {
                         // Ignore if entry not found, otherwise throw
                         const msg = netwatchErr.message || '';
                         if (!msg.includes('no such item') && !msg.includes('not found')) {
-                            logger.error({ err: netwatchErr }, '[RouterService] Failed to remove from MikroTik');
+                            logger.error({ err: netwatchErr?.message || String(netwatchErr) }, '[RouterService] Failed to remove from MikroTik');
                         } else {
                             logger.debug('Netwatch entry not found on router, skipping');
                         }
                     }
-                } catch (err) {
-                    logger.error({ err }, 'Failed to connect/delete netwatch from router (DB entry was already deleted)');
+                } catch (err: any) {
+                    logger.error({ err: err?.message || String(err) }, 'Failed to connect/delete netwatch from router (DB entry was already deleted)');
                     // We don't re-throw here because the DB entry is already gone, 
                     // so the "primary" goal of the user (clearing the map) is achieved.
                 } finally {
-                    if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after deleteNetwatch'));
+                    if (conn) await conn.close().catch((e: any) => logger.error({ err: e?.message || String(e) }, 'Failed to close connection after deleteNetwatch'));
                 }
             } else {
                 logger.warn({ routerId }, '[RouterService] Router not found, skipped MikroTik cleanup');

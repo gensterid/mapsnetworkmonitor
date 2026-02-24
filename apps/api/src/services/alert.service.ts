@@ -372,7 +372,7 @@ export class AlertService {
         if (data.routerId) {
             // Fire and forget notification to avoid blocking the alert creation
             notificationService.notifyAlert(alert, data.routerId).catch(err =>
-                logger.error({ err }, 'Failed to trigger notification')
+                logger.error({ err: err?.message || String(err) }, 'Failed to trigger notification')
             );
 
             // Get users assigned to this router

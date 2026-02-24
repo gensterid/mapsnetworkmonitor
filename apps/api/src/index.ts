@@ -137,12 +137,12 @@ function startSchedulerWorker() {
             } else if (msg.type === 'sse_broadcast_users') {
                 eventEmitter.broadcastToUsers(msg.eventType, msg.data, msg.allowedUserIds);
             }
-        } catch (err) {
-            logger.error({ err, msg }, 'Error handling worker message in main thread');
+        } catch (err: any) {
+            logger.error({ err: err?.message || String(err), msg }, 'Error handling worker message in main thread');
         }
     });
 
-    schedulerWorker.on('error', (err) => logger.error({ err }, 'Scheduler worker error'));
+    schedulerWorker.on('error', (err) => logger.error({ err: err?.message || String(err) }, 'Scheduler worker error'));
     schedulerWorker.on('exit', (code) => {
         if (code !== 0) {
             logger.error(new Error(`Worker stopped with exit code ${code}`));
@@ -175,8 +175,8 @@ const gracefulShutdown = async (signal: string) => {
             await socketService.stopAll();
             logger.info('✅ Graceful shutdown complete');
             process.exit(0);
-        } catch (err) {
-            logger.error({ err }, 'Error during graceful shutdown');
+        } catch (err: any) {
+            logger.error({ err: err?.message || String(err) }, 'Error during graceful shutdown');
             process.exit(1);
         }
     });

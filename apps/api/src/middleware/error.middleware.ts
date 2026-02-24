@@ -70,7 +70,11 @@ export function errorMiddleware(
         }
     }
 
-    logger.error({ err }, 'Unhandled error');
+    logger.error({
+        err: err?.message || String(err),
+        stack: err?.stack,
+        name: err?.name
+    }, 'Unhandled error');
 
     // Handle Zod validation errors
     if (err instanceof ZodError) {
@@ -110,9 +114,8 @@ export function errorMiddleware(
     const message = err.message || 'Internal server error';
 
     logger.error({
-        err,
-        message: err.message,
-        stack: err.stack,
+        err: err?.message || String(err),
+        stack: err?.stack,
         path: _req.path,
         method: _req.method
     }, 'Generic 500 Error Caught');

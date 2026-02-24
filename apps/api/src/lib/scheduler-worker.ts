@@ -5,12 +5,12 @@ import { logger } from './logger.js';
 
 // ─── Global Error Handlers ───────────────────────────────────────────────
 // Prevent the worker thread from exiting on uncaught exceptions (like MikroTik API errors)
-process.on('uncaughtException', (err) => {
-    logger.error({ err }, '[Worker] Uncaught Exception - Continuing anyway');
+process.on('uncaughtException', (err: any) => {
+    logger.error({ err: err?.message || String(err), stack: err?.stack }, '[Worker] Uncaught Exception - Continuing anyway');
 });
 
-process.on('unhandledRejection', (reason) => {
-    logger.error({ reason }, '[Worker] Unhandled Rejection - Continuing anyway');
+process.on('unhandledRejection', (reason: any) => {
+    logger.error({ err: reason?.message || String(reason), stack: reason?.stack }, '[Worker] Unhandled Rejection - Continuing anyway');
 });
 // ─────────────────────────────────────────────────────────────────────────
 
@@ -19,8 +19,8 @@ setInterval(() => { }, 1000 * 60 * 60);
 
 logger.info('🧵 Starting Scheduler Worker Thread');
 
-startScheduler().catch(err => {
-    logger.error({ err }, 'Worker failed to start scheduler');
+startScheduler().catch((err: any) => {
+    logger.error({ err: err?.message || String(err), stack: err?.stack }, 'Worker failed to start scheduler');
     process.exit(1);
 });
 
