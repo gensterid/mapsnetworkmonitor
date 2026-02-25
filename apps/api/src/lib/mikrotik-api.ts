@@ -94,8 +94,10 @@ export async function connectToRouter(
         // Specific handling for known MikroTik API quirks (like !empty unknown reply)
         // RouterOS 7.18+ introduces !empty tag which node-routeros doesn't recognize
         const isKnownQuirk =
-            lowerMsg.includes('unknown reply') &&
-            (lowerMsg.includes('!empty') || lowerMsg.includes('unknown tag'));
+            lowerMsg.includes('!empty') ||
+            lowerMsg.includes('unknown reply') ||
+            lowerMsg.includes('unknown tag') ||
+            err.errno === 'UNKNOWNREPLY';
 
         if (isKnownQuirk) {
             logger.debug({ err: errorMsg, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk');
@@ -138,7 +140,7 @@ export async function safeWrite(api: any, command: string | string[], timeoutMs:
         const lowerMsg = errorMsg.toLowerCase();
 
         // If it's the known !empty tag error, treat it as success with empty result
-        if (lowerMsg.includes('unknown reply') && lowerMsg.includes('!empty')) {
+        if (lowerMsg.includes('!empty') || lowerMsg.includes('unknown reply') || error.errno === 'UNKNOWNREPLY') {
             return [];
         }
         throw error;

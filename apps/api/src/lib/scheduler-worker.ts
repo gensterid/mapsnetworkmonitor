@@ -6,7 +6,7 @@ import { logger } from './logger.js';
 // Prevent the worker thread from exiting on uncaught exceptions (like MikroTik API errors)
 process.on('uncaughtException', (err: any) => {
     const errorMsg = String(err?.message || err || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (err as any).errno === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
         logger.debug({ err: errorMsg }, '[Worker] Ignoring unhandled !empty exception');
@@ -18,7 +18,7 @@ process.on('uncaughtException', (err: any) => {
 
 process.on('unhandledRejection', (reason: any) => {
     const errorMsg = String(reason?.message || reason || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (reason as any).errno === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
         logger.debug({ err: errorMsg }, '[Worker] Ignoring unhandled !empty rejection');

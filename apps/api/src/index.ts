@@ -55,7 +55,7 @@ validateSecrets();
 // Global error handlers
 process.on('uncaughtException', (error: Error) => {
     const errorMsg = String(error?.message || error || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (error as any).errno === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
         logger.debug({ err: errorMsg }, '[RouterOS API Compatibility] Ignoring unhandled !empty exception');
@@ -68,7 +68,7 @@ process.on('uncaughtException', (error: Error) => {
 
 process.on('unhandledRejection', (reason: any) => {
     const errorMsg = String(reason?.message || reason || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (reason as any).errno === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
         logger.debug({ err: errorMsg }, '[RouterOS API Compatibility] Ignoring unhandled !empty rejection');
