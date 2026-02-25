@@ -5,10 +5,26 @@ import { logger } from './logger.js';
 // ─── Global Error Handlers ───────────────────────────────────────────────
 // Prevent the worker thread from exiting on uncaught exceptions (like MikroTik API errors)
 process.on('uncaughtException', (err: any) => {
+    const errorMsg = String(err?.message || err || '').toLowerCase();
+    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+
+    if (isKnownQuirk) {
+        logger.debug({ err: errorMsg }, '[Worker] Ignoring unhandled !empty exception');
+        return;
+    }
+
     logger.error({ err: err?.message || String(err), stack: err?.stack }, '[Worker] Uncaught Exception - Continuing anyway');
 });
 
 process.on('unhandledRejection', (reason: any) => {
+    const errorMsg = String(reason?.message || reason || '').toLowerCase();
+    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+
+    if (isKnownQuirk) {
+        logger.debug({ err: errorMsg }, '[Worker] Ignoring unhandled !empty rejection');
+        return;
+    }
+
     logger.error({ err: reason?.message || String(reason), stack: reason?.stack }, '[Worker] Unhandled Rejection - Continuing anyway');
 });
 // ─────────────────────────────────────────────────────────────────────────

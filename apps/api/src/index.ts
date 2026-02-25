@@ -54,11 +54,27 @@ validateSecrets();
 
 // Global error handlers
 process.on('uncaughtException', (error: Error) => {
+    const errorMsg = String(error?.message || error || '').toLowerCase();
+    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+
+    if (isKnownQuirk) {
+        logger.debug({ err: errorMsg }, '[RouterOS API Compatibility] Ignoring unhandled !empty exception');
+        return;
+    }
+
     logger.error({ err: error }, 'Uncaught Exception');
     if (process.env.NODE_ENV === 'production') process.exit(1);
 });
 
-process.on('unhandledRejection', (reason: unknown) => {
+process.on('unhandledRejection', (reason: any) => {
+    const errorMsg = String(reason?.message || reason || '').toLowerCase();
+    const isKnownQuirk = errorMsg.includes('unknown reply') && errorMsg.includes('!empty');
+
+    if (isKnownQuirk) {
+        logger.debug({ err: errorMsg }, '[RouterOS API Compatibility] Ignoring unhandled !empty rejection');
+        return;
+    }
+
     logger.error({ reason }, 'Unhandled Rejection');
 });
 

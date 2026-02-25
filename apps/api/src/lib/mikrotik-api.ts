@@ -104,6 +104,14 @@ export async function connectToRouter(
         logger.error({ err: errorMsg, host: config.host }, '[RouterOS API Error]');
     });
 
+    // Handle 'unknown' replies specifically which might skip the regular error flow
+    api.on('unknown', (sentence: any) => {
+        const sentenceStr = String(sentence || '').toLowerCase();
+        if (sentenceStr.includes('!empty')) {
+            logger.debug({ host: config.host }, '[RouterOS API Compatibility] Captured !empty in unknown event');
+        }
+    });
+
     await api.connect();
     return api;
 }
@@ -148,7 +156,7 @@ export async function getRouterInfo(api: any): Promise<RouterInfo> {
     try {
         routerboardResult = await safeWrite(api, '/system/routerboard/print');
     } catch {
-        // Not all devices have routerboard info
+        // Some older non-RouterBoard devices might fail this
     }
 
     const identity = identityResult[0] || {};
@@ -611,9 +619,7 @@ export async function removeNetwatchEntry(
     }
 }
 
-export async function rebootRouter(api: any): Promise<void> {
-    await safeWrite(api, '/system/reboot');
-}
+// rebootRouter removed from here as it is defined above
 
 export async function testConnection(
     config: RouterConnection
@@ -644,18 +650,12 @@ export function parseUptimeToSeconds(uptime: string): number {
 /**
  * Get active hotspot users
  */
-export async function getHotspotActive(api: any): Promise<number> {
-    const result = await safeWrite(api, '/ip/hotspot/active/print');
-    return result.length;
-}
+// getHotspotActive removed from here as it is defined above
 
 /**
  * Get active PPP connections
  */
-export async function getPppActive(api: any): Promise<number> {
-    const result = await safeWrite(api, '/ppp/active/print');
-    return result.length;
-}
+// getPppActive removed from here as it is defined above
 
 /**
  * Measure ping latency to a host
