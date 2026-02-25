@@ -619,7 +619,12 @@ export async function removeNetwatchEntry(
     }
 }
 
-// rebootRouter removed from here as it is defined above
+/**
+ * Reboot a router
+ */
+export async function rebootRouter(api: any): Promise<void> {
+    await safeWrite(api, '/system/reboot');
+}
 
 export async function testConnection(
     config: RouterConnection
@@ -650,12 +655,18 @@ export function parseUptimeToSeconds(uptime: string): number {
 /**
  * Get active hotspot users
  */
-// getHotspotActive removed from here as it is defined above
+export async function getHotspotActive(api: any): Promise<number> {
+    const result = await safeWrite(api, '/ip/hotspot/active/print');
+    return result.length;
+}
 
 /**
  * Get active PPP connections
  */
-// getPppActive removed from here as it is defined above
+export async function getPppActive(api: any): Promise<number> {
+    const result = await safeWrite(api, '/ppp/active/print');
+    return result.length;
+}
 
 /**
  * Measure ping latency to a host
