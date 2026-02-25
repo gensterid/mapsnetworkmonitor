@@ -136,6 +136,12 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const data = createRouterSchema.parse(req.body);
+
+        // Lockdown billing/polling interval to Admin only
+        if (data.pollingIntervalMetrics !== 300 && req.user!.role !== 'admin') {
+            throw ApiError.forbidden('Only administrators can set custom polling intervals');
+        }
+
         let newRouter = await routerService.create(data);
 
         // Log action
@@ -177,6 +183,11 @@ router.put(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const data = updateRouterSchema.parse(req.body);
+
+        // Lockdown billing/polling interval to Admin only
+        if (data.pollingIntervalMetrics !== undefined && req.user!.role !== 'admin') {
+            throw ApiError.forbidden('Only administrators can change polling intervals');
+        }
 
         const updateData: any = { ...data };
         // Remove nulls if they exist, or handle them specifically if DB allows null

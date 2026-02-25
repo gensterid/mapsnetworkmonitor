@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { oltService } from '../services/olt.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 
@@ -44,6 +45,9 @@ const updateOnuSchema = z.object({
 // --- DEBUG ROUTES (Move above auth for 404 troubleshooting) ---
 router.get('/ping', (req, res) => res.json({ status: 'ok', msg: 'OLT Router is active' }));
 
+// Apply auth middleware to all routes except ping
+router.use(authMiddleware);
+
 // Get all ONUs for a specific router (via OLTs)
 router.get('/onus/by-router/:routerId', asyncHandler(async (req, res) => {
     const onus = await oltService.getOnusByRouter(req.params.routerId as string);
@@ -75,14 +79,16 @@ router.get('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Create OLT
-router.post('/', asyncHandler(async (req, res) => {
+// Requires: Operator or Admin
+router.post('/', requireOperator, asyncHandler(async (req, res) => {
     const data = createOltSchema.parse(req.body);
     const olt = await oltService.create(data);
     res.status(201).json(olt);
 }));
 
 // Update OLT
-router.patch('/:id', asyncHandler(async (req, res) => {
+// Requires: Operator or Admin
+router.patch('/:id', requireOperator, asyncHandler(async (req, res) => {
     const data = updateOltSchema.parse(req.body);
     const olt = await oltService.update(req.params.id as string, data);
     if (!olt) {
@@ -92,7 +98,8 @@ router.patch('/:id', asyncHandler(async (req, res) => {
 }));
 
 // Delete OLT
-router.delete('/:id', asyncHandler(async (req, res) => {
+// Requires: Admin
+router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
     const success = await oltService.delete(req.params.id as string);
     if (!success) {
         throw ApiError.notFound('OLT not found');
@@ -107,7 +114,8 @@ router.get('/:id/onus', asyncHandler(async (req, res) => {
 }));
 
 // Update ONU
-router.patch('/:id/onus/:onuId', asyncHandler(async (req, res) => {
+// Requires: Operator or Admin
+router.patch('/:id/onus/:onuId', requireOperator, asyncHandler(async (req, res) => {
     const { onuId } = req.params;
     const validatedData = updateOnuSchema.parse(req.body);
 
@@ -119,7 +127,8 @@ router.patch('/:id/onus/:onuId', asyncHandler(async (req, res) => {
 }));
 
 // Refresh OLT status
-router.post('/:id/refresh', asyncHandler(async (req, res) => {
+// Requires: Operator or Admin
+router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
     const olt = await oltService.refreshStatus(req.params.id as string);
     if (!olt) {
         throw ApiError.notFound('OLT not found');

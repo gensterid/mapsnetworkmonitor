@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { groupService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { requireAdmin, requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
@@ -60,7 +60,7 @@ router.get(
  */
 router.post(
     '/',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const data = createGroupSchema.parse(req.body);
         const group = await groupService.create(data);
@@ -76,7 +76,7 @@ router.post(
  */
 router.put(
     '/:id',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const data = updateGroupSchema.parse(req.body);
