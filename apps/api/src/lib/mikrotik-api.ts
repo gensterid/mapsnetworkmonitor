@@ -516,9 +516,9 @@ export async function configureNetwatchWebhook(
     const currentDown = entry['down-script'] || '';
 
     // Formulate the fetch command
-    // RouterOS fetch command for webhooks
-    const upCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no`;
-    const downCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no`;
+    // Use semicolon and explicit newlines for MikroTik compatibility
+    const upCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no;`;
+    const downCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no;`;
 
     let newUp = currentUp;
     let newDown = currentDown;
@@ -526,12 +526,15 @@ export async function configureNetwatchWebhook(
 
     // Check and append if missing
     if (!currentUp.includes('/api/webhook/netwatch')) {
-        newUp = currentUp ? `${currentUp}\n${upCommand}` : upCommand;
+        // Trim existing to avoid double spacing, then add semicolon and newline
+        const base = currentUp.trim();
+        newUp = base ? `${base}\r\n${upCommand}` : upCommand;
         needsUpdate = true;
     }
 
     if (!currentDown.includes('/api/webhook/netwatch')) {
-        newDown = currentDown ? `${currentDown}\n${downCommand}` : downCommand;
+        const base = currentDown.trim();
+        newDown = base ? `${base}\r\n${downCommand}` : downCommand;
         needsUpdate = true;
     }
 
