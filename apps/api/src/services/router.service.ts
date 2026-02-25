@@ -1,4 +1,5 @@
 import { eq, desc, and, or, getTableColumns, sql } from 'drizzle-orm';
+import { randomBytes } from 'crypto';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -283,6 +284,7 @@ export class RouterService {
                 genieacsUsername: data.genieacsUsername,
                 genieacsPasswordEncrypted: data.genieacsPassword ? encrypt(data.genieacsPassword) : null,
                 useWebhook: data.useWebhook || false,
+                webhookSecret: randomBytes(16).toString('hex'),
                 pollingIntervalMetrics: data.pollingIntervalMetrics || 300,
                 status: 'unknown',
             })
@@ -331,7 +333,14 @@ export class RouterService {
         if (data.genieacsPassword !== undefined) {
             updateData.genieacsPasswordEncrypted = data.genieacsPassword ? encrypt(data.genieacsPassword) : null;
         }
-        if (data.useWebhook !== undefined) updateData.useWebhook = data.useWebhook;
+        if (data.useWebhook !== undefined) {
+            updateData.useWebhook = data.useWebhook;
+            // Generate secret if enabling webhook and it's missing
+            const current = await this.findById(id);
+            if (data.useWebhook && (!current?.webhookSecret)) {
+                updateData.webhookSecret = randomBytes(16).toString('hex');
+            }
+        }
         if (data.pollingIntervalMetrics !== undefined) updateData.pollingIntervalMetrics = data.pollingIntervalMetrics;
         if (data.status !== undefined) updateData.status = data.status;
 
