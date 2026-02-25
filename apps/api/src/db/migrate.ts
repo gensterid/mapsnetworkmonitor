@@ -214,6 +214,10 @@ export async function runMigrations() {
                 name: 'onus.mac_address',
                 sql: sql`ALTER TABLE onus ADD COLUMN mac_address TEXT`
             },
+            {
+                name: 'routers.last_error_message',
+                sql: sql`ALTER TABLE routers ADD COLUMN last_error_message TEXT`
+            },
         ];
 
         for (const m of migrations) {
