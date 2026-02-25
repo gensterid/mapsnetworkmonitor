@@ -88,16 +88,18 @@ export async function connectToRouter(
 
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
-        const errorMsg = err?.message || String(err || 'Unknown RouterOS error');
+        const errorMsg = String(err?.message || err || 'Unknown RouterOS error');
+        const lowerMsg = errorMsg.toLowerCase();
 
         // Specific handling for known MikroTik API quirks (like !empty unknown reply)
         // RouterOS 7.18+ introduces !empty tag which node-routeros doesn't recognize
-        if (errorMsg.includes('unknown reply')) {
-            const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown tag');
-            if (isKnownQuirk) {
-                logger.debug({ err: errorMsg, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk');
-                return;
-            }
+        const isKnownQuirk =
+            lowerMsg.includes('unknown reply') &&
+            (lowerMsg.includes('!empty') || lowerMsg.includes('unknown tag'));
+
+        if (isKnownQuirk) {
+            logger.debug({ err: errorMsg, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk');
+            return;
         }
         logger.error({ err: errorMsg, host: config.host }, '[RouterOS API Error]');
     });
@@ -108,17 +110,27 @@ export async function connectToRouter(
 
 /**
  * Resilient wrapper for api.write that handles RouterOS 7.18+ !empty tag
+ * and adds a command-level timeout to prevent hangs.
  */
-export async function safeWrite(api: any, command: string | string[]): Promise<any[]> {
+export async function safeWrite(api: any, command: string | string[], timeoutMs: number = 10000): Promise<any[]> {
     try {
         if (!api || typeof api.write !== 'function') {
             throw new Error('Invalid API instance provided to safeWrite');
         }
-        return await api.write(command);
+
+        // Use Promise.race to prevent hanging forever on malformed sentences (like ROS 7.18 !empty)
+        const writePromise = api.write(command);
+        const timeoutPromise = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Command timed out after ${timeoutMs}ms`)), timeoutMs)
+        );
+
+        return await Promise.race([writePromise, timeoutPromise]);
     } catch (error: any) {
-        const errorMsg = error?.message || String(error || '');
+        const errorMsg = String(error?.message || error || '');
+        const lowerMsg = errorMsg.toLowerCase();
+
         // If it's the known !empty tag error, treat it as success with empty result
-        if (errorMsg.includes('unknown reply') && errorMsg.includes('!empty')) {
+        if (lowerMsg.includes('unknown reply') && lowerMsg.includes('!empty')) {
             return [];
         }
         throw error;
