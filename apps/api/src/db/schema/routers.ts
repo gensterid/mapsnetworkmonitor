@@ -75,6 +75,7 @@ export const routers = pgTable('routers', {
 
     // Timestamps
     lastSeen: timestamp('last_seen'),
+    lastErrorMessage: text('last_error_message'), // Detailed failure reason (Wrong password, Timeout, etc)
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({

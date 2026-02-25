@@ -871,11 +871,12 @@ export class AlertService {
         routerId: string,
         routerName: string,
         oldStatus: string,
-        newStatus: string
+        newStatus: string,
+        reason?: string
     ): Promise<Alert | null> {
         const thresholds = await this.getThresholds();
 
-        // Check if alerts are enabled
+        // Check if alerts enabled
         if (!thresholds.alertsEnabled || !thresholds.statusChangeAlerts) {
             return null;
         }
@@ -887,12 +888,17 @@ export class AlertService {
                     ? 'info'
                     : 'warning';
 
+        let message = `Status changed from ${oldStatus} to ${newStatus}`;
+        if (reason) {
+            message += ` (Alasan: ${reason})`;
+        }
+
         return this.create({
             routerId,
             type: 'status_change',
             severity,
             title: `Router ${routerName} is now ${newStatus}`,
-            message: `Status changed from ${oldStatus} to ${newStatus}`,
+            message,
             resolved: true, // Event is a log, auto-resolve
             resolvedAt: new Date(),
         });

@@ -525,22 +525,32 @@ export class RouterService {
             const errMsg = error?.message || String(error);
             logger.error({ err: errMsg, router: router.host }, 'Connection failed during refresh');
 
-            // Only mark offline if it's a connection error
-            // Check if error is ETIMEDOUT, ECONNREFUSED, or login failure
-            const isConnectionError =
-                errMsg.includes('timeout') ||
-                errMsg.includes('ECONNREFUSED') ||
-                errMsg.includes('EHOSTUNREACH') ||
-                errMsg.includes('login failure') ||
-                errMsg.includes('cannot connect') ||
-                errMsg.includes('Username or password is invalid');
+            // Classify the error with human readable messages
+            let friendlyError = 'API Error';
+            let isConnectionError = false;
+
+            const lowErrMsg = errMsg.toLowerCase();
+
+            if (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password')) {
+                friendlyError = 'Salah Password / Username';
+                isConnectionError = true;
+            } else if (lowErrMsg.includes('timeout')) {
+                friendlyError = 'Connection Timeout';
+                isConnectionError = true;
+            } else if (lowErrMsg.includes('econnrefused')) {
+                friendlyError = 'Connection Refused (API Service Off?)';
+                isConnectionError = true;
+            } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect')) {
+                friendlyError = 'Mikrotik Mati / Unreachable';
+                isConnectionError = true;
+            }
 
             if (isConnectionError) {
-
                 const [updatedRouter] = await db
                     .update(routers)
                     .set({
                         status: 'offline',
+                        lastErrorMessage: friendlyError,
                         updatedAt: new Date(),
                     })
                     .where(eq(routers.id, id))
@@ -553,7 +563,8 @@ export class RouterService {
                             id,
                             router.name,
                             previousStatus,
-                            'offline'
+                            'offline',
+                            friendlyError // Pass the specific reason
                         );
                     } catch (alertError: any) {
                         logger.error({ err: alertError?.message || String(alertError) }, 'Failed to create offline alert');
