@@ -508,7 +508,7 @@ export class RouterNetwatchService {
             syncedCount = entries.length;
         } catch (error: any) {
             const errorMessage = error?.message || String(error);
-            console.error(`[RouterNetwatchService] Sync failed for router ${router.name}:`, errorMessage);
+            logger.error({ err: error, router: router.name }, '[RouterNetwatchService] Sync failed');
             errors.push(`Failed to sync netwatch: ${errorMessage}`);
         } finally {
             if (api) await api.close().catch(() => { });

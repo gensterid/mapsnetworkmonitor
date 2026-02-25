@@ -5,11 +5,16 @@ import { logger } from './logger.js';
 // ─── Global Error Handlers ───────────────────────────────────────────────
 // Prevent the worker thread from exiting on uncaught exceptions (like MikroTik API errors)
 process.on('uncaughtException', (err: any) => {
-    const errorMsg = String(err?.message || err || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (err as any).errno === 'UNKNOWNREPLY';
+    const errorStr = String(err?.message || err?.stack || err || '').toLowerCase();
+    const isKnownQuirk =
+        errorStr.includes('!empty') ||
+        errorStr.includes('unknown reply') ||
+        errorStr.includes('unknown tag') ||
+        err?.errno === 'UNKNOWNREPLY' ||
+        err?.code === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
-        logger.debug({ err: errorMsg }, '[Worker] Ignoring unhandled !empty exception');
+        logger.debug({ err: errorStr.substring(0, 100) }, '[Worker] Ignoring unhandled !empty exception');
         return;
     }
 
@@ -17,11 +22,16 @@ process.on('uncaughtException', (err: any) => {
 });
 
 process.on('unhandledRejection', (reason: any) => {
-    const errorMsg = String(reason?.message || reason || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (reason as any).errno === 'UNKNOWNREPLY';
+    const errorStr = String(reason?.message || reason?.stack || reason || '').toLowerCase();
+    const isKnownQuirk =
+        errorStr.includes('!empty') ||
+        errorStr.includes('unknown reply') ||
+        errorStr.includes('unknown tag') ||
+        reason?.errno === 'UNKNOWNREPLY' ||
+        reason?.code === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
-        logger.debug({ err: errorMsg }, '[Worker] Ignoring unhandled !empty rejection');
+        logger.debug({ err: errorStr.substring(0, 100) }, '[Worker] Ignoring unhandled !empty rejection');
         return;
     }
 

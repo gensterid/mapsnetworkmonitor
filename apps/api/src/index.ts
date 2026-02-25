@@ -53,12 +53,17 @@ validateSecrets();
 // ─────────────────────────────────────────────────────────────────────────
 
 // Global error handlers
-process.on('uncaughtException', (error: Error) => {
-    const errorMsg = String(error?.message || error || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (error as any).errno === 'UNKNOWNREPLY';
+process.on('uncaughtException', (error: any) => {
+    const errorStr = String(error?.message || error?.stack || error || '').toLowerCase();
+    const isKnownQuirk =
+        errorStr.includes('!empty') ||
+        errorStr.includes('unknown reply') ||
+        errorStr.includes('unknown tag') ||
+        error?.errno === 'UNKNOWNREPLY' ||
+        error?.code === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
-        logger.debug({ err: errorMsg }, '[RouterOS API Compatibility] Ignoring unhandled !empty exception');
+        logger.debug({ err: errorStr.substring(0, 100) }, '[RouterOS API Compatibility] Ignoring unhandled !empty exception');
         return;
     }
 
@@ -67,11 +72,16 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 process.on('unhandledRejection', (reason: any) => {
-    const errorMsg = String(reason?.message || reason || '').toLowerCase();
-    const isKnownQuirk = errorMsg.includes('!empty') || errorMsg.includes('unknown reply') || (reason as any).errno === 'UNKNOWNREPLY';
+    const errorStr = String(reason?.message || reason?.stack || reason || '').toLowerCase();
+    const isKnownQuirk =
+        errorStr.includes('!empty') ||
+        errorStr.includes('unknown reply') ||
+        errorStr.includes('unknown tag') ||
+        reason?.errno === 'UNKNOWNREPLY' ||
+        reason?.code === 'UNKNOWNREPLY';
 
     if (isKnownQuirk) {
-        logger.debug({ err: errorMsg }, '[RouterOS API Compatibility] Ignoring unhandled !empty rejection');
+        logger.debug({ err: errorStr.substring(0, 100) }, '[RouterOS API Compatibility] Ignoring unhandled !empty rejection');
         return;
     }
 

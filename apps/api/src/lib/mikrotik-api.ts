@@ -82,7 +82,7 @@ export async function connectToRouter(
         port: config.port,
         user: config.username,
         password: config.password,
-        timeout: config.timeout || 25, // Reduced from 60 to prevent 504 Gateway Timeout
+        timeout: config.timeout || 60, // Increased to 60s for slow routers (CPU 100% etc)
         keepalive: true,
     });
 
@@ -109,10 +109,14 @@ export async function connectToRouter(
     // Handle 'unknown' replies specifically which might skip the regular error flow
     api.on('unknown', (sentence: any) => {
         const sentenceStr = String(sentence || '').toLowerCase();
-        if (sentenceStr.includes('!empty')) {
+        if (sentenceStr.includes('!empty') || sentenceStr.includes('unknown reply')) {
             logger.debug({ host: config.host }, '[RouterOS API Compatibility] Captured !empty in unknown event');
         }
     });
+
+    // Also suppress 'RosException' globally on this instance if possible
+    // This is a last-ditch effort to prevent the library from crashing or being noisy
+    api.on('error', () => { }); // Already handled above but ensure no default node crash
 
     await api.connect();
     return api;
