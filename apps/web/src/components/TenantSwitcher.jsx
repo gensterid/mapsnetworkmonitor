@@ -8,12 +8,12 @@ import clsx from 'clsx';
 const TenantSwitcher = () => {
     const { isSuperAdmin } = useRole();
     const { data: currentUser } = useCurrentUser();
-    const { data: tenants = [], isLoading } = useTenants({ enabled: isSuperAdmin });
+    const { data: tenants = [], isLoading } = useTenants();
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Only render for superadmins
-    if (!isSuperAdmin) return null;
+    // Only render if superadmin OR user has multiple authorized tenants
+    if (!isSuperAdmin && tenants.length <= 1) return null;
 
     const activeTenantId = localStorage.getItem('active-tenant-id') || currentUser?.tenantId;
 
@@ -55,7 +55,7 @@ const TenantSwitcher = () => {
     return (
         <div className="px-3 py-2" ref={dropdownRef}>
             <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1.5 px-1">
-                Active Environment (Super Admin)
+                Active Environment {isSuperAdmin ? '(Super Admin)' : ''}
             </div>
             <div className="relative">
                 <button

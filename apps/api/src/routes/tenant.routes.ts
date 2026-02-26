@@ -33,13 +33,13 @@ router.get(
             return res.json({ data: tenants });
         }
 
-        // Admins, Operators, and Users only see their own tenant
-        if (tenantId) {
-            const tenant = await tenantService.findById(tenantId);
-            return res.json({ data: tenant ? [tenant] : [] });
-        }
+        // Admins, Operators, and Users see their own tenant + additional authorized ones
+        const { userService } = await import('../services/user.service.js');
+        const authIds = await userService.getAuthorizedTenants(req.user!.id);
+        const all = await tenantService.findAll();
+        const filtered = all.filter(t => authIds.includes(t.id));
 
-        res.json({ data: [] });
+        res.json({ data: filtered });
     })
 );
 

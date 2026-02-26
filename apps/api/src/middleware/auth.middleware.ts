@@ -52,11 +52,19 @@ export async function authMiddleware(
         let userRole = (session.user as { role?: string }).role || 'user';
         let tenantId = (session.user as { tenantId?: string }).tenantId;
 
-        // Allow superadmin to override tenant context
-        if (userRole === 'superadmin') {
-            const requestedTenantId = req.headers['x-tenant-id'] as string;
-            if (requestedTenantId) {
+        // Tenant context override logic
+        const requestedTenantId = req.headers['x-tenant-id'] as string;
+        if (requestedTenantId) {
+            if (userRole === 'superadmin') {
+                // Superadmin can switch to ANY tenant
                 tenantId = requestedTenantId;
+            } else {
+                // Other roles can switch ONLY if they are authorized
+                const { userService } = await import('../services/user.service.js');
+                const authorizedTenants = await userService.getAuthorizedTenants(session.user.id);
+                if (authorizedTenants.includes(requestedTenantId)) {
+                    tenantId = requestedTenantId;
+                }
             }
         }
 

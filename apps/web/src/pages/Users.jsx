@@ -108,6 +108,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
         confirmPassword: '',
         role: 'user',
         tenantId: '',
+        additionalTenantIds: [],
     });
     const { data: tenants = [] } = useTenants({ enabled: isSuperAdmin });
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -120,6 +121,9 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
         if (name === 'username') {
             const sanitized = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
             setFormData(prev => ({ ...prev, [name]: sanitized }));
+        } else if (name === 'additionalTenantIds') {
+            // value is already an array from multiple select
+            setFormData(prev => ({ ...prev, [name]: Array.from(e.target.selectedOptions, option => option.value) }));
         } else {
             setFormData(prev => ({ ...prev, [name]: value }));
         }
@@ -148,6 +152,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                 password: formData.password,
                 role: formData.role,
                 tenantId: formData.tenantId || undefined,
+                additionalTenantIds: formData.additionalTenantIds,
             });
             // Reset form
             setFormData({ name: '', username: '', email: '', password: '', confirmPassword: '', role: 'user' });
@@ -270,6 +275,24 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                     </div>
                 )}
 
+                {isSuperAdmin && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">Additional ISP Access (Multi-Select)</label>
+                        <select
+                            name="additionalTenantIds"
+                            multiple
+                            value={formData.additionalTenantIds}
+                            onChange={handleChange}
+                            className="w-full h-24 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                            {tenants.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Tekan Ctrl/Cmd untuk memilih lebih dari satu ISP.</p>
+                    </div>
+                )}
+
                 <div className="flex justify-end gap-3 pt-4">
                     <Button type="button" variant="ghost" onClick={onClose}>
                         Cancel
@@ -289,8 +312,12 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
     const [username, setUsername] = useState(user?.username || '');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [additionalTenantIds, setAdditionalTenantIds] = useState(user?.additionalTenantIds || []);
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState('');
+
+    const { isSuperAdmin } = useRole();
+    const { data: tenants = [] } = useTenants({ enabled: isSuperAdmin });
 
     const updateUser = useUpdateUser();
     const updatePassword = useUpdateUserPassword();
@@ -302,6 +329,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
             setUsername(user.username || '');
             setPassword('');
             setConfirmPassword('');
+            setAdditionalTenantIds(user.additionalTenantIds || []);
             setError('');
         }
     }, [user]);
@@ -328,8 +356,16 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
             if (name !== user.name) updates.name = name;
             if (username !== (user.username || '')) updates.username = username || null;
 
-            if (Object.keys(updates).length > 0) {
-                await updateUser.mutateAsync({ id: user.id, data: updates });
+
+            if (Object.keys(updates).length > 0 || (isSuperAdmin && additionalTenantIds !== user.additionalTenantIds)) {
+                // In a real app, you might want to compare arrays properly
+                await updateUser.mutateAsync({
+                    id: user.id,
+                    data: {
+                        ...updates,
+                        additionalTenantIds: isSuperAdmin ? additionalTenantIds : undefined
+                    }
+                });
             }
 
             // Update password if provided
@@ -370,6 +406,25 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         required
                     />
                 </div>
+
+                {isSuperAdmin && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">
+                            Additional ISP Access (Multi-Select)
+                        </label>
+                        <select
+                            multiple
+                            value={additionalTenantIds}
+                            onChange={(e) => setAdditionalTenantIds(Array.from(e.target.selectedOptions, option => option.value))}
+                            className="w-full h-24 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                            {tenants.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Tekan Ctrl/Cmd untuk memilih lebih dari satu ISP.</p>
+                    </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -436,7 +491,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                     </Button>
                 </div>
             </form>
-        </Modal>
+        </Modal >
     );
 }
 

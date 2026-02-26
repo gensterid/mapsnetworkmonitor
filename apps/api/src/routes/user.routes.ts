@@ -20,6 +20,7 @@ const updateUserSchema = z.object({
     aiEnabled: z.boolean().optional(),
     aiApiKey: z.preprocess(emptyToNull, z.string().optional().nullable()),
     tenantId: z.string().uuid().optional().nullable(),
+    additionalTenantIds: z.array(z.string().uuid()).optional(),
 });
 
 const updateRoleSchema = z.object({
@@ -37,6 +38,7 @@ const createUserSchema = z.object({
     password: z.string().min(8, 'Password must be at least 8 characters'),
     role: z.enum(['admin', 'operator', 'user']).optional().default('user'),
     tenantId: z.string().uuid().optional().nullable(),
+    additionalTenantIds: z.array(z.string().uuid()).optional(),
 });
 
 // All routes require authentication
@@ -116,6 +118,14 @@ router.post(
                 updatedAt: new Date(),
             });
 
+            // Handle additional tenants
+            if (data.additionalTenantIds && data.additionalTenantIds.length > 0) {
+                const { userTenants } = await import('../db/schema/index.js');
+                await tx.insert(userTenants).values(
+                    data.additionalTenantIds.map(tId => ({ userId: newUser.id, tenantId: tId }))
+                );
+            }
+
             return newUser;
         });
 
@@ -181,12 +191,17 @@ router.put(
     requireOwnerOrAdmin((req) => req.params.id as string),
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const data = updateUserSchema.parse(req.body);
+        const { additionalTenantIds, ...userData } = updateUserSchema.parse(req.body);
 
-        const user = await userService.update(id, data);
+        const user = await userService.update(id, userData);
 
         if (!user) {
             throw ApiError.notFound('User not found');
+        }
+
+        // Handle additional tenants (Superadmin only)
+        if (additionalTenantIds !== undefined && req.user?.role === 'superadmin') {
+            await userService.updateTenantAccesses(id, additionalTenantIds);
         }
 
         // Log action
@@ -196,7 +211,7 @@ router.put(
             id,
             req.user!.id,
             req.user?.tenantId || null,
-            { changes: Object.keys(data) },
+            { changes: Object.keys(userData) },
             req
         );
 

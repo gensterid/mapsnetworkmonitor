@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { users, accounts, tenants, type User, type NewUser } from '../db/schema/index.js';
+import { users, accounts, tenants, userTenants, type User, type NewUser } from '../db/schema/index.js';
 import { scryptSync, randomBytes } from 'crypto';
 
 /**
@@ -10,7 +10,7 @@ export class UserService {
     /**
      * Get all users
      */
-    async findAll(): Promise<(User & { tenantName?: string | null })[]> {
+    async findAll(): Promise<(User & { tenantName?: string | null; additionalTenantIds?: string[] })[]> {
         const result = await db
             .select({
                 user: users,
@@ -19,18 +19,40 @@ export class UserService {
             .from(users)
             .leftJoin(tenants, eq(users.tenantId, tenants.id));
 
-        return result.map((r) => ({
-            ...r.user,
-            tenantName: r.tenantName,
+        // For each user, fetch their additional tenant IDs
+        // This could be optimized into a single join + aggregation in Postgres
+        const finalUsers = await Promise.all(result.map(async (r) => {
+            const addTenants = await db
+                .select({ tenantId: userTenants.tenantId })
+                .from(userTenants)
+                .where(eq(userTenants.userId, r.user.id));
+
+            return {
+                ...r.user,
+                tenantName: r.tenantName,
+                additionalTenantIds: addTenants.map(at => at.tenantId)
+            };
         }));
+
+        return finalUsers;
     }
 
     /**
      * Get user by ID
      */
-    async findById(id: string): Promise<User | undefined> {
+    async findById(id: string): Promise<(User & { additionalTenantIds?: string[] }) | undefined> {
         const [user] = await db.select().from(users).where(eq(users.id, id));
-        return user;
+        if (!user) return undefined;
+
+        const addTenants = await db
+            .select({ tenantId: userTenants.tenantId })
+            .from(userTenants)
+            .where(eq(userTenants.userId, id));
+
+        return {
+            ...user,
+            additionalTenantIds: addTenants.map(at => at.tenantId)
+        };
     }
 
     /**
@@ -145,6 +167,65 @@ export class UserService {
         }
 
         return result.length > 0;
+    }
+
+    /**
+     * Get all authorized tenants for a user (primary + additional)
+     */
+    async getAuthorizedTenants(userId: string): Promise<string[]> {
+        // Get primary tenant
+        const user = await this.findById(userId);
+        const primaryTenantId = user?.tenantId;
+
+        // Get additional tenants
+        const additionalTenants = await db
+            .select({ tenantId: userTenants.tenantId })
+            .from(userTenants)
+            .where(eq(userTenants.userId, userId));
+
+        const allTenants = new Set<string>();
+        if (primaryTenantId) allTenants.add(primaryTenantId);
+        additionalTenants.forEach((t) => allTenants.add(t.tenantId));
+
+        return Array.from(allTenants);
+    }
+
+    /**
+     * Add access to an additional tenant
+     */
+    async addTenantAccess(userId: string, tenantId: string): Promise<void> {
+        await db.insert(userTenants).values({ userId, tenantId }).onConflictDoNothing();
+    }
+
+    /**
+     * Remove access to an additional tenant
+     */
+    async removeTenantAccess(userId: string, tenantId: string): Promise<void> {
+        await db
+            .delete(userTenants)
+            .where(
+                and(
+                    eq(userTenants.userId, userId),
+                    eq(userTenants.tenantId, tenantId)
+                )
+            );
+    }
+
+    /**
+     * Update all additional tenant accesses for a user
+     */
+    async updateTenantAccesses(userId: string, tenantIds: string[]): Promise<void> {
+        await db.transaction(async (tx) => {
+            // Remove existing
+            await tx.delete(userTenants).where(eq(userTenants.userId, userId));
+
+            if (tenantIds.length > 0) {
+                // Add new
+                await tx.insert(userTenants).values(
+                    tenantIds.map(tenantId => ({ userId, tenantId }))
+                ).onConflictDoNothing();
+            }
+        });
     }
 }
 

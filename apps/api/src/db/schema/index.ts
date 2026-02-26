@@ -11,3 +11,4 @@ export * from './olts.js';
 export * from './onus.js';
 export * from './presets.js';
 export * from './tenants.js';
+export * from './user-tenants.js';
