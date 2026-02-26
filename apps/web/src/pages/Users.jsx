@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { AssignRouterModal } from '@/components/users/AssignRouterModal';
-import { Users as UsersIcon, Shield, UserPlus, RefreshCw, Mail, ChevronDown, Check, Edit2, Trash2, Key, X, Router as RouterIcon } from 'lucide-react';
+import { Users as UsersIcon, Shield, UserPlus, RefreshCw, Mail, ChevronDown, Check, Edit2, Trash2, Key, X, Router as RouterIcon, Building } from 'lucide-react';
 import clsx from 'clsx';
 
 // RoleSelector dropdown component
