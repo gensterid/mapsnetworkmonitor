@@ -83,7 +83,7 @@ export function requireOwnerOrAdmin(getOwnerId: (req: Request) => string) {
 
         const ownerId = getOwnerId(req);
         const isOwner = req.user.id === ownerId;
-        const isAdmin = req.user.role === 'admin';
+        const isAdmin = hasRole(req.user.role as string, 'admin');
 
         if (!isOwner && !isAdmin) {
             res.status(403).json({

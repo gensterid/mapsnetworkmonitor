@@ -276,20 +276,29 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                 )}
 
                 {isSuperAdmin && (
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">Additional ISP Access (Multi-Select)</label>
-                        <select
-                            name="additionalTenantIds"
-                            multiple
-                            value={formData.additionalTenantIds}
-                            onChange={handleChange}
-                            className="w-full h-24 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-slate-300">Additional ISP Access</label>
+                        <div className="grid grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
                             {tenants.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
+                                <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
+                                    <input
+                                        type="checkbox"
+                                        checked={formData.additionalTenantIds.includes(t.id)}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                additionalTenantIds: checked
+                                                    ? [...prev.additionalTenantIds, t.id]
+                                                    : prev.additionalTenantIds.filter(id => id !== t.id)
+                                            }));
+                                        }}
+                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary focus:ring-offset-slate-800"
+                                    />
+                                    <span className="text-sm text-slate-300 group-hover:text-white truncate">{t.name}</span>
+                                </label>
                             ))}
-                        </select>
-                        <p className="text-xs text-slate-500 mt-1">Tekan Ctrl/Cmd untuk memilih lebih dari satu ISP.</p>
+                        </div>
                     </div>
                 )}
 
@@ -408,21 +417,30 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                 </div>
 
                 {isSuperAdmin && (
-                    <div>
-                        <label className="block text-sm font-medium text-slate-300 mb-1">
-                            Additional ISP Access (Multi-Select)
+                    <div className="space-y-2">
+                        <label className="block text-sm font-medium text-slate-300">
+                            Additional ISP Access
                         </label>
-                        <select
-                            multiple
-                            value={additionalTenantIds}
-                            onChange={(e) => setAdditionalTenantIds(Array.from(e.target.selectedOptions, option => option.value))}
-                            className="w-full h-24 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
-                        >
+                        <div className="grid grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
                             {tenants.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
+                                <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
+                                    <input
+                                        type="checkbox"
+                                        checked={additionalTenantIds.includes(t.id)}
+                                        onChange={(e) => {
+                                            const checked = e.target.checked;
+                                            setAdditionalTenantIds(prev =>
+                                                checked
+                                                    ? [...prev, t.id]
+                                                    : prev.filter(id => id !== t.id)
+                                            );
+                                        }}
+                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary focus:ring-offset-slate-800"
+                                    />
+                                    <span className="text-sm text-slate-300 group-hover:text-white truncate">{t.name}</span>
+                                </label>
                             ))}
-                        </select>
-                        <p className="text-xs text-slate-500 mt-1">Tekan Ctrl/Cmd untuk memilih lebih dari satu ISP.</p>
+                        </div>
                     </div>
                 )}
 
