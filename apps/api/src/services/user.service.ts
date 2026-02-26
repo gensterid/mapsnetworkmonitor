@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { users, accounts, type User, type NewUser } from '../db/schema/index.js';
+import { users, accounts, tenants, type User, type NewUser } from '../db/schema/index.js';
 import { scryptSync, randomBytes } from 'crypto';
 
 /**
@@ -10,8 +10,19 @@ export class UserService {
     /**
      * Get all users
      */
-    async findAll(): Promise<User[]> {
-        return db.select().from(users);
+    async findAll(): Promise<(User & { tenantName?: string | null })[]> {
+        const result = await db
+            .select({
+                user: users,
+                tenantName: tenants.name,
+            })
+            .from(users)
+            .leftJoin(tenants, eq(users.tenantId, tenants.id));
+
+        return result.map((r) => ({
+            ...r.user,
+            tenantName: r.tenantName,
+        }));
     }
 
     /**

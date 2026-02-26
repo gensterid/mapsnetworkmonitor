@@ -19,6 +19,7 @@ const updateUserSchema = z.object({
     animationStyle: z.string().optional(),
     aiEnabled: z.boolean().optional(),
     aiApiKey: z.preprocess(emptyToNull, z.string().optional().nullable()),
+    tenantId: z.string().uuid().optional().nullable(),
 });
 
 const updateRoleSchema = z.object({
@@ -35,6 +36,7 @@ const createUserSchema = z.object({
     email: z.string().email('Invalid email address'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     role: z.enum(['admin', 'operator', 'user']).optional().default('user'),
+    tenantId: z.string().uuid().optional().nullable(),
 });
 
 // All routes require authentication
@@ -98,6 +100,7 @@ router.post(
                 email: data.email,
                 emailVerified: true, // Admin-created users are auto-verified
                 role: data.role || 'user',
+                tenantId: data.tenantId || req.user?.tenantId || null,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }).returning();

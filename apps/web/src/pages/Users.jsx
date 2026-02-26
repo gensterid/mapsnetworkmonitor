@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useUsers, useCreateUser, useUpdateUserRole, useUpdateUser, useUpdateUserPassword, useDeleteUser } from '@/hooks';
+import { useUsers, useCreateUser, useUpdateUserRole, useUpdateUser, useUpdateUserPassword, useDeleteUser, useTenants } from '@/hooks';
 import { useRole } from '@/lib/auth-client';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -107,7 +107,9 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
         password: '',
         confirmPassword: '',
         role: 'user',
+        tenantId: '',
     });
+    const { data: tenants = [] } = useTenants({ enabled: isSuperAdmin });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
     const createUser = useCreateUser();
@@ -145,6 +147,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                 email: formData.email,
                 password: formData.password,
                 role: formData.role,
+                tenantId: formData.tenantId || undefined,
             });
             // Reset form
             setFormData({ name: '', username: '', email: '', password: '', confirmPassword: '', role: 'user' });
@@ -248,6 +251,24 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                         {isSuperAdmin && <option value="superadmin">Super Admin - Multi-ISP access</option>}
                     </select>
                 </div>
+
+                {isSuperAdmin && (
+                    <div>
+                        <label className="block text-sm font-medium text-slate-300 mb-1">ISP / Tenant Assignment</label>
+                        <select
+                            name="tenantId"
+                            value={formData.tenantId}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                        >
+                            <option value="">Default (Follow current session)</option>
+                            {tenants.map(t => (
+                                <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                        </select>
+                        <p className="text-xs text-slate-500 mt-1">Hanya Super Admin yang bisa menentukan ISP saat pembuatan user.</p>
+                    </div>
+                )}
 
                 <div className="flex justify-end gap-3 pt-4">
                     <Button type="button" variant="ghost" onClick={onClose}>
@@ -513,6 +534,12 @@ export default function Users() {
                                                 <Mail className="w-3 h-3" />
                                                 <span className="truncate">{user.email}</span>
                                             </div>
+                                            {user.tenantName && (
+                                                <div className="flex items-center gap-1 text-[10px] text-primary/80 mt-1 font-medium bg-primary/5 px-2 py-0.5 rounded-full w-fit max-w-full">
+                                                    <Building className="w-2.5 h-2.5" />
+                                                    <span className="truncate">{user.tenantName}</span>
+                                                </div>
+                                            )}
                                             {/* Action buttons */}
                                             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
                                                 <button
