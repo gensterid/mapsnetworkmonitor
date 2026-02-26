@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, boolean, timestamp } from 'drizzle-orm/pg-core';
+import { tenants } from './tenants.js';
 
 export const notificationGroups = pgTable('notification_groups', {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -21,6 +22,7 @@ export const notificationGroups = pgTable('notification_groups', {
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
 });
 
 export type NotificationGroup = typeof notificationGroups.$inferSelect;

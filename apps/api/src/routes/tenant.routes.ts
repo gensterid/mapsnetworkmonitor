@@ -119,7 +119,7 @@ router.delete(
             throw ApiError.forbidden('Only Super Admins can delete tenants');
         }
 
-        const success = await tenantService.delete(req.params.id);
+        const success = await tenantService.delete(req.params.id as string);
         if (!success) throw ApiError.notFound('Tenant not found');
         res.json({ message: 'Tenant deleted successfully' });
     })

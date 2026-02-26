@@ -150,6 +150,7 @@ router.post(
             'router',
             newRouter.id,
             req.user!.id,
+            req.user!.tenantId!,
             { name: newRouter.name, host: newRouter.host },
             req
         );
@@ -207,6 +208,7 @@ router.put(
             'router',
             router.id,
             req.user!.id,
+            req.user!.tenantId!,
             { changes: Object.keys(data) },
             req
         );
@@ -246,6 +248,7 @@ router.delete(
             'router',
             id,
             req.user!.id,
+            req.user!.tenantId!,
             { name: router.name },
             req
         );
@@ -338,6 +341,7 @@ router.post(
             'router',
             id,
             req.user!.id,
+            req.user!.tenantId!,
             { name: router.name, success: result.success },
             req
         );
@@ -517,6 +521,7 @@ router.post(
             'netwatch',
             netwatch.id,
             req.user!.id,
+            req.user!.tenantId!,
             { host: netwatch.host, routerId: id },
             req
         );
@@ -604,6 +609,7 @@ router.delete(
             'netwatch',
             netwatchId,
             req.user!.id,
+            req.user!.tenantId!,
             {},
             req
         );
@@ -629,6 +635,7 @@ router.post(
             'netwatch',
             id,
             req.user!.id,
+            req.user!.tenantId!,
             { synced: result.synced },
             req
         );

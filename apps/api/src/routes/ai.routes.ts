@@ -15,7 +15,7 @@ router.use(authMiddleware);
 router.post(
     '/analyze-alert/:id',
     asyncHandler(async (req: Request, res: Response) => {
-        const alertId = req.params.id;
+        const alertId = req.params.id as string;
         const tenantId = req.user!.tenantId!;
         const apiKey = req.user!.aiEnabled ? req.user!.aiApiKey : null;
 
@@ -46,7 +46,7 @@ router.get(
 router.post(
     '/diagnose-router/:id',
     asyncHandler(async (req: Request, res: Response) => {
-        const routerId = req.params.id;
+        const routerId = req.params.id as string;
         const tenantId = req.user!.tenantId!;
         const apiKey = req.user!.aiEnabled ? req.user!.aiApiKey : null;
 
