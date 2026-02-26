@@ -53,7 +53,7 @@ async function createAdminUser() {
         await db.insert(accounts).values({
             id: randomUUID(),
             userId: newUser.id,
-            accountId: newUser.id,
+            accountId: newUser.email,
             providerId: 'credential',
             password: hashedPassword,
             createdAt: now,
