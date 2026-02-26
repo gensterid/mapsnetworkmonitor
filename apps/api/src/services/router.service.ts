@@ -13,6 +13,7 @@ import {
     type RouterNetwatch,
     userRouters,
     onus,
+    olts, // Added olts here based on the instruction's implied change
 } from '../db/schema/index.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
@@ -112,7 +113,7 @@ export class RouterService {
         const filters = [];
 
         // Tenant Isolation
-        if (tenantId && userRole !== 'superadmin') {
+        if (tenantId) {
             filters.push(eq(routers.tenantId, tenantId));
         }
 
@@ -163,6 +164,7 @@ export class RouterService {
         for (const raw of latestMetricsRows as any[]) {
             metricsMap.set(raw.router_id, {
                 id: raw.id,
+                tenantId: raw.tenant_id,
                 routerId: raw.router_id,
                 cpuLoad: raw.cpu_load,
                 cpuCount: raw.cpu_count,
@@ -801,7 +803,16 @@ export class RouterService {
         maintenance: number;
         unknown: number;
     }> {
-        const allRouters = await db.select().from(routers);
+        const filters = [];
+        if (tenantId) {
+            filters.push(eq(routers.tenantId, tenantId));
+        }
+
+        const query = filters.length > 0
+            ? db.select().from(routers).where(and(...filters))
+            : db.select().from(routers);
+
+        const allRouters = await query;
 
         return {
             total: allRouters.length,
@@ -828,7 +839,7 @@ export class RouterService {
             { ip: '1.1.1.1', label: 'Cloudflare' }
         ];
 
-        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', defaultTargets);
+        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', tenantId!, defaultTargets);
         const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
 
         if (targets.length === 0) {
@@ -968,7 +979,7 @@ export class RouterService {
 
                 // Smart Append Webhook scripts if Webhook feature is enabled
                 if (router.useWebhook && router.webhookSecret) {
-                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret);
+                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
                     await configureNetwatchWebhook(conn, data.host, webhookUrl);
                 }
 
@@ -1090,7 +1101,7 @@ export class RouterService {
 
                     // Smart Append Webhook scripts if Webhook feature is enabled
                     if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
-                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret);
+                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
                         const hostToConfigure = data.host || original.host;
                         await configureNetwatchWebhook(conn, hostToConfigure, webhookUrl);
                     }

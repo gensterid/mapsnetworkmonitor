@@ -195,7 +195,7 @@ export class RouterNetwatchService {
             // Fetch Router settings to check if Webhook is enabled
             const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
             const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret;
-            const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!) : '';
+            const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!, router.tenantId!) : '';
 
             // First fetch the router's current clock to calculate the exact offset
             // We need this because MikroTik sends times without timezone info

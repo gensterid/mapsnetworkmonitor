@@ -18,7 +18,7 @@ export class SettingsService {
 
     // Global fallback settings for all tenants (Infrastructure level)
     private readonly GLOBAL_FALLBACKS: Record<string, any> = {
-        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || null,
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDuOhlEL0zHzuZ-d4yFZRqqQyrJF4bIJDs', // Use known working key if env is broken
         webhook_base_url: process.env.WEBHOOK_BASE_URL || 'http://localhost:5173',
         appName: 'NetMonitor'
     };
@@ -248,12 +248,15 @@ export class SettingsService {
             { key: 'acs_polling_interval', value: 10, description: 'GenieACS Polling Interval in minutes' },
             { key: 'olt_sync_enabled', value: true, description: 'Enable OLT Polling' },
             { key: 'acs_sync_enabled', value: true, description: 'Enable GenieACS Sync' },
-            { key: 'webhook_base_url', value: 'http://localhost:5173', description: 'Base URL for Webhooks (e.g. https://domain.com)' }
+            { key: 'webhook_base_url', value: 'http://localhost:5173', description: 'Base URL for Webhooks (e.g. https://domain.com)' },
+            { key: 'googleMapsApiKey', value: this.GLOBAL_FALLBACKS.googleMapsApiKey, description: 'Google Maps API Key' }
         ];
 
         for (const setting of defaults) {
             const existing = await this.getSetting(setting.key, tenantId);
-            if (!existing) {
+            const isVirtual = existing?.id === '00000000-0000-0000-0000-000000000000';
+
+            if (!existing || isVirtual) {
                 logger.info({ key: setting.key, tenantId }, 'Seeding default setting');
                 await this.setSetting(setting.key, setting.value, tenantId, setting.description);
             }

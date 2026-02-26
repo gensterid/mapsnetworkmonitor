@@ -41,6 +41,15 @@ export class TenantService {
             settings: data.settings,
         }).returning();
 
+        // Seed default settings for the new tenant
+        try {
+            const { settingsService } = await import('./settings.service.js');
+            await settingsService.seedDefaults(newTenant.id);
+            logger.info({ tenantId: newTenant.id }, 'Default settings seeded for new tenant');
+        } catch (seedError) {
+            logger.error({ err: seedError, tenantId: newTenant.id }, 'Failed to seed default settings');
+        }
+
         logger.info({ tenantId: newTenant.id, slug: newTenant.slug }, 'Tenant created');
         return newTenant;
     }

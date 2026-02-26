@@ -74,12 +74,13 @@ export class DashboardService {
     /**
      * Get dashboard statistics (cached 30s)
      */
-    async getStats(): Promise<DashboardStats> {
-        const cached = this.cache.get<DashboardStats>('stats');
+    async getStats(tenantId?: string, userId?: string, userRole?: string): Promise<DashboardStats> {
+        const cacheKey = `stats_${tenantId || 'global'}_${userId || 'all'}`;
+        const cached = this.cache.get<DashboardStats>(cacheKey);
         if (cached) return cached;
 
-        const routerStats = await routerService.countByStatus();
-        const alertStats = await alertService.countBySeverity();
+        const routerStats = await routerService.countByStatus(tenantId);
+        const alertStats = await alertService.countBySeverity(userId, userRole, tenantId);
 
         const stats: DashboardStats = {
             routers: {
@@ -96,18 +97,19 @@ export class DashboardService {
             },
         };
 
-        this.cache.set('stats', stats, CACHE_TTL);
+        this.cache.set(cacheKey, stats, CACHE_TTL);
         return stats;
     }
 
     /**
      * Get map markers for all routers (cached 30s)
      */
-    async getMapMarkers(): Promise<MapMarker[]> {
-        const cached = this.cache.get<MapMarker[]>('mapMarkers');
+    async getMapMarkers(tenantId?: string, userId?: string, userRole?: string): Promise<MapMarker[]> {
+        const cacheKey = `mapMarkers_${tenantId || 'global'}_${userId || 'all'}`;
+        const cached = this.cache.get<MapMarker[]>(cacheKey);
         if (cached) return cached;
 
-        const routers = await routerService.findAll();
+        const routers = await routerService.findAll(tenantId, userId, userRole);
 
         const markers = routers.map((router) => ({
             id: router.id,
@@ -121,15 +123,20 @@ export class DashboardService {
             lastSeen: router.lastSeen,
         }));
 
-        this.cache.set('mapMarkers', markers, CACHE_TTL);
+        this.cache.set(cacheKey, markers, CACHE_TTL);
         return markers;
     }
 
     /**
      * Get recent alerts for dashboard
      */
-    async getRecentAlerts(limit = 10) {
-        const result = await alertService.findUnacknowledged({ limit });
+    async getRecentAlerts(limit = 10, tenantId?: string, userId?: string, userRole?: string) {
+        const result = await alertService.findUnacknowledged({
+            limit,
+            tenantId,
+            userId,
+            userRole
+        });
         return result.data;
     }
 

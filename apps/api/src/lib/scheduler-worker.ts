@@ -44,6 +44,9 @@ setInterval(() => { }, 1000 * 60 * 60);
 
 logger.info('🧵 Starting Scheduler Worker Thread');
 
+// Start the scheduler
+startScheduler();
+
 // Handle graceful shutdown from main process
 process.on('message', (msg) => {
     if (msg === 'shutdown') {
