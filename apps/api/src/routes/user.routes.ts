@@ -344,10 +344,8 @@ router.put(
             throw ApiError.forbidden('Admins cannot change passwords of other admins');
         }
 
-        // Prevent admin from changing their own password via this endpoint
-        if (id === req.user!.id) {
-            throw ApiError.badRequest('Use profile settings to change your own password');
-        }
+        // Allow admin/superadmin to change any password (including their own)
+        // via this management endpoint.
 
         const success = await userService.updatePassword(id, password);
 
