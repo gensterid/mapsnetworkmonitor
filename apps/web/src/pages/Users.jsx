@@ -155,7 +155,16 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                 additionalTenantIds: formData.additionalTenantIds,
             });
             // Reset form
-            setFormData({ name: '', username: '', email: '', password: '', confirmPassword: '', role: 'user' });
+            setFormData({
+                name: '',
+                username: '',
+                email: '',
+                password: '',
+                confirmPassword: '',
+                role: 'user',
+                tenantId: '',
+                additionalTenantIds: [],
+            });
             onSuccess?.();
             onClose();
         } catch (err) {
@@ -283,7 +292,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                                 <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
                                     <input
                                         type="checkbox"
-                                        checked={formData.additionalTenantIds.includes(t.id)}
+                                        checked={formData.additionalTenantIds?.includes(t.id) || false}
                                         onChange={(e) => {
                                             const checked = e.target.checked;
                                             setFormData(prev => ({
@@ -450,7 +459,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                                 <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
                                     <input
                                         type="checkbox"
-                                        checked={additionalTenantIds.includes(t.id)}
+                                        checked={additionalTenantIds?.includes(t.id) || false}
                                         onChange={(e) => {
                                             const checked = e.target.checked;
                                             setAdditionalTenantIds(prev =>
