@@ -125,6 +125,47 @@ async function repair() {
         }
     }
 
+    // 5. Promote to Superadmin or Create Superadmin
+    if (process.argv.includes('--superadmin')) {
+        const email = process.argv.find(arg => arg.includes('@')) || 'admin@admin.com';
+        console.log(`\n👑 Promoting/Creating Super Admin: ${email}...`);
+
+        const [admin] = await db.execute(sql`SELECT id FROM users WHERE email = ${email}`) as any[];
+
+        if (admin) {
+            await db.execute(sql`UPDATE users SET role = 'superadmin' WHERE id = ${admin.id}`);
+            console.log(`✅ User ${email} promoted to superadmin.`);
+        } else {
+            console.log(`👤 Creating new Super Admin (${email})...`);
+
+            // Ensure we have a tenant
+            const [existingTenant] = await db.execute(sql`SELECT id FROM tenants LIMIT 1`) as any[];
+            let tenantId = existingTenant?.id;
+            if (!tenantId) {
+                const [newTenant] = await db.execute(sql`INSERT INTO tenants (name, slug) VALUES ('Main ISP', 'main-isp') RETURNING id`) as any[];
+                tenantId = newTenant.id;
+            }
+
+            const userId = crypto.randomUUID();
+            const password = 'password123';
+            const salt = crypto.randomBytes(16).toString('hex');
+            const hashedBuffer = crypto.scryptSync(password, salt, 64, { N: 16384, r: 16, p: 1, maxmem: 67108864 });
+            const hashedPassword = `${salt}:${hashedBuffer.toString('hex')}`;
+
+            await db.execute(sql`
+                INSERT INTO users (id, email, name, role, tenant_id, email_verified, created_at, updated_at)
+                VALUES (${userId}, ${email}, 'Super Admin', 'superadmin', ${tenantId}, true, NOW(), NOW())
+            `);
+
+            await db.execute(sql`
+                INSERT INTO accounts (id, user_id, account_id, provider_id, password, created_at, updated_at)
+                VALUES (${crypto.randomUUID()}, ${userId}, ${email}, 'credential', ${hashedPassword}, NOW(), NOW())
+            `);
+
+            console.log(`✅ Super Admin created: ${email} / password123`);
+        }
+    }
+
     console.log('\n🚀 Repair finished. Please try logging in again.');
     process.exit(0);
 }
