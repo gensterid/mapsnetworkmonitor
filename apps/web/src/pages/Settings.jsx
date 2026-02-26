@@ -179,7 +179,7 @@ export default function Settings() {
 
         try {
             // Update Global Settings (Admin Only)
-            if (currentUser?.role === 'admin') {
+            if (currentUser?.role === 'admin' || currentUser?.role === 'superadmin') {
                 await updateSettingMutation.mutateAsync({ key: 'appName', value: formData.appName });
                 await updateSettingMutation.mutateAsync({ key: 'pollingInterval', value: parseInt(formData.pollingInterval, 10) });
                 await updateSettingMutation.mutateAsync({ key: 'alertEmailEnabled', value: formData.alertEmailEnabled });
@@ -420,7 +420,7 @@ export default function Settings() {
                                         value={formData.appName}
                                         onChange={handleChange}
                                         placeholder="NetMonitor"
-                                        disabled={currentUser?.role !== 'admin'}
+                                        disabled={currentUser?.role !== 'admin' && currentUser?.role !== 'superadmin'}
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -442,7 +442,7 @@ export default function Settings() {
                                         value={formData.webhook_base_url}
                                         onChange={handleChange}
                                         placeholder="https://mapsmonitor.genster.web.id"
-                                        disabled={currentUser?.role !== 'admin'}
+                                        disabled={currentUser?.role !== 'admin' && currentUser?.role !== 'superadmin'}
                                     />
                                     <p className="text-xs text-slate-500">Base URL used by MikroTik routers to send status updates. Must be accessible from the routers.</p>
                                 </div>
@@ -583,7 +583,7 @@ export default function Settings() {
                                         value={formData.googleMapsApiKey}
                                         onChange={handleChange}
                                         placeholder="Enter your API key"
-                                        disabled={currentUser?.role !== 'admin'}
+                                        disabled={currentUser?.role !== 'admin' && currentUser?.role !== 'superadmin'}
                                     />
                                     <p className="text-xs text-slate-500">Required for displaying router locations on the map</p>
                                 </div>
@@ -591,7 +591,7 @@ export default function Settings() {
                         </Card>
 
                         {/* Ping Targets (Admin Only) */}
-                        {currentUser?.role === 'admin' && (
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">
@@ -657,7 +657,7 @@ export default function Settings() {
                         )}
 
                         {/* Database Management (Admin Only) */}
-                        {currentUser?.role === 'admin' && (
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center gap-2">

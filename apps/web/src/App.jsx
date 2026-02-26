@@ -117,6 +117,20 @@ function OperatorRoute({ children }) {
   return children;
 }
 
+function SuperAdminRoute({ children }) {
+  const { isSuperAdmin, isPending } = useRole();
+
+  if (isPending) {
+    return null;
+  }
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
+}
+
 function App() {
   const loading = (
     <div className="min-h-[400px] flex items-center justify-center">
@@ -180,9 +194,9 @@ function App() {
                 } />
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={
-                  <AdminRoute>
+                  <SuperAdminRoute>
                     <Tenants />
-                  </AdminRoute>
+                  </SuperAdminRoute>
                 } />
               </Route>
             </Routes>

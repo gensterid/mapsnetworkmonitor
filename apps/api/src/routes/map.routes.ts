@@ -293,7 +293,10 @@ router.put(
         const [updatedRouter] = await db
             .update(routers)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(eq(routers.id, id))
+            .where(and(
+                eq(routers.id, id),
+                eq(routers.tenantId, req.user?.tenantId as string)
+            ))
             .returning();
 
         if (updatedRouter) {
@@ -304,7 +307,10 @@ router.put(
         const [updatedNetwatch] = await db
             .update(routerNetwatch)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(eq(routerNetwatch.id, id))
+            .where(and(
+                eq(routerNetwatch.id, id),
+                eq(routerNetwatch.tenantId, req.user?.tenantId as string)
+            ))
             .returning();
 
         if (updatedNetwatch) {
@@ -315,7 +321,10 @@ router.put(
         const [updatedOlt] = await db
             .update(olts)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(eq(olts.id, id))
+            .where(and(
+                eq(olts.id, id),
+                eq(olts.tenantId, req.user?.tenantId as string)
+            ))
             .returning();
 
         if (updatedOlt) {
@@ -323,7 +332,18 @@ router.put(
         }
 
         // Try update ONU
-        // TODO: ONUs table
+        const [updatedOnu] = await db
+            .update(onus)
+            .set({ latitude: lat.toString(), longitude: lng.toString() })
+            .where(and(
+                eq(onus.id, id),
+                eq(onus.tenantId, req.user?.tenantId as string)
+            ))
+            .returning();
+
+        if (updatedOnu) {
+            return res.json({ success: true, type: 'onu' });
+        }
 
         res.status(404).json({ error: 'Node not found' });
     })

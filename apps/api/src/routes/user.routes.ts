@@ -24,7 +24,7 @@ const updateUserSchema = z.object({
 });
 
 const updateRoleSchema = z.object({
-    role: z.enum(['admin', 'operator', 'user']),
+    role: z.enum(['superadmin', 'admin', 'operator', 'user']),
 });
 
 const updatePasswordSchema = z.object({
@@ -36,7 +36,7 @@ const createUserSchema = z.object({
     username: z.string().min(3, 'Username must be at least 3 characters').max(50).optional(),
     email: z.string().email('Invalid email address'),
     password: z.string().min(8, 'Password must be at least 8 characters'),
-    role: z.enum(['admin', 'operator', 'user']).optional().default('user'),
+    role: z.enum(['superadmin', 'admin', 'operator', 'user']).optional().default('user'),
     tenantId: z.string().uuid().optional().nullable(),
     additionalTenantIds: z.array(z.string().uuid()).optional(),
 });
@@ -52,8 +52,8 @@ router.use(authMiddleware);
 router.get(
     '/',
     requireAdmin,
-    asyncHandler(async (_req, res) => {
-        const users = await userService.findAll();
+    asyncHandler(async (req, res) => {
+        const users = await userService.findAll(req.user?.tenantId as string | undefined);
         res.json({ data: users });
     })
 );
@@ -68,6 +68,16 @@ router.post(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const data = createUserSchema.parse(req.body);
+
+        // RBAC: Only superadmin can create superadmin
+        if (data.role === 'superadmin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can create superadmin users');
+        }
+
+        // RBAC: Only superadmin can create admin
+        if (data.role === 'admin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can create admin users');
+        }
 
         // Check if email already exists
         const existingUser = await userService.findByEmail(data.email);
@@ -152,7 +162,6 @@ router.get(
     '/me',
     asyncHandler(async (req, res) => {
         const user = await userService.findById(req.user!.id);
-
         if (!user) {
             throw ApiError.notFound('User not found');
         }
@@ -171,7 +180,7 @@ router.get(
     requireOwnerOrAdmin((req) => req.params.id as string),
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const user = await userService.findById(id);
+        const user = await userService.findById(id, req.user?.tenantId as string | undefined);
 
         if (!user) {
             throw ApiError.notFound('User not found');
@@ -192,6 +201,30 @@ router.put(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const { additionalTenantIds, ...userData } = updateUserSchema.parse(req.body);
+
+        // RBAC: Only superadmin can change the primary tenantId
+        if (userData.tenantId !== undefined && req.user?.role !== 'superadmin') {
+            const currentUser = await userService.findById(id);
+            if (currentUser && currentUser.tenantId !== userData.tenantId) {
+                throw ApiError.forbidden('Only superadmins can change the primary ISP assignment');
+            }
+        }
+
+        // Fetch target user for target protection
+        const targetUser = await userService.findById(id);
+        if (!targetUser) {
+            throw ApiError.notFound('User not found');
+        }
+
+        // RBAC: Admin cannot modify another admin
+        if (targetUser.role === 'admin' && req.user?.role === 'admin' && id !== req.user?.id) {
+            throw ApiError.forbidden('Admins cannot modify other admins');
+        }
+
+        // RBAC: Admin cannot modify a superadmin
+        if (targetUser.role === 'superadmin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can modify other superadmins');
+        }
 
         const user = await userService.update(id, userData);
 
@@ -231,12 +264,38 @@ router.put(
         const id = req.params.id as string;
         const { role } = updateRoleSchema.parse(req.body);
 
+        // Fetch target user to check their current role
+        const targetUser = await userService.findById(id);
+        if (!targetUser) {
+            throw ApiError.notFound('User not found');
+        }
+
+        // RBAC: Admin cannot modify another admin's role
+        if (targetUser.role === 'admin' && req.user?.role === 'admin' && id !== req.user?.id) {
+            throw ApiError.forbidden('Admins cannot change roles of other admins');
+        }
+
+        // RBAC: Non-superadmin cannot modify a superadmin
+        if (targetUser.role === 'superadmin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can modify other superadmins');
+        }
+
+        // RBAC: Only superadmin can promote to superadmin
+        if (role === 'superadmin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can promote users to superadmin');
+        }
+
+        // RBAC: Only superadmin can promote to admin
+        if (role === 'admin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can promote users to admin');
+        }
+
         // Prevent admin from changing their own role
         if (id === req.user!.id) {
             throw ApiError.badRequest('Cannot change your own role');
         }
 
-        const user = await userService.updateRole(id, role);
+        const user = await userService.updateRole(id, role as any);
 
         if (!user) {
             throw ApiError.notFound('User not found');
@@ -268,6 +327,22 @@ router.put(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const { password } = updatePasswordSchema.parse(req.body);
+
+        // Fetch target user
+        const targetUser = await userService.findById(id);
+        if (!targetUser) {
+            throw ApiError.notFound('User not found');
+        }
+
+        // RBAC: Non-superadmin cannot modify a superadmin's password
+        if (targetUser.role === 'superadmin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can change other superadmin passwords');
+        }
+
+        // RBAC: Admin cannot modify another admin's password
+        if (targetUser.role === 'admin' && req.user?.role === 'admin' && id !== req.user?.id) {
+            throw ApiError.forbidden('Admins cannot change passwords of other admins');
+        }
 
         // Prevent admin from changing their own password via this endpoint
         if (id === req.user!.id) {
@@ -315,6 +390,16 @@ router.delete(
 
         if (!user) {
             throw ApiError.notFound('User not found');
+        }
+
+        // RBAC: Non-superadmin cannot delete a superadmin
+        if (user.role === 'superadmin' && req.user?.role !== 'superadmin') {
+            throw ApiError.forbidden('Only superadmins can delete other superadmins');
+        }
+
+        // RBAC: Admin cannot delete another admin
+        if (user.role === 'admin' && req.user?.role === 'admin' && id !== req.user?.id) {
+            throw ApiError.forbidden('Admins cannot delete other admins');
         }
 
         const deleted = await userService.delete(id);

@@ -68,17 +68,32 @@ class AnalyticsService {
     }
 
     /**
-     * Get allowed router IDs for a user
+     * Get allowed router IDs for a user within a tenant
      */
-    private async getAllowedRouterIds(userId: string, userRole: string): Promise<string[]> {
-        if (userRole === 'admin') {
-            return []; // Admin allows all, but we handle empty array as "all" in context or explicit null check
+    private async getAllowedRouterIds(userId: string, userRole: string, tenantId?: string): Promise<string[]> {
+        // If no tenantId, we can't filter effectively here, but callers should handle it
+        if (!tenantId) return [];
+
+        const conditions = [eq(routers.tenantId, tenantId)];
+
+        if (userRole === 'admin' || userRole === 'superadmin') {
+            // Admins can see all routers in the tenant
+            const tenantRouters = await db
+                .select({ id: routers.id })
+                .from(routers)
+                .where(eq(routers.tenantId, tenantId));
+            return tenantRouters.map(r => r.id);
         }
 
+        // Operators can only see assigned routers within the tenant
         const assigned = await db
             .select({ routerId: userRouters.routerId })
             .from(userRouters)
-            .where(eq(userRouters.userId, userId));
+            .innerJoin(routers, eq(userRouters.routerId, routers.id))
+            .where(and(
+                eq(userRouters.userId, userId),
+                eq(routers.tenantId, tenantId)
+            ));
 
         return assigned.map(a => a.routerId);
     }
@@ -86,14 +101,23 @@ class AnalyticsService {
     /**
      * Get overview statistics
      */
-    async getOverviewStats(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<OverviewStats> {
+    async getOverviewStats(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<OverviewStats> {
         const range = dateRange || this.getDefaultDateRange();
 
+        // Always filter by tenantId if provided
+        const tenantFilter = tenantId ? eq(alerts.tenantId, tenantId) : undefined;
+
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) {
-                // Return zeros if no routers assigned
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') {
+                // If no routers assigned and not superadmin, return zeros
                 return {
                     totalAlerts: 0,
                     unresolvedAlerts: 0,
@@ -115,13 +139,17 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            alertConditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
             // If specific router requested, check if allowed
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             alertConditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             // Filter by allowed routers
             alertConditions.push(inArray(alerts.routerId, allowedIds));
         }
@@ -146,7 +174,7 @@ class AnalyticsService {
 
         if (routerId) {
             // Specific router logic (already validated permission above)
-            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+            const [router] = await db.select().from(routers).where(and(eq(routers.id, routerId), tenantId ? eq(routers.tenantId, tenantId) : undefined));
             if (router) {
                 totalRouters = 1;
                 onlineRouters = router.status === 'online' ? 1 : 0;
@@ -155,7 +183,7 @@ class AnalyticsService {
             const [deviceCount] = await db
                 .select({ count: count() })
                 .from(routerNetwatch)
-                .where(eq(routerNetwatch.routerId, routerId));
+                .where(and(eq(routerNetwatch.routerId, routerId), tenantId ? eq(routerNetwatch.tenantId, tenantId) : undefined));
             totalDevices = Number(deviceCount?.count) || 0;
         } else {
             // All allowed routers
@@ -167,8 +195,14 @@ class AnalyticsService {
                 })
                 .from(routers);
 
-            if (userRole !== 'admin') {
-                routerQuery.where(inArray(routers.id, allowedIds));
+            const routerConditions = [];
+            if (tenantId) routerConditions.push(eq(routers.tenantId, tenantId));
+            if (userRole !== 'admin' && userRole !== 'superadmin') {
+                routerConditions.push(inArray(routers.id, allowedIds));
+            }
+
+            if (routerConditions.length > 0) {
+                routerQuery = routerQuery.where(and(...routerConditions)) as any;
             }
 
             const routerStats = await routerQuery;
@@ -180,8 +214,14 @@ class AnalyticsService {
                 .select({ count: count() })
                 .from(routerNetwatch);
 
-            if (userRole !== 'admin') {
-                deviceQuery.where(inArray(routerNetwatch.routerId, allowedIds));
+            const deviceConditions = [];
+            if (tenantId) deviceConditions.push(eq(routerNetwatch.tenantId, tenantId));
+            if (userRole !== 'admin' && userRole !== 'superadmin') {
+                deviceConditions.push(inArray(routerNetwatch.routerId, allowedIds));
+            }
+
+            if (deviceConditions.length > 0) {
+                deviceQuery = deviceQuery.where(and(...deviceConditions)) as any;
             }
 
             const [deviceCount] = await deviceQuery;
@@ -210,13 +250,19 @@ class AnalyticsService {
     /**
      * Get alert trends by day
      */
-    async getAlertTrends(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<AlertTrend[]> {
+    async getAlertTrends(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<AlertTrend[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -224,12 +270,16 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -262,25 +312,37 @@ class AnalyticsService {
     /**
      * Get uptime statistics per router
      */
-    async getUptimeStats(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<UptimeStats[]> {
+    async getUptimeStats(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<UptimeStats[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         // Get routers
         let routerQuery = db.select().from(routers);
+        const routerConditions = [];
+        if (tenantId) routerConditions.push(eq(routers.tenantId, tenantId));
 
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
-            routerQuery.where(eq(routers.id, routerId));
-        } else if (userRole !== 'admin') {
-            routerQuery.where(inArray(routers.id, allowedIds));
+            routerConditions.push(eq(routers.id, routerId));
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
+            routerConditions.push(inArray(routers.id, allowedIds));
+        }
+
+        if (routerConditions.length > 0) {
+            routerQuery = routerQuery.where(and(...routerConditions)) as any;
         }
 
         const routerList = await routerQuery;
@@ -361,13 +423,19 @@ class AnalyticsService {
     /**
      * Get performance trends (CPU/Memory average by hour)
      */
-    async getPerformanceTrends(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<PerformanceData[]> {
+    async getPerformanceTrends(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<PerformanceData[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -375,12 +443,16 @@ class AnalyticsService {
             lte(routerMetrics.recordedAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(routerMetrics.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(routerMetrics.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(routerMetrics.routerId, allowedIds));
         }
 
@@ -407,7 +479,14 @@ class AnalyticsService {
     /**
      * Get audit logs with pagination
      */
-    async getAuditLogs(page: number, limit: number, dateRange?: DateRange, action?: string, entity?: string): Promise<{ logs: any[]; total: number; page: number; totalPages: number }> {
+    async getAuditLogs(
+        page: number,
+        limit: number,
+        dateRange?: DateRange,
+        action?: string,
+        entity?: string,
+        tenantId?: string
+    ): Promise<{ logs: any[]; total: number; page: number; totalPages: number }> {
         const offset = (page - 1) * limit;
         const range = dateRange || this.getDefaultDateRange();
 
@@ -415,6 +494,10 @@ class AnalyticsService {
             gte(auditLogs.createdAt, range.startDate),
             lte(auditLogs.createdAt, range.endDate),
         ];
+
+        if (tenantId) {
+            conditions.push(eq(auditLogs.tenantId, tenantId));
+        }
 
         if (action) {
             conditions.push(eq(auditLogs.action, action));
@@ -459,13 +542,21 @@ class AnalyticsService {
     /**
      * Get detailed alerts list (for drill-down)
      */
-    async getAlertsList(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string, limit: number = 50, resolved?: boolean): Promise<any[]> {
+    async getAlertsList(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string,
+        limit: number = 50,
+        resolved?: boolean
+    ): Promise<any[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -473,16 +564,20 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (resolved !== undefined) {
             conditions.push(eq(alerts.resolved, resolved));
         }
 
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -509,13 +604,20 @@ class AnalyticsService {
     /**
      * Get top down devices (most incidents)
      */
-    async getTopDownDevices(dateRange?: DateRange, limit: number = 10, routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; host: string; incidents: number }[]> {
+    async getTopDownDevices(
+        dateRange?: DateRange,
+        limit: number = 10,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{ name: string; host: string; incidents: number }[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -524,12 +626,16 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -569,13 +675,20 @@ class AnalyticsService {
     /**
      * Get top PPPoE clients with most disconnections
      */
-    async getTopPppoeDisconnectors(dateRange?: DateRange, limit: number = 10, routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; disconnectCount: number; lastDisconnect: Date; routerName: string }[]> {
+    async getTopPppoeDisconnectors(
+        dateRange?: DateRange,
+        limit: number = 10,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{ name: string; disconnectCount: number; lastDisconnect: Date; routerName: string }[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -584,12 +697,16 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -636,11 +753,16 @@ class AnalyticsService {
     /**
      * Get PPPoE clients that are currently down (recently disconnected and not in active sessions)
      */
-    async getCurrentPppoeDownStatus(routerId?: string, userId?: string, userRole?: string): Promise<{ name: string; address: string; downSince: Date; routerName: string }[]> {
+    async getCurrentPppoeDownStatus(
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{ name: string; address: string; downSince: Date; routerName: string }[]> {
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         // Get recent disconnect alerts (last 24 hours)
@@ -652,12 +774,16 @@ class AnalyticsService {
             gte(alerts.createdAt, oneDayAgo),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -678,22 +804,17 @@ class AnalyticsService {
             .select({ name: pppoeSessions.name, routerId: pppoeSessions.routerId })
             .from(pppoeSessions);
 
+        const sessionFilters = [eq(pppoeSessions.status, 'active')];
+        if (tenantId) sessionFilters.push(eq(pppoeSessions.tenantId, tenantId));
+
         if (routerId) {
-            activeSessionsQuery = activeSessionsQuery.where(and(
-                eq(pppoeSessions.routerId, routerId),
-                eq(pppoeSessions.status, 'active')
-            )) as any;
-        } else if (userRole !== 'admin' && allowedIds.length > 0) {
-            activeSessionsQuery = activeSessionsQuery.where(and(
-                inArray(pppoeSessions.routerId, allowedIds),
-                eq(pppoeSessions.status, 'active')
-            )) as any;
-        } else {
-            activeSessionsQuery = activeSessionsQuery.where(eq(pppoeSessions.status, 'active')) as any;
+            sessionFilters.push(eq(pppoeSessions.routerId, routerId));
+        } else if (userRole !== 'admin' && userRole !== 'superadmin' && allowedIds.length > 0) {
+            sessionFilters.push(inArray(pppoeSessions.routerId, allowedIds));
         }
 
-        const activeSessions = await activeSessionsQuery;
-        const activeSessionNames = new Set(activeSessions.map(s => s.name));
+        const activeSessions = await activeSessionsQuery.where(and(...sessionFilters)) as any;
+        const activeSessionNames = new Set(activeSessions.map((s: any) => s.name));
 
         // Filter disconnects where client is NOT in active sessions (truly down)
         const downClients: { name: string; address: string; downSince: Date; routerName: string; routerId: string }[] = [];
@@ -747,13 +868,20 @@ class AnalyticsService {
     /**
      * Get issues analysis (frequent issues)
      */
-    async getIssuesAnalysis(dateRange?: DateRange, limit: number = 10, routerId?: string, userId?: string, userRole?: string): Promise<{ title: string; count: number; lastOccurred: Date; routerName: string; severity: string }[]> {
+    async getIssuesAnalysis(
+        dateRange?: DateRange,
+        limit: number = 10,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{ title: string; count: number; lastOccurred: Date; routerName: string; severity: string }[]> {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -763,12 +891,16 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -810,7 +942,13 @@ class AnalyticsService {
     /**
      * Get CPU peak analysis - routers with high CPU during peak hours
      */
-    async getCpuPeakAnalysis(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
+    async getCpuPeakAnalysis(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{
         routerId: string;
         routerName: string;
         hour: number;
@@ -820,9 +958,9 @@ class AnalyticsService {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         const conditions: any[] = [
@@ -830,12 +968,16 @@ class AnalyticsService {
             lte(routerMetrics.recordedAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(routerMetrics.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(routerMetrics.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(routerMetrics.routerId, allowedIds));
         }
 
@@ -878,7 +1020,14 @@ class AnalyticsService {
     /**
      * Get downtime analysis - devices with significant downtime
      */
-    async getDowntimeAnalysis(dateRange?: DateRange, minDowntimeMinutes: number = 5, routerId?: string, userId?: string, userRole?: string): Promise<{
+    async getDowntimeAnalysis(
+        dateRange?: DateRange,
+        minDowntimeMinutes: number = 5,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{
         host: string;
         name: string;
         totalDowntimeMinutes: number;
@@ -888,20 +1037,21 @@ class AnalyticsService {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         // Get netwatch entries with lastDown within the date range
         const netwatchConditions: any[] = [];
+        if (tenantId) netwatchConditions.push(eq(routerNetwatch.tenantId, tenantId));
 
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             netwatchConditions.push(eq(routerNetwatch.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             netwatchConditions.push(inArray(routerNetwatch.routerId, allowedIds));
         }
 
@@ -929,9 +1079,11 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) alertConditions.push(eq(alerts.tenantId, tenantId));
+
         if (routerId) {
             alertConditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin' && allowedIds.length > 0) {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin' && allowedIds.length > 0) {
             alertConditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -1026,7 +1178,13 @@ class AnalyticsService {
     /**
      * Get interface capacity analysis - interfaces approaching bottleneck
      */
-    async getInterfaceCapacityAnalysis(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
+    async getInterfaceCapacityAnalysis(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{
         interfaceName: string;
         routerName: string;
         routerId: string;
@@ -1038,24 +1196,13 @@ class AnalyticsService {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         // Import routerInterfaces from schema
         const { routerInterfaces } = await import('../db/schema/index.js');
-
-        const conditions: any[] = [];
-
-        if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
-                throw new Error('Access denied to this router');
-            }
-            conditions.push(eq(routerInterfaces.routerId, routerId));
-        } else if (userRole !== 'admin') {
-            conditions.push(inArray(routerInterfaces.routerId, allowedIds));
-        }
 
         // Get interfaces with their current rates
         let query = db
@@ -1067,10 +1214,23 @@ class AnalyticsService {
                 rxRate: routerInterfaces.rxRate,
                 running: routerInterfaces.running,
             })
-            .from(routerInterfaces);
+            .from(routerInterfaces)
+            .innerJoin(routers, eq(routerInterfaces.routerId, routers.id));
 
-        if (conditions.length > 0) {
-            query = query.where(and(...conditions)) as any;
+        const capacityConditions: any[] = [];
+        if (tenantId) capacityConditions.push(eq(routers.tenantId, tenantId));
+
+        if (routerId) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
+                throw new Error('Access denied to this router');
+            }
+            capacityConditions.push(eq(routerInterfaces.routerId, routerId));
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
+            capacityConditions.push(inArray(routerInterfaces.routerId, allowedIds));
+        }
+
+        if (capacityConditions.length > 0) {
+            query = query.where(and(...capacityConditions)) as any;
         }
 
         const interfaces = await query;
@@ -1141,7 +1301,13 @@ class AnalyticsService {
     /**
      * Get incident heatmap data - geographic distribution of incidents
      */
-    async getIncidentHeatmap(dateRange?: DateRange, routerId?: string, userId?: string, userRole?: string): Promise<{
+    async getIncidentHeatmap(
+        dateRange?: DateRange,
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<{
         lat: number;
         lng: number;
         incidentCount: number;
@@ -1152,20 +1318,21 @@ class AnalyticsService {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) return [];
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') return [];
         }
 
         // Get all netwatch entries with coordinates
         const netwatchConditions: any[] = [];
+        if (tenantId) netwatchConditions.push(eq(routerNetwatch.tenantId, tenantId));
 
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             netwatchConditions.push(eq(routerNetwatch.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             netwatchConditions.push(inArray(routerNetwatch.routerId, allowedIds));
         }
 
@@ -1192,9 +1359,11 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) alertConditions.push(eq(alerts.tenantId, tenantId));
+
         if (routerId) {
             alertConditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin' && allowedIds.length > 0) {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin' && allowedIds.length > 0) {
             alertConditions.push(inArray(alerts.routerId, allowedIds));
         }
 
@@ -1270,7 +1439,8 @@ class AnalyticsService {
         dateRange?: DateRange,
         routerId?: string,
         userId?: string,
-        userRole?: string
+        userRole?: string,
+        tenantId?: string
     ): Promise<{
         avgResolutionMinutes: number;
         totalResolved: number;
@@ -1285,9 +1455,9 @@ class AnalyticsService {
         const range = dateRange || this.getDefaultDateRange();
 
         let allowedIds: string[] = [];
-        if (userId && userRole && userRole !== 'admin') {
-            allowedIds = await this.getAllowedRouterIds(userId, userRole);
-            if (allowedIds.length === 0) {
+        if (userId && userRole) {
+            allowedIds = await this.getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') {
                 return {
                     avgResolutionMinutes: 0,
                     totalResolved: 0,
@@ -1304,12 +1474,16 @@ class AnalyticsService {
             lte(alerts.createdAt, range.endDate),
         ];
 
+        if (tenantId) {
+            conditions.push(eq(alerts.tenantId, tenantId));
+        }
+
         if (routerId) {
-            if (userRole !== 'admin' && !allowedIds.includes(routerId)) {
+            if (userRole !== 'admin' && userRole !== 'superadmin' && !allowedIds.includes(routerId)) {
                 throw new Error('Access denied to this router');
             }
             conditions.push(eq(alerts.routerId, routerId));
-        } else if (userRole !== 'admin') {
+        } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
         }
 

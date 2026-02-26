@@ -184,6 +184,8 @@ const NetworkMap = ({
     const mapContainerRef = React.useRef(null);
     const [isSyncing, setIsSyncing] = useState(false);
     const [googleLoaded, setGoogleLoaded] = useState(() => !!window.google?.maps);
+    const [googleFailed, setGoogleFailed] = useState(false);
+    const [googleErrorType, setGoogleErrorType] = useState(null);
     const [zoomLevel, setZoomLevel] = useState(10);
 
     // Performance optimization states
@@ -240,6 +242,18 @@ const NetworkMap = ({
         }, 50);
     }, []);
 
+    // Stable Load/Error Handlers for Google Maps (Defined at top level to satisfy Rules of Hooks)
+    const handleGoogleLoaded = useCallback(() => {
+        setGoogleLoaded(true);
+        setGoogleFailed(false);
+        setGoogleErrorType(null);
+    }, []);
+
+    const handleGoogleError = useCallback((type) => {
+        setGoogleFailed(true);
+        setGoogleErrorType(type);
+    }, []);
+
     // Sync Live vs Display Traffic
     useEffect(() => {
         if (!isLiveMode || !stableRealtimeTraffic) {
@@ -276,6 +290,27 @@ const NetworkMap = ({
             setHoverTick(prev => prev + 1);
         }
     }, [stableRealtimeTraffic, isLiveMode, hoveredMarkerId, hoveredLineId]);
+
+    // Google Maps Loading Timeout & Reset
+    useEffect(() => {
+        if (!googleLoaded && apiKey && !googleFailed) {
+            const timer = setTimeout(() => {
+                if (!googleLoaded) {
+                    console.warn("Google Maps loading timeout. Falling back to OSM.");
+                    setGoogleFailed(true);
+                    setGoogleErrorType('TIMEOUT');
+                }
+            }, 10000); // 10 seconds
+            return () => clearTimeout(timer);
+        }
+    }, [googleLoaded, apiKey, googleFailed]);
+
+    useEffect(() => {
+        // Reset loading status when key changes (e.g. switching ISP)
+        setGoogleFailed(false);
+        setGoogleErrorType(null);
+        setGoogleLoaded(!!window.google?.maps);
+    }, [apiKey]);
 
     // --- Optimization: Pre-calculate flat traffic map for O(1) lookup ---
     // This solves the O(N*M) performance issue that causes stutter in large maps
@@ -1299,11 +1334,27 @@ const NetworkMap = ({
 
     return (
         <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} ${!enableAnimation ? 'animations-disabled' : ''} map-type-${mapType}`}>
-            {(!googleLoaded || !apiKey) && (
-                <div className="absolute inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center">
+            {!googleLoaded && !googleFailed && (
+                <div className="absolute inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center text-center px-4">
                     <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>
                     <p className="text-slate-300 font-medium">Memuat Peta Google...</p>
-                    {!apiKey && <p className="text-red-400 text-xs mt-2">API Key Google Maps tidak ditemukan.</p>}
+                    {googleErrorType && (
+                        <p className="text-red-400 text-xs mt-2 bg-red-400/10 px-3 py-1 rounded-full border border-red-400/20">
+                            Error: {googleErrorType === 'AUTH_FAILURE' ? 'API Key tidak valid' :
+                                googleErrorType === 'INVALID_KEY' ? 'Format Key salah' :
+                                    googleErrorType === 'SCRIPT_LOAD_ERROR' ? 'Gagal memuat script' : 'Batas waktu habis'}
+                        </p>
+                    )}
+                    <p className="text-slate-500 text-xs mt-2 max-w-xs">
+                        Jika loading terlalu lama, mungkin koneksi lambat atau API Key sedang bermasalah.
+                    </p>
+                    <button
+                        onClick={() => setGoogleFailed(true)}
+                        className="mt-6 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg border border-slate-700 transition-all active:scale-95"
+                    >
+                        Gunakan Peta Standar (OSM)
+                    </button>
+                    {!apiKey && <p className="text-red-400 text-xs mt-4">API Key Google Maps tidak ditemukan.</p>}
                 </div>
             )}
             <TrafficContext.Provider value={trafficContextValue}>
@@ -1319,11 +1370,19 @@ const NetworkMap = ({
                     >
                         <MapZoomHandler onZoomChange={setZoomLevel} />
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
-                        <MemoizedGoogleMapsLayer
-                            type={mapType}
-                            apiKey={apiKey}
-                            onLoaded={useCallback(() => setGoogleLoaded(true), [])}
-                        />
+                        {(!apiKey || googleFailed) ? (
+                            <TileLayer
+                                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            />
+                        ) : (
+                            <MemoizedGoogleMapsLayer
+                                type={mapType}
+                                apiKey={apiKey}
+                                onLoaded={handleGoogleLoaded}
+                                onError={handleGoogleError}
+                            />
+                        )}
 
 
                         {/* Animated Topology Lines (show when NOT editing) */}

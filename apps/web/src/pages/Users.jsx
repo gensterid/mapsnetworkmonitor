@@ -16,7 +16,7 @@ function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onT
 
     const roles = [
         ...(isSuperAdmin ? [{ value: 'superadmin', label: 'Super Admin', color: 'bg-purple-500/10 text-purple-400', desc: 'Multi-ISP access' }] : []),
-        { value: 'admin', label: 'Admin', color: 'bg-red-500/10 text-red-400', desc: 'Full access' },
+        { value: 'admin', label: 'Admin', color: 'bg-red-500/10 text-red-400', desc: 'Full access', disabled: !isSuperAdmin },
         { value: 'operator', label: 'Operator', color: 'bg-yellow-500/10 text-yellow-400', desc: 'Manage routers' },
         { value: 'user', label: 'User', color: 'bg-slate-700 text-slate-300', desc: 'View only' },
     ];
@@ -73,7 +73,7 @@ function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onT
                     />
                     <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-lg bg-slate-800 border border-slate-700 shadow-xl overflow-hidden">
                         <div className="p-1">
-                            {roles.map((role) => (
+                            {roles.filter(r => !r.disabled).map((role) => (
                                 <button
                                     key={role.value}
                                     onClick={() => handleRoleSelect(role.value)}
@@ -252,7 +252,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                     >
                         <option value="user">User - View only</option>
                         <option value="operator">Operator - Manage routers</option>
-                        <option value="admin">Admin - Full access</option>
+                        {isSuperAdmin && <option value="admin">Admin - Full access</option>}
                         {isSuperAdmin && <option value="superadmin">Super Admin - Multi-ISP access</option>}
                     </select>
                 </div>
@@ -321,6 +321,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
     const [username, setUsername] = useState(user?.username || '');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
+    const [tenantId, setTenantId] = useState(user?.tenantId || '');
     const [additionalTenantIds, setAdditionalTenantIds] = useState(user?.additionalTenantIds || []);
     const [isUpdating, setIsUpdating] = useState(false);
     const [error, setError] = useState('');
@@ -338,6 +339,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
             setUsername(user.username || '');
             setPassword('');
             setConfirmPassword('');
+            setTenantId(user.tenantId || '');
             setAdditionalTenantIds(user.additionalTenantIds || []);
             setError('');
         }
@@ -364,6 +366,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
             const updates = {};
             if (name !== user.name) updates.name = name;
             if (username !== (user.username || '')) updates.username = username || null;
+            if (isSuperAdmin && tenantId !== (user.tenantId || '')) updates.tenantId = tenantId || null;
 
 
             if (Object.keys(updates).length > 0 || (isSuperAdmin && additionalTenantIds !== user.additionalTenantIds)) {
@@ -415,6 +418,27 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         required
                     />
                 </div>
+
+                {isSuperAdmin && (
+                    <div className="grid grid-cols-1 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-slate-300 mb-1">
+                                Primary ISP (Tenant)
+                            </label>
+                            <select
+                                value={tenantId}
+                                onChange={(e) => setTenantId(e.target.value)}
+                                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                                <option value="">No Tenant (Orphan)</option>
+                                {tenants.map(t => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                            <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Hanya Super Admin yang bisa memindahkan user antar ISP.</p>
+                        </div>
+                    </div>
+                )}
 
                 {isSuperAdmin && (
                     <div className="space-y-2">
@@ -520,6 +544,7 @@ export default function Users() {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [activeDropdownId, setActiveDropdownId] = useState(null);
     const deleteUser = useDeleteUser();
+    const { isSuperAdmin, role: currentUserRole, user: currentUser } = useRole();
 
     const handleDelete = async (user) => {
         if (!confirm(`Are you sure you want to delete user "${user.name}"? This action cannot be undone.`)) {
@@ -601,6 +626,7 @@ export default function Users() {
                                                     onRoleChange={() => refetch()}
                                                     isOpen={activeDropdownId === user.id}
                                                     onToggle={(isOpen) => setActiveDropdownId(isOpen ? user.id : null)}
+                                                    disabled={(user.role === 'superadmin' && !isSuperAdmin) || (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)}
                                                 />
                                             </div>
                                             <div className="flex items-center gap-1 text-xs text-slate-400 mt-0.5">
@@ -617,7 +643,14 @@ export default function Users() {
                                             <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
                                                 <button
                                                     onClick={() => setEditingUser(user)}
-                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors"
+                                                    disabled={
+                                                        (user.role === 'superadmin' && !isSuperAdmin) ||
+                                                        (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)
+                                                    }
+                                                    className={clsx(
+                                                        "flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-white hover:bg-slate-800 rounded-md transition-colors",
+                                                        ((user.role === 'superadmin' && !isSuperAdmin) || (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)) && "opacity-30 cursor-not-allowed"
+                                                    )}
                                                 >
                                                     <Edit2 className="w-3.5 h-3.5" />
                                                     Edit
@@ -636,7 +669,14 @@ export default function Users() {
 
                                                 <button
                                                     onClick={() => handleDelete(user)}
-                                                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                                                    disabled={
+                                                        (user.role === 'superadmin' && !isSuperAdmin) ||
+                                                        (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)
+                                                    }
+                                                    className={clsx(
+                                                        "flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors",
+                                                        ((user.role === 'superadmin' && !isSuperAdmin) || (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)) && "opacity-30 cursor-not-allowed"
+                                                    )}
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />
                                                     Delete

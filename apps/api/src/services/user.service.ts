@@ -10,14 +10,24 @@ export class UserService {
     /**
      * Get all users
      */
-    async findAll(): Promise<(User & { tenantName?: string | null; additionalTenantIds?: string[] })[]> {
-        const result = await db
+    async findAll(tenantId?: string): Promise<(User & { tenantName?: string | null; additionalTenantIds?: string[] })[]> {
+        let query = db
             .select({
                 user: users,
                 tenantName: tenants.name,
             })
             .from(users)
             .leftJoin(tenants, eq(users.tenantId, tenants.id));
+
+        if (tenantId) {
+            query = query.where(eq(users.tenantId, tenantId)) as any;
+        } else {
+            // If no tenantId is provided (Superadmin view), don't filter.
+            // This allows Superadmins to see and fix 'orphan' users with null tenantId.
+            console.log("Superadmin view: fetching all users including orphans");
+        }
+
+        const result = await query;
 
         // For each user, fetch their additional tenant IDs
         // This could be optimized into a single join + aggregation in Postgres
@@ -40,8 +50,11 @@ export class UserService {
     /**
      * Get user by ID
      */
-    async findById(id: string): Promise<(User & { additionalTenantIds?: string[] }) | undefined> {
-        const [user] = await db.select().from(users).where(eq(users.id, id));
+    async findById(id: string, tenantId?: string): Promise<(User & { additionalTenantIds?: string[] }) | undefined> {
+        const conditions = [eq(users.id, id)];
+        if (tenantId) conditions.push(eq(users.tenantId, tenantId));
+
+        const [user] = await db.select().from(users).where(and(...conditions));
         if (!user) return undefined;
 
         const addTenants = await db

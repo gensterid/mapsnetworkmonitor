@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { db } from '../db/index.js';
 import { notificationGroups } from '../db/schema/index.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
@@ -25,11 +25,12 @@ const notificationGroupSchema = z.object({
 });
 
 // Get all groups (accessible by operators and admins for dropdown selection)
-router.get('/', async (_req, res) => {
+router.get('/', async (req, res) => {
     try {
         const groups = await db
             .select()
             .from(notificationGroups)
+            .where(eq(notificationGroups.tenantId, req.user?.tenantId as string))
             .orderBy(desc(notificationGroups.createdAt));
         res.json({ data: groups });
     } catch (error) {
@@ -44,7 +45,10 @@ router.post('/', requireAdmin, async (req, res) => {
 
         const [group] = await db
             .insert(notificationGroups)
-            .values(validated)
+            .values({
+                ...validated,
+                tenantId: req.user?.tenantId as string,
+            })
             .returning();
 
         res.status(201).json(group);
@@ -69,7 +73,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
                 ...validated,
                 updatedAt: new Date(),
             })
-            .where(eq(notificationGroups.id, id))
+            .where(and(
+                eq(notificationGroups.id, id),
+                eq(notificationGroups.tenantId, req.user?.tenantId as string)
+            ))
             .returning();
 
         if (!group) {
@@ -93,7 +100,10 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
         const [deleted] = await db
             .delete(notificationGroups)
-            .where(eq(notificationGroups.id, id))
+            .where(and(
+                eq(notificationGroups.id, id),
+                eq(notificationGroups.tenantId, req.user?.tenantId as string)
+            ))
             .returning();
 
         if (!deleted) {

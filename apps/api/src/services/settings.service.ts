@@ -18,7 +18,7 @@ export class SettingsService {
 
     // Global fallback settings for all tenants (Infrastructure level)
     private readonly GLOBAL_FALLBACKS: Record<string, any> = {
-        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || 'AIzaSyDuOhlEL0zHzuZ-d4yFZRqqQyrJF4bIJDs', // Use known working key if env is broken
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || null,
         webhook_base_url: process.env.WEBHOOK_BASE_URL || 'http://localhost:5173',
         appName: 'NetMonitor'
     };
@@ -110,12 +110,13 @@ export class SettingsService {
         tenantId: string,
         description?: string
     ): Promise<AppSetting> {
-        // Check if setting exists
+        // Check if setting exists and is not a virtual fallback
         const existing = await this.getSetting(key, tenantId);
+        const isVirtual = existing?.id === '00000000-0000-0000-0000-000000000000';
         let setting: AppSetting;
 
-        if (existing) {
-            // Update existing
+        if (existing && !isVirtual) {
+            // Update existing real setting
             const [updated] = await db
                 .update(appSettings)
                 .set({ value, description, updatedAt: new Date() })
@@ -123,7 +124,7 @@ export class SettingsService {
                 .returning();
             setting = updated;
         } else {
-            // Create new
+            // Create new (if doesn't exist OR is just a fallback)
             const [created] = await db
                 .insert(appSettings)
                 .values({ key, value, description, tenantId })

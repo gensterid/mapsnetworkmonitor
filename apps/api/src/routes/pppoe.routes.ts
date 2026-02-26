@@ -26,7 +26,8 @@ router.get('/', asyncHandler(async (req, res) => {
     const sessions = await pppoeService.findAll(
         routerId,
         req.user?.id,
-        req.user?.role
+        req.user?.role,
+        (req.user?.tenantId as string) || undefined
     );
     res.json({ data: sessions });
 }));
@@ -41,7 +42,8 @@ router.get('/map', asyncHandler(async (req, res) => {
     const sessions = await pppoeService.findAllWithCoordinates(
         routerId,
         req.user?.id,
-        req.user?.role
+        req.user?.role,
+        (req.user?.tenantId as string) || undefined
     );
     res.json({ data: sessions });
 }));
@@ -51,7 +53,7 @@ router.get('/map', asyncHandler(async (req, res) => {
  * Get a single PPPoE session
  */
 router.get('/:id', asyncHandler(async (req, res) => {
-    const session = await pppoeService.findById(req.params.id as string);
+    const session = await pppoeService.findById(req.params.id as string, (req.user?.tenantId as string) || undefined);
     if (!session) {
         return res.status(404).json({ error: 'Session not found' });
     }
@@ -71,7 +73,8 @@ router.patch('/:id/coordinates', requireOperator, asyncHandler(async (req, res) 
         longitude,
         waypoints,
         connectionType,
-        connectedToId
+        connectedToId,
+        (req.user?.tenantId as string) || undefined
     );
 
     if (!session) {
@@ -94,7 +97,8 @@ router.put('/:id', requireOperator, asyncHandler(async (req, res) => {
         longitude,
         waypoints,
         connectionType,
-        connectedToId
+        connectedToId,
+        (req.user?.tenantId as string) || undefined
     );
 
     if (!session) {
