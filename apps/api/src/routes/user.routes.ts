@@ -17,6 +17,8 @@ const updateUserSchema = z.object({
     image: z.preprocess(emptyToNull, z.string().url().optional().nullable()),
     timezone: z.string().optional(),
     animationStyle: z.string().optional(),
+    aiEnabled: z.boolean().optional(),
+    aiApiKey: z.preprocess(emptyToNull, z.string().optional().nullable()),
 });
 
 const updateRoleSchema = z.object({
@@ -120,6 +122,7 @@ router.post(
             'user',
             user.id,
             req.user!.id,
+            req.user?.tenantId || null,
             { email: data.email, role: data.role },
             req
         );
@@ -189,6 +192,7 @@ router.put(
             'user',
             id,
             req.user!.id,
+            req.user?.tenantId || null,
             { changes: Object.keys(data) },
             req
         );
@@ -226,6 +230,7 @@ router.put(
             'user',
             id,
             req.user!.id,
+            req.user?.tenantId || null,
             { newRole: role },
             req
         );
@@ -263,6 +268,7 @@ router.put(
             'user',
             id,
             req.user!.id,
+            req.user?.tenantId || null,
             {},
             req
         );
@@ -305,6 +311,7 @@ router.delete(
             'user',
             id,
             req.user!.id,
+            req.user?.tenantId || null,
             { email: user.email },
             req
         );

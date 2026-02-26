@@ -51,8 +51,9 @@ export function useRole() {
 
     return {
         role: user?.role || 'user',
-        isAdmin: user?.role === 'admin',
-        isOperator: user?.role === 'operator' || user?.role === 'admin',
+        isSuperAdmin: user?.role === 'superadmin',
+        isAdmin: user?.role === 'admin' || user?.role === 'superadmin',
+        isOperator: user?.role === 'operator' || user?.role === 'admin' || user?.role === 'superadmin',
         isUser: true,
         isPending,
     };

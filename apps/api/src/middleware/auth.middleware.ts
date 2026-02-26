@@ -11,7 +11,10 @@ declare global {
                 email: string;
                 name: string;
                 role: string;
+                tenantId?: string | null;
                 image?: string | null;
+                aiEnabled: boolean;
+                aiApiKey?: string | null;
             };
             session?: {
                 id: string;
@@ -46,13 +49,27 @@ export async function authMiddleware(
             return;
         }
 
+        let userRole = (session.user as { role?: string }).role || 'user';
+        let tenantId = (session.user as { tenantId?: string }).tenantId;
+
+        // Allow superadmin to override tenant context
+        if (userRole === 'superadmin') {
+            const requestedTenantId = req.headers['x-tenant-id'] as string;
+            if (requestedTenantId) {
+                tenantId = requestedTenantId;
+            }
+        }
+
         // Attach user and session to request
         req.user = {
             id: session.user.id,
             email: session.user.email,
             name: session.user.name,
-            role: (session.user as { role?: string }).role || 'user',
+            role: userRole,
+            tenantId: tenantId,
             image: session.user.image,
+            aiEnabled: (session.user as { aiEnabled?: boolean }).aiEnabled || false,
+            aiApiKey: (session.user as { aiApiKey?: string }).aiApiKey,
         };
 
         req.session = {
@@ -87,12 +104,25 @@ export async function optionalAuthMiddleware(
         });
 
         if (session?.user) {
+            let userRole = (session.user as { role?: string }).role || 'user';
+            let tenantId = (session.user as { tenantId?: string }).tenantId;
+
+            if (userRole === 'superadmin') {
+                const requestedTenantId = req.headers['x-tenant-id'] as string;
+                if (requestedTenantId) {
+                    tenantId = requestedTenantId;
+                }
+            }
+
             req.user = {
                 id: session.user.id,
                 email: session.user.email,
                 name: session.user.name,
-                role: (session.user as { role?: string }).role || 'user',
+                role: userRole,
+                tenantId: tenantId,
                 image: session.user.image,
+                aiEnabled: (session.user as { aiEnabled?: boolean }).aiEnabled || false,
+                aiApiKey: (session.user as { aiApiKey?: string }).aiApiKey,
             };
 
             req.session = {

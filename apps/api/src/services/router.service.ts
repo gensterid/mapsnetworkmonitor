@@ -103,14 +103,21 @@ export class RouterService {
      * Get all routers with their latest metrics and fastest interface speed
      */
     async findAll(
+        tenantId?: string,
         userId?: string,
         userRole?: string
     ): Promise<(Router & { latestMetrics?: RouterMetric; maxInterfaceSpeed?: string })[]> {
         let query = db.select().from(routers).orderBy(routers.name).$dynamic();
 
+        const filters = [];
+
+        // Tenant Isolation
+        if (tenantId && userRole !== 'superadmin') {
+            filters.push(eq(routers.tenantId, tenantId));
+        }
+
         // If user is not admin, filter by assigned routers
-        if (userId && userRole && userRole !== 'admin') {
-            // Get assigned router IDs
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -119,16 +126,18 @@ export class RouterService {
             const routerIds = assigned.map((a) => a.routerId);
 
             if (routerIds.length === 0) {
-                return []; // No routers assigned
+                return [];
             }
 
-            // Filter routers
-            // Note: In Drizzle, using `inArray` is needed
             const { inArray } = await import('drizzle-orm');
+            filters.push(inArray(routers.id, routerIds));
+        }
+
+        if (filters.length > 0) {
             query = db
                 .select()
                 .from(routers)
-                .where(inArray(routers.id, routerIds))
+                .where(and(...filters))
                 .orderBy(routers.name)
                 .$dynamic();
         }
@@ -206,7 +215,15 @@ export class RouterService {
     /**
      * Check if a user has access to a specific router
      */
-    async hasAccess(userId: string, userRole: string, routerId: string): Promise<boolean> {
+    async hasAccess(userId: string, userRole: string, routerId: string, tenantId?: string): Promise<boolean> {
+        if (userRole === 'superadmin') return true;
+
+        // Check if router exists and belongs to the same tenant
+        if (tenantId) {
+            const router = await this.findById(routerId, tenantId);
+            if (!router) return false;
+        }
+
         if (userRole === 'admin') return true;
         if (!userId) return false;
 
@@ -236,8 +253,16 @@ export class RouterService {
     /**
      * Get router by ID
      */
-    async findById(id: string): Promise<Router | undefined> {
-        const [router] = await db.select().from(routers).where(eq(routers.id, id));
+    async findById(id: string, tenantId?: string): Promise<Router | undefined> {
+        const filters = [eq(routers.id, id)];
+        if (tenantId) {
+            filters.push(eq(routers.tenantId, tenantId));
+        }
+
+        const [router] = await db
+            .select()
+            .from(routers)
+            .where(and(...filters));
         return router;
     }
 
@@ -245,9 +270,10 @@ export class RouterService {
      * Get router by ID with decrypted password (for internal use)
      */
     async findByIdWithPassword(
-        id: string
+        id: string,
+        tenantId?: string
     ): Promise<(Router & { password: string }) | undefined> {
-        const router = await this.findById(id);
+        const router = await this.findById(id, tenantId);
         if (!router) return undefined;
 
         return {
@@ -259,12 +285,13 @@ export class RouterService {
     /**
      * Create a new router
      */
-    async create(data: CreateRouterInput): Promise<Router> {
+    async create(data: CreateRouterInput, tenantId: string): Promise<Router> {
         const encryptedPassword = encrypt(data.password);
 
         const [router] = await db
             .insert(routers)
             .values({
+                tenantId: tenantId,
                 name: data.name,
                 host: data.host,
                 port: data.port || 8728,
@@ -304,7 +331,13 @@ export class RouterService {
     /**
      * Update router
      */
-    async update(id: string, data: UpdateRouterInput): Promise<Router | undefined> {
+    async update(id: string, data: UpdateRouterInput, tenantId?: string): Promise<Router | undefined> {
+        // Enforce tenant isolation for the update target
+        if (tenantId) {
+            const current = await this.findById(id, tenantId);
+            if (!current) throw ApiError.notFound('Router not found or access denied');
+        }
+
         const updateData: Partial<typeof routers.$inferInsert> & { updatedAt: Date } = {
             updatedAt: new Date(),
         };
@@ -336,7 +369,7 @@ export class RouterService {
         if (data.useWebhook !== undefined) {
             updateData.useWebhook = data.useWebhook;
             // Generate secret if enabling webhook and it's missing
-            const current = await this.findById(id);
+            const current = await this.findById(id, tenantId);
             if (data.useWebhook && (!current?.webhookSecret)) {
                 updateData.webhookSecret = randomBytes(16).toString('hex');
             }
@@ -364,8 +397,13 @@ export class RouterService {
     /**
      * Delete router
      */
-    async delete(id: string): Promise<boolean> {
-        const result = await db.delete(routers).where(eq(routers.id, id)).returning();
+    async delete(id: string, tenantId?: string): Promise<boolean> {
+        const filters = [eq(routers.id, id)];
+        if (tenantId) {
+            filters.push(eq(routers.tenantId, tenantId));
+        }
+
+        const result = await db.delete(routers).where(and(...filters)).returning();
         if (result.length > 0) {
             eventEmitter.broadcast('map_update', {
                 type: 'router',
@@ -381,9 +419,10 @@ export class RouterService {
      * Test connection to a router
      */
     async testConnection(
-        id: string
+        id: string,
+        tenantId?: string
     ): Promise<{ success: boolean; info?: unknown; error?: string }> {
-        const router = await this.findByIdWithPassword(id);
+        const router = await this.findByIdWithPassword(id, tenantId);
         if (!router) {
             return { success: false, error: 'Router not found' };
         }
@@ -415,8 +454,8 @@ export class RouterService {
      * @param id Router ID
      * @param includeNetwatch If true, also sync netwatch entries in the same connection
      */
-    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true): Promise<Router | undefined> {
-        const router = await this.findByIdWithPassword(id);
+    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true, tenantId?: string): Promise<Router | undefined> {
+        const router = await this.findByIdWithPassword(id, tenantId);
         if (!router) return undefined;
 
         const previousStatus = router.status;
@@ -589,8 +628,8 @@ export class RouterService {
     /**
      * Reboot a router
      */
-    async reboot(id: string): Promise<{ success: boolean; error?: string }> {
-        const router = await this.findByIdWithPassword(id);
+    async reboot(id: string, tenantId?: string): Promise<{ success: boolean; error?: string }> {
+        const router = await this.findByIdWithPassword(id, tenantId);
         if (!router) {
             return { success: false, error: 'Router not found' };
         }
@@ -628,7 +667,11 @@ export class RouterService {
     /**
      * Get router interfaces
      */
-    async getInterfaces(routerId: string): Promise<RouterInterface[]> {
+    async getInterfaces(routerId: string, tenantId?: string): Promise<RouterInterface[]> {
+        if (tenantId) {
+            const router = await this.findById(routerId, tenantId);
+            if (!router) return [];
+        }
         return routerInterfaceService.getInterfaces(routerId);
     }
 
@@ -638,7 +681,11 @@ export class RouterService {
     /**
      * Get router metrics (latest)
      */
-    async getLatestMetrics(routerId: string): Promise<RouterMetric | undefined> {
+    async getLatestMetrics(routerId: string, tenantId?: string): Promise<RouterMetric | undefined> {
+        if (tenantId) {
+            const router = await this.findById(routerId, tenantId);
+            if (!router) return undefined;
+        }
         const [metric] = await db
             .select()
             .from(routerMetrics)
@@ -651,8 +698,8 @@ export class RouterService {
     /**
      * Get active hotspot users count
      */
-    async getHotspotActive(routerId: string): Promise<number> {
-        const router = await this.findByIdWithPassword(routerId);
+    async getHotspotActive(routerId: string, tenantId?: string): Promise<number> {
+        const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) throw new Error('Router not found');
 
         try {
@@ -675,8 +722,8 @@ export class RouterService {
     /**
      * Get active PPP connections count
      */
-    async getPppActive(routerId: string): Promise<number> {
-        const router = await this.findByIdWithPassword(routerId);
+    async getPppActive(routerId: string, tenantId?: string): Promise<number> {
+        const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) throw new Error('Router not found');
 
         try {
@@ -699,8 +746,8 @@ export class RouterService {
     /**
      * Get active PPP sessions with details
      */
-    async getPppSessions(routerId: string): Promise<PppSession[]> {
-        const router = await this.findByIdWithPassword(routerId);
+    async getPppSessions(routerId: string, tenantId?: string): Promise<PppSession[]> {
+        const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) throw new Error('Router not found');
 
         try {
@@ -725,16 +772,21 @@ export class RouterService {
      */
     async getMetricsHistory(
         routerId: string,
-        limit = 100
+        limit = 100,
+        tenantId?: string
     ): Promise<RouterMetric[]> {
+        if (tenantId) {
+            const router = await this.findById(routerId, tenantId);
+            if (!router) return [];
+        }
         return routerMetricsService.getMetricsHistory(routerId, limit);
     }
 
     /**
      * Get real-time traffic using SNMP (faster/lighter than API)
      */
-    async getSnmpTraffic(routerId: string): Promise<Record<string, { tx: number; rx: number }>> {
-        const router = await this.findById(routerId);
+    async getSnmpTraffic(routerId: string, tenantId?: string): Promise<Record<string, { tx: number; rx: number }>> {
+        const router = await this.findById(routerId, tenantId);
         if (!router) return {};
         return routerMetricsService.getSnmpTraffic(router);
     }
@@ -742,7 +794,7 @@ export class RouterService {
     /**
      * Count routers by status
      */
-    async countByStatus(): Promise<{
+    async countByStatus(tenantId?: string): Promise<{
         total: number;
         online: number;
         offline: number;
@@ -764,8 +816,8 @@ export class RouterService {
      * Measure ping latency to configured targets via MikroTik router
      * Returns array of { ip, label, latency } objects
      */
-    async measurePingTargets(routerId: string): Promise<{ ip: string; label: string; latency: number | null; packetLoss: number | null }[]> {
-        const router = await this.findByIdWithPassword(routerId);
+    async measurePingTargets(routerId: string, tenantId?: string): Promise<{ ip: string; label: string; latency: number | null; packetLoss: number | null }[]> {
+        const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router || router.status !== 'online') {
             return [];
         }
@@ -848,7 +900,11 @@ export class RouterService {
     /**
      * Get all netwatch entries for a router
      */
-    async getNetwatch(routerId: string): Promise<any[]> {
+    async getNetwatch(routerId: string, tenantId?: string): Promise<any[]> {
+        if (tenantId) {
+            const router = await this.findById(routerId, tenantId);
+            if (!router) return [];
+        }
         return routerNetwatchService.getNetwatch(routerId);
     }
 
@@ -883,10 +939,11 @@ export class RouterService {
             connectedToId?: string | null;
             targetInterface?: string | null;
             linkedOnuId?: string | null;
-        }
+        },
+        tenantId?: string
     ): Promise<RouterNetwatch> {
         // 1. Apply to Router first (only for client type with host)
-        const router = await this.findByIdWithPassword(routerId);
+        const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) {
             logger.warn({ routerId }, 'Router not found for netwatch creation');
             throw new ApiError(404, 'Router not found');
@@ -984,10 +1041,18 @@ export class RouterService {
             targetInterface?: string | null;
             status?: 'up' | 'down' | 'unknown';
             linkedOnuId?: string | null;
-        }
+        },
+        tenantId?: string
     ): Promise<RouterNetwatch | undefined> {
-        // 0. Get original entry to know the host
-        const [original] = await db.select().from(routerNetwatch).where(eq(routerNetwatch.id, netwatchId));
+        // 0. Get original entry to know the host and check tenant
+        const filters = [eq(routerNetwatch.id, netwatchId)];
+        if (tenantId) {
+            // Check if router belongs to tenant
+            const routerCheck = await this.findById(routerId, tenantId);
+            if (!routerCheck) throw new Error('Router not found or access denied');
+        }
+
+        const [original] = await db.select().from(routerNetwatch).where(and(...filters));
         if (!original) throw new Error('Netwatch entry not found');
 
         // 1. Apply to Router (only for client types and only if relevant fields change)
@@ -999,7 +1064,7 @@ export class RouterService {
 
         // Only update MikroTik for client types with valid host
         if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
-            const router = await this.findByIdWithPassword(routerId);
+            const router = await this.findByIdWithPassword(routerId, tenantId);
             if (router) {
                 let conn;
                 try {
@@ -1085,8 +1150,13 @@ export class RouterService {
     /**
      * Delete a netwatch entry
      */
-    async deleteNetwatch(routerId: string, netwatchId: string): Promise<boolean> {
+    async deleteNetwatch(routerId: string, netwatchId: string, tenantId?: string): Promise<boolean> {
         logger.info({ netwatchId, routerId }, '[RouterService] Deleting netwatch entry');
+
+        if (tenantId) {
+            const routerCheck = await this.findById(routerId, tenantId);
+            if (!routerCheck) return false;
+        }
 
         // 1. Delete from DB first and get the deleted entry
         // This ensures that even if router connection fails, the item is removed from DB/Map
@@ -1116,7 +1186,7 @@ export class RouterService {
         const isClientType = deleted.deviceType === 'client' || !deleted.deviceType;
         if (isClientType) {
             logger.info('[RouterService] Attempting to remove from MikroTik router...');
-            const router = await this.findByIdWithPassword(routerId);
+            const router = await this.findByIdWithPassword(routerId, tenantId);
             if (router) {
                 let conn;
                 try {

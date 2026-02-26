@@ -10,3 +10,4 @@ export * from './pppoe.js';
 export * from './olts.js';
 export * from './onus.js';
 export * from './presets.js';
+export * from './tenants.js';

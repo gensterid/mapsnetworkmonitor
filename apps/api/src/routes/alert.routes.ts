@@ -46,7 +46,8 @@ router.get(
             search,
             routerId,
             category,
-            resolved
+            resolved,
+            tenantId: req.user?.tenantId || undefined
         });
 
         res.json(result);
@@ -60,7 +61,7 @@ router.get(
 router.get(
     '/unread',
     asyncHandler(async (req, res) => {
-        const stats = await alertService.getUnreadStats(req.user?.id, req.user?.role);
+        const stats = await alertService.getUnreadStats(req.user?.id, req.user?.role, req.user?.tenantId || undefined);
 
         res.json({
             data: {
@@ -91,7 +92,8 @@ router.get(
             startDate,
             endDate,
             userId: req.user?.id,
-            userRole: req.user?.role
+            userRole: req.user?.role,
+            tenantId: req.user?.tenantId || undefined
         });
 
         res.json(result);
@@ -106,7 +108,7 @@ router.get(
     '/:id',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const alert = await alertService.findById(id);
+        const alert = await alertService.findById(id, req.user?.tenantId || undefined);
 
         if (!alert) {
             throw ApiError.notFound('Alert not found');
@@ -126,7 +128,7 @@ router.put(
     requireUser,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const alert = await alertService.acknowledge(id, req.user!.id, req.user!.role);
+        const alert = await alertService.acknowledge(id, req.user!.id, req.user!.role, req.user?.tenantId || undefined);
 
         if (!alert) {
             throw ApiError.notFound('Alert not found');
@@ -146,7 +148,7 @@ router.put(
     requireUser,
     asyncHandler(async (req, res) => {
         const { category } = acknowledgeAllSchema.parse(req.query);
-        await alertService.acknowledgeAll(req.user!.id, req.user!.role, category);
+        await alertService.acknowledgeAll(req.user!.id, req.user!.role, category, req.user?.tenantId || undefined);
         res.json({ message: 'All alerts acknowledged successfully' });
     })
 );
@@ -161,7 +163,7 @@ router.put(
     requireUser,
     asyncHandler(async (req, res) => {
         const { category } = resolveAllSchema.parse(req.query);
-        await alertService.resolveAll(req.user!.id, req.user!.role, category);
+        await alertService.resolveAll(req.user!.id, req.user!.role, category, req.user?.tenantId || undefined);
         res.json({ message: 'All alerts resolved successfully' });
     })
 );
@@ -176,7 +178,7 @@ router.put(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const alert = await alertService.resolve(id);
+        const alert = await alertService.resolve(id, req.user?.tenantId || undefined);
 
         if (!alert) {
             throw ApiError.notFound('Alert not found');
@@ -196,7 +198,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const deleted = await alertService.delete(id);
+        const deleted = await alertService.delete(id, req.user?.tenantId || undefined);
 
         if (!deleted) {
             throw ApiError.notFound('Alert not found');

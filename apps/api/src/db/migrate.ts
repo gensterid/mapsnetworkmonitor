@@ -77,6 +77,20 @@ export async function runMigrations() {
                         updated_at TIMESTAMP DEFAULT NOW()
                     )
                 `
+            },
+            {
+                name: 'tenants',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS tenants (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        name TEXT NOT NULL,
+                        slug TEXT NOT NULL UNIQUE,
+                        description TEXT,
+                        settings TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
             }
         ];
 
@@ -218,6 +232,66 @@ export async function runMigrations() {
                 name: 'routers.last_error_message',
                 sql: sql`ALTER TABLE routers ADD COLUMN last_error_message TEXT`
             },
+            {
+                name: 'users.tenant_id',
+                sql: sql`ALTER TABLE users ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'routers.tenant_id',
+                sql: sql`ALTER TABLE routers ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'router_groups.tenant_id',
+                sql: sql`ALTER TABLE router_groups ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'olts.tenant_id',
+                sql: sql`ALTER TABLE olts ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'onus.tenant_id',
+                sql: sql`ALTER TABLE onus ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'alerts.tenant_id',
+                sql: sql`ALTER TABLE alerts ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'alerts.ai_analysis',
+                sql: sql`ALTER TABLE alerts ADD COLUMN ai_analysis TEXT`
+            },
+            {
+                name: 'app_settings.tenant_id',
+                sql: sql`ALTER TABLE app_settings ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'audit_logs.tenant_id',
+                sql: sql`ALTER TABLE audit_logs ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'router_netwatch.tenant_id',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'pppoe_sessions.tenant_id',
+                sql: sql`ALTER TABLE pppoe_sessions ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'notification_groups.tenant_id',
+                sql: sql`ALTER TABLE notification_groups ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'router_metrics.tenant_id',
+                sql: sql`ALTER TABLE router_metrics ADD COLUMN tenant_id UUID REFERENCES tenants(id)`
+            },
+            {
+                name: 'users.ai_enabled',
+                sql: sql`ALTER TABLE users ADD COLUMN ai_enabled BOOLEAN DEFAULT false NOT NULL`
+            },
+            {
+                name: 'users.ai_api_key',
+                sql: sql`ALTER TABLE users ADD COLUMN ai_api_key TEXT`
+            },
         ];
 
         for (const m of migrations) {
@@ -236,6 +310,44 @@ export async function runMigrations() {
                 logger.warn({ err, migration: m.name }, `Failed to apply optimization/migration for ${m.name}`);
             }
         }
+
+        // 3. Post-migration: Setup Default Tenant and Backfill
+        try {
+            const tenantsCount = await db.execute(sql`SELECT count(*) FROM tenants`);
+            const count = parseInt(tenantsCount[0]?.count as string || '0');
+
+            if (count === 0) {
+                logger.info('🏢 Initializing Default Tenant...');
+                const [defaultTenant] = await db.execute(sql`
+                    INSERT INTO tenants (name, slug, description)
+                    VALUES ('Main ISP', 'main-isp', 'Default ISP created during Multi-Tenant migration')
+                    RETURNING id
+                `) as any[];
+
+                if (defaultTenant) {
+                    const tenantId = defaultTenant.id;
+                    logger.info({ tenantId }, '✅ Default Tenant created. Backfilling existing data...');
+
+                    // Backfill all tables
+                    const tablesToBackfill = [
+                        'users', 'routers', 'router_groups', 'olts', 'onus',
+                        'alerts', 'app_settings', 'audit_logs', 'router_netwatch',
+                        'pppoe_sessions', 'notification_groups', 'router_metrics'
+                    ];
+                    for (const table of tablesToBackfill) {
+                        try {
+                            await db.execute(sql.raw(`UPDATE ${table} SET tenant_id = '${tenantId}' WHERE tenant_id IS NULL`));
+                        } catch (err) {
+                            logger.warn({ table, err }, 'Failed to backfill table');
+                        }
+                    }
+                    logger.info('🚀 Backfill complete');
+                }
+            }
+        } catch (err) {
+            logger.error({ err }, 'Failed to initialize default tenant');
+        }
+
         logger.info('✅ Database migrations complete');
     } catch (error) {
         logger.warn({ err: error }, 'Migration warning - some changes might already be applied');

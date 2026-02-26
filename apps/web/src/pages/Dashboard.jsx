@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import NetworkMap from '@/components/NetworkMap';
+import AiNetworkSummary from '@/components/AiNetworkSummary';
 import { useRouters, useAlerts, useSettings, useCurrentUser, useAppTimezone } from '@/hooks';
 import { formatRelativeTime, formatDateOnly, formatTimeOnly } from '@/lib/timezone';
 import {
@@ -286,6 +287,9 @@ export default function Dashboard() {
             {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
                 <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+                    {/* AI Network Summary */}
+                    <AiNetworkSummary />
+
                     {/* Page Header */}
                     <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                         <div>

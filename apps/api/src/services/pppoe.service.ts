@@ -46,7 +46,16 @@ class PppoeService {
         logger.debug({ routerName, sessionCount: currentSessions.length }, '[PPPoE] Tracking sessions');
 
         try {
-            // Get previously tracked sessions for this router
+            // Get previously tracked sessions for this router and its tenant
+            const { routers } = await import('../db/schema/routers.js');
+            const [router] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId));
+            const tenantId = router?.tenantId;
+
+            if (!tenantId) {
+                logger.error({ routerId }, '[PPPoE] Skipping sync: Router tenant not found');
+                return { connected, disconnected };
+            }
+
             const previousSessions = await this.findSessionsByRouter(routerId);
             const previousSessionNames = new Set(previousSessions.map(s => s.name));
             const currentSessionNames = new Set(currentSessions.map(s => s.name));
@@ -127,6 +136,7 @@ class PppoeService {
                             service: session.service,
                             uptime: session.uptime,
                             status: 'active', // Explicitly set status to active
+                            tenantId: tenantId,
                         };
 
                         // Transfer cached coordinates to new session
@@ -253,8 +263,14 @@ class PppoeService {
         longitude?: string,
         waypoints?: string,
         connectionType?: string,
-        connectedToId?: string | null
+        connectedToId?: string | null,
+        tenantId?: string
     ): Promise<PppoeSession | undefined> {
+        const filters = [eq(pppoeSessions.id, id)];
+        if (tenantId) {
+            filters.push(eq(pppoeSessions.tenantId, tenantId));
+        }
+
         const updateData: any = {};
 
         if (latitude !== undefined) updateData.latitude = latitude;
@@ -265,13 +281,13 @@ class PppoeService {
 
         // Only update if there's something to update
         if (Object.keys(updateData).length === 0) {
-            return this.findById(id);
+            return this.findById(id, tenantId);
         }
 
         const [session] = await db
             .update(pppoeSessions)
             .set(updateData)
-            .where(eq(pppoeSessions.id, id))
+            .where(and(...filters))
             .returning();
         return session;
     }
@@ -285,7 +301,8 @@ class PppoeService {
     async findAll(
         routerId?: string,
         userId?: string,
-        userRole?: string
+        userRole?: string,
+        tenantId?: string
     ): Promise<PppoeSession[]> {
         if (!pppoeSessions || !userRouters) {
             logger.error({
@@ -300,6 +317,10 @@ class PppoeService {
 
             if (routerId) {
                 filters.push(eq(pppoeSessions.routerId, routerId));
+            }
+
+            if (tenantId) {
+                filters.push(eq(pppoeSessions.tenantId, tenantId));
             }
 
             // If user is not admin, filter by assigned routers
@@ -339,11 +360,15 @@ class PppoeService {
     /**
      * Find PPPoE session by ID
      */
-    async findById(id: string): Promise<PppoeSession | undefined> {
+    async findById(id: string, tenantId?: string): Promise<PppoeSession | undefined> {
+        const filters = [eq(pppoeSessions.id, id)];
+        if (tenantId) {
+            filters.push(eq(pppoeSessions.tenantId, tenantId));
+        }
         const [session] = await db
             .select()
             .from(pppoeSessions)
-            .where(eq(pppoeSessions.id, id));
+            .where(and(...filters));
         return session;
     }
 
@@ -356,10 +381,11 @@ class PppoeService {
     async findAllWithCoordinates(
         routerId?: string,
         userId?: string,
-        userRole?: string
+        userRole?: string,
+        tenantId?: string
     ): Promise<PppoeSession[]> {
         // Get all sessions using the robust findAll method
-        const sessions = await this.findAll(routerId, userId, userRole);
+        const sessions = await this.findAll(routerId, userId, userRole, tenantId);
 
         // Filter in memory for valid coordinates
         // This avoids Drizzle operator issues (isNotNull, ne, sql) causing 500 errors

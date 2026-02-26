@@ -23,8 +23,8 @@ router.use(authMiddleware);
  */
 router.get(
     '/',
-    asyncHandler(async (_req, res) => {
-        const settings = await settingsService.findAllSettings();
+    asyncHandler(async (req, res) => {
+        const settings = await settingsService.findAllSettings(req.user?.tenantId || undefined);
 
         // Redact sensitive settings
         const sanitized = settings.map(s => {
@@ -47,7 +47,8 @@ router.get(
     '/:key',
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
-        const setting = await settingsService.getSetting(key);
+        const tenantId = req.user!.tenantId!;
+        const setting = await settingsService.getSetting(key, tenantId);
 
         if (!setting) {
             throw ApiError.notFound('Setting not found');
@@ -81,7 +82,7 @@ router.put(
             value = encrypt(value);
         }
 
-        const setting = await settingsService.setSetting(key, value, description);
+        const setting = await settingsService.setSetting(key, value, req.user!.tenantId!, description);
 
         // Check if scheduler restart is needed
         if (key.includes('interval')) {
@@ -95,6 +96,7 @@ router.put(
             'settings',
             setting.id,
             req.user!.id,
+            req.user?.tenantId ?? null,
             { key },
             req
         );
@@ -113,7 +115,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
-        const deleted = await settingsService.deleteSetting(key);
+        const deleted = await settingsService.deleteSetting(key, req.user!.tenantId!);
 
         if (!deleted) {
             throw ApiError.notFound('Setting not found');
@@ -133,7 +135,7 @@ router.get(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const limit = parseInt(req.query.limit as string) || 100;
-        const logs = await settingsService.getAuditLogs(limit);
+        const logs = await settingsService.getAuditLogs(req.user?.tenantId || undefined, limit);
 
         res.json({ data: logs });
     })

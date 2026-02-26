@@ -36,32 +36,61 @@ router.get(
             return res.json({ data: cachedData, _source: 'cache' });
         }
 
-        // 1. Fetch Routers
-        const allRouters = await routerService.findAll(req.user?.id, req.user?.role);
+        // 1. Fetch Routers (Correct parameter order: tenantId, userId, userRole)
+        const allRouters = await routerService.findAll(
+            req.user?.tenantId as string,
+            req.user?.id as string,
+            req.user?.role as string
+        );
 
-        // 2. Fetch Netwatch Entries (Clients, ODPs)
-        // Check if user is admin, if not, filter by assigned routers
+        const routerIds = allRouters.map(r => r.id);
+
+        // 2. Fetch Netwatch Entries (Isolation)
         let netwatchEntries: any[] = [];
-        if (req.user?.role !== 'admin' && req.user?.id) {
-            // Get netwatch for assigned routers
-            const routerIds = allRouters.map(r => r.id);
-            if (routerIds.length > 0) {
-                netwatchEntries = await db
-                    .select()
-                    .from(routerNetwatch)
-                    .where(inArray(routerNetwatch.routerId, routerIds));
-            }
-        } else {
+        if (req.user?.role === 'superadmin') {
+            // Superadmin sees everything across all ISPs
             netwatchEntries = await db.select().from(routerNetwatch);
+        } else if (req.user?.role === 'admin') {
+            // Admins see all devices within their tenant
+            netwatchEntries = await db
+                .select()
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.tenantId, req.user.tenantId as string));
+        } else if (routerIds.length > 0) {
+            // Operators/Users only see entries for assigned routers
+            netwatchEntries = await db
+                .select()
+                .from(routerNetwatch)
+                .where(inArray(routerNetwatch.routerId, routerIds));
         }
 
-        // 3. Fetch OLTs
-        const allOlts = await db.select().from(olts);
+        // 3. Fetch OLTs (Isolation)
+        let allOlts: any[] = [];
+        if (req.user?.role === 'superadmin') {
+            allOlts = await db.select().from(olts);
+        } else if (req.user?.role === 'admin') {
+            allOlts = await db
+                .select()
+                .from(olts)
+                .where(eq(olts.tenantId, req.user.tenantId as string));
+        } else if (routerIds.length > 0) {
+            // Operators see OLTs linked to their assigned routers
+            allOlts = await db
+                .select()
+                .from(olts)
+                .where(inArray(olts.parentId, routerIds));
+        }
 
-        // 4. Fetch ONUs (Inventory) for enrichment and Scenario 5-6
-        const routerIds = allRouters.map(r => r.id);
+        // 4. Fetch ONUs (Inventory Isolation)
         let allOnus: any[] = [];
-        if (routerIds.length > 0) {
+        if (req.user?.role === 'superadmin') {
+            allOnus = await db.select().from(onus);
+        } else if (req.user?.role === 'admin') {
+            allOnus = await db
+                .select()
+                .from(onus)
+                .where(eq(onus.tenantId, req.user.tenantId as string));
+        } else if (routerIds.length > 0) {
             allOnus = await db
                 .select()
                 .from(onus)

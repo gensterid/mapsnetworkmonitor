@@ -9,6 +9,7 @@ import {
     type Alert,
     type NewAlert,
 } from '../db/schema/index.js';
+import { aiService } from './ai.service.js';
 import { notificationService } from './notification.service.js';
 import { eventEmitter } from './event-emitter.service.js';
 import { logger } from '../lib/logger.js';
@@ -28,6 +29,17 @@ const ALERT_COOLDOWN_MINUTES = 30;
  * Alert Service - handles alert operations
  */
 export class AlertService {
+    /**
+     * Get tenant ID from router
+     */
+    private async getTenantIdFromRouter(routerId: string): Promise<string | null> {
+        const [router] = await db
+            .select({ tenantId: routers.tenantId })
+            .from(routers)
+            .where(eq(routers.id, routerId));
+        return router?.tenantId || null;
+    }
+
     /**
      * Find recent unresolved alert of the same type for deduplication
      * Returns the existing alert if found within cooldown period
@@ -110,6 +122,7 @@ export class AlertService {
         routerId?: string;
         category?: 'issues' | 'alerts';
         resolved?: boolean;
+        tenantId?: string;
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
 
 
@@ -138,6 +151,10 @@ export class AlertService {
             .$dynamic();
 
         const filters = [];
+
+        if (options.tenantId) {
+            filters.push(eq(alerts.tenantId, options.tenantId));
+        }
 
         // Resolved/Unresolved filter
         if (options.resolved !== undefined) {
@@ -257,7 +274,8 @@ export class AlertService {
         startDate?: Date;
         endDate?: Date;
         userId?: string;
-        userRole?: string
+        userRole?: string;
+        tenantId?: string;
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
         const page = options.page || 1;
         const limit = options.limit || 100;
@@ -281,6 +299,10 @@ export class AlertService {
             .$dynamic();
 
         const filters = [eq(alerts.acknowledged, false)];
+
+        if (options.tenantId) {
+            filters.push(eq(alerts.tenantId, options.tenantId));
+        }
 
         // Date filtering
         if (options.startDate) {
@@ -339,7 +361,12 @@ export class AlertService {
     /**
      * Get alerts by router ID
      */
-    async findByRouterId(routerId: string, limit = 50): Promise<any[]> {
+    async findByRouterId(routerId: string, limit = 50, tenantId?: string): Promise<any[]> {
+        const filters = [eq(alerts.routerId, routerId)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
+
         return db
             .select({
                 ...getTableColumns(alerts),
@@ -349,7 +376,7 @@ export class AlertService {
             .from(alerts)
             .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
             .leftJoin(routers, eq(alerts.routerId, routers.id))
-            .where(eq(alerts.routerId, routerId))
+            .where(and(...filters))
             .orderBy(desc(alerts.createdAt))
             .limit(limit);
     }
@@ -357,8 +384,12 @@ export class AlertService {
     /**
      * Get alert by ID
      */
-    async findById(id: string): Promise<Alert | undefined> {
-        const [alert] = await db.select().from(alerts).where(eq(alerts.id, id));
+    async findById(id: string, tenantId?: string): Promise<Alert | undefined> {
+        const filters = [eq(alerts.id, id)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
+        const [alert] = await db.select().from(alerts).where(and(...filters));
         return alert;
     }
 
@@ -402,14 +433,30 @@ export class AlertService {
             });
         }
 
+        // High-priority AI Diagnosis (Async)
+        if (alert.severity === 'critical') {
+            aiService.analyzeAlert(alert.id, alert.tenantId).then(analysis => {
+                if (analysis) {
+                    db.update(alerts)
+                        .set({ aiAnalysis: analysis })
+                        .where(eq(alerts.id, alert.id))
+                        .execute()
+                        .catch(err => logger.error({ err, alertId: alert.id }, 'Failed to save AI analysis'));
+                }
+            }).catch(err => logger.error({ err, alertId: alert.id }, 'AI analysis background task failed'));
+        }
+
         return alert;
     }
 
     /**
      * Acknowledge an alert
      */
-    async acknowledge(id: string, userId: string, userRole?: string): Promise<Alert | undefined> {
-        let whereClause = eq(alerts.id, id);
+    async acknowledge(id: string, userId: string, userRole?: string, tenantId?: string): Promise<Alert | undefined> {
+        const filters = [eq(alerts.id, id)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
 
         // For non-admins/operators, check router access
         if (userRole && userRole === 'user') {
@@ -423,7 +470,7 @@ export class AlertService {
             // If no routers assigned, they can't acknowledge anything
             if (routerIds.length === 0) return undefined;
 
-            whereClause = and(eq(alerts.id, id), inArray(alerts.routerId, routerIds)) as any;
+            filters.push(inArray(alerts.routerId, routerIds));
         }
 
         const [alert] = await db
@@ -433,7 +480,7 @@ export class AlertService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(whereClause)
+            .where(and(...filters))
             .returning();
         return alert;
     }
@@ -464,13 +511,18 @@ export class AlertService {
     /**
      * Acknowledge all alerts
      */
-    async acknowledgeAll(userId: string, userRole?: string, category?: 'issues' | 'alerts'): Promise<boolean> {
+    async acknowledgeAll(userId: string, userRole?: string, category?: 'issues' | 'alerts', tenantId?: string): Promise<boolean> {
         // If category is provided, we need to fetch and sort first because conditional logic is complex map-reduce
         if (category) {
+            const filters = [eq(alerts.acknowledged, false)];
+            if (tenantId) {
+                filters.push(eq(alerts.tenantId, tenantId));
+            }
+
             let query = db
                 .select()
                 .from(alerts)
-                .where(eq(alerts.acknowledged, false));
+                .where(and(...filters));
 
             // For non-admins/operators, check router access
             if (userRole && userRole === 'user') {
@@ -484,10 +536,12 @@ export class AlertService {
                 // If no routers assigned, nothing to acknowledge
                 if (routerIds.length === 0) return true;
 
+                const filterCopy = [...filters];
+                filterCopy.push(inArray(alerts.routerId, routerIds));
                 query = db
                     .select()
                     .from(alerts)
-                    .where(and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds))) as any;
+                    .where(and(...filterCopy));
             }
 
             const unacknowledged = await query;
@@ -517,7 +571,10 @@ export class AlertService {
         }
 
         // Global Acknowledge (No category) - Use efficient single query
-        let whereClause = eq(alerts.acknowledged, false);
+        const globalFilters = [eq(alerts.acknowledged, false)];
+        if (tenantId) {
+            globalFilters.push(eq(alerts.tenantId, tenantId));
+        }
 
         // For non-admins/operators, check router access
         if (userRole && userRole === 'user') {
@@ -531,7 +588,7 @@ export class AlertService {
             // If no routers assigned, nothing to acknowledge
             if (routerIds.length === 0) return true;
 
-            whereClause = and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds)) as any;
+            globalFilters.push(inArray(alerts.routerId, routerIds));
         }
 
         await db
@@ -541,15 +598,18 @@ export class AlertService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(whereClause);
+            .where(and(...globalFilters));
         return true;
     }
 
     /**
      * Resolve all alerts
      */
-    async resolveAll(userId: string, userRole?: string, category?: 'issues' | 'alerts'): Promise<boolean> {
-        let whereClause: any = eq(alerts.resolved, false);
+    async resolveAll(userId: string, userRole?: string, category?: 'issues' | 'alerts', tenantId?: string): Promise<boolean> {
+        const filters = [eq(alerts.resolved, false)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
 
         // For non-admins/operators, check router access
         if (userRole && userRole === 'user') {
@@ -561,7 +621,7 @@ export class AlertService {
             const routerIds = assigned.map(a => a.routerId);
             if (routerIds.length === 0) return true;
 
-            whereClause = and(eq(alerts.resolved, false), inArray(alerts.routerId, routerIds));
+            filters.push(inArray(alerts.routerId, routerIds));
         }
 
         if (category) {
@@ -572,7 +632,7 @@ export class AlertService {
                 ? inArray(alerts.type, issueTypesList as any)
                 : inArray(alerts.type, connectivityTypesList as any);
 
-            whereClause = and(whereClause, categoryCondition);
+            filters.push(categoryCondition);
         }
 
         await db
@@ -584,7 +644,7 @@ export class AlertService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(whereClause);
+            .where(and(...filters));
 
         return true;
     }
@@ -592,14 +652,18 @@ export class AlertService {
     /**
      * Resolve an alert
      */
-    async resolve(id: string): Promise<Alert | undefined> {
+    async resolve(id: string, tenantId?: string): Promise<Alert | undefined> {
+        const filters = [eq(alerts.id, id)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
         const [alert] = await db
             .update(alerts)
             .set({
                 resolved: true,
                 resolvedAt: new Date(),
             })
-            .where(eq(alerts.id, id))
+            .where(and(...filters))
             .returning();
         return alert;
     }
@@ -607,8 +671,12 @@ export class AlertService {
     /**
      * Delete an alert
      */
-    async delete(id: string): Promise<boolean> {
-        const result = await db.delete(alerts).where(eq(alerts.id, id)).returning();
+    async delete(id: string, tenantId?: string): Promise<boolean> {
+        const filters = [eq(alerts.id, id)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
+        const result = await db.delete(alerts).where(and(...filters)).returning();
         return result.length > 0;
     }
 
@@ -618,12 +686,11 @@ export class AlertService {
     /**
      * Count unacknowledged alerts (filtered by user access)
      */
-    async countUnacknowledged(userId?: string, userRole?: string): Promise<number> {
-        let query = db
-            .select()
-            .from(alerts)
-            .where(eq(alerts.acknowledged, false))
-            .$dynamic();
+    async countUnacknowledged(userId?: string, userRole?: string, tenantId?: string): Promise<number> {
+        const filters = [eq(alerts.acknowledged, false)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
 
         // Filter for non-admins
         if (userId && userRole && userRole !== 'admin') {
@@ -638,14 +705,13 @@ export class AlertService {
                 return 0;
             }
 
-            query = db
-                .select()
-                .from(alerts)
-                .where(and(eq(alerts.acknowledged, false), inArray(alerts.routerId, routerIds)))
-                .$dynamic();
+            filters.push(inArray(alerts.routerId, routerIds));
         }
 
-        const result = await query;
+        const result = await db
+            .select({ id: alerts.id })
+            .from(alerts)
+            .where(and(...filters));
         return result.length;
     }
 
@@ -655,16 +721,15 @@ export class AlertService {
     /**
      * Count alerts by severity (filtered by user access)
      */
-    async countBySeverity(userId?: string, userRole?: string): Promise<{
+    async countBySeverity(userId?: string, userRole?: string, tenantId?: string): Promise<{
         info: number;
         warning: number;
         critical: number;
     }> {
-        let query = db
-            .select()
-            .from(alerts)
-            .where(and(eq(alerts.acknowledged, false), eq(alerts.resolved, false)))
-            .$dynamic();
+        const filters = [eq(alerts.acknowledged, false), eq(alerts.resolved, false)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
 
         // Filter for non-admins
         if (userId && userRole && userRole !== 'admin') {
@@ -683,20 +748,13 @@ export class AlertService {
                 };
             }
 
-            query = db
-                .select()
-                .from(alerts)
-                .where(
-                    and(
-                        eq(alerts.acknowledged, false),
-                        eq(alerts.resolved, false),
-                        inArray(alerts.routerId, routerIds)
-                    )
-                )
-                .$dynamic();
+            filters.push(inArray(alerts.routerId, routerIds));
         }
 
-        const allAlerts = await query;
+        const allAlerts = await db
+            .select({ severity: alerts.severity })
+            .from(alerts)
+            .where(and(...filters));
 
         return {
             info: allAlerts.filter((a) => a.severity === 'info').length,
@@ -708,17 +766,16 @@ export class AlertService {
     /**
      * Get unread stats with breakdown by category
      */
-    async getUnreadStats(userId?: string, userRole?: string): Promise<{
+    async getUnreadStats(userId?: string, userRole?: string, tenantId?: string): Promise<{
         total: number;
         issues: number;
         connectivity: number;
         bySeverity: { info: number; warning: number; critical: number };
     }> {
-        let query = db
-            .select()
-            .from(alerts)
-            .where(eq(alerts.acknowledged, false))
-            .$dynamic();
+        const filters = [eq(alerts.acknowledged, false)];
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
 
         // Filter for non-admins
         if (userId && userRole && userRole !== 'admin') {
@@ -738,19 +795,13 @@ export class AlertService {
                 };
             }
 
-            query = db
-                .select()
-                .from(alerts)
-                .where(
-                    and(
-                        eq(alerts.acknowledged, false),
-                        inArray(alerts.routerId, routerIds)
-                    )
-                )
-                .$dynamic();
+            filters.push(inArray(alerts.routerId, routerIds));
         }
 
-        const allAlerts = await query;
+        const allAlerts = await db
+            .select()
+            .from(alerts)
+            .where(and(...filters));
 
         // Categorize
         const issuesCount = allAlerts.filter(a => this.isIssue(a)).length;
@@ -828,9 +879,12 @@ export class AlertService {
             // But usually UP event comes once. 
             // Let's create an INFO alert.
 
+            const tenantId = await this.getTenantIdFromRouter(routerId);
+
             if (resolvedCount > 0) {
                 return this.create({
                     routerId,
+                    tenantId: tenantId!,
                     type: 'status_change',
                     severity: 'info',
                     title: `Device ${deviceName || host} is back UP`,
@@ -841,6 +895,7 @@ export class AlertService {
                 // forcing notification for visibility
                 return this.create({
                     routerId,
+                    tenantId: tenantId!,
                     type: 'status_change',
                     severity: 'info',
                     title: `Device ${deviceName || host} is back UP`,
@@ -855,8 +910,11 @@ export class AlertService {
             return null;
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type: 'netwatch_down', // distinct type for filtering
             severity: 'warning',
             title: `Device ${deviceName || host} is down`,
@@ -893,8 +951,11 @@ export class AlertService {
             message += ` (Alasan: ${reason})`;
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type: 'status_change',
             severity,
             title: `Router ${routerName} is now ${newStatus}`,
@@ -930,10 +991,13 @@ export class AlertService {
             return null; // Skip duplicate alert
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         const severity = cpuLoad >= thresholds.cpuCritical ? 'critical' : 'warning';
 
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type: 'high_cpu',
             severity,
             title: `High CPU usage on ${routerName}`,
@@ -967,10 +1031,13 @@ export class AlertService {
             return null; // Skip duplicate alert
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         const severity = memoryPercent >= thresholds.memoryCritical ? 'critical' : 'warning';
 
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type: 'high_memory',
             severity,
             title: `High memory usage on ${routerName}`,
@@ -1020,18 +1087,24 @@ export class AlertService {
     /**
      * Resolve active metric alerts (CPU/Memory)
      */
-    async resolveActiveMetricAlerts(routerId: string, type: 'high_cpu' | 'high_memory'): Promise<void> {
+    async resolveActiveMetricAlerts(routerId: string, type: 'high_cpu' | 'high_memory', tenantId?: string): Promise<void> {
+        const filters = [
+            eq(alerts.routerId, routerId),
+            eq(alerts.type, type),
+            eq(alerts.resolved, false)
+        ];
+
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
+
         await db
             .update(alerts)
             .set({
                 resolved: true,
                 resolvedAt: new Date(),
             })
-            .where(and(
-                eq(alerts.routerId, routerId),
-                eq(alerts.type, type),
-                eq(alerts.resolved, false)
-            ));
+            .where(and(...filters));
     }
 
     /**
@@ -1069,8 +1142,11 @@ export class AlertService {
             return null;
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type: 'pppoe_connect',
             severity: 'info',
             title: `PPPoE: ${username} connected`,
@@ -1097,10 +1173,13 @@ export class AlertService {
             return null;
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         const duration = this.formatDuration(sessionDurationSeconds);
 
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type: 'pppoe_disconnect',
             severity: 'warning',
             title: `PPPoE: ${username} disconnected`,
@@ -1163,8 +1242,11 @@ export class AlertService {
             message += ` Latency: ${latency}ms.`;
         }
 
+        const tenantId = await this.getTenantIdFromRouter(routerId);
+
         return this.create({
             routerId,
+            tenantId: tenantId!,
             type, // high_latency or packet_loss
             severity: 'warning',
             title,
@@ -1178,17 +1260,24 @@ export class AlertService {
      */
     async resolvePerformanceAlert(
         routerId: string,
-        host: string
+        host: string,
+        tenantId?: string
     ): Promise<number> {
         // Find unresolved threshold alerts for this router that mention the host
+        const filters = [
+            eq(alerts.routerId, routerId),
+            inArray(alerts.type, ['threshold', 'high_latency', 'packet_loss']),
+            eq(alerts.resolved, false)
+        ];
+
+        if (tenantId) {
+            filters.push(eq(alerts.tenantId, tenantId));
+        }
+
         const existingAlerts = await db
             .select()
             .from(alerts)
-            .where(and(
-                eq(alerts.routerId, routerId),
-                inArray(alerts.type, ['threshold', 'high_latency', 'packet_loss']),
-                eq(alerts.resolved, false)
-            ));
+            .where(and(...filters));
 
         // Filter in memory for message (since we put host in message/title usually)
         // Ideally we should have a reliable way to link alert to host (maybe via title or new metadata column)

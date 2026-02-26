@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSettings, useUpdateSetting, useCurrentUser, useUpdateUser } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles } from 'lucide-react';
 import { useExportDatabase, useImportDatabase } from '@/hooks';
 import { useTheme } from '@/context/ThemeContext';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
@@ -20,7 +21,7 @@ const TABS = [
     { id: 'map-colors', label: 'Map Colors', icon: Palette },
     { id: 'alerts', label: 'Alert Thresholds', icon: AlertTriangle },
     { id: 'polling', label: 'Polling & Sync', icon: Clock },
-
+    { id: 'ai', label: 'AI Intelligence', icon: Sparkles },
 ];
 
 const SettingSection = ({ title, description, children }) => (
@@ -35,8 +36,17 @@ const SettingSection = ({ title, description, children }) => (
 
 export default function Settings() {
     const queryClient = useQueryClient();
+    const location = useLocation();
     const { theme, setTheme, themes, themeDetails } = useTheme();
-    const [activeTab, setActiveTab] = useState('profile');
+
+    // Support deep-linking to tabs via ?tab=tabId
+    const getInitialTab = () => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        return TABS.some(t => t.id === tab) ? tab : 'profile';
+    };
+
+    const [activeTab, setActiveTab] = useState(getInitialTab());
     const [formData, setFormData] = useState({
         appName: 'NetMonitor',
         pollingInterval: '30',
@@ -62,6 +72,9 @@ export default function Settings() {
         genieacs_username: '',
         genieacs_password: '',
         webhook_base_url: 'http://localhost:5173',
+        // AI Settings
+        aiEnabled: false,
+        aiApiKey: '',
     });
     const [saveStatus, setSaveStatus] = useState('');
     const [pingTargets, setPingTargets] = useState([
@@ -133,6 +146,8 @@ export default function Settings() {
                 username: currentUser.username || '',
                 image: currentUser.image || '',
                 animationStyle: currentUser.animationStyle || 'default',
+                aiEnabled: currentUser.aiEnabled || false,
+                aiApiKey: currentUser.aiApiKey || '',
             }));
         }
     }, [currentUser]);
@@ -196,6 +211,8 @@ export default function Settings() {
                     image: formData.image,
                     timezone: formData.timezone,
                     animationStyle: formData.animationStyle,
+                    aiEnabled: formData.aiEnabled,
+                    aiApiKey: formData.aiApiKey,
                 };
                 await updateUserMutation.mutateAsync({
                     id: currentUser.id,
@@ -1203,6 +1220,95 @@ export default function Settings() {
                             <Button type="submit" loading={updateSettingMutation.isPending}>
                                 <Save className="w-4 h-4 mr-2" />
                                 Save Map Colors
+                            </Button>
+                        </div>
+                    </form>
+                )}
+
+                {activeTab === 'ai' && (
+                    <form onSubmit={handleSubmit} className="max-w-2xl space-y-6">
+                        {saveStatus && (
+                            <div className={`p-3 rounded-lg text-sm ${saveStatus.includes('Failed')
+                                ? 'bg-red-500/10 border border-red-500/20 text-red-400'
+                                : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+                                }`}>
+                                {saveStatus}
+                            </div>
+                        )}
+
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Sparkles className="w-5 h-5 text-primary" />
+                                    AI Assist & Insights
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-4">
+                                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                                        <Info className="w-5 h-5 text-primary" />
+                                    </div>
+                                    <div>
+                                        <h4 className="text-sm font-bold text-white mb-1">Fitur AI Personal</h4>
+                                        <p className="text-xs text-slate-400 leading-relaxed">
+                                            Fitur ini memungkinkan Anda menggunakan API Key Gemini pribadi. Dengan kunci Anda sendiri, rangkuman jaringan dan analisis alert menjadi lebih stabil dan tidak terpengaruh batas kuota sistem global.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 bg-slate-900 border border-slate-800 rounded-xl">
+                                    <div>
+                                        <label className="text-sm font-medium text-slate-200">Aktifkan AI Intelligence</label>
+                                        <p className="text-xs text-slate-500">Gunakan AI untuk rangkuman dan analisis</p>
+                                    </div>
+                                    <label className="relative inline-flex items-center cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            name="aiEnabled"
+                                            checked={formData.aiEnabled}
+                                            onChange={handleChange}
+                                            className="sr-only peer"
+                                        />
+                                        <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                    </label>
+                                </div>
+
+                                {formData.aiEnabled && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-sm font-medium text-slate-300">Google Gemini API Key</label>
+                                                <a
+                                                    href="https://aistudio.google.com/app/apikey"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-xs text-primary hover:underline flex items-center gap-1"
+                                                >
+                                                    Dapatkan API Key Gratis
+                                                    <Globe className="w-3 h-3" />
+                                                </a>
+                                            </div>
+                                            <Input
+                                                type="password"
+                                                name="aiApiKey"
+                                                value={formData.aiApiKey}
+                                                onChange={handleChange}
+                                                placeholder="AIzaSy..."
+                                                className="font-mono"
+                                            />
+                                            <p className="text-[10px] text-slate-500 italic">
+                                                Kunci Anda disimpan dengan aman dan hanya digunakan untuk akun Anda sendiri.
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <div className="flex justify-end">
+                            <Button type="submit" loading={updateUserMutation.isPending}>
+                                <Save className="w-4 h-4 mr-2" />
+                                Simpan Konfigurasi AI
                             </Button>
                         </div>
                     </form>

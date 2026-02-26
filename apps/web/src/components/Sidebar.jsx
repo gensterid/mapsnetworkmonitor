@@ -16,9 +16,11 @@ import {
     X,
     BarChart3,
     Activity,
-    Monitor
+    Monitor,
+    Building
 } from 'lucide-react';
 import clsx from 'clsx';
+import TenantSwitcher from './TenantSwitcher';
 
 // NavItem component moved outside Sidebar to prevent re-creation on every render
 const NavItem = ({ path, icon: Icon, label, badge, badgeColor, isActive, onClose }) => (
@@ -116,7 +118,9 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                 {/* Navigation */}
                 <div className="flex flex-col gap-1.5 p-4 flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2">Main Menu</div>
+                    <TenantSwitcher />
+
+                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2">Main Menu</div>
 
                     <NavItem path="/" icon={LayoutDashboard} label="Dashboard" isActive={isActive("/")} onClose={onClose} />
                     <NavItem path="/map" icon={MapIcon} label="Network Map" isActive={isActive("/map")} onClose={onClose} />
@@ -129,6 +133,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6">System</div>
 
                     {isAdmin && <NavItem path="/netwatch" icon={Globe} label="Netwatch" isActive={isActive("/netwatch")} onClose={onClose} />}
+                    {isAdmin && <NavItem path="/tenants" icon={Building} label="ISPs / Tenants" isActive={isActive("/tenants")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/users" icon={Users} label="Users" isActive={isActive("/users")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/notification-groups" icon={MessageSquare} label="Notifications" isActive={isActive("/notification-groups")} onClose={onClose} />}
                     {(isAdmin || isOperator) && <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />}

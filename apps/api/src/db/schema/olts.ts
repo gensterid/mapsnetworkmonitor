@@ -9,12 +9,14 @@ import {
     boolean,
     index,
 } from 'drizzle-orm/pg-core';
+import { tenants } from './tenants.js';
 
 export const oltTypeEnum = pgEnum('olt_type', ['hsgq', 'cdata', 'generic']);
 export const oltStatusEnum = pgEnum('olt_status', ['online', 'offline', 'unknown']);
 
 export const olts = pgTable('olts', {
     id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
     name: text('name').notNull(),
     host: text('host').notNull(),
     snmpPort: integer('snmp_port').default(161).notNull(),

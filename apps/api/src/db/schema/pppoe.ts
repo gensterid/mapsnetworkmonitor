@@ -8,6 +8,7 @@ import {
     index,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers.js';
+import { tenants } from './tenants.js';
 
 // PPPoE Sessions table - tracks active PPPoE sessions for detecting connect/disconnect
 export const pppoeSessions = pgTable('pppoe_sessions', {
@@ -15,6 +16,9 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     routerId: uuid('router_id')
         .notNull()
         .references(() => routers.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+        .notNull()
+        .references(() => tenants.id, { onDelete: 'cascade' }),
     name: text('name').notNull(), // PPPoE username
     sessionId: text('session_id'), // MikroTik session ID
     callerId: text('caller_id'), // MAC or calling station ID
@@ -41,6 +45,7 @@ export const pppoeSessions = pgTable('pppoe_sessions', {
     lastTrafficUpdate: timestamp('last_traffic_update'),
 }, (table) => ({
     routerIdIdx: index('pppoe_sessions_router_id_idx').on(table.routerId),
+    tenantIdIdx: index('pppoe_sessions_tenant_id_idx').on(table.tenantId),
     nameIdx: index('pppoe_sessions_name_idx').on(table.name),
     statusIdx: index('pppoe_sessions_status_idx').on(table.status),
     connectedAtIdx: index('pppoe_sessions_connected_at_idx').on(table.connectedAt),

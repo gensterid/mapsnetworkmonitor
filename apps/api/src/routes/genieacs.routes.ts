@@ -60,7 +60,7 @@ router.get(
         const { query, routerId } = getDevicesSchema.parse(req.query);
 
         // Access Control
-        if (req.user?.role !== 'admin') {
+        if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
             if (!routerId) {
                 throw ApiError.forbidden('Router ID is required for non-admins');
             }
@@ -70,7 +70,7 @@ router.get(
             }
         }
 
-        const devices = await genieacsService.getDevices(routerId, query);
+        const devices = await genieacsService.getDevices(routerId, req.user?.tenantId!, query);
         res.json({ data: devices });
     })
 );
@@ -87,13 +87,13 @@ router.get(
         const routerId = req.query.routerId as string | undefined;
 
         // Access Control
-        if (req.user?.role !== 'admin') {
+        if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
             if (!routerId) throw ApiError.forbidden('Router ID is required for non-admins');
             const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId);
             if (!hasAccess) throw ApiError.forbidden('Access denied');
         }
 
-        const device = await genieacsService.getDevice(id, routerId);
+        const device = await genieacsService.getDevice(id, routerId, req.user?.tenantId!);
         if (!device) {
             throw ApiError.notFound('Device not found');
         }
@@ -107,11 +107,11 @@ router.get(
  */
 router.post(
     '/devices/:id/reboot',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const result = await genieacsService.rebootDevice(id, routerId);
+        const result = await genieacsService.rebootDevice(id, routerId, req.user?.tenantId!);
         res.json({ data: result });
     })
 );
@@ -122,13 +122,13 @@ router.post(
  */
 router.patch(
     '/devices/:id/parameters',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
         const { parameterName, value, type } = setParameterSchema.parse(req.body);
 
-        const result = await genieacsService.setParameter(id, parameterName, value, type, routerId);
+        const result = await genieacsService.setParameter(id, parameterName, value, type, routerId, req.user?.tenantId!);
         res.json({ data: result });
     })
 );
@@ -139,13 +139,13 @@ router.patch(
  */
 router.patch(
     '/devices/:id/wan-config',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
         const config = wanConfigSchema.parse(req.body);
 
-        const result = await genieacsService.updateWanConfig(id, config, routerId);
+        const result = await genieacsService.updateWanConfig(id, config, routerId, req.user?.tenantId!);
         res.json({ data: result });
     })
 );
@@ -156,13 +156,13 @@ router.patch(
  */
 router.patch(
     '/devices/:id/wifi-config',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
         const config = wifiConfigSchema.parse(req.body);
 
-        const result = await genieacsService.updateWifiConfig(id, config, routerId);
+        const result = await genieacsService.updateWifiConfig(id, config, routerId, req.user?.tenantId!);
         res.json({ data: result });
     })
 );
@@ -173,11 +173,11 @@ router.patch(
  */
 router.post(
     '/devices/:id/refresh',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const result = await genieacsService.refreshDevice(id, routerId);
+        const result = await genieacsService.refreshDevice(id, routerId, req.user?.tenantId!);
         if (result.success) {
             res.json({ success: true });
         } else {
@@ -192,11 +192,11 @@ router.post(
  */
 router.post(
     '/devices/:id/factory-reset',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const result = await genieacsService.factoryReset(id, routerId);
+        const result = await genieacsService.factoryReset(id, routerId, req.user?.tenantId!);
         if (result.success) {
             res.json({ success: true });
         } else {
@@ -211,12 +211,12 @@ router.post(
  */
 router.post(
     '/devices/bulk/reboot',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const { deviceIds } = bulkActionSchema.parse(req.body);
         const routerId = req.query.routerId as string | undefined;
 
-        const result = await genieacsService.bulkReboot(deviceIds, routerId);
+        const result = await genieacsService.bulkReboot(deviceIds, routerId, req.user?.tenantId!);
         res.json({ data: result });
     })
 );
@@ -227,12 +227,12 @@ router.post(
  */
 router.post(
     '/devices/bulk/config',
-    requireAdmin,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const { deviceIds, type, config } = bulkConfigSchema.parse(req.body);
         const routerId = req.query.routerId as string | undefined;
 
-        const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId);
+        const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId, req.user?.tenantId!);
         res.json({ data: result });
     })
 );

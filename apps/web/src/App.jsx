@@ -20,6 +20,7 @@ const Netwatch = lazy(() => import('./pages/Netwatch'));
 const NotificationGroups = lazy(() => import('./pages/NotificationGroups'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
+const Tenants = lazy(() => import('./pages/Tenants'));
 
 import { useSession, useRole } from './lib/auth-client';
 
@@ -178,6 +179,11 @@ function App() {
                   </OperatorRoute>
                 } />
                 <Route path="settings" element={<Settings />} />
+                <Route path="tenants" element={
+                  <AdminRoute>
+                    <Tenants />
+                  </AdminRoute>
+                } />
               </Route>
             </Routes>
           </Suspense>

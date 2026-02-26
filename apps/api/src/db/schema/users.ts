@@ -1,4 +1,5 @@
 import { pgTable, uuid, text, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { tenants } from './tenants.js';
 
 // User role enum
 export const userRoleEnum = pgEnum('user_role', ['admin', 'operator', 'user']);
@@ -12,8 +13,11 @@ export const users = pgTable('users', {
     image: text('image'),
     emailVerified: boolean('email_verified').default(false).notNull(),
     role: text('role').notNull().default('user'),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
     timezone: text('timezone').default('Asia/Jakarta').notNull(),
     animationStyle: text('animation_style').default('default'), // Map line animation style preference
+    aiEnabled: boolean('ai_enabled').default(false).notNull(),
+    aiApiKey: text('ai_api_key'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });

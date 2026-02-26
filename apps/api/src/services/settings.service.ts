@@ -16,19 +16,53 @@ export class SettingsService {
     private cache: Map<string, { data: AppSetting; timestamp: number }> = new Map();
     private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
 
+    // Global fallback settings for all tenants (Infrastructure level)
+    private readonly GLOBAL_FALLBACKS: Record<string, any> = {
+        googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || null,
+        webhook_base_url: process.env.WEBHOOK_BASE_URL || 'http://localhost:5173',
+        appName: 'NetMonitor'
+    };
+
     /**
      * Get all settings
      */
-    async findAllSettings(): Promise<AppSetting[]> {
-        return db.select().from(appSettings);
+    async findAllSettings(tenantId?: string): Promise<AppSetting[]> {
+        const query = db.select().from(appSettings);
+        if (tenantId) {
+            query.where(eq(appSettings.tenantId, tenantId));
+        }
+        const dbSettings = await query;
+
+        // If we have a tenantId, merge with global fallbacks for missing keys
+        if (tenantId) {
+            const dbKeys = new Set(dbSettings.map(s => s.key));
+            const merged = [...dbSettings];
+
+            Object.entries(this.GLOBAL_FALLBACKS).forEach(([key, value]) => {
+                if (!dbKeys.has(key) && value !== null) {
+                    merged.push({
+                        id: '00000000-0000-0000-0000-000000000000' as any, // Virtual ID
+                        tenantId: tenantId as any,
+                        key,
+                        value,
+                        description: 'Global Fallback Setting',
+                        updatedAt: new Date()
+                    });
+                }
+            });
+            return merged;
+        }
+
+        return dbSettings;
     }
 
     /**
      * Get setting by key
      */
-    async getSetting(key: string): Promise<AppSetting | undefined> {
+    async getSetting(key: string, tenantId: string): Promise<AppSetting | undefined> {
         // Check cache
-        const cached = this.cache.get(key);
+        const cacheKey = `${tenantId}:${key}`;
+        const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
             return cached.data;
         }
@@ -36,20 +70,34 @@ export class SettingsService {
         const [setting] = await db
             .select()
             .from(appSettings)
-            .where(eq(appSettings.key, key));
+            .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)));
 
         if (setting) {
-            this.cache.set(key, { data: setting, timestamp: Date.now() });
+            this.cache.set(cacheKey, { data: setting, timestamp: Date.now() });
+            return setting;
         }
 
-        return setting;
+        // Fallback to global defaults if not in DB
+        if (this.GLOBAL_FALLBACKS[key] !== undefined && this.GLOBAL_FALLBACKS[key] !== null) {
+            const fallback: AppSetting = {
+                id: '00000000-0000-0000-0000-000000000000' as any,
+                tenantId: tenantId as any,
+                key,
+                value: this.GLOBAL_FALLBACKS[key],
+                description: 'Global Fallback Setting',
+                updatedAt: new Date()
+            };
+            return fallback;
+        }
+
+        return undefined;
     }
 
     /**
      * Get setting value by key
      */
-    async getSettingValue<T>(key: string, defaultValue: T): Promise<T> {
-        const setting = await this.getSetting(key);
+    async getSettingValue<T>(key: string, tenantId: string, defaultValue: T): Promise<T> {
+        const setting = await this.getSetting(key, tenantId);
         return (setting?.value as T) ?? defaultValue;
     }
 
@@ -59,10 +107,11 @@ export class SettingsService {
     async setSetting(
         key: string,
         value: unknown,
+        tenantId: string,
         description?: string
     ): Promise<AppSetting> {
         // Check if setting exists
-        const existing = await this.getSetting(key);
+        const existing = await this.getSetting(key, tenantId);
         let setting: AppSetting;
 
         if (existing) {
@@ -70,21 +119,21 @@ export class SettingsService {
             const [updated] = await db
                 .update(appSettings)
                 .set({ value, description, updatedAt: new Date() })
-                .where(eq(appSettings.key, key))
+                .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)))
                 .returning();
             setting = updated;
         } else {
             // Create new
             const [created] = await db
                 .insert(appSettings)
-                .values({ key, value, description })
+                .values({ key, value, description, tenantId })
                 .returning();
             setting = created;
         }
 
         // Update cache
         if (setting) {
-            this.cache.set(key, { data: setting, timestamp: Date.now() });
+            this.cache.set(`${tenantId}:${key}`, { data: setting, timestamp: Date.now() });
         }
 
         return setting;
@@ -93,14 +142,14 @@ export class SettingsService {
     /**
      * Delete a setting
      */
-    async deleteSetting(key: string): Promise<boolean> {
+    async deleteSetting(key: string, tenantId: string): Promise<boolean> {
         const result = await db
             .delete(appSettings)
-            .where(eq(appSettings.key, key))
+            .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)))
             .returning();
 
         if (result.length > 0) {
-            this.cache.delete(key);
+            this.cache.delete(`${tenantId}:${key}`);
         }
 
         return result.length > 0;
@@ -117,10 +166,16 @@ export class SettingsService {
     /**
      * Get audit logs
      */
-    async getAuditLogs(limit = 100): Promise<AuditLog[]> {
+    async getAuditLogs(tenantId?: string, limit = 100): Promise<AuditLog[]> {
+        const filters = [];
+        if (tenantId) {
+            filters.push(eq(auditLogs.tenantId, tenantId));
+        }
+
         return db
             .select()
             .from(auditLogs)
+            .where(and(...filters))
             .orderBy(desc(auditLogs.createdAt))
             .limit(limit);
     }
@@ -143,12 +198,18 @@ export class SettingsService {
     async getAuditLogsByEntity(
         entity: string,
         entityId: string,
+        tenantId?: string,
         limit = 100
     ): Promise<AuditLog[]> {
+        const filters = [eq(auditLogs.entity, entity), eq(auditLogs.entityId, entityId)];
+        if (tenantId) {
+            filters.push(eq(auditLogs.tenantId, tenantId));
+        }
+
         return db
             .select()
             .from(auditLogs)
-            .where(and(eq(auditLogs.entity, entity), eq(auditLogs.entityId, entityId)))
+            .where(and(...filters))
             .orderBy(desc(auditLogs.createdAt))
             .limit(limit);
     }
@@ -161,6 +222,7 @@ export class SettingsService {
         entity: string,
         entityId: string | null,
         userId: string | null,
+        tenantId: string | null,
         details?: Record<string, unknown>,
         request?: { ip?: string; headers?: { 'user-agent'?: string } }
     ): Promise<AuditLog> {
@@ -169,6 +231,7 @@ export class SettingsService {
             entity,
             entityId: entityId ?? undefined,
             userId: userId ?? undefined,
+            tenantId: tenantId ?? undefined,
             details,
             ipAddress: request?.ip,
             userAgent: request?.headers?.['user-agent'],
@@ -178,7 +241,7 @@ export class SettingsService {
     /**
      * Initialize default settings if they don't exist
      */
-    async seedDefaults(): Promise<void> {
+    async seedDefaults(tenantId: string): Promise<void> {
         const defaults = [
             { key: 'olt_polling_interval', value: 1, description: 'SNMP Polling Interval (OLT Status) in minutes' },
             { key: 'olt_web_interval', value: 10, description: 'Web API Polling Interval (ONU Detail Sync) in minutes' },
@@ -189,10 +252,10 @@ export class SettingsService {
         ];
 
         for (const setting of defaults) {
-            const existing = await this.getSetting(setting.key);
+            const existing = await this.getSetting(setting.key, tenantId);
             if (!existing) {
-                logger.info({ key: setting.key }, 'Seeding default setting');
-                await this.setSetting(setting.key, setting.value, setting.description);
+                logger.info({ key: setting.key, tenantId }, 'Seeding default setting');
+                await this.setSetting(setting.key, setting.value, tenantId, setting.description);
             }
         }
     }
@@ -200,8 +263,8 @@ export class SettingsService {
     /**
      * Generate the full webhook URL for a given router secret
      */
-    async getWebhookUrl(secret: string): Promise<string> {
-        const baseUrl = await this.getSettingValue<string>('webhook_base_url', 'http://localhost:5173');
+    async getWebhookUrl(secret: string, tenantId: string): Promise<string> {
+        const baseUrl = await this.getSettingValue<string>('webhook_base_url', tenantId, 'http://localhost:5173');
         // Remove trailing slash if exists
         const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         return `${cleanBaseUrl}/api/webhook/netwatch?token=${secret}`;

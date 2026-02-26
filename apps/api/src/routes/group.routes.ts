@@ -29,8 +29,8 @@ router.use(authMiddleware);
  */
 router.get(
     '/',
-    asyncHandler(async (_req, res) => {
-        const groups = await groupService.findAll();
+    asyncHandler(async (req, res) => {
+        const groups = await groupService.findAll(req.user?.tenantId!);
         res.json({ data: groups });
     })
 );
@@ -43,7 +43,7 @@ router.get(
     '/:id',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const group = await groupService.findById(id);
+        const group = await groupService.findById(id, req.user?.tenantId!);
 
         if (!group) {
             throw ApiError.notFound('Group not found');
@@ -63,7 +63,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const data = createGroupSchema.parse(req.body);
-        const group = await groupService.create(data);
+        const group = await groupService.create(data, req.user?.tenantId!);
 
         res.status(201).json({ data: group });
     })
@@ -81,7 +81,7 @@ router.put(
         const id = req.params.id as string;
         const data = updateGroupSchema.parse(req.body);
 
-        const group = await groupService.update(id, data);
+        const group = await groupService.update(id, data, req.user?.tenantId!);
 
         if (!group) {
             throw ApiError.notFound('Group not found');
@@ -101,7 +101,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const deleted = await groupService.delete(id);
+        const deleted = await groupService.delete(id, req.user?.tenantId!);
 
         if (!deleted) {
             throw ApiError.notFound('Group not found');

@@ -57,6 +57,7 @@ const formatBitrate = (bits) => {
 };
 
 import NetworkMap from '@/components/NetworkMap';
+import RouterAiDiagnosis from '@/components/RouterAiDiagnosis';
 
 // Static empty array to prevent infinite re-render loops when used as dependency
 const EMPTY_ARRAY = [];
@@ -491,6 +492,9 @@ function DashboardTab({ router, metrics, interfaces }) {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* AI Router Diagnosis */}
+                    <RouterAiDiagnosis routerId={router.id} routerName={router.name} />
 
                     {/* Ping Latency Card */}
                     <PingLatencyCard routerId={router.id} />

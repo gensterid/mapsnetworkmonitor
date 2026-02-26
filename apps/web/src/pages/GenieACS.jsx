@@ -320,11 +320,13 @@ export default function GenieACS() {
         }
     }, [acsEnabledRouters, selectedRouterId]);
 
-    const { data: devices = [], isLoading, error, refetch, isFetching } = useGenieACSDevices(selectedRouterId, {
-        refetchInterval: 60 * 1000 // Auto-refresh every 60 seconds
-    });
-
     const { data: currentUser } = useCurrentUser();
+    const isAdmin = currentUser?.role === 'admin' || currentUser?.role === 'superadmin';
+
+    const { data: devices = [], isLoading, error, refetch, isFetching } = useGenieACSDevices(selectedRouterId, {
+        refetchInterval: 60 * 1000, // Auto-refresh every 60 seconds
+        enabled: !!selectedRouterId || isAdmin
+    });
     const { data: settings } = useSettings();
     const timezone = useAppTimezone();
 
@@ -437,7 +439,7 @@ export default function GenieACS() {
                                         onChange={(e) => setSelectedRouterId(e.target.value)}
                                         className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto"
                                     >
-                                        <option value="">Global ACS</option>
+                                        {isAdmin && <option value="">Global ACS</option>}
                                         {acsEnabledRouters.map(router => (
                                             <option key={router.id} value={router.id}>
                                                 {router.name} ({router.host})

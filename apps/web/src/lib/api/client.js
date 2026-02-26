@@ -14,7 +14,13 @@ const apiClient = axios.create({
 
 // Request interceptor
 apiClient.interceptors.request.use(
-    (config) => config,
+    (config) => {
+        const activeTenantId = localStorage.getItem('active-tenant-id');
+        if (activeTenantId) {
+            config.headers['x-tenant-id'] = activeTenantId;
+        }
+        return config;
+    },
     (error) => Promise.reject(error)
 );
 

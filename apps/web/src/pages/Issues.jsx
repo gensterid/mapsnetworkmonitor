@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useAlerts, useAcknowledgeAlert, useSettings, useAcknowledgeAllAlerts, useCurrentUser, useDebounce, useAppTimezone } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff, Search, X, Activity } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, RefreshCw, Clock, CheckCheck, ArrowDown, ArrowUp, Wifi, WifiOff, Search, X, Activity, Sparkles } from 'lucide-react';
 import { formatShortDateTime, formatFullDateTime } from '@/lib/timezone';
+import AiDiagnosis from '@/components/AiDiagnosis';
 import clsx from 'clsx';
 
 export default function Issues() {
@@ -213,6 +214,13 @@ export default function Issues() {
                                                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatAlertTime(alert.createdAt)}</span>
                                                     {alert.routerName && <span>Router: {alert.routerName}</span>}
                                                 </div>
+
+                                                {/* AI Diagnosis Integrated */}
+                                                <AiDiagnosis
+                                                    alertId={alert.id}
+                                                    initialAnalysis={alert.aiAnalysis}
+                                                    severity={alert.severity}
+                                                />
                                             </div>
                                         </div>
                                         {!alert.acknowledged ? (

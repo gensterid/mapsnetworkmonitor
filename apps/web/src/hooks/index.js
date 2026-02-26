@@ -78,9 +78,10 @@ export { useSSE } from './useSSE';
 export * from './useOlts';
 export * from './useGenieACS';
 export * from './useBackup';
+export * from './useSocket';
+export * from './useAI';
 export * from './usePresets';
 // Utility hooks
 export { useDebounce } from './useDebounce';
 export { useAppTimezone } from './useAppTimezone';
 export { useRealtimeTraffic, useAllRoutersTraffic } from './useSocket';
-

@@ -50,16 +50,16 @@ export interface WifiConfigPayload {
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { db } from '../db/index.js';
 import { onus, olts } from '../db/schema/index.js';
-import { eq, inArray } from 'drizzle-orm';
+import { eq, inArray, and } from 'drizzle-orm';
 
-async function getGenieAcsConfig(routerId?: string) {
+async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
     let url = '';
     let username = '';
     let password = '';
     let isDedicated = false;
 
     if (routerId) {
-        const router = await routerService.findById(routerId);
+        const router = await routerService.findById(routerId, tenantId);
         if (router && router.useGenieAcs) {
             url = router.genieacsUrl || '';
             username = router.genieacsUsername || '';
@@ -68,15 +68,15 @@ async function getGenieAcsConfig(routerId?: string) {
         }
     }
 
-    if (!url) {
-        const urlSetting = await settingsService.getSetting('genieacs_url') as any;
-        const userSetting = await settingsService.getSetting('genieacs_username') as any;
-        const passSetting = await settingsService.getSetting('genieacs_password_encrypted') as any;
+    if (!url && tenantId) {
+        const urlSetting = await settingsService.getSetting('genieacs_url', tenantId);
+        const userSetting = await settingsService.getSetting('genieacs_username', tenantId);
+        const passSetting = await settingsService.getSetting('genieacs_password_encrypted', tenantId);
 
-        url = urlSetting?.value || process.env.GENIEACS_URL || 'http://localhost:7557';
-        username = userSetting?.value || '';
-        password = passSetting?.value ? decrypt(passSetting.value) : '';
-        isDedicated = false; // Using global/fallback
+        url = urlSetting?.value as string || process.env.GENIEACS_URL || 'http://localhost:7557';
+        username = userSetting?.value as string || '';
+        password = passSetting?.value ? decrypt(passSetting.value as string) : '';
+        isDedicated = false;
     }
 
     return {
@@ -91,9 +91,9 @@ export const genieacsService = {
      * Get all devices from GenieACS
      * Supports MongoDB-style query
      */
-    getDevices: async (routerId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
+    getDevices: async (routerId?: string, tenantId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
         try {
-            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId);
+            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId, tenantId);
 
             if (!url || url === 'http://localhost:7557') {
                 logger.warn({ url }, 'GenieACS: Using default or empty URL. Please check Settings.');
@@ -196,14 +196,14 @@ export const genieacsService = {
     /**
      * UNIFIED LINKAGE: Sync GenieACS metadata to ONUS table
      */
-    syncMetadata: async (routerId?: string) => {
+    syncMetadata: async (routerId?: string, tenantId?: string) => {
         let added = 0;
         let updated = 0;
         let total = 0;
 
         try {
-            logger.info('GenieACS: Starting metadata sync');
-            const devices = await genieacsService.getDevices(routerId);
+            logger.info({ tenantId }, 'GenieACS: Starting metadata sync');
+            const devices = await genieacsService.getDevices(routerId, tenantId);
             total = devices.length;
 
             for (const dev of devices) {
@@ -212,7 +212,9 @@ export const genieacsService = {
                 const sn = dev._serialNumber;
 
                 // Check if exists
-                const [existing] = await db.select().from(onus).where(eq(onus.sn, sn));
+                const filters = [eq(onus.sn, sn)];
+                if (tenantId) filters.push(eq(onus.tenantId, tenantId));
+                const [existing] = await db.select().from(onus).where(and(...filters));
 
                 if (existing) {
                     // Update
@@ -249,6 +251,7 @@ export const genieacsService = {
                     await db.insert(onus).values({
                         sn: sn,
                         routerId: routerId,
+                        tenantId: tenantId,
                         name: `ACS-${sn.slice(-4)}`,
                         model: dev._productClass,
                         ssid: dev._ssid,
@@ -275,9 +278,9 @@ export const genieacsService = {
     /**
      * Get single device details
      */
-    getDevice: async (deviceId: string, routerId?: string) => {
+    getDevice: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId);
+            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId, tenantId);
 
             // Use query to avoid 405 Method Not Allowed on some GenieACS versions
             const query: any = { _id: deviceId };
@@ -327,13 +330,17 @@ export const genieacsService = {
     /**
      * Update WAN Configuration
      */
-    updateWanConfig: async (deviceId: string, config: WanConfigPayload, routerId?: string) => {
+    updateWanConfig: async (deviceId: string, config: WanConfigPayload, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
 
             // Fetch device first to determine TR version
-            // We use the existing getDevice method which uses query to avoid 405
+            const device = await genieacsService.getDevice(deviceId, routerId, tenantId);
+            if (!device) {
+                return { success: false, error: 'Device not found' };
+            }
+
             // Helper to find the correct WAN path
             function findWanPath(device: any, wanType: 'pppoe' | 'ip'): string | null {
                 try {
@@ -434,11 +441,6 @@ export const genieacsService = {
                     logger.error({ err: e }, 'GenieACS WAN-Discovery logic error');
                     return null;
                 }
-            }
-
-            const device = await genieacsService.getDevice(deviceId, routerId);
-            if (!device) {
-                return { success: false, error: 'Device not found' };
             }
 
             const isTr181 = !!device.Device;
@@ -545,9 +547,9 @@ export const genieacsService = {
     /**
      * Update WiFi Configuration
      */
-    updateWifiConfig: async (deviceId: string, config: WifiConfigPayload, routerId?: string) => {
+    updateWifiConfig: async (deviceId: string, config: WifiConfigPayload, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
 
             // Fetch device first to determine TR version / Manufacturer
@@ -678,9 +680,9 @@ export const genieacsService = {
     /**
      * Reboot device
      */
-    rebootDevice: async (deviceId: string, routerId?: string) => {
+    rebootDevice: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'reboot'
@@ -696,9 +698,9 @@ export const genieacsService = {
     /**
      * Update device parameters (TR-069 setParameterValues)
      */
-    setParameter: async (deviceId: string, parameterName: string, value: any, type: string = 'xsd:string', routerId?: string) => {
+    setParameter: async (deviceId: string, parameterName: string, value: any, type: string = 'xsd:string', routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'setParameterValues',
@@ -716,9 +718,9 @@ export const genieacsService = {
     /**
      * Refresh Device (Summon)
      */
-    refreshDevice: async (deviceId: string, routerId?: string) => {
+    refreshDevice: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
 
             // Parameters to refresh (Optical Power & Status)
@@ -744,7 +746,7 @@ export const genieacsService = {
             logger.error({ deviceId, err: error }, 'GenieACS refreshDevice Error');
             // Fallback to simple refreshObject if getParameterValues fails (e.g., too many params)
             try {
-                const { url, auth } = await getGenieAcsConfig(routerId);
+                const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
                 const encodedId = encodeURIComponent(deviceId);
                 await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                     name: 'refreshObject',
@@ -760,9 +762,9 @@ export const genieacsService = {
     /**
      * Factory Reset
      */
-    factoryReset: async (deviceId: string, routerId?: string) => {
+    factoryReset: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
+            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'factoryReset'
@@ -778,11 +780,11 @@ export const genieacsService = {
     /**
      * Bulk Reboot
      */
-    bulkReboot: async (deviceIds: string[], routerId?: string) => {
+    bulkReboot: async (deviceIds: string[], routerId?: string, tenantId?: string) => {
         const results = { success: 0, failed: 0, errors: [] as string[] };
 
         await Promise.all(deviceIds.map(async (id) => {
-            const res = await genieacsService.rebootDevice(id, routerId);
+            const res = await genieacsService.rebootDevice(id, routerId, tenantId);
             if (res.success) {
                 results.success++;
             } else {
@@ -797,7 +799,7 @@ export const genieacsService = {
     /**
      * Bulk Push Config
      */
-    bulkPushConfig: async (deviceIds: string[], type: 'wan' | 'wifi', config: any, routerId?: string) => {
+    bulkPushConfig: async (deviceIds: string[], type: 'wan' | 'wifi', config: any, routerId?: string, tenantId?: string) => {
         const results = { success: 0, failed: 0, errors: [] as string[] };
 
         // Process in chunks to avoid overwhelming the server if list is huge? 

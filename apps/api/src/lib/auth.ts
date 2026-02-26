@@ -100,6 +100,22 @@ export const auth = betterAuth({
                 required: false,
                 input: true, // Allow users to set username on signup
             },
+            tenantId: {
+                type: 'string',
+                required: false,
+                input: false, // Set by admin/superadmin
+            },
+            aiEnabled: {
+                type: 'boolean',
+                required: false,
+                defaultValue: false,
+                input: true,
+            },
+            aiApiKey: {
+                type: 'string',
+                required: false,
+                input: true,
+            },
         },
     },
     advanced: {

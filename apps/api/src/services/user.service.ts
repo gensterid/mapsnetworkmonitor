@@ -97,12 +97,16 @@ export class UserService {
      * Uses scrypt to match Better Auth's password hashing
      */
     async updatePassword(userId: string, newPassword: string): Promise<boolean> {
+        // First check if user exists
+        const user = await this.findById(userId);
+        if (!user) return false;
+
         // Hash password using scrypt (same format as Better Auth)
         const salt = randomBytes(16).toString('hex');
         const hashedBuffer = scryptSync(newPassword, salt, 64, { N: 16384, r: 16, p: 1, maxmem: 67108864 });
         const hashedPassword = `${salt}:${hashedBuffer.toString('hex')}`;
 
-        // Update password in accounts table where providerId is 'credential'
+        // Attempt to update password in accounts table where providerId is 'credential'
         const result = await db
             .update(accounts)
             .set({ password: hashedPassword, updatedAt: new Date() })
@@ -113,6 +117,21 @@ export class UserService {
                 )
             )
             .returning();
+
+        // If no account existed, create one
+        if (result.length === 0) {
+            const crypto = await import('crypto');
+            await db.insert(accounts).values({
+                id: crypto.randomUUID(),
+                userId: userId,
+                accountId: userId,
+                providerId: 'credential',
+                password: hashedPassword,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            });
+            return true;
+        }
 
         return result.length > 0;
     }

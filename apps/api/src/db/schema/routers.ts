@@ -13,6 +13,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { routerGroups } from './groups.js';
 import { notificationGroups } from './notifications.js';
+import { tenants } from './tenants.js';
 
 // Router status enum
 export const routerStatusEnum = pgEnum('router_status', [
@@ -25,6 +26,7 @@ export const routerStatusEnum = pgEnum('router_status', [
 // Routers table
 export const routers = pgTable('routers', {
     id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
     name: text('name').notNull(),
     host: text('host').notNull(),
     port: integer('port').notNull().default(8728),
@@ -135,9 +137,11 @@ export const routerMetrics = pgTable('router_metrics', {
     boardTemp: real('board_temp'),
     currentFirmware: text('current_firmware'),
     upgradeFirmware: text('upgrade_firmware'),
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
     recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 }, (table) => ({
     routerIdIdx: index('router_metrics_router_id_idx').on(table.routerId),
+    tenantIdIdx: index('router_metrics_tenant_id_idx').on(table.tenantId),
     recordedAtIdx: index('router_metrics_recorded_at_idx').on(table.recordedAt),
 }));
 
@@ -195,9 +199,10 @@ export const routerNetwatch = pgTable('router_netwatch', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     hasWebhook: boolean('has_webhook').default(false).notNull(),
-
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
 }, (table) => ({
     routerIdIdx: index('router_netwatch_router_id_idx').on(table.routerId),
+    tenantIdIdx: index('router_netwatch_tenant_id_idx').on(table.tenantId),
     hostIdx: index('router_netwatch_host_idx').on(table.host),
     statusIdx: index('router_netwatch_status_idx').on(table.status),
     routerStatusIdx: index('router_netwatch_router_status_idx').on(table.routerId, table.status),

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useUsers, useCreateUser, useUpdateUserRole, useUpdateUser, useUpdateUserPassword, useDeleteUser } from '@/hooks';
+import { useRole } from '@/lib/auth-client';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -11,8 +12,10 @@ import clsx from 'clsx';
 function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onToggle }) {
     const [isUpdating, setIsUpdating] = useState(false);
     const updateRole = useUpdateUserRole();
+    const { isSuperAdmin } = useRole();
 
     const roles = [
+        ...(isSuperAdmin ? [{ value: 'superadmin', label: 'Super Admin', color: 'bg-purple-500/10 text-purple-400', desc: 'Multi-ISP access' }] : []),
         { value: 'admin', label: 'Admin', color: 'bg-red-500/10 text-red-400', desc: 'Full access' },
         { value: 'operator', label: 'Operator', color: 'bg-yellow-500/10 text-yellow-400', desc: 'Manage routers' },
         { value: 'user', label: 'User', color: 'bg-slate-700 text-slate-300', desc: 'View only' },
@@ -96,6 +99,7 @@ function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onT
 
 // Add User Modal
 function AddUserModal({ isOpen, onClose, onSuccess }) {
+    const { isSuperAdmin } = useRole();
     const [formData, setFormData] = useState({
         name: '',
         username: '',
@@ -241,6 +245,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                         <option value="user">User - View only</option>
                         <option value="operator">Operator - Manage routers</option>
                         <option value="admin">Admin - Full access</option>
+                        {isSuperAdmin && <option value="superadmin">Super Admin - Multi-ISP access</option>}
                     </select>
                 </div>
 

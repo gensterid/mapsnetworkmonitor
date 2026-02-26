@@ -1,7 +1,7 @@
 import { routerService, settingsService, oltService, genieacsService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
-import { routerNetwatch, routerMetrics } from '../db/schema/index.js';
+import { routerNetwatch, routerMetrics, tenants } from '../db/schema/index.js';
 import { count, eq, lt, and } from 'drizzle-orm';
 import { logger } from './logger.js';
 
@@ -66,33 +66,6 @@ function getScalingConfig(deviceCount: number): ScalingConfig {
     return SCALING_TIERS[SCALING_TIERS.length - 1].config;
 }
 
-/**
- * Get polling interval from settings or use adaptive scaling
- */
-async function getPollingInterval(): Promise<number> {
-    try {
-        // Check for manual override in settings
-        const setting = await settingsService.getSetting('polling_interval');
-        if (setting && setting.value) {
-            const minutes = parseInt(String(setting.value), 10);
-            if (!isNaN(minutes) && minutes >= 1) {
-                return minutes * 60 * 1000;
-            }
-        }
-
-        // Use adaptive scaling based on netwatch count
-        const netwatchCount = await getTotalNetwatchCount();
-        lastNetwatchCount = netwatchCount;
-        currentScalingConfig = getScalingConfig(netwatchCount);
-
-        logger.info(`📊 Adaptive scaling: ${netwatchCount} devices → ${currentScalingConfig.intervalMs / 1000}s interval, batch=${currentScalingConfig.batchSize} (${currentScalingConfig.strategy})`);
-
-        return currentScalingConfig.intervalMs;
-    } catch {
-        // Ignore errors, use default
-    }
-    return DEFAULT_POLLING_INTERVAL;
-}
 
 /**
  * Wrap a promise with a timeout
@@ -126,49 +99,29 @@ function checkPollingStuck(): void {
  * Poll all routers and refresh their status (including netwatch in single connection)
  * Optimized for scale: Process in parallel batches of 10
  */
-async function pollAllRouters(): Promise<void> {
-    // Check if previous polling is stuck
-    checkPollingStuck();
-
-    if (isPolling) {
-        logger.debug('⏳ Previous polling still in progress, skipping...');
-        return;
-    }
-
-    isPolling = true;
-    pollingStartTime = Date.now();
-    const date = new Date(pollingStartTime);
-
-    // Use adaptive batch size from scaling config
-    const BATCH_SIZE = currentScalingConfig.batchSize;
+/**
+ * Poll all routers for a specific tenant
+ */
+async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig): Promise<{ success: number; fail: number; timeout: number }> {
+    const BATCH_SIZE = scalingConfig.batchSize;
+    let successCount = 0;
+    let failCount = 0;
+    let timeoutCount = 0;
 
     try {
-        const routers = await routerService.findAll();
+        const routers = await routerService.findAll(tenantId);
+        if (routers.length === 0) return { success: 0, fail: 0, timeout: 0 };
 
-        logger.debug(`🔄 Polling ${routers.length} routers (${lastNetwatchCount} netwatch, batch=${BATCH_SIZE})...`);
+        logger.debug(`🔄 [Tenant: ${tenantId}] Polling ${routers.length} routers...`);
 
-        let successCount = 0;
-        let failCount = 0;
-        let timeoutCount = 0;
-
-        // Helper function to process a single router with timeout
         const processRouter = async (router: any) => {
             try {
-                // Read router's polling interval for metrics (default 300s = 5 minutes)
                 const metricsIntervalMs = (router.pollingIntervalMetrics || 300) * 1000;
-
                 const now = Date.now();
                 const lastUpdatedTime = router.updatedAt ? new Date(router.updatedAt).getTime() : 0;
                 const timeSinceLastUpdate = now - lastUpdatedTime;
-
-                // Trigger full sync (slow poll) if it's been longer than the configured interval
                 const isFullSync = timeSinceLastUpdate >= metricsIntervalMs || lastUpdatedTime === 0;
 
-                // For fast polling, if Webhook is enabled, we skip Netwatch API sync to save resources.
-                // UNLESS we haven't detected the webhook yet (hasWebhook is false in at least one entry).
-                // It will only run Netwatch API sync during the Full Sync as a fallback if detected.
-
-                // We'll check if any netwatch entry for this router is missing the hasWebhook flag
                 const needsDetection = await db.select({ count: count() })
                     .from(routerNetwatch)
                     .where(and(eq(routerNetwatch.routerId, router.id), eq(routerNetwatch.hasWebhook, false)))
@@ -177,11 +130,9 @@ async function pollAllRouters(): Promise<void> {
                 const includeNetwatch = !(router.useWebhook && !isFullSync && !needsDetection);
 
                 if (!includeNetwatch && !isFullSync) {
-                    // Skip polling completely for this tick: Webhook handles status, and metrics isn't due yet
                     return { success: true, timeout: false, skipped: true };
                 }
 
-                // Wrap refreshRouterStatus with timeout
                 await withTimeout(
                     routerService.refreshRouterStatus(router.id, includeNetwatch, isFullSync),
                     ROUTER_TIMEOUT,
@@ -190,40 +141,63 @@ async function pollAllRouters(): Promise<void> {
                 return { success: true, timeout: false, skipped: false };
             } catch (error) {
                 const isTimeout = error instanceof Error && error.message.includes('Timeout');
-                if (isTimeout) {
-                    logger.error({ router: router.name }, `⏰ Timeout polling router (>${ROUTER_TIMEOUT / 1000}s)`);
-                } else {
-                    logger.error({ router: router.name, err: error }, '❌ Failed to poll router');
-                }
                 return { success: false, timeout: isTimeout };
             }
         };
 
-        // Process in batches
         for (let i = 0; i < routers.length; i += BATCH_SIZE) {
             const batch = routers.slice(i, i + BATCH_SIZE);
-            const promises = batch.map(router => processRouter(router));
+            const results = await Promise.all(batch.map(r => processRouter(r)));
 
-            // Wait for this batch to complete before moving to the next
-            const results = await Promise.all(promises);
-
-            // Aggregate results
             results.forEach(res => {
-                if (res.success) {
-                    successCount++;
-                } else if (res.timeout) {
-                    timeoutCount++;
-                } else {
-                    failCount++;
-                }
+                if (res.success) successCount++;
+                else if (res.timeout) timeoutCount++;
+                else failCount++;
             });
+        }
+    } catch (error) {
+        logger.error({ tenantId, err: error }, '❌ Tenant polling error');
+    }
+
+    return { success: successCount, fail: failCount, timeout: timeoutCount };
+}
+
+/**
+ * Poll all routers across all tenants
+ */
+async function pollAllRouters(): Promise<void> {
+    checkPollingStuck();
+    if (isPolling) {
+        logger.debug('⏳ Previous polling still in progress, skipping...');
+        return;
+    }
+
+    isPolling = true;
+    pollingStartTime = Date.now();
+
+    try {
+        const allTenants = await db.select().from(tenants);
+        let totalSuccess = 0;
+        let totalFail = 0;
+        let totalTimeout = 0;
+
+        // Update scaling config based on total size
+        const netwatchCount = await getTotalNetwatchCount();
+        lastNetwatchCount = netwatchCount;
+        currentScalingConfig = getScalingConfig(netwatchCount);
+
+        for (const tenant of allTenants) {
+            const results = await pollTenantRouters(tenant.id, currentScalingConfig);
+            totalSuccess += results.success;
+            totalFail += results.fail;
+            totalTimeout += results.timeout;
         }
 
         const duration = ((Date.now() - pollingStartTime) / 1000).toFixed(1);
-        const timeoutMsg = timeoutCount > 0 ? `, ${timeoutCount} timeout` : '';
-        logger.info(`✅ Polling complete: ${successCount} success, ${failCount} failed${timeoutMsg} (${duration}s)`);
+        const timeoutMsg = totalTimeout > 0 ? `, ${totalTimeout} timeout` : '';
+        logger.info(`✅ Polling complete: ${totalSuccess} success, ${totalFail} failed${timeoutMsg} (${duration}s)`);
     } catch (error) {
-        logger.error({ err: error }, '❌ Polling error');
+        logger.error({ err: error }, '❌ Global polling error');
     } finally {
         isPolling = false;
         pollingStartTime = null;
@@ -245,20 +219,23 @@ async function checkAlertEscalation(): Promise<void> {
  * Poll OLT Status (SNMP - Fast)
  */
 async function pollOltsSnmp(): Promise<void> {
-    const enabled = await settingsService.getSettingValue('olt_sync_enabled', true);
-    if (!enabled) return;
-
     try {
-        const allOlts = await oltService.findAll();
-        // Staggered execution: Process 1 OLT every 2 seconds
-        for (let i = 0; i < allOlts.length; i++) {
-            setTimeout(async () => {
-                try {
-                    await oltService.refreshStatus(allOlts[i].id);
-                } catch (e) {
-                    logger.error({ err: e, olt: allOlts[i].name }, 'Failed to poll OLT (SNMP)');
-                }
-            }, i * 2000);
+        const allTenants = await db.select().from(tenants);
+        for (const tenant of allTenants) {
+            const enabled = await settingsService.getSettingValue('olt_sync_enabled', tenant.id, true);
+            if (!enabled) continue;
+
+            const allOlts = await oltService.findAll(tenant.id);
+            // Staggered execution per tenant
+            for (let i = 0; i < allOlts.length; i++) {
+                setTimeout(async () => {
+                    try {
+                        await oltService.refreshStatus(allOlts[i].id, tenant.id);
+                    } catch (e) {
+                        logger.error({ err: e, olt: allOlts[i].name }, 'Failed to poll OLT (SNMP)');
+                    }
+                }, i * 2000);
+            }
         }
     } catch (e) {
         logger.error({ err: e }, 'Error in OLT SNMP Polling');
@@ -269,20 +246,24 @@ async function pollOltsSnmp(): Promise<void> {
  * Sync OLT ONU Details (Web - Slow/Hybrid)
  */
 async function pollOltsWeb(): Promise<void> {
-    const enabled = await settingsService.getSettingValue('olt_sync_enabled', true);
-    if (!enabled) return;
-
     try {
-        const allOlts = await oltService.findAll();
-        // Staggered execution: Process 1 OLT every 10 seconds to save CPU
-        for (let i = 0; i < allOlts.length; i++) {
-            setTimeout(async () => {
-                try {
-                    await oltService.refreshStatus(allOlts[i].id);
-                } catch (e) {
-                    logger.error({ err: e, olt: allOlts[i].name }, 'Failed to sync OLT (Web)');
-                }
-            }, i * 10000);
+        const allTenants = await db.select().from(tenants);
+        for (const tenant of allTenants) {
+            const enabled = await settingsService.getSettingValue('olt_sync_enabled', tenant.id, true);
+            if (!enabled) continue;
+
+            const allOlts = await oltService.findAll(tenant.id);
+            // Staggered execution per tenant
+            for (let i = 0; i < allOlts.length; i++) {
+                setTimeout(async () => {
+                    try {
+                        await oltService.refreshStatus(allOlts[i].id, tenant.id);
+                        await oltService.syncOnuInventory(allOlts[i].id, tenant.id);
+                    } catch (e) {
+                        logger.error({ err: e, olt: allOlts[i].name }, 'Failed to sync OLT (Web)');
+                    }
+                }, i * 10000);
+            }
         }
     } catch (e) {
         logger.error({ err: e }, 'Error in OLT Web Polling');
@@ -293,26 +274,29 @@ async function pollOltsWeb(): Promise<void> {
  * Sync GenieACS Devices
  */
 async function syncGenieAcs(): Promise<void> {
-    const enabled = await settingsService.getSettingValue('acs_sync_enabled', true);
-    if (!enabled) return;
-
     try {
-        // 1. Always attempt global sync (fallback)
-        logger.info('[Scheduler] Running global GenieACS sync...');
-        await genieacsService.syncMetadata();
+        const allTenants = await db.select().from(tenants);
+        for (const tenant of allTenants) {
+            const enabled = await settingsService.getSettingValue('acs_sync_enabled', tenant.id, true);
+            if (!enabled) continue;
 
-        // 2. Also sync specific routers that have dedicated GenieACS settings
-        const allRouters = await routerService.findAll();
-        const routersWithDedicatedAcs = allRouters.filter(r => r.useGenieAcs && r.genieacsUrl);
+            const tenantId = tenant.id;
+            logger.info({ tenantId }, '[Scheduler] Running GenieACS sync for tenant...');
 
-        if (routersWithDedicatedAcs.length > 0) {
-            logger.info({ count: routersWithDedicatedAcs.length }, '[Scheduler] Running dedicated GenieACS sync');
-            for (const router of routersWithDedicatedAcs) {
-                try {
-                    logger.debug({ router: router.name }, '[Scheduler] Syncing GenieACS for router');
-                    await genieacsService.syncMetadata(router.id);
-                } catch (e) {
-                    logger.error({ err: e, router: router.name }, 'Failed to sync GenieACS for router');
+            // 1. Sync metadata from global ACS if configured for this tenant
+            await genieacsService.syncMetadata(undefined, tenantId);
+
+            // 2. Sync specific routers that have dedicated GenieACS settings
+            const routers = await routerService.findAll(tenantId);
+            const routersWithDedicatedAcs = routers.filter(r => r.useGenieAcs && r.genieacsUrl);
+
+            if (routersWithDedicatedAcs.length > 0) {
+                for (const router of routersWithDedicatedAcs) {
+                    try {
+                        await genieacsService.syncMetadata(router.id, tenantId);
+                    } catch (e) {
+                        logger.error({ err: e, router: router.name }, 'Failed to sync GenieACS for router');
+                    }
                 }
             }
         }
@@ -326,17 +310,20 @@ async function syncGenieAcs(): Promise<void> {
  */
 async function cleanupOldMetrics(): Promise<void> {
     try {
-        const retentionDays = await settingsService.getSettingValue('metrics_retention_days', 30);
-        const cutoff = new Date();
-        cutoff.setDate(cutoff.getDate() - retentionDays);
+        const allTenants = await db.select().from(tenants);
+        for (const tenant of allTenants) {
+            const retentionDays = await settingsService.getSettingValue('metrics_retention_days', tenant.id, 30);
+            const cutoff = new Date();
+            cutoff.setDate(cutoff.getDate() - retentionDays);
 
-        logger.info(`🧹 Starting metrics cleanup (Retention: ${retentionDays} days, Cutoff: ${cutoff.toISOString()})`);
+            const result = await db.delete(routerMetrics)
+                .where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, cutoff)))
+                .returning();
 
-        const result = await db.delete(routerMetrics)
-            .where(lt(routerMetrics.recordedAt, cutoff))
-            .returning();
-
-        logger.info(`✅ Cleanup complete: Deleted ${result.length} old metrics records`);
+            if (result.length > 0) {
+                logger.info({ tenantId: tenant.id, deleted: result.length }, '✅ Tenant metrics cleanup complete');
+            }
+        }
     } catch (error) {
         logger.error({ err: error }, 'Metrics cleanup error');
     }
@@ -346,51 +333,26 @@ async function cleanupOldMetrics(): Promise<void> {
  * Start the background polling scheduler
  */
 export async function startScheduler(): Promise<void> {
-    // 1. Router Polling
-    const interval = await getPollingInterval();
-    const minutes = Math.round(interval / 60000);
-    logger.info(`⏰ Starting router polling scheduler (every ${minutes} minute${minutes > 1 ? 's' : ''})`);
-
-    // 2. Alert Escalation
-    logger.info('⏰ Starting alert escalation checker (every 5 minutes)');
-
-    // 3. OLT SNMP (Fast)
-    const snmpMinutes = await settingsService.getSettingValue('olt_polling_interval', 1);
-    logger.info(`⏰ Starting OLT SNMP polling (every ${snmpMinutes} minute${snmpMinutes > 1 ? 's' : ''})`);
-
-    // 4. OLT Web (Slow)
-    const webMinutes = await settingsService.getSettingValue('olt_web_interval', 10);
-    logger.info(`⏰ Starting OLT Web Sync (every ${webMinutes} minute${webMinutes > 1 ? 's' : ''})`);
-
-    // 5. GenieACS
-    const acsMinutes = await settingsService.getSettingValue('acs_polling_interval', 10);
-    logger.info(`⏰ Starting GenieACS Sync (every ${acsMinutes} minute${acsMinutes > 1 ? 's' : ''})`);
-
-    // 6. Metrics Cleanup
-    logger.info('⏰ Starting daily metrics cleanup job (every 24 hours)');
+    logger.info('⏰ Starting multi-tenant background scheduler...');
 
     // Initial Runs (Staggered)
     setTimeout(() => pollAllRouters(), 5000);
     setTimeout(() => checkAlertEscalation(), 10000);
-
-    // OLT/ACS Initial Run
     setTimeout(() => pollOltsSnmp(), 15000);
-    setTimeout(() => pollOltsWeb(), 60000); // Wait 1 min for Web sync
+    setTimeout(() => pollOltsWeb(), 60000);
     setTimeout(() => syncGenieAcs(), 30000);
-
-    // Initial cleanup run after 2 minutes
     setTimeout(() => cleanupOldMetrics(), 120000);
 
-    // Intervals
-    pollingInterval = setInterval(pollAllRouters, interval);
+    // Heartbeat Intervals (Simplified to check all tenants each pulse)
+    // We use a frequent heartbeat and internal checks if needed, 
+    // but here we keep the existing interval structure for simplicity, 
+    // now iterating over tenants inside each function.
+    pollingInterval = setInterval(pollAllRouters, 2 * 60 * 1000); // 2 min default
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
-
-    if (snmpMinutes > 0) oltSnmpInterval = setInterval(pollOltsSnmp, snmpMinutes * 60000);
-    if (webMinutes > 0) oltWebInterval = setInterval(pollOltsWeb, webMinutes * 60000);
-    if (acsMinutes > 0) acsInterval = setInterval(syncGenieAcs, acsMinutes * 60000);
-
-    // Daily cleanup interval (24 hours)
-    cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000);
+    oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
+    oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default
+    acsInterval = setInterval(syncGenieAcs, 10 * 60000); // 10 min default
+    cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
 }
 
 /**

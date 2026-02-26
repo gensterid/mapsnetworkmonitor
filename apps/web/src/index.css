@@ -270,6 +270,32 @@
         border-radius: 4px;
     }
 
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #475569;
+    }
+
+    /* Indeterminate Progress Bar */
+    @keyframes progress-indeterminate {
+        0% {
+            transform: translateX(-100%);
+            width: 30%;
+        }
+
+        50% {
+            transform: translateX(100%);
+            width: 60%;
+        }
+
+        100% {
+            transform: translateX(200%);
+            width: 30%;
+        }
+    }
+
+    .animate-progress-indeterminate {
+        animation: progress-indeterminate 1.5s infinite linear;
+    }
+
     /* Pulse animation for markers */
     @keyframes marker-pulse {
         0% {

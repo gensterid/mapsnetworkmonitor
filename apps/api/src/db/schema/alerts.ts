@@ -11,6 +11,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers.js';
 import { users } from './users.js';
+import { tenants } from './tenants.js';
 
 // Alert type enum
 export const alertTypeEnum = pgEnum('alert_type', [
@@ -42,6 +43,9 @@ export const alerts = pgTable('alerts', {
     routerId: uuid('router_id')
         .notNull()
         .references(() => routers.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+        .notNull()
+        .references(() => tenants.id, { onDelete: 'cascade' }),
     type: alertTypeEnum('type').notNull(),
     severity: alertSeverityEnum('severity').notNull(),
     title: text('title').notNull(),
@@ -56,9 +60,11 @@ export const alerts = pgTable('alerts', {
     // Escalation tracking
     escalationLevel: integer('escalation_level').default(0).notNull(),
     lastEscalatedAt: timestamp('last_escalated_at'),
+    aiAnalysis: text('ai_analysis'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
 }, (table) => ({
     routerIdIdx: index('alerts_router_id_idx').on(table.routerId),
+    tenantIdIdx: index('alerts_tenant_id_idx').on(table.tenantId),
     typeIdx: index('alerts_type_idx').on(table.type),
     resolvedIdx: index('alerts_resolved_idx').on(table.resolved),
     createdAtIdx: index('alerts_created_at_idx').on(table.createdAt),
@@ -73,6 +79,9 @@ export const netwatchHosts = pgTable('netwatch_hosts', {
     routerId: uuid('router_id')
         .notNull()
         .references(() => routers.id, { onDelete: 'cascade' }),
+    tenantId: uuid('tenant_id')
+        .notNull()
+        .references(() => tenants.id, { onDelete: 'cascade' }),
     host: text('host').notNull(),
     name: text('name'),
     comment: text('comment'),
@@ -101,6 +110,7 @@ export const netwatchHosts = pgTable('netwatch_hosts', {
     lastUpdated: timestamp('last_updated').defaultNow(),
 }, (table) => ({
     routerIdIdx: index('netwatch_hosts_router_id_idx').on(table.routerId),
+    tenantIdIdx: index('netwatch_hosts_tenant_id_idx').on(table.tenantId),
     hostIdx: index('netwatch_hosts_host_idx').on(table.host),
     statusIdx: index('netwatch_hosts_status_idx').on(table.status),
 }));

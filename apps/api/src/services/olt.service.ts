@@ -20,11 +20,16 @@ export class OltService {
         return OltService.instance;
     }
 
-    async findAll(userId?: string, userRole?: string): Promise<Olt[]> {
-        let query = db.select().from(olts).orderBy(olts.name).$dynamic();
+    async findAll(tenantId?: string, userId?: string, userRole?: string): Promise<Olt[]> {
+        const filters = [];
+        if (tenantId) {
+            filters.push(eq(olts.tenantId, tenantId));
+        }
 
-        // If user is not admin, filter by assigned routers
-        if (userId && userRole && userRole !== 'admin') {
+        let query = db.select().from(olts).where(filters.length > 0 ? and(...filters) : undefined).orderBy(olts.name).$dynamic();
+
+        // If user is not admin or superadmin, filter by assigned routers
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
             // Get assigned router IDs
             const { userRouters } = await import('../db/schema/user-routers.js');
             const assigned = await db
@@ -62,12 +67,16 @@ export class OltService {
         }));
     }
 
-    async findById(id: string, userId?: string, userRole?: string): Promise<Olt | undefined> {
-        const [olt] = await db.select().from(olts).where(eq(olts.id, id));
+    async findById(id: string, tenantId?: string, userId?: string, userRole?: string): Promise<Olt | undefined> {
+        const filters = [eq(olts.id, id)];
+        if (tenantId) {
+            filters.push(eq(olts.tenantId, tenantId));
+        }
+        const [olt] = await db.select().from(olts).where(and(...filters));
         if (!olt) return undefined;
 
         // Access Check
-        if (userId && userRole && userRole !== 'admin') {
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
             if (!olt.parentId) {
                 // If OLT has no parent router, can standard user see it? 
                 // Let's say NO for now to be safe.
@@ -95,13 +104,17 @@ export class OltService {
     }
 
     // New internal method for tasks that need real credentials
-    private async findByIdInternal(id: string): Promise<Olt | undefined> {
-        const [olt] = await db.select().from(olts).where(eq(olts.id, id));
+    private async findByIdInternal(id: string, tenantId?: string): Promise<Olt | undefined> {
+        const filters = [eq(olts.id, id)];
+        if (tenantId) {
+            filters.push(eq(olts.tenantId, tenantId));
+        }
+        const [olt] = await db.select().from(olts).where(and(...filters));
         return olt;
     }
 
-    async create(data: NewOlt): Promise<Olt> {
-        const createData = { ...data };
+    async create(data: NewOlt, tenantId: string): Promise<Olt> {
+        const createData = { ...data, tenantId };
         if (createData.webPassword) {
             createData.webPassword = encrypt(createData.webPassword);
         }
@@ -109,7 +122,12 @@ export class OltService {
         return olt;
     }
 
-    async update(id: string, data: Partial<NewOlt>): Promise<Olt | undefined> {
+    async update(id: string, data: Partial<NewOlt>, tenantId?: string): Promise<Olt | undefined> {
+        const filters = [eq(olts.id, id)];
+        if (tenantId) {
+            filters.push(eq(olts.tenantId, tenantId));
+        }
+
         const updateData = { ...data, updatedAt: new Date() };
 
         // Only update password if it's provided and not the masked placeholder
@@ -124,7 +142,7 @@ export class OltService {
         const [olt] = await db
             .update(olts)
             .set(updateData)
-            .where(eq(olts.id, id))
+            .where(and(...filters))
             .returning();
 
         if (!olt) return undefined;
@@ -134,16 +152,20 @@ export class OltService {
         };
     }
 
-    async delete(id: string): Promise<boolean> {
-        const result = await db.delete(olts).where(eq(olts.id, id)).returning();
+    async delete(id: string, tenantId?: string): Promise<boolean> {
+        const filters = [eq(olts.id, id)];
+        if (tenantId) {
+            filters.push(eq(olts.tenantId, tenantId));
+        }
+        const result = await db.delete(olts).where(and(...filters)).returning();
         return result.length > 0;
     }
 
     /**
      * Refresh OLT status via SNMP
      */
-    async refreshStatus(id: string): Promise<Olt | undefined> {
-        const olt = await this.findByIdInternal(id);
+    async refreshStatus(id: string, tenantId?: string): Promise<Olt | undefined> {
+        const olt = await this.findByIdInternal(id, tenantId);
         if (!olt) return undefined;
 
         let isOnline = false;
@@ -269,8 +291,12 @@ export class OltService {
     /**
      * Get all ONUs associated with OLTs connected to a specific router
      */
-    async getOnusByRouter(routerId: string): Promise<Onu[]> {
-        const oltList = await db.select({ id: olts.id }).from(olts).where(eq(olts.parentId, routerId));
+    async getOnusByRouter(routerId: string, tenantId?: string): Promise<Onu[]> {
+        const filters = [eq(olts.parentId, routerId)];
+        if (tenantId) {
+            filters.push(eq(olts.tenantId, tenantId));
+        }
+        const oltList = await db.select({ id: olts.id }).from(olts).where(and(...filters));
         const oltIds = oltList.map(o => o.id);
 
         if (oltIds.length === 0) return [];
@@ -278,8 +304,8 @@ export class OltService {
         const { inArray } = await import('drizzle-orm');
         return db.select().from(onus).where(inArray(onus.oltId, oltIds)).orderBy(onus.name);
     }
-    async getOnus(id: string): Promise<any[]> {
-        const olt = await this.findByIdInternal(id);
+    async getOnus(id: string, tenantId?: string): Promise<any[]> {
+        const olt = await this.findByIdInternal(id, tenantId);
         if (!olt) throw new Error('OLT not found');
 
         // [SECURITY] Enforce Web API Disable Flag
@@ -445,8 +471,8 @@ export class OltService {
      * UNIFIED LINKAGE: Sync ONU Inventory from OLT
      * This is the "Source of Truth" sync for Scenario A, 2, 5, 7
      */
-    async syncOnuInventory(oltId: string): Promise<{ added: number; updated: number; total: number }> {
-        const olt = await this.findByIdInternal(oltId);
+    async syncOnuInventory(oltId: string, tenantId?: string): Promise<{ added: number; updated: number; total: number }> {
+        const olt = await this.findByIdInternal(oltId, tenantId);
         if (!olt) throw new Error('OLT not found');
 
         logger.info({ olt: olt.name, host: olt.host }, 'Starting ONU Sync');
@@ -505,6 +531,7 @@ export class OltService {
                 name: defaultName,
                 description: device.description,
                 status: status,
+                tenantId: tenantId,
                 lastRxPower: rxPower,
                 discoverySources: ['olt'],
                 macAddress: device.macAddress,
@@ -536,6 +563,7 @@ export class OltService {
                             lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
                             lastDownReason: sql`excluded.last_down_reason`,
                             macAddress: sql`COALESCE(onus.mac_address, excluded.mac_address)`,
+                            tenantId: sql`COALESCE(onus.tenant_id, excluded.tenant_id)`,
                             updatedAt: sql`excluded.updated_at`,
                         } as any
                     });
@@ -552,9 +580,32 @@ export class OltService {
         return { added, updated, total: driverOnus.length };
     }
 
-    async getAllOnusWithCoordinates(): Promise<any[]> {
-        const { isNotNull, and, getTableColumns } = await import('drizzle-orm');
+    async getAllOnusWithCoordinates(tenantId?: string, userId?: string, userRole?: string): Promise<any[]> {
+        const { isNotNull, and, eq, getTableColumns } = await import('drizzle-orm');
         const onusColumns = getTableColumns(onus);
+        const filters = [
+            isNotNull(onus.latitude),
+            isNotNull(onus.longitude)
+        ];
+        if (tenantId) {
+            filters.push(eq(onus.tenantId, tenantId));
+        }
+
+        // Filter by assigned routers if not admin
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+            const { userRouters } = await import('../db/schema/user-routers.js');
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+
+            const routerIds = assigned.map((a) => a.routerId);
+            if (routerIds.length === 0) return [];
+
+            const { inArray } = await import('drizzle-orm');
+            filters.push(inArray(onus.routerId, routerIds));
+        }
+
         return db.select({
             ...onusColumns,
             id: onus.id,
@@ -570,17 +621,38 @@ export class OltService {
         })
             .from(onus)
             .leftJoin(olts, eq(onus.oltId, olts.id))
-            .where(and(
-                isNotNull(onus.latitude),
-                isNotNull(onus.longitude)
-            ));
+            .where(and(...filters));
     }
 
-    async updateOnu(id: string, data: Partial<Onu>): Promise<Onu | undefined> {
+    async updateOnu(id: string, data: Partial<Onu>, tenantId?: string, userId?: string, userRole?: string): Promise<Onu | undefined> {
+        const filters = [eq(onus.id, id)];
+        if (tenantId) {
+            filters.push(eq(onus.tenantId, tenantId));
+        }
+
+        // Access Check for non-admins
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+            const [onu] = await db.select().from(onus).where(and(...filters));
+            if (!onu || !onu.routerId) return undefined;
+
+            const { userRouters } = await import('../db/schema/user-routers.js');
+            const [assignment] = await db
+                .select()
+                .from(userRouters)
+                .where(and(
+                    eq(userRouters.userId, userId),
+                    eq(userRouters.routerId, onu.routerId)
+                ));
+
+            if (!assignment) {
+                return undefined;
+            }
+        }
+
         const [updated] = await db
             .update(onus)
             .set({ ...data, updatedAt: new Date() })
-            .where(eq(onus.id, id))
+            .where(and(...filters))
             .returning();
         return updated;
     }

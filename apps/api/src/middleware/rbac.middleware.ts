@@ -1,11 +1,12 @@
 import { Request, Response, NextFunction } from 'express';
 
-type UserRole = 'admin' | 'operator' | 'user';
+type UserRole = 'superadmin' | 'admin' | 'operator' | 'user';
 
 /**
  * Role hierarchy - higher roles have access to lower role permissions
  */
 const roleHierarchy: Record<UserRole, number> = {
+    superadmin: 4,
     admin: 3,
     operator: 2,
     user: 1,

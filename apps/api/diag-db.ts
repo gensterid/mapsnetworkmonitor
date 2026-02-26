@@ -37,7 +37,7 @@ async function checkDatabase() {
             console.log(`✅ Table "${table}": Found (${cols.length} columns)`);
 
             if (table === 'users') {
-                ['email', 'username', 'role', 'name'].forEach(colName => {
+                ['email', 'username', 'role', 'name', 'ai_enabled', 'ai_api_key'].forEach(colName => {
                     const hasCol = cols.some(c => c.column_name === colName);
                     console.log(`   - Column "${colName}": ${hasCol ? '✅ Found' : '❌ MISSING'}`);
                 });
@@ -57,11 +57,14 @@ async function checkDatabase() {
         }
 
         console.log('\n👥 User List (first 10):');
-        const users = await sql`SELECT id, email, username, role FROM users LIMIT 10`;
+        const users = await sql`SELECT id, email, username, role, ai_enabled, ai_api_key FROM users LIMIT 10`;
         if (users.length === 0) {
             console.log('   ⚠️ NO USERS FOUND IN DATABASE');
         } else {
-            users.forEach(u => console.log(`   - Email: ${u.email} | Username: ${u.username || '(null)'} | Role: ${u.role}`));
+            users.forEach(u => {
+                const maskKey = u.ai_api_key ? `${u.ai_api_key.substring(0, 8)}...` : '(null)';
+                console.log(`   - Email: ${u.email} | Role: ${u.role} | AI: ${u.ai_enabled ? '✅' : '❌'} | Key: ${maskKey}`);
+            });
         }
 
         console.log('\n🔐 Auth Config:');

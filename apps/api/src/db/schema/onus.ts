@@ -9,6 +9,7 @@ import {
     index,
     foreignKey,
 } from 'drizzle-orm/pg-core';
+import { tenants } from './tenants.js';
 import { olts } from './olts.js';
 import { routers } from './routers.js';
 
@@ -24,6 +25,7 @@ export const onusStatusEnum = pgEnum('onu_status', [
 // ONUs table - Master hardware inventory
 export const onus = pgTable('onus', {
     id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').references(() => tenants.id),
     sn: text('sn').notNull().unique(), // Serial Number - Main Key
     oltId: uuid('olt_id')
         .references(() => olts.id, { onDelete: 'set null' }),

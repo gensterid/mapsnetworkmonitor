@@ -8,4 +8,6 @@ export {
     alertService,
     groupService,
     settingsService,
+    aiService,
+    tenantService,
 } from './services';

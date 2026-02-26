@@ -214,3 +214,39 @@ export const settingsService = {
     // Get audit logs
     getAuditLogs: (limit = 100) => get(`/settings/audit-logs?limit=${limit}`),
 };
+
+/**
+ * AI Service
+ * Handles AI-powered diagnostics and summaries
+ */
+export const aiService = {
+    // Analyze an alert
+    analyzeAlert: (alertId) => post(`/ai/analyze-alert/${alertId}`),
+
+    // Generate daily network summary
+    getNetworkSummary: () => get('/ai/network-summary'),
+
+    // Diagnose a router
+    diagnoseRouter: (routerId) => post(`/ai/diagnose-router/${routerId}`),
+};
+
+/**
+ * Tenant Service
+ * Handles all tenant/ISP management API calls
+ */
+export const tenantService = {
+    // Get all tenants
+    getAll: () => get('/tenants'),
+
+    // Get tenant by ID
+    getById: (id) => get(`/tenants/${id}`),
+
+    // Create a new tenant
+    create: (data) => post('/tenants', data),
+
+    // Update a tenant
+    update: (id, data) => put(`/tenants/${id}`, data),
+
+    // Delete a tenant
+    delete: (id) => del(`/tenants/${id}`),
+};
