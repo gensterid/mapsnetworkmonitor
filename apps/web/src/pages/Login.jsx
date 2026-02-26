@@ -30,7 +30,7 @@ export default function Login() {
                     // Use relative path to go through Vite proxy/current origin
                     const apiUrl = '';
 
-                    const response = await fetch(`${apiUrl}/api/auth/lookup-email`, {
+                    const response = await fetch(`${apiUrl}/api/auth/auth-lookup`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ identifier }),

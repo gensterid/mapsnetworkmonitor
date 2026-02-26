@@ -41,7 +41,7 @@ const lookupLimiter = rateLimit({
  * Resolves username to email for login
  * If input is already an email (contains @), returns it as-is
  */
-router.post('/lookup-email', lookupLimiter, asyncHandler(async (req: Request, res: Response) => {
+router.post('/auth-lookup', lookupLimiter, asyncHandler(async (req: Request, res: Response) => {
     const { identifier } = req.body;
 
     if (!identifier) {
