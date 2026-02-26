@@ -70,4 +70,48 @@ router.post('/import', requireAdmin, upload.single('backup'), async (req: Reques
     }
 });
 
+// List Backups
+router.get('/list', requireAdmin, async (_req, res) => {
+    try {
+        const backups = await backupService.listBackups();
+        res.json(backups);
+    } catch (error: any) {
+        logger.error({ err: error }, 'List backups error');
+        res.status(500).json({ error: 'Failed to list backups' });
+    }
+});
+
+// Trigger Manual (Persistent) Backup
+router.post('/trigger-manual', requireAdmin, async (_req, res) => {
+    try {
+        const filePath = await backupService.automatedBackup();
+        res.json({ message: 'Backup created successfully', filename: path.basename(filePath) });
+    } catch (error: any) {
+        logger.error({ err: error }, 'Manual trigger error');
+        res.status(500).json({ error: error.message || 'Failed to trigger backup' });
+    }
+});
+
+// Delete Backup
+router.delete('/:filename', requireAdmin, async (req, res) => {
+    try {
+        await backupService.deleteBackup(req.params.filename);
+        res.json({ message: 'Backup deleted successfully' });
+    } catch (error: any) {
+        logger.error({ err: error }, 'Delete backup error');
+        res.status(500).json({ error: 'Failed to delete backup' });
+    }
+});
+
+// Restore from Local File
+router.post('/restore-local/:filename', requireAdmin, async (req, res) => {
+    try {
+        await backupService.restoreFromHistory(req.params.filename);
+        res.json({ message: 'Database restored successfully from history' });
+    } catch (error: any) {
+        logger.error({ err: error }, 'Restore local error');
+        res.status(500).json({ error: error.message || 'Failed to restore database' });
+    }
+});
+
 export default router;

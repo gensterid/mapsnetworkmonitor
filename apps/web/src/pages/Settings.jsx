@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles } from 'lucide-react';
-import { useExportDatabase, useImportDatabase } from '@/hooks';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles, Wrench, History, CheckCircle2, XCircle } from 'lucide-react';
+import { useExportDatabase, useImportDatabase, useBackups, useDeleteBackup, useRestoreBackup, useTriggerManualBackup } from '@/hooks';
 import { useTheme } from '@/context/ThemeContext';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
 import clsx from 'clsx';
@@ -22,6 +22,7 @@ const TABS = [
     { id: 'alerts', label: 'Alert Thresholds', icon: AlertTriangle },
     { id: 'polling', label: 'Polling & Sync', icon: Clock },
     { id: 'ai', label: 'AI Intelligence', icon: Sparkles },
+    { id: 'maintenance', label: 'Maintenance', icon: Wrench },
 ];
 
 const SettingSection = ({ title, description, children }) => (
@@ -89,8 +90,17 @@ export default function Settings() {
     const updateUserMutation = useUpdateUser();
     const exportDatabaseMutation = useExportDatabase();
     const importDatabaseMutation = useImportDatabase();
+    const backupHistory = useBackups();
+    const deleteBackupMutation = useDeleteBackup();
+    const restoreBackupMutation = useRestoreBackup();
+    const triggerBackupMutation = useTriggerManualBackup();
+
     const [isRestoreModalOpen, setIsRestoreModalOpen] = useState(false);
     const [selectedBackupFile, setSelectedBackupFile] = useState(null);
+    const [localBackupToRestore, setLocalBackupToRestore] = useState(null);
+    const [isLocalRestoreModalOpen, setIsLocalRestoreModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [backupToDelete, setBackupToDelete] = useState(null);
 
     const handleFileSelect = (e) => {
         if (e.target.files && e.target.files[0]) {
@@ -105,6 +115,28 @@ export default function Settings() {
             setIsRestoreModalOpen(false);
             setSelectedBackupFile(null);
         }
+    };
+
+    const confirmLocalRestore = async () => {
+        if (localBackupToRestore) {
+            await restoreBackupMutation.mutateAsync(localBackupToRestore);
+            setIsLocalRestoreModalOpen(false);
+            setLocalBackupToRestore(null);
+        }
+    };
+
+    const confirmDelete = async () => {
+        if (backupToDelete) {
+            await deleteBackupMutation.mutateAsync(backupToDelete);
+            setIsDeleteModalOpen(false);
+            setBackupToDelete(null);
+            backupHistory.refetch();
+        }
+    };
+
+    const handleManualBackup = async () => {
+        await triggerBackupMutation.mutateAsync();
+        backupHistory.refetch();
     };
 
     useEffect(() => {
@@ -656,70 +688,188 @@ export default function Settings() {
                             </Card>
                         )}
 
-                        {/* Database Management (Admin Only) */}
-                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Database className="w-5 h-5" />
-                                        Database Management
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-6">
-                                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center p-4 bg-slate-900 rounded-lg border border-slate-800">
-                                        <div>
-                                            <h3 className="text-white font-medium mb-1">Backup Database</h3>
-                                            <p className="text-xs text-slate-400">Download a full SQL dump of the database.</p>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            onClick={() => exportDatabaseMutation.mutate()}
-                                            disabled={exportDatabaseMutation.isPending}
-                                        >
-                                            {exportDatabaseMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-                                            Download Backup
-                                        </Button>
-                                    </div>
-
-                                    <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center p-4 bg-slate-900 rounded-lg border border-slate-800">
-                                        <div>
-                                            <h3 className="text-white font-medium mb-1">Restore Database</h3>
-                                            <p className="text-xs text-slate-400">Restore database from a backup file. <span className="text-red-400 font-bold">Warning: Overwrites existing data!</span></p>
-                                        </div>
-                                        <div className="relative">
-                                            <input
-                                                type="file"
-                                                accept=".sql"
-                                                className="hidden"
-                                                id="restore-upload"
-                                                onChange={handleFileSelect}
-                                                disabled={importDatabaseMutation.isPending}
-                                            />
-                                            <Button
-                                                type="button"
-                                                variant="destructive"
-                                                asChild
-                                            >
-                                                <label htmlFor="restore-upload" className="cursor-pointer">
-                                                    {importDatabaseMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
-                                                    Restore Backup
-                                                </label>
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        )}
-
                         <div className="flex justify-end mt-6">
                             <Button type="submit" loading={updateSettingMutation.isPending || updateUserMutation.isPending}>
                                 <Save className="w-4 h-4 mr-2" />
                                 Save General Settings
                             </Button>
                         </div>
-
                     </form>
+                )}
+
+                {activeTab === 'maintenance' && (
+                    <div className="max-w-4xl space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Database className="w-5 h-5 text-primary" />
+                                    Database Management
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-3">
+                                        <div>
+                                            <h3 className="text-white font-medium mb-1">Manual Export</h3>
+                                            <p className="text-xs text-slate-400">Download full SQL backup to your local computer.</p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            className="w-full"
+                                            variant="outline"
+                                            onClick={() => exportDatabaseMutation.mutate()}
+                                            disabled={exportDatabaseMutation.isPending}
+                                        >
+                                            {exportDatabaseMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
+                                            Download SQL File
+                                        </Button>
+                                    </div>
+
+                                    <div className="p-4 bg-slate-900 rounded-xl border border-slate-800 space-y-3">
+                                        <div>
+                                            <h3 className="text-white font-medium mb-1">Manual Import</h3>
+                                            <p className="text-xs text-slate-400">Upload and restore from a local SQL file.</p>
+                                        </div>
+                                        <div className="relative">
+                                            <input
+                                                type="file"
+                                                accept=".sql"
+                                                className="hidden"
+                                                id="restore-upload-maintenance"
+                                                onChange={handleFileSelect}
+                                                disabled={importDatabaseMutation.isPending}
+                                            />
+                                            <Button
+                                                type="button"
+                                                variant="destructive"
+                                                className="w-full"
+                                                asChild
+                                            >
+                                                <label htmlFor="restore-upload-maintenance" className="cursor-pointer">
+                                                    {importDatabaseMutation.isPending ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Upload className="w-4 h-4 mr-2" />}
+                                                    Upload & Restore
+                                                </label>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-3">
+                                    <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                                    <div className="text-xs text-slate-400 leading-relaxed">
+                                        <p className="font-bold text-white mb-1">Pro Tip: Automated Backups</p>
+                                        Sistem secara otomatis melakukan backup setiap 24 jam dan menyimpannya di server. Anda dapat mengunduh atau memulihkan data langsung dari tabel riwayat di bawah.
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                                <CardTitle className="flex items-center gap-2">
+                                    <History className="w-5 h-5 text-primary" />
+                                    Backup History
+                                </CardTitle>
+                                <Button
+                                    size="sm"
+                                    onClick={handleManualBackup}
+                                    disabled={triggerBackupMutation.isPending}
+                                >
+                                    <Plus className="w-4 h-4 mr-1" />
+                                    Backup Now
+                                </Button>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="text-xs text-slate-500 uppercase bg-slate-900/50">
+                                            <tr>
+                                                <th className="px-4 py-3 font-medium">Filename</th>
+                                                <th className="px-4 py-3 font-medium">Date Created</th>
+                                                <th className="px-4 py-3 font-medium text-right">Size</th>
+                                                <th className="px-4 py-3 font-medium text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800">
+                                            {backupHistory.isLoading ? (
+                                                <tr>
+                                                    <td colSpan="4" className="px-4 py-8 text-center text-slate-500">
+                                                        <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
+                                                        Loading backups...
+                                                    </td>
+                                                </tr>
+                                            ) : backupHistory.data?.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan="4" className="px-4 py-8 text-center text-slate-500">
+                                                        No backups found on server.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                backupHistory.data?.map((backup) => (
+                                                    <tr key={backup.filename} className="hover:bg-slate-900/50 transition-colors group">
+                                                        <td className="px-4 py-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <Database className="w-4 h-4 text-slate-500" />
+                                                                <span className="font-mono text-slate-300">{backup.filename}</span>
+                                                                {backup.filename.startsWith('auto-') && (
+                                                                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-emerald-500 text-[10px] font-bold border border-emerald-500/20">AUTO</span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-slate-400 text-xs">
+                                                            {new Date(backup.createdAt).toLocaleString()}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right text-slate-400 text-xs">
+                                                            {(backup.size / 1024 / 1024).toFixed(2)} MB
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-primary hover:bg-primary/10"
+                                                                    title="Download"
+                                                                    asChild
+                                                                >
+                                                                    <a href={`${import.meta.env.VITE_API_URL || '/api'}/backup/export?filename=${backup.filename}`} download>
+                                                                        <Download className="w-4 h-4" />
+                                                                    </a>
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-amber-500 hover:bg-amber-500/10"
+                                                                    title="Restore"
+                                                                    onClick={() => {
+                                                                        setLocalBackupToRestore(backup.filename);
+                                                                        setIsLocalRestoreModalOpen(true);
+                                                                    }}
+                                                                >
+                                                                    <RefreshCw className="w-4 h-4" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="icon"
+                                                                    className="h-8 w-8 text-red-500 hover:bg-red-500/10"
+                                                                    title="Delete"
+                                                                    onClick={() => {
+                                                                        setBackupToDelete(backup.filename);
+                                                                        setIsDeleteModalOpen(true);
+                                                                    }}
+                                                                >
+                                                                    <Trash2 className="w-4 h-4" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 )}
 
                 {activeTab === 'polling' && (
@@ -1321,45 +1471,81 @@ export default function Settings() {
                 )}
             </div>
 
-            {/* Restore Confirmation Modal */}
+            {/* Restore Local Confirmation Modal */}
             <Modal
-                isOpen={isRestoreModalOpen}
+                isOpen={isLocalRestoreModalOpen}
                 onClose={() => {
-                    setIsRestoreModalOpen(false);
-                    setSelectedBackupFile(null);
+                    setIsLocalRestoreModalOpen(false);
+                    setLocalBackupToRestore(null);
                 }}
-                title="Confirm Database Restore"
+                title="Confirm System Restore"
             >
                 <div className="space-y-4">
-                    <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-start gap-3">
-                        <AlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
-                        <div className="text-sm text-red-200">
-                            <p className="font-bold mb-1">Warning: Data Loss Risk</p>
-                            <p>Restoring this backup will <strong>permanently overwrite</strong> all current data in the database. This action cannot be undone.</p>
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div className="text-sm text-amber-200">
+                            <p className="font-bold mb-1">Warning: System Rollback</p>
+                            <p>You are about to restore the database to an older state. All data created after this backup was taken will be <strong>lost forever</strong>.</p>
                         </div>
                     </div>
 
                     <div className="text-slate-300 text-sm">
-                        <p>Selected file: <span className="font-mono text-white bg-slate-800 px-1 rounded">{selectedBackupFile?.name}</span></p>
+                        <p>Restoring from: <span className="font-mono text-white bg-slate-800 px-1 rounded">{localBackupToRestore}</span></p>
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
                         <Button
                             variant="ghost"
                             onClick={() => {
-                                setIsRestoreModalOpen(false);
-                                setSelectedBackupFile(null);
+                                setIsLocalRestoreModalOpen(false);
+                                setLocalBackupToRestore(null);
                             }}
                         >
                             Cancel
                         </Button>
                         <Button
                             variant="destructive"
-                            onClick={confirmRestore}
-                            loading={importDatabaseMutation.isPending}
+                            onClick={confirmLocalRestore}
+                            loading={restoreBackupMutation.isPending}
                         >
-                            <Upload className="w-4 h-4 mr-2" />
-                            Confirm Restore
+                            <RefreshCw className={`w-4 h-4 mr-2 ${restoreBackupMutation.isPending ? 'animate-spin' : ''}`} />
+                            Restore Now
+                        </Button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setBackupToDelete(null);
+                }}
+                title="Delete Backup File"
+            >
+                <div className="space-y-4">
+                    <p className="text-slate-300 text-sm">
+                        Are you sure you want to permanently delete the backup file <span className="font-mono text-white">{backupToDelete}</span> from the server?
+                    </p>
+
+                    <div className="flex justify-end gap-3 mt-6">
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                setIsDeleteModalOpen(false);
+                                setBackupToDelete(null);
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDelete}
+                            loading={deleteBackupMutation.isPending}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Permanently
                         </Button>
                     </div>
                 </div>

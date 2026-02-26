@@ -1,4 +1,4 @@
-import { routerService, settingsService, oltService, genieacsService } from '../services/index.js';
+import { routerService, settingsService, oltService, genieacsService, backupService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routerNetwatch, routerMetrics, tenants } from '../db/schema/index.js';
@@ -37,6 +37,7 @@ let oltSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let oltWebInterval: ReturnType<typeof setInterval> | null = null;
 let acsInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
+let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let pollingStartTime: number | null = null;
 let currentScalingConfig: ScalingConfig = SCALING_TIERS[0].config;
@@ -342,6 +343,7 @@ export async function startScheduler(): Promise<void> {
     setTimeout(() => pollOltsWeb(), 60000);
     setTimeout(() => syncGenieAcs(), 30000);
     setTimeout(() => cleanupOldMetrics(), 120000);
+    setTimeout(() => backupService.automatedBackup(), 180000);
 
     // Heartbeat Intervals (Simplified to check all tenants each pulse)
     // We use a frequent heartbeat and internal checks if needed, 
@@ -351,8 +353,9 @@ export async function startScheduler(): Promise<void> {
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
     oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
     oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default
-    acsInterval = setInterval(syncGenieAcs, 10 * 60000); // 10 min default
+    acsInterval = setInterval(syncGenieAcs, 10 * 60 * 1000); // 10 min default
     cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
+    autoBackupInterval = setInterval(() => backupService.automatedBackup(), 24 * 60 * 60 * 1000); // Daily
 }
 
 /**
@@ -365,6 +368,7 @@ export function stopScheduler(): void {
     if (oltWebInterval) { clearInterval(oltWebInterval); oltWebInterval = null; }
     if (acsInterval) { clearInterval(acsInterval); acsInterval = null; }
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
+    if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
 
     logger.info('🛑 Scheduler stopped');
 }

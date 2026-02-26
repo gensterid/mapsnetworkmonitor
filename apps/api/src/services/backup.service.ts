@@ -21,7 +21,7 @@ export class BackupService {
         this.psqlPath = process.env.PSQL_PATH || 'psql';
     }
 
-    async exportDatabase(): Promise<string> {
+    async exportDatabase(isAuto: boolean = false): Promise<string> {
         // First check if pg_dump is available
         try {
             await execFileAsync(this.pgDumpPath, ['--version']);
@@ -30,16 +30,16 @@ export class BackupService {
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `backup-${timestamp}.sql`;
-        const outputPath = path.join(process.cwd(), 'temp', filename);
+        const filename = isAuto ? `auto-bkp-${timestamp}.sql` : `backup-${timestamp}.sql`;
+        const dir = isAuto ? path.join(process.cwd(), 'backups') : path.join(process.cwd(), 'temp');
+        const outputPath = path.join(dir, filename);
 
-        // Ensure temp dir exists
-        if (!fs.existsSync(path.join(process.cwd(), 'temp'))) {
-            fs.mkdirSync(path.join(process.cwd(), 'temp'));
+        // Ensure dir exists
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
         }
 
         // Command arguments for pg_dump
-        // Using --clean --if-exists to ensure restore overwrites properly
         const args = [
             this.dbUrl,
             '--clean',
@@ -52,10 +52,79 @@ export class BackupService {
 
         try {
             await execFileAsync(this.pgDumpPath, args);
+
+            if (isAuto) {
+                await this.cleanupOldBackups();
+            }
+
             return outputPath;
         } catch (error: any) {
             logger.error({ error }, 'Backup failed');
             throw new Error('Failed to create database backup: ' + (error.message || 'Unknown error'));
+        }
+    }
+
+    async automatedBackup(): Promise<string> {
+        logger.info('Starting scheduled automated backup...');
+        return this.exportDatabase(true);
+    }
+
+    async listBackups(): Promise<any[]> {
+        const dir = path.join(process.cwd(), 'backups');
+        if (!fs.existsSync(dir)) return [];
+
+        const files = fs.readdirSync(dir);
+        const backups = files
+            .filter(f => f.endsWith('.sql'))
+            .map(f => {
+                const filePath = path.join(dir, f);
+                const stats = fs.statSync(filePath);
+                return {
+                    filename: f,
+                    size: stats.size,
+                    createdAt: stats.birthtime
+                };
+            })
+            .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+        return backups;
+    }
+
+    async deleteBackup(filename: string): Promise<void> {
+        const filePath = path.join(process.cwd(), 'backups', filename);
+        if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+            logger.info({ filename }, 'Backup file deleted');
+        }
+    }
+
+    async restoreFromHistory(filename: string): Promise<void> {
+        const filePath = path.join(process.cwd(), 'backups', filename);
+        if (!fs.existsSync(filePath)) {
+            throw new Error('Backup file not found');
+        }
+        return this.importDatabase(filePath);
+    }
+
+    private async cleanupOldBackups(): Promise<void> {
+        const dir = path.join(process.cwd(), 'backups');
+        if (!fs.existsSync(dir)) return;
+
+        const files = fs.readdirSync(dir);
+        const now = Date.now();
+        const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+        for (const file of files) {
+            if (!file.startsWith('auto-bkp-')) continue;
+
+            const filePath = path.join(dir, file);
+            const stats = fs.statSync(filePath);
+            const age = now - stats.birthtime.getTime();
+
+            if (age > MAX_AGE) {
+                fs.unlinkSync(filePath);
+                logger.info({ file }, 'Cleaned up old automated backup');
+            }
         }
     }
 

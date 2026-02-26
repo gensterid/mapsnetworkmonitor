@@ -55,3 +55,60 @@ export const useImportDatabase = () => {
         }
     });
 };
+
+import { useQuery } from '@tanstack/react-query';
+
+export const useBackups = () => {
+    return useQuery({
+        queryKey: ['backups'],
+        queryFn: async () => {
+            const response = await apiClient.get('/backup/list');
+            return response.data;
+        }
+    });
+};
+
+export const useTriggerManualBackup = () => {
+    return useMutation({
+        mutationFn: async () => {
+            const response = await apiClient.post('/backup/trigger-manual');
+            return response.data;
+        },
+        onSuccess: () => {
+            toast.success('Backup created successfully');
+        },
+        onError: (error) => {
+            toast.error('Backup failed: ' + (error.response?.data?.error || error.message));
+        }
+    });
+};
+
+export const useDeleteBackup = () => {
+    return useMutation({
+        mutationFn: async (filename) => {
+            const response = await apiClient.delete(`/backup/${filename}`);
+            return response.data;
+        },
+        onSuccess: () => {
+            toast.success('Backup deleted');
+        },
+        onError: (error) => {
+            toast.error('Failed to delete backup: ' + (error.response?.data?.error || error.message));
+        }
+    });
+};
+
+export const useRestoreBackup = () => {
+    return useMutation({
+        mutationFn: async (filename) => {
+            const response = await apiClient.post(`/backup/restore-local/${filename}`);
+            return response.data;
+        },
+        onSuccess: () => {
+            toast.success('Database restored from history');
+        },
+        onError: (error) => {
+            toast.error('Restore failed: ' + (error.response?.data?.error || error.message));
+        }
+    });
+};

@@ -12,3 +12,4 @@ export * from './router-metrics.service.js';
 export * from './router-interface.service.js';
 export * from './ai.service.js';
 export * from './tenant.service.js';
+export * from './backup.service.js';

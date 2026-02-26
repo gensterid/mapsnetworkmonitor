@@ -8,6 +8,10 @@ async function main() {
         allRouters.forEach(r => {
             console.log(`ID: ${r.id}`);
             console.log(`Name: ${r.name}`);
+            console.log(`Tenant ID: ${r.tenantId}`);
+            console.log(`Status: ${r.status}`);
+            console.log(`Use Webhook: ${r.useWebhook}`);
+            console.log(`Last Updated: ${r.updatedAt}`);
             console.log(`Use GenieACS: ${r.useGenieAcs}`);
             console.log(`GenieACS URL: ${r.genieacsUrl}`);
             console.log('-----------------------');
