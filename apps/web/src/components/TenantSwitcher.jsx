@@ -12,17 +12,7 @@ const TenantSwitcher = () => {
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Only render if superadmin OR user has multiple authorized tenants
-    if (!isSuperAdmin && tenants.length <= 1) return null;
-
-    const activeTenantId = localStorage.getItem('active-tenant-id') || currentUser?.tenantId;
-
-    // Find active tenant details
-    const activeTenant = tenants.find(t => t.id === activeTenantId);
-    // If no active tenant found in the list (e.g. still loading or fallback to main), we use a placeholder
-    const activeName = activeTenant ? activeTenant.name : (isLoading ? 'Loading ISPs...' : 'Main ISP (Default)');
-
-    // Handle clicking outside
+    // Hooks must be called before any conditional returns
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -33,6 +23,16 @@ const TenantSwitcher = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Only render if superadmin OR user has multiple authorized tenants
+    // This is now AFTER all hooks (useState, useRef, useEffect)
+    if (!isSuperAdmin && tenants.length <= 1) return null;
+
+    const activeTenantId = localStorage.getItem('active-tenant-id') || currentUser?.tenantId;
+
+    // Find active tenant details
+    const activeTenant = tenants.find(t => t.id === activeTenantId);
+    const activeName = activeTenant ? activeTenant.name : (isLoading ? 'Loading ISPs...' : 'Main ISP (Default)');
+
     const handleSwitch = (tenantId) => {
         if (tenantId === activeTenantId) {
             setIsOpen(false);
@@ -42,13 +42,10 @@ const TenantSwitcher = () => {
         if (tenantId) {
             localStorage.setItem('active-tenant-id', tenantId);
         } else {
-            // Revert to original home tenant if null is passed
             localStorage.removeItem('active-tenant-id');
         }
 
         setIsOpen(false);
-        // Force a hard reload to clear all React Query caches, sockets, and states
-        // This guarantees data isolation
         window.location.reload();
     };
 
