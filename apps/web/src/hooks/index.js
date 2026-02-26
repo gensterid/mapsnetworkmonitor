@@ -81,6 +81,7 @@ export * from './useBackup';
 export * from './useSocket';
 export * from './useAI';
 export * from './usePresets';
+export * from './useTenants';
 // Utility hooks
 export { useDebounce } from './useDebounce';
 export { useAppTimezone } from './useAppTimezone';
