@@ -122,9 +122,10 @@ export const auth = betterAuth({
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // Only use Secure cookies if the server URL is actually HTTPS.
-        // Set to false for HTTP deployments (e.g., Proxmox accessed via http://10.10.70.116).
-        useSecureCookies: resolvedBaseURL.startsWith('https://'),
+        // Set to false because the server is accessed via both HTTPS (domain) and HTTP (local IP).
+        // Secure cookies would break login on http://10.10.70.116.
+        // When all access is HTTPS-only, change to: resolvedBaseURL.startsWith('https://'),
+        useSecureCookies: false,
     },
     trustedOrigins: resolvedTrustedOrigins,
 });
