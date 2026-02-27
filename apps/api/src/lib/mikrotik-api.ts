@@ -126,7 +126,7 @@ export async function connectToRouter(
  * Resilient wrapper for api.write that handles RouterOS 7.18+ !empty tag
  * and adds a command-level timeout to prevent hangs.
  */
-export async function safeWrite(api: any, command: string | string[], timeoutMs: number = 10000): Promise<any[]> {
+export async function safeWrite(api: any, command: string | string[], timeoutMs: number = 30000): Promise<any[]> {
     try {
         if (!api || typeof api.write !== 'function') {
             throw new Error('Invalid API instance provided to safeWrite');

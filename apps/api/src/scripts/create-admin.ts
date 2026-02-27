@@ -43,7 +43,7 @@ async function createAdminUser() {
             id: userId,
             email,
             name,
-            role: 'admin',
+            role: 'superadmin',
             emailVerified: true,
             createdAt: now,
             updatedAt: now
