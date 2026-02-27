@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
 const UnplacedDevicesDrawer = ({
     isOpen,
@@ -7,6 +7,20 @@ const UnplacedDevicesDrawer = ({
     selectedDevice,
     onSelectDevice
 }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter unplaced devices based on search query
+    const filteredDevices = useMemo(() => {
+        if (!searchQuery.trim()) return unplacedDevices;
+
+        const query = searchQuery.toLowerCase();
+        return unplacedDevices.filter(device =>
+            (device.name || '').toLowerCase().includes(query) ||
+            (device.host || '').toLowerCase().includes(query) ||
+            (device.address || '').toLowerCase().includes(query)
+        );
+    }, [unplacedDevices, searchQuery]);
+
     // Group devices by type
     const groupedDevices = useMemo(() => {
         const groups = {
@@ -17,7 +31,7 @@ const UnplacedDevicesDrawer = ({
             pppoe: []
         };
 
-        unplacedDevices.forEach(device => {
+        filteredDevices.forEach(device => {
             const type = device.deviceType || device.type || 'netwatch';
             if (groups[type]) {
                 groups[type].push(device);
@@ -27,7 +41,7 @@ const UnplacedDevicesDrawer = ({
         });
 
         return groups;
-    }, [unplacedDevices]);
+    }, [filteredDevices]);
 
     const getTypeIcon = (type) => {
         switch (type) {
@@ -63,11 +77,44 @@ const UnplacedDevicesDrawer = ({
                 </button>
             </div>
 
+            <div className="unplaced-devices-drawer__search">
+                <div className="unplaced-search-bar">
+                    <span className="material-symbols-outlined unplaced-search-bar__icon">search</span>
+                    <input
+                        type="text"
+                        className="unplaced-search-bar__input"
+                        placeholder="Cari perangkat..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        autoFocus
+                    />
+                    {searchQuery && (
+                        <button
+                            className="unplaced-search-bar__clear"
+                            onClick={() => setSearchQuery('')}
+                        >
+                            <span className="material-symbols-outlined">close</span>
+                        </button>
+                    )}
+                </div>
+            </div>
+
             <div className="unplaced-devices-drawer__content">
                 {unplacedDevices.length === 0 ? (
                     <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4 opacity-50">
                         <span className="material-symbols-outlined text-4xl">check_circle</span>
                         <p className="text-sm">Semua perangkat sudah terpasang!</p>
+                    </div>
+                ) : filteredDevices.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-slate-500 gap-4 opacity-70">
+                        <span className="material-symbols-outlined text-4xl">search_off</span>
+                        <p className="text-sm">Pencarian untuk "{searchQuery}" tidak ditemukan.</p>
+                        <button
+                            className="text-xs text-primary font-bold uppercase tracking-wider hover:underline"
+                            onClick={() => setSearchQuery('')}
+                        >
+                            Reset Pencarian
+                        </button>
                     </div>
                 ) : (
                     Object.entries(groupedDevices).map(([type, items]) => (
