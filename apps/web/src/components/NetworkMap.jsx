@@ -181,8 +181,7 @@ const NetworkMap = ({
         return saved || 'roadmap'; // Default to roadmap for better initial load
     });
     const [showLabels, setShowLabels] = useState(() => {
-        const saved = localStorage.getItem('map_show_labels');
-        return saved !== null ? JSON.parse(saved) : true;
+        try { const saved = localStorage.getItem('map_show_labels'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true; } catch { return true; }
     });
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
@@ -206,23 +205,19 @@ const NetworkMap = ({
 
     // Performance optimization states
     const [enableAnimation, setEnableAnimation] = useState(() => {
-        const saved = localStorage.getItem('map_animation_enabled');
-        return saved !== null ? JSON.parse(saved) : true;
+        try { const saved = localStorage.getItem('map_animation_enabled'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true; } catch { return true; }
     });
     const [enableClustering, setEnableClustering] = useState(() => {
-        const saved = localStorage.getItem('map_clustering_enabled');
-        return saved !== null ? JSON.parse(saved) : true;
+        try { const saved = localStorage.getItem('map_clustering_enabled'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true; } catch { return true; }
     });
     const [lowPerfMode, setLowPerfMode] = useState(() => {
-        const saved = localStorage.getItem('map_low_perf_enabled');
-        return saved !== null ? JSON.parse(saved) : false;
+        try { const saved = localStorage.getItem('map_low_perf_enabled'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : false; } catch { return false; }
     });
     const [isHeatmapMode, setIsHeatmapMode] = useState(false);
 
     // Quick Placement State
     const [isPlacementModeOpen, setIsPlacementModeOpen] = useState(() => {
-        const saved = localStorage.getItem('map_placement_mode_enabled');
-        return saved !== null ? JSON.parse(saved) : false;
+        try { const saved = localStorage.getItem('map_placement_mode_enabled'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : false; } catch { return false; }
     });
     const [selectedUnplacedDevice, setSelectedUnplacedDevice] = useState(null);
 

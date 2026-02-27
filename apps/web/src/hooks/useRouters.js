@@ -38,8 +38,12 @@ export function useRouter(id, options = {}) {
         queryKey: routerKeys.detail(id),
         queryFn: () => routerService.getById(id),
         staleTime: 30 * 1000,
-        refetchInterval: 30 * 1000,
         enabled: !!id,
+        retry: (failureCount, error) => {
+            // Don't retry 404s - the router doesn't exist
+            if (error?.status === 404) return false;
+            return failureCount < 3;
+        },
         ...options,
     });
 }

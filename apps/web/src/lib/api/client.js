@@ -42,7 +42,11 @@ apiClient.interceptors.response.use(
             }
         }
 
-        console.error('API Error:', apiError.message);
+        if (error.response?.status === 404) {
+            console.warn('API 404:', apiError.message);
+        } else {
+            console.error('API Error:', apiError.message);
+        }
         return Promise.reject(apiError);
     }
 );
