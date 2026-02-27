@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline, useMapEvents } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -19,6 +19,17 @@ const MapZoomHandler = ({ onZoomChange }) => {
         handleZoom();
         return () => map.off('zoomend', handleZoom);
     }, [map, onZoomChange]);
+    return null;
+};
+
+const MapClickHandler = ({ enabled, onMapClick }) => {
+    useMapEvents({
+        click: (e) => {
+            if (enabled) {
+                onMapClick([e.latlng.lat, e.latlng.lng]);
+            }
+        },
+    });
     return null;
 };
 
@@ -56,6 +67,8 @@ import {
     MemoizedNetworkLine,
     areLinesEqual,
     formatBitrate,
+    UnplacedDevicesDrawer,
+    PlacementToolbar,
 } from './map';
 import { formatDateWithTimezone, formatShortDateTime } from '@/lib/timezone';
 import './map/map.css';
@@ -202,6 +215,10 @@ const NetworkMap = ({
         return saved !== null ? JSON.parse(saved) : false;
     });
     const [isHeatmapMode, setIsHeatmapMode] = useState(false);
+
+    // Quick Placement State
+    const [isPlacementModeOpen, setIsPlacementModeOpen] = useState(false);
+    const [selectedUnplacedDevice, setSelectedUnplacedDevice] = useState(null);
 
     // 2. Traffic Hub - Dual Rate for Performance
     const [displayTraffic, setDisplayTraffic] = useState(realtimeTraffic || {});
@@ -1026,6 +1043,39 @@ const NetworkMap = ({
         }
     };
 
+    const handleQuickPlaceClick = useCallback((pos) => {
+        if (!selectedUnplacedDevice) return;
+
+        const payload = { latitude: String(pos[0]), longitude: String(pos[1]) };
+        const id = selectedUnplacedDevice.id;
+        const type = selectedUnplacedDevice.deviceType || selectedUnplacedDevice.type;
+
+        const onSuccess = () => {
+            toast.success(`${selectedUnplacedDevice.name || 'Device'} placed successfully`);
+            setSelectedUnplacedDevice(null);
+            // If drawer was open, keep it open but the item will disappear from list due to memo re-calc
+        };
+
+        if (type === 'router') {
+            updateRouterMutation.mutate({ routerId: id, data: payload }, { onSuccess });
+        } else if (type === 'pppoe') {
+            updatePppoeMutation.mutate({ pppoeId: id, data: payload }, { onSuccess });
+        } else if (type === 'onu') {
+            updateOnuMutation.mutate({
+                oltId: selectedUnplacedDevice.oltId,
+                onuId: id,
+                data: payload
+            }, { onSuccess });
+        } else {
+            // Netwatch / OLT / ODP
+            updateNetwatchMutation.mutate({
+                routerId: selectedUnplacedDevice.routerId,
+                netwatchId: id,
+                data: payload
+            }, { onSuccess });
+        }
+    }, [selectedUnplacedDevice, updateRouterMutation, updatePppoeMutation, updateOnuMutation, updateNetwatchMutation]);
+
     const handleAddDevice = (type) => {
         // Logic to add device (open modal with empty state)
         // For now, assume adding Netwatch
@@ -1271,6 +1321,51 @@ const NetworkMap = ({
         linesByPppoeId
     ]);
 
+    // --- Unplaced Devices Calculation ---
+    const unplacedDevices = useMemo(() => {
+        const list = [];
+
+        // 1. Routers
+        (stableRoutersData || []).forEach(r => {
+            const lat = parseFloat(r.latitude);
+            const lng = parseFloat(r.longitude);
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
+                list.push({ ...r, type: 'router', deviceType: 'router' });
+            }
+        });
+
+        // 2. Netwatch
+        (stableNetwatchData || []).forEach(nwGroup => {
+            (nwGroup.entries || []).forEach(entry => {
+                const lat = parseFloat(entry.latitude);
+                const lng = parseFloat(entry.longitude);
+                if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
+                    list.push({ ...entry, routerId: nwGroup.routerId, type: entry.deviceType || 'netwatch' });
+                }
+            });
+        });
+
+        // 3. PPPoE
+        (stablePppoeData || []).forEach(p => {
+            const lat = parseFloat(p.latitude);
+            const lng = parseFloat(p.longitude);
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
+                list.push({ ...p, type: 'pppoe', deviceType: 'pppoe' });
+            }
+        });
+
+        // 4. ONUs (from map data)
+        (stableOnusMapData || []).forEach(o => {
+            const lat = parseFloat(o.latitude);
+            const lng = parseFloat(o.longitude);
+            if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
+                list.push({ ...o, type: 'onu', deviceType: 'onu' });
+            }
+        });
+
+        return list;
+    }, [stableRoutersData, stableNetwatchData, stablePppoeData, stableOnusMapData]);
+
     // --- Memoized Topology Lines (Moved to component body to obey rules of hooks) ---
     const topologyLines = useMemo(() => {
         return mapData.lines.map((line) => {
@@ -1369,6 +1464,10 @@ const NetworkMap = ({
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
                         <MapZoomHandler onZoomChange={setZoomLevel} />
+                        <MapClickHandler
+                            enabled={!!selectedUnplacedDevice}
+                            onMapClick={handleQuickPlaceClick}
+                        />
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
                         {(!apiKey || googleFailed) ? (
                             <TileLayer
@@ -1465,6 +1564,8 @@ const NetworkMap = ({
                             setIsEditMode={setIsEditMode}
                             isSyncing={isSyncing}
                             onManualSync={handleManualSync}
+                            isPlacementModeOpen={isPlacementModeOpen}
+                            setIsPlacementModeOpen={setIsPlacementModeOpen}
                             isFullscreen={isFullscreen}
                             onToggleFullscreen={() => {
                                 if (!document.fullscreenElement) {
@@ -1523,10 +1624,28 @@ const NetworkMap = ({
                         !showRoutersOnly && (
                             <MapFAB
                                 onAddDevice={handleAddDevice}
-                                disabled={isEditingPath}
+                                disabled={isEditingPath || !!selectedUnplacedDevice}
                             />
                         )
                     }
+
+                    {/* Quick Placement Overlay Elements */}
+                    {!showRoutersOnly && (
+                        <>
+                            <PlacementToolbar
+                                selectedDevice={selectedUnplacedDevice}
+                                onCancel={() => setSelectedUnplacedDevice(null)}
+                            />
+
+                            <UnplacedDevicesDrawer
+                                isOpen={isPlacementModeOpen}
+                                onClose={() => setIsPlacementModeOpen(false)}
+                                unplacedDevices={unplacedDevices}
+                                selectedDevice={selectedUnplacedDevice}
+                                onSelectDevice={setSelectedUnplacedDevice}
+                            />
+                        </>
+                    )}
 
                     {/* Device Modal */}
                     <DeviceModal

@@ -9,6 +9,8 @@ export { default as MapToolbar } from './MapToolbar';
 export { default as MapLegend } from './MapLegend';
 export { default as RouterTooltip } from './RouterTooltip';
 export { MapControls } from './MapControls';
+export { default as UnplacedDevicesDrawer } from './UnplacedDevicesDrawer';
+export { default as PlacementToolbar } from './PlacementToolbar';
 export {
     createDeviceIcon,
     createRouterIcon,

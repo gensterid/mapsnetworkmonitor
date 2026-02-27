@@ -148,3 +148,11 @@ export function useBulkPushConfigGenieAcs() {
         },
     });
 }
+
+export function useGenieACSDashboardStats(routerId) {
+    return useQuery({
+        queryKey: ['genieacs-dashboard-stats', routerId],
+        queryFn: () => genieacsService.getDashboardStats(routerId),
+        refetchInterval: 30 * 1000, // Refresh every 30 seconds
+    });
+}

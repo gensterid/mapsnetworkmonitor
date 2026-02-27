@@ -14,7 +14,9 @@ export const MapControls = ({
     isSyncing,
     onManualSync,
     isFullscreen,
-    onToggleFullscreen
+    onToggleFullscreen,
+    isPlacementModeOpen,
+    setIsPlacementModeOpen
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -178,6 +180,21 @@ export const MapControls = ({
                                 {isEditMode ? 'lock_open' : 'lock'}
                             </span>
                             {isEditMode ? 'Edit' : 'Lock'}
+                        </button>
+
+                        {/* Quick Placement Toggle */}
+                        <button
+                            onClick={() => setIsPlacementModeOpen(prev => !prev)}
+                            className={`px-1.5 py-1 text-[10px] rounded flex items-center justify-center gap-1 transition-colors border ${isPlacementModeOpen
+                                ? 'bg-orange-600 text-white border-orange-500 shadow-lg shadow-orange-900/20'
+                                : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                                } `}
+                            title="Quickly place unmapped devices"
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
+                                {isPlacementModeOpen ? 'location_on' : 'location_off'}
+                            </span>
+                            Quick Place
                         </button>
 
                         <button

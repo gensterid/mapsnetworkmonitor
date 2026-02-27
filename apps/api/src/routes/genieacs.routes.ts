@@ -22,19 +22,29 @@ const setParameterSchema = z.object({
 
 const wanConfigSchema = z.object({
     wanType: z.enum(['pppoe', 'ip']),
-    pppoeUser: z.string().optional(),
-    pppoePass: z.string().optional(),
-    vlanId: z.number().optional(),
+    connectionMode: z.enum(['route', 'bridge']).optional(),
+    username: z.string().optional(),
+    password: z.string().optional(),
     ipAddress: z.string().optional(),
     subnetMask: z.string().optional(),
-    gateway: z.string().optional(),
+    defaultGateway: z.string().optional(),
+    dnsServers: z.string().optional(),
+    vlanId: z.number().optional(),
+    enable: z.boolean().optional(),
+    connectionIndex: z.number().optional(),
+    addressingType: z.enum(['Static', 'DHCP']).optional(),
+    bindPorts: z.string().optional(),
 });
 
 const wifiConfigSchema = z.object({
     ssidIndex: z.number().default(1),
+    enable: z.boolean().optional(),
     ssid: z.string().optional(),
     password: z.string().optional(),
-    enabled: z.boolean().optional(),
+    securityMode: z.enum(['Open', 'WPA2-PSK', 'WPA-WPA2-Mixed']).optional(),
+    encryption: z.enum(['AES', 'TKIP+AES']).optional(),
+    hidden: z.boolean().optional(),
+    channel: z.union([z.number(), z.literal('Auto')]).optional(),
 });
 
 const bulkActionSchema = z.object({

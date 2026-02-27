@@ -20,6 +20,9 @@ export default function WanConfigModal({ isOpen, onClose, device }) {
     const [defaultGateway, setDefaultGateway] = useState('');
     const [dnsServers, setDnsServers] = useState('');
 
+    // Port Binding
+    const [bindPorts, setBindPorts] = useState([]); // ['LAN1', 'LAN2', 'LAN3', 'LAN4', 'SSID1']
+
     const updateWanMutation = useUpdateGenieACSWanConfig();
     const createPresetMutation = useCreatePreset();
 
@@ -30,6 +33,7 @@ export default function WanConfigModal({ isOpen, onClose, device }) {
             setPassword('');
             setVlanId('');
             setHasVlan(false);
+            setBindPorts([]);
 
             // Heuristics could go here
         }
@@ -59,6 +63,11 @@ export default function WanConfigModal({ isOpen, onClose, device }) {
                 config.dnsServers = dnsServers;
             }
         }
+
+        if (bindPorts.length > 0) {
+            config.bindPorts = bindPorts.join(',');
+        }
+
         return config;
     };
 
@@ -251,6 +260,32 @@ export default function WanConfigModal({ isOpen, onClose, device }) {
                             </div>
                         </div>
                     )}
+                </div>
+
+                {/* Port Binding */}
+                <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
+                    <label className="text-sm font-medium text-slate-300 mb-3 block">Port Binding</label>
+                    <div className="flex flex-wrap gap-2">
+                        {['LAN1', 'LAN2', 'LAN3', 'LAN4', 'SSID1'].map(port => (
+                            <button
+                                key={port}
+                                type="button"
+                                onClick={() => {
+                                    setBindPorts(prev =>
+                                        prev.includes(port) ? prev.filter(p => p !== port) : [...prev, port]
+                                    );
+                                }}
+                                className={clsx(
+                                    "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
+                                    bindPorts.includes(port)
+                                        ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
+                                        : "bg-slate-900 border-slate-800 text-slate-500 hover:border-slate-700 hover:text-slate-300"
+                                )}
+                            >
+                                {port}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 <div className="pt-2 flex justify-end gap-2">

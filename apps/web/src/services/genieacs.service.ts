@@ -101,5 +101,15 @@ export const genieacsService = {
             params: { routerId }
         });
         return response.data;
+    },
+
+    /**
+     * Get dashboard statistics
+     */
+    getDashboardStats: async (routerId) => {
+        const response = await apiClient.get('/genieacs-dashboard/stats', {
+            params: { routerId }
+        });
+        return response.data.data;
     }
 };

@@ -18,6 +18,7 @@ import mapRoutes from './map.routes.js';
 import webhookRoutes from './webhook.routes.js';
 import aiRoutes from './ai.routes.js';
 import tenantRoutes from './tenant.routes.js';
+import genieacsDashboardRoutes from './genieacs-dashboard.routes.js';
 
 const router = Router();
 
@@ -50,6 +51,7 @@ router.use('/map', mapRoutes);
 router.use('/webhook', webhookRoutes);
 router.use('/ai', aiRoutes);
 router.use('/tenants', tenantRoutes);
+router.use('/genieacs-dashboard', genieacsDashboardRoutes);
 
 export default router;
 

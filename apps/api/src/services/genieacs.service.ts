@@ -17,8 +17,13 @@ export interface GenieACSDevice {
     _rxPower?: string;
     _macAddress?: string;
     _isTr181?: boolean;
+    _uptime?: string;
+    _temperature?: string;
+    _hardwareVersion?: string;
     InternetGatewayDevice?: any;
     Device?: any;
+    _tags?: string[];
+    _clientCount?: number;
 }
 
 export interface WanConfigPayload {
@@ -34,6 +39,7 @@ export interface WanConfigPayload {
     enable?: boolean;
     connectionIndex?: number;
     addressingType?: 'Static' | 'DHCP';
+    bindPorts?: string; // e.g. "LAN1,LAN2,SSID1"
 }
 
 export interface WifiConfigPayload {
@@ -133,32 +139,65 @@ export const genieacsService = {
                 '_deviceId._OUI': 1,
                 '_deviceId._Manufacturer': 1,
                 '_deviceId._SoftwareVersion': 1,
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANIPConnection.1.ExternalIPAddress': 1,
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.1.WANPPPConnection.1.ExternalIPAddress': 1,
                 'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID': 1,
                 'Device.WiFi.SSID.1.SSID': 1,
-                // ZTE Optical Power
+                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice': 1,
+                _tags: 1,
+                _mac: 1,
+                // STATUS (Optical Power, Temperature, IP)
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANPONInterfaceConfig.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANPONInterfaceConfig.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.One_Optical_Module_Info.RXPower': 1,
-                // ZTE ONU Path (Alternative)
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_ONU.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_ONU.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.RxPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANDevice.1.X_ZTE_COM_Optical.1.RxPower': 1,
-                // Huawei Optical Power
                 'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.WANDSLInterfaceConfig.DownstreamAttenuation': 1,
-                // FiberHome Optical Power
                 'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.RXPower': 1,
-                // Virtual Parameters (Custom GenieACS scripts)
                 'VirtualParameters.RXPower': 1,
                 'VirtualParameters.IPTR069': 1,
-                '_mac': 1,
+                // TEMPERATURE
+                'InternetGatewayDevice.DeviceInfo.Temperature': 1,
+                'Device.DeviceInfo.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANDevice.1.OpticalModuleInfo.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANDevice.1.X_ZTE_COM_Optical.1.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_HW_WANDevice.1.OpticalModuleInfo.Temperature': 1,
+                'InternetGatewayDevice.X_HW_WANDevice.1.OpticalModuleInfo.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.Temperature': 1,
+                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.OpticalModuleTemp': 1,
+                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.TransceiverTemperature': 1,
+                'Device.DeviceInfo.TemperatureStatus.Temperature': 1,
+                'Device.DeviceInfo.Processors.1.Temperature': 1,
+                'VirtualParameters.Temperature': 1,
+                'VirtualParameters.gettemp': 1,
+                // MAC ADDRESSES
                 'InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress': 1,
+                'InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MACAddress': 1,
+                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.MACAddress': 1,
+                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.MACAddress': 1,
                 'Device.Ethernet.Interface.1.MACAddress': 1,
+                'VirtualParameters.PonMac': 1,
+                'VirtualParameters.pppoeMac': 1,
+                'VirtualParameters.MACAddress': 1,
+                // OTHERS & CLIENT COUNT
+                'InternetGatewayDevice.DeviceInfo.UpTime': 1,
+                'Device.DeviceInfo.UpTime': 1,
+                'InternetGatewayDevice.DeviceInfo.HardwareVersion': 1,
+                'Device.DeviceInfo.HardwareVersion': 1,
+                'InternetGatewayDevice.ManagementServer.ManageableDeviceNumberOfEntries': 1,
+                'InternetGatewayDevice.Hosts.HostNumberOfEntries': 1,
+                'Device.Hosts.HostNumberOfEntries': 1,
+                'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries': 1,
+                'InternetGatewayDevice.LANDevice.1.Hosts.Host': 1,
+                'Device.Hosts.Host': 1,
+                'Device.Hosts.Host.1.PhysAddress': 1,
+                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations': 1,
+                'VirtualParameters.ConnectedDevices': 1,
             };
 
             const response = await axios.get(`${url}/devices`, {
@@ -177,14 +216,21 @@ export const genieacsService = {
                 _registered: dev._registered,
                 _lastInform: dev._lastInform,
                 _serialNumber: dev._deviceId?._SerialNumber,
-                _productClass: dev._deviceId?._ProductClass,
-                _manufacturer: dev._deviceId?._Manufacturer,
+                _productClass: (dev._deviceId?._ProductClass || '').replace(/^ONU_|^GPON_|^EPON_/g, ''),
+                _manufacturer: (dev._deviceId?._Manufacturer || '').replace(/ Corporation| technology| co\.,ltd| Inc\.| Ltd\./gi, '').trim(),
                 _softwareVersion: dev._deviceId?._SoftwareVersion,
                 _ip: getDeviceIp(dev),
                 _ssid: getDeviceSsid(dev),
                 _rxPower: getDeviceRxPower(dev),
                 _macAddress: getDeviceMac(dev),
-                _isTr181: !!dev.Device
+                _isTr181: !!dev.Device,
+                _uptime: getDeviceUptime(dev),
+                _temperature: getDeviceTemperature(dev),
+                _tags: dev._tags || [],
+                _clientCount: getDeviceClientCount(dev),
+                _vlan: Array.from(new Set(getWanConnections(dev).map(c => String(c.vlanId)).filter(v => v && v !== 'undefined' && v !== 'null'))).join(', '),
+                _hardwareVersion: dev.InternetGatewayDevice?.DeviceInfo?.HardwareVersion?._value ||
+                    dev.Device?.DeviceInfo?.HardwareVersion?._value || ''
             }));
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : String(error);
@@ -463,8 +509,8 @@ export const genieacsService = {
             const parameters: [string, any, string?][] = [];
 
             // Helper to add param
-            const addParam = (path: string, val: any) => {
-                parameters.push([`${connectionPath}.${path}`, val, 'xsd:string']);
+            const addParam = (path: string, val: any, type: string = 'xsd:string') => {
+                parameters.push([`${connectionPath}.${path}`, val, type]);
             };
 
             // Detect Manufacturer
@@ -473,18 +519,27 @@ export const genieacsService = {
             const isHuawei = manufacturer.includes('huawei');
 
             // Common parameters
-            // Check if 'Enable' exists in the path or just set it blindly?
-            // Safer to set it as boolean true
-            if (config.enable !== undefined) addParam('Enable', config.enable);
+            if (config.enable !== undefined) addParam('Enable', config.enable, 'xsd:boolean');
 
             // VLAN Handling
             if (config.vlanId !== undefined) {
                 if (isZte) {
-                    addParam('X_ZTE-COM_VLANID', config.vlanId);
+                    addParam('X_ZTE-COM_VLANID', config.vlanId, 'xsd:unsignedInt');
                 } else if (isHuawei) {
-                    addParam('X_HW_VLAN', config.vlanId); // Try Huawei specific
+                    addParam('X_HW_VLAN', config.vlanId, 'xsd:unsignedInt');
                 } else {
-                    addParam('X_CT-COM_VLANID', config.vlanId); // Default fallback
+                    addParam('X_CT-COM_VLANID', config.vlanId, 'xsd:unsignedInt');
+                }
+            }
+
+            // Port Binding Handling
+            if (config.bindPorts) {
+                if (isZte) {
+                    addParam('X_ZTE-COM_BindPort', config.bindPorts);
+                } else if (isHuawei) {
+                    addParam('X_HW_LANBinding', config.bindPorts);
+                } else {
+                    addParam('X_CT-COM_BindPort', config.bindPorts);
                 }
             }
 
@@ -497,7 +552,7 @@ export const genieacsService = {
                 const connectionType = isBridge ? 'PPPoE_Bridged' : 'IP_Routed';
 
                 addParam('ConnectionType', connectionType);
-                addParam('NATEnabled', !isBridge);
+                addParam('NATEnabled', !isBridge, 'xsd:boolean');
 
                 if (isZte) {
                     addParam('X_ZTE-COM_ServiceList', 'INTERNET');
@@ -507,7 +562,7 @@ export const genieacsService = {
                 const isBridge = config.connectionMode === 'bridge';
                 const connectionType = isBridge ? 'IP_Bridged' : 'IP_Routed';
                 addParam('ConnectionType', connectionType);
-                addParam('NATEnabled', !isBridge);
+                addParam('NATEnabled', !isBridge, 'xsd:boolean');
 
                 if (config.addressingType) addParam('AddressingType', config.addressingType);
                 if (config.addressingType === 'Static') {
@@ -522,7 +577,7 @@ export const genieacsService = {
                 return { success: false, error: 'No parameters to update' };
             }
 
-            logger.info({ deviceId, path: connectionPath }, 'GenieACS: Updating WAN config');
+            logger.info({ deviceId, path: connectionPath, parameters }, 'GenieACS: Sending setParameterValues');
 
             const response = await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'setParameterValues',
@@ -532,6 +587,14 @@ export const genieacsService = {
             });
 
             logger.info({ status: response.status }, 'GenieACS: Task response');
+
+            // Proactively refresh the object to see changes immediately
+            if (response.status < 300) {
+                axios.post(`${url}/devices/${encodedId}/tasks?connection_request`, {
+                    name: 'refreshObject',
+                    objectName: connectionPath
+                }, { auth }).catch(() => { });
+            }
 
             return { success: true, taskId: response.data?._id };
         } catch (error) {
@@ -581,12 +644,12 @@ export const genieacsService = {
             logger.info({ path: basePath }, 'GenieACS WiFi-Config: Target path');
 
             const parameters: [string, any, string?][] = [];
-            const addParam = (path: string, val: any) => {
-                parameters.push([`${basePath}.${path}`, val, 'xsd:string']);
+            const addParam = (path: string, val: any, type: string = 'xsd:string') => {
+                parameters.push([`${basePath}.${path}`, val, type]);
             };
 
             // 1. Common Parameters
-            if (config.enable !== undefined) addParam('Enable', config.enable);
+            if (config.enable !== undefined) addParam('Enable', config.enable, 'xsd:boolean');
             if (config.ssid) addParam('SSID', config.ssid);
 
             // 2. Security & Password
@@ -635,16 +698,16 @@ export const genieacsService = {
                 // Hidden SSID
                 if (config.hidden !== undefined) {
                     // SSIDAdvertisementEnabled: true = broadcast (visible), false = hidden
-                    addParam('SSIDAdvertisementEnabled', !config.hidden);
+                    addParam('SSIDAdvertisementEnabled', !config.hidden, 'xsd:boolean');
                 }
 
                 // Channel
                 if (config.channel) {
                     if (config.channel === 'Auto') {
-                        addParam('AutoChannelEnable', true);
+                        addParam('AutoChannelEnable', true, 'xsd:boolean');
                     } else {
-                        addParam('AutoChannelEnable', false);
-                        addParam('Channel', config.channel);
+                        addParam('AutoChannelEnable', false, 'xsd:boolean');
+                        addParam('Channel', config.channel, 'xsd:unsignedInt');
                     }
                 }
             } else {
@@ -723,23 +786,43 @@ export const genieacsService = {
             const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
             const encodedId = encodeURIComponent(deviceId);
 
-            // Parameters to refresh (Optical Power & Status)
-            const parameterNames = [
+            // Refresh entire objects for better reliability instead of specific params
+            const objectsToRefresh = [
+                'InternetGatewayDevice.DeviceInfo',
+                'Device.DeviceInfo',
+                'InternetGatewayDevice.Hosts',
+                'Device.Hosts',
+                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo',
+                'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo',
+                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig',
+                'InternetGatewayDevice.LANDevice.1.WLANConfiguration'
+            ];
+
+            for (const objectName of objectsToRefresh) {
+                try {
+                    await axios.post(`${url}/devices/${encodedId}/tasks?timeout=1500&connection_request`, {
+                        name: 'refreshObject',
+                        objectName: objectName
+                    }, { auth }).catch(() => { }); // Ignore individual failures if path doesn't exist
+                } catch (e) { }
+            }
+
+            // Also refresh common signal paths specifically
+            const signalParams = [
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower',
-                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel',
-                'InternetGatewayDevice.WANDevice.1.One_Optical_Module_Info.RXPower',
-                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_ONU.1.OpticalModuleInfo.RXPower',
-                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.RxPower',
-                'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower',
-                'InternetGatewayDevice.WANDevice.1.WANDSLInterfaceConfig.DownstreamAttenuation'
+                'InternetGatewayDevice.WANDevice.1.X_HUWEI_WANDevice.1.OpticalModuleInfo.RXPower'
             ];
 
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'getParameterValues',
-                parameterNames: parameterNames
-            }, {
-                auth
-            });
+                parameterNames: signalParams
+            }, { auth }).catch(() => { });
+
+            // Force immediate update task for temperature sensing if possible
+            await axios.post(`${url}/devices/${encodedId}/tasks?timeout=1500&connection_request`, {
+                name: 'refreshObject',
+                objectName: 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo'
+            }, { auth }).catch(() => { });
 
             return { success: true };
         } catch (error) {
@@ -913,8 +996,141 @@ function getDeviceRxPower(dev: any): string {
 }
 
 function getDeviceMac(dev: any): string {
-    return dev._mac ||
+    return dev.VirtualParameters?.PonMac?._value ||
+        dev.VirtualParameters?.pppoeMac?._value ||
+        dev.VirtualParameters?.MACAddress?._value ||
+        dev._mac ||
+        dev.InternetGatewayDevice?.LANDevice?.[1]?.LANHostConfigManagement?.MACAddress?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[2]?.WANPPPConnection?.[1]?.MACAddress?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[3]?.WANIPConnection?.[1]?.MACAddress?._value ||
         dev.InternetGatewayDevice?.LANDevice?.[1]?.LANEthernetInterfaceConfig?.[1]?.MACAddress?._value ||
         dev.Device?.Ethernet?.Interface?.[1]?.MACAddress?._value ||
         '';
+}
+
+function getDeviceUptime(dev: any): string {
+    const uptimeSeconds = dev.InternetGatewayDevice?.DeviceInfo?.UpTime?._value ||
+        dev.Device?.DeviceInfo?.UpTime?._value || 0;
+
+    if (!uptimeSeconds) return '';
+
+    const days = Math.floor(uptimeSeconds / 86400);
+    const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+    const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
+    let parts = [];
+    if (days > 0) parts.push(`${days} d`);
+    if (hours > 0) parts.push(`${hours} h`);
+    if (minutes > 0) parts.push(`${minutes} m`);
+
+    return parts.join(' ') || `${uptimeSeconds}s`;
+}
+
+function getDeviceTemperature(dev: any): string {
+    const temp = dev.VirtualParameters?.gettemp?._value ||
+        dev.VirtualParameters?.Temperature?._value ||
+        dev.InternetGatewayDevice?.DeviceInfo?.Temperature?._value ||
+        dev.Device?.DeviceInfo?.Temperature?._value ||
+        dev.Device?.DeviceInfo?.TemperatureStatus?.Temperature?._value ||
+        dev.Device?.DeviceInfo?.Processors?.['1']?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.OpticalModuleInfo?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_WANDevice']?.[1]?.OpticalModuleInfo?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE-COM_WANDevice']?.[1]?.['X_ZTE-COM_Optical']?.[1]?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_ZTE_COM_WANDevice']?.[1]?.['X_ZTE_COM_Optical']?.[1]?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.['X_HUWEI_WANDevice']?.[1]?.OpticalModuleInfo?.Temperature?._value ||
+        dev.InternetGatewayDevice?.['X_HW_WANDevice']?.[1]?.OpticalModuleInfo?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_FH_GponInterfaceConfig?.TransceiverTemperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_FH_GponInterfaceConfig?.Temperature?._value ||
+        dev.InternetGatewayDevice?.WANDevice?.[1]?.X_FH_GponInterfaceConfig?.OpticalModuleTemp?._value ||
+        '';
+
+    if (temp === '' || temp === undefined || temp === null) return '';
+
+    const strTemp = String(temp);
+    if (!strTemp.includes('.') && strTemp.length > 2) {
+        const numTemp = parseFloat(strTemp);
+        if (numTemp > 500) return (numTemp / 256).toFixed(1);
+        if (numTemp > 200) return (numTemp / 10).toFixed(1);
+    }
+
+    const parsed = parseFloat(strTemp);
+    return isNaN(parsed) ? (strTemp || '') : parsed.toString();
+}
+
+function getDeviceClientCount(dev: any): number {
+    // 1. Virtual Parameter
+    if (dev.VirtualParameters?.ConnectedDevices?._value !== undefined) return dev.VirtualParameters.ConnectedDevices._value;
+
+    // 2. Direct Counts
+    const directCount = dev.InternetGatewayDevice?.ManagementServer?.ManageableDeviceNumberOfEntries?._value ||
+        dev.InternetGatewayDevice?.Hosts?.HostNumberOfEntries?._value ||
+        dev.Device?.Hosts?.HostNumberOfEntries?._value ||
+        dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.HostNumberOfEntries?._value ||
+        dev.InternetGatewayDevice?.LANDevice?.[1]?.WLANConfiguration?.[1]?.TotalAssociations?._value;
+
+    if (directCount !== undefined && directCount !== null) return parseInt(directCount);
+
+    // 3. Count object children (Heuristic)
+    const hostObj = dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.Host ||
+        dev.InternetGatewayDevice?.Hosts?.Host ||
+        dev.Device?.Hosts?.Host;
+
+    if (hostObj) {
+        // Filter out GenieACS metadata keys
+        const keys = Object.keys(hostObj).filter(k => !k.startsWith('_'));
+        if (keys.length > 0) return keys.length;
+    }
+
+    return 0;
+}
+
+/**
+ * Extract WAN connections from TR-069 device object
+ */
+export function getWanConnections(dev: any): any[] {
+    const connections: any[] = [];
+    const wanDevice = dev.InternetGatewayDevice?.WANDevice?.[1] || dev.Device?.WANDevice?.[1];
+
+    if (!wanDevice || !wanDevice.WANConnectionDevice) return [];
+
+    // Iterate through all WANConnectionDevice instances
+    Object.keys(wanDevice.WANConnectionDevice).forEach(key => {
+        if (key.startsWith('_')) return;
+        const wanConnDevice = wanDevice.WANConnectionDevice[key];
+
+        // Check PPP Connections
+        const pppConns = wanConnDevice.WANPPPConnection || {};
+        Object.keys(pppConns).forEach(pKey => {
+            if (pKey.startsWith('_')) return;
+            const conn = pppConns[pKey];
+            connections.push({
+                name: conn.Name?._value || `PPP-${key}-${pKey}`,
+                type: 'PPPoE',
+                status: conn.ConnectionStatus?._value || 'Unknown',
+                externalIp: conn.ExternalIPAddress?._value,
+                mac: conn.MACAddress?._value,
+                username: conn.Username?._value,
+                uptime: conn.Uptime?._value,
+                vlanId: conn['X_ZTE-COM_VLANID']?._value || conn.X_ZTE_COM_VLANID?._value || conn.VLANID?._value
+            });
+        });
+
+        // Check IP Connections
+        const ipConns = wanConnDevice.WANIPConnection || {};
+        Object.keys(ipConns).forEach(iKey => {
+            if (iKey.startsWith('_')) return;
+            const conn = ipConns[iKey];
+            connections.push({
+                name: conn.Name?._value || `IP-${key}-${iKey}`,
+                type: conn.AddressingType?._value || 'IP',
+                status: conn.ConnectionStatus?._value || 'Unknown',
+                externalIp: conn.ExternalIPAddress?._value,
+                mac: conn.MACAddress?._value,
+                uptime: conn.Uptime?._value,
+                vlanId: conn['X_ZTE-COM_VLANID']?._value || conn.X_ZTE_COM_VLANID?._value || conn.VLANID?._value
+            });
+        });
+    });
+
+    return connections;
 }
