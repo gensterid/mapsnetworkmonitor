@@ -292,6 +292,10 @@ export async function runMigrations() {
                 name: 'users.ai_api_key',
                 sql: sql`ALTER TABLE users ADD COLUMN ai_api_key TEXT`
             },
+            {
+                name: 'routers.last_full_sync',
+                sql: sql`ALTER TABLE routers ADD COLUMN last_full_sync TIMESTAMP`
+            },
         ];
 
         for (const m of migrations) {
