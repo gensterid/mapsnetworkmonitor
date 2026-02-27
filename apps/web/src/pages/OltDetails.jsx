@@ -4,7 +4,8 @@ import {
     useOlt,
     useOltOnus,
     useRefreshOlt,
-    useUpdateOnu
+    useUpdateOnu,
+    useRouterNetwatch
 } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -61,10 +62,22 @@ export default function OltDetails() {
     const navigate = useNavigate();
     const { data: olt, isLoading: isLoadingOlt, error: oltError } = useOlt(id);
     const { data: onus = [], isLoading: isLoadingOnus, error: onusError, refetch: refetchOnus } = useOltOnus(id);
+    const { data: netwatchEntries = [] } = useRouterNetwatch(olt?.parentId, { enabled: !!olt?.parentId });
+
     const refreshMutation = useRefreshOlt();
     const updateOnuMutation = useUpdateOnu();
     const [searchTerm, setSearchTerm] = useState('');
     const [editingOnu, setEditingOnu] = useState(null); // { id, name, latitude, longitude, ... }
+
+    // Create a lookup for netwatch by SN/Host to identify linked devices
+    const netwatchLookup = useMemo(() => {
+        const map = new Map();
+        (netwatchEntries || []).forEach(entry => {
+            if (entry.sn) map.set(entry.sn, entry);
+            if (entry.host) map.set(entry.host, entry);
+        });
+        return map;
+    }, [netwatchEntries]);
 
     const handleRefresh = async () => {
         try {
@@ -438,6 +451,11 @@ export default function OltDetails() {
                                                                 >
                                                                     {Number(onu.latitude).toFixed(5)}, {Number(onu.longitude).toFixed(5)}
                                                                 </a>
+                                                            ) : (netwatchLookup.has(onu.sn) || netwatchLookup.has(onu.host)) ? (
+                                                                <div className="flex items-center gap-1.5 text-emerald-500 font-medium whitespace-nowrap" title="Location is inherited from linked Netwatch entry">
+                                                                    <Activity className="w-3 h-3" />
+                                                                    <span>Linked (Netwatch)</span>
+                                                                </div>
                                                             ) : (
                                                                 <span className="text-slate-600 italic">Not set</span>
                                                             )}

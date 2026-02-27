@@ -1324,7 +1324,40 @@ const NetworkMap = ({
     // --- Unplaced Devices Calculation ---
     const unplacedDevices = useMemo(() => {
         const list = [];
+        const placedSNs = new Set();
+        const placedHosts = new Set();
 
+        // Pass 1: Identify all devices that ALREADY have coordinates
+        (stableRoutersData || []).forEach(r => {
+            const lat = parseFloat(r.latitude);
+            const lng = parseFloat(r.longitude);
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                if (r.sn) placedSNs.add(r.sn);
+                if (r.host) placedHosts.add(r.host);
+            }
+        });
+
+        (stableNetwatchData || []).forEach(nwGroup => {
+            (nwGroup.entries || []).forEach(entry => {
+                const lat = parseFloat(entry.latitude);
+                const lng = parseFloat(entry.longitude);
+                if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                    if (entry.sn) placedSNs.add(entry.sn);
+                    if (entry.host) placedHosts.add(entry.host);
+                }
+            });
+        });
+
+        (stablePppoeData || []).forEach(p => {
+            const lat = parseFloat(p.latitude);
+            const lng = parseFloat(p.longitude);
+            if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                if (p.sn) placedSNs.add(p.sn);
+                if (p.host || p.address) placedHosts.add(p.host || p.address);
+            }
+        });
+
+        // Pass 2: Filter unplaced candidates based on linking
         // 1. Routers
         (stableRoutersData || []).forEach(r => {
             const lat = parseFloat(r.latitude);
@@ -1350,7 +1383,10 @@ const NetworkMap = ({
             const lat = parseFloat(p.latitude);
             const lng = parseFloat(p.longitude);
             if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
-                list.push({ ...p, type: 'pppoe', deviceType: 'pppoe' });
+                const isLinkedToPlaced = (p.sn && placedSNs.has(p.sn)) || (p.host && placedHosts.has(p.host)) || (p.address && placedHosts.has(p.address));
+                if (!isLinkedToPlaced) {
+                    list.push({ ...p, type: 'pppoe', deviceType: 'pppoe' });
+                }
             }
         });
 
@@ -1359,7 +1395,10 @@ const NetworkMap = ({
             const lat = parseFloat(o.latitude);
             const lng = parseFloat(o.longitude);
             if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) {
-                list.push({ ...o, type: 'onu', deviceType: 'onu' });
+                const isLinkedToPlaced = (o.sn && placedSNs.has(o.sn)) || (o.host && placedHosts.has(o.host));
+                if (!isLinkedToPlaced) {
+                    list.push({ ...o, type: 'onu', deviceType: 'onu' });
+                }
             }
         });
 

@@ -575,8 +575,20 @@ export default function GenieACS() {
         refetchInterval: 60 * 1000,
         enabled: !!selectedRouterId || isAdmin
     });
+    const { data: netwatchEntries = [] } = useRouterNetwatch(selectedRouterId, { enabled: !!selectedRouterId });
     const { data: settings } = useSettings();
     const timezone = useAppTimezone();
+
+    // Create a lookup for netwatch to identify linked devices
+    const netwatchLookup = useMemo(() => {
+        const map = new Map();
+        (netwatchEntries || []).forEach(entry => {
+            if (entry.sn) map.set(entry.sn, entry);
+            if (entry.host) map.set(entry.host, entry);
+            if (entry.address) map.set(entry.address, entry);
+        });
+        return map;
+    }, [netwatchEntries]);
 
     // Helper for Status Dots & Labels (Match reference image)
     const StatusBadge = ({ value, label, colorClass, icon: Icon }) => (
@@ -914,8 +926,16 @@ export default function GenieACS() {
                                                             <div className="text-sm font-bold text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => setDetailDeviceId(dev._id)}>
                                                                 {dev._id}
                                                             </div>
-                                                            <div className="text-[10px] text-slate-500 font-mono">
-                                                                SN: {dev._serialNumber || 'N/A'}
+                                                            <div className="flex items-center gap-2 overflow-hidden">
+                                                                <div className="text-[10px] text-slate-500 font-mono truncate">
+                                                                    SN: {dev._serialNumber || 'N/A'}
+                                                                </div>
+                                                                {dev._serialNumber && netwatchLookup.has(dev._serialNumber) && (
+                                                                    <div className="px-1 bg-emerald-500/10 text-emerald-500 text-[8px] font-bold uppercase border border-emerald-500/20 rounded-sm flex items-center gap-0.5 shrink-0" title="Already linked with Netwatch (Location Inherited)">
+                                                                        <Activity className="w-2 h-2" />
+                                                                        Linked
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </td>
                                                         <td className="px-4 py-3">
