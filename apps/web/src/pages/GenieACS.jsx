@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PresetManagerModal from '@/components/genieacs/PresetManagerModal';
 import {
     useGenieACSDevices,
@@ -8,6 +8,7 @@ import {
     useCurrentUser,
     useSettings,
     useRouters,
+    useRouterNetwatch,
     useBulkPushConfigGenieAcs,
     useBulkRebootGenieAcs,
     useAppTimezone

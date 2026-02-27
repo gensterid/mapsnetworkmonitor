@@ -122,9 +122,9 @@ export const auth = betterAuth({
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // In production (HTTPS), cookies use Secure flag to prevent MITM session hijacking.
-        // In development (HTTP), Secure is disabled to allow login via http:// local IP.
-        useSecureCookies: process.env.NODE_ENV === 'production',
+        // Only use Secure cookies if the server URL is actually HTTPS.
+        // Set to false for HTTP deployments (e.g., Proxmox accessed via http://10.10.70.116).
+        useSecureCookies: resolvedBaseURL.startsWith('https://'),
     },
     trustedOrigins: resolvedTrustedOrigins,
 });
