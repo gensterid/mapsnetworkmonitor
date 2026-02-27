@@ -77,7 +77,21 @@ router.use(authMiddleware);
 router.get(
     '/',
     asyncHandler(async (req, res) => {
-        const routers = await routerService.findAll(req.user?.tenantId!, req.user?.id, req.user?.role);
+        let tenantId: string | string[] | undefined = req.user?.tenantId!;
+        const allTenants = req.query.all_tenants === 'true';
+
+        if (allTenants) {
+            if (req.user?.role === 'superadmin') {
+                // Superadmin sees everything
+                tenantId = undefined;
+            } else if (req.user?.role === 'admin') {
+                // Admin sees all authorized tenants
+                const { userService } = await import('../services/user.service.js');
+                tenantId = await userService.getAuthorizedTenants(req.user!.id);
+            }
+        }
+
+        const routers = await routerService.findAll(tenantId, req.user?.id, req.user?.role);
 
         // Remove sensitive data
         const sanitized = routers.map(({ passwordEncrypted, ...router }) => router);
@@ -138,7 +152,7 @@ router.post(
         const data = createRouterSchema.parse(req.body);
 
         // Lockdown billing/polling interval to Admin only
-        if (data.pollingIntervalMetrics !== 300 && req.user!.role !== 'admin') {
+        if (data.pollingIntervalMetrics !== 300 && req.user!.role !== 'admin' && req.user!.role !== 'superadmin') {
             throw ApiError.forbidden('Only administrators can set custom polling intervals');
         }
 
@@ -186,7 +200,7 @@ router.put(
         const data = updateRouterSchema.parse(req.body);
 
         // Lockdown billing/polling interval to Admin only
-        if (data.pollingIntervalMetrics !== undefined && req.user!.role !== 'admin') {
+        if (data.pollingIntervalMetrics !== undefined && req.user!.role !== 'admin' && req.user!.role !== 'superadmin') {
             throw ApiError.forbidden('Only administrators can change polling intervals');
         }
 

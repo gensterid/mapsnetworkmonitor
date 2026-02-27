@@ -15,10 +15,8 @@ export function AssignRouterModal({ user, isOpen, onClose }) {
     const { data: allRouters = [], isLoading: isLoadingRouters } = useQuery({
         queryKey: ['routers', 'admin-list'],
         queryFn: async () => {
-            // We need to fetch ALL routers regardless of assignment to assign them
-            // Ideally we need an endpoint that returns all routers for admin assignment usage
-            // But existing /api/routers returns all for admin.
-            const res = await apiClient.get('/routers');
+            // Fetch all routers across all managed ISPs for assignment
+            const res = await apiClient.get('/routers?all_tenants=true');
             return res.data.data;
         },
         enabled: isOpen,

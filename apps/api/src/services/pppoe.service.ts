@@ -323,8 +323,8 @@ class PppoeService {
                 filters.push(eq(pppoeSessions.tenantId, tenantId));
             }
 
-            // If user is not admin, filter by assigned routers
-            if (userId && userRole && userRole !== 'admin') {
+            // If user is not admin or superadmin, filter by assigned routers
+            if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
                 const assigned = await db
                     .select({ routerId: userRouters.routerId })
                     .from(userRouters)

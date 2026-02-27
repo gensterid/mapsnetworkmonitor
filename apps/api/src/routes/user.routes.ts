@@ -53,7 +53,17 @@ router.get(
     '/',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const users = await userService.findAll(req.user?.tenantId as string | undefined);
+        // Superadmin sees everything (global view)
+        // Others are strictly limited to their current active context
+        const isSuperadmin = req.user?.role === 'superadmin';
+        const tenantId = isSuperadmin ? undefined : (req.user?.tenantId as string);
+
+        // Safety check for non-superadmins
+        if (!isSuperadmin && !tenantId) {
+            return res.json({ data: [] });
+        }
+
+        const users = await userService.findAll(tenantId);
         res.json({ data: users });
     })
 );
@@ -180,7 +190,10 @@ router.get(
     requireOwnerOrAdmin((req) => req.params.id as string),
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const user = await userService.findById(id, req.user?.tenantId as string | undefined);
+        const isSuperadmin = req.user?.role === 'superadmin';
+        const tenantId = isSuperadmin ? undefined : (req.user?.tenantId as string);
+
+        const user = await userService.findById(id, tenantId);
 
         if (!user) {
             throw ApiError.notFound('User not found');

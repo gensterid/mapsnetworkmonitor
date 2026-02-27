@@ -1,4 +1,4 @@
-import { eq, desc, and, or, getTableColumns, sql } from 'drizzle-orm';
+import { eq, desc, and, or, getTableColumns, sql, inArray } from 'drizzle-orm';
 import { randomBytes } from 'crypto';
 import { db } from '../db/index.js';
 import {
@@ -104,7 +104,7 @@ export class RouterService {
      * Get all routers with their latest metrics and fastest interface speed
      */
     async findAll(
-        tenantId?: string,
+        tenantId?: string | string[],
         userId?: string,
         userRole?: string
     ): Promise<(Router & { latestMetrics?: RouterMetric; maxInterfaceSpeed?: string })[]> {
@@ -114,7 +114,13 @@ export class RouterService {
 
         // Tenant Isolation
         if (tenantId) {
-            filters.push(eq(routers.tenantId, tenantId));
+            if (Array.isArray(tenantId)) {
+                if (tenantId.length > 0) {
+                    filters.push(inArray(routers.tenantId, tenantId));
+                }
+            } else {
+                filters.push(eq(routers.tenantId, tenantId));
+            }
         }
 
         // If user is not admin, filter by assigned routers
@@ -130,7 +136,6 @@ export class RouterService {
                 return [];
             }
 
-            const { inArray } = await import('drizzle-orm');
             filters.push(inArray(routers.id, routerIds));
         }
 
