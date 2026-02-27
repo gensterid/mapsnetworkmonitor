@@ -333,7 +333,8 @@ export class RouterNetwatchService {
                                 target.host,
                                 target.name || target.host,
                                 latency,
-                                packetLoss
+                                packetLoss,
+                                target.status
                             );
                         } else {
                             await alertService.resolvePerformanceAlert(routerId, target.host);
@@ -351,7 +352,8 @@ export class RouterNetwatchService {
                                 target.host,
                                 target.name || target.host,
                                 0,
-                                packetLoss
+                                packetLoss,
+                                target.status
                             );
                         }
                     }

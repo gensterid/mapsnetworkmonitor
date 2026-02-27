@@ -1198,7 +1198,8 @@ export class AlertService {
         host: string,
         deviceName: string,
         latency: number,
-        packetLoss: number
+        packetLoss: number,
+        status?: string
     ): Promise<Alert | null> {
         const thresholds = await this.getThresholds();
 
@@ -1221,7 +1222,9 @@ export class AlertService {
 
         // User Request: Filter out 100% packet loss from "issues" list
         // 100% packet loss is already handled by "Device Down" (Netwatch) alerts which are more appropriate
-        if (packetLoss === 100) return null;
+        // FIX: Allow 100% loss alert ONLY if status is NOT 'down'. 
+        // This covers the case where Mikrotik thinks it's UP but API pings fail 100%.
+        if (packetLoss === 100 && status === 'down') return null;
 
         let title;
         if (isHighLatency && isPacketLoss) {
