@@ -302,9 +302,11 @@ export class RouterNetwatchService {
                 }
 
                 // Delete entries that no longer exist on MikroTik
-                const toDelete = existingEntries.filter(e => !processedHosts.has(e.host));
+                // CRITICAL: Only cleanup 'client' devices. Manual markers like ODP or OLT infrastructure
+                // should NOT be deleted automatically if they aren't on MikroTik.
+                const toDelete = existingEntries.filter(e => e.deviceType === 'client' && !processedHosts.has(e.host));
                 if (toDelete.length > 0) {
-                    logger.info({ routerId, count: toDelete.length }, 'Cleaning up deleted Netwatch entries');
+                    logger.info({ routerId, count: toDelete.length }, 'Cleaning up deleted Netwatch entries (Clients only)');
                     await tx.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map(e => e.id)));
                 }
             });
