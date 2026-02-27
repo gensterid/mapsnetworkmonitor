@@ -119,9 +119,11 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
             try {
                 const metricsIntervalMs = (router.pollingIntervalMetrics || 300) * 1000;
                 const now = Date.now();
-                const lastUpdatedTime = router.updatedAt ? new Date(router.updatedAt).getTime() : 0;
-                const timeSinceLastUpdate = now - lastUpdatedTime;
-                const isFullSync = timeSinceLastUpdate >= metricsIntervalMs || lastUpdatedTime === 0;
+                const lastFullSyncTime = router.lastFullSync ? new Date(router.lastFullSync).getTime() : 0;
+                const timeSinceLastFullSync = now - lastFullSyncTime;
+
+                // Full sync if it's been long enough or never happened
+                const isFullSync = timeSinceLastFullSync >= metricsIntervalMs || lastFullSyncTime === 0;
 
                 const needsDetection = await db.select({ count: count() })
                     .from(routerNetwatch)

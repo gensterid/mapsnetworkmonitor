@@ -211,7 +211,10 @@ export class RouterNetwatchService {
             const existingMap = new Map(existingEntries.map(e => [e.host, e]));
 
             await db.transaction(async (tx) => {
+                const processedHosts = new Set<string>();
+
                 for (const nw of mikrotikNetwatch) {
+                    processedHosts.add(nw.host);
                     const existing = existingMap.get(nw.host);
 
                     let status: 'up' | 'down' | 'unknown' = 'unknown';
@@ -267,6 +270,7 @@ export class RouterNetwatchService {
                             lastUp: nw.sinceUp,
                             lastDown: nw.sinceDown,
                             hasWebhook: !!nw.upScript?.includes('/api/webhook/netwatch') || !!nw.downScript?.includes('/api/webhook/netwatch'),
+                            tenantId: router.tenantId
                         };
 
                         if (nw.comment && availableInterfaces?.has(nw.comment)) {
@@ -295,6 +299,13 @@ export class RouterNetwatchService {
                             logger.warn({ err: cleanupErr?.message, host: nw.host }, 'Failed to smart-cleanup webhook script during sync');
                         }
                     }
+                }
+
+                // Delete entries that no longer exist on MikroTik
+                const toDelete = existingEntries.filter(e => !processedHosts.has(e.host));
+                if (toDelete.length > 0) {
+                    logger.info({ routerId, count: toDelete.length }, 'Cleaning up deleted Netwatch entries');
+                    await tx.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map(e => e.id)));
                 }
             });
         } catch (err: any) {

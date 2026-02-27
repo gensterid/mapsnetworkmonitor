@@ -540,6 +540,7 @@ export class RouterService {
                     boardName: info.boardName,
                     architecture: info.architecture,
                     updatedAt: new Date(),
+                    ...(isFullSync ? { lastFullSync: new Date() } : {}),
                 })
                 .where(eq(routers.id, id))
                 .returning();
