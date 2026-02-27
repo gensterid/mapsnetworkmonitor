@@ -110,8 +110,10 @@ export function errorMiddleware(
 
     // Handle all other errors
     const statusCode = (err as { statusCode?: number }).statusCode || 500;
-    // Temporarily expose the real error message in production to debug the 500 error
-    const message = err.message || 'Internal server error';
+    // In production, never expose internal error details to clients
+    const message = process.env.NODE_ENV === 'production'
+        ? 'Internal server error'
+        : err.message || 'Internal server error';
 
     logger.error({
         err: err?.message || String(err),

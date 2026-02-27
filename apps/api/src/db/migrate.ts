@@ -311,7 +311,28 @@ export async function runMigrations() {
             }
         }
 
-        // 3. Post-migration: Setup Default Tenant and Backfill
+        // 3. Ensure unique constraints exist (safe, no data loss)
+        const constraintMigrations = [
+            {
+                name: 'app_settings_tenant_key_unique',
+                check: sql`SELECT 1 FROM pg_constraint WHERE conname = 'app_settings_tenant_key_unique'`,
+                apply: sql`ALTER TABLE app_settings ADD CONSTRAINT app_settings_tenant_key_unique UNIQUE(tenant_id, key)`,
+            },
+        ];
+
+        for (const cm of constraintMigrations) {
+            try {
+                const exists = await db.execute(cm.check);
+                if (exists.length === 0) {
+                    logger.info(`Applying constraint migration: ${cm.name}`);
+                    await db.execute(cm.apply);
+                }
+            } catch (err) {
+                logger.warn({ err, constraint: cm.name }, `Constraint ${cm.name} may already exist or failed to apply`);
+            }
+        }
+
+        // 4. Post-migration: Setup Default Tenant and Backfill
         try {
             const tenantsCount = await db.execute(sql`SELECT count(*) FROM tenants`);
             const count = parseInt(tenantsCount[0]?.count as string || '0');

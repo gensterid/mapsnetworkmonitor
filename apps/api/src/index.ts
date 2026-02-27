@@ -113,6 +113,16 @@ app.use('/api', apiLimiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health check endpoint (no auth required)
+app.get('/api/health', (_req, res) => {
+    res.json({
+        status: 'ok',
+        uptime: process.uptime(),
+        environment: process.env.NODE_ENV || 'development',
+        timestamp: new Date().toISOString(),
+    });
+});
+
 // API routes
 app.use('/api', routes);
 app.use('/api/backup', backupRoutes);

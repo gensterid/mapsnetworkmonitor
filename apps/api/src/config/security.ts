@@ -23,9 +23,10 @@ export const apiLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000, // Increased from 20 to prevent false positives during session checks
+    max: 20, // Strict limit for brute-force protection (OWASP recommendation)
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: true, // Only count failed attempts — prevents false positives from session checks
     message: {
         error: 'Too Many Requests',
         message: 'Too many authentication attempts, please try again after 15 minutes',

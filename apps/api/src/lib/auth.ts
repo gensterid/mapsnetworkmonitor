@@ -122,9 +122,9 @@ export const auth = betterAuth({
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // IMPORTANT: Set useSecureCookies to false to allow login via http:// local IP.
-        // If true (default when baseURL is https), browsers will drop the auth cookie on http:// requests.
-        useSecureCookies: false,
+        // In production (HTTPS), cookies use Secure flag to prevent MITM session hijacking.
+        // In development (HTTP), Secure is disabled to allow login via http:// local IP.
+        useSecureCookies: process.env.NODE_ENV === 'production',
     },
     trustedOrigins: resolvedTrustedOrigins,
 });

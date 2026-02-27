@@ -31,11 +31,11 @@ fi
 npm install
 
 # 4. Database Migration & Schema Sync
-echo "🗄️ Running database migrations & schema sync..."
-# db:migrate handles custom column additions
+echo "🗄️ Running database migrations..."
+# db:migrate handles all schema changes safely (ALTER TABLE IF NOT EXISTS)
+# NOTE: db:push was removed because it causes destructive constraint recreation
+# (truncating app_settings table on every update)
 npm run db:migrate || { echo "❌ Database migration failed!"; exit 1; }
-# db:push ensures all tables (including Auth) exist
-npm run db:push || { echo "❌ Database schema push failed!"; exit 1; }
 
 # 5. Build Process
 echo "🏗️ Building applications..."
