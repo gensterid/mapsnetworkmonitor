@@ -176,7 +176,10 @@ const NetworkMap = ({
     const stableRealtimeTraffic = useDeepCompareMemoize(realtimeTraffic);
 
     // UI & Interactive State (Moved to top to prevent ReferenceError)
-    const [mapType, setMapType] = useState('satellite_dark');
+    const [mapType, setMapType] = useState(() => {
+        const saved = localStorage.getItem('map_type_preference');
+        return saved || 'roadmap'; // Default to roadmap for better initial load
+    });
     const [showLabels, setShowLabels] = useState(() => {
         const saved = localStorage.getItem('map_show_labels');
         return saved !== null ? JSON.parse(saved) : true;
@@ -217,7 +220,10 @@ const NetworkMap = ({
     const [isHeatmapMode, setIsHeatmapMode] = useState(false);
 
     // Quick Placement State
-    const [isPlacementModeOpen, setIsPlacementModeOpen] = useState(false);
+    const [isPlacementModeOpen, setIsPlacementModeOpen] = useState(() => {
+        const saved = localStorage.getItem('map_placement_mode_enabled');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
     const [selectedUnplacedDevice, setSelectedUnplacedDevice] = useState(null);
 
     // 2. Traffic Hub - Dual Rate for Performance
@@ -1594,7 +1600,10 @@ const NetworkMap = ({
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}
                             mapType={mapType}
-                            setMapType={setMapType}
+                            setMapType={(val) => {
+                                setMapType(val);
+                                localStorage.setItem('map_type_preference', val);
+                            }}
                             isHeatmapMode={isHeatmapMode}
                             setIsHeatmapMode={setIsHeatmapMode}
                             lineThickness={lineThickness}
@@ -1604,7 +1613,10 @@ const NetworkMap = ({
                             isSyncing={isSyncing}
                             onManualSync={handleManualSync}
                             isPlacementModeOpen={isPlacementModeOpen}
-                            setIsPlacementModeOpen={setIsPlacementModeOpen}
+                            setIsPlacementModeOpen={(val) => {
+                                setIsPlacementModeOpen(val);
+                                localStorage.setItem('map_placement_mode_enabled', JSON.stringify(val));
+                            }}
                             isFullscreen={isFullscreen}
                             onToggleFullscreen={() => {
                                 if (!document.fullscreenElement) {

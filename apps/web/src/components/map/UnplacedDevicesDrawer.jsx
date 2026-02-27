@@ -86,7 +86,7 @@ const UnplacedDevicesDrawer = ({
                         placeholder="Cari perangkat..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        autoFocus
+                        autoFocus={isOpen}
                     />
                     {searchQuery && (
                         <button

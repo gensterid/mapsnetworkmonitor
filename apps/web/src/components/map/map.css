@@ -24,9 +24,10 @@ svg.leaflet-zoom-animated {
 
 /* 
    FIX: Tile Gaps (Black Grid Lines) 
-   Corrects sub-pixel rendering issues in Leaflet/GoogleMutant
+   Corrects sub-pixel rendering issues in Leaflet for Standard TileLayers.
+   Scoped to avoid breaking Google Maps Mutant hybrid/satellite layers.
 */
-.leaflet-tile-container img {
+.leaflet-layer:not(.leaflet-google-mutant) .leaflet-tile-container img {
     /* Slight scale to overlap gaps */
     width: 256.5px !important;
     height: 256.5px !important;
