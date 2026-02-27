@@ -12,6 +12,7 @@ declare global {
                 name: string;
                 role: string;
                 tenantId?: string | null;
+                primaryTenantId?: string | null;
                 image?: string | null;
                 aiEnabled: boolean;
                 aiApiKey?: string | null;
@@ -50,7 +51,8 @@ export async function authMiddleware(
         }
 
         let userRole = (session.user as { role?: string }).role || 'user';
-        let tenantId = (session.user as { tenantId?: string }).tenantId;
+        let primaryTenantId = (session.user as { tenantId?: string }).tenantId;
+        let tenantId = primaryTenantId;
 
         // Tenant context override logic
         const requestedTenantId = req.headers['x-tenant-id'] as string;
@@ -75,6 +77,7 @@ export async function authMiddleware(
             name: session.user.name,
             role: userRole,
             tenantId: tenantId,
+            primaryTenantId: primaryTenantId,
             image: session.user.image,
             aiEnabled: (session.user as { aiEnabled?: boolean }).aiEnabled || false,
             aiApiKey: (session.user as { aiApiKey?: string }).aiApiKey,
@@ -113,7 +116,8 @@ export async function optionalAuthMiddleware(
 
         if (session?.user) {
             let userRole = (session.user as { role?: string }).role || 'user';
-            let tenantId = (session.user as { tenantId?: string }).tenantId;
+            let primaryTenantId = (session.user as { tenantId?: string }).tenantId;
+            let tenantId = primaryTenantId;
 
             if (userRole === 'superadmin') {
                 const requestedTenantId = req.headers['x-tenant-id'] as string;
@@ -128,6 +132,7 @@ export async function optionalAuthMiddleware(
                 name: session.user.name,
                 role: userRole,
                 tenantId: tenantId,
+                primaryTenantId: primaryTenantId,
                 image: session.user.image,
                 aiEnabled: (session.user as { aiEnabled?: boolean }).aiEnabled || false,
                 aiApiKey: (session.user as { aiApiKey?: string }).aiApiKey,

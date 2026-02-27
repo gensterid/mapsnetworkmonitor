@@ -54,8 +54,14 @@ router.get(
     requireAdmin,
     asyncHandler(async (req, res) => {
         // Superadmin sees everything (global view)
-        // Others are strictly limited to their current active context
+        // Others are strictly limited to their PRIMARY tenant context
         const isSuperadmin = req.user?.role === 'superadmin';
+
+        // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
+        if (!isSuperadmin && req.user?.tenantId !== req.user?.primaryTenantId) {
+            return res.json({ data: [] });
+        }
+
         const tenantId = isSuperadmin ? undefined : (req.user?.tenantId as string);
 
         // Safety check for non-superadmins
@@ -78,6 +84,11 @@ router.post(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const data = createUserSchema.parse(req.body);
+
+        // RBAC: Non-superadmins can only manage users in their Primary ISP
+        if (req.user?.role !== 'superadmin' && req.user?.tenantId !== req.user?.primaryTenantId) {
+            throw ApiError.forbidden('User management is only allowed in your primary ISP context');
+        }
 
         // RBAC: Only superadmin can create superadmin
         if (data.role === 'superadmin' && req.user?.role !== 'superadmin') {
@@ -191,6 +202,12 @@ router.get(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const isSuperadmin = req.user?.role === 'superadmin';
+
+        // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
+        if (!isSuperadmin && req.user?.tenantId !== req.user?.primaryTenantId) {
+            throw ApiError.forbidden('User management is only allowed in your primary ISP context');
+        }
+
         const tenantId = isSuperadmin ? undefined : (req.user?.tenantId as string);
 
         const user = await userService.findById(id, tenantId);
@@ -213,6 +230,12 @@ router.put(
     requireOwnerOrAdmin((req) => req.params.id as string),
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
+
+        // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
+        if (req.user?.role !== 'superadmin' && req.user?.tenantId !== req.user?.primaryTenantId) {
+            throw ApiError.forbidden('User management is only allowed in your primary ISP context');
+        }
+
         const { additionalTenantIds, ...userData } = updateUserSchema.parse(req.body);
 
         // RBAC: Only superadmin can change the primary tenantId
@@ -275,6 +298,12 @@ router.put(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
+
+        // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
+        if (req.user?.role !== 'superadmin' && req.user?.tenantId !== req.user?.primaryTenantId) {
+            throw ApiError.forbidden('User management is only allowed in your primary ISP context');
+        }
+
         const { role } = updateRoleSchema.parse(req.body);
 
         // Fetch target user to check their current role
@@ -339,6 +368,12 @@ router.put(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
+
+        // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
+        if (req.user?.role !== 'superadmin' && req.user?.tenantId !== req.user?.primaryTenantId) {
+            throw ApiError.forbidden('User management is only allowed in your primary ISP context');
+        }
+
         const { password } = updatePasswordSchema.parse(req.body);
 
         // Fetch target user
@@ -391,6 +426,11 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
+
+        // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
+        if (req.user?.role !== 'superadmin' && req.user?.tenantId !== req.user?.primaryTenantId) {
+            throw ApiError.forbidden('User management is only allowed in your primary ISP context');
+        }
 
         // Prevent admin from deleting themselves
         if (id === req.user!.id) {
