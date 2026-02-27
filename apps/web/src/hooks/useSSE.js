@@ -75,7 +75,7 @@ export function useSSE() {
             // Invalidate all map-related data
             queryClient.invalidateQueries({ queryKey: ['routers'] });
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
-            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+            queryClient.invalidateQueries({ queryKey: ['pppoe-all'] });
             queryClient.invalidateQueries({ queryKey: ['onus-map'] });
 
             // Optional: Show a small notification if it's a specific change

@@ -143,11 +143,11 @@ const NetworkMap = ({
             : formatted;
     }, [netwatchDataBatch, filteredRouterId]);
 
-    // Fetch PPPoE
+    // Fetch PPPoE (all sessions — the map/unplaced logic handles placed vs unplaced filtering)
     const { data: pppoeData } = useQuery({
-        queryKey: ['pppoe-map', filteredRouterId],
+        queryKey: ['pppoe-all', filteredRouterId],
         queryFn: async () => {
-            const url = filteredRouterId ? `/pppoe/map?routerId=${filteredRouterId}` : '/pppoe/map';
+            const url = filteredRouterId ? `/pppoe?routerId=${filteredRouterId}` : '/pppoe';
             const res = await apiClient.get(url);
             return res.data.data || [];
         },
@@ -483,9 +483,9 @@ const NetworkMap = ({
             return res.data.data;
         },
         onMutate: async ({ pppoeId, data }) => {
-            await queryClient.cancelQueries({ queryKey: ['pppoe-map'] });
-            const previousData = queryClient.getQueryData(['pppoe-map']);
-            queryClient.setQueryData(['pppoe-map'], (old) => {
+            await queryClient.cancelQueries({ queryKey: ['pppoe-all'] });
+            const previousData = queryClient.getQueryData(['pppoe-all']);
+            queryClient.setQueryData(['pppoe-all'], (old) => {
                 if (!old || !Array.isArray(old)) return old;
                 return old.map(item =>
                     item.id === pppoeId ? { ...item, ...data } : item
@@ -495,11 +495,11 @@ const NetworkMap = ({
         },
         onError: (err, variables, context) => {
             if (context?.previousData) {
-                queryClient.setQueryData(['pppoe-map'], context.previousData);
+                queryClient.setQueryData(['pppoe-all'], context.previousData);
             }
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['pppoe-map'] });
+            queryClient.invalidateQueries({ queryKey: ['pppoe-all'] });
         },
     });
 
