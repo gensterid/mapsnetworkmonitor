@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, aliasedTable } from 'drizzle-orm';
+import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, aliasedTable, count } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -331,11 +331,17 @@ export class RouterNetwatchService {
      * Measure latency for netwatch targets
      */
     async measureLatency(routerId: string, routerName: string, conn: any, targets: any[]): Promise<void> {
-        // Increase concurrency for faster batch processing (was 5)
-        const CONCURRENCY_LIMIT = 20;
+        // Dynamic concurrency based on total device count to prevent API stress
+        const totalNetwatch = await db.select({ count: count() }).from(routerNetwatch).then(res => res[0]?.count || 0);
+
+        let concurrencyLimit = 20;
+        if (totalNetwatch > 500) concurrencyLimit = 5;
+        else if (totalNetwatch > 200) concurrencyLimit = 10;
+        else if (totalNetwatch > 50) concurrencyLimit = 15;
+
         const chunks = [];
-        for (let i = 0; i < targets.length; i += CONCURRENCY_LIMIT) {
-            chunks.push(targets.slice(i, i + CONCURRENCY_LIMIT));
+        for (let i = 0; i < targets.length; i += concurrencyLimit) {
+            chunks.push(targets.slice(i, i + concurrencyLimit));
         }
 
         for (const chunk of chunks) {
@@ -346,9 +352,9 @@ export class RouterNetwatchService {
                         return;
                     }
 
-                    // Optimized ping: 2 packets, 100ms interval = ~200ms per host
-                    // This prevents 504 timeouts when syncing many hosts
-                    const { latency, packetLoss } = await measurePing(conn, target.host, 2, '100ms', '1000ms');
+                    // Stability-First Ping: 2 packets, 300ms interval, 5000ms timeout
+                    // This prevents API stress and false 100% packet loss warnings
+                    const { latency, packetLoss } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
                     if (latency >= 0) {
                         await db.update(routerNetwatch).set({
                             latency: latency,
