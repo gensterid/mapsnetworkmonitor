@@ -95,7 +95,7 @@ router.post('/trigger-manual', requireAdmin, async (_req, res) => {
 // Delete Backup
 router.delete('/:filename', requireAdmin, async (req, res) => {
     try {
-        await backupService.deleteBackup(req.params.filename);
+        await backupService.deleteBackup(req.params.filename as string);
         res.json({ message: 'Backup deleted successfully' });
     } catch (error: any) {
         logger.error({ err: error }, 'Delete backup error');
@@ -106,7 +106,7 @@ router.delete('/:filename', requireAdmin, async (req, res) => {
 // Restore from Local File
 router.post('/restore-local/:filename', requireAdmin, async (req, res) => {
     try {
-        await backupService.restoreFromHistory(req.params.filename);
+        await backupService.restoreFromHistory(req.params.filename as string);
         res.json({ message: 'Database restored successfully from history' });
     } catch (error: any) {
         logger.error({ err: error }, 'Restore local error');
