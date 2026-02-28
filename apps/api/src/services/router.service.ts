@@ -695,10 +695,10 @@ export class RouterService {
     /**
      * Get router metrics (latest)
      */
-    async getLatestMetrics(routerId: string, tenantId?: string): Promise<RouterMetric | undefined> {
+    async getLatestMetrics(routerId: string, tenantId?: string): Promise<RouterMetric | null> {
         if (tenantId) {
             const router = await this.findById(routerId, tenantId);
-            if (!router) return undefined;
+            if (!router) return null;
         }
         const [metric] = await db
             .select()
@@ -706,7 +706,7 @@ export class RouterService {
             .where(eq(routerMetrics.routerId, routerId))
             .orderBy(desc(routerMetrics.recordedAt))
             .limit(1);
-        return metric;
+        return metric || null;
     }
 
     /**
