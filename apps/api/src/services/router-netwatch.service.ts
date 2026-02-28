@@ -302,13 +302,25 @@ export class RouterNetwatchService {
                 }
 
                 // Delete entries that no longer exist on MikroTik
-                // CRITICAL: Only cleanup 'client' devices. Manual markers like ODP or OLT infrastructure
-                // should NOT be deleted automatically if they aren't on MikroTik.
-                const toDelete = existingEntries.filter(e => e.deviceType === 'client' && !processedHosts.has(e.host));
+                // CRITICAL: Only cleanup 'client' devices that HAVE a host IP.
+                // Manual markers like ODP/OLT or virtual devices (no host) should NOT be deleted.
+                const toDelete = existingEntries.filter(e =>
+                    e.deviceType === 'client' &&
+                    e.host &&
+                    e.host !== '' &&
+                    e.host !== '0.0.0.0' &&
+                    !processedHosts.has(e.host)
+                );
+
                 if (toDelete.length > 0) {
-                    logger.info({ routerId, count: toDelete.length }, 'Cleaning up deleted Netwatch entries (Clients only)');
+                    logger.info({ routerId, count: toDelete.length }, 'Cleaning up deleted Netwatch entries (Clients with IP only)');
                     await tx.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map(e => e.id)));
                 }
+
+                // IMPORTANT: Update lastCheck for ALL entries for this router to show the sync process is active
+                await tx.update(routerNetwatch)
+                    .set({ lastCheck: new Date() })
+                    .where(eq(routerNetwatch.routerId, routerId));
             });
         } catch (err: any) {
             logger.error({ err: err?.message || String(err), router: routerName }, 'Failed to sync netwatch');
@@ -329,6 +341,11 @@ export class RouterNetwatchService {
         for (const chunk of chunks) {
             await Promise.all(chunk.map(async (target) => {
                 try {
+                    // Skip ping for disabled devices
+                    if (target.name?.includes('[DISABLED]')) {
+                        return;
+                    }
+
                     // Optimized ping: 2 packets, 100ms interval = ~200ms per host
                     // This prevents 504 timeouts when syncing many hosts
                     const { latency, packetLoss } = await measurePing(conn, target.host, 2, '100ms', '1000ms');

@@ -130,7 +130,9 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
                     .where(and(eq(routerNetwatch.routerId, router.id), eq(routerNetwatch.hasWebhook, false)))
                     .then(res => (res[0]?.count || 0) > 0);
 
-                const includeNetwatch = !(router.useWebhook && !isFullSync && !needsDetection);
+                // Ensure Netwatch is always polled at the Tier Strategy interval
+                // even if Webhook is enabled, to keep it "same as before" and redundant.
+                const includeNetwatch = true;
 
                 if (!includeNetwatch && !isFullSync) {
                     return { success: true, timeout: false, skipped: true };
@@ -199,6 +201,21 @@ async function pollAllRouters(): Promise<void> {
         const duration = ((Date.now() - pollingStartTime) / 1000).toFixed(1);
         const timeoutMsg = totalTimeout > 0 ? `, ${totalTimeout} timeout` : '';
         logger.info(`✅ Polling complete: ${totalSuccess} success, ${totalFail} failed${timeoutMsg} (${duration}s)`);
+
+        // Dynamic Interval Scaling: Restart interval if the duration changed
+        const newIntervalMs = currentScalingConfig.intervalMs;
+        const currentIntervalMs = (pollingInterval as any)?._idleTimeout || 0; // Simple check for current interval
+
+        if (pollingInterval && newIntervalMs !== currentIntervalMs && currentIntervalMs > 0) {
+            logger.info({
+                oldInterval: currentIntervalMs / 1000,
+                newInterval: newIntervalMs / 1000,
+                strategy: currentScalingConfig.strategy
+            }, '🔄 Polling interval adapted to scaling tier');
+
+            clearInterval(pollingInterval);
+            pollingInterval = setInterval(pollAllRouters, newIntervalMs);
+        }
     } catch (error) {
         logger.error({ err: error }, '❌ Global polling error');
     } finally {
@@ -351,7 +368,11 @@ export async function startScheduler(): Promise<void> {
     // We use a frequent heartbeat and internal checks if needed, 
     // but here we keep the existing interval structure for simplicity, 
     // now iterating over tenants inside each function.
-    pollingInterval = setInterval(pollAllRouters, 2 * 60 * 1000); // 2 min default
+
+    // Dynamic interval based on device count
+    const intervalMs = currentScalingConfig?.intervalMs || 2 * 60 * 1000;
+    pollingInterval = setInterval(pollAllRouters, intervalMs);
+
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
     oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
     oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default

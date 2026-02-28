@@ -842,6 +842,11 @@ export class AlertService {
             return null;
         }
 
+        // Suppress alerts for disabled devices
+        if (deviceName?.includes('[DISABLED]')) {
+            return null;
+        }
+
         logger.debug({ host, status, routerId }, '[ALERT] createNetwatchAlert called');
 
         // If status is UP, resolve any existing DOWN alerts for this host
@@ -1204,6 +1209,11 @@ export class AlertService {
         const thresholds = await this.getThresholds();
 
         if (!thresholds.alertsEnabled) return null;
+
+        // Suppress alerts for disabled devices
+        if (deviceName?.includes('[DISABLED]')) {
+            return null;
+        }
 
         const isHighLatency = latency > 100;
         const isPacketLoss = packetLoss > 0;
