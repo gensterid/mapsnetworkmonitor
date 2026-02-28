@@ -694,6 +694,11 @@ export default function Routers() {
                                                             )} />
                                                             {router.host}:{router.port}
                                                         </div>
+                                                        {router.status !== 'online' && router.lastErrorMessage && (
+                                                            <p className="text-[10px] text-red-400 mt-1 line-clamp-1 italic">
+                                                                {router.lastErrorMessage}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
 
@@ -807,13 +812,20 @@ export default function Routers() {
                                         {filteredRouters.map((router) => (
                                             <tr key={router.id} className="hover:bg-slate-800/30 transition-colors group">
                                                 <td className="px-4 py-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={clsx("w-2 h-2 rounded-full",
-                                                            router.status === 'online' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500"
-                                                        )}></span>
-                                                        <span className="text-[10px] text-slate-500 uppercase font-medium">
-                                                            {router.status === 'online' ? "Online" : "Offline"}
-                                                        </span>
+                                                    <div className="flex flex-col gap-0.5">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={clsx("w-2 h-2 rounded-full",
+                                                                router.status === 'online' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500"
+                                                            )}></span>
+                                                            <span className="text-[10px] text-slate-500 uppercase font-medium">
+                                                                {router.status === 'online' ? "Online" : "Offline"}
+                                                            </span>
+                                                        </div>
+                                                        {router.status !== 'online' && router.lastErrorMessage && (
+                                                            <div className="text-[9px] text-red-500/80 italic max-w-[150px] truncate" title={router.lastErrorMessage}>
+                                                                {router.lastErrorMessage}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">

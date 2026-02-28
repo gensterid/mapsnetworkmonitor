@@ -574,60 +574,60 @@ export class RouterService {
 
             // Classify the error with human readable messages
             let friendlyError = 'API Error';
-            let isConnectionError = false;
 
             const lowErrMsg = errMsg.toLowerCase();
 
             if (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password')) {
                 friendlyError = 'Salah Password / Username';
-                isConnectionError = true;
             } else if (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout')) {
                 friendlyError = 'Connection Timeout';
-                isConnectionError = true;
             } else if (lowErrMsg.includes('econnrefused')) {
                 friendlyError = 'Connection Refused (API Service Off?)';
-                isConnectionError = true;
             } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect') || lowErrMsg.includes('enotfound') || lowErrMsg.includes('eai_again')) {
                 friendlyError = 'Mikrotik Mati / DNS Error / Unreachable';
-                isConnectionError = true;
             } else if (lowErrMsg.includes('econnreset') || lowErrMsg.includes('epipe') || lowErrMsg.includes('socket hang up')) {
                 friendlyError = 'API Terputus (Connection Reset)';
-                isConnectionError = true;
             } else if (lowErrMsg.includes('network') || lowErrMsg.includes('unreachable')) {
                 friendlyError = 'Network Issue / Unreachable';
-                isConnectionError = true;
-            }
-
-            if (isConnectionError) {
-                const [updatedRouter] = await db
-                    .update(routers)
-                    .set({
-                        status: 'offline',
-                        lastErrorMessage: friendlyError,
-                        updatedAt: new Date(),
-                    })
-                    .where(eq(routers.id, id))
-                    .returning();
-
-                // Create alert if status changed from online to offline
-                if (previousStatus === 'online') {
-                    try {
-                        await alertService.createStatusChangeAlert(
-                            id,
-                            router.name,
-                            previousStatus,
-                            'offline',
-                            friendlyError // Pass the specific reason
-                        );
-                    } catch (alertError: any) {
-                        logger.error({ err: alertError?.message || String(alertError) }, 'Failed to create offline alert');
-                    }
-                }
-                return updatedRouter;
             } else {
-                logger.error({ err: errMsg, router: router.host }, 'Non-connection error during refresh');
-                return router;
+                // Fallback for unclassified errors
+                friendlyError = `API Error: ${errMsg.substring(0, 50)}${errMsg.length > 50 ? '...' : ''}`;
             }
+
+            // Always update status to offline if an error occurred during refresh
+            const [updatedRouter] = await db
+                .update(routers)
+                .set({
+                    status: 'offline',
+                    lastErrorMessage: friendlyError,
+                    updatedAt: new Date(),
+                })
+                .where(eq(routers.id, id))
+                .returning();
+
+            // Create alert if status changed from online to offline
+            if (previousStatus === 'online') {
+                try {
+                    await alertService.createStatusChangeAlert(
+                        id,
+                        router.name,
+                        previousStatus,
+                        'offline',
+                        friendlyError
+                    );
+                } catch (alertError: any) {
+                    logger.error({ err: alertError?.message || String(alertError) }, 'Failed to create offline alert');
+                }
+            }
+
+            // Broadcast the update so frontend map and lists refresh immediately
+            eventEmitter.broadcast('map_update', {
+                type: 'router',
+                id: id,
+                action: 'update',
+            });
+
+            return updatedRouter;
         } finally {
             if (conn) {
                 try {
