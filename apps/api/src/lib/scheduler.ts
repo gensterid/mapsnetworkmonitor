@@ -1,3 +1,4 @@
+// Polling scheduler for MikroTik devices and other services
 import { routerService, settingsService, oltService, genieacsService, backupService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
