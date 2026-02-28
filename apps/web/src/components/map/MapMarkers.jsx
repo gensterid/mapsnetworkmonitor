@@ -828,11 +828,12 @@ export const SmartMarker = ({
     latency,
     packetLoss,
     hasWebhook,
+    lastErrorMessage,
     draggable,
     onDragEnd,
     onClick,
-    eventHandlers, // Destructure to prevent leakage into props
-    id, // NEW: Need ID to check hover context
+    eventHandlers,
+    id,
     children,
     ...props
 }) => {
@@ -850,9 +851,10 @@ export const SmartMarker = ({
         latency: safeLatency,
         packetLoss: safePacketLoss,
         hasWebhook,
+        lastErrorMessage,
         lastRxPower: props.lastRxPower || props.last_rx_power || null,
         host: props.host || null
-    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, props.lastRxPower, props.last_rx_power, props.host]);
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, props.lastRxPower, props.last_rx_power, props.host]);
 
     return (
         <DraggableMarker
@@ -861,13 +863,14 @@ export const SmartMarker = ({
             draggable={draggable}
             onDragEnd={onDragEnd}
             onClick={onClick}
-            eventHandlers={eventHandlers} // Fix: Pass eventHandlers (mouseover/out)
-            status={status} // Pass status for cluster icon logic
-            type={type} // NEW: Pass type for cluster logic (fixes ODP color)
-            latency={safeLatency} // New: Pass for cluster color logic
-            packetLoss={safePacketLoss} // New: Pass for cluster color logic
-            lastRxPower={props.lastRxPower || props.last_rx_power || null} // New: Pass for cluster color logic
-            host={props.host} // New: Pass for cluster color logic (Smart ODP)
+            eventHandlers={eventHandlers}
+            status={status}
+            type={type}
+            latency={safeLatency}
+            packetLoss={safePacketLoss}
+            lastErrorMessage={lastErrorMessage}
+            lastRxPower={props.lastRxPower || props.last_rx_power || null}
+            host={props.host}
             {...props}
         >
             {children}
@@ -902,6 +905,7 @@ export const arePropsEqual = (prev, next) => {
         prev.draggable === next.draggable &&
         prev.latency === next.latency &&
         prev.packetLoss === next.packetLoss &&
+        prev.lastErrorMessage === next.lastErrorMessage &&
         prev.type === next.type &&
         prev.small === next.small &&
         prev.icon === next.icon &&

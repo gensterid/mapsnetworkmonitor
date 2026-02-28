@@ -62,6 +62,7 @@ export const createDeviceIcon = ({
     lastRxPower = null,
     host = null,
     hasWebhook = false,
+    lastErrorMessage = null,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
@@ -82,23 +83,38 @@ export const createDeviceIcon = ({
         normalizedStatus = 'offline';
     }
     // Smart Warning: ODP only shows warning if it has an IP host (monitored)
-    // PPPoE always supports warnings as it has an inherent IP
     else if (hasPerformanceIssue && (type !== 'odp' || host)) {
         normalizedStatus = 'warning';
     } else if (type === 'odp') {
-        normalizedStatus = 'odp'; // Orange
+        normalizedStatus = 'odp';
     } else if (type === 'pppoe') {
-        normalizedStatus = 'pppoe'; // Purple
+        normalizedStatus = 'pppoe';
     } else {
-        normalizedStatus = 'online'; // Green
+        normalizedStatus = 'online';
+    }
+
+    // API Error Detection (specific for Routers)
+    let apiErrorIcon = null;
+    let apiErrorTitle = '';
+    if (type === 'router' && lastErrorMessage) {
+        const msg = lastErrorMessage.toLowerCase();
+        if (msg.includes('password') || msg.includes('login') || msg.includes('auth')) {
+            apiErrorIcon = 'lock';
+            apiErrorTitle = 'Salah Password / Auth Error';
+        } else if (msg.includes('timeout') || msg.includes('unreachable') || msg.includes('network') || msg.includes('dns')) {
+            apiErrorIcon = 'link_off';
+            apiErrorTitle = 'Koneksi Terputus / VPN Problem / RTO';
+        } else if (msg.includes('refused') || msg.includes('port') || msg.includes('socket')) {
+            apiErrorIcon = 'terminal';
+            apiErrorTitle = 'API Port Bermasalah / Connection Refused';
+        }
     }
 
     const sizeClass = small ? 'device-icon--small' : '';
     const statusClass = `device-icon--${normalizedStatus}`;
     const iconSize = small ? 32 : 44;
-    const iconFontSize = small ? 18 : 28; // Smaller icon font to fit in halo
+    const iconFontSize = small ? 18 : 28;
 
-    // Create HTML with Halo + Glow structure
     const html = `
         <div class="device-icon ${config.colorClass} ${statusClass} ${sizeClass}">
             <div class="device-icon__badge">
@@ -108,6 +124,10 @@ export const createDeviceIcon = ({
                 ${hasWebhook ? `
                 <div class="device-icon__webhook" title="Real-time Webhook Active">
                     <span class="material-symbols-outlined">bolt</span>
+                </div>` : ''}
+                ${apiErrorIcon ? `
+                <div class="device-icon__api-error" title="${apiErrorTitle}: ${lastErrorMessage}">
+                    <span class="material-symbols-outlined">${apiErrorIcon}</span>
                 </div>` : ''}
             </div>
             ${showLabel && name ? `<span class="device-icon__label">${escapeHtml(name)}</span>` : ''}

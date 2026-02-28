@@ -1162,6 +1162,7 @@ const NetworkMap = ({
                     small={false}
                     latency={router.latency || (router.latestMetrics?.latency)}
                     packetLoss={router.packetLoss || (router.latestMetrics?.packetLoss)}
+                    lastErrorMessage={router.lastErrorMessage}
                     draggable={isEditMode}
                     onClick={null} // Click now handled by Popup
                     eventHandlers={{
