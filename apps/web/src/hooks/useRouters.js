@@ -3,16 +3,22 @@ import { routerService } from '@/lib/api';
 
 // Query Keys
 export const routerKeys = {
-    all: ['routers'],
-    lists: () => [...routerKeys.all, 'list'],
-    detail: (id) => [...routerKeys.all, 'detail', id],
-    interfaces: (id) => [...routerKeys.detail(id), 'interfaces'],
-    metrics: (id) => [...routerKeys.detail(id), 'metrics'],
-    metricsHistory: (id) => [...routerKeys.detail(id), 'metrics', 'history'],
-    netwatch: (id) => [...routerKeys.detail(id), 'netwatch'],
-    hotspot: (id) => [...routerKeys.detail(id), 'hotspot'],
-    ppp: (id) => [...routerKeys.detail(id), 'ppp'],
-    pingLatencies: (id) => [...routerKeys.detail(id), 'pingLatencies'],
+    all: (tenantId) => ['routers', tenantId || 'default'],
+    lists: (tenantId) => [...routerKeys.all(tenantId), 'list'],
+    detail: (tenantId, id) => [...routerKeys.all(tenantId), 'detail', id],
+    interfaces: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'interfaces'],
+    metrics: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'metrics'],
+    metricsHistory: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'metrics', 'history'],
+    netwatch: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'netwatch'],
+    hotspot: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'hotspot'],
+    ppp: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'ppp'],
+    pingLatencies: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'pingLatencies'],
+};
+
+// ==================== Helpers ====================
+const getActiveTenantId = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('active-tenant-id');
 };
 
 // ==================== Queries ====================
@@ -21,8 +27,9 @@ export const routerKeys = {
  * Hook to fetch all routers
  */
 export function useRouters(options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.lists(),
+        queryKey: routerKeys.lists(tenantId),
         queryFn: () => routerService.getAll(),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
@@ -34,8 +41,9 @@ export function useRouters(options = {}) {
  * Hook to fetch a single router by ID
  */
 export function useRouter(id, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.detail(id),
+        queryKey: routerKeys.detail(tenantId, id),
         queryFn: () => routerService.getById(id),
         staleTime: 30 * 1000,
         enabled: !!id,
@@ -52,8 +60,9 @@ export function useRouter(id, options = {}) {
  * Hook to fetch router interfaces
  */
 export function useRouterInterfaces(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.interfaces(routerId),
+        queryKey: routerKeys.interfaces(tenantId, routerId),
         queryFn: () => routerService.getInterfaces(routerId),
         staleTime: 10 * 1000,
         refetchInterval: 10 * 1000,
@@ -66,8 +75,9 @@ export function useRouterInterfaces(routerId, options = {}) {
  * Hook to fetch router metrics
  */
 export function useRouterMetrics(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.metrics(routerId),
+        queryKey: routerKeys.metrics(tenantId, routerId),
         queryFn: () => routerService.getMetrics(routerId),
         staleTime: 10 * 1000,
         refetchInterval: 10 * 1000,
@@ -80,8 +90,9 @@ export function useRouterMetrics(routerId, options = {}) {
  * Hook to fetch router metrics history
  */
 export function useRouterMetricsHistory(routerId, limit = 100, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.metricsHistory(routerId),
+        queryKey: routerKeys.metricsHistory(tenantId, routerId),
         queryFn: () => routerService.getMetricsHistory(routerId, limit),
         staleTime: 60 * 1000,
         enabled: !!routerId,
@@ -93,8 +104,9 @@ export function useRouterMetricsHistory(routerId, limit = 100, options = {}) {
  * Hook to fetch router netwatch entries
  */
 export function useRouterNetwatch(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.netwatch(routerId),
+        queryKey: routerKeys.netwatch(tenantId, routerId),
         queryFn: () => routerService.getNetwatch(routerId),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
@@ -109,8 +121,9 @@ export function useRouterNetwatch(routerId, options = {}) {
  * Hook to fetch active hotspot users
  */
 export function useRouterHotspotActive(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.hotspot(routerId),
+        queryKey: routerKeys.hotspot(tenantId, routerId),
         queryFn: () => routerService.getHotspotActive(routerId),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
@@ -123,8 +136,9 @@ export function useRouterHotspotActive(routerId, options = {}) {
  * Hook to fetch active PPP connections
  */
 export function useRouterPppActive(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.ppp(routerId),
+        queryKey: routerKeys.ppp(tenantId, routerId),
         queryFn: () => routerService.getPppActive(routerId),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
@@ -139,8 +153,9 @@ import routerServiceDirect from '@/lib/api/services/router.service';
  * Hook to fetch ping latencies from a router
  */
 export function usePingLatencies(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: routerKeys.pingLatencies(routerId),
+        queryKey: routerKeys.pingLatencies(tenantId, routerId),
         queryFn: () => {
             console.log(`[usePingLatencies] Fetching latencies for router ${routerId}`);
 
@@ -334,8 +349,9 @@ export function useSyncNetwatch() {
  * Hook to fetch real-time SNMP traffic
  */
 export function useSnmpTraffic(routerId, enabled = false) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: [...routerKeys.detail(routerId), 'snmp-traffic'],
+        queryKey: [...routerKeys.detail(tenantId, routerId), 'snmp-traffic'],
         queryFn: () => routerService.getSnmpTraffic(routerId),
         enabled: !!routerId && enabled,
         refetchInterval: 2000, // Poll every 2 seconds

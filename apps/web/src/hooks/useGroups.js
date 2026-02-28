@@ -3,9 +3,15 @@ import { groupService } from '@/lib/api';
 
 // Query Keys
 export const groupKeys = {
-    all: ['groups'],
-    lists: () => [...groupKeys.all, 'list'],
-    detail: (id) => [...groupKeys.all, 'detail', id],
+    all: (tenantId) => ['groups', tenantId || 'default'],
+    lists: (tenantId) => [...groupKeys.all(tenantId), 'list'],
+    detail: (tenantId, id) => [...groupKeys.all(tenantId), 'detail', id],
+};
+
+// ==================== Helpers ====================
+const getActiveTenantId = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('active-tenant-id');
 };
 
 // ==================== Queries ====================
@@ -14,8 +20,9 @@ export const groupKeys = {
  * Hook to fetch all groups
  */
 export function useGroups(options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: groupKeys.lists(),
+        queryKey: groupKeys.lists(tenantId),
         queryFn: () => groupService.getAll(),
         staleTime: 5 * 60 * 1000,
         ...options,
@@ -26,8 +33,9 @@ export function useGroups(options = {}) {
  * Hook to fetch a group by ID
  */
 export function useGroup(id, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: groupKeys.detail(id),
+        queryKey: groupKeys.detail(tenantId, id),
         queryFn: () => groupService.getById(id),
         enabled: !!id,
         ...options,

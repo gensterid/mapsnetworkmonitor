@@ -98,7 +98,14 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
         .slice(0, 5);
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-500">
+        <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Dashboard Header / Status */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/40 px-3 py-1.5 rounded-full border border-slate-700/50">
+                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Data Freshness: {formatDateWithTimezone(new Date(), timezone)}</span>
+                </div>
+            </div>
 
             {/* Quick Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

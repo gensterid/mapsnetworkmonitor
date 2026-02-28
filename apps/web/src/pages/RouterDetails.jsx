@@ -56,6 +56,24 @@ const formatBitrate = (bits) => {
     return parseFloat((bits / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+// Helper to format date to local string or relative time
+function formatLastSync(date) {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const now = new Date();
+    const diffMs = now - d;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 import NetworkMap from '@/components/NetworkMap';
 import RouterAiDiagnosis from '@/components/RouterAiDiagnosis';
 
@@ -1744,6 +1762,24 @@ function PppoeTab({ routerId }) {
     );
 }
 
+// Helper to format date to local string or relative time
+function formatLastSync(date) {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const now = new Date();
+    const diffMs = now - d;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 export default function RouterDetails() {
     const { id } = useParams();
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -1932,20 +1968,20 @@ export default function RouterDetails() {
                                     {router?.status === 'online' ? 'Online' : 'Offline'}
                                 </span>
                             </div>
-                            <div className="flex items-center gap-4 mt-1 text-sm text-slate-400">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-sm text-slate-400">
                                 <div className="flex items-center gap-1.5">
-                                    <MapPin className="w-3.5 h-3.5" />
-                                    {router?.host}:{router?.port}
+                                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>{router?.host}:{router?.port}</span>
                                 </div>
-                                {router?.location && (
-                                    <div className="flex items-center gap-1.5">
-                                        <MapPin className="w-3.5 h-3.5" />
-                                        {router.location}
-                                    </div>
-                                )}
+                                <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-700"></div>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                    <Clock className="w-3.5 h-3.5" />
+                                    <span>Last Sync: {formatLastSync(router?.lastSeen || router?.updatedAt)}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
+
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         {/* Live Mode Toggle */}
                         <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
@@ -1999,15 +2035,12 @@ export default function RouterDetails() {
                 {activeTab === 'dashboard' && (
                     <DashboardTab router={router} metrics={metrics} interfaces={interfaces} />
                 )}
-
                 {activeTab === 'netwatch' && (
                     <NetwatchTab routerId={id} netwatch={mergedNetwatch} onRefresh={refetchNetwatch} />
                 )}
-
                 {activeTab === 'pppoe' && (
                     <PppoeTab routerId={id} />
                 )}
-
                 {activeTab === 'map' && (
                     <MapTab
                         router={router}

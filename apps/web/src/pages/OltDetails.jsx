@@ -28,6 +28,24 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 
+// Helper to format date to local string or relative time
+function formatLastSync(date) {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const now = new Date();
+    const diffMs = now - d;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
 // Stats Card Component
 function StatsCard({ icon: Icon, label, value, color = "blue", subValue }) {
     const colorClasses = {
@@ -184,7 +202,14 @@ export default function OltDetails() {
                                 {olt.status}
                             </span>
                         </div>
-                        <p className="text-sm text-slate-400">{olt.host} • {olt.type || 'Generic'}</p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-sm text-slate-400">
+                            <p>{olt.host} • {olt.type || 'Generic'}</p>
+                            <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-700"></div>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <Clock className="w-3.5 h-3.5" />
+                                <span>Last Sync: {formatLastSync(olt.updatedAt)}</span>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

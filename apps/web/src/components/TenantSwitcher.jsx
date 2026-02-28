@@ -46,7 +46,15 @@ const TenantSwitcher = () => {
         }
 
         setIsOpen(false);
-        window.location.reload();
+
+        // Smart redirect: If on a detail page, go back to list to avoid 404
+        const path = window.location.pathname;
+        if (path.startsWith('/routers/') || path.startsWith('/olts/')) {
+            const basePage = path.split('/')[1]; // 'routers' or 'olts'
+            window.location.href = `/${basePage}`;
+        } else {
+            window.location.reload();
+        }
     };
 
     return (

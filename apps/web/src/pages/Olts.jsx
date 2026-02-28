@@ -10,7 +10,7 @@ import {
     useRouters,
     useOltOnus,
 } from '@/hooks';
-import { Plus, Server, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Search, Layers } from 'lucide-react';
+import { Plus, Server, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Search, Layers, Clock } from 'lucide-react';
 
 // ONU List Modal
 function OnuListModal({ isOpen, onClose, olt }) {
@@ -389,6 +389,24 @@ function DeleteOltModal({ isOpen, onClose, olt }) {
     );
 }
 
+// Helper to format date to local string or relative time
+function formatLastSync(date) {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const now = new Date();
+    const diffMs = now - d;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    return d.toLocaleDateString();
+}
+
 export default function Olts() {
     const navigate = useNavigate();
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -557,6 +575,13 @@ export default function Olts() {
                                         <span className="text-white">
                                             {olt.uptime ? `${Math.floor(olt.uptime / 3600)}h ${Math.floor((olt.uptime % 3600) / 60)}m` : '--'}
                                         </span>
+                                    </div>
+                                    <div className="flex justify-between pt-1">
+                                        <span>Last Sync:</span>
+                                        <div className="flex items-center gap-1 text-slate-300 font-mono text-[11px]">
+                                            <Clock className="w-3 h-3 text-slate-500" />
+                                            {formatLastSync(olt.updatedAt)}
+                                        </div>
                                     </div>
                                 </div>
 

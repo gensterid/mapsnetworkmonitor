@@ -2,16 +2,23 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { oltService } from '../services/olt.service';
 import toast from 'react-hot-toast';
 
+const getActiveTenantId = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('active-tenant-id');
+};
+
 export function useOlts() {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: ['olts'],
+        queryKey: ['olts', tenantId || 'default'],
         queryFn: oltService.getAll,
     });
 }
 
 export function useOlt(id) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: ['olts', id],
+        queryKey: ['olts', tenantId || 'default', id],
         queryFn: () => oltService.getById(id),
         enabled: !!id,
     });
@@ -78,8 +85,9 @@ export function useRefreshOlt() {
 }
 
 export function useOltOnus(id) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: ['olts', id, 'onus'],
+        queryKey: ['olts', tenantId || 'default', id, 'onus'],
         queryFn: () => oltService.getOnus(id),
         enabled: !!id,
     });

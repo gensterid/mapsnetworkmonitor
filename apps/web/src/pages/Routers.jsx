@@ -29,6 +29,24 @@ function formatUptime(seconds) {
     return `${minutes}m`;
 }
 
+// Helper to format date to local string or relative time
+function formatLastSync(date) {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const now = new Date();
+    const diffMs = now - d;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+
+    if (diffMin < 1) return 'Just now';
+    if (diffMin < 60) return `${diffMin}m ago`;
+    if (diffHour < 24) return `${diffHour}h ago`;
+    return d.toLocaleDateString();
+}
+
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -781,8 +799,8 @@ export default function Routers() {
                                                     {router.model || 'Unknown'} • {router.routerOsVersion || router.version || '-'}
                                                 </div>
                                                 <div className="flex items-center gap-1 text-xs text-slate-400">
-                                                    <Signal className="w-3.5 h-3.5" />
-                                                    <span>{router.latestMetrics?.uptime ? 'Online' : '--'}</span>
+                                                    <Clock className="w-3.5 h-3.5" />
+                                                    <span>{formatLastSync(router.lastSeen || router.updatedAt)}</span>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -805,6 +823,7 @@ export default function Routers() {
                                             <th className="px-4 py-3">Uptime</th>
                                             <th className="px-4 py-3">Speed</th>
                                             <th className="px-4 py-3">Latency</th>
+                                            <th className="px-4 py-3 text-right">Last Sync</th>
                                             <th className="px-4 py-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -869,6 +888,11 @@ export default function Routers() {
                                                             (router.latency > 100 ? "text-yellow-500" : "text-emerald-500")
                                                     )}>
                                                         {router.status === 'online' ? `${router.latency || '--'}ms` : '--'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <span className="text-sm text-slate-400 font-mono">
+                                                        {formatLastSync(router.lastSeen || router.updatedAt)}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3">
