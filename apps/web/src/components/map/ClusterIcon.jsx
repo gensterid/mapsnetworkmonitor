@@ -57,10 +57,11 @@ const createClusterCustomIcon = (cluster) => {
                 width: 100%; 
                 height: 100%; 
                 background-color: ${bgColor}; 
-                border: 2px solid white; 
+                border: 1.5px solid white; 
                 border-radius: 50%; 
                 color: white; 
                 font-weight: bold; 
+                font-size: 12px;
                 box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                 position: relative;
                 ${hasDown ? 'animation: pulse-ring 2s infinite;' : ''}
@@ -69,13 +70,13 @@ const createClusterCustomIcon = (cluster) => {
                     ${hasDown ? `
                     <span style="
                         position: absolute; 
-                        top: -5px; 
-                        right: -5px; 
+                        top: -4px; 
+                        right: -4px; 
                         background-color: #7f1d1d; 
                         color: white; 
-                        font-size: 10px; 
-                        width: 16px; 
-                        height: 16px; 
+                        font-size: 9px; 
+                        width: 14px; 
+                        height: 14px; 
                         border-radius: 50%; 
                         display: flex; 
                         align-items: center; 
@@ -86,13 +87,13 @@ const createClusterCustomIcon = (cluster) => {
                     ${!hasDown && hasIssue ? `
                     <span style="
                         position: absolute; 
-                        top: -5px; 
-                        right: -5px; 
+                        top: -4px; 
+                        right: -4px; 
                         background-color: #ca8a04; 
                         color: white; 
-                        font-size: 10px; 
-                        width: 16px; 
-                        height: 16px; 
+                        font-size: 9px; 
+                        width: 14px; 
+                        height: 14px; 
                         border-radius: 50%; 
                         display: flex; 
                         align-items: center; 
@@ -103,7 +104,7 @@ const createClusterCustomIcon = (cluster) => {
                 </div>
                 `,
         className: 'custom-cluster-marker',
-        iconSize: L.point(40, 40, true),
+        iconSize: L.point(30, 30, true),
     });
 };
 
