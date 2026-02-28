@@ -581,14 +581,20 @@ export class RouterService {
             if (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password')) {
                 friendlyError = 'Salah Password / Username';
                 isConnectionError = true;
-            } else if (lowErrMsg.includes('timeout')) {
+            } else if (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout')) {
                 friendlyError = 'Connection Timeout';
                 isConnectionError = true;
             } else if (lowErrMsg.includes('econnrefused')) {
                 friendlyError = 'Connection Refused (API Service Off?)';
                 isConnectionError = true;
-            } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect')) {
-                friendlyError = 'Mikrotik Mati / Unreachable';
+            } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect') || lowErrMsg.includes('enotfound') || lowErrMsg.includes('eai_again')) {
+                friendlyError = 'Mikrotik Mati / DNS Error / Unreachable';
+                isConnectionError = true;
+            } else if (lowErrMsg.includes('econnreset') || lowErrMsg.includes('epipe') || lowErrMsg.includes('socket hang up')) {
+                friendlyError = 'API Terputus (Connection Reset)';
+                isConnectionError = true;
+            } else if (lowErrMsg.includes('network') || lowErrMsg.includes('unreachable')) {
+                friendlyError = 'Network Issue / Unreachable';
                 isConnectionError = true;
             }
 
