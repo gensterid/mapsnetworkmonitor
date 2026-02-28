@@ -61,17 +61,35 @@ export const DraggableMarker = ({
     draggable,
     onDragEnd,
     onClick,
-    eventHandlers: externalEventHandlers, // Destructure to prevent leakage into props
+    eventHandlers: externalEventHandlers,
     title,
     alt,
     children,
     ...props
 }) => {
     const [markerPosition, setMarkerPosition] = useState(position);
+    const markerRef = React.useRef(null);
 
     useEffect(() => {
         setMarkerPosition(position);
     }, [position]);
+
+    // Sync custom options to the Leaflet instance for clustering logic
+    useEffect(() => {
+        if (markerRef.current) {
+            const marker = markerRef.current;
+            // Update the options object directly so ClusterIcon.jsx (which reads L.Marker instances)
+            // sees the latest values without needing a full marker destruction
+            Object.assign(marker.options, {
+                status: props.status,
+                type: props.type,
+                latency: props.latency,
+                packetLoss: props.packetLoss,
+                lastRxPower: props.lastRxPower,
+                host: props.host
+            });
+        }
+    }, [props.status, props.type, props.latency, props.packetLoss, props.lastRxPower, props.host]);
 
     const eventHandlers = useMemo(() => {
         const handlers = {
@@ -82,10 +100,9 @@ export const DraggableMarker = ({
                     onDragEnd([newPos.lat, newPos.lng]);
                 }
             },
-            ...(externalEventHandlers || {}) // Merge external handlers (mouseover, etc)
+            ...(externalEventHandlers || {})
         };
 
-        // Only add click handler if it's actually provided as a function
         if (typeof onClick === 'function') {
             handlers.click = onClick;
         }
@@ -93,8 +110,6 @@ export const DraggableMarker = ({
         return handlers;
     }, [onDragEnd, onClick, externalEventHandlers]);
 
-    // Safety check: Don't render if position is invalid. 
-    // This prevents Leaflet internal errors like "Cannot read properties of undefined (reading 'x')"
     const isValidPosition = Array.isArray(markerPosition) &&
         markerPosition.length === 2 &&
         typeof markerPosition[0] === 'number' &&
@@ -102,14 +117,13 @@ export const DraggableMarker = ({
         isFinite(markerPosition[0]) &&
         isFinite(markerPosition[1]);
 
-    // Additional check: Ensure icon is valid
     if (!isValidPosition || !icon) {
-        console.warn(`[DraggableMarker] Invalid position or icon for device. Skipping render.`, { position: markerPosition, icon: !!icon });
         return null;
     }
 
     return (
         <Marker
+            ref={markerRef}
             position={markerPosition}
             icon={icon}
             draggable={draggable}

@@ -249,12 +249,13 @@ export const areLinesEqual = (prev, next) => {
     return (
         prev.line.id === next.line.id &&
         prev.line.status === next.line.status &&
+        prev.line.latency === next.line.latency &&
+        prev.line.packetLoss === next.line.packetLoss &&
+        prev.line.deviceType === next.line.deviceType &&
         prev.line.destName === next.line.destName &&
         prev.line.sourceName === next.line.sourceName &&
         prev.txRate === next.txRate &&
         prev.rxRate === next.rxRate &&
-        // isHovered check removed (handled by Context)
-        // tick check removed (handled by Context)
         prev.isHeatmapMode === next.isHeatmapMode &&
         prev.isLiveMode === next.isLiveMode &&
         prev.lineThickness === next.lineThickness &&
