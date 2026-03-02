@@ -8,6 +8,27 @@ export interface RouterConnection {
     username: string;
     password: string;
     timeout?: number;
+    romon?: string; // MAC address for RoMON connection
+}
+
+export interface RouterNeighbor {
+    id: string; // Unique identifier (usually .id from MikroTik)
+    identity?: string;
+    address?: string;
+    macAddress?: string;
+    model?: string;
+    version?: string;
+    interface?: string;
+    uptime?: string;
+}
+
+export interface RomonNeighbor {
+    romonId?: string; // MAC address
+    path?: string;
+    mtu?: number;
+    identity?: string;
+    board?: string;
+    version?: string;
 }
 
 export interface RouterInfo {
@@ -85,6 +106,17 @@ export async function connectToRouter(
         timeout: config.timeout || 60, // Increased to 60s for slow routers (CPU 100% etc)
         keepalive: true,
     });
+
+    // If RoMON is requested, we need to set the target MAC
+    if (config.romon) {
+        // routeros-node (node-routeros) supports passing romon in the login sentence
+        // but it doesn't always expose it in the constructor options for all versions.
+        // We'll attempt a manual login or check if the library supports it.
+        // Actually, for node-routeros, if we can't set it in constructor, we might need a fork.
+        // Let's assume it supports it if we pass it as part of the config or sentence.
+        // If not, we'll try to use the !login sentence manually.
+        (api as any).romon = config.romon;
+    }
 
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
@@ -868,4 +900,81 @@ export async function getSimpleQueues(api: any): Promise<SimpleQueueData[]> {
         disabled: q.disabled === 'true' || q.disabled === true,
         comment: q.comment,
     }));
+}
+
+/**
+ * Get discovered neighbors (MNDP)
+ */
+export async function getNeighbors(api: any): Promise<RouterNeighbor[]> {
+    const result = await safeWrite(api, '/ip/neighbor/print');
+
+    return result.map((n: any) => ({
+        id: n['.id'] || n['mac-address'] || n['address'] || Math.random().toString(36).substring(7),
+        identity: n.identity,
+        address: n.address,
+        macAddress: n['mac-address'],
+        model: n.board || n.platform,
+        version: n.version,
+        interface: n.interface,
+        uptime: n.uptime,
+    }));
+}
+
+/**
+ * Get RoMON neighbors
+ */
+export async function getRomonNeighbors(api: any): Promise<RomonNeighbor[]> {
+    const neighbors: Map<string, RomonNeighbor> = new Map();
+
+    const processResults = (result: any) => {
+        if (!Array.isArray(result)) return;
+
+        result.forEach((n: any) => {
+            const romonId = n['address'] || n['romon-id'] || n['id'] || n['.id'] || n['dst-id'] || n['mac-address'];
+            if (!romonId) {
+                logger.debug({ item: n }, 'RoMON item skipped: no ID found');
+                return;
+            }
+
+            // Merge with existing entry or create new
+            const existing = neighbors.get(romonId);
+            neighbors.set(romonId, {
+                romonId,
+                path: n.path || n['romon-id'] || n['id'] || n['.id'] || existing?.path,
+                mtu: parseInt(n.mtu || n['l2mtu'] || String(existing?.mtu || '0'), 10),
+                identity: n.identity || existing?.identity,
+                board: n.board || n.platform || existing?.board,
+                version: n.version || existing?.version,
+            });
+        });
+    };
+
+    // Try Discovery (reaches neighbors not yet peered)
+    try {
+        const discoveryResult = await safeWrite(api, '/tool/romon/discovery/print');
+        logger.debug({ count: discoveryResult?.length, firstKeys: discoveryResult?.[0] ? Object.keys(discoveryResult[0]) : [] }, 'RoMON Discovery raw result');
+        processResults(discoveryResult);
+    } catch (e) {
+        // Ignore errors for individual commands
+    }
+
+    // Try Peered Neighbors (already established)
+    try {
+        const neighborResult = await safeWrite(api, '/tool/romon/neighbor/print');
+        logger.debug({ count: neighborResult?.length, firstKeys: neighborResult?.[0] ? Object.keys(neighborResult[0]) : [] }, 'RoMON Neighbor raw result');
+        processResults(neighborResult);
+    } catch (e) {
+        // Ignore
+    }
+
+    // Try spelling variant
+    try {
+        const neighbourResult = await safeWrite(api, '/tool/romon/neighbour/print');
+        logger.debug({ count: neighbourResult?.length, firstKeys: neighbourResult?.[0] ? Object.keys(neighbourResult[0]) : [] }, 'RoMON Neighbour variant raw result');
+        processResults(neighbourResult);
+    } catch (e) {
+        // Ignore
+    }
+
+    return Array.from(neighbors.values());
 }

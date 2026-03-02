@@ -72,5 +72,13 @@ export const del = async <T = void>(url: string, config?: AxiosRequestConfig): P
     return response.data?.data;
 };
 
+/**
+ * Helper function for PATCH requests
+ */
+export const patch = async <T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> => {
+    const response = await apiClient.patch(url, data, config);
+    return response.data.data;
+};
+
 export { apiClient };
 export default apiClient;

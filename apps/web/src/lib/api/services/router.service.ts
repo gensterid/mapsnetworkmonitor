@@ -1,4 +1,4 @@
-import { get, post, put, del } from '../client';
+import { get, post, put, del, patch } from '../client';
 import type {
     Router,
     CreateRouterInput,
@@ -10,6 +10,8 @@ import type {
     UpdateNetwatchInput,
     TestConnectionInput,
     TestConnectionResult,
+    Neighbor,
+    RomonNeighbor,
 } from '../types';
 
 export interface PingLatency {
@@ -141,6 +143,60 @@ export const routerService = {
      */
     getSnmpTraffic: (routerId: string) =>
         post<Record<string, { tx: number; rx: number }>>(`/routers/${routerId}/traffic/snmp`),
+
+    /**
+     * Get discovered neighbors (MNDP)
+     */
+    getNeighbors: (routerId: string) =>
+        get<Neighbor[]>(`/routers/${routerId}/neighbors`),
+
+    /**
+     * Get RoMON neighbors
+     */
+    getRomonNeighbors: (routerId: string) =>
+        get<RomonNeighbor[]>(`/routers/${routerId}/romon-neighbors`),
+
+    // ================== Topology ==================
+
+    /**
+     * Get topology schematic for a router
+     */
+    getTopology: (routerId: string) => get(`/routers/${routerId}/topology`),
+
+    /**
+     * Update topology coordinates
+     */
+    updateTopologyCoords: (data: any) => patch(`/routers/topology/coords`, data),
+
+    /**
+     * Add a node to the schematic
+     */
+    addTopologyNode: (routerId: string, data: any) => post(`/routers/${routerId}/topology/nodes`, data),
+
+    /**
+     * Remove a node from the schematic
+     */
+    removeTopologyNode: (routerId: string, nodeId: string) => del(`/routers/${routerId}/topology/nodes/${nodeId}`),
+
+    /**
+     * Update a schematic node (e.g. mapping)
+     */
+    updateTopologyNode: (nodeId: string, data: any) => patch(`/routers/topology/nodes/${nodeId}`, data),
+
+    /**
+     * Add a link between two nodes
+     */
+    addTopologyLink: (routerId: string, data: any) => post(`/routers/topology/links`, { ...data, routerId }),
+
+    /**
+     * Remove a link
+     */
+    removeTopologyLink: (linkId: string) => del(`/routers/topology/links/${linkId}`),
+
+    /**
+     * Update a link's configuration
+     */
+    updateTopologyLink: (linkId: string, data: any) => patch(`/routers/topology/links/${linkId}`, data),
 };
 
 export default routerService;

@@ -1,0 +1,331 @@
+@import "@xyflow/react/dist/style.css";
+
+:root {
+    --neon-blue: #00d2ff;
+    --neon-green: #39ff14;
+    --neon-danger: #ff3131;
+}
+
+.mini-topology-container {
+    display: flex;
+    flex-direction: column;
+    height: 700px;
+    background: #0b0e14;
+    border-radius: 24px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    position: relative;
+}
+
+.topology-header {
+    padding: 20px 24px;
+    background: rgba(15, 23, 42, 0.8);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 100;
+}
+
+.topology-main-layout {
+    flex: 1;
+    display: flex;
+    position: relative;
+    background: #0b0e14;
+    /* Dot Grid */
+    background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1px, transparent 1px);
+    background-size: 30px 30px;
+}
+
+/* React Flow Overrides */
+.react-flow__background {
+    background-color: transparent !important;
+}
+
+.react-flow__controls {
+    background: rgba(15, 23, 42, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+.react-flow__controls-button {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    color: #94a3b8 !important;
+}
+
+.react-flow__controls-button:hover {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: white !important;
+}
+
+/* Edge Animations */
+.neon-glow-path {
+    stroke: var(--neon-blue);
+    filter: drop-shadow(0 0 8px var(--neon-blue));
+    stroke-opacity: 0.3;
+}
+
+.neon-glow-path.down {
+    stroke: var(--neon-danger);
+    filter: drop-shadow(0 0 8px var(--neon-danger));
+}
+
+.neon-flow-animation {
+    stroke: #fff;
+    filter: drop-shadow(0 0 5px #fff);
+    animation: neon-flow 1.5s linear infinite;
+}
+
+@keyframes neon-flow {
+    from {
+        stroke-dashoffset: 100;
+    }
+
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+.neon-flow-animation.dash {
+    filter: drop-shadow(0 0 2px #fff);
+    stroke-opacity: 0.8;
+    animation: neon-flow-dash 1s linear infinite;
+}
+
+@keyframes neon-flow-dash {
+    from {
+        stroke-dashoffset: 40;
+    }
+
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Header Actions */
+.header-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-btn.edit {
+    background: rgba(0, 210, 255, 0.1);
+    color: var(--neon-blue);
+    border-color: rgba(0, 210, 255, 0.2);
+}
+
+.action-btn.edit:hover {
+    background: rgba(0, 210, 255, 0.2);
+    border-color: var(--neon-blue);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.3);
+}
+
+.action-btn.add {
+    background: rgba(57, 255, 20, 0.05);
+    color: var(--neon-green);
+    border-color: rgba(57, 255, 20, 0.1);
+}
+
+.action-btn.add:hover {
+    background: rgba(57, 255, 20, 0.1);
+    border-color: var(--neon-green);
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+}
+
+.action-btn.finish {
+    background: #00d2ff;
+    color: #0b0e14;
+    border: none;
+}
+
+.action-btn.finish:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px rgba(0, 210, 255, 0.4);
+}
+
+/* Sidebar & Library Items */
+.device-library-sidebar {
+    width: 280px;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(24px);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sidebar-header h4 {
+    margin: 0;
+    color: #fff;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.device-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 0;
+}
+
+.device-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.device-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.device-list::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+}
+
+.device-list::-webkit-scrollbar-thumb:hover {
+    background: var(--neon-blue);
+}
+
+.device-list section {
+    margin-bottom: 24px;
+}
+
+.device-list h5 {
+    padding: 0 24px;
+    margin-bottom: 12px;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.library-item {
+    margin: 4px 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.2s;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #cbd5e1;
+}
+
+.library-item:hover {
+    background: rgba(0, 210, 255, 0.05);
+    border-color: var(--neon-blue);
+    color: #fff;
+    transform: translateX(4px);
+}
+
+.library-item span {
+    font-size: 0.9rem;
+}
+
+/* Node Configuration Overlay */
+.topology-config-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.topology-config-card {
+    width: 420px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 24px;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 210, 255, 0.05);
+    overflow: hidden;
+    animation: config-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.topology-config-card.max-w-sm {
+    width: 340px;
+}
+
+@keyframes config-pop {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.config-header {
+    padding: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.config-header h4 {
+    margin: 0;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.config-body {
+    padding: 24px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9rem;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.info-row .label {
+    color: #94a3b8;
+}
+
+.info-row .value {
+    color: #fff;
+    font-weight: 500;
+}

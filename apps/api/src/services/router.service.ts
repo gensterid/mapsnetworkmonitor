@@ -36,8 +36,12 @@ import {
     measurePing,
     getInterfaceTraffic,
     configureNetwatchWebhook,
+    getNeighbors,
+    getRomonNeighbors,
     type RouterConnection,
     type PppSession,
+    type RouterNeighbor,
+    type RomonNeighbor,
 } from '../lib/mikrotik-api.js';
 import { measureLatency } from '../lib/network-utils.js';
 import { alertService } from './alert.service.js';
@@ -70,6 +74,8 @@ export interface CreateRouterInput {
     genieacsPassword?: string | null;
     useWebhook?: boolean;
     pollingIntervalMetrics?: number;
+    gatewayId?: string | null;
+    romonMac?: string | null;
 }
 
 export interface UpdateRouterInput {
@@ -94,6 +100,8 @@ export interface UpdateRouterInput {
     useWebhook?: boolean;
     pollingIntervalMetrics?: number;
     status?: 'online' | 'offline' | 'maintenance' | 'unknown';
+    gatewayId?: string | null;
+    romonMac?: string | null;
 }
 
 /**
@@ -429,19 +437,14 @@ export class RouterService {
         id: string,
         tenantId?: string
     ): Promise<{ success: boolean; info?: unknown; error?: string }> {
-        const router = await this.findByIdWithPassword(id, tenantId);
-        if (!router) {
-            return { success: false, error: 'Router not found' };
+        try {
+            const api = await this.getRouterConnection(id, tenantId);
+            const info = await getRouterInfo(api);
+            await api.close().catch(() => { });
+            return { success: true, info };
+        } catch (error: any) {
+            return { success: false, error: error.message };
         }
-
-        const config: RouterConnection = {
-            host: router.host,
-            port: router.port,
-            username: router.username,
-            password: router.password,
-        };
-
-        return testConnection(config);
     }
 
     /**
@@ -469,12 +472,7 @@ export class RouterService {
 
         let conn: any;
         try {
-            conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: router.password,
-            });
+            conn = await this.getRouterConnection(id, tenantId);
 
             // Always fetch basic system info for identity/uptime check
             const info = await getRouterInfo(conn);
@@ -952,7 +950,7 @@ export class RouterService {
         data: {
             host?: string; // Optional for ODP devices
             name?: string;
-            deviceType?: 'client' | 'olt' | 'odp';
+            deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
             interval?: number;
             latitude?: string;
             longitude?: string;
@@ -972,8 +970,10 @@ export class RouterService {
             throw new ApiError(404, 'Router not found');
         }
 
-        // Only add to MikroTik if it's a netwatch client type (has IP to ping)
-        if ((data.deviceType === 'client' || !data.deviceType) && data.host) {
+        // Only add to MikroTik if it's a netwatch client/router/switch type (has IP to ping)
+        const isMikrotikPingable = (!data.deviceType || ['client', 'router', 'switch'].includes(data.deviceType)) && data.host && data.host !== '0.0.0.0';
+
+        if (isMikrotikPingable) {
             let conn;
             try {
                 conn = await connectToRouter({
@@ -984,15 +984,15 @@ export class RouterService {
                 });
 
                 await addNetwatchEntry(conn, {
-                    host: data.host,
+                    host: data.host as string,
                     interval: data.interval,
-                    comment: data.name, // Mapping name to comment
+                    comment: data.name || 'Monitoring Node', // Mapping name to comment
                 });
 
                 // Smart Append Webhook scripts if Webhook feature is enabled
                 if (router.useWebhook && router.webhookSecret) {
                     const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
-                    await configureNetwatchWebhook(conn, data.host, webhookUrl);
+                    await configureNetwatchWebhook(conn, data.host as string, webhookUrl);
                 }
 
                 logger.info({ routerId, host: data.host, name: data.name }, 'Netwatch entry added to MikroTik router');
@@ -1053,7 +1053,7 @@ export class RouterService {
         data: {
             host?: string;
             name?: string;
-            deviceType?: 'client' | 'olt' | 'odp';
+            deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
             interval?: number;
             latitude?: string;
             longitude?: string;
@@ -1082,8 +1082,9 @@ export class RouterService {
         // OLT/ODP don't need to be added to MikroTik netwatch
         // STRICT CHECK: Skip if host is 0.0.0.0 (Virtual device) or empty
         const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0' || data.host === '';
-        const isOdpOrOlt = original.deviceType === 'odp' || original.deviceType === 'olt' || data.deviceType === 'odp' || data.deviceType === 'olt';
-        const isClientType = !isVirtualHost && !isOdpOrOlt && (original.deviceType === 'client' || !original.deviceType);
+        const isOdpOrOlt = ['odp', 'olt'].includes(original.deviceType as any) || (data.deviceType && ['odp', 'olt'].includes(data.deviceType));
+        const currentDeviceType = data.deviceType || original.deviceType;
+        const isClientType = !isVirtualHost && !isOdpOrOlt && (currentDeviceType === 'client' || currentDeviceType === 'router' || currentDeviceType === 'switch' || !currentDeviceType);
 
         // Only update MikroTik for client types with valid host
         if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
@@ -1265,15 +1266,9 @@ export class RouterService {
         const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
         if (!router) return;
 
-        const password = decrypt(router.passwordEncrypted);
         let conn;
         try {
-            conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password,
-            });
+            conn = await this.getRouterConnection(routerId);
             const entries = await routerNetwatchService.getNetwatch(routerId);
             const targets = entries.filter(e => e.status !== 'unknown');
             await routerNetwatchService.measureLatency(routerId, router.name, conn, targets);
@@ -1296,6 +1291,79 @@ export class RouterService {
      */
     private async syncNetwatchToOnus(routerId: string): Promise<void> {
         return routerNetwatchService.syncToOnus(routerId);
+    }
+
+    /**
+     * Get discovered neighbors (MNDP)
+     */
+    async getNeighbors(routerId: string, tenantId?: string): Promise<RouterNeighbor[]> {
+        let api;
+        try {
+            api = await this.getRouterConnection(routerId, tenantId);
+            const neighbors = await getNeighbors(api);
+
+            // Update last neighbors sync timestamp
+            await db.update(routers)
+                .set({ lastNeighborsSync: new Date() })
+                .where(eq(routers.id, routerId));
+
+            return neighbors;
+        } catch (error: any) {
+            logger.error({ err: error, routerId }, 'Failed to get neighbors');
+            throw new ApiError(500, `MikroTik Error: ${error.message}`);
+        } finally {
+            if (api) await api.close().catch(() => { });
+        }
+    }
+
+    /**
+     * Get RoMON neighbors for a router
+     */
+    async getRomonNeighbors(routerId: string, tenantId?: string): Promise<RomonNeighbor[]> {
+        let api: any;
+        try {
+            api = await this.getRouterConnection(routerId, tenantId);
+            const neighbors = await getRomonNeighbors(api);
+            return neighbors;
+        } catch (error: any) {
+            const errMsg = error?.message || String(error || 'Unknown Connection Error');
+            logger.warn({ err: errMsg, routerId }, 'Failed to get RoMON neighbors - returning empty list');
+            // Return empty array instead of 500 for common connection/support issues
+            return [];
+        } finally {
+            if (api) await api.close().catch(() => { });
+        }
+    }
+
+    /**
+     * Get a connection to a router, handling RoMON if configured
+     */
+    async getRouterConnection(routerId: string, tenantId?: string): Promise<any> {
+        const router = await this.findByIdWithPassword(routerId, tenantId);
+        if (!router) throw new ApiError(404, 'Router not found');
+
+        let config: RouterConnection = {
+            host: router.host,
+            port: router.port,
+            username: router.username,
+            password: router.password || '',
+        };
+
+        // If this is a RoMON device, we need to connect to the gateway first
+        if (router.gatewayId && router.romonMac) {
+            const gateway = await this.findByIdWithPassword(router.gatewayId, tenantId);
+            if (!gateway) throw new ApiError(404, 'RoMON Gateway router not found');
+
+            config = {
+                host: gateway.host,
+                port: gateway.port,
+                username: gateway.username,
+                password: gateway.password || '',
+                romon: router.romonMac,
+            };
+        }
+
+        return await connectToRouter(config);
     }
 }
 

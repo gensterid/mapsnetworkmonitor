@@ -160,6 +160,25 @@ export interface UpdateNetwatchInput {
     status?: 'up' | 'down' | 'unknown';
 }
 
+export interface Neighbor {
+    identity?: string;
+    address?: string;
+    macAddress?: string;
+    model?: string;
+    version?: string;
+    interface?: string;
+    uptime?: string;
+}
+
+export interface RomonNeighbor {
+    identity?: string;
+    romonId: string;
+    path?: string;
+    board?: string;
+    version?: string;
+    mtu?: number;
+}
+
 // Test connection types
 export interface TestConnectionInput {
     host: string;

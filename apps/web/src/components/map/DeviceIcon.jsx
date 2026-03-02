@@ -40,6 +40,10 @@ const deviceConfig = {
         icon: 'account_circle',
         colorClass: 'device-icon--pppoe',
     },
+    switch: {
+        icon: 'lan',
+        colorClass: 'device-icon--router',
+    },
 };
 
 /**

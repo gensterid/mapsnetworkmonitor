@@ -75,6 +75,16 @@ export const routers = pgTable('routers', {
     genieacsUsername: text('genieacs_username'),
     genieacsPasswordEncrypted: text('genieacs_password_encrypted'),
 
+    // RoMON & Neighbor Discovery
+    gatewayId: uuid('gateway_id').references((): any => routers.id), // UUID of another router record acting as RoMON gateway
+    romonMac: text('romon_mac'), // MAC address of the target router in the RoMON network
+    parentInterface: text('parent_interface'), // The port on the GATEWAY router this router is connected to
+    lastNeighborsSync: timestamp('last_neighbors_sync'),
+
+    // Topology Schematic (Independent of geographic lat/lng)
+    topologyX: decimal('topology_x', { precision: 10, scale: 2 }),
+    topologyY: decimal('topology_y', { precision: 10, scale: 2 }),
+
     // Timestamps
     lastSeen: timestamp('last_seen'),
     lastFullSync: timestamp('last_full_sync'),
@@ -158,6 +168,8 @@ export const deviceTypeEnum = pgEnum('device_type', [
     'client',
     'olt',
     'odp',
+    'router',
+    'switch',
 ]);
 
 // Netwatch table for IP monitoring
@@ -196,6 +208,10 @@ export const routerNetwatch = pgTable('router_netwatch', {
 
     // Manual Link to ONU Inventory
     linkedOnuId: uuid('linked_onu_id'),
+
+    // Topology Schematic (Independent of geographic lat/lng)
+    topologyX: decimal('topology_x', { precision: 10, scale: 2 }),
+    topologyY: decimal('topology_y', { precision: 10, scale: 2 }),
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

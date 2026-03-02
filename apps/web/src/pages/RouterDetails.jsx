@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useRealtimeTraffic, useAppTimezone } from '@/hooks';
+import { useRouter, useRouterInterfaces, useRouterMetrics, useRouterNetwatch, useRouterNeighbors, useRouterRomonNeighbors, useRouters, useSettings, useSyncNetwatch, useRefreshRouter, useRouterHotspotActive, useRouterPppActive, usePingLatencies, useCurrentUser, useRealtimeTraffic, useAppTimezone } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
@@ -30,6 +30,7 @@ import {
     Gauge,
     Users,
     Network,
+    ShieldCheck,
     PhoneCall,
     Timer,
     Search,
@@ -37,6 +38,7 @@ import {
     X
 } from 'lucide-react';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import {
     AreaChart,
@@ -74,8 +76,9 @@ function formatLastSync(date) {
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-import NetworkMap from '@/components/NetworkMap';
 import RouterAiDiagnosis from '@/components/RouterAiDiagnosis';
+import MiniTopology from '@/components/router/MiniTopology';
+import NetworkMap from '@/components/NetworkMap';
 
 // Static empty array to prevent infinite re-render loops when used as dependency
 const EMPTY_ARRAY = [];
@@ -604,6 +607,91 @@ function DashboardTab({ router, metrics, interfaces }) {
 }
 
 
+// Create RoMON Router Modal
+function CreateRomonRouterModal({ isOpen, onClose, onSuccess, gateway, romonId }) {
+    const [formData, setFormData] = useState({
+        name: '',
+        username: 'admin',
+        password: '',
+        location: '',
+        notificationGroupId: '',
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        setIsSubmitting(true);
+
+        try {
+            const payload = {
+                name: formData.name,
+                host: gateway.host,
+                port: gateway.port || 8728,
+                username: formData.username,
+                password: formData.password,
+                location: formData.location || undefined,
+                notificationGroupId: formData.notificationGroupId || null,
+                gatewayId: gateway.id,
+                romonMac: romonId,
+            };
+
+            await apiClient.post('/routers', payload);
+            toast.success('Router added successfully via RoMON');
+            onSuccess();
+            onClose();
+        } catch (err) {
+            console.error('Failed to create RoMON router:', err);
+            setError(err.response?.data?.message || err.message || 'Failed to create router');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Add RoMON Device to Monitoring">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                {error && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-md text-sm">
+                        {error}
+                    </div>
+                )}
+
+                <div className="p-3 bg-slate-800 rounded-lg space-y-2 mb-4 border border-slate-700">
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">Gateway:</span>
+                        <span className="text-white font-medium">{gateway?.name} ({gateway?.host})</span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                        <span className="text-slate-500">RoMON ID:</span>
+                        <span className="text-primary font-mono font-bold">{romonId}</span>
+                    </div>
+                </div>
+
+                <Input label="Device Name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Remote Client Router" required />
+
+                <div className="grid grid-cols-2 gap-4">
+                    <Input label="Username" name="username" value={formData.username} onChange={handleChange} required />
+                    <Input label="Password" name="password" type="password" value={formData.password} onChange={handleChange} required />
+                </div>
+
+                <Input label="Location (Optional)" name="location" value={formData.location} onChange={handleChange} placeholder="e.g. Site B" />
+
+                <div className="flex justify-end gap-2 pt-4">
+                    <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+                    <Button type="submit" loading={isSubmitting}>Add to Monitoring</Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
 // Edit Router Modal
 function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
     const [formData, setFormData] = useState({
@@ -620,7 +708,10 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
         snmpPort: 161,
         useWebhook: false,
         pollingIntervalMetrics: '300',
+        gatewayId: '',
+        romonMac: '',
     });
+    const { data: routers = [] } = useRouters();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -640,6 +731,8 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 snmpPort: router.snmpPort || 161,
                 useWebhook: router.useWebhook || false,
                 pollingIntervalMetrics: router.pollingIntervalMetrics ? String(router.pollingIntervalMetrics) : '300',
+                gatewayId: router.gatewayId || '',
+                romonMac: router.romonMac || '',
             });
         }
     }, [router, isOpen]);
@@ -680,6 +773,8 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 snmpPort: parseInt(formData.snmpPort, 10),
                 useWebhook: formData.useWebhook,
                 pollingIntervalMetrics: parseInt(formData.pollingIntervalMetrics, 10) || 300,
+                gatewayId: formData.gatewayId || null,
+                romonMac: formData.romonMac || null,
             };
 
             if (formData.password) {
@@ -814,6 +909,38 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                             type="number"
                             value={formData.snmpPort}
                             onChange={handleChange}
+                        />
+                    </div>
+                </div>
+
+                <div className="border-t border-slate-700 pt-4">
+                    <h4 className="text-sm font-medium text-slate-300 mb-3 block">RoMON Configuration</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5 text-xs text-slate-400 col-span-2 mb-2">
+                            Select a gateway router to connect to this device via RoMON protocol.
+                            This is useful for devices inside a private network.
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-slate-300">Gateway Router</label>
+                            <select
+                                name="gatewayId"
+                                value={formData.gatewayId}
+                                onChange={handleChange}
+                                className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-white focus:ring-2 focus:ring-primary focus:border-transparent text-sm"
+                            >
+                                <option value="">Direct Connection (No RoMON)</option>
+                                {routers.filter(r => r.id !== router.id && r.status === 'online').map(r => (
+                                    <option key={r.id} value={r.id}>{r.name} ({r.host})</option>
+                                ))}
+                            </select>
+                        </div>
+                        <Input
+                            label="Target RoMON MAC"
+                            name="romonMac"
+                            value={formData.romonMac}
+                            onChange={handleChange}
+                            placeholder="AA:BB:CC:DD:EE:FF"
+                            disabled={!formData.gatewayId}
                         />
                     </div>
                 </div>
@@ -1762,6 +1889,211 @@ function PppoeTab({ routerId }) {
     );
 }
 
+// Neighbors Tab Content (Discovery via MNDP & RoMON)
+function NeighborsTab({ routerId }) {
+    const { data: neighbors = [], isLoading: loadingMndp, isRefetching: refetchingMndp, refetch: refetchMndp } = useRouterNeighbors(routerId);
+    const { data: romonNeighbors = [], isLoading: loadingRomon, isRefetching: refetchingRomon, refetch: refetchRomon } = useRouterRomonNeighbors(routerId);
+
+    const [searchQuery, setSearchQuery] = useState('');
+    const [subTab, setSubTab] = useState('mndp'); // 'mndp' or 'romon'
+    const [addModal, setAddModal] = useState({ open: false, romonId: '' });
+
+    const { data: router } = useRouter(routerId);
+
+    const isLoading = loadingMndp || loadingRomon;
+    const isRefetching = refetchingMndp || refetchingRomon;
+
+    const filteredMndp = neighbors.filter(n =>
+        !searchQuery ||
+        n.identity?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.macAddress?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        n.model?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const filteredRomon = romonNeighbors.filter(n =>
+        !searchQuery ||
+        n.romonId?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const handleRefetch = () => {
+        refetchMndp();
+        refetchRomon();
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center py-12">
+                <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => setSubTab('mndp')}
+                        className={clsx(
+                            "text-lg font-semibold flex items-center gap-2 transition-colors",
+                            subTab === 'mndp' ? "text-white" : "text-slate-500 hover:text-slate-300"
+                        )}
+                    >
+                        <Network className="w-5 h-5 text-primary" />
+                        MNDP
+                        <span className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full">
+                            {neighbors.length}
+                        </span>
+                    </button>
+                    <div className="w-px h-6 bg-slate-700 mx-1" />
+                    <button
+                        onClick={() => setSubTab('romon')}
+                        className={clsx(
+                            "text-lg font-semibold flex items-center gap-2 transition-colors",
+                            subTab === 'romon' ? "text-white" : "text-slate-500 hover:text-slate-300"
+                        )}
+                    >
+                        <ShieldCheck className="w-5 h-5 text-primary" />
+                        RoMON
+                        <span className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full">
+                            {romonNeighbors.length}
+                        </span>
+                    </button>
+                </div>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:flex-none sm:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                            type="text"
+                            placeholder="Search..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        />
+                    </div>
+                    <Button onClick={handleRefetch} variant="outline" size="sm" disabled={isRefetching}>
+                        <RefreshCw className={clsx("w-4 h-4", isRefetching && "animate-spin")} />
+                    </Button>
+                </div>
+            </div>
+
+            <Card className="glass-panel overflow-hidden">
+                <div className="overflow-x-auto">
+                    {subTab === 'mndp' ? (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-slate-800 bg-slate-800/50">
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Identity</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">IP Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">MAC Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Model / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Interface</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Uptime</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {filteredMndp.length > 0 ? filteredMndp.map((n, i) => (
+                                    <tr key={i} className="hover:bg-slate-800/30 transition-colors">
+                                        <td className="py-3 px-4">
+                                            <div className="text-white font-medium">{n.identity || 'Unknown'}</div>
+                                        </td>
+                                        <td className="py-3 px-4 font-mono text-slate-300">{n.address || '-'}</td>
+                                        <td className="py-3 px-4 font-mono text-slate-300">{n.macAddress || '-'}</td>
+                                        <td className="py-3 px-4">
+                                            <div className="text-slate-300">{n.model || '-'}</div>
+                                            <div className="text-[10px] text-slate-500">{n.version || '-'}</div>
+                                        </td>
+                                        <td className="py-3 px-4 text-slate-400">{n.interface || '-'}</td>
+                                        <td className="py-3 px-4 text-slate-400">{n.uptime || '-'}</td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={6} className="py-12 text-center text-slate-500">
+                                            No MNDP neighbors discovered
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    ) : (
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-slate-800 bg-slate-800/50">
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Identity / RoMON ID</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Path</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Board / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">MTU</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {filteredRomon.length > 0 ? filteredRomon.map((n, i) => (
+                                    <tr key={i} className="hover:bg-slate-800/30 transition-colors">
+                                        <td className="py-3 px-4">
+                                            <div className="text-white font-medium">{n.identity || 'Unknown'}</div>
+                                            <div className="text-[10px] text-slate-500 font-mono">{n.romonId || '-'}</div>
+                                        </td>
+                                        <td className="py-3 px-4 text-slate-300 font-mono text-xs">{n.path || '-'}</td>
+                                        <td className="py-3 px-4">
+                                            <div className="text-slate-300">{n.board || '-'}</div>
+                                            <div className="text-[10px] text-slate-500">{n.version || '-'}</div>
+                                        </td>
+                                        <td className="py-3 px-4 text-slate-400">{n.mtu || '-'}</td>
+                                        <td className="py-3 px-4">
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-8 text-xs gap-2"
+                                                onClick={() => setAddModal({ open: true, romonId: n.romonId })}
+                                            >
+                                                <Plus className="w-3 h-3 text-primary" />
+                                                Add to Monitor
+                                            </Button>
+                                        </td>
+                                    </tr>
+                                )) : (
+                                    <tr>
+                                        <td colSpan={4} className="py-12 text-center">
+                                            <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto mb-3 opacity-20" />
+                                            <p className="text-slate-500">No RoMON neighbors discovered</p>
+                                            <p className="text-[10px] text-slate-600 mt-2 max-w-xs mx-auto">
+                                                Tip: Make sure RoMON is enabled on this router and neighboring devices in <b>Tools &gt; RoMON</b>.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </Card>
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                <div className="text-xs text-amber-200/70 leading-relaxed">
+                    {subTab === 'mndp' ? (
+                        <>Neighbor discovery (MNDP) allows you to see other MikroTik devices on the same physical network.</>
+                    ) : (
+                        <>RoMON neighbors are MikroTik devices that have RoMON enabled and are reachable through the RoMON network.
+                            You can use the RoMON ID (MAC Address) to add and monitor these devices even if they are behind NAT.</>
+                    )}
+                </div>
+            </div>
+
+            <CreateRomonRouterModal
+                isOpen={addModal.open}
+                onClose={() => setAddModal({ open: false, romonId: '' })}
+                onSuccess={() => {
+                    setAddModal({ open: false, romonId: '' });
+                    // Provide a link to the dashboard or let them know it's added
+                }}
+                gateway={router}
+                romonId={addModal.romonId}
+            />
+        </div>
+    );
+}
+
 
 export default function RouterDetails() {
     const { id } = useParams();
@@ -1895,6 +2227,8 @@ export default function RouterDetails() {
         { id: 'dashboard', label: 'Dashboard', icon: <Gauge className="w-4 h-4" /> },
         { id: 'netwatch', label: 'Netwatch', icon: <Eye className="w-4 h-4" /> },
         { id: 'pppoe', label: 'PPPoE', icon: <PhoneCall className="w-4 h-4" /> },
+        { id: 'neighbors', label: 'Neighbors', icon: <Network className="w-4 h-4" /> },
+        { id: 'topology', label: 'Topology', icon: <Zap className="w-4 h-4" /> },
         { id: 'map', label: 'Map', icon: <MapPin className="w-4 h-4" /> },
     ];
 
@@ -2023,6 +2357,12 @@ export default function RouterDetails() {
                 )}
                 {activeTab === 'pppoe' && (
                     <PppoeTab routerId={id} />
+                )}
+                {activeTab === 'neighbors' && (
+                    <NeighborsTab routerId={id} />
+                )}
+                {activeTab === 'topology' && (
+                    <MiniTopology routerId={id} />
                 )}
                 {activeTab === 'map' && (
                     <MapTab

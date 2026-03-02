@@ -1,21 +1,19 @@
 import { db } from './src/db/index.js';
 import { sql } from 'drizzle-orm';
 
-async function checkColumns() {
+async function check() {
     try {
-        const res = await db.execute(sql`
+        const result = await db.execute(sql`
             SELECT column_name, data_type 
             FROM information_schema.columns 
-            WHERE table_name = 'routers'
-            ORDER BY column_name;
+            WHERE table_name = 'topology_links' AND column_name = 'path_offset'
         `);
-        console.log('Columns in "routers" table:');
-        console.table(res);
-        process.exit(0);
+        console.log('Column check result:', JSON.stringify(result, null, 2));
     } catch (err) {
-        console.error('Error checking columns:', err);
-        process.exit(1);
+        console.error('Check failed:', err);
+    } finally {
+        process.exit(0);
     }
 }
 
-checkColumns();
+check();

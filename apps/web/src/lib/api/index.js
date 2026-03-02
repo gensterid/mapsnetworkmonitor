@@ -10,4 +10,4 @@ export {
     settingsService,
     aiService,
     tenantService,
-} from './services';
+} from './services/index';

@@ -13,6 +13,9 @@ export const routerKeys = {
     hotspot: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'hotspot'],
     ppp: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'ppp'],
     pingLatencies: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'pingLatencies'],
+    neighbors: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'neighbors'],
+    romonNeighbors: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'romonNeighbors'],
+    topology: (tenantId, id) => [...routerKeys.detail(tenantId, id), 'topology'],
 };
 
 // ==================== Helpers ====================
@@ -100,6 +103,31 @@ export function useRouterMetricsHistory(routerId, limit = 100, options = {}) {
     });
 }
 
+export function useRouterNeighbors(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
+    return useQuery({
+        queryKey: routerKeys.neighbors(tenantId, routerId),
+        queryFn: () => routerService.getNeighbors(routerId),
+        staleTime: 60 * 1000,
+        enabled: !!routerId,
+        ...options,
+    });
+}
+
+/**
+ * Hook to fetch router RoMON neighbors
+ */
+export function useRouterRomonNeighbors(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
+    return useQuery({
+        queryKey: routerKeys.romonNeighbors(tenantId, routerId),
+        queryFn: () => routerService.getRomonNeighbors(routerId),
+        staleTime: 60 * 1000,
+        enabled: !!routerId,
+        ...options,
+    });
+}
+
 /**
  * Hook to fetch router netwatch entries
  */
@@ -110,6 +138,20 @@ export function useRouterNetwatch(routerId, options = {}) {
         queryFn: () => routerService.getNetwatch(routerId),
         staleTime: 30 * 1000,
         refetchInterval: 30 * 1000,
+        enabled: !!routerId,
+        ...options,
+    });
+}
+
+/**
+ * Hook to fetch router topology
+ */
+export function useRouterTopology(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
+    return useQuery({
+        queryKey: routerKeys.topology(tenantId, routerId),
+        queryFn: () => routerService.getTopology(routerId),
+        staleTime: 30 * 1000,
         enabled: !!routerId,
         ...options,
     });
@@ -360,3 +402,118 @@ export function useSnmpTraffic(routerId, enabled = false) {
     });
 }
 
+/**
+ * Hook to update topology coordinates
+ */
+export function useUpdateTopologyCoords() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (data) => routerService.updateTopologyCoords(data),
+        onSuccess: (_, variables) => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, variables.routerId)
+            });
+        },
+    });
+}
+
+export function useAddTopologyNode() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ routerId, data }) => routerService.addTopologyNode(routerId, data),
+        onSuccess: (_, { routerId }) => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, routerId)
+            });
+        },
+    });
+}
+
+/**
+ * Hook to update an existing schematic node (e.g. mapping)
+ */
+export function useUpdateTopologyNode() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ nodeIdInTopology, data }) => routerService.updateTopologyNode(nodeIdInTopology, data),
+        onSuccess: (_, { routerId }) => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, routerId)
+            });
+        },
+    });
+}
+
+/**
+ * Hook to remove a node from the schematic
+ */
+export function useRemoveTopologyNode() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ routerId, nodeId }) => routerService.removeTopologyNode(routerId, nodeId),
+        onSuccess: (_, { routerId }) => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, routerId)
+            });
+        },
+    });
+}
+
+/**
+ * Hook to add a link between schematic nodes
+ */
+export function useAddTopologyLink() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ routerId, data }) => routerService.addTopologyLink(routerId, data),
+        onSuccess: (_, variables) => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, variables.routerId)
+            });
+        },
+    });
+}
+
+/**
+ * Hook to remove a link
+ */
+export function useRemoveTopologyLink(routerId) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (linkId) => routerService.removeTopologyLink(linkId),
+        onSuccess: () => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, routerId)
+            });
+        },
+    });
+}
+
+/**
+ * Hook to update a link's configuration
+ */
+export function useUpdateTopologyLink(routerId) {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ linkId, data }) => routerService.updateTopologyLink(linkId, data),
+        onSuccess: () => {
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({
+                queryKey: routerKeys.topology(tenantId, routerId)
+            });
+        },
+    });
+}

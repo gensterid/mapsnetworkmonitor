@@ -1,0 +1,45 @@
+--- Check Topology Columns ---
+Connected.
+
+Checking table: routers
+Found columns:
+[
+  {
+    "column_name": "topology_x",
+    "data_type": "numeric"
+  },
+  {
+    "column_name": "topology_y",
+    "data_type": "numeric"
+  },
+  {
+    "column_name": "parent_interface",
+    "data_type": "text"
+  }
+]
+
+Checking table: router_netwatch
+Found columns:
+[
+  {
+    "column_name": "topology_x",
+    "data_type": "numeric"
+  },
+  {
+    "column_name": "topology_y",
+    "data_type": "numeric"
+  }
+]
+
+Checking table: olts
+Found columns:
+[
+  {
+    "column_name": "topology_x",
+    "data_type": "numeric"
+  },
+  {
+    "column_name": "topology_y",
+    "data_type": "numeric"
+  }
+]

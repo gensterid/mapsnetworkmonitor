@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { routerService } from '../services/index.js';
+import { routerService, topologyService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
@@ -34,6 +34,8 @@ const createRouterSchema = z.object({
     genieacsPassword: z.string().optional().nullable(),
     useWebhook: z.boolean().optional().default(false),
     pollingIntervalMetrics: z.number().int().min(60).optional().default(300),
+    gatewayId: z.string().uuid().optional().nullable(),
+    romonMac: z.string().optional().nullable(),
 });
 
 const updateRouterSchema = z.object({
@@ -58,6 +60,8 @@ const updateRouterSchema = z.object({
     genieacsPassword: z.string().optional().nullable(),
     useWebhook: z.boolean().optional(),
     pollingIntervalMetrics: z.number().int().min(60).optional(),
+    gatewayId: z.string().uuid().optional().nullable(),
+    romonMac: z.string().optional().nullable(),
 });
 
 const testConnectionSchema = z.object({
@@ -420,6 +424,32 @@ router.get(
     })
 );
 
+/**
+ * GET /api/routers/:id/neighbors
+ * Get discovered neighbors (MNDP)
+ */
+router.get(
+    '/:id/neighbors',
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const neighbors = await routerService.getNeighbors(id, req.user?.tenantId!);
+        res.json({ data: neighbors });
+    })
+);
+
+/**
+ * GET /api/routers/:id/romon-neighbors
+ * Get discovered RoMON neighbors
+ */
+router.get(
+    '/:id/romon-neighbors',
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const neighbors = await routerService.getRomonNeighbors(id, req.user?.tenantId!);
+        res.json({ data: neighbors });
+    })
+);
+
 
 /**
  * GET /api/routers/:id/hotspot/active
@@ -468,7 +498,7 @@ const createNetwatchSchema = z.object({
     latitude: z.preprocess((val) => (val === '' ? undefined : val), z.string().optional()),
     longitude: z.preprocess((val) => (val === '' ? undefined : val), z.string().optional()),
     location: z.string().optional(),
-    deviceType: z.enum(['client', 'olt', 'odp']).optional(),
+    deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
     waypoints: z.string().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
     connectedToId: z.string().uuid().optional().nullable(),
@@ -490,7 +520,7 @@ const updateNetwatchSchema = z.object({
     }, z.string().optional()),
     location: z.string().nullable().optional(),
     status: z.enum(['up', 'down', 'unknown']).optional(),
-    deviceType: z.enum(['client', 'olt', 'odp']).optional(),
+    deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
     waypoints: z.string().nullable().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
     connectedToId: z.string().uuid().optional().nullable(),
@@ -677,6 +707,170 @@ router.post(
         res.json({ data: traffic });
     })
 );
+
+// ==================== TOPOLOGY ROUTES ====================
+
+/**
+ * GET /api/routers/:id/topology
+ * Get router topology nodes and edges
+ */
+router.get(
+    '/:id/topology',
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const topology = await topologyService.getRouterTopology(id);
+        res.json({ data: topology });
+    })
+);
+
+/**
+ * PATCH /api/routers/topology/coords
+ * Update node schematic coordinates
+ */
+router.patch(
+    '/topology/coords',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const schema = z.object({
+            routerId: z.string().uuid(),
+            nodeId: z.string().uuid(),
+            x: z.number(),
+            y: z.number(),
+        });
+        const { routerId, nodeId, x, y } = schema.parse(req.body);
+        await topologyService.updateCoords(routerId, nodeId, x, y, req.user?.tenantId ?? undefined);
+        res.json({ success: true });
+    })
+);
+
+/**
+ * POST /api/routers/:id/topology/nodes
+ * Add a node to the schematic
+ */
+router.post(
+    '/:id/topology/nodes',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const schema = z.object({
+            nodeId: z.string().uuid().nullable().optional(),
+            nodeType: z.string(),
+            name: z.string().optional(),
+            host: z.string().optional(),
+        });
+        const { nodeId, nodeType, name, host } = schema.parse(req.body);
+        const node = await topologyService.addNode(
+            id,
+            nodeId || null,
+            nodeType,
+            req.user?.tenantId ?? undefined,
+            name || host ? { name, host } : undefined
+        );
+        res.json({ data: node });
+    })
+);
+
+/**
+ * DELETE /api/routers/:id/topology/nodes/:nodeId
+ * Remove a node from the schematic
+ */
+router.delete(
+    '/:id/topology/nodes/:nodeId',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const nodeId = req.params.nodeId as string;
+        await topologyService.removeNode(id, nodeId);
+        res.json({ success: true });
+    })
+);
+
+/**
+ * PATCH /api/routers/topology/nodes/:nodeId
+ */
+router.patch(
+    '/topology/nodes/:nodeId',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const nodeId = req.params.nodeId as string;
+        const schema = z.object({
+            nodeId: z.string().uuid().nullable().optional(),
+            nodeType: z.string().optional(),
+            customName: z.string().optional(),
+            customHost: z.string().optional(),
+            routerId: z.string().uuid().optional(),
+        });
+        const data = schema.parse(req.body);
+        const result = await topologyService.updateNode(nodeId, data as any);
+        res.json({ data: result });
+    })
+);
+
+/**
+ * POST /api/routers/topology/links
+ */
+/**
+ * POST /api/routers/topology/links
+ * Add a link to the schematic
+ */
+router.post(
+    '/topology/links',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const schema = z.object({
+            routerId: z.string().uuid(),
+            sourceNodeId: z.string(), // Allow string for fallback nodes (though usually it should be schematic ID)
+            targetNodeId: z.string(),
+            sourceInterface: z.string().optional(),
+            targetInterface: z.string().optional(),
+            pathOffset: z.string().or(z.number()).optional()
+        });
+        const { routerId, sourceNodeId, targetNodeId, sourceInterface, targetInterface, pathOffset } = schema.parse(req.body);
+        const link = await topologyService.addLink(
+            routerId,
+            sourceNodeId,
+            targetNodeId,
+            sourceInterface || '',
+            targetInterface || '',
+            req.user?.tenantId ?? undefined,
+            pathOffset ? String(pathOffset) : undefined
+        );
+        res.json({ data: link });
+    })
+);
+
+/**
+ * DELETE /api/routers/topology/links/:linkId
+ */
+router.delete(
+    '/topology/links/:linkId',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const linkId = req.params.linkId as string;
+        await topologyService.removeLink(linkId);
+        res.json({ success: true });
+    })
+);
+
+/**
+ * PATCH /api/routers/topology/links/:linkId
+ */
+router.patch(
+    '/topology/links/:linkId',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const linkId = req.params.linkId as string;
+        const schema = z.object({
+            sourceInterface: z.string().optional(),
+            targetInterface: z.string().optional(),
+            pathOffset: z.string().or(z.number()).optional()
+        });
+        const data = schema.parse(req.body);
+        await topologyService.updateLink(linkId, data as any);
+        res.json({ success: true });
+    })
+);
+
 
 export default router;
 

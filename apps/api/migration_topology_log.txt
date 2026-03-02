@@ -1,0 +1,17 @@
+--- Migration: Topology Columns ---
+Connected.
+Running: ALTER TABLE routers ADD COLUMN IF NOT EXISTS parent_interface TEXT
+Result: Success
+Running: ALTER TABLE routers ADD COLUMN IF NOT EXISTS topology_x DECIMAL(10, 2)
+Result: Success
+Running: ALTER TABLE routers ADD COLUMN IF NOT EXISTS topology_y DECIMAL(10, 2)
+Result: Success
+Running: ALTER TABLE router_netwatch ADD COLUMN IF NOT EXISTS topology_x DECIMAL(10, 2)
+Result: Success
+Running: ALTER TABLE router_netwatch ADD COLUMN IF NOT EXISTS topology_y DECIMAL(10, 2)
+Result: Success
+Running: ALTER TABLE olts ADD COLUMN IF NOT EXISTS topology_x DECIMAL(10, 2)
+Result: Success
+Running: ALTER TABLE olts ADD COLUMN IF NOT EXISTS topology_y DECIMAL(10, 2)
+Result: Success
+✅ Migration completed successfully.

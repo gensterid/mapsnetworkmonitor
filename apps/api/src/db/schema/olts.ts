@@ -44,6 +44,10 @@ export const olts = pgTable('olts', {
     latitude: decimal('latitude', { precision: 10, scale: 7 }),
     longitude: decimal('longitude', { precision: 10, scale: 7 }),
 
+    // Topology Schematic
+    topologyX: decimal('topology_x', { precision: 10, scale: 2 }),
+    topologyY: decimal('topology_y', { precision: 10, scale: 2 }),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => ({

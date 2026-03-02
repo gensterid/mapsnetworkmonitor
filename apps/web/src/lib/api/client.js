@@ -76,6 +76,14 @@ export const put = async (url, data, config) => {
 };
 
 /**
+ * Helper function for PATCH requests
+ */
+export const patch = async (url, data, config) => {
+    const response = await apiClient.patch(url, data, config);
+    return response.data?.data;
+};
+
+/**
  * Helper function for DELETE requests
  */
 export const del = async (url, config) => {

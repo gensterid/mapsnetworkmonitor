@@ -1,4 +1,4 @@
-import { get, post, put, del } from './client';
+import { get, post, put, patch, del } from './client';
 
 /**
  * Router Service
@@ -52,6 +52,8 @@ export const routerService = {
     updateNetwatch: (routerId, netwatchId, data) =>
         put(`/routers/${routerId}/netwatch/${netwatchId}`, data),
 
+    getRomonNeighbors: (routerId) => get(`/routers/${routerId}/romon-neighbors`),
+
     // Delete a netwatch entry
     deleteNetwatch: (routerId, netwatchId) =>
         del(`/routers/${routerId}/netwatch/${netwatchId}`),
@@ -64,6 +66,30 @@ export const routerService = {
 
     // Get active PPP active
     getPppActive: (routerId) => get(`/routers/${routerId}/ppp/active`),
+
+    // Get discovered neighbors (MNDP)
+    getNeighbors: (routerId) => get(`/routers/${routerId}/neighbors`),
+
+    // Get RoMON neighbors
+    getRomonNeighbors: (routerId) => get(`/routers/${routerId}/romon-neighbors`),
+
+    // Get router topology nodes and edges
+    getTopology: (routerId) => get(`/routers/${routerId}/topology`),
+
+    // Update node schematic coordinates
+    updateTopologyCoords: (data) => patch('/routers/topology/coords', data),
+
+    // Add a node to the schematic
+    addTopologyNode: (routerId, data) => post(`/routers/${routerId}/topology/nodes`, data),
+
+    // Remove a node from the schematic
+    removeTopologyNode: (routerId, nodeId) => del(`/routers/${routerId}/topology/nodes/${nodeId}`),
+
+    // Add a link between nodes
+    addTopologyLink: (routerId, data) => post(`/routers/topology/links`, { ...data, routerId }),
+
+    // Remove a link
+    removeTopologyLink: (linkId) => del(`/routers/topology/links/${linkId}`),
 };
 
 /**

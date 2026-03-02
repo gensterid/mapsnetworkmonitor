@@ -11,6 +11,29 @@ export async function runMigrations() {
             await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'operator', 'user'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
         } catch (e) { /* ignore if already exists */ }
 
+        // 2. Ensure device_type enum has new values
+        try {
+            await db.execute(sql`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'device_type' AND e.enumlabel = 'router') THEN
+                        ALTER TYPE device_type ADD VALUE 'router';
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'device_type' AND e.enumlabel = 'switch') THEN
+                        ALTER TYPE device_type ADD VALUE 'switch';
+                    END IF;
+                EXCEPTION
+                    WHEN undefined_object THEN
+                        -- If the type doesn't exist at all, it will be created by Drizzle or other steps, 
+                        -- though usually it should exist by now if the tables are being created.
+                        NULL;
+                END
+                $$;
+            `);
+        } catch (e) {
+            logger.warn({ err: e }, 'Failed to ensure device_type enum values exist');
+        }
+
         // 2. Ensure Better Auth tables exist
         const authTables = [
             {
@@ -87,6 +110,43 @@ export async function runMigrations() {
                         slug TEXT NOT NULL UNIQUE,
                         description TEXT,
                         settings TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
+            },
+            {
+                name: 'topology_nodes',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS topology_nodes (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        router_id UUID NOT NULL REFERENCES routers(id) ON DELETE CASCADE,
+                        node_id UUID,
+                        node_type TEXT NOT NULL,
+                        custom_name TEXT,
+                        custom_host TEXT,
+                        custom_type TEXT,
+                        x DECIMAL(10, 2) NOT NULL DEFAULT 0,
+                        y DECIMAL(10, 2) NOT NULL DEFAULT 0,
+                        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
+            },
+            {
+                name: 'topology_links',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS topology_links (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        router_id UUID NOT NULL REFERENCES routers(id) ON DELETE CASCADE,
+                        source_node_id UUID NOT NULL,
+                        target_node_id UUID NOT NULL,
+                        source_interface TEXT,
+                        target_interface TEXT,
+                        path_offset DECIMAL(10, 2) DEFAULT 0,
+                        animation_type TEXT DEFAULT 'pulse',
+                        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
                         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
@@ -296,6 +356,46 @@ export async function runMigrations() {
                 name: 'routers.last_full_sync',
                 sql: sql`ALTER TABLE routers ADD COLUMN last_full_sync TIMESTAMP`
             },
+            {
+                name: 'routers.gateway_id',
+                sql: sql`ALTER TABLE routers ADD COLUMN gateway_id UUID REFERENCES routers(id)`
+            },
+            {
+                name: 'routers.romon_mac',
+                sql: sql`ALTER TABLE routers ADD COLUMN romon_mac TEXT`
+            },
+            {
+                name: 'routers.last_neighbors_sync',
+                sql: sql`ALTER TABLE routers ADD COLUMN last_neighbors_sync TIMESTAMP`
+            },
+            {
+                name: 'topology_nodes.custom_name',
+                sql: sql`ALTER TABLE topology_nodes ADD COLUMN IF NOT EXISTS custom_name TEXT`
+            },
+            {
+                name: 'topology_nodes.custom_host',
+                sql: sql`ALTER TABLE topology_nodes ADD COLUMN IF NOT EXISTS custom_host TEXT`
+            },
+            {
+                name: 'topology_nodes.custom_type',
+                sql: sql`ALTER TABLE topology_nodes ADD COLUMN IF NOT EXISTS custom_type TEXT`
+            },
+            {
+                name: 'topology_links.source_interface',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS source_interface TEXT`
+            },
+            {
+                name: 'topology_links.target_interface',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS target_interface TEXT`
+            },
+            {
+                name: 'topology_links.path_offset',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS path_offset DECIMAL(10, 2) DEFAULT 0`
+            },
+            {
+                name: 'topology_links.animation_type',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS animation_type TEXT DEFAULT 'pulse'`
+            },
         ];
 
         for (const m of migrations) {
@@ -314,6 +414,10 @@ export async function runMigrations() {
                 logger.warn({ err, migration: m.name }, `Failed to apply optimization/migration for ${m.name}`);
             }
         }
+        // Special check: Make topology_nodes.node_id nullable if it exists
+        try {
+            await db.execute(sql`ALTER TABLE topology_nodes ALTER COLUMN node_id DROP NOT NULL`);
+        } catch (e) { /* ignore if column doesn't exist yet or already nullable */ }
 
         // 3. Ensure unique constraints exist (safe, no data loss)
         const constraintMigrations = [
