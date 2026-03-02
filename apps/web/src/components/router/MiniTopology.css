@@ -81,7 +81,7 @@
 
 @keyframes neon-flow {
     from {
-        stroke-dashoffset: 100;
+        stroke-dashoffset: 200;
     }
 
     to {
@@ -97,7 +97,7 @@
 
 @keyframes neon-flow-dash {
     from {
-        stroke-dashoffset: 40;
+        stroke-dashoffset: 200;
     }
 
     to {

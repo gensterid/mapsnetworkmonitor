@@ -57,9 +57,8 @@ const NeonEdge = ({
                     )}
                     d={edgePath}
                     fill="none"
-                    strokeWidth={data?.animationType === 'dash' ? 1.5 : 4}
-                    strokeDasharray={data?.animationType === 'dash' ? "5, 5" : "4, 46"}
-                    pathLength="100"
+                    strokeWidth={data?.animationType === 'dash' ? 2 : 4}
+                    strokeDasharray={data?.animationType === 'dash' ? "10, 15" : "4, 30"}
                 />
             )}
 
