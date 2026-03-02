@@ -4,9 +4,10 @@
 }
 
 /* Status Glows */
-.base-node-container.online {
-    box-shadow: 0 0 20px -5px rgba(57, 255, 20, 0.15);
-    animation: node-pulse 4s ease-in-out infinite;
+.base-node-container.online,
+.base-node-container.up {
+    box-shadow: 0 0 25px -5px rgba(57, 255, 20, 0.2);
+    animation: node-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .base-node-container.offline {
@@ -17,11 +18,13 @@
 
     0%,
     100% {
-        box-shadow: 0 0 20px -5px rgba(57, 255, 20, 0.1);
+        box-shadow: 0 0 15px -5px rgba(57, 255, 20, 0.1);
+        filter: brightness(1);
     }
 
     50% {
-        box-shadow: 0 0 35px -5px rgba(57, 255, 20, 0.25);
+        box-shadow: 0 0 35px -2px rgba(57, 255, 20, 0.3);
+        filter: brightness(1.2);
     }
 }
 
@@ -43,7 +46,8 @@
     align-items: center;
     gap: 8px;
     z-index: 10;
-    overflow: hidden;
+    overflow: visible;
+    /* Changed to visible for handles */
 }
 
 /* Border Light on Hover */
@@ -108,7 +112,15 @@
     box-shadow: 0 0 8px #ff3131;
 }
 
-/* Icons */
+/* Content */
+.node-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-bottom: 4px;
+}
+
 .node-icon-wrapper {
     position: relative;
     color: #94a3b8;
@@ -123,20 +135,6 @@
     color: #00d2ff;
 }
 
-.sfp-detail-indicator {
-    position: absolute;
-    bottom: -4px;
-    right: -10px;
-    font-size: 8px;
-    font-weight: 800;
-    color: #ffd700;
-    text-transform: uppercase;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 1px 3px;
-    border-radius: 2px;
-}
-
-/* Node Info */
 .node-info {
     text-align: center;
     width: 100%;
@@ -149,6 +147,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    max-width: 120px;
 }
 
 .node-host {
@@ -157,19 +156,46 @@
     font-family: 'JetBrains Mono', monospace;
 }
 
-/* Handles */
+/* Handles Styling */
 .react-flow__handle {
-    width: 6px !important;
-    height: 6px !important;
+    width: 8px !important;
+    height: 8px !important;
+    background: rgba(148, 163, 184, 0.2) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    z-index: 50 !important;
+    opacity: 0;
+    /* Hidden by default, visible on hover or edit mode */
+}
+
+.edit-mode .react-flow__handle,
+.base-node-container:hover .react-flow__handle {
+    opacity: 1;
     background: rgba(148, 163, 184, 0.5) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-    transition: all 0.2s ease !important;
 }
 
 .react-flow__handle:hover {
     background: #00d2ff !important;
-    box-shadow: 0 0 8px #00d2ff !important;
-    transform: scale(1.5) !important;
+    box-shadow: 0 0 10px #00d2ff !important;
+    transform: scale(1.4) !important;
+    border-color: #fff !important;
+}
+
+/* Positioning Fixes for Handles */
+.react-flow__handle-top {
+    top: -4px !important;
+}
+
+.react-flow__handle-bottom {
+    bottom: -4px !important;
+}
+
+.react-flow__handle-left {
+    left: -4px !important;
+}
+
+.react-flow__handle-right {
+    right: -4px !important;
 }
 
 /* Tooltip */
@@ -212,7 +238,7 @@
 .tooltip-body {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .tooltip-row {

@@ -76,12 +76,11 @@
 .neon-flow-animation {
     stroke: #fff;
     filter: drop-shadow(0 0 5px #fff);
-    animation: neon-flow 1.5s linear infinite;
 }
 
 @keyframes neon-flow {
     from {
-        stroke-dashoffset: 200;
+        stroke-dashoffset: 100;
     }
 
     to {
@@ -89,20 +88,56 @@
     }
 }
 
+/* 1. Pulse: Periodic traveling wave/segment */
+.neon-flow-animation.pulse {
+    stroke-width: 3px;
+    stroke-dasharray: 15 85;
+    animation: neon-flow 2s linear infinite, neon-fade 2s ease-in-out infinite;
+}
+
+@keyframes neon-fade {
+
+    0%,
+    100% {
+        stroke-opacity: 0.4;
+    }
+
+    50% {
+        stroke-opacity: 1;
+    }
+}
+
+/* 2. Dash: Fast moving sharp dashes */
 .neon-flow-animation.dash {
-    filter: drop-shadow(0 0 2px #fff);
-    stroke-opacity: 0.8;
-    animation: neon-flow-dash 1s linear infinite;
+    stroke-width: 1.5px;
+    stroke-dasharray: 6 12;
+    animation: neon-flow-fast 1s linear infinite;
+    filter: drop-shadow(0 0 3px #fff);
 }
 
-@keyframes neon-flow-dash {
+@keyframes neon-flow-fast {
     from {
-        stroke-dashoffset: 200;
+        stroke-dashoffset: 54;
     }
 
+    /* 6+12 * 3 cycles = 54 */
     to {
         stroke-dashoffset: 0;
     }
+}
+
+/* 3. Dot: Single traveling glow dot */
+.neon-flow-animation.dot {
+    stroke-width: 5px;
+    stroke-linecap: round;
+    stroke-dasharray: 0.1 99.9;
+    animation: neon-flow 3s linear infinite;
+    filter: drop-shadow(0 0 10px #fff);
+}
+
+/* 4. None: Explicitly hidden */
+.neon-flow-animation.none {
+    display: none;
 }
 
 /* Header Actions */
@@ -147,6 +182,12 @@
     background: rgba(57, 255, 20, 0.1);
     border-color: var(--neon-green);
     box-shadow: 0 0 15px rgba(57, 255, 20, 0.2);
+}
+
+.base-node-container.online,
+.base-node-container.up {
+    box-shadow: 0 0 20px -5px rgba(57, 255, 20, 0.15);
+    animation: node-pulse 4s ease-in-out infinite;
 }
 
 .action-btn.finish {
@@ -328,4 +369,46 @@
 .info-row .value {
     color: #fff;
     font-weight: 500;
+}
+
+/* Edge Tooltip */
+.edge-hover-area {
+    cursor: pointer;
+}
+
+.edge-tooltip-container {
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease-in-out;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.react-flow__edge:hover .edge-tooltip-container {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(-5px);
+}
+
+.edge-tooltip {
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 12px;
+    width: max-content;
+    max-width: 180px;
+    min-width: 120px;
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.8), 0 0 20px rgba(0, 210, 255, 0.1);
+    pointer-events: none;
+}
+
+.edge-tooltip .tooltip-header {
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--neon-cyan, #22d3ee);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 4px;
 }

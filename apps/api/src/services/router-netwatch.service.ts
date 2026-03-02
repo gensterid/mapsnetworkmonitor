@@ -303,9 +303,10 @@ export class RouterNetwatchService {
 
                 // Delete entries that no longer exist on MikroTik
                 // CRITICAL: Only cleanup 'client' devices that HAVE a host IP.
-                // Manual markers like ODP/OLT or virtual devices (no host) should NOT be deleted.
+                // Manual markers like ODP/OLT, virtual devices (no host), or App-Only devices should NOT be deleted.
                 const toDelete = existingEntries.filter(e =>
                     e.deviceType === 'client' &&
+                    !e.isAppOnly &&
                     e.host &&
                     e.host !== '' &&
                     e.host !== '0.0.0.0' &&

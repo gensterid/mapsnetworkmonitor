@@ -12,13 +12,31 @@ const BaseNode = ({ data, children, type }) => {
                 {/* Status LED */}
                 <div className={clsx('status-led', (status === 'up' || status === 'online') ? 'up' : 'down')} />
 
-                {/* Ports - Left Side */}
-                <div className="handles-left">
-                    <Handle type="target" position={Position.Left} id="tl1" style={{ top: '30%' }} />
-                    <Handle type="source" position={Position.Left} id="sl1" style={{ top: '40%' }} />
-                    <Handle type="target" position={Position.Left} id="tl2" style={{ top: '60%' }} />
-                    <Handle type="source" position={Position.Left} id="sl2" style={{ top: '70%' }} />
-                </div>
+                {/* --- 8 POINT HANDLE SYSTEM --- */}
+
+                {/* TOP HANDLES */}
+                <Handle type="source" position={Position.Top} id="t1" style={{ left: '30%' }} className="handle-top" />
+                <Handle type="target" position={Position.Top} id="t1" style={{ left: '30%' }} className="handle-top" />
+                <Handle type="source" position={Position.Top} id="t2" style={{ left: '70%' }} className="handle-top" />
+                <Handle type="target" position={Position.Top} id="t2" style={{ left: '70%' }} className="handle-top" />
+
+                {/* RIGHT HANDLES */}
+                <Handle type="source" position={Position.Right} id="r1" style={{ top: '30%' }} className="handle-right" />
+                <Handle type="target" position={Position.Right} id="r1" style={{ top: '30%' }} className="handle-right" />
+                <Handle type="source" position={Position.Right} id="r2" style={{ top: '70%' }} className="handle-right" />
+                <Handle type="target" position={Position.Right} id="r2" style={{ top: '70%' }} className="handle-right" />
+
+                {/* BOTTOM HANDLES */}
+                <Handle type="source" position={Position.Bottom} id="b1" style={{ left: '30%' }} className="handle-bottom" />
+                <Handle type="target" position={Position.Bottom} id="b1" style={{ left: '30%' }} className="handle-bottom" />
+                <Handle type="source" position={Position.Bottom} id="b2" style={{ left: '70%' }} className="handle-bottom" />
+                <Handle type="target" position={Position.Bottom} id="b2" style={{ left: '70%' }} className="handle-bottom" />
+
+                {/* LEFT HANDLES */}
+                <Handle type="source" position={Position.Left} id="l1" style={{ top: '30%' }} className="handle-left" />
+                <Handle type="target" position={Position.Left} id="l1" style={{ top: '30%' }} className="handle-left" />
+                <Handle type="source" position={Position.Left} id="l2" style={{ top: '70%' }} className="handle-left" />
+                <Handle type="target" position={Position.Left} id="l2" style={{ top: '70%' }} className="handle-left" />
 
                 <div className="node-content">
                     {children}
@@ -37,16 +55,14 @@ const BaseNode = ({ data, children, type }) => {
                         {data.latency !== undefined && data.latency !== null && <div className="tooltip-row"><span>Latency</span><span>{data.latency}ms</span></div>}
                         {data.uptime !== undefined && data.uptime !== null && <div className="tooltip-row"><span>Uptime</span><span>{Math.floor(data.uptime / 3600)}h {Math.floor((data.uptime % 3600) / 60)}m</span></div>}
                         {data.packetLoss !== undefined && data.packetLoss !== null && <div className="tooltip-row"><span>Loss</span><span>{data.packetLoss}%</span></div>}
-                        {(!data.model || data.model === 'custom') && data.latency === undefined && <div className="tooltip-row text-slate-500 italic"><span>No metrics available</span></div>}
+                        {data.notes && (
+                            <div className="tooltip-notes mt-2 pt-2 border-t border-slate-700/50">
+                                <div className="text-[9px] uppercase font-bold text-slate-500 mb-1">Notes</div>
+                                <div className="text-[10px] text-slate-300 leading-relaxed italic">"{data.notes}"</div>
+                            </div>
+                        )}
+                        {(!data.model || data.model === 'custom') && data.latency === undefined && !data.notes && <div className="tooltip-row text-slate-500 italic"><span>No metrics available</span></div>}
                     </div>
-                </div>
-
-                {/* Ports - Right Side */}
-                <div className="handles-right">
-                    <Handle type="source" position={Position.Right} id="sr1" style={{ top: '30%' }} />
-                    <Handle type="target" position={Position.Right} id="tr1" style={{ top: '40%' }} />
-                    <Handle type="source" position={Position.Right} id="sr2" style={{ top: '60%' }} />
-                    <Handle type="target" position={Position.Right} id="tr2" style={{ top: '70%' }} />
                 </div>
             </div>
         </div>

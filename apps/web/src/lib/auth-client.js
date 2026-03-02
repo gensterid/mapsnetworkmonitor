@@ -11,7 +11,7 @@ const getBaseURL = () => {
         // note: better-auth requires a full URL with protocol and path to the auth mount point
         return window.location.origin + '/api/auth';
     }
-    return 'http://127.0.0.1:3002/api/auth';
+    return 'http://127.0.0.1:3001/api/auth';
 };
 
 export const authClient = createAuthClient({

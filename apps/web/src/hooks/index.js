@@ -31,6 +31,7 @@ export {
     useRemoveTopologyLink,
     usePingLatencies,
     useSnmpTraffic,
+    usePingHost,
     routerKeys,
 } from './useRouters';
 

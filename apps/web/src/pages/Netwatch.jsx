@@ -205,6 +205,11 @@ export default function Netwatch() {
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             {getStatusBadge(entry.status)}
+                                            {entry.isAppOnly && (
+                                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                                    App Only
+                                                </span>
+                                            )}
                                             {entry.hasWebhook && (
                                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded border border-amber-400/20" title="Real-time Webhook Active">
                                                     <Zap className="w-2.5 h-2.5 fill-amber-400" />

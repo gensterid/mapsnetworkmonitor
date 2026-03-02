@@ -126,6 +126,7 @@ export async function runMigrations() {
                         custom_name TEXT,
                         custom_host TEXT,
                         custom_type TEXT,
+                        notes TEXT,
                         x DECIMAL(10, 2) NOT NULL DEFAULT 0,
                         y DECIMAL(10, 2) NOT NULL DEFAULT 0,
                         tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -144,6 +145,9 @@ export async function runMigrations() {
                         target_node_id UUID NOT NULL,
                         source_interface TEXT,
                         target_interface TEXT,
+                        source_handle TEXT,
+                        target_handle TEXT,
+                        notes TEXT,
                         path_offset DECIMAL(10, 2) DEFAULT 0,
                         animation_type TEXT DEFAULT 'pulse',
                         tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
@@ -396,10 +400,31 @@ export async function runMigrations() {
                 name: 'topology_links.animation_type',
                 sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS animation_type TEXT DEFAULT 'pulse'`
             },
+            {
+                name: 'topology_links.source_handle',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS source_handle TEXT`
+            },
+            {
+                name: 'topology_links.target_handle',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS target_handle TEXT`
+            },
+            {
+                name: 'topology_nodes.notes',
+                sql: sql`ALTER TABLE topology_nodes ADD COLUMN IF NOT EXISTS notes TEXT`
+            },
+            {
+                name: 'topology_links.notes',
+                sql: sql`ALTER TABLE topology_links ADD COLUMN IF NOT EXISTS notes TEXT`
+            },
+            {
+                name: 'router_netwatch.is_app_only',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN is_app_only BOOLEAN DEFAULT false NOT NULL`
+            },
         ];
 
         for (const m of migrations) {
             const [tableName, columnName] = m.name.split('.');
+            console.log(`🔎 Checking ${tableName}.${columnName}...`);
             try {
                 const check = await db.execute(sql`
                     SELECT 1 FROM information_schema.columns 
@@ -407,10 +432,14 @@ export async function runMigrations() {
                 `);
 
                 if (check.length === 0) {
-                    logger.info(`Applying migration: ${m.name}`);
+                    console.log(`🚀 Applying migration: ${m.name}`);
                     await db.execute(m.sql);
+                    console.log(`✅ Migration applied: ${m.name}`);
+                } else {
+                    console.log(`⏭️ Migration already applied: ${m.name}`);
                 }
             } catch (err) {
+                console.error(`❌ Failed to apply migration: ${m.name}`, err);
                 logger.warn({ err, migration: m.name }, `Failed to apply optimization/migration for ${m.name}`);
             }
         }

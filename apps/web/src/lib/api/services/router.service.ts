@@ -197,6 +197,11 @@ export const routerService = {
      * Update a link's configuration
      */
     updateTopologyLink: (linkId: string, data: any) => patch(`/routers/topology/links/${linkId}`, data),
+
+    /**
+     * Measure ping latency to an arbitrary IP address from a router
+     */
+    pingHost: (routerId: string, ip: string) => post<{ latency: number | null; packetLoss: number | null }>(`/routers/${routerId}/ping`, { ip }),
 };
 
 export default routerService;

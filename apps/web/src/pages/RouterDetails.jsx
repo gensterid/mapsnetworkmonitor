@@ -963,6 +963,7 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
         latitude: '',
         longitude: '',
         location: '',
+        isAppOnly: false,
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
@@ -976,6 +977,7 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                 latitude: netwatch.latitude || '',
                 longitude: netwatch.longitude || '',
                 location: netwatch.location || '',
+                isAppOnly: netwatch.isAppOnly || false,
             });
         } else {
             setFormData({
@@ -985,13 +987,15 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                 latitude: '',
                 longitude: '',
                 location: '',
+                isAppOnly: false,
             });
         }
         setError('');
     }, [netwatch, isOpen]);
 
     const handleChange = (e) => {
-        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+        const { name, value, type, checked } = e.target;
+        setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
     const handleCoordinateInput = (e) => {
@@ -1016,6 +1020,7 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                 host: formData.host,
                 name: formData.name,
                 interval: parseInt(formData.interval, 10),
+                isAppOnly: formData.isAppOnly,
             };
 
             // Only add optional fields if they have values
@@ -1083,6 +1088,27 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                         </div>
                     </div>
                     <p className="text-xs text-slate-500 mt-2">Tip: Paste "lat, long" format to auto-fill</p>
+                </div>
+
+                <div className="pt-4 border-t border-slate-700/50 flex flex-col gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer group w-fit">
+                        <div className="relative flex items-center">
+                            <input
+                                type="checkbox"
+                                name="isAppOnly"
+                                checked={formData.isAppOnly}
+                                onChange={handleChange}
+                                className="peer appearance-none w-4 h-4 rounded border border-slate-600 bg-slate-800/50 checked:bg-primary checked:border-primary transition-colors cursor-pointer"
+                            />
+                            <svg className="absolute w-3 h-3 text-white left-0.5 top-0.5 pointer-events-none opacity-0 peer-checked:opacity-100 placeholder-transition" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                        </div>
+                        <span className="text-sm font-medium text-slate-300 group-hover:text-white transition-colors">Monitor only via App</span>
+                    </label>
+                    <p className="text-xs text-slate-500 pl-6 leading-relaxed">
+                        If checked, this device will be pinged directly by the application backend instead of being added to the MikroTik router's native Netwatch list. Useful for monitoring devices on the same subnet without cluttering the router's configuration.
+                    </p>
                 </div>
 
                 <div className="pt-4 flex justify-end gap-2">
@@ -1282,6 +1308,9 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                             {nw.status === 'up' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                                             {nw.status === 'up' ? 'Up' : 'Down'}
                                         </span>
+                                        {nw.isAppOnly && (
+                                            <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/30">App Only</span>
+                                        )}
                                         {nw.name?.startsWith('[DISABLED]') && (
                                             <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">Disabled</span>
                                         )}
@@ -1395,6 +1424,11 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                                     {nw.status === 'up' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                                                     {nw.status === 'up' ? 'Up' : 'Down'}
                                                 </span>
+                                                {nw.isAppOnly && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                                        App Only
+                                                    </span>
+                                                )}
                                                 {nw.name?.startsWith('[DISABLED]') && (
                                                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
                                                         Disabled

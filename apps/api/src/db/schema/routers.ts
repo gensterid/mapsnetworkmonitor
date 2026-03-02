@@ -216,6 +216,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     hasWebhook: boolean('has_webhook').default(false).notNull(),
+    isAppOnly: boolean('is_app_only').default(false).notNull(),
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
 }, (table) => ({
     routerIdIdx: index('router_netwatch_router_id_idx').on(table.routerId),

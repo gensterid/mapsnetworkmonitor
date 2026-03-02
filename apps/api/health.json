@@ -1,0 +1,12 @@
+Invoke-RestMethod : Unable to connect to the remote server
+At line:1 char:1
++ Invoke-RestMethod -Uri http://127.0.0.1:3002/api/health 
+| ConvertTo-J ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (System.Ne 
+   t.HttpWebRequest:HttpWebRequest) [Invoke-RestMethod],   
+  WebException
+    + FullyQualifiedErrorId : WebCmdletWebResponseExceptio 
+   n,Microsoft.PowerShell.Commands.InvokeRestMethodComman  
+  d
+ 

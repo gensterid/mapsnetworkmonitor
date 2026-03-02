@@ -72,6 +72,7 @@ export class TopologyService {
                 status: device?.status || 'unknown',
                 x: mNode.x,
                 y: mNode.y,
+                notes: mNode.notes,
                 model: device?.model || mNode.customType || 'custom',
                 latency: device?.latency,
                 uptime: device?.uptime,
@@ -114,9 +115,12 @@ export class TopologyService {
                     to: link.targetNodeId,
                     fromInterface: link.sourceInterface,
                     toInterface: link.targetInterface,
+                    sourceHandle: link.sourceHandle,
+                    targetHandle: link.targetHandle,
                     status: fromNode.status !== 'offline' && toNode.status !== 'offline' ? 'up' : 'down',
                     pathOffset: link.pathOffset || '0',
                     animationType: link.animationType || 'pulse',
+                    notes: link.notes,
                 });
             }
         }
@@ -180,7 +184,7 @@ export class TopologyService {
     /**
      * Update a schematic node (e.g. mapping to system ID)
      */
-    async updateNode(nodeIdInTopology: string, data: { nodeId?: string | null, nodeType?: string, customName?: string, customHost?: string, routerId?: string }) {
+    async updateNode(nodeIdInTopology: string, data: { nodeId?: string | null, nodeType?: string, customName?: string, customHost?: string, routerId?: string, notes?: string }) {
         // Try to update by primary key first
         const [existing] = await db.select().from(topologyNodes).where(eq(topologyNodes.id, nodeIdInTopology as any));
 
@@ -231,13 +235,16 @@ export class TopologyService {
     /**
      * Add a link between two schematic nodes
      */
-    async addLink(routerId: string, sourceId: string, targetId: string, sourceInterface: string, targetInterface: string, tenantId?: string, pathOffset?: string) {
+    async addLink(routerId: string, sourceId: string, targetId: string, sourceInterface: string, targetInterface: string, tenantId?: string, pathOffset?: string, sourceHandle?: string, targetHandle?: string, notes?: string) {
         const [newLink] = await db.insert(topologyLinks).values({
             routerId,
             sourceNodeId: sourceId,
             targetNodeId: targetId,
             sourceInterface,
             targetInterface,
+            sourceHandle,
+            targetHandle,
+            notes,
             pathOffset: pathOffset || '0',
             animationType: 'pulse', // Default for new links
             tenantId
@@ -256,7 +263,7 @@ export class TopologyService {
     /**
      * Update a link's configuration
      */
-    async updateLink(linkId: string, data: { sourceInterface?: string, targetInterface?: string, pathOffset?: string | number, animationType?: string }) {
+    async updateLink(linkId: string, data: { sourceInterface?: string, targetInterface?: string, pathOffset?: string | number, animationType?: string, sourceHandle?: string, targetHandle?: string, notes?: string }) {
         const updateData: any = {
             ...data,
             updatedAt: new Date()
@@ -264,10 +271,6 @@ export class TopologyService {
 
         if (data.pathOffset !== undefined) {
             updateData.pathOffset = String(data.pathOffset);
-        }
-
-        if (data.animationType !== undefined) {
-            updateData.animationType = data.animationType;
         }
 
         return await db.update(topologyLinks)

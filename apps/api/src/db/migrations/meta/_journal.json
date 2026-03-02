@@ -162,6 +162,13 @@
       "when": 1771959667877,
       "tag": "0022_curious_jimmy_woo",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1772484128084,
+      "tag": "0023_demonic_amazoness",
+      "breakpoints": true
     }
   ]
 }

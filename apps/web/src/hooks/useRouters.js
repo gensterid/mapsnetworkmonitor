@@ -238,6 +238,21 @@ export function usePingLatencies(routerId, options = {}) {
 }
 
 /**
+ * Hook to ping an arbitrary host via a router
+ */
+export function usePingHost() {
+    return useMutation({
+        mutationFn: ({ routerId, ip }) => routerServiceDirect.pingHost(routerId, ip),
+        onSuccess: (response) => {
+            console.log('[usePingHost] Ping successful', response);
+        },
+        onError: (err) => {
+            console.error('[usePingHost] Error pinging host', err);
+        },
+    });
+}
+
+/**
  * Hook to create a new router
  */
 export function useCreateRouter() {

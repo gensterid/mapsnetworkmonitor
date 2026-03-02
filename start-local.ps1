@@ -4,7 +4,7 @@ Start-Process -NoNewWindow -FilePath "npm.cmd" -ArgumentList "run dev" -WorkingD
 
 # Start Web
 Write-Host "Starting Web..." -ForegroundColor Green
-Start-Process -NoNewWindow -FilePath "npm.cmd" -ArgumentList "run dev" -WorkingDirectory "apps\web"
+Start-Process -NoNewWindow -FilePath "npm.cmd" -ArgumentList "run dev -- --port 5173" -WorkingDirectory "apps\web"
 
 Write-Host "Both applications are starting in the background." -ForegroundColor Cyan
 Write-Host "API: http://localhost:3001" -ForegroundColor Cyan

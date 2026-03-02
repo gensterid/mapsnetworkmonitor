@@ -54,17 +54,23 @@ router.post('/auth-lookup', lookupLimiter, asyncHandler(async (req: Request, res
     }
 
     // Look up user by username
-    const user = await db
-        .select({ email: users.email })
-        .from(users)
-        .where(eq(users.username, identifier))
-        .limit(1);
+    try {
+        const user = await db
+            .select({ email: users.email })
+            .from(users)
+            .where(eq(users.username, identifier))
+            .limit(1);
 
-    if (user.length === 0) {
-        return res.status(404).json({ error: 'User not found' });
+        if (user.length === 0) {
+            logger.debug({ identifier }, 'Auth lookup: Username not found');
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        return res.json({ email: user[0].email });
+    } catch (err: any) {
+        logger.error({ err: err?.message || String(err), identifier }, 'Auth lookup: Internal Server Error');
+        return res.status(500).json({ error: 'Internal Server Error', message: 'Database query failed' });
     }
-
-    return res.json({ email: user[0].email });
 }));
 
 // Convert Better Auth handler to Express middleware

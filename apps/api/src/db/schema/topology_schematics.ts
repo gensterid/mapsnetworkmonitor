@@ -20,13 +20,14 @@ export const topologyNodes = pgTable('topology_nodes', {
         .references(() => routers.id, { onDelete: 'cascade' }),
 
     // The device being placed (can be a Router ID, OLT ID, or Netwatch ID)
-    nodeId: uuid('node_id'), // Now nullable
+    nodeId: uuid('node_id'),
     nodeType: text('node_type').notNull(), // 'router', 'olt', 'netwatch', 'switch'
 
     // Custom fields for unmapped nodes
     customName: text('custom_name'),
     customHost: text('custom_host'),
     customType: text('custom_type'),
+    notes: text('notes'),
 
     // Schematic positions (independent of geo-coordinates)
     x: decimal('x', { precision: 10, scale: 2 }).notNull().default('0'),
@@ -55,11 +56,14 @@ export const topologyLinks = pgTable('topology_links', {
     sourceNodeId: uuid('source_node_id').notNull(),
     targetNodeId: uuid('target_node_id').notNull(),
 
-    // Manual port names
+    // Manual port names & Handles
     sourceInterface: text('source_interface'),
     targetInterface: text('target_interface'),
+    sourceHandle: text('source_handle'),
+    targetHandle: text('target_handle'),
     pathOffset: decimal('path_offset', { precision: 10, scale: 2 }).default('0'),
     animationType: text('animation_type').default('pulse'), // 'pulse', 'dash', 'none'
+    notes: text('notes'),
 
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
     createdAt: timestamp('created_at').defaultNow().notNull(),

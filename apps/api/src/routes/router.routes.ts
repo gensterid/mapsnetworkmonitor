@@ -504,6 +504,7 @@ const createNetwatchSchema = z.object({
     connectedToId: z.string().uuid().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
+    isAppOnly: z.boolean().optional(),
 });
 
 const updateNetwatchSchema = z.object({
@@ -526,6 +527,7 @@ const updateNetwatchSchema = z.object({
     connectedToId: z.string().uuid().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
+    isAppOnly: z.boolean().optional(),
 });
 
 /**
@@ -794,10 +796,10 @@ router.patch(
     asyncHandler(async (req, res) => {
         const nodeId = req.params.nodeId as string;
         const schema = z.object({
-            nodeId: z.string().uuid().nullable().optional(),
+            customName: z.string().optional().nullable(),
+            customHost: z.string().optional().nullable(),
             nodeType: z.string().optional(),
-            customName: z.string().optional(),
-            customHost: z.string().optional(),
+            notes: z.string().optional().nullable(),
             routerId: z.string().uuid().optional(),
         });
         const data = schema.parse(req.body);
@@ -821,11 +823,14 @@ router.post(
             routerId: z.string().uuid(),
             sourceNodeId: z.string(), // Allow string for fallback nodes (though usually it should be schematic ID)
             targetNodeId: z.string(),
-            sourceInterface: z.string().optional(),
-            targetInterface: z.string().optional(),
-            pathOffset: z.string().or(z.number()).optional()
+            sourceInterface: z.string().optional().nullable(),
+            targetInterface: z.string().optional().nullable(),
+            pathOffset: z.string().or(z.number()).optional().nullable(),
+            sourceHandle: z.string().optional().nullable(),
+            targetHandle: z.string().optional().nullable(),
+            notes: z.string().optional().nullable(),
         });
-        const { routerId, sourceNodeId, targetNodeId, sourceInterface, targetInterface, pathOffset } = schema.parse(req.body);
+        const { routerId, sourceNodeId, targetNodeId, sourceInterface, targetInterface, pathOffset, sourceHandle, targetHandle, notes } = schema.parse(req.body);
         const link = await topologyService.addLink(
             routerId,
             sourceNodeId,
@@ -833,7 +838,10 @@ router.post(
             sourceInterface || '',
             targetInterface || '',
             req.user?.tenantId ?? undefined,
-            pathOffset ? String(pathOffset) : undefined
+            pathOffset ? String(pathOffset) : undefined,
+            sourceHandle || undefined,
+            targetHandle || undefined,
+            notes || undefined
         );
         res.json({ data: link });
     })
@@ -861,9 +869,13 @@ router.patch(
     asyncHandler(async (req, res) => {
         const linkId = req.params.linkId as string;
         const schema = z.object({
-            sourceInterface: z.string().optional(),
-            targetInterface: z.string().optional(),
-            pathOffset: z.string().or(z.number()).optional()
+            sourceInterface: z.string().optional().nullable(),
+            targetInterface: z.string().optional().nullable(),
+            pathOffset: z.string().or(z.number()).optional().nullable(),
+            animationType: z.string().optional().nullable(),
+            sourceHandle: z.string().optional().nullable(),
+            targetHandle: z.string().optional().nullable(),
+            notes: z.string().optional().nullable(),
         });
         const data = schema.parse(req.body);
         await topologyService.updateLink(linkId, data as any);
@@ -871,6 +883,24 @@ router.patch(
     })
 );
 
+/**
+ * POST /api/routers/:id/ping
+ * Ping an arbitrary IP from a router
+ */
+router.post(
+    '/:id/ping',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const schema = z.object({
+            ip: z.string().ip(),
+        });
+        const { ip } = schema.parse(req.body);
+
+        const result = await routerService.pingHost(id, ip, req.user?.tenantId ?? undefined);
+        res.json({ data: result });
+    })
+);
 
 export default router;
 

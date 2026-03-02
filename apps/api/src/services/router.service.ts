@@ -960,6 +960,7 @@ export class RouterService {
             connectedToId?: string | null;
             targetInterface?: string | null;
             linkedOnuId?: string | null;
+            isAppOnly?: boolean;
         },
         tenantId?: string
     ): Promise<RouterNetwatch> {
@@ -970,8 +971,8 @@ export class RouterService {
             throw new ApiError(404, 'Router not found');
         }
 
-        // Only add to MikroTik if it's a netwatch client/router/switch type (has IP to ping)
-        const isMikrotikPingable = (!data.deviceType || ['client', 'router', 'switch'].includes(data.deviceType)) && data.host && data.host !== '0.0.0.0';
+        // Only add to MikroTik if it's a netwatch client/router/switch type (has IP to ping) AND is NOT App-Only
+        const isMikrotikPingable = (!data.deviceType || ['client', 'router', 'switch'].includes(data.deviceType)) && data.host && data.host !== '0.0.0.0' && data.isAppOnly !== true;
 
         if (isMikrotikPingable) {
             let conn;
@@ -1020,6 +1021,7 @@ export class RouterService {
             targetInterface: data.targetInterface,
             linkedOnuId: data.linkedOnuId,
             status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
+            isAppOnly: data.isAppOnly || false,
         };
 
         try {
@@ -1064,6 +1066,7 @@ export class RouterService {
             targetInterface?: string | null;
             status?: 'up' | 'down' | 'unknown';
             linkedOnuId?: string | null;
+            isAppOnly?: boolean;
         },
         tenantId?: string
     ): Promise<RouterNetwatch | undefined> {
@@ -1084,7 +1087,8 @@ export class RouterService {
         const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0' || data.host === '';
         const isOdpOrOlt = ['odp', 'olt'].includes(original.deviceType as any) || (data.deviceType && ['odp', 'olt'].includes(data.deviceType));
         const currentDeviceType = data.deviceType || original.deviceType;
-        const isClientType = !isVirtualHost && !isOdpOrOlt && (currentDeviceType === 'client' || currentDeviceType === 'router' || currentDeviceType === 'switch' || !currentDeviceType);
+        const currentIsAppOnly = data.isAppOnly !== undefined ? data.isAppOnly : original.isAppOnly;
+        const isClientType = !isVirtualHost && !isOdpOrOlt && !currentIsAppOnly && (currentDeviceType === 'client' || currentDeviceType === 'router' || currentDeviceType === 'switch' || !currentDeviceType);
 
         // Only update MikroTik for client types with valid host
         if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
@@ -1364,6 +1368,26 @@ export class RouterService {
         }
 
         return await connectToRouter(config);
+    }
+
+    /**
+     * Measure ping latency to a specific IP address via MikroTik router.
+     * This is useful for on-demand pinging without adding to Netwatch.
+     */
+    async pingHost(routerId: string, ip: string, tenantId?: string): Promise<{ latency: number | null; packetLoss: number | null }> {
+        let api: any;
+        try {
+            api = await this.getRouterConnection(routerId, tenantId);
+            // 3 packets, 500ms interval, 3000ms timeout
+            const result = await measurePing(api, ip, 3, '500ms', '3000ms');
+            return result;
+        } catch (error: any) {
+            logger.error({ err: error?.message || String(error), routerId, ip }, 'Failed to execute arbitrary ping');
+            // If it fails completely, return 100% loss rather than throwing an API error to let UI handle it gracefully
+            return { latency: null, packetLoss: 100 };
+        } finally {
+            if (api) await api.close().catch(() => { });
+        }
     }
 }
 
