@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { db } from '../db/index.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, sql, inArray } from 'drizzle-orm';
 import { routers, routerNetwatch } from '../db/schema/index.js';
 import { eventEmitter } from '../services/event-emitter.service.js';
 import { logger } from '../lib/logger.js';
@@ -44,55 +44,90 @@ router.get(
             throw new ApiError(401, 'Unauthorized webhook token or webhook disabled');
         }
 
-        // 2. Find existing netwatch entry
-        const netwatchRecord = await db.query.routerNetwatch.findFirst({
-            where: and(
-                eq(routerNetwatch.routerId, routerRecord.id),
-                eq(routerNetwatch.host, host)
-            )
-        });
+        // 2. Identify all related routers (Clones) to propagate the update.
+        // This is the CORE of the v8 Ultimate-Fix: Propagating real-time status to all logical
+        // router entries that represent the same physical hardware (e.g. multiple VPN tunnels).
+        const relatedRouters = await db.select({ id: routers.id, name: routers.name })
+            .from(routers)
+            .where(
+                or(
+                    routerRecord.serialNumber ? eq(routers.serialNumber, routerRecord.serialNumber) : sql`false`,
+                    routerRecord.identity ? eq(routers.identity, routerRecord.identity) : sql`false`,
+                    eq(routers.host, routerRecord.host)
+                )
+            );
 
-        if (!netwatchRecord) {
+        const relatedIds = relatedRouters.map(r => r.id);
+
+        // 3. Find all netwatch entries for this host across all related routers
+        const netwatchRecords = await db.select()
+            .from(routerNetwatch)
+            .where(and(
+                inArray(routerNetwatch.routerId, relatedIds),
+                eq(routerNetwatch.host, host)
+            ));
+
+        if (netwatchRecords.length === 0) {
             // Netwatch entry not found in DB, just ignore (might be a deleted node still in mikrotik)
             res.json({ success: true, message: 'Host not tracked, ignored' });
             return;
         }
 
-        // 3. Update Status
+        // 4. Update Status for all matching records
         const now = new Date();
-        const updateData: any = {
-            status,
-            lastCheck: now,
-            updatedAt: now,
-        };
+        const results = [];
 
-        if (status === 'up') {
-            updateData.lastUp = now;
-        } else {
-            updateData.lastDown = now;
-            // Capture last latency before going completely offline
-            if (netwatchRecord.latency !== null && netwatchRecord.latency !== undefined) {
-                updateData.lastKnownLatency = netwatchRecord.latency;
+        for (const netwatchRecord of netwatchRecords) {
+            const updateData: any = {
+                status,
+                lastCheck: now,
+                updatedAt: now,
+            };
+
+            if (status === 'up') {
+                updateData.lastUp = now;
+            } else {
+                updateData.lastDown = now;
+                if (netwatchRecord.latency !== null && netwatchRecord.latency !== undefined) {
+                    updateData.lastKnownLatency = netwatchRecord.latency;
+                }
+            }
+
+            // Only update database and send alerts if status ACTUALLY changed to avoid spam
+            if (netwatchRecord.status !== status) {
+                await db
+                    .update(routerNetwatch)
+                    .set(updateData)
+                    .where(eq(routerNetwatch.id, netwatchRecord.id));
+
+                const routerInfo = relatedRouters.find(r => r.id === netwatchRecord.routerId);
+
+                await alertService.createNetwatchAlert(
+                    netwatchRecord.routerId,
+                    netwatchRecord.name || host,
+                    host,
+                    status as 'up' | 'down'
+                );
+
+                // 5. Broadcast instant update to all connected frontend clients
+                eventEmitter.broadcast('map_update', {
+                    routerId: netwatchRecord.routerId,
+                    source: 'webhook',
+                    host: host,
+                    status: status
+                });
+
+                results.push(netwatchRecord.routerId);
             }
         }
 
-        // Only update database and send alerts if status ACTUALLY changed to avoid spam
-        if (netwatchRecord.status !== status) {
-            await db
-                .update(routerNetwatch)
-                .set(updateData)
-                .where(eq(routerNetwatch.id, netwatchRecord.id));
-
-            await alertService.createNetwatchAlert(
-                routerRecord.id,
-                netwatchRecord.name || host,
+        if (results.length > 0) {
+            logger.info({
+                triggeredById: routerRecord.id,
+                propagatedTo: results,
                 host,
-                status as 'up' | 'down'
-            );
-
-            // 4. Broadcast instant update to all connected frontend clients
-            eventEmitter.broadcast('map_update', { routerId: routerRecord.id, source: 'webhook' });
-            logger.info({ routerId: routerRecord.id, host, status }, 'Fast Webhook update processed');
+                status
+            }, 'Multi-router Webhook update processed');
         }
 
         res.json({ success: true, status: 'updated' });
