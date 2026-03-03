@@ -382,7 +382,7 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '=.proplist=.id,host,comment,status,timeout,interval,since-up,since-down,disabled,up-script,down-script'
+        '=.proplist=.id,host,comment,status,timeout,interval,since,since-up,since-down,disabled,up-script,down-script'
     ]);
 
     // Calculate time offset if clock provided
@@ -447,8 +447,9 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
-            upScript: host['up-script'] || host['up_script'],
-            downScript: host['down-script'] || host['down_script'],
+            // ROS API might return fields with underscores or hyphens
+            upScript: host['up-script'] || host['up_script'] || '',
+            downScript: host['down-script'] || host['down_script'] || '',
             _id: host['.id'],
         };
     });

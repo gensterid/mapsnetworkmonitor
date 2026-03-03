@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: mandate full-field read with .proplist before modifications to prevent data loss on MikroTik""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: restore Netwatch REAL-TIME indicator and timestamps by improving .proplist and mapping fallbacks""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."
