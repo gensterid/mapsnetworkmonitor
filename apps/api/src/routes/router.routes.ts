@@ -44,13 +44,13 @@ const updateRouterSchema = z.object({
     port: z.number().int().min(1).max(65535).optional(),
     username: z.string().min(1).optional(),
     password: z.string().min(1).optional(),
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
-    location: z.string().optional(),
+    latitude: z.string().optional().nullable(),
+    longitude: z.string().optional().nullable(),
+    location: z.string().optional().nullable(),
     locationImage: z.string().url().optional().nullable(),
     groupId: z.string().uuid().optional().nullable(),
     notificationGroupId: z.string().uuid().optional().nullable(),
-    notes: z.string().optional(),
+    notes: z.string().optional().nullable(),
     status: z.enum(['online', 'offline', 'maintenance', 'unknown']).optional(),
     snmpCommunity: z.string().optional(),
     snmpPort: z.number().int().min(1).max(65535).optional(),
@@ -511,14 +511,8 @@ const updateNetwatchSchema = z.object({
     host: z.string().optional(), // Allow empty string for ODP
     name: z.string().optional(),
     interval: z.number().int().min(5).max(3600).optional(),
-    latitude: z.preprocess((val) => {
-        if (val === '' || val === null || val === undefined) return undefined;
-        return val;
-    }, z.string().optional()),
-    longitude: z.preprocess((val) => {
-        if (val === '' || val === null || val === undefined) return undefined;
-        return val;
-    }, z.string().optional()),
+    latitude: z.string().optional().nullable(),
+    longitude: z.string().optional().nullable(),
     location: z.string().nullable().optional(),
     status: z.enum(['up', 'down', 'unknown']).optional(),
     deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
@@ -644,7 +638,8 @@ router.delete(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const netwatchId = req.params.netwatchId as string;
-        const deleted = await routerService.deleteNetwatch(id, netwatchId, req.user?.tenantId!);
+        const deleteFromMikrotik = req.query.deleteFromMikrotik !== 'false';
+        const deleted = await routerService.deleteNetwatch(id, netwatchId, req.user?.tenantId!, deleteFromMikrotik);
 
         if (!deleted) {
             throw new ApiError(404, 'Netwatch entry not found');

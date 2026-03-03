@@ -877,12 +877,24 @@ export class AlertService {
                 }
             }
 
-            // Create notification that device is UP if we resolved something or if we want to notify even if we missed the DOWN event (optional)
-            // User requested: "is down tetapi setelah up tidak adad notifikasi" -> implies they want notification on UP.
+            // Deduplicate: Don't send another "UP" notification if we sent one recently for this host
+            // Status change alerts are auto-resolved so we check by creation time
+            const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+            const recentUp = await db
+                .select()
+                .from(alerts)
+                .where(and(
+                    eq(alerts.routerId, routerId),
+                    eq(alerts.type, 'status_change'),
+                    ilike(alerts.title, `%${deviceName || host}%UP%`),
+                    gte(alerts.createdAt, fiveMinutesAgo)
+                ))
+                .limit(1);
 
-            // Deduplicate UP alerts (don't spam if it's already UP)
-            // But usually UP event comes once. 
-            // Let's create an INFO alert.
+            if (recentUp.length > 0) {
+                logger.debug({ host }, '[ALERT] Skipping duplicate UP notification (cooldown)');
+                return null;
+            }
 
             const tenantId = await this.getTenantIdFromRouter(routerId);
 
@@ -896,8 +908,9 @@ export class AlertService {
                     message: `Netwatch host ${host} (${deviceName}) is now reachable. Resolved ${resolvedCount} downtime alert(s).`,
                 });
             } else {
-                // Even if no specific DOWN alert was resolved (maybe expired), still notify UP if desired
-                // forcing notification for visibility
+                // Only notify UP if it was previously DOWN (implied by resolvedCount == 0 and we want visibility)
+                // However, to prevent flooding, if no DOWN was resolved, we should be even stricter.
+                // For now, allow it but the 5-min deduplication above will stop the flood.
                 return this.create({
                     routerId,
                     tenantId: tenantId!,
@@ -909,9 +922,28 @@ export class AlertService {
             }
         }
 
-        // Deduplicate: check if we already alerted about this specific device being down recently
-        const existing = await this.findRecentUnresolvedAlert(routerId, 'netwatch_down');
-        if (existing && existing.message.includes(host)) {
+        // Deduplicate DOWN alerts: 
+        // 1. Check for unresolved (standard deduplication)
+        const existingUnresolved = await this.findRecentUnresolvedAlert(routerId, 'netwatch_down');
+        if (existingUnresolved && existingUnresolved.message.includes(host)) {
+            return null;
+        }
+
+        // 2. Check for ANY recent DOWN alert for this host (flapping protection)
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const recentAlert = await db
+            .select()
+            .from(alerts)
+            .where(and(
+                eq(alerts.routerId, routerId),
+                eq(alerts.type, 'netwatch_down'),
+                ilike(alerts.message, `%${host}%`),
+                gte(alerts.createdAt, fiveMinutesAgo)
+            ))
+            .limit(1);
+
+        if (recentAlert.length > 0) {
+            logger.debug({ host }, '[ALERT] Skipping DOWN alert due to flapping/duplicate (cooldown)');
             return null;
         }
 
@@ -941,6 +973,24 @@ export class AlertService {
 
         // Check if alerts enabled
         if (!thresholds.alertsEnabled || !thresholds.statusChangeAlerts) {
+            return null;
+        }
+
+        // Deduplicate: Don't send duplicate router status change alerts within 5 mins
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const recentStatusChange = await db
+            .select()
+            .from(alerts)
+            .where(and(
+                eq(alerts.routerId, routerId),
+                eq(alerts.type, 'status_change'),
+                ilike(alerts.title, `%${routerName}%${newStatus}%`),
+                gte(alerts.createdAt, fiveMinutesAgo)
+            ))
+            .limit(1);
+
+        if (recentStatusChange.length > 0) {
+            logger.debug({ routerName, newStatus }, '[ALERT] Skipping duplicate Router status change notification');
             return null;
         }
 

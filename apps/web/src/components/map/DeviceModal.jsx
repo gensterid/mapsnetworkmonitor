@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import './map.css';
 import SearchableSelect from '../ui/SearchableSelect';
+import { DeleteConfirmationModal } from '../ui/DeleteConfirmationModal';
+import { X, Trash2, Save, Map, Edit2, Link as LinkIcon, Info } from 'lucide-react';
 
 /**
  * DeviceModal - Modal for viewing and editing device properties
@@ -34,6 +36,7 @@ const DeviceModal = ({
 
     const [availableOnus, setAvailableOnus] = useState([]);
     const [isLoadingOnus, setIsLoadingOnus] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
     // Sync form data with device prop
     useEffect(() => {
@@ -497,10 +500,8 @@ const DeviceModal = ({
                                 type="button"
                                 className="device-modal__btn device-modal__btn--danger"
                                 onClick={(e) => {
-                                    e.preventDefault(); // Keep preventDefault to avoid form submit
-                                    if (confirm('Yakin ingin menghapus perangkat ini?')) {
-                                        onDelete(device);
-                                    }
+                                    e.preventDefault();
+                                    setIsDeleteConfirmOpen(true);
                                 }}
                                 disabled={isSaving}
                             >
@@ -512,8 +513,20 @@ const DeviceModal = ({
                         )}
                     </div>
                 </form>
-            </div >
-        </div >
+            </div>
+
+            <DeleteConfirmationModal
+                isOpen={isDeleteConfirmOpen}
+                onClose={() => setIsDeleteConfirmOpen(false)}
+                onConfirm={(deleteFromMikrotik) => {
+                    onDelete(deleteFromMikrotik);
+                    setIsDeleteConfirmOpen(false);
+                }}
+                itemName={device?.name || device?.host}
+                message="Yakin ingin menghapus perangkat ini dari peta?"
+                showMikrotikOption={device && (device.deviceType === 'client' || !device.deviceType) && !device.isAppOnly}
+            />
+        </div>
     );
 };
 

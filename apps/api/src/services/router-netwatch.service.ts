@@ -356,12 +356,22 @@ export class RouterNetwatchService {
                     // Stability-First Ping: 2 packets, 300ms interval, 5000ms timeout
                     // This prevents API stress and false 100% packet loss warnings
                     const { latency, packetLoss } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
+
                     if (latency >= 0) {
-                        await db.update(routerNetwatch).set({
+                        const updateData: any = {
                             latency: latency,
                             lastKnownLatency: latency,
-                            packetLoss: packetLoss
-                        }).where(eq(routerNetwatch.id, target.id));
+                            packetLoss: packetLoss,
+                            updatedAt: new Date()
+                        };
+
+                        // For app-only entries, we define the status ourselves via this ping
+                        if (target.isAppOnly) {
+                            updateData.status = 'up';
+                            updateData.lastUp = new Date();
+                        }
+
+                        await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, target.id));
 
                         if (latency > 100 || packetLoss > 0) {
                             await alertService.createPerformanceAlert(
@@ -371,16 +381,25 @@ export class RouterNetwatchService {
                                 target.name || target.host,
                                 latency,
                                 packetLoss,
-                                target.status
+                                target.status === 'unknown' ? 'up' : target.status
                             );
                         } else {
                             await alertService.resolvePerformanceAlert(routerId, target.host);
                         }
                     } else {
-                        await db.update(routerNetwatch).set({
+                        const updateData: any = {
                             latency: null,
-                            packetLoss: packetLoss >= 0 ? packetLoss : null
-                        }).where(eq(routerNetwatch.id, target.id));
+                            packetLoss: packetLoss >= 0 ? packetLoss : null,
+                            updatedAt: new Date()
+                        };
+
+                        // For app-only entries, if latency is null (timeout), it's down
+                        if (target.isAppOnly) {
+                            updateData.status = 'down';
+                            updateData.lastDown = new Date();
+                        }
+
+                        await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, target.id));
 
                         if (packetLoss > 0) {
                             await alertService.createPerformanceAlert(
@@ -390,7 +409,7 @@ export class RouterNetwatchService {
                                 target.name || target.host,
                                 0,
                                 packetLoss,
-                                target.status
+                                target.status === 'unknown' ? 'down' : target.status
                             );
                         }
                     }
@@ -569,6 +588,52 @@ export class RouterNetwatchService {
         // This is a placeholder for any other real-time update logic needed
         // for the map (e.g., Socket.io broadcasts if they existed here)
         logger.debug({ netwatchId: entry.id }, 'Netwatch entry updated in real-time service');
+    }
+
+    /**
+     * Ensure an app-only netwatch entry exists for the given host
+     */
+    async ensureAppOnlyEntry(routerId: string, host: string, name: string, type: string, tenantId?: string): Promise<string> {
+        // Check if exists
+        const [existing] = await db.select()
+            .from(routerNetwatch)
+            .where(and(
+                eq(routerNetwatch.routerId, routerId),
+                eq(routerNetwatch.host, host)
+            ));
+
+        if (existing) {
+            // If it's already app-only, just return it
+            if (existing.isAppOnly) return existing.id;
+
+            // If it's a synced entry, we might want to mark it as app-only to prevent deletion 
+            // if it disappears from the Mikrotik list later
+            await db.update(routerNetwatch)
+                .set({ isAppOnly: true, updatedAt: new Date() })
+                .where(eq(routerNetwatch.id, existing.id));
+
+            return existing.id;
+        }
+
+        // Map topology type to device type
+        let deviceType: any = 'client';
+        if (type === 'olt') deviceType = 'olt';
+        else if (type === 'router') deviceType = 'router';
+        else if (type === 'switch') deviceType = 'switch';
+
+        // Create new
+        const [inserted] = await db.insert(routerNetwatch).values({
+            routerId,
+            host,
+            name,
+            deviceType,
+            isAppOnly: true,
+            tenantId,
+            status: 'unknown',
+            interval: 60,
+        } as any).returning();
+
+        return inserted.id;
     }
 }
 

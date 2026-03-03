@@ -10,8 +10,8 @@ const router = Router();
 
 // Validation schemas
 const updateCoordinatesSchema = z.object({
-    latitude: z.string().optional(),
-    longitude: z.string().optional(),
+    latitude: z.string().optional().nullable(),
+    longitude: z.string().optional().nullable(),
     waypoints: z.string().optional(), // JSON string of coordinates
     connectionType: z.string().optional().nullable().transform(val => val === null ? undefined : val),
     connectedToId: z.string().uuid().optional().nullable().transform(val => val === null ? undefined : val),

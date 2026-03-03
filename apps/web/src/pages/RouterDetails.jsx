@@ -7,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import {
     ArrowLeft,
     Cpu,
@@ -781,9 +782,17 @@ function EditRouterModal({ isOpen, onClose, onSuccess, router }) {
                 payload.password = formData.password;
             }
 
-            // Remove empty strings for optional fields to rely on backend/schema handling
+            // Handle empty strings for optional fields:
+            // Coordinates/Location/Notes should be null when empty to clear them in the DB
+            ['latitude', 'longitude', 'location', 'notes'].forEach(key => {
+                if (payload[key] === '') payload[key] = null;
+            });
+
+            // Other fields can be undefined to keep original value if not provided
             Object.keys(payload).forEach(key => {
-                if (payload[key] === '') payload[key] = undefined;
+                if (payload[key] === '' && !['latitude', 'longitude', 'location', 'notes'].includes(key)) {
+                    payload[key] = undefined;
+                }
             });
 
             await apiClient.put(`/routers/${router.id}`, payload);
@@ -1020,13 +1029,11 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                 host: formData.host,
                 name: formData.name,
                 interval: parseInt(formData.interval, 10),
+                latitude: formData.latitude || null,
+                longitude: formData.longitude || null,
+                location: formData.location || null,
                 isAppOnly: formData.isAppOnly,
             };
-
-            // Only add optional fields if they have values
-            if (formData.latitude) payload.latitude = formData.latitude;
-            if (formData.longitude) payload.longitude = formData.longitude;
-            if (formData.location) payload.location = formData.location;
 
             if (isEditing) {
                 await apiClient.put(`/routers/${routerId}/netwatch/${netwatch.id}`, payload);
@@ -1076,14 +1083,35 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                 </div>
 
                 <div className="pt-2 border-t border-slate-700/50">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Map Coordinates (Optional)</div>
+                    <div className="flex justify-between items-center mb-3">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">Map Coordinates (Optional)</div>
+                        {(formData.latitude || formData.longitude) && (
+                            <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({ ...prev, latitude: '', longitude: '' }))}
+                                className="text-[10px] text-red-400 hover:text-red-300 transition-colors uppercase font-bold"
+                            >
+                                Clear All
+                            </button>
+                        )}
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Latitude</label>
+                            <label className="text-sm font-medium text-slate-300 flex justify-between">
+                                <span>Latitude</span>
+                                {formData.latitude && (
+                                    <button type="button" onClick={() => setFormData(prev => ({ ...prev, latitude: '' }))} className="text-[10px] text-slate-500 hover:text-red-400">Clear</button>
+                                )}
+                            </label>
                             <Input name="latitude" value={formData.latitude} onChange={handleCoordinateInput} placeholder="0.5309802" />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">Longitude</label>
+                            <label className="text-sm font-medium text-slate-300 flex justify-between">
+                                <span>Longitude</span>
+                                {formData.longitude && (
+                                    <button type="button" onClick={() => setFormData(prev => ({ ...prev, longitude: '' }))} className="text-[10px] text-slate-500 hover:text-red-400">Clear</button>
+                                )}
+                            </label>
                             <Input name="longitude" value={formData.longitude} onChange={handleChange} placeholder="123.0600260" />
                         </div>
                     </div>
@@ -1126,6 +1154,8 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
 function NetwatchTab({ routerId, netwatch = [], refetch }) {
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingNetwatch, setEditingNetwatch] = useState(null);
+    const [deletingNetwatch, setDeletingNetwatch] = useState(null);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [syncStatus, setSyncStatus] = useState('');
     const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'up', 'down'
     const [searchQuery, setSearchQuery] = useState('');
@@ -1173,13 +1203,23 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
         refetch?.();
     };
 
-    const handleDelete = async (nw) => {
-        if (!confirm(`Delete netwatch for ${nw.host}?`)) return;
+    const handleDelete = (nw) => {
+        setDeletingNetwatch(nw);
+    };
+
+    const confirmDelete = async (deleteFromMikrotik) => {
+        if (!deletingNetwatch) return;
+
+        setIsDeleting(true);
         try {
-            await apiClient.delete(`/routers/${routerId}/netwatch/${nw.id}`);
+            await apiClient.delete(`/routers/${routerId}/netwatch/${deletingNetwatch.id}?deleteFromMikrotik=${deleteFromMikrotik}`);
+            toast.success('Netwatch deleted successfully');
             handleSuccess();
+            setDeletingNetwatch(null);
         } catch (err) {
-            alert('Failed to delete: ' + (err.response?.data?.message || err.message));
+            toast.error('Failed to delete: ' + (err.response?.data?.message || err.message));
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -1563,6 +1603,16 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                 netwatch={editingNetwatch}
                 onSuccess={handleSuccess}
                 routerId={routerId}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={!!deletingNetwatch}
+                onClose={() => setDeletingNetwatch(null)}
+                onConfirm={confirmDelete}
+                itemName={deletingNetwatch?.host}
+                message="Are you sure you want to delete this netwatch entry?"
+                showMikrotikOption={deletingNetwatch && (deletingNetwatch.deviceType === 'client' || !deletingNetwatch.deviceType) && !deletingNetwatch.isAppOnly}
+                isDeleting={isDeleting}
             />
         </div>
     );

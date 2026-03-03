@@ -259,10 +259,10 @@ class PppoeService {
      */
     async updateCoordinates(
         id: string,
-        latitude?: string,
-        longitude?: string,
-        waypoints?: string,
-        connectionType?: string,
+        latitude?: string | null,
+        longitude?: string | null,
+        waypoints?: string | null,
+        connectionType?: string | null,
         connectedToId?: string | null,
         tenantId?: string
     ): Promise<PppoeSession | undefined> {

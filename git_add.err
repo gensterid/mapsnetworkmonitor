@@ -1,0 +1,5 @@
+warning: in the working copy of 'apps/api/src/db/migrations/meta/_journal.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/web/vite.config.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/api/src/db/migrations/0023_demonic_amazoness.sql', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/api/src/db/migrations/meta/0023_snapshot.json', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'test-node.txt', LF will be replaced by CRLF the next time Git touches it

@@ -76,6 +76,12 @@
 .neon-flow-animation {
     stroke: #fff;
     filter: drop-shadow(0 0 5px #fff);
+    transition: stroke 0.5s ease;
+}
+
+.neon-flow-animation.down {
+    stroke: var(--neon-danger);
+    filter: drop-shadow(0 0 5px var(--neon-danger));
 }
 
 @keyframes neon-flow {

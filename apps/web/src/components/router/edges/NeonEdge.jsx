@@ -64,13 +64,14 @@ const NeonEdge = ({
                 pathLength="100"
             />
 
-            {/* Neon Flow Animation Points */}
-            {(isUp || data?.isEditMode) && data?.animationType !== 'none' && (
+            {/* Neon Flow Animation Points - Always show if animation is enabled */}
+            {data?.animationType !== 'none' && (
                 <path
                     key={`${id}-${data?.animationType || 'pulse'}`}
                     className={clsx(
                         "neon-flow-animation",
-                        data?.animationType || 'pulse'
+                        data?.animationType || 'pulse',
+                        !isUp && "down"
                     )}
                     d={edgePath}
                     fill="none"

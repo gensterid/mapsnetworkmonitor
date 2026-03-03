@@ -84,9 +84,9 @@ export interface UpdateRouterInput {
     port?: number;
     username?: string;
     password?: string; // Plain text password (only if updating)
-    latitude?: string;
-    longitude?: string;
-    location?: string;
+    latitude?: string | null;
+    longitude?: string | null;
+    location?: string | null;
     locationImage?: string | null;
     groupId?: string | null;
     notificationGroupId?: string | null;
@@ -1057,8 +1057,8 @@ export class RouterService {
             name?: string;
             deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
             interval?: number;
-            latitude?: string;
-            longitude?: string;
+            latitude?: string | null;
+            longitude?: string | null;
             location?: string | null;
             waypoints?: string | null; // JSON string of coordinates
             connectionType?: 'router' | 'client';
@@ -1178,8 +1178,8 @@ export class RouterService {
     /**
      * Delete a netwatch entry
      */
-    async deleteNetwatch(routerId: string, netwatchId: string, tenantId?: string): Promise<boolean> {
-        logger.info({ netwatchId, routerId }, '[RouterService] Deleting netwatch entry');
+    async deleteNetwatch(routerId: string, netwatchId: string, tenantId?: string, deleteFromMikrotik: boolean = true): Promise<boolean> {
+        logger.info({ netwatchId, routerId, deleteFromMikrotik }, '[RouterService] Deleting netwatch entry');
 
         if (tenantId) {
             const routerCheck = await this.findById(routerId, tenantId);
@@ -1209,10 +1209,11 @@ export class RouterService {
 
         logger.info({ host: deleted.host, deviceType: deleted.deviceType }, '[RouterService] Deleted netwatch from DB');
 
-        // 2. Apply to Router (only for client types)
+        // 2. Apply to Router (only for client types and if requested)
         // OLT/ODP are not stored in MikroTik Netwatch
+        // If isAppOnly is true, it's not in MikroTik anyway
         const isClientType = deleted.deviceType === 'client' || !deleted.deviceType;
-        if (isClientType) {
+        if (isClientType && deleteFromMikrotik && !deleted.isAppOnly) {
             logger.info('[RouterService] Attempting to remove from MikroTik router...');
             const router = await this.findByIdWithPassword(routerId, tenantId);
             if (router) {
@@ -1247,8 +1248,10 @@ export class RouterService {
             } else {
                 logger.warn({ routerId }, '[RouterService] Router not found, skipped MikroTik cleanup');
             }
+        } else if (!deleteFromMikrotik) {
+            logger.info({ host: deleted.host }, '[RouterService] Skipped MikroTik cleanup as requested (keeping MikroTik entry)');
         } else {
-            logger.debug({ deviceType: deleted.deviceType }, '[RouterService] Device type skipped for MikroTik cleanup');
+            logger.debug({ deviceType: deleted.deviceType, isAppOnly: deleted.isAppOnly }, '[RouterService] Device type or AppOnly status skipped for MikroTik cleanup');
         }
 
         return true;

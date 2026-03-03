@@ -1,0 +1,47 @@
+
+> api@1.1.0 dev
+> tsx watch src/index.ts
+
+[22:48:05 UTC] [32mINFO[39m: [36mBetter Auth origin configuration initialized[39m
+    [35mbaseURL[39m: "http://localhost:5173/api/auth"
+    [35mtrustedOrigins[39m: [
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://10.10.70.116",
+      "http://localhost:5174",
+      "https://mapsmonitor.genster.web.id",
+      "http://10.10.30.21:5173"
+    ]
+[22:48:05 UTC] [32mINFO[39m: [36mBetter Auth config resolved[39m
+    [35mbaseURL[39m: "http://localhost:5173/api/auth"
+    [35mtrustedOrigins[39m: [
+      "http://localhost:3001",
+      "http://localhost:3002",
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://10.10.70.116",
+      "http://localhost:5174",
+      "https://mapsmonitor.genster.web.id",
+      "http://10.10.30.21:5173"
+    ]
+[22:48:05 UTC] [33mWARN[39m: [36m⚠️ WARNING: Insecure configuration detected. Fix before deploying to production.[39m
+    [35missues[39m: [
+      "BETTER_AUTH_SECRET is missing or using an insecure default value",
+      "ENCRYPTION_KEY is missing or using an insecure default value"
+    ]
+[22:48:05 UTC] [32mINFO[39m: [36m🔌 Socket.io initialized[39m
+[22:48:05 UTC] [31mERROR[39m: [36mUncaught Exception[39m
+    err: {
+      "type": "Error",
+      "message": "listen EADDRINUSE: address already in use 0.0.0.0:3002",
+      "stack":
+          Error: listen EADDRINUSE: address already in use 0.0.0.0:3002
+              at Server.setupListenHandle [as _listen2] (node:net:1940:16)
+              at listenInCluster (node:net:1997:12)
+              at node:net:2206:7
+              at process.processTicksAndRejections (node:internal/process/task_queues:89:21)
+      "code": "EADDRINUSE"
+    }
+Terminate batch job (Y/N)? 

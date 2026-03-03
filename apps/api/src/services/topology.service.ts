@@ -2,6 +2,7 @@ import { eq, or, and, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus, topologyNodes, topologyLinks } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
+import { routerNetwatchService } from './router-netwatch.service.js';
 
 export class TopologyService {
     /**
@@ -132,18 +133,35 @@ export class TopologyService {
      * Add a device to the router's schematic
      */
     async addNode(routerId: string, nodeId: string | null, nodeType: string, tenantId?: string, customData?: { name?: string, host?: string }) {
-        // If nodeId is provided, check if already exists
-        if (nodeId) {
+        let finalNodeId = nodeId;
+
+        // NEW: If no nodeId but host is provided, auto-create/link an app-only netwatch entry
+        if (!finalNodeId && customData?.host && customData.host !== '0.0.0.0' && customData.host !== '') {
+            try {
+                finalNodeId = await routerNetwatchService.ensureAppOnlyEntry(
+                    routerId,
+                    customData.host,
+                    customData.name || 'Unmapped Node',
+                    nodeType,
+                    tenantId
+                );
+            } catch (err) {
+                logger.error({ err, host: customData.host }, 'Failed to auto-create netwatch for topology node');
+            }
+        }
+
+        // If nodeId is provided (or was just created), check if already exists in this schematic
+        if (finalNodeId) {
             const [existing] = await db.select()
                 .from(topologyNodes)
-                .where(and(eq(topologyNodes.routerId, routerId), eq(topologyNodes.nodeId, nodeId)));
+                .where(and(eq(topologyNodes.routerId, routerId), eq(topologyNodes.nodeId, finalNodeId)));
 
             if (existing) return existing;
         }
 
         const [newNode] = await db.insert(topologyNodes).values({
             routerId,
-            nodeId,
+            nodeId: finalNodeId,
             nodeType,
             tenantId,
             x: '0',
@@ -189,11 +207,37 @@ export class TopologyService {
         const [existing] = await db.select().from(topologyNodes).where(eq(topologyNodes.id, nodeIdInTopology as any));
 
         if (existing) {
+            const updateData: any = {
+                ...data,
+                updatedAt: new Date()
+            };
+
+            // NEW: If customHost is being updated and there's no system nodeId,
+            // or if we want to refresh the app-only link
+            if (data.customHost && data.customHost !== '0.0.0.0' && data.customHost !== '') {
+                // Only auto-link if it's currently unmapped or already an app-only Netwatch
+                const isUnmapped = !existing.nodeId;
+                const isNetwatch = existing.nodeType === 'netwatch' || existing.nodeType === 'router';
+
+                if (isUnmapped || isNetwatch) {
+                    try {
+                        const targetRouterId = data.routerId || existing.routerId;
+                        const netwatchId = await routerNetwatchService.ensureAppOnlyEntry(
+                            targetRouterId,
+                            data.customHost,
+                            data.customName || existing.customName || 'Updated Node',
+                            data.nodeType || existing.nodeType,
+                            existing.tenantId || undefined
+                        );
+                        updateData.nodeId = netwatchId;
+                    } catch (err) {
+                        logger.error({ err, host: data.customHost }, 'Failed to update netwatch link for topology node');
+                    }
+                }
+            }
+
             return await db.update(topologyNodes)
-                .set({
-                    ...data,
-                    updatedAt: new Date()
-                })
+                .set(updateData)
                 .where(eq(topologyNodes.id, existing.id));
         }
 

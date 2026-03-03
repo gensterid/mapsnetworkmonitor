@@ -462,8 +462,8 @@ const NetworkMap = ({
 
     // Mutation for deleting netwatch
     const deleteNetwatchMutation = useMutation({
-        mutationFn: async ({ routerId, netwatchId }) => {
-            const res = await apiClient.delete(`/routers/${routerId}/netwatch/${netwatchId}`);
+        mutationFn: async ({ routerId, netwatchId, deleteFromMikrotik = true }) => {
+            const res = await apiClient.delete(`/routers/${routerId}/netwatch/${netwatchId}?deleteFromMikrotik=${deleteFromMikrotik}`);
             return res.data;
         },
         onSuccess: () => {
@@ -982,18 +982,17 @@ const NetworkMap = ({
         }
     };
 
-    const handleDeleteDevice = () => {
+    const handleDeleteDevice = (deleteFromMikrotik) => {
         if (!selectedDevice) return;
-        if (confirm('Are you sure you want to delete this device?')) {
-            deleteNetwatchMutation.mutate({
-                routerId: selectedDevice.routerId,
-                netwatchId: selectedDevice.id
-            }, {
-                onSuccess: () => {
-                    setIsModalOpen(false);
-                }
-            });
-        }
+        deleteNetwatchMutation.mutate({
+            routerId: selectedDevice.routerId,
+            netwatchId: selectedDevice.id,
+            deleteFromMikrotik
+        }, {
+            onSuccess: () => {
+                setIsModalOpen(false);
+            }
+        });
     };
 
     const handleResetPath = () => {
