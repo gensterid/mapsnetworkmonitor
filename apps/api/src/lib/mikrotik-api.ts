@@ -627,8 +627,8 @@ export async function configureNetwatchWebhook(
         down_under: (entry['down_script'] || '').length
     }, 'Netwatch deep-fetch result');
 
-    // Extremely robust pick: preferring the field that actually has the webhook.
-    // Falls back to hyphenated field (standard) if both are empty/missing.
+    // Extreme robust pick: preferring the field that actually has the webhook.
+    // Falls back to data-rich field if both are missing the webhook signature.
     const pb = (s1: any, s2: any, type: string) => {
         const val1 = String(s1 || '');
         const val2 = String(s2 || '');
@@ -638,28 +638,34 @@ export async function configureNetwatchWebhook(
         let result = '';
         if (has1 && !has2) result = val1;
         else if (has2 && !has1) result = val2;
-        else if (val1.length > 0 || val2.length > 0) result = val1.length >= val2.length ? val1 : val2;
-        else result = ''; // Both truly empty
+        else if (val1.length > 0 || val2.length > 0) result = (val1.length >= val2.length) ? val1 : val2;
+        else result = '';
 
-        logger.debug({ host, type, has1, has2, len1: val1.length, len2: val2.length, chosenLen: result.length }, 'Targeted script version selection');
+        logger.debug({ host, type, has1, has2, len1: val1.length, len2: val2.length, chosenLen: result.length }, 'Targeted script candidate selection');
         return result;
     };
 
     currentUp = pb(entry['up-script'], entry['up_script'], 'up');
     currentDown = pb(entry['down-script'], entry['down_script'], 'down');
 
-    // Safety: prevent wiping scripts if we got an empty read when we expected data.
-    // If the targeted fetch (high-fidelity) returns '', but the bulk scan (nw) had content.
-    const upUnexpectedlyEmpty = currentUp === '' && (existingEntry?.upScript || '').length > 0;
-    const downUnexpectedlyEmpty = currentDown === '' && (existingEntry?.downScript || '').length > 0;
+    // Paranoid Safety Guards: prevent wiping scripts if we got an empty read when we expected data.
+    // We compare with the lengths known in the database before this injection run.
+    const dbUpLen = (existingEntry?.upScript || '').length;
+    const dbDownLen = (existingEntry?.downScript || '').length;
 
-    // Additional ROS6 Guard: If we got absolutely NO script fields in the targeted fetch 
-    // but we were about to append to what we thought was an empty base.
-    const noScriptFieldsAtAll = entry['up-script'] === undefined && entry['up_script'] === undefined &&
-        entry['down-script'] === undefined && entry['down_script'] === undefined;
+    const upUnexpectedlyEmpty = currentUp === '' && dbUpLen > 0;
+    const downUnexpectedlyEmpty = currentDown === '' && dbDownLen > 0;
 
-    if (upUnexpectedlyEmpty || downUnexpectedlyEmpty || noScriptFieldsAtAll) {
-        logger.warn({ host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty, noScriptFieldsAtAll }, '[Safety Guard] Aborted write: Full read returned empty or missing script values');
+    // Catastrophic Loss Check: If the read script is significantly shorter than what we know (e.g. > 50% loss)
+    // without a deliberate deletion by the user, we abort to prevent overwriting with truncated data.
+    const catastrophicUpLoss = dbUpLen > 200 && currentUp.length < (dbUpLen * 0.5);
+    const catastrophicDownLoss = dbDownLen > 200 && currentDown.length < (dbDownLen * 0.5);
+
+    if (upUnexpectedlyEmpty || downUnexpectedlyEmpty || catastrophicUpLoss || catastrophicDownLoss) {
+        logger.warn({
+            host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty, catastrophicUpLoss, catastrophicDownLoss,
+            currentUpLen: currentUp.length, currentDownLen: currentDown.length, dbUpLen, dbDownLen
+        }, '[Safety Guard] ABORTED Netwatch write: targeted fetch returned empty or suspiciously short script values');
         return;
     }
 

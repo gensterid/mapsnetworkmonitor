@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: v6 final robustness for Netwatch script preservation and collision prevention""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: v7 ultimate Netwatch robustness with hardware locking and paranoid preservation""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."

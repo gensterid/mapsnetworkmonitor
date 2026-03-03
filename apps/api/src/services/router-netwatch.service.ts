@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, aliasedTable, count } from 'drizzle-orm';
+import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, aliasedTable, count, not } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -199,7 +199,7 @@ export class RouterNetwatchService {
             const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret;
             const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!, router.tenantId!) : '';
 
-            logger.debug({ routerId, name: routerName, shouldInjectWebhook, hasSecret: !!router?.webhookSecret }, 'Netwatch sync starting');
+            logger.info({ routerId, name: routerName, shouldInjectWebhook, useWebhook: router?.useWebhook, hasSecret: !!router?.webhookSecret }, 'Netwatch sync starting');
 
             // First fetch the router's current clock to calculate the exact offset
             const routerClock = await getRouterClock(conn).catch(() => undefined);
@@ -277,15 +277,23 @@ export class RouterNetwatchService {
                             const [otherWants] = await db.select({ val: count() })
                                 .from(routers)
                                 .where(and(
-                                    eq(routers.host, router!.host),
-                                    eq(routers.useWebhook, true)
+                                    or(
+                                        ...([
+                                            router.serialNumber ? eq(routers.serialNumber, router.serialNumber) : null,
+                                            router.identity ? eq(routers.identity, router.identity) : null,
+                                            eq(routers.host, router.host)
+                                        ].filter(Boolean) as any[])
+                                    ),
+                                    eq(routers.useWebhook, true),
+                                    not(eq(routers.id, routerId))
                                 ));
 
                             if ((otherWants?.val || 0) === 0) {
+                                logger.info({ host: nw.host, routerId }, 'No other routers want webhooks on this device, proceeding with cleanup');
                                 await removeNetwatchWebhook(conn, nw.host, nw);
                                 finalHasWebhook = false; // Update state for DB update below
                             } else {
-                                logger.debug({ host: nw.host, routerId }, 'Skipping webhook cleanup: another router entry with same host has webhooks enabled');
+                                logger.info({ host: nw.host, routerId, othersCount: otherWants?.val }, 'Skipping webhook cleanup: another logical router on this physical box has webhooks enabled');
                             }
                         } catch (err) {
                             logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook or check collisions');
