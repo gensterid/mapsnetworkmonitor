@@ -649,23 +649,24 @@ export async function configureNetwatchWebhook(
     currentDown = pb(entry['down-script'], entry['down_script'], 'down');
 
     // Paranoid Safety Guards: prevent wiping scripts if we got an empty read when we expected data.
-    // We compare with the lengths known in the database before this injection run.
+    // We compare with the lengths known in the database (existingEntry) before this injection run.
     const dbUpLen = (existingEntry?.upScript || '').length;
     const dbDownLen = (existingEntry?.downScript || '').length;
 
+    // Check each script independently. If MikroTik returns '' but we HAVE content in DB, we abort.
     const upUnexpectedlyEmpty = currentUp === '' && dbUpLen > 0;
     const downUnexpectedlyEmpty = currentDown === '' && dbDownLen > 0;
 
     // Catastrophic Loss Check: If the read script is significantly shorter than what we know (e.g. > 50% loss)
-    // without a deliberate deletion by the user, we abort to prevent overwriting with truncated data.
-    const catastrophicUpLoss = dbUpLen > 200 && currentUp.length < (dbUpLen * 0.5);
-    const catastrophicDownLoss = dbDownLen > 200 && currentDown.length < (dbDownLen * 0.5);
+    // and the original was > 100 bytes, we abort to prevent overwriting with truncated data.
+    const catastrophicUpLoss = dbUpLen > 100 && currentUp.length < (dbUpLen * 0.5);
+    const catastrophicDownLoss = dbDownLen > 100 && currentDown.length < (dbDownLen * 0.5);
 
     if (upUnexpectedlyEmpty || downUnexpectedlyEmpty || catastrophicUpLoss || catastrophicDownLoss) {
         logger.warn({
             host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty, catastrophicUpLoss, catastrophicDownLoss,
             currentUpLen: currentUp.length, currentDownLen: currentDown.length, dbUpLen, dbDownLen
-        }, '[Safety Guard] ABORTED Netwatch write: targeted fetch returned empty or suspiciously short script values');
+        }, '[Safety Guard] ABORTED Netwatch write: targeted fetch returned empty or suspiciously short values for one of the scripts');
         return;
     }
 
@@ -786,10 +787,15 @@ export async function removeNetwatchWebhook(
     currentUp = pb(entry['up-script'], entry['up_script']);
     currentDown = pb(entry['down-script'], entry['down_script']);
 
-    // Safety: If the script is suspiciously empty but we know the user has long scripts,
-    // we should log a warning. Note: This check is simple for now.
-    if (currentUp === '' && currentDown === '' && existingEntry && (existingEntry.upScript || existingEntry.downScript)) {
-        logger.warn({ host, id }, '[Safety Guard] Aborted write because full read returned empty scripts unexpectedly');
+    // Paranoid Safety Guards (Cleanup edition): abort if we read empty when we expected content.
+    const dbUpLen = (existingEntry?.upScript || '').length;
+    const dbDownLen = (existingEntry?.downScript || '').length;
+
+    const upUnexpectedlyEmpty = currentUp === '' && dbUpLen > 0;
+    const downUnexpectedlyEmpty = currentDown === '' && dbDownLen > 0;
+
+    if (upUnexpectedlyEmpty || downUnexpectedlyEmpty) {
+        logger.warn({ host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty, dbUpLen, dbDownLen }, '[Safety Guard] ABORTED Netwatch cleanup: targeted fetch returned empty values unexpectedly');
         return;
     }
 

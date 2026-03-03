@@ -281,7 +281,7 @@ export class RouterNetwatchService {
                                         ...([
                                             router.serialNumber ? eq(routers.serialNumber, router.serialNumber) : null,
                                             router.identity ? eq(routers.identity, router.identity) : null,
-                                            eq(routers.host, router.host)
+                                            sql`LOWER(TRIM(${routers.host})) = LOWER(TRIM(${router.host}))`
                                         ].filter(Boolean) as any[])
                                     ),
                                     eq(routers.useWebhook, true),
