@@ -382,7 +382,7 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '=.proplist=.id,host,comment,status,timeout,interval,since,since-up,since-down,disabled,up-script,down-script'
+        '.proplist=.id,host,comment,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
     ]);
 
     // Calculate time offset if clock provided
@@ -576,7 +576,7 @@ export async function configureNetwatchWebhook(
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
         existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,down-script'
+        '=.proplist=.id,up-script,up_script,down-script,down_script'
     ]);
 
     if (entries.length === 0) return;
@@ -652,8 +652,18 @@ export async function removeNetwatchWebhook(
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
         existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,down-script'
+        '=.proplist=.id,up-script,up_script,down-script,down_script'
     ]);
+
+    // Fallback: search by host if ID query returned nothing
+    if (entries.length === 0 && host) {
+        const fb = await safeWrite(api, [
+            '/tool/netwatch/print',
+            `?host=${host}`,
+            '=.proplist=.id,up-script,up_script,down-script,down_script'
+        ]);
+        if (fb.length > 0) entries.push(fb[0]);
+    }
 
     if (entries.length === 0) return;
 

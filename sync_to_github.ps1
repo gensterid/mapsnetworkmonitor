@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""chore: codebase cleanup - removed legacy log files and one-off diagnostic scripts""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: extremely robust webhook detection and removal with field-mapping fallbacks""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."

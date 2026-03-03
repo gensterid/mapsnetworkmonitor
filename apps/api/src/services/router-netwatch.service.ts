@@ -289,6 +289,10 @@ export class RouterNetwatchService {
                     const normalizedDown = nw.downScript?.toLowerCase() || '';
                     const hasAppWebhook = normalizedUp.includes('/api/webhook/netwatch') || normalizedDown.includes('/api/webhook/netwatch');
 
+                    if (hasAppWebhook) {
+                        logger.debug({ host: nw.host, hasAppWebhook }, 'Detected webhook on host');
+                    }
+
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
                         // Only call configuration if webhook is MISSING (prevents redundant MikroTik logs/updates)
                         if (!hasAppWebhook) {
