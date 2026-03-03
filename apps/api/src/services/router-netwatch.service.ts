@@ -290,9 +290,13 @@ export class RouterNetwatchService {
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
                         // Only call configuration if webhook is MISSING (prevents redundant MikroTik logs/updates)
                         if (!hasAppWebhook) {
-                            logger.debug({ host: nw.host, upScript: nw.upScript, downScript: nw.downScript }, 'Webhook script missing, preparing to configure');
+                            logger.debug({ host: nw.host, _id: nw._id }, 'Webhook script missing on entry, preparing to configure');
                             try {
-                                await configureNetwatchWebhook(conn, nw.host, webhookUrl);
+                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, {
+                                    _id: nw._id,
+                                    upScript: nw.upScript,
+                                    downScript: nw.downScript
+                                });
                             } catch (webhookErr: any) {
                                 logger.warn({ err: webhookErr?.message, host: nw.host }, 'Failed to smart-append webhook script during sync');
                             }
@@ -300,7 +304,11 @@ export class RouterNetwatchService {
                     } else if (!shouldInjectWebhook && hasAppWebhook) {
                         // Smart Cleanup: Remove webhook if disabled but still present on router
                         try {
-                            await removeNetwatchWebhook(conn, nw.host);
+                            await removeNetwatchWebhook(conn, nw.host, {
+                                _id: nw._id,
+                                upScript: nw.upScript,
+                                downScript: nw.downScript
+                            });
                         } catch (cleanupErr: any) {
                             logger.warn({ err: cleanupErr?.message, host: nw.host }, 'Failed to smart-cleanup webhook script during sync');
                         }

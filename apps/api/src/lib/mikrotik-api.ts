@@ -561,17 +561,30 @@ export async function updateNetwatchEntry(
 export async function configureNetwatchWebhook(
     api: any,
     host: string,
-    webhookUrl: string
+    webhookUrl: string,
+    existingEntry?: { _id?: string, upScript?: string, downScript?: string }
 ): Promise<void> {
-    const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
-    if (entries.length === 0) return;
+    let currentUp = '';
+    let currentDown = '';
+    let id = '';
 
-    const entry = entries[0];
-    const id = entry['.id'];
+    if (existingEntry && existingEntry._id) {
+        // Use provided data and skip print
+        id = existingEntry._id;
+        currentUp = existingEntry.upScript || '';
+        currentDown = existingEntry.downScript || '';
+    } else {
+        // Find existing entry by host IP
+        const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
+        if (entries.length === 0) return;
 
-    // Read existing scripts (fallback to empty string, handle underscore fallback)
-    const currentUp = entry['up-script'] || entry['up_script'] || '';
-    const currentDown = entry['down-script'] || entry['down_script'] || '';
+        const entry = entries[0];
+        id = entry['.id'];
+
+        // Read existing scripts (fallback to empty string, handle underscore fallback)
+        currentUp = entry['up-script'] || entry['up_script'] || '';
+        currentDown = entry['down-script'] || entry['down_script'] || '';
+    }
 
     // Formulate the fetch command
     // Use semicolon and explicit newlines for MikroTik compatibility
@@ -590,13 +603,13 @@ export async function configureNetwatchWebhook(
     if (!hasWebhookUp) {
         // Trim existing to avoid double spacing, then add semicolon and newline
         const base = currentUp.trim();
-        newUp = base ? `${base}\r\n${upCommand}` : upCommand;
+        newUp = base ? `${base};\r\n${upCommand}` : upCommand;
         needsUpdate = true;
     }
 
     if (!hasWebhookDown) {
         const base = currentDown.trim();
-        newDown = base ? `${base}\r\n${downCommand}` : downCommand;
+        newDown = base ? `${base};\r\n${downCommand}` : downCommand;
         needsUpdate = true;
     }
 
@@ -616,16 +629,26 @@ export async function configureNetwatchWebhook(
  */
 export async function removeNetwatchWebhook(
     api: any,
-    host: string
+    host: string,
+    existingEntry?: { _id?: string, upScript?: string, downScript?: string }
 ): Promise<void> {
-    const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
-    if (entries.length === 0) return;
+    let currentUp = '';
+    let currentDown = '';
+    let id = '';
 
-    const entry = entries[0];
-    const id = entry['.id'];
+    if (existingEntry && existingEntry._id) {
+        id = existingEntry._id;
+        currentUp = existingEntry.upScript || '';
+        currentDown = existingEntry.downScript || '';
+    } else {
+        const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
+        if (entries.length === 0) return;
 
-    const currentUp = entry['up-script'] || '';
-    const currentDown = entry['down-script'] || '';
+        const entry = entries[0];
+        id = entry['.id'];
+        currentUp = entry['up-script'] || entry['up_script'] || '';
+        currentDown = entry['down-script'] || entry['down_script'] || '';
+    }
 
     // Filter out our lines
     const cleanScript = (script: string) => {
