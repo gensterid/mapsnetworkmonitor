@@ -827,11 +827,16 @@ export async function removeNetwatchWebhook(
 
     // Filter out our lines (case-insensitive)
     const cleanScript = (script: string) => {
-        return script
-            .split(/\r?\n/)
-            .filter(line => !line.toLowerCase().includes('/api/webhook/netwatch'))
-            .join('\r\n')
-            .trim();
+        // Surgical regex: remove ONLY the webhook fetch command, preserving other commands on same line
+        // Pattern matches: optional delay; /tool fetch with our webhook URL; optional semicolon
+        const webhookPattern = /:delay\s+1s;\s*\/tool\s+fetch\s+url="[^"]+?\/api\/webhook\/netwatch[^edge"]+"\s*(?:keep-result=no|);?/gi;
+
+        let cleaned = script.replace(webhookPattern, '').trim();
+
+        // Final cleanup of any double semicolons or leading/trailing separators caused by the removal
+        cleaned = cleaned.replace(/;+/g, ';').replace(/^;+|;+$/g, '').trim();
+
+        return cleaned;
     };
 
     const newUp = cleanScript(currentUp);
