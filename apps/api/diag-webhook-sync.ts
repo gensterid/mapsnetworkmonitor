@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { db } from './src/db/index.js';
 import { routers } from './src/db/schema/index.js';
 import { routerService } from './src/services/router.service.js';
-import { eq } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 async function runDiag() {
     const hostArg = process.argv[2];
@@ -14,9 +14,32 @@ async function runDiag() {
     console.log(`🔍 Diagnosing Webhook Sync for Host: ${hostArg}...`);
 
     try {
-        const [router] = await db.select().from(routers).where(eq(routers.host, hostArg));
+        let router: any = null;
+
+        // 1. Try exact host match
+        [router] = await db.select().from(routers).where(eq(routers.host, hostArg));
+
+        // 2. Try host:port split if not found
+        if (!router && hostArg.includes(':')) {
+            const [h, p] = hostArg.split(':');
+            [router] = await db.select().from(routers).where(
+                and(
+                    eq(routers.host, h),
+                    eq(routers.port, parseInt(p))
+                )
+            );
+        }
+
+        // 3. Try Name match if still not found
         if (!router) {
-            console.error('❌ Router not found in database');
+            [router] = await db.select().from(routers).where(
+                sql`LOWER(${routers.name}) = LOWER(${hostArg})`
+            );
+        }
+
+        if (!router) {
+            console.error('❌ Router not found in database (tried Host, Host:Port, and Name)');
+            console.log('💡 Tip: Try using just the IP or just the name of the router from the dashboard.');
             process.exit(1);
         }
 
