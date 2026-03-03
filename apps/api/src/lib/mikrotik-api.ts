@@ -597,24 +597,37 @@ export async function configureNetwatchWebhook(
     const entry = entries[0];
     id = entry['.id'];
 
+    // Detailed logging for debugging ROS7 field variations
+    logger.debug({
+        host,
+        id,
+        fields: Object.keys(entry).filter(k => k.includes('script')),
+        up_dash: (entry['up-script'] || '').length,
+        up_under: (entry['up_script'] || '').length,
+        down_dash: (entry['down-script'] || '').length,
+        down_under: (entry['down_script'] || '').length
+    }, 'Netwatch deep-fetch result');
+
     // Robust pick: preferring the field that actually has the webhook.
-    // This stops the redundant update loop on MikroTik versions that return both fields.
-    const pb = (s1: any, s2: any) => {
+    const pb = (s1: any, s2: any, type: string) => {
         const val1 = String(s1 || '');
         const val2 = String(s2 || '');
         const has1 = val1.toLowerCase().includes('/api/webhook/netwatch');
         const has2 = val2.toLowerCase().includes('/api/webhook/netwatch');
-        if (has1 && !has2) return val1;
-        if (has2 && !has1) return val2;
-        // Priority to hyphenated version if both have or both don't have
-        return val1.length >= val2.length ? val1 : val2;
+
+        let result = '';
+        if (has1 && !has2) result = val1;
+        else if (has2 && !has1) result = val2;
+        else result = val1.length >= val2.length ? val1 : val2;
+
+        logger.debug({ host, type, has1, has2, len1: val1.length, len2: val2.length, chosenLen: result.length }, 'Script version selection');
+        return result;
     };
 
-    currentUp = pb(entry['up-script'], entry['up_script']);
-    currentDown = pb(entry['down-script'], entry['down_script']);
+    currentUp = pb(entry['up-script'], entry['up_script'], 'up');
+    currentDown = pb(entry['down-script'], entry['down_script'], 'down');
 
-    // Safety: If scripts appear missing during deep fetch but were provided by caller,
-    // we abort to prevent accidental wiping of user scripts.
+    // Safety: prevent wiping scripts if we got an empty read when we expected data
     const upUnexpectedlyEmpty = currentUp === '' && (existingEntry?.upScript || '').length > 0;
     const downUnexpectedlyEmpty = currentDown === '' && (existingEntry?.downScript || '').length > 0;
 
@@ -631,29 +644,34 @@ export async function configureNetwatchWebhook(
     let newDown = currentDown;
     let needsUpdate = false;
 
-    const normalizedUp = currentUp.toLowerCase();
-    const normalizedDown = currentDown.toLowerCase();
-    const hasWebhookUp = normalizedUp.includes('/api/webhook/netwatch');
-    const hasWebhookDown = normalizedDown.includes('/api/webhook/netwatch');
+    // Byte-for-byte identical smart append logic
+    const smartAppend = (current: string, command: string) => {
+        const base = current.trim();
+        const hasWebhook = base.toLowerCase().includes('/api/webhook/netwatch');
+        if (hasWebhook) return { script: current, modified: false };
 
-    if (!hasWebhookUp) {
-        const base = currentUp.trim();
         const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
-        newUp = base ? `${base}${separator}\r\n${upCommand}` : upCommand;
+        const updated = base ? `${base}${separator}\r\n${command}` : command;
+        return { script: updated, modified: true };
+    };
+
+    const upResult = smartAppend(currentUp, upCommand);
+    if (upResult.modified) {
+        newUp = upResult.script;
         needsUpdate = true;
     }
 
-    if (!hasWebhookDown) {
-        const base = currentDown.trim();
-        const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
-        newDown = base ? `${base}${separator}\r\n${downCommand}` : downCommand;
+    const downResult = smartAppend(currentDown, downCommand);
+    if (downResult.modified) {
+        newDown = downResult.script;
         needsUpdate = true;
     }
 
     if (needsUpdate) {
-        logger.debug({ host, id, upLength: newUp.length, downLength: newDown.length }, 'Sending Netwatch update to MikroTik');
+        logger.info({ host, id, upMod: upResult.modified, downMod: downResult.modified }, 'Planning Netwatch script update');
 
-        // Use standard hyphenated fields for SET command (most compatible)
+        // Use standard hyphenated fields AND underscore fields if present in original entry
+        // This ensures the update is "sticky" across all ROS7 protocol variations
         const updateParams = [
             `/tool/netwatch/set`,
             `=.id=${id}`,
@@ -661,8 +679,11 @@ export async function configureNetwatchWebhook(
             `=down-script=${newDown}`
         ];
 
+        if (entry['up_script'] !== undefined) updateParams.push(`=up_script=${newUp}`);
+        if (entry['down_script'] !== undefined) updateParams.push(`=down_script=${newDown}`);
+
         await safeWrite(api, updateParams);
-        logger.info({ host }, 'Smart Append: Webhook scripts synchronized');
+        logger.info({ host }, 'Smart Append: Webhook scripts successfully synchronized');
     }
 }
 

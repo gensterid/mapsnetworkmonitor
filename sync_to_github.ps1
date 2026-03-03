@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: implemented truncation-aware webhook detection and refined script sync to stop configuration loop""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: implemented identical smart-append for up/down netwatch scripts and restored dual-field compatibility""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."
