@@ -393,7 +393,7 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '=.proplist=.id,host,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
+        '=.proplist=.id,host,status,since,comment,up-script,up_script,down-script,down_script,disabled'
     ]);
 
     // Calculate time offset if clock provided

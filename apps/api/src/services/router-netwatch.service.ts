@@ -66,7 +66,8 @@ export class RouterNetwatchService {
                         o.router_id = ${routerNetwatch.routerId} AND 
                         (
                             (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
-                            (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
+                            (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
+                            (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
                         )
                     )
                 ORDER BY (
@@ -74,7 +75,7 @@ export class RouterNetwatchService {
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
                         WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 2
                         WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 3
-                        WHEN TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 4
+                        WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 4
                         ELSE 5
                     END
                 ) ASC
@@ -164,7 +165,8 @@ export class RouterNetwatchService {
                         o.router_id = ${routerNetwatch.routerId} AND 
                         (
                             (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
-                            (TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.name IS NOT NULL AND o.name != '')
+                            (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
+                            (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
                         )
                     )
                 ORDER BY (
@@ -172,7 +174,7 @@ export class RouterNetwatchService {
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
                         WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 2
                         WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 3
-                        WHEN TRIM(o.name) = TRIM(${routerNetwatch.name}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 4
+                        WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 4
                         ELSE 5
                     END
                 ) ASC
@@ -198,10 +200,8 @@ export class RouterNetwatchService {
             const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!, router.tenantId!) : '';
 
             // First fetch the router's current clock to calculate the exact offset
-            // We need this because MikroTik sends times without timezone info
             const routerClock = await getRouterClock(conn).catch(() => undefined);
             const mikrotikNetwatch = await getNetwatchHosts(conn, routerClock);
-
 
             const existingEntries = await db
                 .select()
@@ -209,17 +209,15 @@ export class RouterNetwatchService {
                 .where(eq(routerNetwatch.routerId, routerId));
 
             const existingMap = new Map(existingEntries.map(e => [e.host, e]));
+            const processedHosts = new Set<string>();
 
             await db.transaction(async (tx) => {
-                const processedHosts = new Set<string>();
-
                 for (const nw of mikrotikNetwatch) {
+                    if (!nw.host) continue;
                     processedHosts.add(nw.host);
-                    const existing = existingMap.get(nw.host);
 
-                    let status: 'up' | 'down' | 'unknown' = 'unknown';
-                    if (nw.status === 'up') status = 'up';
-                    else if (nw.status === 'down') status = 'down';
+                    const existing = existingMap.get(nw.host);
+                    const status: 'up' | 'down' | 'unknown' = (nw.status === 'up') ? 'up' : (nw.status === 'down' ? 'down' : 'unknown');
 
                     const prefix = nw.disabled ? '[DISABLED] ' : '';
                     let baseName = nw.comment || nw.name;
@@ -228,21 +226,25 @@ export class RouterNetwatchService {
                     }
                     const finalName = prefix + (baseName || '');
 
-                    if (existing) {
-                        if (existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
-                            if (status === 'down' || status === 'up') {
-                                // Important: We do NOT await alertService inside the tx to avoid blocking the DB connection,
-                                // but doing it here is acceptable for simplicity since the latency overhead is small.
-                                // If the transaction fails, an alert might be produced but the DB rolls back - an acceptable trade-off for monitoring urgency.
-                                await alertService.createNetwatchAlert(
-                                    routerId,
-                                    `[${routerName}] ${finalName}`,
-                                    nw.host,
-                                    status
-                                );
-                            }
+                    // Send alerts if status changed
+                    if (existing && existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
+                        if (status === 'down' || status === 'up') {
+                            await alertService.createNetwatchAlert(
+                                routerId,
+                                `[${routerName}] ${finalName}`,
+                                nw.host,
+                                status
+                            );
                         }
+                    }
 
+                    // Webhook detection with "Flap-Protection"
+                    // If MikroTik returns empty strings (common in ROS7 bulk prints), we RETAIN the previous state from DB.
+                    const detectedWebhook = (nw.upScript?.toLowerCase().includes('/api/webhook/netwatch') || nw.downScript?.toLowerCase().includes('/api/webhook/netwatch')) || false;
+                    const isSuspiciouslyEmpty = (nw.upScript === '' || nw.upScript === undefined) && (nw.downScript === '' || nw.downScript === undefined);
+                    const finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : detectedWebhook;
+
+                    if (existing) {
                         const updateData: any = {
                             name: finalName,
                             interval: nw.interval || existing.interval,
@@ -251,7 +253,7 @@ export class RouterNetwatchService {
                             lastUp: nw.sinceUp || existing.lastUp,
                             lastDown: nw.sinceDown || existing.lastDown,
                             updatedAt: new Date(),
-                            hasWebhook: (nw.upScript?.toLowerCase().includes('/api/webhook/netwatch') || nw.downScript?.toLowerCase().includes('/api/webhook/netwatch')) || false,
+                            hasWebhook: finalHasWebhook,
                         };
 
                         if (!existing.targetInterface && nw.comment && availableInterfaces?.has(nw.comment)) {
@@ -269,7 +271,7 @@ export class RouterNetwatchService {
                             lastCheck: new Date(),
                             lastUp: nw.sinceUp,
                             lastDown: nw.sinceDown,
-                            hasWebhook: (nw.upScript?.toLowerCase().includes('/api/webhook/netwatch') || nw.downScript?.toLowerCase().includes('/api/webhook/netwatch')) || false,
+                            hasWebhook: finalHasWebhook,
                             tenantId: router.tenantId
                         };
 
@@ -281,54 +283,28 @@ export class RouterNetwatchService {
                     }
 
                     // Smart Append Webhook scripts if Webhook feature is enabled
-                    // Exclude infrastructure items like ODP or Hub if they are tagged somehow.
-                    // Given Mikrotik sync doesn't know deviceType upfront unless we look at the existing record,
-                    // we'll rely on the existing DB record type (or default to client)
                     const deviceType = existing?.deviceType || 'client';
-                    const normalizedUp = nw.upScript?.toLowerCase() || '';
-                    const normalizedDown = nw.downScript?.toLowerCase() || '';
-                    const hasAppWebhook = normalizedUp.includes('/api/webhook/netwatch') || normalizedDown.includes('/api/webhook/netwatch');
-
-                    if (hasAppWebhook) {
-                        logger.debug({ host: nw.host, hasAppWebhook }, 'Detected webhook on host');
-                    }
-
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
-                        // Only call configuration if webhook is MISSING (prevents redundant MikroTik logs/updates)
-                        if (!hasAppWebhook) {
-                            logger.debug({
-                                host: nw.host,
-                                _id: nw._id,
-                                upScript: nw.upScript,
-                                downScript: nw.downScript
-                            }, 'Webhook script missing on entry, preparing to configure');
+                        // Use finalHasWebhook to avoid loops caused by bulk print truncation or random read failures
+                        if (!finalHasWebhook) {
+                            logger.debug({ host: nw.host, suspicious: isSuspiciouslyEmpty }, 'Webhook missing/unknown, triggering deep configuration');
                             try {
-                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, {
-                                    _id: nw._id,
-                                    upScript: nw.upScript,
-                                    downScript: nw.downScript
-                                });
-                            } catch (webhookErr: any) {
-                                logger.warn({ err: webhookErr?.message, host: nw.host }, 'Failed to smart-append webhook script during sync');
+                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw);
+                            } catch (err) {
+                                logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-append webhook');
                             }
                         }
-                    } else if (!shouldInjectWebhook && hasAppWebhook) {
+                    } else if (!shouldInjectWebhook && finalHasWebhook) {
                         // Smart Cleanup: Remove webhook if disabled but still present on router
                         try {
-                            await removeNetwatchWebhook(conn, nw.host, {
-                                _id: nw._id,
-                                upScript: nw.upScript,
-                                downScript: nw.downScript
-                            });
-                        } catch (cleanupErr: any) {
-                            logger.warn({ err: cleanupErr?.message, host: nw.host }, 'Failed to smart-cleanup webhook script during sync');
+                            await removeNetwatchWebhook(conn, nw.host, nw);
+                        } catch (err) {
+                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook');
                         }
                     }
                 }
 
-                // Delete entries that no longer exist on MikroTik
-                // CRITICAL: Only cleanup 'client' devices that HAVE a host IP.
-                // Manual markers like ODP/OLT, virtual devices (no host), or App-Only devices should NOT be deleted.
+                // Delete entries that no longer exist on MikroTik (Clients with IP only)
                 const toDelete = existingEntries.filter(e =>
                     e.deviceType === 'client' &&
                     !e.isAppOnly &&
@@ -343,10 +319,8 @@ export class RouterNetwatchService {
                     await tx.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map(e => e.id)));
                 }
 
-                // IMPORTANT: Update lastCheck for ALL entries for this router to show the sync process is active
-                await tx.update(routerNetwatch)
-                    .set({ lastCheck: new Date() })
-                    .where(eq(routerNetwatch.routerId, routerId));
+                // Update lastCheck for all entries to show activity
+                await tx.update(routerNetwatch).set({ lastCheck: new Date() }).where(eq(routerNetwatch.routerId, routerId));
             });
         } catch (err: any) {
             logger.error({ err: err?.message || String(err), router: routerName }, 'Failed to sync netwatch');
@@ -379,7 +353,6 @@ export class RouterNetwatchService {
                     }
 
                     // Stability-First Ping: 2 packets, 300ms interval, 5000ms timeout
-                    // This prevents API stress and false 100% packet loss warnings
                     const { latency, packetLoss } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
 
                     if (latency >= 0) {
@@ -418,7 +391,6 @@ export class RouterNetwatchService {
                             updatedAt: new Date()
                         };
 
-                        // For app-only entries, if latency is null (timeout), it's down
                         if (target.isAppOnly) {
                             updateData.status = 'down';
                             updateData.lastDown = new Date();
@@ -512,10 +484,7 @@ export class RouterNetwatchService {
                 return;
             }
 
-            // Fetch all ONUs that have a host (IP) assigned
             const activeOnus = await db.select().from(onus).where(isNotNull(onus.host));
-
-            // Create a map for faster lookup, trimming keys to be robust
             const hostToOnuId = new Map(activeOnus.map(o => [(o.host || '').trim(), o]));
 
             let linkedCount = 0;
@@ -543,7 +512,6 @@ export class RouterNetwatchService {
                     linkedCount++;
                 } else {
                     missedCount++;
-                    // Debug: Log missed IPs to help diagnose Proxmox issues
                     if (process.env.NODE_ENV !== 'production' || missedCount <= 10) {
                         logger.debug({ host, routerId }, '[Unified Linkage] Missed sync: No ONU found for host');
                     }
@@ -579,12 +547,8 @@ export class RouterNetwatchService {
             };
 
             api = await connectToRouter(connection);
-            const routerClock = await getRouterClock(api).catch(() => undefined);
-
-            // Re-use logic from syncHosts
             await this.syncHosts(routerId, router.name, api);
 
-            // Measure latency immediately
             const entries = await this.getNetwatch(routerId);
             await this.measureLatency(routerId, router.name, api, entries);
 
@@ -605,13 +569,9 @@ export class RouterNetwatchService {
      * Update a single netwatch entry in the real-time cache or trigger related updates
      */
     async update(entry: RouterNetwatch): Promise<void> {
-        // Trigger status sync to ONUs if needed
         if (entry.host) {
             await this.syncToOnus(entry.routerId);
         }
-
-        // This is a placeholder for any other real-time update logic needed
-        // for the map (e.g., Socket.io broadcasts if they existed here)
         logger.debug({ netwatchId: entry.id }, 'Netwatch entry updated in real-time service');
     }
 
@@ -619,34 +579,21 @@ export class RouterNetwatchService {
      * Ensure an app-only netwatch entry exists for the given host
      */
     async ensureAppOnlyEntry(routerId: string, host: string, name: string, type: string, tenantId?: string): Promise<string> {
-        // Check if exists
         const [existing] = await db.select()
             .from(routerNetwatch)
-            .where(and(
-                eq(routerNetwatch.routerId, routerId),
-                eq(routerNetwatch.host, host)
-            ));
+            .where(and(eq(routerNetwatch.routerId, routerId), eq(routerNetwatch.host, host)));
 
         if (existing) {
-            // If it's already app-only, just return it
             if (existing.isAppOnly) return existing.id;
-
-            // If it's a synced entry, we might want to mark it as app-only to prevent deletion 
-            // if it disappears from the Mikrotik list later
-            await db.update(routerNetwatch)
-                .set({ isAppOnly: true, updatedAt: new Date() })
-                .where(eq(routerNetwatch.id, existing.id));
-
+            await db.update(routerNetwatch).set({ isAppOnly: true, updatedAt: new Date() }).where(eq(routerNetwatch.id, existing.id));
             return existing.id;
         }
 
-        // Map topology type to device type
         let deviceType: any = 'client';
         if (type === 'olt') deviceType = 'olt';
         else if (type === 'router') deviceType = 'router';
         else if (type === 'switch') deviceType = 'switch';
 
-        // Create new
         const [inserted] = await db.insert(routerNetwatch).values({
             routerId,
             host,
