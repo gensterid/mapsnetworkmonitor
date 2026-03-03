@@ -1,8 +1,0 @@
-﻿Total ONUs for Cdata01: 29
-ONUs with signal: 22
-Sample signal data:
-ZTEGCC480C74: -21.36 (updated: Mon Feb 23 2026 01:29:55 GMT+0800 (Central Indonesia Time))
-ZTEGC898A549: -22 (updated: Mon Feb 23 2026 01:29:55 GMT+0800 (Central Indonesia Time))
-FHTT98210C18: -21.67 (updated: Mon Feb 23 2026 01:29:55 GMT+0800 (Central Indonesia Time))
-ZTEGC894F101: -22 (updated: Mon Feb 23 2026 01:29:55 GMT+0800 (Central Indonesia Time))
-ZTEGD358C532: -21.80 (updated: Mon Feb 23 2026 01:29:55 GMT+0800 (Central Indonesia Time))

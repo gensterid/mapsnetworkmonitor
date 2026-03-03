@@ -1,6 +1,0 @@
---- Verifying Topology Links Columns ---
-Database URL: postgresql://postgres:admin123@localhost:5432/mikrotik_monitor
-Γ£à Connected to database.
-Current columns in topology_links: id, router_id, source_node_id, target_node_id, source_interface, target_interface, tenant_id, created_at, updated_at, path_offset, animation_type, source_handle, target_handle
-≡ƒÄë All required columns are present.
---- Verification Finished ---

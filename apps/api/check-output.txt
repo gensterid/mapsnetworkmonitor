@@ -1,6 +1,0 @@
-Column check result: [
-  {
-    "column_name": "path_offset",
-    "data_type": "numeric"
-  }
-]

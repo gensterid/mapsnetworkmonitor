@@ -1,7 +1,0 @@
-
-Image Name                     PID Session Name        Session#    Mem Usage
-========================= ======== ================ =========== ============
-node.exe                     22176 Console                    1     47.864 K
-node.exe                     15264 Console                    1     54.416 K
-node.exe                      8256 Console                    1    119.136 K
-node.exe                      8112 Console                    1    396.724 K
