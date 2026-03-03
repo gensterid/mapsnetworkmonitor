@@ -600,21 +600,19 @@ export async function configureNetwatchWebhook(
     let currentDown = '';
     let id = '';
 
-    // Targeted high-fidelity fetch using proplist to avoid truncation.
-    // We retry without underscore fields for ROS6 compatibility.
+    // WIDE-FETCH: We remove proplist to ensure no property is omitted due to naming variations (hyphen vs underscore).
+    // This is the most reliable way to catch the full script content in ROS6 and ROS7.
     let entries: any[];
     try {
         entries = await safeWrite(api, [
             '/tool/netwatch/print',
-            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-            '=.proplist=.id,up-script,up_script,down-script,down_script'
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
         ]);
     } catch (err) {
-        logger.debug({ host, err: String(err) }, 'Targeted print with underscores failed, retrying with standard fields');
+        logger.debug({ host, err: String(err) }, 'Targeted wide-fetch failed, falling back to id-only print');
         entries = await safeWrite(api, [
             '/tool/netwatch/print',
-            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-            '=.proplist=.id,up-script,down-script'
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
         ]);
     }
 
@@ -668,20 +666,28 @@ export async function configureNetwatchWebhook(
     const dbUpLen = (existingEntry?.upScript || '').length;
     const dbDownLen = (existingEntry?.downScript || '').length;
 
-    // Check each script independently. If MikroTik returns '' but we HAVE content in DB, we abort.
-    const upUnexpectedlyEmpty = currentUp === '' && dbUpLen > 0;
-    const downUnexpectedlyEmpty = currentDown === '' && dbDownLen > 0;
+    // Field Missing Guard: If the property is completely missing from the entry object after a wide-print,
+    // it's a read failure (API issue). We must not assume it's empty.
+    const keys = Object.keys(entry);
+    const upFieldPresent = keys.some(k => k.toLowerCase().includes('up') && k.toLowerCase().includes('script'));
+    const downFieldPresent = keys.some(k => k.toLowerCase().includes('down') && k.toLowerCase().includes('script'));
+
+    // Check each script independently. If field is missing OR unexpectedly empty, we abort.
+    const upSafetyFail = (currentUp === '' && dbUpLen > 0) || !upFieldPresent;
+    const downSafetyFail = (currentDown === '' && dbDownLen > 0) || !downFieldPresent;
 
     // Catastrophic Loss Check: If the read script is significantly shorter than what we know (e.g. > 50% loss)
     // and the original was > 100 bytes, we abort to prevent overwriting with truncated data.
     const catastrophicUpLoss = dbUpLen > 100 && currentUp.length < (dbUpLen * 0.5);
     const catastrophicDownLoss = dbDownLen > 100 && currentDown.length < (dbDownLen * 0.5);
 
-    if (upUnexpectedlyEmpty || downUnexpectedlyEmpty || catastrophicUpLoss || catastrophicDownLoss) {
+    if (upSafetyFail || downSafetyFail || catastrophicUpLoss || catastrophicDownLoss) {
         logger.warn({
-            host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty, catastrophicUpLoss, catastrophicDownLoss,
+            host, id,
+            upFieldPresent, downFieldPresent,
+            upSafetyFail, downSafetyFail, catastrophicUpLoss, catastrophicDownLoss,
             currentUpLen: currentUp.length, currentDownLen: currentDown.length, dbUpLen, dbDownLen
-        }, '[Safety Guard] ABORTED Netwatch write: targeted fetch returned empty or suspiciously short values for one of the scripts');
+        }, '[Safety Guard] ABORTED Netwatch write: targeted wide-fetch failed to return scripts correctly');
         return;
     }
 
@@ -774,20 +780,18 @@ export async function removeNetwatchWebhook(
     let id = '';
 
     // Targeted high-fidelity fetch using proplist to avoid truncation.
-    // We retry without underscore fields for ROS6 compatibility.
+    // WIDE-FETCH: Ensure we see all properties to avoid naming variation issues.
     let entries: any[];
     try {
         entries = await safeWrite(api, [
             '/tool/netwatch/print',
-            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-            '=.proplist=.id,up-script,up_script,down-script,down_script'
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
         ]);
     } catch (err) {
-        logger.debug({ host, err: String(err) }, 'Targeted print (cleanup) with underscores failed, retrying with standard fields');
+        logger.debug({ host, err: String(err) }, 'Cleanup wide-fetch failed, falling back to basic search');
         entries = await safeWrite(api, [
             '/tool/netwatch/print',
-            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-            '=.proplist=.id,up-script,down-script'
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
         ]);
     }
 
@@ -841,11 +845,19 @@ export async function removeNetwatchWebhook(
     const dbUpLen = (existingEntry?.upScript || '').length;
     const dbDownLen = (existingEntry?.downScript || '').length;
 
-    const upUnexpectedlyEmpty = currentUp === '' && dbUpLen > 0;
-    const downUnexpectedlyEmpty = currentDown === '' && dbDownLen > 0;
+    // Field Presence Guard: ensure property is actually returned by API
+    const keys = Object.keys(entry);
+    const upFieldPresent = keys.some(k => k.toLowerCase().includes('up') && k.toLowerCase().includes('script'));
+    const downFieldPresent = keys.some(k => k.toLowerCase().includes('down') && k.toLowerCase().includes('script'));
 
-    if (upUnexpectedlyEmpty || downUnexpectedlyEmpty) {
-        logger.warn({ host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty, dbUpLen, dbDownLen }, '[Safety Guard] ABORTED Netwatch cleanup: targeted fetch returned empty values unexpectedly');
+    // Abort if field is missing when we knew it had content, or if read empty when we knew it had content.
+    const upSafetyFail = (currentUp === '' && dbUpLen > 0) || !upFieldPresent;
+    const downSafetyFail = (currentDown === '' && dbDownLen > 0) || !downFieldPresent;
+
+    if (upSafetyFail || downSafetyFail) {
+        logger.warn({
+            host, id, upFieldPresent, downFieldPresent, upSafetyFail, downSafetyFail, dbUpLen, dbDownLen
+        }, '[Safety Guard] ABORTED Netwatch removal: targeted wide-fetch failed to return script properties');
         return;
     }
 
