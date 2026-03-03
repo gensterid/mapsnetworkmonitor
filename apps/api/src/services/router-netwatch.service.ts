@@ -290,6 +290,7 @@ export class RouterNetwatchService {
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
                         // Only call configuration if webhook is MISSING (prevents redundant MikroTik logs/updates)
                         if (!hasAppWebhook) {
+                            logger.debug({ host: nw.host, upScript: nw.upScript, downScript: nw.downScript }, 'Webhook script missing, preparing to configure');
                             try {
                                 await configureNetwatchWebhook(conn, nw.host, webhookUrl);
                             } catch (webhookErr: any) {

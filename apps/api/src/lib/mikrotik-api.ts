@@ -444,8 +444,8 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
-            upScript: host['up-script'],
-            downScript: host['down-script'],
+            upScript: host['up-script'] || host['up_script'],
+            downScript: host['down-script'] || host['down_script'],
             _id: host['.id'],
         };
     });
@@ -569,9 +569,9 @@ export async function configureNetwatchWebhook(
     const entry = entries[0];
     const id = entry['.id'];
 
-    // Read existing scripts (fallback to empty string)
-    const currentUp = entry['up-script'] || '';
-    const currentDown = entry['down-script'] || '';
+    // Read existing scripts (fallback to empty string, handle underscore fallback)
+    const currentUp = entry['up-script'] || entry['up_script'] || '';
+    const currentDown = entry['down-script'] || entry['down_script'] || '';
 
     // Formulate the fetch command
     // Use semicolon and explicit newlines for MikroTik compatibility

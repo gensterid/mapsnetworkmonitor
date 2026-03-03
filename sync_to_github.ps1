@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: prevent redundant MikroTik webhook updates (webhook flood fix)""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: robust webhook script detection (handle property name variants and normalization)""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."
