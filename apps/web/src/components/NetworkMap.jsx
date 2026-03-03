@@ -1319,7 +1319,8 @@ const NetworkMap = ({
         timezone,
         isHeatmapMode,
         linesByNetwatchId,
-        linesByPppoeId
+        linesByPppoeId,
+        handleMarkerHover // Added missing dependency
     ]);
 
     // --- Unplaced Devices Calculation ---
@@ -1545,6 +1546,7 @@ const NetworkMap = ({
                             if (enableClustering) {
                                 return (
                                     <MarkerClusterGroup
+                                        key={`cluster-${enableClustering}-${mapType}-${apiKey ? 'google' : 'osm'}`} // Force remount on engine change
                                         chunkedLoading
                                         zoomToBoundsOnClick={true}
                                         spiderfyOnMaxZoom={false}

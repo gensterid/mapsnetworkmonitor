@@ -12,13 +12,15 @@ export const MapAutoFit = ({ markers, isEditing }) => {
     const hasInitialFit = React.useRef(false);
 
     useEffect(() => {
+        let isMounted = true;
         // Only fit bounds on initial load, not after updates
         if (hasInitialFit.current) return;
         // Don't auto-fit if we have no markers, OR if we are in an editing mode
-        if (!markers || markers.length === 0 || isEditing) return;
+        if (!markers || markers.length === 0 || isEditing || !map) return;
 
         // Use a small delay to allow all data (Netwatch, PPPoE, etc.) to settle
         const timer = setTimeout(() => {
+            if (!isMounted || !map) return;
             try {
                 // Filter out any markers with invalid coordinates to prevent L.latLngBounds crash
                 const validPoints = markers
@@ -48,7 +50,10 @@ export const MapAutoFit = ({ markers, isEditing }) => {
             }
         }, 1000); // 1s debounce
 
-        return () => clearTimeout(timer);
+        return () => {
+            isMounted = false;
+            clearTimeout(timer);
+        };
     }, [markers, map, isEditing]);
 
     return null;
@@ -78,6 +83,9 @@ export const DraggableMarker = ({
     useEffect(() => {
         if (markerRef.current) {
             const marker = markerRef.current;
+            // Only update if marker is still on the map (prevents _leaflet_pos error)
+            if (!marker._map) return;
+
             // Update the options object directly so ClusterIcon.jsx (which reads L.Marker instances)
             // sees the latest values without needing a full marker destruction
             Object.assign(marker.options, {
