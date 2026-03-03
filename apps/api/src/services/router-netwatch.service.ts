@@ -220,16 +220,20 @@ export class RouterNetwatchService {
 
                     const existing = existingMap.get(nw.host);
                     const status: 'up' | 'down' | 'unknown' = (nw.status === 'up') ? 'up' : (nw.status === 'down' ? 'down' : 'unknown');
+                    const isDisabled = nw.disabled === true;
 
-                    const prefix = nw.disabled ? '[DISABLED] ' : '';
-                    let baseName = nw.comment || nw.name;
-                    if (!baseName && existing) {
-                        baseName = existing.name?.replace(/^\[DISABLED\]\s*/, '') || '';
+                    // Debug: log disabled state detection
+                    if (isDisabled) {
+                        logger.info({ host: nw.host, disabled: nw.disabled, status: nw.status, routerId }, 'Netwatch entry detected as DISABLED');
                     }
-                    const finalName = prefix + (baseName || '');
 
-                    // Send alerts if status changed
-                    if (existing && existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
+                    let finalName = nw.comment || nw.name;
+                    if (!finalName && existing) {
+                        finalName = existing.name?.replace(/^\[DISABLED\]\s*/, '') || '';
+                    }
+
+                    // Send alerts if status changed — but SUPPRESS for disabled entries
+                    if (!isDisabled && existing && existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
                         if (status === 'down' || status === 'up') {
                             await alertService.createNetwatchAlert(
                                 routerId,
@@ -337,6 +341,7 @@ export class RouterNetwatchService {
                             name: finalName,
                             interval: nw.interval || existing.interval,
                             status: status,
+                            disabled: isDisabled,
                             lastCheck: new Date(),
                             lastUp: nw.sinceUp || existing.lastUp,
                             lastDown: nw.sinceDown || existing.lastDown,
@@ -356,6 +361,7 @@ export class RouterNetwatchService {
                             name: finalName,
                             interval: nw.interval || 30,
                             status: status,
+                            disabled: isDisabled,
                             lastCheck: new Date(),
                             lastUp: nw.sinceUp,
                             lastDown: nw.sinceDown,

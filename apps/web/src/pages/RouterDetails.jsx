@@ -1166,16 +1166,20 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
     const { data: settings } = useSettings();
     const timezone = useAppTimezone();
 
-    // Count up and down hosts
-    const upCount = netwatch.filter(n => n.status === 'up').length;
-    const downCount = netwatch.filter(n => n.status === 'down' || n.status === 'unknown').length;
+    // Count up and down hosts (excluding disabled)
+    const activeNetwatch = netwatch.filter(n => !n.disabled);
+    const upCount = activeNetwatch.filter(n => n.status === 'up').length;
+    const downCount = activeNetwatch.filter(n => n.status === 'down' || n.status === 'unknown').length;
+    const disabledCount = netwatch.filter(n => n.disabled).length;
 
     // Filter and sort netwatch
     const filteredNetwatch = (statusFilter === 'all'
         ? netwatch
         : statusFilter === 'up'
-            ? netwatch.filter(n => n.status === 'up')
-            : netwatch.filter(n => n.status === 'down' || n.status === 'unknown')
+            ? netwatch.filter(n => !n.disabled && n.status === 'up')
+            : statusFilter === 'disabled'
+                ? netwatch.filter(n => n.disabled)
+                : netwatch.filter(n => !n.disabled && (n.status === 'down' || n.status === 'unknown'))
     ).filter(n =>
         !searchQuery ||
         n.host?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1274,6 +1278,18 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                             <span className="w-2 h-2 rounded-full bg-current" />
                             {downCount} Down
                         </button>
+                        <button
+                            onClick={() => setStatusFilter(statusFilter === 'disabled' ? 'all' : 'disabled')}
+                            className={clsx(
+                                "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all",
+                                statusFilter === 'disabled'
+                                    ? "bg-slate-600 text-white"
+                                    : "bg-slate-700/50 text-slate-400 hover:bg-slate-700"
+                            )}
+                        >
+                            <span className="w-2 h-2 rounded-full bg-current" />
+                            {disabledCount} Disabled
+                        </button>
                         {statusFilter !== 'all' && (
                             <button
                                 onClick={() => setStatusFilter('all')}
@@ -1351,7 +1367,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                         {nw.isAppOnly && (
                                             <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-1.5 py-0.5 rounded border border-indigo-500/30">App Only</span>
                                         )}
-                                        {nw.name?.startsWith('[DISABLED]') && (
+                                        {nw.disabled && (
                                             <span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 py-0.5 rounded">Disabled</span>
                                         )}
                                         {nw.hasWebhook && (
@@ -1457,21 +1473,23 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                                             <div className="flex gap-2">
                                                 <span className={clsx(
                                                     "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium",
-                                                    nw.status === 'up'
-                                                        ? "bg-emerald-500/10 text-emerald-400"
-                                                        : "bg-red-500/10 text-red-400"
+                                                    nw.disabled
+                                                        ? "bg-slate-800 text-slate-400 border border-slate-700"
+                                                        : nw.status === 'up'
+                                                            ? "bg-emerald-500/10 text-emerald-400"
+                                                            : "bg-red-500/10 text-red-400"
                                                 )}>
-                                                    {nw.status === 'up' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                                                    {nw.status === 'up' ? 'Up' : 'Down'}
+                                                    {nw.disabled ? <XCircle className="w-3 h-3" /> : (nw.status === 'up' ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />)}
+                                                    {nw.disabled ? 'Disabled' : (nw.status === 'up' ? 'Up' : 'Down')}
                                                 </span>
                                                 {nw.isAppOnly && (
                                                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                                                         App Only
                                                     </span>
                                                 )}
-                                                {nw.name?.startsWith('[DISABLED]') && (
-                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-slate-700 text-slate-400">
-                                                        Disabled
+                                                {nw.disabled && (
+                                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-700 text-slate-400">
+                                                        Disabled (Box X)
                                                     </span>
                                                 )}
                                                 {nw.hasWebhook && (
@@ -1614,7 +1632,7 @@ function NetwatchTab({ routerId, netwatch = [], refetch }) {
                 showMikrotikOption={deletingNetwatch && (deletingNetwatch.deviceType === 'client' || !deletingNetwatch.deviceType) && !deletingNetwatch.isAppOnly}
                 isDeleting={isDeleting}
             />
-        </div>
+        </div >
     );
 }
 

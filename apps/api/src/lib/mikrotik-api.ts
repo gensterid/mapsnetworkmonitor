@@ -463,6 +463,13 @@ export async function getNetwatchHosts(
             return longest;
         };
 
+        // Debug: log raw disabled field from MikroTik
+        const rawDisabled = host.disabled;
+        const parsedDisabled = rawDisabled === true || rawDisabled === 'true' || rawDisabled === 'yes';
+        if (rawDisabled !== undefined && rawDisabled !== false && rawDisabled !== 'false' && rawDisabled !== 'no') {
+            logger.info({ host: host.host, rawDisabled, rawDisabledType: typeof rawDisabled, parsedDisabled }, '[Netwatch API] Disabled field detected');
+        }
+
         return {
             host: host.host,
             name: host.name,
@@ -474,7 +481,7 @@ export async function getNetwatchHosts(
             interval: parseMikrotikInterval(host.interval || '10s'),
             sinceUp,
             sinceDown,
-            disabled: host.disabled === true || host.disabled === 'true',
+            disabled: parsedDisabled,
             upScript: pickBest(host, 'up'),
             downScript: pickBest(host, 'down'),
             _id: host['.id'],

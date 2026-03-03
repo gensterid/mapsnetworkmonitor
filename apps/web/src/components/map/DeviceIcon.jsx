@@ -67,6 +67,7 @@ export const createDeviceIcon = ({
     host = null,
     hasWebhook = false,
     lastErrorMessage = null,
+    disabled = false,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
@@ -83,7 +84,9 @@ export const createDeviceIcon = ({
     let normalizedStatus;
     const isOffline = status === 'down' || status === 'offline' || status === 'lost' || status === 'power_down' || status === 'dying_gasp' || status === 'disable' || status === 'disconnected' || status === 'unknown' || !status;
 
-    if (isOffline) {
+    if (disabled) {
+        normalizedStatus = 'disabled';
+    } else if (isOffline) {
         normalizedStatus = 'offline';
     }
     // Smart Warning: ODP only shows warning if it has an IP host (monitored)
@@ -100,7 +103,8 @@ export const createDeviceIcon = ({
     // API Error Detection (specific for Routers)
     let apiErrorIcon = null;
     let apiErrorTitle = '';
-    if (type === 'router' && lastErrorMessage) {
+    // Double check: Only show API error markers if NOT online to avoid stale indicator flicker
+    if (type === 'router' && lastErrorMessage && normalizedStatus !== 'online') {
         const msg = lastErrorMessage.toLowerCase();
         if (msg.includes('password') || msg.includes('login') || msg.includes('auth')) {
             apiErrorIcon = 'lock';
@@ -164,10 +168,11 @@ export const createRouterIcon = (status) => {
 /**
  * Create a netwatch/client icon (backwards compatible)
  */
-export const createNetwatchIcon = (status) => {
+export const createNetwatchIcon = (status, disabled = false) => {
     return createDeviceIcon({
         type: 'netwatch',
         status,
+        disabled,
         showLabel: false,
         small: true,
     });

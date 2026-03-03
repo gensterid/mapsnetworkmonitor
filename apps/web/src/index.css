@@ -552,6 +552,22 @@
         color: var(--map-color-warning, #FACC15) !important;
     }
 
+    /* Disabled (Gray) */
+    .device-icon--disabled {
+        color: #64748b !important;
+    }
+
+    .device-icon--disabled .device-icon__badge {
+        border-color: #64748b !important;
+        box-shadow: 0 0 10px rgba(100, 116, 139, 0.4), inset 0 0 4px rgba(100, 116, 139, 0.4) !important;
+        background: rgba(100, 116, 139, 0.1) !important;
+    }
+
+    .device-icon--disabled .material-symbols-outlined {
+        color: #64748b !important;
+        filter: none !important;
+    }
+
     /* ODP (Orange) */
     .device-icon--odp {
         color: var(--map-color-odp, #F97316) !important;

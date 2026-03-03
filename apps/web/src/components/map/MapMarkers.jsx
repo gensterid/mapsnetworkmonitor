@@ -151,6 +151,7 @@ export const getTooltipColor = (node) => {
     const status = (node.status || 'unknown').toLowerCase();
     const isOffline = ['down', 'offline', 'lost', 'power_down', 'dying_gasp', 'disable', 'disconnected', 'unknown'].includes(status) || !node.status;
 
+    if (node.disabled) return '#64748b';
     if (isOffline) return 'var(--map-color-offline, #EF4444)';
 
     // Performance/Warning checks (Consistent with DeviceIcon Smart Warning)
@@ -842,6 +843,7 @@ export const SmartMarker = ({
     onClick,
     eventHandlers,
     id,
+    disabled = false,
     children,
     ...props
 }) => {
@@ -860,9 +862,10 @@ export const SmartMarker = ({
         packetLoss: safePacketLoss,
         hasWebhook,
         lastErrorMessage,
+        disabled,
         lastRxPower: props.lastRxPower || props.last_rx_power || null,
         host: props.host || null
-    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, props.lastRxPower, props.last_rx_power, props.host]);
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, disabled, props.lastRxPower, props.last_rx_power, props.host]);
 
     return (
         <DraggableMarker
@@ -918,6 +921,7 @@ export const arePropsEqual = (prev, next) => {
         prev.small === next.small &&
         prev.icon === next.icon &&
         prev.isHeatmapMode === next.isHeatmapMode &&
+        prev.disabled === next.disabled &&
         prev.id === next.id
     );
 };
