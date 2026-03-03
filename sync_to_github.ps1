@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: resolved webhook indicator persistence delay by reordering sync logic""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: robust Netwatch webhook management for ROS6 and improved script preservation""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."

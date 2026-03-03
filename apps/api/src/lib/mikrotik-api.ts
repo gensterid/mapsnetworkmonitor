@@ -391,10 +391,20 @@ export async function getNetwatchHosts(
     api: any,
     routerClock?: { time: string; date: string; timeZoneName: string; gmtOffset: string }
 ): Promise<NetwatchData[]> {
-    const hostsResult = await safeWrite(api, [
-        '/tool/netwatch/print',
-        '=.proplist=.id,host,status,since,comment,up-script,up_script,down-script,down_script,disabled'
-    ]);
+    let hostsResult: any[];
+    try {
+        hostsResult = await safeWrite(api, [
+            '/tool/netwatch/print',
+            '=.proplist=.id,host,status,since,comment,up-script,up_script,down-script,down_script,disabled'
+        ]);
+    } catch (err) {
+        // Fallback for older ROS versions (ROS6) that might fail if underscores properties are requested
+        logger.debug({ err: String(err) }, 'Netwatch bulk print with underscores failed, retrying with standard fields');
+        hostsResult = await safeWrite(api, [
+            '/tool/netwatch/print',
+            '=.proplist=.id,host,status,since,comment,up-script,down-script,disabled'
+        ]);
+    }
 
     // Calculate time offset if clock provided
     let timeOffset = 0;
@@ -588,8 +598,7 @@ export async function configureNetwatchWebhook(
     // We check both naming conventions to be absolutely sure.
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
-        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,up_script,down-script,down_script'
+        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
     ]);
 
     if (entries.length === 0) return;
@@ -701,16 +710,14 @@ export async function removeNetwatchWebhook(
 
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
-        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,up_script,down-script,down_script'
+        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
     ]);
 
     // Fallback: search by host if ID query returned nothing
     if (entries.length === 0 && host) {
         const fb = await safeWrite(api, [
             '/tool/netwatch/print',
-            `?host=${host}`,
-            '=.proplist=.id,up-script,up_script,down-script,down_script'
+            `?host=${host}`
         ]);
         if (fb.length > 0) entries.push(fb[0]);
     }
