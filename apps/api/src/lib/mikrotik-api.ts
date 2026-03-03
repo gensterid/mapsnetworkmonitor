@@ -416,15 +416,14 @@ export async function getNetwatchHosts(
         let sinceUp: Date | undefined;
         let sinceDown: Date | undefined;
 
-        if (host.since) {
+        const rawSince = host.since || host['since-up'] || host['since-down'] || host['since_up'] || host['since_down'];
+        if (rawSince) {
             try {
-                const sinceDate = parseMikrotikDate(host.since);
-
+                const sinceDate = parseMikrotikDate(rawSince);
                 // Adjust for time offset
                 if (timeOffset !== 0) {
                     sinceDate.setTime(sinceDate.getTime() + timeOffset);
                 }
-
                 if (host.status === 'up') {
                     sinceUp = sinceDate;
                 } else if (host.status === 'down') {
@@ -604,21 +603,25 @@ export async function configureNetwatchWebhook(
     let needsUpdate = false;
 
     // Check and append if missing
-    // Robust check: normalize scripts to ignore line ending differences (\r\n vs \n)
-    const hasWebhookUp = currentUp.replace(/\r\n/g, '\n').includes('/api/webhook/netwatch');
-    const hasWebhookDown = currentDown.replace(/\r\n/g, '\n').includes('/api/webhook/netwatch');
+    // Robust check: normalize scripts to ignore line ending differences and case
+    const normalizedUp = currentUp.replace(/\r\n/g, '\n').toLowerCase();
+    const normalizedDown = currentDown.replace(/\r\n/g, '\n').toLowerCase();
+    const hasWebhookUp = normalizedUp.includes('/api/webhook/netwatch');
+    const hasWebhookDown = normalizedDown.includes('/api/webhook/netwatch');
 
     if (!hasWebhookUp) {
         // Append at the bottom as per user preference.
-        // We now rely on .proplist in the read phase to avoid truncation issues.
+        // Avoid double semicolon if the base script already ends with one
         const base = currentUp.trim();
-        newUp = base ? `${base};\r\n${upCommand}` : upCommand;
+        const separator = base.endsWith(';') ? '' : ';';
+        newUp = base ? `${base}${separator}\r\n${upCommand}` : upCommand;
         needsUpdate = true;
     }
 
     if (!hasWebhookDown) {
         const base = currentDown.trim();
-        newDown = base ? `${base};\r\n${downCommand}` : downCommand;
+        const separator = base.endsWith(';') ? '' : ';';
+        newDown = base ? `${base}${separator}\r\n${downCommand}` : downCommand;
         needsUpdate = true;
     }
 
