@@ -380,7 +380,10 @@ export async function getNetwatchHosts(
     api: any,
     routerClock?: { time: string; date: string; timeZoneName: string; gmtOffset: string }
 ): Promise<NetwatchData[]> {
-    const hostsResult = await safeWrite(api, '/tool/netwatch/print');
+    const hostsResult = await safeWrite(api, [
+        '/tool/netwatch/print',
+        '=.proplist=.id,host,comment,status,timeout,interval,since-up,since-down,disabled,up-script,down-script'
+    ]);
 
     // Calculate time offset if clock provided
     let timeOffset = 0;
@@ -574,8 +577,12 @@ export async function configureNetwatchWebhook(
         currentUp = existingEntry.upScript || '';
         currentDown = existingEntry.downScript || '';
     } else {
-        // Find existing entry by host IP
-        const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
+        // Find existing entry by host IP with explicit proplist for full scripts
+        const entries = await safeWrite(api, [
+            '/tool/netwatch/print',
+            `?host=${host}`,
+            '=.proplist=.id,up-script,down-script'
+        ]);
         if (entries.length === 0) return;
 
         const entry = entries[0];
@@ -613,13 +620,14 @@ export async function configureNetwatchWebhook(
     }
 
     if (needsUpdate) {
+        logger.debug({ host, id, upLength: newUp.length, downLength: newDown.length }, 'Sending Netwatch update to MikroTik');
         await safeWrite(api, [
             '/tool/netwatch/set',
             `=.id=${id}`,
             `=up-script=${newUp}`,
             `=down-script=${newDown}`
         ]);
-        logger.info({ host }, 'Smart Append applied webhook scripts');
+        logger.info({ host }, 'Smart Append: Webhook prepended to scripts');
     }
 }
 
