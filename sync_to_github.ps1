@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: map render error, status sync, and ONU move 500 error""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: leaflet _leaflet_pos error with dynamic clustering key and robust auto-fit""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."
