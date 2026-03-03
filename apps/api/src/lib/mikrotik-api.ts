@@ -393,33 +393,17 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '=.proplist=.id,host,status,timeout,interval,since,since-up,comment,up-script,disabled'
+        '=.proplist=.id,host,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
     ]);
 
     // Calculate time offset if clock provided
     let timeOffset = 0;
     if (routerClock) {
         try {
-            // Combine date and time to parse router current time
-            // MikroTik date format: "jan/25/2026"
-            // MikroTik time format: "20:30:15"
-            // We need to parse this carefuly
             const routerNow = parseMikrotikDate(`${routerClock.date} ${routerClock.time}`);
             const serverNow = new Date();
-
-            // Offset = ServerTime - RouterTime
-            // If Router is ahead (future), offset is negative?
-            // No, we want to convert RouterTime to ServerTime.
-            // Actual Event Time (Server Frame) = Event Time (Router Frame) + (ServerNow - RouterNow)
-            // Example:
-            // Server: 10:00. Router: 13:00. (Router is +3h)
-            // Event at 12:50 Router Time.
-            // Should be 09:50 Server Time.
-            // 12:50 + (10:00 - 13:00) = 12:50 - 3h = 09:50. Correct.
-
             timeOffset = serverNow.getTime() - routerNow.getTime();
         } catch (e) {
-            // Only log if it's not a common timeout/closed error
             if (!String(e).includes('closed') && !String(e).includes('timeout')) {
                 logger.warn({ err: e }, 'Failed to calculate time offset');
             }
@@ -434,7 +418,6 @@ export async function getNetwatchHosts(
         if (rawSince) {
             try {
                 const sinceDate = parseMikrotikDate(rawSince);
-                // Adjust for time offset
                 if (timeOffset !== 0) {
                     sinceDate.setTime(sinceDate.getTime() + timeOffset);
                 }
@@ -443,13 +426,26 @@ export async function getNetwatchHosts(
                 } else if (host.status === 'down') {
                     sinceDown = sinceDate;
                 }
-            } catch (e) {
-                // Ignore
-            }
+            } catch (e) { }
         }
 
-        const upScript = host['up-script'] || host['up_script'] || '';
-        const downScript = host['down-script'] || host['down_script'] || '';
+        const up1 = host['up-script'] || '';
+        const up2 = host['up_script'] || '';
+        const down1 = host['down-script'] || '';
+        const down2 = host['down_script'] || '';
+
+        // Extremely robust pick: if one version has our webhook, we MUST take that one.
+        // Otherwise, take the longer string as it's less likely to be truncated.
+        const pickBest = (s1: string, s2: string) => {
+            const low1 = (s1 || '').toLowerCase();
+            const low2 = (s2 || '').toLowerCase();
+            const has1 = low1.includes('/api/webhook/netwatch');
+            const has2 = low2.includes('/api/webhook/netwatch');
+
+            if (has1 && !has2) return s1;
+            if (has2 && !has1) return s2;
+            return (s1 || '').length >= (s2 || '').length ? s1 : s2;
+        };
 
         return {
             host: host.host,
@@ -463,8 +459,8 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
-            upScript,
-            downScript,
+            upScript: pickBest(up1, up2),
+            downScript: pickBest(down1, down2),
             _id: host['.id'],
         };
     });
@@ -589,19 +585,30 @@ export async function configureNetwatchWebhook(
 
     // Always fetch full scripts with proplist before any modification to prevent
     // data loss from truncated standard print results.
-    // Use only standard hyphenated fields to avoid !empty noise in ROS 7.18+
+    // We check both naming conventions to be absolutely sure.
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
         existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,down-script'
+        '=.proplist=.id,up-script,up_script,down-script,down_script'
     ]);
 
     if (entries.length === 0) return;
 
     const entry = entries[0];
     id = entry['.id'];
-    currentUp = entry['up-script'] || '';
-    currentDown = entry['down-script'] || '';
+
+    // Robust pick: preferring the field that actually has the webhook.
+    // This stops the redundant update loop on MikroTik versions that return both fields.
+    const pb = (s1: string, s2: string) => {
+        const has1 = (s1 || '').toLowerCase().includes('/api/webhook/netwatch');
+        const has2 = (s2 || '').toLowerCase().includes('/api/webhook/netwatch');
+        if (has1 && !has2) return s1 || '';
+        if (has2 && !has1) return s2 || '';
+        return (s1 || '').length >= (s2 || '').length ? (s1 || '') : (s2 || '');
+    };
+
+    currentUp = pb(entry['up-script'], entry['up_script']);
+    currentDown = pb(entry['down-script'], entry['down_script']);
 
     // Safety: If the script is suspiciously empty but we know the user has long scripts,
     // we should log a warning. Note: This check is simple for now.
@@ -648,6 +655,10 @@ export async function configureNetwatchWebhook(
         params.push(`=up-script=${newUp}`);
         params.push(`=down-script=${newDown}`);
 
+        // For maximum compatibility with ROS7 field variations
+        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
+        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
+
         await safeWrite(api, [
             '/tool/netwatch/set',
             ...params
@@ -671,7 +682,7 @@ export async function removeNetwatchWebhook(
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
         existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,down-script'
+        '=.proplist=.id,up-script,up_script,down-script,down_script'
     ]);
 
     // Fallback: search by host if ID query returned nothing
@@ -679,7 +690,7 @@ export async function removeNetwatchWebhook(
         const fb = await safeWrite(api, [
             '/tool/netwatch/print',
             `?host=${host}`,
-            '=.proplist=.id,up-script,down-script'
+            '=.proplist=.id,up-script,up_script,down-script,down_script'
         ]);
         if (fb.length > 0) entries.push(fb[0]);
     }
@@ -688,8 +699,18 @@ export async function removeNetwatchWebhook(
 
     const entry = entries[0];
     id = entry['.id'];
-    currentUp = entry['up-script'] || '';
-    currentDown = entry['down-script'] || '';
+
+    // Robust pick: ensuring we find the webhook line if it exists in either field version
+    const pb = (s1: string, s2: string) => {
+        const has1 = (s1 || '').toLowerCase().includes('/api/webhook/netwatch');
+        const has2 = (s2 || '').toLowerCase().includes('/api/webhook/netwatch');
+        if (has1 && !has2) return s1 || '';
+        if (has2 && !has1) return s2 || '';
+        return (s1 || '').length >= (s2 || '').length ? (s1 || '') : (s2 || '');
+    };
+
+    currentUp = pb(entry['up-script'], entry['up_script']);
+    currentDown = pb(entry['down-script'], entry['down_script']);
 
     // Safety: If the script is suspiciously empty but we know the user has long scripts,
     // we should log a warning. Note: This check is simple for now.
@@ -720,6 +741,10 @@ export async function removeNetwatchWebhook(
         const params: string[] = [`=.id=${id}`];
         params.push(`=up-script=${newUp}`);
         params.push(`=down-script=${newDown}`);
+
+        // For maximum compatibility with ROS7 field variations
+        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
+        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
 
         await safeWrite(api, [
             '/tool/netwatch/set',
