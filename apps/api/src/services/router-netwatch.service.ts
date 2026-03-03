@@ -661,8 +661,11 @@ export class RouterNetwatchService {
             .where(and(eq(routerNetwatch.routerId, routerId), eq(routerNetwatch.host, host)));
 
         if (existing) {
-            if (existing.isAppOnly) return existing.id;
-            await db.update(routerNetwatch).set({ isAppOnly: true, updatedAt: new Date() }).where(eq(routerNetwatch.id, existing.id));
+            const updatePayload: any = { isAppOnly: true, updatedAt: new Date() };
+            if (name && existing.name !== name) {
+                updatePayload.name = name;
+            }
+            await db.update(routerNetwatch).set(updatePayload).where(eq(routerNetwatch.id, existing.id));
             return existing.id;
         }
 
