@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: finalize leaflet, topology animations, and precision webhook fixes""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""debug: add detailed script logging to webhook sync (track flood cause)""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."
