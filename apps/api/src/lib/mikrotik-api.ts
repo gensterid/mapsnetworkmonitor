@@ -583,14 +583,18 @@ export async function configureNetwatchWebhook(
     let needsUpdate = false;
 
     // Check and append if missing
-    if (!currentUp.includes('/api/webhook/netwatch')) {
+    // Robust check: normalize scripts to ignore line ending differences (\r\n vs \n)
+    const hasWebhookUp = currentUp.replace(/\r\n/g, '\n').includes('/api/webhook/netwatch');
+    const hasWebhookDown = currentDown.replace(/\r\n/g, '\n').includes('/api/webhook/netwatch');
+
+    if (!hasWebhookUp) {
         // Trim existing to avoid double spacing, then add semicolon and newline
         const base = currentUp.trim();
         newUp = base ? `${base}\r\n${upCommand}` : upCommand;
         needsUpdate = true;
     }
 
-    if (!currentDown.includes('/api/webhook/netwatch')) {
+    if (!hasWebhookDown) {
         const base = currentDown.trim();
         newDown = base ? `${base}\r\n${downCommand}` : downCommand;
         needsUpdate = true;
@@ -603,7 +607,7 @@ export async function configureNetwatchWebhook(
             `=up-script=${newUp}`,
             `=down-script=${newDown}`
         ]);
-        logger.debug({ host }, 'Smart Append applied webhook scripts');
+        logger.info({ host }, 'Smart Append applied webhook scripts');
     }
 }
 
@@ -626,16 +630,22 @@ export async function removeNetwatchWebhook(
     // Filter out our lines
     const cleanScript = (script: string) => {
         return script
-            .split('\n')
+            .split(/\r?\n/)
             .filter(line => !line.includes('/api/webhook/netwatch'))
-            .join('\n')
+            .join('\r\n')
             .trim();
     };
 
     const newUp = cleanScript(currentUp);
     const newDown = cleanScript(currentDown);
 
-    if (newUp !== currentUp.trim() || newDown !== currentDown.trim()) {
+    // Compare normalized versions
+    const normalizedOldUp = currentUp.trim().replace(/\r\n/g, '\n');
+    const normalizedOldDown = currentDown.trim().replace(/\r\n/g, '\n');
+    const normalizedNewUp = newUp.replace(/\r\n/g, '\n');
+    const normalizedNewDown = newDown.replace(/\r\n/g, '\n');
+
+    if (normalizedNewUp !== normalizedOldUp || normalizedNewDown !== normalizedOldDown) {
         await safeWrite(api, [
             '/tool/netwatch/set',
             `=.id=${id}`,

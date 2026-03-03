@@ -285,13 +285,18 @@ export class RouterNetwatchService {
                     // Given Mikrotik sync doesn't know deviceType upfront unless we look at the existing record,
                     // we'll rely on the existing DB record type (or default to client)
                     const deviceType = existing?.deviceType || 'client';
+                    const hasAppWebhook = nw.upScript?.includes('/api/webhook/netwatch') || nw.downScript?.includes('/api/webhook/netwatch');
+
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
-                        try {
-                            await configureNetwatchWebhook(conn, nw.host, webhookUrl);
-                        } catch (webhookErr: any) {
-                            logger.warn({ err: webhookErr?.message, host: nw.host }, 'Failed to smart-append webhook script during sync');
+                        // Only call configuration if webhook is MISSING (prevents redundant MikroTik logs/updates)
+                        if (!hasAppWebhook) {
+                            try {
+                                await configureNetwatchWebhook(conn, nw.host, webhookUrl);
+                            } catch (webhookErr: any) {
+                                logger.warn({ err: webhookErr?.message, host: nw.host }, 'Failed to smart-append webhook script during sync');
+                            }
                         }
-                    } else if (!shouldInjectWebhook && (nw.upScript?.includes('/api/webhook/netwatch') || nw.downScript?.includes('/api/webhook/netwatch'))) {
+                    } else if (!shouldInjectWebhook && hasAppWebhook) {
                         // Smart Cleanup: Remove webhook if disabled but still present on router
                         try {
                             await removeNetwatchWebhook(conn, nw.host);
