@@ -382,7 +382,7 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '.proplist=.id,host,comment,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
+        '=.proplist=.id,host,comment,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
     ]);
 
     // Calculate time offset if clock provided
@@ -627,11 +627,16 @@ export async function configureNetwatchWebhook(
 
     if (needsUpdate) {
         logger.debug({ host, id, upLength: newUp.length, downLength: newDown.length }, 'Sending Netwatch update to MikroTik');
+        const params: string[] = [`=.id=${id}`];
+        params.push(`=up-script=${newUp}`);
+        params.push(`=down-script=${newDown}`);
+
+        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
+        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
+
         await safeWrite(api, [
             '/tool/netwatch/set',
-            `=.id=${id}`,
-            `=up-script=${newUp}`,
-            `=down-script=${newDown}`
+            ...params
         ]);
         logger.info({ host }, 'Smart Append: Webhook prepended to scripts');
     }
@@ -698,11 +703,16 @@ export async function removeNetwatchWebhook(
     const normalizedNewDown = newDown.replace(/\r\n/g, '\n');
 
     if (normalizedNewUp !== normalizedOldUp || normalizedNewDown !== normalizedOldDown) {
+        const params: string[] = [`=.id=${id}`];
+        params.push(`=up-script=${newUp}`);
+        params.push(`=down-script=${newDown}`);
+
+        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
+        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
+
         await safeWrite(api, [
             '/tool/netwatch/set',
-            `=.id=${id}`,
-            `=up-script=${newUp}`,
-            `=down-script=${newDown}`
+            ...params
         ]);
         logger.info({ host }, 'Smart Cleanup: Webhook lines removed from netwatch scripts');
     }
