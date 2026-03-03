@@ -593,13 +593,23 @@ export async function configureNetwatchWebhook(
     let currentDown = '';
     let id = '';
 
-    // Always fetch full scripts with proplist before any modification to prevent
-    // data loss from truncated standard print results.
-    // We check both naming conventions to be absolutely sure.
-    const entries = await safeWrite(api, [
-        '/tool/netwatch/print',
-        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
-    ]);
+    // Targeted high-fidelity fetch using proplist to avoid truncation.
+    // We retry without underscore fields for ROS6 compatibility.
+    let entries: any[];
+    try {
+        entries = await safeWrite(api, [
+            '/tool/netwatch/print',
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
+            '=.proplist=.id,up-script,up_script,down-script,down_script'
+        ]);
+    } catch (err) {
+        logger.debug({ host, err: String(err) }, 'Targeted print with underscores failed, retrying with standard fields');
+        entries = await safeWrite(api, [
+            '/tool/netwatch/print',
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
+            '=.proplist=.id,up-script,down-script'
+        ]);
+    }
 
     if (entries.length === 0) return;
 
@@ -708,18 +718,41 @@ export async function removeNetwatchWebhook(
     let currentDown = '';
     let id = '';
 
-    const entries = await safeWrite(api, [
-        '/tool/netwatch/print',
-        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
-    ]);
+    // Targeted high-fidelity fetch using proplist to avoid truncation.
+    // We retry without underscore fields for ROS6 compatibility.
+    let entries: any[];
+    try {
+        entries = await safeWrite(api, [
+            '/tool/netwatch/print',
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
+            '=.proplist=.id,up-script,up_script,down-script,down_script'
+        ]);
+    } catch (err) {
+        logger.debug({ host, err: String(err) }, 'Targeted print (cleanup) with underscores failed, retrying with standard fields');
+        entries = await safeWrite(api, [
+            '/tool/netwatch/print',
+            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
+            '=.proplist=.id,up-script,down-script'
+        ]);
+    }
 
     // Fallback: search by host if ID query returned nothing
     if (entries.length === 0 && host) {
-        const fb = await safeWrite(api, [
-            '/tool/netwatch/print',
-            `?host=${host}`
-        ]);
-        if (fb.length > 0) entries.push(fb[0]);
+        try {
+            const fb = await safeWrite(api, [
+                '/tool/netwatch/print',
+                `?host=${host}`,
+                '=.proplist=.id,up-script,up_script,down-script,down_script'
+            ]);
+            if (fb.length > 0) entries.push(fb[0]);
+        } catch (err) {
+            const fb = await safeWrite(api, [
+                '/tool/netwatch/print',
+                `?host=${host}`,
+                '=.proplist=.id,up-script,down-script'
+            ]);
+            if (fb.length > 0) entries.push(fb[0]);
+        }
     }
 
     if (entries.length === 0) return;

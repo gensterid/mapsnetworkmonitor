@@ -199,6 +199,8 @@ export class RouterNetwatchService {
             const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret;
             const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!, router.tenantId!) : '';
 
+            logger.debug({ routerId, name: routerName, shouldInjectWebhook, hasSecret: !!router?.webhookSecret }, 'Netwatch sync starting');
+
             // First fetch the router's current clock to calculate the exact offset
             const routerClock = await getRouterClock(conn).catch(() => undefined);
             const mikrotikNetwatch = await getNetwatchHosts(conn, routerClock);
@@ -243,8 +245,8 @@ export class RouterNetwatchService {
                     const hasDownWebhook = nw.downScript?.toLowerCase().includes('/api/webhook/netwatch');
                     const detectedWebhook = (hasUpWebhook || hasDownWebhook) || false;
 
-                    const isSuspiciouslyEmpty = (nw.upScript === '' || nw.upScript === undefined) && (nw.downScript === '' || nw.downScript === undefined);
-                    const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 100 || (nw.downScript?.length || 0) > 100);
+                    const isSuspiciouslyEmpty = (!nw.upScript || nw.upScript === '') && (!nw.downScript || nw.downScript === '');
+                    const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 64 || (nw.downScript?.length || 0) > 64);
                     let finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : (detectedWebhook || isLikelyTruncated);
 
                     // Smart Append/Cleanup Webhook scripts if Webhook feature is enabled

@@ -1,0 +1,18 @@
+--- ROUTER SETTINGS ---
+ID: 63223049-db91-4a32-a671-6f977b09c2cd
+Name: YANI
+Use Webhook: false
+Has Secret: true
+Should Inject Webhook (Logic): false
+
+--- NETWATCH ENTRIES ---
+Total entries: 9
+Host: 192.168.15.70   | HasWebhook (DB): false | Status: up
+Host: 192.168.19.214  | HasWebhook (DB): false | Status: up
+Host: 192.168.2.25    | HasWebhook (DB): false | Status: up
+Host: 192.168.19.103  | HasWebhook (DB): false | Status: up
+Host: 192.168.19.143  | HasWebhook (DB): false | Status: up
+Host: 192.168.19.246  | HasWebhook (DB): false | Status: up
+Host: 172.18.19.1     | HasWebhook (DB): false | Status: up
+Host: 192.168.19.123  | HasWebhook (DB): false | Status: up
+Host: 192.168.2.22    | HasWebhook (DB): false | Status: down
