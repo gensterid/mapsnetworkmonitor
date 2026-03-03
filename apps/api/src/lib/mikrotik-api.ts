@@ -382,7 +382,7 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '=.proplist=.id,host,comment,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
+        '=.proplist=.id,host,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
     ]);
 
     // Calculate time offset if clock provided
@@ -408,7 +408,10 @@ export async function getNetwatchHosts(
 
             timeOffset = serverNow.getTime() - routerNow.getTime();
         } catch (e) {
-            logger.warn({ err: e }, 'Failed to calculate time offset');
+            // Only log if it's not a common timeout/closed error
+            if (!String(e).includes('closed') && !String(e).includes('timeout')) {
+                logger.warn({ err: e }, 'Failed to calculate time offset');
+            }
         }
     }
 
@@ -434,6 +437,24 @@ export async function getNetwatchHosts(
             }
         }
 
+        const up1 = host['up-script'] || '';
+        const up2 = host['up_script'] || '';
+        const down1 = host['down-script'] || '';
+        const down2 = host['down_script'] || '';
+
+        // Extremely robust pick: if one version has our webhook, we MUST take that one.
+        // Otherwise, take the longer string as it's less likely to be truncated.
+        const pickBest = (s1: string, s2: string) => {
+            const low1 = s1.toLowerCase();
+            const low2 = s2.toLowerCase();
+            const has1 = low1.includes('/api/webhook/netwatch');
+            const has2 = low2.includes('/api/webhook/netwatch');
+
+            if (has1 && !has2) return s1;
+            if (has2 && !has1) return s2;
+            return s1.length >= s2.length ? s1 : s2;
+        };
+
         return {
             host: host.host,
             name: host.name,
@@ -446,9 +467,8 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
-            // ROS API might return fields with underscores or hyphens
-            upScript: host['up-script'] || host['up_script'] || '',
-            downScript: host['down-script'] || host['down_script'] || '',
+            upScript: pickBest(up1, up2),
+            downScript: pickBest(down1, down2),
             _id: host['.id'],
         };
     });
