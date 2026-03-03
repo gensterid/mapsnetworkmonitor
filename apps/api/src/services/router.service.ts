@@ -585,8 +585,8 @@ export class RouterService {
 
             if (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password')) {
                 friendlyError = 'Salah Password / Username';
-            } else if (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout')) {
-                friendlyError = 'Connection Timeout';
+            } else if (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout') || lowErrMsg.includes('timed out after')) {
+                friendlyError = 'Connection Timeout / Busy';
             } else if (lowErrMsg.includes('econnrefused')) {
                 friendlyError = 'Connection Refused (API Service Off?)';
             } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect') || lowErrMsg.includes('enotfound') || lowErrMsg.includes('eai_again')) {

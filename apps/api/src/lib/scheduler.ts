@@ -153,7 +153,11 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
 
         for (let i = 0; i < routers.length; i += BATCH_SIZE) {
             const batch = routers.slice(i, i + BATCH_SIZE);
-            const results = await Promise.all(batch.map(r => processRouter(r)));
+            const results = await Promise.all(batch.map(async (r, index) => {
+                const jitter = (index * 150) + Math.floor(Math.random() * 2500);
+                await new Promise(resolve => setTimeout(resolve, jitter));
+                return processRouter(r);
+            }));
 
             results.forEach(res => {
                 if (res.success) successCount++;
