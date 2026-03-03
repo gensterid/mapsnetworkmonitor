@@ -270,12 +270,25 @@ export class RouterNetwatchService {
                             }
                         }
                     } else if (!shouldInjectWebhook && finalHasWebhook) {
-                        // Smart Cleanup: Remove webhook if disabled but still present on router
+                        // Smart Cleanup: Remove webhook if disabled but still present on router.
+                        // COLLISION PREVENTION: Check if ANY other router with the same host has webhook enabled. 
+                        // If so, we must NOT remove the scripts, as they are likely being used/managed by the other router entry.
                         try {
-                            await removeNetwatchWebhook(conn, nw.host, nw);
-                            finalHasWebhook = false; // Update state for DB update below
+                            const [otherWants] = await db.select({ val: count() })
+                                .from(routers)
+                                .where(and(
+                                    eq(routers.host, router!.host),
+                                    eq(routers.useWebhook, true)
+                                ));
+
+                            if ((otherWants?.val || 0) === 0) {
+                                await removeNetwatchWebhook(conn, nw.host, nw);
+                                finalHasWebhook = false; // Update state for DB update below
+                            } else {
+                                logger.debug({ host: nw.host, routerId }, 'Skipping webhook cleanup: another router entry with same host has webhooks enabled');
+                            }
                         } catch (err) {
-                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook');
+                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook or check collisions');
                         }
                     }
 
