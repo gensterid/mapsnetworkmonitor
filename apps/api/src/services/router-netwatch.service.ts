@@ -245,18 +245,36 @@ export class RouterNetwatchService {
 
                     const isSuspiciouslyEmpty = (nw.upScript === '' || nw.upScript === undefined) && (nw.downScript === '' || nw.downScript === undefined);
                     const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 100 || (nw.downScript?.length || 0) > 100);
-                    const finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : (detectedWebhook || isLikelyTruncated);
+                    let finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : (detectedWebhook || isLikelyTruncated);
 
-                    if (shouldInjectWebhook && !finalHasWebhook && nw.host) {
-                        logger.debug({
-                            host: nw.host,
-                            upLen: nw.upScript?.length,
-                            downLen: nw.downScript?.length,
-                            hasUp: hasUpWebhook,
-                            hasDown: hasDownWebhook,
-                            isTruncated: isLikelyTruncated,
-                            wasActive: existing?.hasWebhook
-                        }, 'Webhook detection failure, planning deep re-config');
+                    // Smart Append/Cleanup Webhook scripts if Webhook feature is enabled
+                    const deviceType = existing?.deviceType || 'client';
+                    if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
+                        // Use finalHasWebhook to avoid loops caused by bulk print truncation or random read failures
+                        if (!finalHasWebhook) {
+                            logger.debug({
+                                host: nw.host,
+                                suspicious: isSuspiciouslyEmpty,
+                                upLen: nw.upScript?.length,
+                                downLen: nw.downScript?.length,
+                                isTruncated: isLikelyTruncated
+                            }, 'Webhook missing/unknown, triggering deep configuration');
+
+                            try {
+                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw);
+                                finalHasWebhook = true; // Update state for DB update below
+                            } catch (err) {
+                                logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-append webhook');
+                            }
+                        }
+                    } else if (!shouldInjectWebhook && finalHasWebhook) {
+                        // Smart Cleanup: Remove webhook if disabled but still present on router
+                        try {
+                            await removeNetwatchWebhook(conn, nw.host, nw);
+                            finalHasWebhook = false; // Update state for DB update below
+                        } catch (err) {
+                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook');
+                        }
                     }
 
                     if (existing) {
@@ -297,26 +315,6 @@ export class RouterNetwatchService {
                         await tx.insert(routerNetwatch).values(insertData);
                     }
 
-                    // Smart Append Webhook scripts if Webhook feature is enabled
-                    const deviceType = existing?.deviceType || 'client';
-                    if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
-                        // Use finalHasWebhook to avoid loops caused by bulk print truncation or random read failures
-                        if (!finalHasWebhook) {
-                            logger.debug({ host: nw.host, suspicious: isSuspiciouslyEmpty }, 'Webhook missing/unknown, triggering deep configuration');
-                            try {
-                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw);
-                            } catch (err) {
-                                logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-append webhook');
-                            }
-                        }
-                    } else if (!shouldInjectWebhook && finalHasWebhook) {
-                        // Smart Cleanup: Remove webhook if disabled but still present on router
-                        try {
-                            await removeNetwatchWebhook(conn, nw.host, nw);
-                        } catch (err) {
-                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook');
-                        }
-                    }
                 }
 
                 // Delete entries that no longer exist on MikroTik (Clients with IP only)
