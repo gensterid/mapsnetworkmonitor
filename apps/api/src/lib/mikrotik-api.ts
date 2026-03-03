@@ -175,8 +175,19 @@ export async function safeWrite(api: any, command: string | string[], timeoutMs:
         const errorMsg = String(error?.message || error || '');
         const lowerMsg = errorMsg.toLowerCase();
 
-        // If it's the known !empty tag error, treat it as success with empty result
-        if (lowerMsg.includes('!empty') || lowerMsg.includes('unknown reply') || error.errno === 'UNKNOWNREPLY') {
+        // If it's the known !empty tag error (ROS 7.18+), treat it as success with empty result
+        // Some drivers throw RosException, others are generic Error objects
+        if (lowerMsg.includes('!empty') ||
+            lowerMsg.includes('unknown reply') ||
+            error.errno === 'UNKNOWNREPLY' ||
+            error.name === 'RosException') {
+
+            // Log it briefly as debug if it's !empty
+            if (lowerMsg.includes('!empty')) {
+                logger.debug({ command: Array.isArray(command) ? command[0] : command }, 'RouterOS !empty protocol noise suppressed');
+            } else {
+                logger.warn({ err: errorMsg, command }, 'Suppressed unexpected ROS API reply/error');
+            }
             return [];
         }
         throw error;
@@ -382,7 +393,7 @@ export async function getNetwatchHosts(
 ): Promise<NetwatchData[]> {
     const hostsResult = await safeWrite(api, [
         '/tool/netwatch/print',
-        '=.proplist=.id,host,status,timeout,interval,since,since-up,since-down,since_up,since_down,comment,up-script,up_script,down-script,down_script,disabled'
+        '=.proplist=.id,host,status,timeout,interval,since,since-up,comment,up-script,disabled'
     ]);
 
     // Calculate time offset if clock provided
@@ -437,23 +448,8 @@ export async function getNetwatchHosts(
             }
         }
 
-        const up1 = host['up-script'] || '';
-        const up2 = host['up_script'] || '';
-        const down1 = host['down-script'] || '';
-        const down2 = host['down_script'] || '';
-
-        // Extremely robust pick: if one version has our webhook, we MUST take that one.
-        // Otherwise, take the longer string as it's less likely to be truncated.
-        const pickBest = (s1: string, s2: string) => {
-            const low1 = s1.toLowerCase();
-            const low2 = s2.toLowerCase();
-            const has1 = low1.includes('/api/webhook/netwatch');
-            const has2 = low2.includes('/api/webhook/netwatch');
-
-            if (has1 && !has2) return s1;
-            if (has2 && !has1) return s2;
-            return s1.length >= s2.length ? s1 : s2;
-        };
+        const upScript = host['up-script'] || host['up_script'] || '';
+        const downScript = host['down-script'] || host['down_script'] || '';
 
         return {
             host: host.host,
@@ -467,8 +463,8 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
-            upScript: pickBest(up1, up2),
-            downScript: pickBest(down1, down2),
+            upScript,
+            downScript,
             _id: host['.id'],
         };
     });
@@ -593,18 +589,19 @@ export async function configureNetwatchWebhook(
 
     // Always fetch full scripts with proplist before any modification to prevent
     // data loss from truncated standard print results.
+    // Use only standard hyphenated fields to avoid !empty noise in ROS 7.18+
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
         existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,up_script,down-script,down_script'
+        '=.proplist=.id,up-script,down-script'
     ]);
 
     if (entries.length === 0) return;
 
     const entry = entries[0];
     id = entry['.id'];
-    currentUp = entry['up-script'] || entry['up_script'] || '';
-    currentDown = entry['down-script'] || entry['down_script'] || '';
+    currentUp = entry['up-script'] || '';
+    currentDown = entry['down-script'] || '';
 
     // Safety: If the script is suspiciously empty but we know the user has long scripts,
     // we should log a warning. Note: This check is simple for now.
@@ -651,9 +648,6 @@ export async function configureNetwatchWebhook(
         params.push(`=up-script=${newUp}`);
         params.push(`=down-script=${newDown}`);
 
-        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
-        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
-
         await safeWrite(api, [
             '/tool/netwatch/set',
             ...params
@@ -677,7 +671,7 @@ export async function removeNetwatchWebhook(
     const entries = await safeWrite(api, [
         '/tool/netwatch/print',
         existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
-        '=.proplist=.id,up-script,up_script,down-script,down_script'
+        '=.proplist=.id,up-script,down-script'
     ]);
 
     // Fallback: search by host if ID query returned nothing
@@ -685,7 +679,7 @@ export async function removeNetwatchWebhook(
         const fb = await safeWrite(api, [
             '/tool/netwatch/print',
             `?host=${host}`,
-            '=.proplist=.id,up-script,up_script,down-script,down_script'
+            '=.proplist=.id,up-script,down-script'
         ]);
         if (fb.length > 0) entries.push(fb[0]);
     }
@@ -694,8 +688,8 @@ export async function removeNetwatchWebhook(
 
     const entry = entries[0];
     id = entry['.id'];
-    currentUp = entry['up-script'] || entry['up_script'] || '';
-    currentDown = entry['down-script'] || entry['down_script'] || '';
+    currentUp = entry['up-script'] || '';
+    currentDown = entry['down-script'] || '';
 
     // Safety: If the script is suspiciously empty but we know the user has long scripts,
     // we should log a warning. Note: This check is simple for now.
@@ -726,9 +720,6 @@ export async function removeNetwatchWebhook(
         const params: string[] = [`=.id=${id}`];
         params.push(`=up-script=${newUp}`);
         params.push(`=down-script=${newDown}`);
-
-        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
-        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
 
         await safeWrite(api, [
             '/tool/netwatch/set',

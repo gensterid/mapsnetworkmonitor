@@ -51,6 +51,13 @@ export class AIService {
             return result.response.text();
         } catch (error: any) {
             const errorMsg = error?.message || String(error);
+
+            // Critical check for leaked API key
+            if (errorMsg.includes('leaked')) {
+                logger.error('AIService: Gemini API Key has been reported as leaked. AI features are disabled until the key is rotated.');
+                throw new Error('AI_KEY_LEAKED');
+            }
+
             // If primary model fails (429, 404, etc), attempt fallback to Lite version
             if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('429') || errorMsg.includes('quota')) {
                 logger.warn({ err: errorMsg }, 'AIService: Primary model failed or quota exceeded, attempting fallback to gemini-2.5-flash-lite');
