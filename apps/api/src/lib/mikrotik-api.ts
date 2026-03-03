@@ -571,26 +571,26 @@ export async function configureNetwatchWebhook(
     let currentDown = '';
     let id = '';
 
-    if (existingEntry && existingEntry._id) {
-        // Use provided data and skip print
-        id = existingEntry._id;
-        currentUp = existingEntry.upScript || '';
-        currentDown = existingEntry.downScript || '';
-    } else {
-        // Find existing entry by host IP with explicit proplist for full scripts
-        const entries = await safeWrite(api, [
-            '/tool/netwatch/print',
-            `?host=${host}`,
-            '=.proplist=.id,up-script,down-script'
-        ]);
-        if (entries.length === 0) return;
+    // Always fetch full scripts with proplist before any modification to prevent
+    // data loss from truncated standard print results.
+    const entries = await safeWrite(api, [
+        '/tool/netwatch/print',
+        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
+        '=.proplist=.id,up-script,down-script'
+    ]);
 
-        const entry = entries[0];
-        id = entry['.id'];
+    if (entries.length === 0) return;
 
-        // Read existing scripts (fallback to empty string, handle underscore fallback)
-        currentUp = entry['up-script'] || entry['up_script'] || '';
-        currentDown = entry['down-script'] || entry['down_script'] || '';
+    const entry = entries[0];
+    id = entry['.id'];
+    currentUp = entry['up-script'] || entry['up_script'] || '';
+    currentDown = entry['down-script'] || entry['down_script'] || '';
+
+    // Safety: If the script is suspiciously empty but we know the user has long scripts,
+    // we should log a warning. Note: This check is simple for now.
+    if (currentUp === '' && currentDown === '' && existingEntry && (existingEntry.upScript || existingEntry.downScript)) {
+        logger.warn({ host, id }, '[Safety Guard] Aborted write because full read returned empty scripts unexpectedly');
+        return;
     }
 
     // Formulate the fetch command
@@ -645,18 +645,24 @@ export async function removeNetwatchWebhook(
     let currentDown = '';
     let id = '';
 
-    if (existingEntry && existingEntry._id) {
-        id = existingEntry._id;
-        currentUp = existingEntry.upScript || '';
-        currentDown = existingEntry.downScript || '';
-    } else {
-        const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
-        if (entries.length === 0) return;
+    const entries = await safeWrite(api, [
+        '/tool/netwatch/print',
+        existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`,
+        '=.proplist=.id,up-script,down-script'
+    ]);
 
-        const entry = entries[0];
-        id = entry['.id'];
-        currentUp = entry['up-script'] || entry['up_script'] || '';
-        currentDown = entry['down-script'] || entry['down_script'] || '';
+    if (entries.length === 0) return;
+
+    const entry = entries[0];
+    id = entry['.id'];
+    currentUp = entry['up-script'] || entry['up_script'] || '';
+    currentDown = entry['down-script'] || entry['down_script'] || '';
+
+    // Safety: If the script is suspiciously empty but we know the user has long scripts,
+    // we should log a warning. Note: This check is simple for now.
+    if (currentUp === '' && currentDown === '' && existingEntry && (existingEntry.upScript || existingEntry.downScript)) {
+        logger.warn({ host, id }, '[Safety Guard] Aborted write because full read returned empty scripts unexpectedly');
+        return;
     }
 
     // Filter out our lines
