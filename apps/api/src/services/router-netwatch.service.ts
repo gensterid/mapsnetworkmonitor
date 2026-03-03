@@ -252,21 +252,43 @@ export class RouterNetwatchService {
                     // Smart Append/Cleanup Webhook scripts if Webhook feature is enabled
                     const deviceType = existing?.deviceType || 'client';
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
+                        let forceReconfig = false;
+                        if (finalHasWebhook) {
+                            // SELF-HEALING: Check if the existing token in the script is still valid/active.
+                            // If it belongs to a router that has webhooks disabled, we must take over.
+                            const combo = (nw.upScript || '') + (nw.downScript || '');
+                            const tokenMatch = combo.match(/token=([a-f0-9]+)/i);
+                            const currentToken = tokenMatch ? tokenMatch[1] : null;
+
+                            if (currentToken && currentToken !== router.webhookSecret) {
+                                const [owner] = await db.select({ id: routers.id, useWebhook: routers.useWebhook })
+                                    .from(routers)
+                                    .where(eq(routers.webhookSecret, currentToken));
+
+                                // If no one owns this token, or the owner has disabled webhooks, it's a stale token.
+                                if (!owner || !owner.useWebhook) {
+                                    forceReconfig = true;
+                                    logger.info({ host: nw.host, staleToken: currentToken, routerId }, 'Stale or unauthorized webhook token detected in MikroTik, forcing takeover');
+                                }
+                            }
+                        }
+
                         // Use finalHasWebhook to avoid loops caused by bulk print truncation or random read failures
-                        if (!finalHasWebhook) {
+                        if (!finalHasWebhook || forceReconfig) {
                             logger.debug({
                                 host: nw.host,
                                 suspicious: isSuspiciouslyEmpty,
                                 upLen: nw.upScript?.length,
                                 downLen: nw.downScript?.length,
-                                isTruncated: isLikelyTruncated
-                            }, 'Webhook missing/unknown, triggering deep configuration');
+                                isTruncated: isLikelyTruncated,
+                                forceReconfig
+                            }, 'Webhook missing or stale, triggering configuration');
 
                             try {
-                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw);
+                                await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw, forceReconfig);
                                 finalHasWebhook = true; // Update state for DB update below
                             } catch (err) {
-                                logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-append webhook');
+                                logger.warn({ err: String(err), host: nw.host }, 'Failed to configure webhook');
                             }
                         }
                     } else if (!shouldInjectWebhook && finalHasWebhook) {

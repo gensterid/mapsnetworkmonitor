@@ -587,7 +587,8 @@ export async function configureNetwatchWebhook(
     api: any,
     host: string,
     webhookUrl: string,
-    existingEntry?: { _id?: string, upScript?: string, downScript?: string }
+    existingEntry?: { _id?: string, upScript?: string, downScript?: string },
+    forceOverwrite: boolean = false
 ): Promise<void> {
     let currentUp = '';
     let currentDown = '';
@@ -678,24 +679,49 @@ export async function configureNetwatchWebhook(
     let newDown = currentDown;
     let needsUpdate = false;
 
-    // Byte-for-byte identical smart append logic
-    const smartAppend = (current: string, command: string) => {
+    // Byte-for-byte identical smart append logic with "Takeover" capability
+    const smartAppend = (current: string, command: string, force: boolean) => {
         const base = current.trim();
-        const hasWebhook = base.toLowerCase().includes('/api/webhook/netwatch');
-        if (hasWebhook) return { script: current, modified: false };
+        const lowerBase = base.toLowerCase();
+        const hasWebhook = lowerBase.includes('/api/webhook/netwatch');
+
+        // If it already contains THIS EXACT command (same token), don't do anything
+        if (lowerBase.includes(command.toLowerCase().trim())) {
+            return { script: current, modified: false };
+        }
+
+        if (hasWebhook) {
+            if (!force) return { script: current, modified: false };
+
+            // Takeover logic: Replace the potentially stale webhook command
+            const lines = current.split(/\r?\n/);
+            let replaced = false;
+            const updatedLines = lines.map(line => {
+                if (line.toLowerCase().includes('/api/webhook/netwatch')) {
+                    replaced = true;
+                    // Replace the line that has any webhook marker with our new command
+                    return command;
+                }
+                return line;
+            });
+
+            if (replaced) {
+                return { script: updatedLines.join('\r\n'), modified: true };
+            }
+        }
 
         const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
         const updated = base ? `${base}${separator}\r\n${command}` : command;
         return { script: updated, modified: true };
     };
 
-    const upResult = smartAppend(currentUp, upCommand);
+    const upResult = smartAppend(currentUp, upCommand, forceOverwrite);
     if (upResult.modified) {
         newUp = upResult.script;
         needsUpdate = true;
     }
 
-    const downResult = smartAppend(currentDown, downCommand);
+    const downResult = smartAppend(currentDown, downCommand, forceOverwrite);
     if (downResult.modified) {
         newDown = downResult.script;
         needsUpdate = true;
