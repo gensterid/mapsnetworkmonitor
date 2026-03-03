@@ -669,11 +669,11 @@ export async function removeNetwatchWebhook(
         return;
     }
 
-    // Filter out our lines
+    // Filter out our lines (case-insensitive)
     const cleanScript = (script: string) => {
         return script
             .split(/\r?\n/)
-            .filter(line => !line.includes('/api/webhook/netwatch'))
+            .filter(line => !line.toLowerCase().includes('/api/webhook/netwatch'))
             .join('\r\n')
             .trim();
     };

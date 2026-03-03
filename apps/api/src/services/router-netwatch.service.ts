@@ -251,7 +251,7 @@ export class RouterNetwatchService {
                             lastUp: nw.sinceUp || existing.lastUp,
                             lastDown: nw.sinceDown || existing.lastDown,
                             updatedAt: new Date(),
-                            hasWebhook: !!nw.upScript?.includes('/api/webhook/netwatch') || !!nw.downScript?.includes('/api/webhook/netwatch'),
+                            hasWebhook: (nw.upScript?.toLowerCase().includes('/api/webhook/netwatch') || nw.downScript?.toLowerCase().includes('/api/webhook/netwatch')) || false,
                         };
 
                         if (!existing.targetInterface && nw.comment && availableInterfaces?.has(nw.comment)) {
@@ -269,7 +269,7 @@ export class RouterNetwatchService {
                             lastCheck: new Date(),
                             lastUp: nw.sinceUp,
                             lastDown: nw.sinceDown,
-                            hasWebhook: !!nw.upScript?.includes('/api/webhook/netwatch') || !!nw.downScript?.includes('/api/webhook/netwatch'),
+                            hasWebhook: (nw.upScript?.toLowerCase().includes('/api/webhook/netwatch') || nw.downScript?.toLowerCase().includes('/api/webhook/netwatch')) || false,
                             tenantId: router.tenantId
                         };
 
@@ -285,7 +285,9 @@ export class RouterNetwatchService {
                     // Given Mikrotik sync doesn't know deviceType upfront unless we look at the existing record,
                     // we'll rely on the existing DB record type (or default to client)
                     const deviceType = existing?.deviceType || 'client';
-                    const hasAppWebhook = nw.upScript?.includes('/api/webhook/netwatch') || nw.downScript?.includes('/api/webhook/netwatch');
+                    const normalizedUp = nw.upScript?.toLowerCase() || '';
+                    const normalizedDown = nw.downScript?.toLowerCase() || '';
+                    const hasAppWebhook = normalizedUp.includes('/api/webhook/netwatch') || normalizedDown.includes('/api/webhook/netwatch');
 
                     if (shouldInjectWebhook && deviceType !== 'odp' && nw.host) {
                         // Only call configuration if webhook is MISSING (prevents redundant MikroTik logs/updates)

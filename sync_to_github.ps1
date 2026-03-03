@@ -24,7 +24,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: resolve double semicolons in scripts and stabilize REAL-TIME indicators with robust field mapping""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""fix: implement case-insensitive webhook detection and proactive toggle sync""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."

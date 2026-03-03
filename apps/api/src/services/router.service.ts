@@ -398,6 +398,14 @@ export class RouterService {
             .where(eq(routers.id, id))
             .returning();
 
+        // If webhook toggle changed, trigger a background refresh to push/pull scripts
+        if (router && data.useWebhook !== undefined) {
+            logger.info({ routerId: id, useWebhook: data.useWebhook }, 'Webhook toggle changed, triggering background sync');
+            this.refreshRouterStatus(id, true, false, tenantId).catch(err => {
+                logger.error({ err, routerId: id }, 'Background sync after webhook toggle failed');
+            });
+        }
+
         if (router) {
             eventEmitter.broadcast('map_update', {
                 type: 'router',
