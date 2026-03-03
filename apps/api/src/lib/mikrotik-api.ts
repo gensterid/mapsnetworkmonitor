@@ -608,14 +608,16 @@ export async function configureNetwatchWebhook(
     const hasWebhookDown = currentDown.replace(/\r\n/g, '\n').includes('/api/webhook/netwatch');
 
     if (!hasWebhookUp) {
-        // Prepend instead of append to ensure it's found even if MikroTik truncates 
-        // the end of very long scripts in print outputs.
-        newUp = `${upCommand}\r\n${currentUp}`;
+        // Append at the bottom as per user preference.
+        // We now rely on .proplist in the read phase to avoid truncation issues.
+        const base = currentUp.trim();
+        newUp = base ? `${base};\r\n${upCommand}` : upCommand;
         needsUpdate = true;
     }
 
     if (!hasWebhookDown) {
-        newDown = `${downCommand}\r\n${currentDown}`;
+        const base = currentDown.trim();
+        newDown = base ? `${base};\r\n${downCommand}` : downCommand;
         needsUpdate = true;
     }
 
