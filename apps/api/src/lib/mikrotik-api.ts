@@ -444,17 +444,23 @@ export async function getNetwatchHosts(
         const down1 = host['down-script'] || '';
         const down2 = host['down_script'] || '';
 
-        // Extremely robust pick: if one version has our webhook, we MUST take that one.
-        // Otherwise, take the longer string as it's less likely to be truncated.
-        const pickBest = (s1: string, s2: string) => {
-            const low1 = (s1 || '').toLowerCase();
-            const low2 = (s2 || '').toLowerCase();
-            const has1 = low1.includes('/api/webhook/netwatch');
-            const has2 = low2.includes('/api/webhook/netwatch');
+        // Extremely robust pick: scanning all potential hyphen/underscore variants
+        const pickBest = (item: any, type: string) => {
+            const keys = Object.keys(item || {});
+            const candidates = keys
+                .filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'))
+                .map(k => String(item[k] || ''));
 
-            if (has1 && !has2) return s1;
-            if (has2 && !has1) return s2;
-            return (s1 || '').length >= (s2 || '').length ? s1 : s2;
+            // Prefer one with webhook
+            const withWebhook = candidates.find(c => c.toLowerCase().includes('/api/webhook/netwatch'));
+            if (withWebhook) return withWebhook;
+
+            // Otherwise longest
+            let longest = '';
+            for (const c of candidates) {
+                if (c.length > longest.length) longest = c;
+            }
+            return longest;
         };
 
         return {
@@ -469,8 +475,8 @@ export async function getNetwatchHosts(
             sinceUp,
             sinceDown,
             disabled: host.disabled === true || host.disabled === 'true',
-            upScript: pickBest(up1, up2),
-            downScript: pickBest(down1, down2),
+            upScript: pickBest(host, 'up'),
+            downScript: pickBest(host, 'down'),
             _id: host['.id'],
         };
     });
@@ -630,24 +636,32 @@ export async function configureNetwatchWebhook(
 
     // Extreme robust pick: preferring the field that actually has the webhook.
     // Falls back to data-rich field if both are missing the webhook signature.
-    const pb = (s1: any, s2: any, type: string) => {
-        const val1 = String(s1 || '');
-        const val2 = String(s2 || '');
-        const has1 = val1.toLowerCase().includes('/api/webhook/netwatch');
-        const has2 = val2.toLowerCase().includes('/api/webhook/netwatch');
+    // Enhanced to scan all potential property variants (hyphen vs underscore).
+    const pb = (obj: any, type: string) => {
+        const keys = Object.keys(obj || {});
+        const candidates = keys
+            .filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'))
+            .map(k => String(obj[k] || ''));
 
-        let result = '';
-        if (has1 && !has2) result = val1;
-        else if (has2 && !has1) result = val2;
-        else if (val1.length > 0 || val2.length > 0) result = (val1.length >= val2.length) ? val1 : val2;
-        else result = '';
+        // Prefer one with webhook
+        const withWebhook = candidates.find(c => c.toLowerCase().includes('/api/webhook/netwatch'));
+        if (withWebhook) {
+            logger.debug({ host, type, chosenLen: withWebhook.length, source: 'webhook_match' }, 'Script selection: found webhook');
+            return withWebhook;
+        }
 
-        logger.debug({ host, type, has1, has2, len1: val1.length, len2: val2.length, chosenLen: result.length }, 'Targeted script candidate selection');
-        return result;
+        // Otherwise pick longest
+        let longest = '';
+        for (const c of candidates) {
+            if (c.length > longest.length) longest = c;
+        }
+
+        logger.debug({ host, type, candidateCount: candidates.length, chosenLen: longest.length }, 'Script selection: longest candidate');
+        return longest;
     };
 
-    currentUp = pb(entry['up-script'], entry['up_script'], 'up');
-    currentDown = pb(entry['down-script'], entry['down_script'], 'down');
+    currentUp = pb(entry, 'up');
+    currentDown = pb(entry, 'down');
 
     // Paranoid Safety Guards: prevent wiping scripts if we got an empty read when we expected data.
     // We compare with the lengths known in the database (existingEntry) before this injection run.
@@ -802,16 +816,26 @@ export async function removeNetwatchWebhook(
     id = entry['.id'];
 
     // Robust pick: ensuring we find the webhook line if it exists in either field version
-    const pb = (s1: string, s2: string) => {
-        const has1 = (s1 || '').toLowerCase().includes('/api/webhook/netwatch');
-        const has2 = (s2 || '').toLowerCase().includes('/api/webhook/netwatch');
-        if (has1 && !has2) return s1 || '';
-        if (has2 && !has1) return s2 || '';
-        return (s1 || '').length >= (s2 || '').length ? (s1 || '') : (s2 || '');
+    const pb = (obj: any, type: string) => {
+        const keys = Object.keys(obj || {});
+        const candidates = keys
+            .filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'))
+            .map(k => String(obj[k] || ''));
+
+        // Prefer one with webhook for removal
+        const withWebhook = candidates.find(c => c.toLowerCase().includes('/api/webhook/netwatch'));
+        if (withWebhook) return withWebhook;
+
+        // Otherwise longest
+        let longest = '';
+        for (const c of candidates) {
+            if (c.length > longest.length) longest = c;
+        }
+        return longest;
     };
 
-    currentUp = pb(entry['up-script'], entry['up_script']);
-    currentDown = pb(entry['down-script'], entry['down_script']);
+    currentUp = pb(entry, 'up');
+    currentDown = pb(entry, 'down');
 
     // Paranoid Safety Guards (Cleanup edition): abort if we read empty when we expected content.
     const dbUpLen = (existingEntry?.upScript || '').length;

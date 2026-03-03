@@ -240,10 +240,11 @@ export class RouterNetwatchService {
                         }
                     }
 
-                    // Webhook detection with "Flap-Protection" and Truncation-Awareness
+                    // Webhook detection requiring BOTH scripts to be present for a "Complete" state
                     const hasUpWebhook = nw.upScript?.toLowerCase().includes('/api/webhook/netwatch');
                     const hasDownWebhook = nw.downScript?.toLowerCase().includes('/api/webhook/netwatch');
-                    const detectedWebhook = (hasUpWebhook || hasDownWebhook) || false;
+                    const detectedWebhook = (hasUpWebhook && hasDownWebhook) || false;
+                    const isPartiallyMissing = (hasUpWebhook || hasDownWebhook) && !detectedWebhook;
 
                     const isSuspiciouslyEmpty = (!nw.upScript || nw.upScript === '') && (!nw.downScript || nw.downScript === '');
                     const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 64 || (nw.downScript?.length || 0) > 64);
@@ -273,8 +274,9 @@ export class RouterNetwatchService {
                             }
                         }
 
-                        // Use finalHasWebhook to avoid loops caused by bulk print truncation or random read failures
-                        if (!finalHasWebhook || forceReconfig) {
+                        // Trigger injection if the webhook is not "Complete" (both UP and DOWN), 
+                        // explicitly missing from one, or if we need a token takeover.
+                        if (!finalHasWebhook || isPartiallyMissing || forceReconfig) {
                             logger.debug({
                                 host: nw.host,
                                 suspicious: isSuspiciouslyEmpty,
