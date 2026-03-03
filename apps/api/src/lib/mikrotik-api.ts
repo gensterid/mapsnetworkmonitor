@@ -596,12 +596,9 @@ export async function configureNetwatchWebhook(
     existingEntry?: { _id?: string, upScript?: string, downScript?: string },
     forceOverwrite: boolean = false
 ): Promise<void> {
-    let currentUp = '';
-    let currentDown = '';
     let id = '';
 
-    // WIDE-FETCH: We remove proplist to ensure no property is omitted due to naming variations (hyphen vs underscore).
-    // This is the most reliable way to catch the full script content in ROS6 and ROS7.
+    // WIDE-FETCH: No proplist to ensure all fields are returned.
     let entries: any[];
     try {
         entries = await safeWrite(api, [
@@ -609,11 +606,8 @@ export async function configureNetwatchWebhook(
             existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
         ]);
     } catch (err) {
-        logger.debug({ host, err: String(err) }, 'Targeted wide-fetch failed, falling back to id-only print');
-        entries = await safeWrite(api, [
-            '/tool/netwatch/print',
-            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
-        ]);
+        logger.warn({ host, err: String(err) }, 'Webhook inject: failed to read netwatch entry');
+        return;
     }
 
     if (entries.length === 0) return;
@@ -621,151 +615,102 @@ export async function configureNetwatchWebhook(
     const entry = entries[0];
     id = entry['.id'];
 
-    // Detailed logging for debugging ROS7 field variations
-    logger.debug({
-        host,
-        id,
-        fields: Object.keys(entry).filter(k => k.includes('script')),
-        up_dash: (entry['up-script'] || '').length,
-        up_under: (entry['up_script'] || '').length,
-        down_dash: (entry['down-script'] || '').length,
-        down_under: (entry['down_script'] || '').length
-    }, 'Netwatch deep-fetch result');
+    // Log ALL keys for debugging
+    const allKeys = Object.keys(entry);
+    logger.debug({ host, id, allKeys: allKeys.filter(k => k !== '.id') }, 'Webhook inject: raw entry keys');
 
-    // Extreme robust pick: preferring the field that actually has the webhook.
-    // Falls back to data-rich field if both are missing the webhook signature.
-    // Enhanced to scan all potential property variants (hyphen vs underscore).
-    const pb = (obj: any, type: string) => {
-        const keys = Object.keys(obj || {});
-        const candidates = keys
-            .filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'))
-            .map(k => String(obj[k] || ''));
+    // === INDEPENDENT PER-FIELD HANDLING ===
+    // We handle UP and DOWN scripts 100% independently.
+    // If we can't read a field, we DON'T write to it.
 
-        // Prefer one with webhook
-        const withWebhook = candidates.find(c => c.toLowerCase().includes('/api/webhook/netwatch'));
-        if (withWebhook) {
-            logger.debug({ host, type, chosenLen: withWebhook.length, source: 'webhook_match' }, 'Script selection: found webhook');
-            return withWebhook;
-        }
-
-        // Otherwise pick longest
-        let longest = '';
-        for (const c of candidates) {
-            if (c.length > longest.length) longest = c;
-        }
-
-        logger.debug({ host, type, candidateCount: candidates.length, chosenLen: longest.length }, 'Script selection: longest candidate');
-        return longest;
-    };
-
-    currentUp = pb(entry, 'up');
-    currentDown = pb(entry, 'down');
-
-    // Paranoid Safety Guards: prevent wiping scripts if we got an empty read when we expected data.
-    // We compare with the lengths known in the database (existingEntry) before this injection run.
-    const dbUpLen = (existingEntry?.upScript || '').length;
-    const dbDownLen = (existingEntry?.downScript || '').length;
-
-    // Field Missing Guard: If the property is completely missing from the entry object after a wide-print,
-    // it's a read failure (API issue). We must not assume it's empty.
-    const keys = Object.keys(entry);
-    const upFieldPresent = keys.some(k => k.toLowerCase().includes('up') && k.toLowerCase().includes('script'));
-    const downFieldPresent = keys.some(k => k.toLowerCase().includes('down') && k.toLowerCase().includes('script'));
-
-    // Check each script independently. If field is missing OR unexpectedly empty, we abort.
-    const upSafetyFail = (currentUp === '' && dbUpLen > 0) || !upFieldPresent;
-    const downSafetyFail = (currentDown === '' && dbDownLen > 0) || !downFieldPresent;
-
-    // Catastrophic Loss Check: If the read script is significantly shorter than what we know (e.g. > 50% loss)
-    // and the original was > 100 bytes, we abort to prevent overwriting with truncated data.
-    const catastrophicUpLoss = dbUpLen > 100 && currentUp.length < (dbUpLen * 0.5);
-    const catastrophicDownLoss = dbDownLen > 100 && currentDown.length < (dbDownLen * 0.5);
-
-    if (upSafetyFail || downSafetyFail || catastrophicUpLoss || catastrophicDownLoss) {
-        logger.warn({
-            host, id,
-            upFieldPresent, downFieldPresent,
-            upSafetyFail, downSafetyFail, catastrophicUpLoss, catastrophicDownLoss,
-            currentUpLen: currentUp.length, currentDownLen: currentDown.length, dbUpLen, dbDownLen
-        }, '[Safety Guard] ABORTED Netwatch write: targeted wide-fetch failed to return scripts correctly');
-        return;
-    }
-
-    // Formulate the fetch command
     const upCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no;`;
     const downCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no;`;
 
-    let newUp = currentUp;
-    let newDown = currentDown;
-    let needsUpdate = false;
+    // Read each script field. MikroTik may use hyphen or underscore variants.
+    const readField = (obj: any, type: string): { value: string, fieldPresent: boolean } => {
+        const keys = Object.keys(obj || {});
+        const matchingKeys = keys.filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'));
+        if (matchingKeys.length === 0) {
+            return { value: '', fieldPresent: false };
+        }
+        let best = '';
+        for (const k of matchingKeys) {
+            const v = String(obj[k] || '');
+            if (v.length > best.length) best = v;
+        }
+        return { value: best, fieldPresent: true };
+    };
 
-    // Byte-for-byte identical smart append logic with "Takeover" capability
+    const upRead = readField(entry, 'up');
+    const downRead = readField(entry, 'down');
+
+    logger.debug({
+        host, id,
+        upPresent: upRead.fieldPresent, upLen: upRead.value.length,
+        downPresent: downRead.fieldPresent, downLen: downRead.value.length
+    }, 'Webhook inject: field analysis');
+
+    // Smart Append: add webhook command to existing script without touching other content
     const smartAppend = (current: string, command: string, force: boolean) => {
         const base = current.trim();
         const lowerBase = base.toLowerCase();
-        const hasWebhook = lowerBase.includes('/api/webhook/netwatch');
 
-        // If it already contains THIS EXACT command (same token), don't do anything
+        // Already has THIS EXACT command → no change needed
         if (lowerBase.includes(command.toLowerCase().trim())) {
             return { script: current, modified: false };
         }
 
-        if (hasWebhook) {
+        // Has a DIFFERENT webhook → replace it (takeover) or skip
+        if (lowerBase.includes('/api/webhook/netwatch')) {
             if (!force) return { script: current, modified: false };
-
-            // Takeover logic: Replace the potentially stale webhook command
             const lines = current.split(/\r?\n/);
-            let replaced = false;
-            const updatedLines = lines.map(line => {
-                if (line.toLowerCase().includes('/api/webhook/netwatch')) {
-                    replaced = true;
-                    // Replace the line that has any webhook marker with our new command
-                    return command;
-                }
-                return line;
-            });
-
-            if (replaced) {
-                return { script: updatedLines.join('\r\n'), modified: true };
-            }
+            const updatedLines = lines.map(line =>
+                line.toLowerCase().includes('/api/webhook/netwatch') ? command : line
+            );
+            return { script: updatedLines.join('\r\n'), modified: true };
         }
 
+        // No webhook present → APPEND (keep existing script intact)
         const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
         const updated = base ? `${base}${separator}\r\n${command}` : command;
         return { script: updated, modified: true };
     };
 
-    const upResult = smartAppend(currentUp, upCommand, forceOverwrite);
-    if (upResult.modified) {
-        newUp = upResult.script;
-        needsUpdate = true;
+    // Build the update params — ONLY include fields we could successfully read
+    const updateParams: string[] = [`/tool/netwatch/set`, `=.id=${id}`];
+    let hasChanges = false;
+
+    // === UP SCRIPT ===
+    if (upRead.fieldPresent) {
+        const result = smartAppend(upRead.value, upCommand, forceOverwrite);
+        if (result.modified) {
+            updateParams.push(`=up-script=${result.script}`);
+            hasChanges = true;
+            logger.debug({ host, type: 'up', origLen: upRead.value.length, newLen: result.script.length }, 'Webhook inject: UP script modified');
+        }
+    } else {
+        logger.warn({ host }, 'Webhook inject: SKIPPING up-script (field not returned by MikroTik API)');
     }
 
-    const downResult = smartAppend(currentDown, downCommand, forceOverwrite);
-    if (downResult.modified) {
-        newDown = downResult.script;
-        needsUpdate = true;
+    // === DOWN SCRIPT ===
+    if (downRead.fieldPresent) {
+        const result = smartAppend(downRead.value, downCommand, forceOverwrite);
+        if (result.modified) {
+            updateParams.push(`=down-script=${result.script}`);
+            hasChanges = true;
+            logger.debug({ host, type: 'down', origLen: downRead.value.length, newLen: result.script.length }, 'Webhook inject: DOWN script modified');
+        }
+    } else {
+        logger.warn({ host }, 'Webhook inject: SKIPPING down-script (field not returned by MikroTik API)');
     }
 
-    if (needsUpdate) {
-        logger.info({ host, id, upMod: upResult.modified, downMod: downResult.modified }, 'Planning Netwatch script update');
-
-        // Use standard hyphenated fields AND underscore fields if present in original entry
-        // This ensures the update is "sticky" across all ROS7 protocol variations
-        const updateParams = [
-            `/tool/netwatch/set`,
-            `=.id=${id}`,
-            `=up-script=${newUp}`,
-            `=down-script=${newDown}`
-        ];
-
-        if (entry['up_script'] !== undefined) updateParams.push(`=up_script=${newUp}`);
-        if (entry['down_script'] !== undefined) updateParams.push(`=down_script=${newDown}`);
-
+    if (hasChanges) {
+        logger.info({ host, id, paramCount: updateParams.length - 2 }, 'Planning Netwatch script update');
         await safeWrite(api, updateParams);
         logger.info({ host }, 'Smart Append: Webhook scripts successfully synchronized');
     }
 }
+
 
 /**
  * Smart Script Remove: removes ONLY the Webhook lines from netwatch scripts
@@ -775,12 +720,9 @@ export async function removeNetwatchWebhook(
     host: string,
     existingEntry?: { _id?: string, upScript?: string, downScript?: string }
 ): Promise<void> {
-    let currentUp = '';
-    let currentDown = '';
     let id = '';
 
-    // Targeted high-fidelity fetch using proplist to avoid truncation.
-    // WIDE-FETCH: Ensure we see all properties to avoid naming variation issues.
+    // WIDE-FETCH: No proplist to ensure we see all fields
     let entries: any[];
     try {
         entries = await safeWrite(api, [
@@ -788,30 +730,8 @@ export async function removeNetwatchWebhook(
             existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
         ]);
     } catch (err) {
-        logger.debug({ host, err: String(err) }, 'Cleanup wide-fetch failed, falling back to basic search');
-        entries = await safeWrite(api, [
-            '/tool/netwatch/print',
-            existingEntry && existingEntry._id ? `?.id=${existingEntry._id}` : `?host=${host}`
-        ]);
-    }
-
-    // Fallback: search by host if ID query returned nothing
-    if (entries.length === 0 && host) {
-        try {
-            const fb = await safeWrite(api, [
-                '/tool/netwatch/print',
-                `?host=${host}`,
-                '=.proplist=.id,up-script,up_script,down-script,down_script'
-            ]);
-            if (fb.length > 0) entries.push(fb[0]);
-        } catch (err) {
-            const fb = await safeWrite(api, [
-                '/tool/netwatch/print',
-                `?host=${host}`,
-                '=.proplist=.id,up-script,down-script'
-            ]);
-            if (fb.length > 0) entries.push(fb[0]);
-        }
+        logger.warn({ host, err: String(err) }, 'Webhook cleanup: failed to read netwatch entry');
+        return;
     }
 
     if (entries.length === 0) return;
@@ -819,88 +739,63 @@ export async function removeNetwatchWebhook(
     const entry = entries[0];
     id = entry['.id'];
 
-    // Robust pick: ensuring we find the webhook line if it exists in either field version
-    const pb = (obj: any, type: string) => {
+    // Read each script field independently
+    const readField = (obj: any, type: string): { value: string, fieldPresent: boolean } => {
         const keys = Object.keys(obj || {});
-        const candidates = keys
-            .filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'))
-            .map(k => String(obj[k] || ''));
-
-        // Prefer one with webhook for removal
-        const withWebhook = candidates.find(c => c.toLowerCase().includes('/api/webhook/netwatch'));
-        if (withWebhook) return withWebhook;
-
-        // Otherwise longest
-        let longest = '';
-        for (const c of candidates) {
-            if (c.length > longest.length) longest = c;
+        const matchingKeys = keys.filter(k => k.toLowerCase().includes(type) && k.toLowerCase().includes('script'));
+        if (matchingKeys.length === 0) {
+            return { value: '', fieldPresent: false };
         }
-        return longest;
+        let best = '';
+        for (const k of matchingKeys) {
+            const v = String(obj[k] || '');
+            if (v.length > best.length) best = v;
+        }
+        return { value: best, fieldPresent: true };
     };
 
-    currentUp = pb(entry, 'up');
-    currentDown = pb(entry, 'down');
+    const upRead = readField(entry, 'up');
+    const downRead = readField(entry, 'down');
 
-    // Paranoid Safety Guards (Cleanup edition): abort if we read empty when we expected content.
-    const dbUpLen = (existingEntry?.upScript || '').length;
-    const dbDownLen = (existingEntry?.downScript || '').length;
+    logger.debug({
+        host, id,
+        upPresent: upRead.fieldPresent, upLen: upRead.value.length,
+        downPresent: downRead.fieldPresent, downLen: downRead.value.length
+    }, 'Webhook cleanup: field analysis');
 
-    // Field Presence Guard: ensure property is actually returned by API
-    const keys = Object.keys(entry);
-    const upFieldPresent = keys.some(k => k.toLowerCase().includes('up') && k.toLowerCase().includes('script'));
-    const downFieldPresent = keys.some(k => k.toLowerCase().includes('down') && k.toLowerCase().includes('script'));
-
-    // Abort if field is missing when we knew it had content, or if read empty when we knew it had content.
-    const upSafetyFail = (currentUp === '' && dbUpLen > 0) || !upFieldPresent;
-    const downSafetyFail = (currentDown === '' && dbDownLen > 0) || !downFieldPresent;
-
-    if (upSafetyFail || downSafetyFail) {
-        logger.warn({
-            host, id, upFieldPresent, downFieldPresent, upSafetyFail, downSafetyFail, dbUpLen, dbDownLen
-        }, '[Safety Guard] ABORTED Netwatch removal: targeted wide-fetch failed to return script properties');
-        return;
-    }
-
-    // Filter out our lines (case-insensitive)
+    // Surgical cleanup: remove ONLY the webhook command, preserving everything else
     const cleanScript = (script: string) => {
-        // Surgical regex: remove ONLY the webhook fetch command, preserving other commands on same line
-        // Pattern matches: optional delay; /tool fetch with our webhook URL; optional semicolon
-        const webhookPattern = /:delay\s+1s;\s*\/tool\s+fetch\s+url="[^"]+?\/api\/webhook\/netwatch[^edge"]+"\s*(?:keep-result=no|);?/gi;
-
-        let cleaned = script.replace(webhookPattern, '').trim();
-
-        // Final cleanup of any double semicolons or leading/trailing separators caused by the removal
-        cleaned = cleaned.replace(/;+/g, ';').replace(/^;+|;+$/g, '').trim();
-
+        // Remove the webhook fetch command line(s)
+        const lines = script.split(/\r?\n/);
+        const cleaned = lines.filter(line => !line.toLowerCase().includes('/api/webhook/netwatch')).join('\r\n').trim();
         return cleaned;
     };
 
-    const newUp = cleanScript(currentUp);
-    const newDown = cleanScript(currentDown);
+    // Build update params — ONLY include fields we could successfully read
+    const updateParams: string[] = [`/tool/netwatch/set`, `=.id=${id}`];
+    let hasChanges = false;
 
-    // Compare normalized versions
-    const normalizedOldUp = currentUp.trim().replace(/\r\n/g, '\n');
-    const normalizedOldDown = currentDown.trim().replace(/\r\n/g, '\n');
-    const normalizedNewUp = newUp.replace(/\r\n/g, '\n');
-    const normalizedNewDown = newDown.replace(/\r\n/g, '\n');
+    // === UP SCRIPT ===
+    if (upRead.fieldPresent && upRead.value.toLowerCase().includes('/api/webhook/netwatch')) {
+        const cleaned = cleanScript(upRead.value);
+        updateParams.push(`=up-script=${cleaned}`);
+        hasChanges = true;
+        logger.debug({ host, type: 'up', origLen: upRead.value.length, cleanLen: cleaned.length }, 'Webhook cleanup: UP script cleaned');
+    }
 
-    if (normalizedNewUp !== normalizedOldUp || normalizedNewDown !== normalizedOldDown) {
-        const params: string[] = [`=.id=${id}`];
-        params.push(`=up-script=${newUp}`);
-        params.push(`=down-script=${newDown}`);
+    // === DOWN SCRIPT ===
+    if (downRead.fieldPresent && downRead.value.toLowerCase().includes('/api/webhook/netwatch')) {
+        const cleaned = cleanScript(downRead.value);
+        updateParams.push(`=down-script=${cleaned}`);
+        hasChanges = true;
+        logger.debug({ host, type: 'down', origLen: downRead.value.length, cleanLen: cleaned.length }, 'Webhook cleanup: DOWN script cleaned');
+    }
 
-        // For maximum compatibility with ROS7 field variations
-        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
-        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
-
-        await safeWrite(api, [
-            '/tool/netwatch/set',
-            ...params
-        ]);
+    if (hasChanges) {
+        await safeWrite(api, updateParams);
         logger.info({ host }, 'Smart Cleanup: Webhook lines removed from netwatch scripts');
     }
 }
-
 export async function removeNetwatchEntry(
     api: any,
     host: string
