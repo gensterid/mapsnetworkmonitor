@@ -599,71 +599,70 @@ export async function configureNetwatchWebhook(
 
     // Robust pick: preferring the field that actually has the webhook.
     // This stops the redundant update loop on MikroTik versions that return both fields.
-    const pb = (s1: string, s2: string) => {
-        const has1 = (s1 || '').toLowerCase().includes('/api/webhook/netwatch');
-        const has2 = (s2 || '').toLowerCase().includes('/api/webhook/netwatch');
-        if (has1 && !has2) return s1 || '';
-        if (has2 && !has1) return s2 || '';
-        return (s1 || '').length >= (s2 || '').length ? (s1 || '') : (s2 || '');
+    const pb = (s1: any, s2: any) => {
+        const val1 = String(s1 || '');
+        const val2 = String(s2 || '');
+        const has1 = val1.toLowerCase().includes('/api/webhook/netwatch');
+        const has2 = val2.toLowerCase().includes('/api/webhook/netwatch');
+        if (has1 && !has2) return val1;
+        if (has2 && !has1) return val2;
+        // Priority to hyphenated version if both have or both don't have
+        return val1.length >= val2.length ? val1 : val2;
     };
 
     currentUp = pb(entry['up-script'], entry['up_script']);
     currentDown = pb(entry['down-script'], entry['down_script']);
 
-    // Safety: If the script is suspiciously empty but we know the user has long scripts,
-    // we should log a warning. Note: This check is simple for now.
-    if (currentUp === '' && currentDown === '' && existingEntry && (existingEntry.upScript || existingEntry.downScript)) {
-        logger.warn({ host, id }, '[Safety Guard] Aborted write because full read returned empty scripts unexpectedly');
+    // Safety: If scripts appear missing during deep fetch but were provided by caller,
+    // we abort to prevent accidental wiping of user scripts.
+    const upUnexpectedlyEmpty = currentUp === '' && (existingEntry?.upScript || '').length > 0;
+    const downUnexpectedlyEmpty = currentDown === '' && (existingEntry?.downScript || '').length > 0;
+
+    if (upUnexpectedlyEmpty || downUnexpectedlyEmpty) {
+        logger.warn({ host, id, upUnexpectedlyEmpty, downUnexpectedlyEmpty }, '[Safety Guard] Aborted write: Full read returned empty values when scripts were expected');
         return;
     }
 
     // Formulate the fetch command
-    // Use semicolon and explicit newlines for MikroTik compatibility
-    const upCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no;`;
-    const downCommand = `/tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no;`;
+    const upCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no;`;
+    const downCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no;`;
 
     let newUp = currentUp;
     let newDown = currentDown;
     let needsUpdate = false;
 
-    // Check and append if missing
-    // Robust check: normalize scripts to ignore line ending differences and case
-    const normalizedUp = currentUp.replace(/\r\n/g, '\n').toLowerCase();
-    const normalizedDown = currentDown.replace(/\r\n/g, '\n').toLowerCase();
+    const normalizedUp = currentUp.toLowerCase();
+    const normalizedDown = currentDown.toLowerCase();
     const hasWebhookUp = normalizedUp.includes('/api/webhook/netwatch');
     const hasWebhookDown = normalizedDown.includes('/api/webhook/netwatch');
 
     if (!hasWebhookUp) {
-        // Append at the bottom as per user preference.
-        // Avoid double semicolon if the base script already ends with one
         const base = currentUp.trim();
-        const separator = base.endsWith(';') ? '' : ';';
+        const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
         newUp = base ? `${base}${separator}\r\n${upCommand}` : upCommand;
         needsUpdate = true;
     }
 
     if (!hasWebhookDown) {
         const base = currentDown.trim();
-        const separator = base.endsWith(';') ? '' : ';';
+        const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
         newDown = base ? `${base}${separator}\r\n${downCommand}` : downCommand;
         needsUpdate = true;
     }
 
     if (needsUpdate) {
         logger.debug({ host, id, upLength: newUp.length, downLength: newDown.length }, 'Sending Netwatch update to MikroTik');
-        const params: string[] = [`=.id=${id}`];
-        params.push(`=up-script=${newUp}`);
-        params.push(`=down-script=${newDown}`);
 
-        // For maximum compatibility with ROS7 field variations
-        if (entry['up_script'] !== undefined) params.push(`=up_script=${newUp}`);
-        if (entry['down_script'] !== undefined) params.push(`=down_script=${newDown}`);
+        // Use standard hyphenated fields for SET command (most compatible)
+        const updateParams = [
+            `/tool/netwatch/set`,
+            `=.id=${id}`,
+            `=up-script=${newUp}`,
+            `=down-script=${newDown}`
+        ];
 
-        await safeWrite(api, [
-            '/tool/netwatch/set',
-            ...params
-        ]);
-        logger.info({ host }, 'Smart Append: Webhook prepended to scripts');
+        await safeWrite(api, updateParams);
+        logger.info({ host }, 'Smart Append: Webhook scripts synchronized');
     }
 }
 

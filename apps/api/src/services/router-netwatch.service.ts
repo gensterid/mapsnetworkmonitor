@@ -238,11 +238,14 @@ export class RouterNetwatchService {
                         }
                     }
 
-                    // Webhook detection with "Flap-Protection"
+                    // Webhook detection with "Flap-Protection" and Truncation-Awareness
                     // If MikroTik returns empty strings (common in ROS7 bulk prints), we RETAIN the previous state from DB.
+                    // If the script is non-empty but missing the webhook, but long (likely truncated in bulk print),
+                    // we ALSO RETAIN the previous state to prevent an infinite configuration loop.
                     const detectedWebhook = (nw.upScript?.toLowerCase().includes('/api/webhook/netwatch') || nw.downScript?.toLowerCase().includes('/api/webhook/netwatch')) || false;
                     const isSuspiciouslyEmpty = (nw.upScript === '' || nw.upScript === undefined) && (nw.downScript === '' || nw.downScript === undefined);
-                    const finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : detectedWebhook;
+                    const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 100 || (nw.downScript?.length || 0) > 100);
+                    const finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : (detectedWebhook || isLikelyTruncated);
 
                     if (existing) {
                         const updateData: any = {
