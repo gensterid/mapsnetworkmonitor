@@ -495,9 +495,9 @@ const createNetwatchSchema = z.object({
     host: z.string().optional(), // Optional for ODP devices
     name: z.string().optional(),
     interval: z.number().int().min(5).max(3600).optional().default(30),
-    latitude: z.preprocess((val) => (val === '' ? undefined : val), z.string().optional()),
-    longitude: z.preprocess((val) => (val === '' ? undefined : val), z.string().optional()),
-    location: z.string().optional(),
+    latitude: z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().optional()),
+    longitude: z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().optional()),
+    location: z.preprocess((val) => (val === null ? undefined : val), z.string().optional()),
     deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
     waypoints: z.string().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
