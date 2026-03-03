@@ -13,19 +13,25 @@ async function findCulprit() {
             process.exit(1);
         }
 
-        console.log(`🔎 Searching for routers colliding with: ${target.name} (${target.host})`);
+        const normalizeHost = (h: string) => h.split(':')[0].trim().toLowerCase();
+        const targetHostBase = normalizeHost(target.host);
 
-        const colliding = await db.select().from(routers).where(
-            and(
-                or(
-                    target.serialNumber ? eq(routers.serialNumber, target.serialNumber) : sql`false`,
-                    target.identity ? eq(routers.identity, target.identity) : sql`false`,
-                    eq(routers.host, target.host)
-                ),
-                eq(routers.useWebhook, true),
-                not(eq(routers.id, targetId))
-            )
-        );
+        console.log(`🔎 Searching for routers colliding with: ${target.name} (Base Host: ${targetHostBase})`);
+
+        const allWantsWebhook = await db.select().from(routers).where(eq(routers.useWebhook, true));
+
+        const colliding = allWantsWebhook.filter(r => {
+            if (r.id === targetId) return false;
+
+            // 1. Hardware Identity Match (Strongest)
+            if (target.serialNumber && r.serialNumber === target.serialNumber) return true;
+            if (target.identity && r.identity === target.identity) return true;
+
+            // 2. Base Host Match (Ignoring Ports)
+            if (normalizeHost(r.host) === targetHostBase) return true;
+
+            return false;
+        });
 
         if (colliding.length === 0) {
             console.log('✅ No colliding routers found with useWebhook: true');

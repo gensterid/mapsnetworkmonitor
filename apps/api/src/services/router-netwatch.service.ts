@@ -293,29 +293,37 @@ export class RouterNetwatchService {
                         }
                     } else if (!shouldInjectWebhook && finalHasWebhook) {
                         // Smart Cleanup: Remove webhook if disabled but still present on router.
-                        // COLLISION PREVENTION: Check if ANY other router with the same host has webhook enabled. 
-                        // If so, we must NOT remove the scripts, as they are likely being used/managed by the other router entry.
+                        // COLLISION PREVENTION: Check if ANY other router with the same host (or physical device) has webhook enabled. 
                         try {
-                            const [otherWants] = await db.select({ val: count() })
+                            const normalizeHost = (h: string) => h.split(':')[0].trim().toLowerCase();
+                            const targetHostBase = normalizeHost(router.host);
+
+                            const allWantsWebhook = await db.select()
                                 .from(routers)
                                 .where(and(
-                                    or(
-                                        ...([
-                                            router.serialNumber ? eq(routers.serialNumber, router.serialNumber) : null,
-                                            router.identity ? eq(routers.identity, router.identity) : null,
-                                            sql`LOWER(TRIM(${routers.host})) = LOWER(TRIM(${router.host}))`
-                                        ].filter(Boolean) as any[])
-                                    ),
                                     eq(routers.useWebhook, true),
                                     not(eq(routers.id, routerId))
                                 ));
 
-                            if ((otherWants?.val || 0) === 0) {
+                            const otherWantsItems = allWantsWebhook.filter(r => {
+                                // 1. Hardware Identity Match (Strongest)
+                                const sMatch = router.serialNumber && r.serialNumber && router.serialNumber.trim() !== '' && r.serialNumber.trim() === router.serialNumber.trim();
+                                const iMatch = router.identity && r.identity && router.identity.trim() !== '' && r.identity.trim() === router.identity.trim();
+                                if (sMatch || iMatch) return true;
+
+                                // Base Host Match (Ignoring Ports)
+                                if (normalizeHost(r.host) === targetHostBase) return true;
+
+                                return false;
+                            });
+
+                            if (otherWantsItems.length === 0) {
                                 logger.info({ host: nw.host, routerId }, 'No other routers want webhooks on this device, proceeding with cleanup');
                                 await removeNetwatchWebhook(conn, nw.host, nw);
-                                finalHasWebhook = false; // Update state for DB update below
+                                finalHasWebhook = false;
                             } else {
-                                logger.info({ host: nw.host, routerId, othersCount: otherWants?.val }, 'Skipping webhook cleanup: another logical router on this physical box has webhooks enabled');
+                                const names = otherWantsItems.map(r => r.name).join(', ');
+                                logger.info({ host: nw.host, routerId, othersCount: otherWantsItems.length, conflictingRouters: names }, 'Skipping webhook cleanup: another logical router on this physical box has webhooks enabled');
                             }
                         } catch (err) {
                             logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook or check collisions');
@@ -359,7 +367,6 @@ export class RouterNetwatchService {
 
                         await tx.insert(routerNetwatch).values(insertData);
                     }
-
                 }
 
                 // Delete entries that no longer exist on MikroTik (Clients with IP only)
