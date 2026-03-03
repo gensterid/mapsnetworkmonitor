@@ -601,15 +601,14 @@ export async function configureNetwatchWebhook(
     const hasWebhookDown = currentDown.replace(/\r\n/g, '\n').includes('/api/webhook/netwatch');
 
     if (!hasWebhookUp) {
-        // Trim existing to avoid double spacing, then add semicolon and newline
-        const base = currentUp.trim();
-        newUp = base ? `${base};\r\n${upCommand}` : upCommand;
+        // Prepend instead of append to ensure it's found even if MikroTik truncates 
+        // the end of very long scripts in print outputs.
+        newUp = `${upCommand}\r\n${currentUp}`;
         needsUpdate = true;
     }
 
     if (!hasWebhookDown) {
-        const base = currentDown.trim();
-        newDown = base ? `${base};\r\n${downCommand}` : downCommand;
+        newDown = `${downCommand}\r\n${currentDown}`;
         needsUpdate = true;
     }
 
