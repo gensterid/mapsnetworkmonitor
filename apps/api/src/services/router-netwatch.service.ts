@@ -545,13 +545,17 @@ export class RouterNetwatchService {
      */
     async syncToOnus(routerId: string): Promise<void> {
         try {
-            const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
-            if (netwatchEntries.length === 0) {
-                logger.info({ routerId }, '[Unified Linkage] No Netwatch entries to sync');
-                return;
+            // Early exit: skip linkage entirely if there are no ONUs with hosts in the database.
+            // This prevents hundreds of "Missed sync" log lines for routers without OLT/ACS.
+            const activeOnus = await db.select().from(onus).where(isNotNull(onus.host));
+            if (activeOnus.length === 0) {
+                return; // Silent exit — no ONUs means no linkage needed
             }
 
-            const activeOnus = await db.select().from(onus).where(isNotNull(onus.host));
+            const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
+            if (netwatchEntries.length === 0) {
+                return; // Silent exit — nothing to link
+            }
             const hostToOnuId = new Map(activeOnus.map(o => [(o.host || '').trim(), o]));
 
             let linkedCount = 0;
