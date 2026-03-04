@@ -27,8 +27,8 @@ if [[ "$*" == *"--hard-clean"* ]]; then
     rm -rf node_modules apps/web/node_modules apps/api/node_modules package-lock.json
 fi
 
-# We use --force to bypass any lingering platform-specific locks that might cause the Rollup error
-npm install
+# We use --legacy-peer-deps to handle monorepo dependency conflicts and --force for Rollup locks
+npm install --legacy-peer-deps --force
 
 # 4. Database Migration & Schema Sync
 echo "🗄️ Running database migrations..."
@@ -46,7 +46,7 @@ if ! npm run build; then
     # If the error looks like the Rollup one, auto-clean and retry once
     echo "🧹 Attempting automatic HARD clean to fix Rollup issue..."
     rm -rf node_modules apps/web/node_modules apps/api/node_modules package-lock.json
-    npm install
+    npm install --legacy-peer-deps --force
     echo "🏗️ Retrying build..."
     npm run build
 fi

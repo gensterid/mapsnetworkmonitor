@@ -13,13 +13,13 @@ export function getRedisConnection() {
         try {
             redisConnection = new IORedis(REDIS_URL, {
                 maxRetriesPerRequest: null,
-                retryStrategy: (times) => {
+                retryStrategy: (times: number) => {
                     const delay = Math.min(times * 100, 15000);
                     return delay;
                 },
             });
 
-            redisConnection.on('error', (err) => {
+            redisConnection.on('error', (err: Error) => {
                 logger.error({ err: err.message }, 'Redis connection error');
             });
         } catch (err: any) {
@@ -81,11 +81,11 @@ export function startQueueWorker() {
         }
     );
 
-    worker.on('completed', (job) => {
+    worker.on('completed', (job: Job) => {
         logger.debug({ jobId: job.id }, 'Sync job completed');
     });
 
-    worker.on('failed', (job, err) => {
+    worker.on('failed', (job: Job | undefined, err: Error) => {
         logger.error({ jobId: job?.id, err: err.message }, 'Sync job failed permanently');
     });
 }
