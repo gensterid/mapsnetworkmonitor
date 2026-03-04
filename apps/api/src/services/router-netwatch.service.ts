@@ -1,4 +1,5 @@
-import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, aliasedTable, count, not } from 'drizzle-orm';
+import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, count, not } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -28,7 +29,7 @@ export class RouterNetwatchService {
      * Get all netwatch entries for a router with detailed info (ONUs/Alerts)
      */
     async getNetwatch(routerId: string): Promise<any[]> {
-        const directOlts = aliasedTable(olts, 'directOlts');
+        const directOlts = alias(olts, 'directOlts');
 
         const entries = await db
             .select({
@@ -73,10 +74,9 @@ export class RouterNetwatchService {
                 ORDER BY (
                     CASE 
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
-                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 2
-                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 3
-                        WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 4
-                        ELSE 5
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
+                        WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 3
+                        ELSE 4
                     END
                 ) ASC
                 LIMIT 1
@@ -126,7 +126,7 @@ export class RouterNetwatchService {
     async getNetwatchAll(routerIds: string[]): Promise<any[]> {
         if (!routerIds || routerIds.length === 0) return [];
 
-        const directOlts = aliasedTable(olts, 'directOlts');
+        const directOlts = alias(olts, 'directOlts');
 
         return await db
             .select({
@@ -172,10 +172,9 @@ export class RouterNetwatchService {
                 ORDER BY (
                     CASE 
                         WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
-                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.olt_id IN (SELECT id FROM olts WHERE parent_id = ${routerNetwatch.routerId}) THEN 2
-                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 3
-                        WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 4
-                        ELSE 5
+                        WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
+                        WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 3
+                        ELSE 4
                     END
                 ) ASC
                 LIMIT 1
