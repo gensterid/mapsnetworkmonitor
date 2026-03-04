@@ -140,23 +140,14 @@ export async function connectToRouter(
 
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
-        const errorMsg = String(err?.message || err || 'Unknown RouterOS error');
-        const lowerMsg = errorMsg.toLowerCase();
-
-        const isKnownQuirk =
-            lowerMsg.includes('!empty') ||
-            lowerMsg.includes('unknown reply') ||
-            lowerMsg.includes('unknown tag') ||
-            err.errno === 'UNKNOWNREPLY';
-
-        if (isKnownQuirk) {
-            logger.debug({ err: errorMsg, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk');
+        if (isRouterosQuirk(err)) {
+            logger.debug({ err: err?.message, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk in event handler');
             return;
         }
 
         // On fatal error, remove from pool
         connectionPool.delete(poolKey);
-        logger.error({ err: errorMsg, host: config.host }, '[RouterOS API Error]');
+        logger.error({ err: err?.message || String(err), host: config.host, errno: err?.errno }, '[RouterOS API Error]');
     });
 
     api.on('unknown', (sentence: any) => {
@@ -169,6 +160,11 @@ export async function connectToRouter(
     api.on('error', () => { }); // Already handled above but ensure no default node crash
 
     await api.connect();
+
+    // Add release method for easier usage in services
+    (api as any).release = () => {
+        releaseConnection(config.host, config.port, config.username);
+    };
 
     // Add to pool
     connectionPool.set(poolKey, api);
@@ -216,26 +212,35 @@ export async function safeWrite(api: any, command: string | string[], timeoutMs:
 
         return await Promise.race([writePromise, timeoutPromise]);
     } catch (error: any) {
-        const errorMsg = String(error?.message || error || '');
-        const lowerMsg = errorMsg.toLowerCase();
-
-        // If it's the known !empty tag error (ROS 7.18+), treat it as success with empty result
-        // Some drivers throw RosException, others are generic Error objects
-        if (lowerMsg.includes('!empty') ||
-            lowerMsg.includes('unknown reply') ||
-            error.errno === 'UNKNOWNREPLY' ||
-            error.name === 'RosException') {
-
+        if (isRouterosQuirk(error)) {
             // Log it briefly as debug if it's !empty
-            if (lowerMsg.includes('!empty')) {
+            const msg = String(error?.message || '').toLowerCase();
+            if (msg.includes('!empty')) {
                 logger.debug({ command: Array.isArray(command) ? command[0] : command }, 'RouterOS !empty protocol noise suppressed');
             } else {
-                logger.warn({ err: errorMsg, command }, 'Suppressed unexpected ROS API reply/error');
+                logger.debug({ err: error?.message, command }, 'Suppressed unexpected ROS API reply/error');
             }
             return [];
         }
         throw error;
     }
+}
+
+/**
+ * Check if the error is a known MikroTik API quirk (like ROS 7.18+ !empty tag)
+ */
+export function isRouterosQuirk(error: any): boolean {
+    if (!error) return false;
+    const msg = String(error.message || error || '').toLowerCase();
+    const name = String(error.name || '').toLowerCase();
+
+    return (
+        msg.includes('!empty') ||
+        msg.includes('unknown reply') ||
+        msg.includes('unknown tag') ||
+        error.errno === 'UNKNOWNREPLY' ||
+        name === 'rosexception'
+    );
 }
 
 /**

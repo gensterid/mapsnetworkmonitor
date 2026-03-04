@@ -646,7 +646,7 @@ export class RouterNetwatchService {
             logger.error({ err: error, router: router.name }, '[RouterNetwatchService] Sync failed');
             errors.push(`Failed to sync netwatch: ${errorMessage}`);
         } finally {
-            if (api) await api.close().catch(() => { });
+            if (api) api.release();
         }
 
         await this.syncToOnus(routerId);

@@ -39,6 +39,7 @@ import {
     configureNetwatchWebhook,
     getNeighbors,
     getRomonNeighbors,
+    isRouterosQuirk,
     type RouterConnection,
     type PppSession,
     type RouterNeighbor,
@@ -577,6 +578,11 @@ export class RouterService {
 
             return updatedRouter;
         } catch (error: any) {
+            if (isRouterosQuirk(error)) {
+                logger.debug({ err: error?.message, router: router.host }, 'Ignoring RouterOS quirk during refresh');
+                return undefined;
+            }
+
             const errMsg = error?.message || String(error);
             logger.error({ err: errMsg, router: router.host }, 'Connection failed during refresh');
 
