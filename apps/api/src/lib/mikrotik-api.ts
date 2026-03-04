@@ -142,6 +142,8 @@ export async function connectToRouter(
     api.on('error', (err: any) => {
         if (isRouterosQuirk(err)) {
             // Silently skip - this is expected protocol noise in ROS 7.18+
+            // We use logger.debug to keep logs clean but still trace if needed
+            logger.debug({ host: config.host, msg: err?.message, errno: err?.errno }, 'Suppressed ROS protocol quirk');
             return;
         }
 
@@ -150,6 +152,7 @@ export async function connectToRouter(
         logger.error({ err: err?.message || String(err), host: config.host, errno: err?.errno }, '[RouterOS API Error]');
     });
 
+    // Capture specific sentence-level noise that might bypass 'error' event
     api.on('unknown', (sentence: any) => {
         const sentenceStr = String(sentence || '').toLowerCase();
         if (sentenceStr.includes('!empty') || sentenceStr.includes('unknown reply')) {
@@ -157,7 +160,13 @@ export async function connectToRouter(
         }
     });
 
-    api.on('error', () => { }); // Already handled above but ensure no default node crash
+    // Suppress potential library-level console chatter if detectable
+    // (Node-routeros sometimes logs directly to stderr on certain protocol mismatches)
+    api.on('fatal', (err: any) => {
+        if (isRouterosQuirk(err)) return;
+        logger.error({ err, host: config.host }, '[RouterOS API Fatal]');
+        connectionPool.delete(poolKey);
+    });
 
     await api.connect();
 
@@ -231,17 +240,23 @@ export async function safeWrite(api: any, command: string | string[], timeoutMs:
  */
 export function isRouterosQuirk(error: any): boolean {
     if (!error) return false;
-    const msg = String(error.message || error || '').toLowerCase();
+
+    // Check both error object and potential nested errors or string messages
+    const msg = String(error.message || error.msg || error || '').toLowerCase();
     const name = String(error.name || '').toLowerCase();
     const errno = String(error.errno || '').toUpperCase();
+    const stack = String(error.stack || '').toLowerCase();
 
     return (
         msg.includes('!empty') ||
         msg.includes('unknown reply') ||
         msg.includes('unknown tag') ||
+        msg.includes('tried to process unknown reply') ||
+        msg.includes('sentence was not terminated') || // Often follows !empty
         errno === 'UNKNOWNREPLY' ||
         name === 'rosexception' ||
-        name.includes('rosexception')
+        name.includes('rosexception') ||
+        stack.includes('rosexception')
     );
 }
 
