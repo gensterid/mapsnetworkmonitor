@@ -149,30 +149,32 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                             Signal Level Distribution
                         </h3>
                     </div>
-                    <CardContent className="p-6 h-[300px] min-w-0">
+                    <CardContent className="p-6 h-[320px] min-w-0 relative">
                         {signalData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={signalData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {signalData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
-                                        itemStyle={{ color: '#f8fafc' }}
-                                    />
-                                    <Legend verticalAlign="bottom" height={36} />
-                                </PieChart>
-                            </ResponsiveContainer>
+                            <div className="w-full h-full min-h-0 min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <PieChart>
+                                        <Pie
+                                            data={signalData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={80}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {signalData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip
+                                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
+                                            itemStyle={{ color: '#f8fafc' }}
+                                        />
+                                        <Legend verticalAlign="bottom" height={36} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-slate-500 italic">
                                 No signal data available for selected filters
@@ -189,20 +191,22 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                             Model Distribution (Top 5)
                         </h3>
                     </div>
-                    <CardContent className="p-6 h-[300px] min-w-0">
+                    <CardContent className="p-6 h-[320px] min-w-0 relative">
                         {modelData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={modelData} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={true} vertical={false} />
-                                    <XAxis type="number" hide />
-                                    <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#94a3b8', fontSize: 12 }} />
-                                    <Tooltip
-                                        cursor={{ fill: '#ffffff0a' }}
-                                        contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
-                                    />
-                                    <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
+                            <div className="w-full h-full min-h-0 min-w-0">
+                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                                    <BarChart data={modelData} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={true} vertical={false} />
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" width={100} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                                        <Tooltip
+                                            cursor={{ fill: '#ffffff0a' }}
+                                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '8px' }}
+                                        />
+                                        <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-slate-500 italic">
                                 No model data available
