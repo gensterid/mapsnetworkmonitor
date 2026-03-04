@@ -217,9 +217,14 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                     </div>
                                                 )}
                                                 {nw.hasWebhook && (
-                                                    <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-md border border-amber-500/20 shadow-sm" title="Real-time Webhook Active">
-                                                        <Zap className="w-2.5 h-2.5 fill-amber-500" />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter italic">REAL-TIME</span>
+                                                    <div className="flex items-center gap-1 bg-[#facc15] text-[#1e1b4b] px-2 py-0.5 rounded-full shadow-sm" title="Real-time Webhook Active">
+                                                        <Zap className="w-2.5 h-2.5 fill-[#1e1b4b]" />
+                                                        <span className="text-[8px] font-black uppercase tracking-tight">REAL-TIME</span>
+                                                    </div>
+                                                )}
+                                                {nw.isAppOnly && (
+                                                    <div className="flex items-center gap-1 bg-indigo-950/60 text-indigo-400 px-2.5 py-0.5 rounded-full border border-indigo-500/20" title="Monitored via App Server">
+                                                        <span className="text-[8px] font-bold uppercase tracking-wider">App Only</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -244,7 +249,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                             {nw.latency ? (
                                                 <div className={clsx(
                                                     "font-bold text-[10px]",
-                                                    nw.latency > 100 ? "text-amber-500" : "text-emerald-500"
+                                                    nw.latency > 100 ? "text-red-500" : "text-emerald-500"
                                                 )}>
                                                     {Math.round(nw.latency)} ms
                                                 </div>
