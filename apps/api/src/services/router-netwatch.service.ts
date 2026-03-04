@@ -224,7 +224,7 @@ export class RouterNetwatchService {
 
                     // Debug: log disabled state detection
                     if (isDisabled) {
-                        logger.info({ host: nw.host, disabled: nw.disabled, status: nw.status, routerId }, 'Netwatch entry detected as DISABLED');
+                        logger.debug({ host: nw.host, disabled: nw.disabled, routerId }, 'Netwatch entry detected as DISABLED');
                     }
 
                     let finalName = nw.comment || nw.name;
@@ -604,13 +604,10 @@ export class RouterNetwatchService {
                     linkedCount++;
                 } else {
                     missedCount++;
-                    if (process.env.NODE_ENV !== 'production' || missedCount <= 10) {
-                        logger.debug({ host, routerId }, '[Unified Linkage] Missed sync: No ONU found for host');
-                    }
                 }
             }
 
-            if (linkedCount > 0 || missedCount > 0) {
+            if (linkedCount > 0) {
                 logger.info({ routerId, linkedCount, missedCount }, '[Unified Linkage] Sync complete');
             }
         } catch (e) {

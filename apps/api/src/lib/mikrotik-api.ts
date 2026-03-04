@@ -467,7 +467,7 @@ export async function getNetwatchHosts(
         const rawDisabled = host.disabled;
         const parsedDisabled = rawDisabled === true || rawDisabled === 'true' || rawDisabled === 'yes';
         if (rawDisabled !== undefined && rawDisabled !== false && rawDisabled !== 'false' && rawDisabled !== 'no') {
-            logger.info({ host: host.host, rawDisabled, rawDisabledType: typeof rawDisabled, parsedDisabled }, '[Netwatch API] Disabled field detected');
+            logger.debug({ host: host.host, rawDisabled, parsedDisabled }, '[Netwatch API] Disabled field detected');
         }
 
         return {
