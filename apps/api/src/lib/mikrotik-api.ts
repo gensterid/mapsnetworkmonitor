@@ -141,7 +141,7 @@ export async function connectToRouter(
     // Add error handler to prevent uncaught exceptions
     api.on('error', (err: any) => {
         if (isRouterosQuirk(err)) {
-            logger.debug({ err: err?.message, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk in event handler');
+            // Silently skip - this is expected protocol noise in ROS 7.18+
             return;
         }
 
@@ -233,13 +233,15 @@ export function isRouterosQuirk(error: any): boolean {
     if (!error) return false;
     const msg = String(error.message || error || '').toLowerCase();
     const name = String(error.name || '').toLowerCase();
+    const errno = String(error.errno || '').toUpperCase();
 
     return (
         msg.includes('!empty') ||
         msg.includes('unknown reply') ||
         msg.includes('unknown tag') ||
-        error.errno === 'UNKNOWNREPLY' ||
-        name === 'rosexception'
+        errno === 'UNKNOWNREPLY' ||
+        name === 'rosexception' ||
+        name.includes('rosexception')
     );
 }
 
