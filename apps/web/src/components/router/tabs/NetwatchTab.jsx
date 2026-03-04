@@ -17,7 +17,9 @@ import {
     History,
     MapPin,
     Globe,
-    Clock
+    Clock,
+    Search,
+    ChevronDown
 } from 'lucide-react';
 import clsx from 'clsx';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
@@ -32,6 +34,8 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [filter, setFilter] = useState('all');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [sortBy, setSortBy] = useState('status');
 
     const handleSuccess = () => {
         onRefresh();
@@ -73,7 +77,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
         }
     };
 
-    // Filter Logic
+    // Filter, Search and Sort Logic
     const stats = {
         total: netwatch.length,
         up: netwatch.filter(n => n.status === 'up' && !n.disabled).length,
@@ -81,13 +85,58 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
         disabled: netwatch.filter(n => n.disabled).length,
     };
 
-    const filteredNetwatch = netwatch.filter(nw => {
-        if (filter === 'all') return true;
-        if (filter === 'up') return nw.status === 'up' && !nw.disabled;
-        if (filter === 'down') return nw.status === 'down' && !nw.disabled;
-        if (filter === 'disabled') return nw.disabled;
-        return true;
-    });
+    const getProcessedData = () => {
+        let data = [...netwatch];
+
+        // 1. Filter by Status
+        if (filter !== 'all') {
+            if (filter === 'up') data = data.filter(nw => nw.status === 'up' && !nw.disabled);
+            else if (filter === 'down') data = data.filter(nw => nw.status === 'down' && !nw.disabled);
+            else if (filter === 'disabled') data = data.filter(nw => nw.disabled);
+        }
+
+        // 2. Search by Host/Name
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            data = data.filter(nw =>
+                (nw.host && nw.host.toLowerCase().includes(query)) ||
+                (nw.name && nw.name.toLowerCase().includes(query)) ||
+                (nw.comment && nw.comment.toLowerCase().includes(query))
+            );
+        }
+
+        // 3. Sort
+        data.sort((a, b) => {
+            if (sortBy === 'status') {
+                const statusOrder = { 'down': 0, 'up': 1, 'unknown': 2 };
+                const aStatus = a.disabled ? 'unknown' : a.status;
+                const bStatus = b.disabled ? 'unknown' : b.status;
+                return statusOrder[aStatus] - statusOrder[bStatus];
+            }
+            if (sortBy === 'name') {
+                const aName = (a.name || a.comment || '').toLowerCase();
+                const bName = (b.name || b.comment || '').toLowerCase();
+                return aName.localeCompare(bName);
+            }
+            if (sortBy === 'ip') {
+                const ipToNum = (ip) => {
+                    if (!ip) return 0;
+                    return ip.split('.').reduce((acc, octet) => (acc << 8) + parseInt(octet), 0) >>> 0;
+                };
+                return ipToNum(a.host) - ipToNum(b.host);
+            }
+            if (sortBy === 'loc') {
+                const aLoc = (a.location || '').toLowerCase();
+                const bLoc = (b.location || '').toLowerCase();
+                return aLoc.localeCompare(bLoc);
+            }
+            return 0;
+        });
+
+        return data;
+    };
+
+    const filteredNetwatch = getProcessedData();
 
     return (
         <div className="space-y-4">
@@ -139,23 +188,50 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                     </Button>
                 </div>
 
-                <div className="flex gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    {/* Search Box */}
+                    <div className="relative flex-1 sm:flex-none sm:min-w-[200px]">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search host, name..."
+                            className="w-full h-9 pl-9 pr-4 bg-slate-900/40 border border-slate-700/50 rounded-md text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
+                        />
+                    </div>
+
+                    {/* Sort Dropdown */}
+                    <div className="relative flex-1 sm:flex-none min-w-[100px]">
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="w-full h-9 pl-3 pr-8 bg-slate-900/40 border border-slate-700/50 rounded-md text-[11px] text-slate-200 font-bold appearance-none cursor-pointer focus:outline-none focus:border-primary/50 transition-colors"
+                        >
+                            <option value="status">Status</option>
+                            <option value="name">Name</option>
+                            <option value="ip">IP</option>
+                            <option value="loc">Loc</option>
+                        </select>
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                    </div>
+
                     <Button
                         variant="ghost"
                         size="sm"
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="text-slate-400 hover:text-white border border-slate-700/50 h-9"
+                        className="text-slate-400 hover:text-white border border-slate-700/50 h-9 px-3"
                     >
-                        <RefreshCw className={clsx("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
-                        Sync from Router
+                        <RefreshCw className={clsx("w-3.5 h-3.5 mr-2", isSyncing && "animate-spin")} />
+                        Sync
                     </Button>
                     <Button
                         size="sm"
                         onClick={() => setFormModal({ open: true, netwatch: null })}
-                        className="flex-1 sm:flex-none h-9 bg-primary hover:bg-primary/90"
+                        className="flex-1 sm:flex-none h-9 px-4 bg-primary hover:bg-primary/90 text-white font-bold"
                     >
-                        <Plus className="w-4 h-4 mr-2" />
+                        <Plus className="w-3.5 h-3.5 mr-2" />
                         Add Host
                     </Button>
                 </div>
