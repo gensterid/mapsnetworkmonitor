@@ -420,6 +420,14 @@ export async function runMigrations() {
                 name: 'router_netwatch.is_app_only',
                 sql: sql`ALTER TABLE router_netwatch ADD COLUMN is_app_only BOOLEAN DEFAULT false NOT NULL`
             },
+            {
+                name: 'router_netwatch.disabled',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN disabled BOOLEAN DEFAULT false NOT NULL`
+            },
+            {
+                name: 'router_netwatch.has_webhook',
+                sql: sql`ALTER TABLE router_netwatch ADD COLUMN has_webhook BOOLEAN DEFAULT false NOT NULL`
+            },
         ];
 
         for (const m of migrations) {
