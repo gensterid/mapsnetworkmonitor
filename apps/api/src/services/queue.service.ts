@@ -1,33 +1,10 @@
 import { Queue, Worker, Job } from 'bullmq';
-import IORedis from 'ioredis';
 import { logger } from '../lib/logger.js';
+import { getRedisConnection, closeRedisConnection } from '../lib/redis-client.js';
 import { routerService } from './router.service.js';
 
-const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
-
-// Shared Redis connection
-let redisConnection: IORedis | null = null;
-
-export function getRedisConnection() {
-    if (!redisConnection) {
-        try {
-            redisConnection = new IORedis(REDIS_URL, {
-                maxRetriesPerRequest: null,
-                retryStrategy: (times: number) => {
-                    const delay = Math.min(times * 100, 15000);
-                    return delay;
-                },
-            });
-
-            redisConnection.on('error', (err: Error) => {
-                logger.error({ err: err.message }, 'Redis connection error');
-            });
-        } catch (err: any) {
-            logger.error({ err: err.message }, 'Failed to initialize Redis connection');
-        }
-    }
-    return redisConnection;
-}
+// Re-export for compatibility
+export { getRedisConnection };
 
 // === Router Sync Queue ===
 export const routerSyncQueue = new Queue('router-sync', {
@@ -95,8 +72,5 @@ export async function stopQueueWorker() {
         await worker.close();
         worker = null;
     }
-    if (redisConnection) {
-        await redisConnection.quit();
-        redisConnection = null;
-    }
+    await closeRedisConnection();
 }

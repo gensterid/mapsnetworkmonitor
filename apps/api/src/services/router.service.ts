@@ -54,6 +54,9 @@ import { routerNetwatchService } from './router-netwatch.service.js';
 import { routerMetricsService } from './router-metrics.service.js';
 import { routerInterfaceService } from './router-interface.service.js';
 import { eventEmitter } from './event-emitter.service.js';
+import { routerActionService } from './router-action.service.js';
+import { routerSyncService } from './router-sync.service.js';
+import { cacheService } from '../lib/cache.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -158,8 +161,11 @@ export class RouterService {
                 .$dynamic();
         }
 
-        const allRouters = await query;
+        const cacheKey = `routers:list:${tenantId || 'global'}:${userId || 'none'}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
 
+        const allRouters = await query;
         if (allRouters.length === 0) return [];
 
         const routerIds = allRouters.map(r => r.id);
@@ -222,11 +228,16 @@ export class RouterService {
         }
 
         // Assemble results with O(1) lookups
-        return allRouters.map(router => ({
+        const results = allRouters.map(router => ({
             ...router,
             latestMetrics: metricsMap.get(router.id),
             maxInterfaceSpeed: speedMap.get(router.id),
         }));
+
+        // Cache for 30 seconds
+        await cacheService.set(cacheKey, results, 30);
+
+        return results;
     }
 
     /**
@@ -276,10 +287,18 @@ export class RouterService {
             filters.push(eq(routers.tenantId, tenantId));
         }
 
+        const cacheKey = `routers:detail:${id}`;
+        const cached = await cacheService.get<Router>(cacheKey);
+        if (cached && (!tenantId || cached.tenantId === tenantId)) return cached;
+
         const [router] = await db
             .select()
             .from(routers)
             .where(and(...filters));
+
+        if (router) {
+            await cacheService.set(cacheKey, router, 60); // Cache for 1 min
+        }
         return router;
     }
 
@@ -335,6 +354,9 @@ export class RouterService {
             .returning();
 
         if (router) {
+            // Invalidate router lists
+            await cacheService.deletePattern('routers:list:*');
+
             eventEmitter.broadcast('map_update', {
                 type: 'router',
                 id: router.id,
@@ -409,6 +431,10 @@ export class RouterService {
         }
 
         if (router) {
+            // Invalidate cache
+            await cacheService.delete(`routers:detail:${id}`);
+            await cacheService.deletePattern('routers:list:*');
+
             eventEmitter.broadcast('map_update', {
                 type: 'router',
                 id: router.id,
@@ -430,6 +456,10 @@ export class RouterService {
 
         const result = await db.delete(routers).where(and(...filters)).returning();
         if (result.length > 0) {
+            // Invalidate cache
+            await cacheService.delete(`routers:detail:${id}`);
+            await cacheService.deletePattern('routers:list:*');
+
             eventEmitter.broadcast('map_update', {
                 type: 'router',
                 id: id,
@@ -447,14 +477,7 @@ export class RouterService {
         id: string,
         tenantId?: string
     ): Promise<{ success: boolean; info?: unknown; error?: string }> {
-        try {
-            const api = await this.getRouterConnection(id, tenantId);
-            const info = await getRouterInfo(api);
-            if (api) api.release();
-            return { success: true, info };
-        } catch (error: any) {
-            return { success: false, error: error.message };
-        }
+        return routerActionService.testConnection(id, tenantId);
     }
 
     /**
@@ -466,220 +489,21 @@ export class RouterService {
         username: string,
         password: string
     ): Promise<{ success: boolean; info?: unknown; error?: string }> {
-        return testConnection({ host, port, username, password });
+        return routerActionService.testConnectionWithCredentials(host, port, username, password);
     }
 
     /**
      * Fetch and update router status and info
-     * @param id Router ID
-     * @param includeNetwatch If true, also sync netwatch entries in the same connection
      */
     async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true, tenantId?: string): Promise<Router | undefined> {
-        const router = await this.findByIdWithPassword(id, tenantId);
-        if (!router) return undefined;
-
-        const previousStatus = router.status;
-
-        let conn: any;
-        try {
-            conn = await this.getRouterConnection(id, tenantId);
-
-            // Always fetch basic system info for identity/uptime check
-            const info = await getRouterInfo(conn);
-
-            // Only fetch heavy resources on full sync
-            let resources = undefined;
-            let interfaces = undefined;
-            if (isFullSync) {
-                resources = await getRouterResources(conn);
-                interfaces = await getRouterInterfaces(conn);
-            }
-
-            // Fetch and sync netwatch in the same connection if requested
-            if (includeNetwatch) {
-                // 1. Sync hosts (Netwatch list)
-                const availableInterfaces = new Set(interfaces?.map(i => i.name) || []);
-                await routerNetwatchService.syncHosts(id, router.name, conn, availableInterfaces);
-
-                // 2. Measure latency for synced hosts
-                const syncedEntries = await routerNetwatchService.getNetwatch(id);
-                // Filter targets for ping
-                const targets = syncedEntries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
-                await routerNetwatchService.measureLatency(id, router.name, conn, targets);
-
-                // 3. Track PPPoE sessions
-                try {
-                    const currentPppSessions = await getPppSessions(conn);
-                    await pppoeService.trackSessions(id, router.name, currentPppSessions);
-                } catch (pppoeError) {
-                    logger.error({ err: pppoeError, router: router.name }, 'Failed to track PPPoE sessions');
-                }
-
-                // 4. Fetch Simple Queues for Heatmap Traffic
-                try {
-                    const queues = await getSimpleQueues(conn);
-                    await pppoeService.updateTraffic(id, queues);
-                } catch (qErr) {
-                    logger.error({ err: qErr, router: router.name }, 'Failed to sync queues');
-                }
-
-                // 5. Propagate Interface Traffic
-                await routerNetwatchService.propagateTraffic(id, router.name, conn);
-
-                // 6. Sync Netwatch Status to ONUs (Bridging)
-                await routerNetwatchService.syncToOnus(id);
-            }
-
-
-
-            const latency = await measureLatency(router.host);
-
-            // Update router info
-            const [updatedRouter] = await db
-                .update(routers)
-                .set({
-                    status: 'online',
-                    lastSeen: new Date(),
-                    latency: latency >= 0 ? latency : null,
-                    routerOsVersion: info.version,
-                    model: info.model,
-                    serialNumber: info.serialNumber,
-                    identity: info.identity,
-                    boardName: info.boardName,
-                    architecture: info.architecture,
-                    lastErrorMessage: null, // Clear stale error messages on success
-                    updatedAt: new Date(),
-                    ...(isFullSync ? { lastFullSync: new Date() } : {}),
-                })
-                .where(eq(routers.id, id))
-                .returning();
-
-            // Create alert if status changed from status to online
-            if (previousStatus === 'offline') {
-                await alertService.createStatusChangeAlert(
-                    id,
-                    router.name,
-                    previousStatus,
-                    'online'
-                );
-            }
-
-            // Save metrics only if resources are available (Full Sync)
-            if (resources) {
-                await routerMetricsService.saveMetrics(id, router.name, resources);
-            }
-
-
-
-            // Update interfaces
-            if (interfaces) {
-                await routerInterfaceService.syncInterfaces(id, interfaces);
-            }
-
-            return updatedRouter;
-        } catch (error: any) {
-            if (isRouterosQuirk(error)) {
-                logger.debug({ err: error?.message, router: router.host }, 'Ignoring RouterOS quirk during refresh');
-                return undefined;
-            }
-
-            const errMsg = error?.message || String(error);
-            logger.error({ err: errMsg, router: router.host }, 'Connection failed during refresh');
-
-            // Classify the error with human readable messages
-            let friendlyError = 'API Error';
-
-            const lowErrMsg = errMsg.toLowerCase();
-
-            if (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password')) {
-                friendlyError = 'Salah Password / Username';
-            } else if (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout') || lowErrMsg.includes('timed out after')) {
-                friendlyError = 'Connection Timeout / Busy';
-            } else if (lowErrMsg.includes('econnrefused')) {
-                friendlyError = 'Connection Refused (API Service Off?)';
-            } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect') || lowErrMsg.includes('enotfound') || lowErrMsg.includes('eai_again')) {
-                friendlyError = 'Mikrotik Mati / DNS Error / Unreachable';
-            } else if (lowErrMsg.includes('econnreset') || lowErrMsg.includes('epipe') || lowErrMsg.includes('socket hang up')) {
-                friendlyError = 'API Terputus (Connection Reset)';
-            } else if (lowErrMsg.includes('network') || lowErrMsg.includes('unreachable')) {
-                friendlyError = 'Network Issue / Unreachable';
-            } else {
-                friendlyError = `API Error: ${errMsg.substring(0, 50)}${errMsg.length > 50 ? '...' : ''}`;
-            }
-
-            const [updatedRouter] = await db
-                .update(routers)
-                .set({
-                    status: 'offline',
-                    lastErrorMessage: friendlyError,
-                    updatedAt: new Date(),
-                })
-                .where(eq(routers.id, id))
-                .returning();
-
-            if (previousStatus === 'online') {
-                try {
-                    await alertService.createStatusChangeAlert(
-                        id,
-                        router.name,
-                        previousStatus,
-                        'offline',
-                        friendlyError
-                    );
-                } catch (alertError: any) {
-                    logger.error({ err: alertError?.message || String(alertError) }, 'Failed to create offline alert');
-                }
-            }
-
-            eventEmitter.broadcast('map_update', {
-                type: 'router',
-                id: id,
-                action: 'update',
-            });
-
-            return updatedRouter;
-        } finally {
-            if (conn) conn.release();
-        }
+        return routerSyncService.refreshRouterStatus(id, includeNetwatch, isFullSync, tenantId);
     }
 
     /**
      * Reboot a router
      */
     async reboot(id: string, tenantId?: string): Promise<{ success: boolean; error?: string }> {
-        const router = await this.findByIdWithPassword(id, tenantId);
-        if (!router) {
-            return { success: false, error: 'Router not found' };
-        }
-
-        try {
-            const conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: router.password,
-            });
-
-            await rebootRouter(conn);
-            if (conn) conn.release();
-
-            // Update router status
-            await db
-                .update(routers)
-                .set({
-                    status: 'offline',
-                    updatedAt: new Date(),
-                })
-                .where(eq(routers.id, id));
-
-            return { success: true };
-        } catch (error: any) {
-            const errMsg = error?.message || String(error);
-            return {
-                success: false,
-                error: errMsg,
-            };
-        }
+        return routerActionService.reboot(id, tenantId);
     }
 
     /**
@@ -708,66 +532,15 @@ export class RouterService {
     }
 
     async getHotspotActive(routerId: string, tenantId?: string): Promise<number> {
-        const router = await this.findByIdWithPassword(routerId, tenantId);
-        if (!router) throw new Error('Router not found');
-
-        try {
-            const conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: router.password,
-            });
-
-            const count = await getHotspotActive(conn);
-            if (conn) conn.release();
-            return count;
-        } catch (error: any) {
-            logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get hotspot users');
-            return 0;
-        }
+        return routerActionService.getHotspotActive(routerId, tenantId);
     }
 
     async getPppActive(routerId: string, tenantId?: string): Promise<number> {
-        const router = await this.findByIdWithPassword(routerId, tenantId);
-        if (!router) throw new Error('Router not found');
-
-        try {
-            const conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: router.password,
-            });
-
-            const count = await getPppActive(conn);
-            if (conn) conn.release();
-            return count;
-        } catch (error: any) {
-            logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get PPP users');
-            return 0;
-        }
+        return routerActionService.getPppActive(routerId, tenantId);
     }
 
     async getPppSessions(routerId: string, tenantId?: string): Promise<PppSession[]> {
-        const router = await this.findByIdWithPassword(routerId, tenantId);
-        if (!router) throw new Error('Router not found');
-
-        try {
-            const conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: router.password,
-            });
-
-            const sessions = await getPppSessions(conn);
-            if (conn) conn.release();
-            return sessions;
-        } catch (error: any) {
-            logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get PPP sessions');
-            return [];
-        }
+        return routerActionService.getPppSessions(routerId, tenantId);
     }
 
     async getMetricsHistory(
@@ -823,77 +596,9 @@ export class RouterService {
 
     /**
      * Measure ping latency to configured targets via MikroTik router
-     * Returns array of { ip, label, latency } objects
      */
     async measurePingTargets(routerId: string, tenantId?: string): Promise<{ ip: string; label: string; latency: number | null; packetLoss: number | null }[]> {
-        const router = await this.findByIdWithPassword(routerId, tenantId);
-        if (!router || router.status !== 'online') {
-            return [];
-        }
-
-        // Get configured ping targets from settings
-        const defaultTargets = [
-            { ip: '8.8.8.8', label: 'Google DNS' },
-            { ip: '1.1.1.1', label: 'Cloudflare' }
-        ];
-
-        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', tenantId!, defaultTargets);
-        const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
-
-        if (targets.length === 0) {
-            return [];
-        }
-
-        let conn: any;
-        const results: { ip: string; label: string; latency: number | null; packetLoss: number | null }[] = [];
-
-        try {
-            logger.info({ router: router.name, targets: targets.map(t => t.ip) }, 'Connecting to measure ping targets');
-            conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: router.password,
-                timeout: 15
-            });
-
-            // Ping each target (sequentially to avoid overwhelming router)
-            for (const target of targets.slice(0, 6)) {
-                try {
-                    const { latency, packetLoss } = await measurePing(conn, target.ip, 3, '500ms', '2000ms');
-                    results.push({
-                        ip: target.ip,
-                        label: target.label || target.ip,
-                        latency: latency >= 0 ? latency : null,
-                        packetLoss: packetLoss
-                    });
-                } catch (err) {
-                    logger.error({ err, router: router.name, target: target.ip }, 'Error pinging target');
-                    results.push({
-                        ip: target.ip,
-                        label: target.label || target.ip,
-                        latency: null,
-                        packetLoss: null
-                    });
-                }
-            }
-        } catch (error: any) {
-            const errMsg = error?.message || String(error);
-            logger.error({ err: errMsg, router: router.name }, 'Failed to measure ping targets completely');
-
-            if (results.length === 0) {
-                return targets.slice(0, 6).map(t => ({
-                    ip: t.ip,
-                    label: t.label || t.ip,
-                    latency: null,
-                    packetLoss: null
-                }));
-            }
-        } finally {
-            if (conn) conn.release();
-        }
-
-        return results;
+        return routerActionService.measurePingTargets(routerId, tenantId);
     }
 
     // ==================== NETWATCH METHODS ====================
@@ -921,101 +626,10 @@ export class RouterService {
      */
     async createNetwatch(
         routerId: string,
-        data: {
-            host?: string;
-            name?: string;
-            deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
-            interval?: number;
-            latitude?: string;
-            longitude?: string;
-            location?: string;
-            waypoints?: string;
-            connectionType?: 'router' | 'client';
-            connectedToId?: string | null;
-            targetInterface?: string | null;
-            linkedOnuId?: string | null;
-            isAppOnly?: boolean;
-        },
+        data: any,
         tenantId?: string
     ): Promise<RouterNetwatch> {
-        // 1. Apply to Router first (only for client type with host)
-        const router = await this.findByIdWithPassword(routerId, tenantId);
-        if (!router) {
-            logger.warn({ routerId }, 'Router not found for netwatch creation');
-            throw new ApiError(404, 'Router not found');
-        }
-
-        // Only add to MikroTik if it's a netwatch client/router/switch type (has IP to ping) AND is NOT App-Only
-        const isMikrotikPingable = (!data.deviceType || ['client', 'router', 'switch'].includes(data.deviceType)) && data.host && data.host !== '0.0.0.0' && data.isAppOnly !== true;
-
-        if (isMikrotikPingable) {
-            let conn;
-            try {
-                conn = await connectToRouter({
-                    host: router.host,
-                    port: router.port,
-                    username: router.username,
-                    password: router.password,
-                });
-
-                await addNetwatchEntry(conn, {
-                    host: data.host as string,
-                    interval: data.interval,
-                    comment: data.name || 'Monitoring Node',
-                });
-
-                // Smart Append Webhook scripts if Webhook feature is enabled
-                if (router.useWebhook && router.webhookSecret) {
-                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
-                    await configureNetwatchWebhook(conn, data.host as string, webhookUrl);
-                }
-
-                logger.info({ routerId, host: data.host, name: data.name }, 'Netwatch entry added to MikroTik router');
-            } catch (err: any) {
-                const msg = err?.message || String(err);
-                logger.error({ err: msg, routerId, host: data.host }, 'Failed to add netwatch to router');
-                throw new ApiError(500, `Failed to add to router: ${msg}`);
-            } finally {
-                if (conn) conn.release();
-            }
-        }
-
-        const insertData: any = {
-            routerId,
-            host: data.host || '', // Default to empty string for ODP without host
-            name: data.name,
-            deviceType: data.deviceType || 'client',
-            interval: data.interval || 30,
-            latitude: data.latitude,
-            longitude: data.longitude,
-            location: data.location,
-            waypoints: data.waypoints,
-            connectionType: data.connectionType || 'router',
-            connectedToId: data.connectedToId,
-            targetInterface: data.targetInterface,
-            linkedOnuId: data.linkedOnuId,
-            status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
-            isAppOnly: data.isAppOnly || false,
-        };
-
-        try {
-            const [netwatch] = await db
-                .insert(routerNetwatch)
-                .values(insertData)
-                .returning();
-
-            // Update netwatch in routerNetwatchService (for caching/real-time updates)
-            try {
-                await routerNetwatchService.update(netwatch);
-            } catch (serviceError: any) {
-                logger.error({ err: serviceError, routerId, netwatchId: netwatch.id }, 'Failed to update netwatch in real-time service after creation');
-            }
-
-            return netwatch;
-        } catch (dbErr) {
-            logger.error({ err: dbErr, data: insertData, routerId }, 'Failed to insert netwatch into DB');
-            throw new ApiError(500, `Database error: ${dbErr instanceof Error ? dbErr.message : 'Unknown database error'}`);
-        }
+        return routerNetwatchService.create(routerId, data, tenantId);
     }
 
     /**
@@ -1024,321 +638,66 @@ export class RouterService {
     async updateNetwatch(
         routerId: string,
         netwatchId: string,
-        data: {
-            host?: string;
-            name?: string;
-            deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
-            interval?: number;
-            latitude?: string | null;
-            longitude?: string | null;
-            location?: string | null;
-            waypoints?: string | null;
-            connectionType?: 'router' | 'client';
-            connectedToId?: string | null;
-            targetInterface?: string | null;
-            status?: 'up' | 'down' | 'unknown';
-            linkedOnuId?: string | null;
-            isAppOnly?: boolean;
-        },
+        data: any,
         tenantId?: string
     ): Promise<RouterNetwatch | undefined> {
-        // 0. Get original entry to know the host and check tenant
-        const filters = [eq(routerNetwatch.id, netwatchId)];
-        if (tenantId) {
-            const routerCheck = await this.findById(routerId, tenantId);
-            if (!routerCheck) throw new Error('Router not found or access denied');
-        }
-
-        const [original] = await db.select().from(routerNetwatch).where(and(...filters));
-        if (!original) throw new Error('Netwatch entry not found');
-
-        // 1. Apply to Router (only for client types and only if relevant fields change)
-        const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0' || data.host === '';
-        const isOdpOrOlt = ['odp', 'olt'].includes(original.deviceType as any) || (data.deviceType && ['odp', 'olt'].includes(data.deviceType));
-        const currentDeviceType = data.deviceType || original.deviceType;
-        const currentIsAppOnly = data.isAppOnly !== undefined ? data.isAppOnly : original.isAppOnly;
-        const isClientType = !isVirtualHost && !isOdpOrOlt && !currentIsAppOnly && (currentDeviceType === 'client' || currentDeviceType === 'router' || currentDeviceType === 'switch' || !currentDeviceType);
-
-        if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
-            const router = await this.findByIdWithPassword(routerId, tenantId);
-            if (router) {
-                let conn;
-                try {
-                    conn = await connectToRouter({
-                        host: router.host,
-                        port: router.port,
-                        username: router.username,
-                        password: router.password,
-                    });
-
-                    await updateNetwatchEntry(conn, original.host, {
-                        host: data.host,
-                        interval: data.interval,
-                        comment: data.name,
-                    });
-
-                    if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
-                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
-                        const hostToConfigure = data.host || original.host;
-                        await configureNetwatchWebhook(conn, hostToConfigure, webhookUrl);
-                    }
-                } catch (err: any) {
-                    const msg = err?.message || String(err);
-                    logger.error({ err: msg, host: original.host }, 'Failed to update netwatch on router');
-                    throw new Error(`Failed to update router: ${msg}`);
-                } finally {
-                    if (conn) conn.release();
-                }
-            }
-        }
-
-        const updateData: Partial<typeof routerNetwatch.$inferInsert> & { updatedAt: Date } = {
-            updatedAt: new Date(),
-        };
-
-        if (data.host !== undefined) {
-            updateData.host = data.host;
-            if (data.host === '' || !data.host) {
-                updateData.status = 'up';
-            }
-        }
-        if (data.name !== undefined) updateData.name = data.name;
-        if (data.deviceType !== undefined) updateData.deviceType = data.deviceType;
-        if (data.interval !== undefined) updateData.interval = data.interval;
-        if (data.latitude !== undefined) updateData.latitude = data.latitude === '' ? null : data.latitude;
-        if (data.longitude !== undefined) updateData.longitude = data.longitude === '' ? null : data.longitude;
-        if (data.location !== undefined) updateData.location = data.location;
-        if (data.waypoints !== undefined) updateData.waypoints = data.waypoints;
-        if (data.connectionType !== undefined) updateData.connectionType = data.connectionType;
-        if (data.connectedToId !== undefined) updateData.connectedToId = data.connectedToId;
-        if (data.targetInterface !== undefined) updateData.targetInterface = data.targetInterface;
-        if (data.status !== undefined) updateData.status = data.status;
-        if (data.linkedOnuId !== undefined) updateData.linkedOnuId = data.linkedOnuId === '' ? null : data.linkedOnuId;
-
-        const [netwatch] = await db
-            .update(routerNetwatch)
-            .set(updateData)
-            .where(eq(routerNetwatch.id, netwatchId))
-            .returning();
-
-        if (netwatch) {
-            eventEmitter.broadcast('map_update', {
-                type: 'netwatch',
-                id: netwatch.id,
-                routerId: netwatch.routerId,
-                action: 'update',
-            });
-        }
-
-        if (data.name !== undefined || data.host !== undefined) {
-            try {
-                const topoUpdate: any = { updatedAt: new Date() };
-                if (data.name !== undefined) topoUpdate.customName = data.name;
-                if (data.host !== undefined) topoUpdate.customHost = data.host;
-                await db.update(topologyNodes).set(topoUpdate)
-                    .where(eq(topologyNodes.nodeId, netwatchId));
-            } catch (err) {
-                logger.error({ err, netwatchId }, 'Failed to sync netwatch update to topology');
-            }
-        }
-
-        return netwatch;
+        return routerNetwatchService.updateEntry(routerId, netwatchId, data, tenantId);
     }
 
     /**
      * Delete a netwatch entry
      */
     async deleteNetwatch(routerId: string, netwatchId: string, tenantId?: string, deleteFromMikrotik: boolean = true): Promise<boolean> {
-        logger.info({ netwatchId, routerId, deleteFromMikrotik }, '[RouterService] Deleting netwatch entry');
-
-        if (tenantId) {
-            const routerCheck = await this.findById(routerId, tenantId);
-            if (!routerCheck) return false;
-        }
-
-        const [deleted] = await db
-            .delete(routerNetwatch)
-            .where(eq(routerNetwatch.id, netwatchId))
-            .returning();
-
-        if (deleted) {
-            eventEmitter.broadcast('map_update', {
-                type: 'netwatch',
-                id: netwatchId,
-                routerId,
-                action: 'delete',
-            });
-        }
-
-        if (!deleted) {
-            logger.warn({ netwatchId }, '[RouterService] Netwatch entry not found in DB for deletion');
-            return false;
-        }
-
-        if (deleted.deviceType === 'client' || !deleted.deviceType) {
-            if (deleteFromMikrotik && !deleted.isAppOnly) {
-                const router = await this.findByIdWithPassword(routerId, tenantId);
-                if (router) {
-                    let conn;
-                    try {
-                        conn = await connectToRouter({
-                            host: router.host,
-                            port: router.port,
-                            username: router.username,
-                            password: router.password,
-                        });
-
-                        try {
-                            await removeNetwatchEntry(conn, deleted.host);
-                        } catch (netwatchErr: any) {
-                            const msg = netwatchErr.message || '';
-                            if (!msg.includes('no such item') && !msg.includes('not found')) {
-                                logger.error({ err: msg }, '[RouterService] Failed to remove from MikroTik');
-                            }
-                        }
-                    } catch (err: any) {
-                        logger.error({ err: err?.message || String(err) }, 'Failed to connect/delete netwatch from router');
-                    } finally {
-                        if (conn) conn.release();
-                    }
-                }
-            }
-        }
-
-        try {
-            await db.update(topologyNodes).set({ nodeId: null, updatedAt: new Date() })
-                .where(eq(topologyNodes.nodeId, netwatchId));
-        } catch (err) {
-            logger.error({ err, netwatchId }, 'Failed to unlink topology nodes after netwatch delete');
-        }
-
-        return true;
+        return routerNetwatchService.delete(routerId, netwatchId, tenantId, deleteFromMikrotik);
     }
 
     /**
      * Measure latency for all netwatch hosts on a router
      */
     async measureNetwatchLatency(routerId: string, customConn?: any): Promise<void> {
-        if (customConn) {
-            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-            const entries = await routerNetwatchService.getNetwatch(routerId);
-            const targets = entries.filter(e => e.status !== 'unknown');
-            return routerNetwatchService.measureLatency(routerId, router?.name || 'Unknown', customConn, targets);
-        }
-
-        const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-        if (!router) return;
-
-        let conn;
-        try {
-            conn = await this.getRouterConnection(routerId);
-            const entries = await routerNetwatchService.getNetwatch(routerId);
-            const targets = entries.filter(e => e.status !== 'unknown');
-            await routerNetwatchService.measureLatency(routerId, router.name, conn, targets);
-        } catch (err) {
-            logger.error({ err, router: router.name }, 'Failed to measure netwatch latency');
-        } finally {
-            if (conn) conn.release();
-        }
+        return routerSyncService.measureNetwatchLatency(routerId, customConn);
     }
 
     /**
      * Sync netwatch entries from MikroTik router to database
      */
     async syncNetwatchFromRouter(routerId: string): Promise<{ synced: number; errors: string[] }> {
-        return routerNetwatchService.fullSync(routerId);
+        return routerSyncService.syncNetwatchFromRouter(routerId);
     }
 
     /**
      * UNIFIED LINKAGE: Sync Netwatch bridging to ONUS table
      */
     private async syncNetwatchToOnus(routerId: string): Promise<void> {
-        return routerNetwatchService.syncToOnus(routerId);
+        return routerSyncService.syncToOnus(routerId);
     }
 
     /**
      * Get discovered neighbors (MNDP)
      */
     async getNeighbors(routerId: string, tenantId?: string): Promise<RouterNeighbor[]> {
-        let api;
-        try {
-            api = await this.getRouterConnection(routerId, tenantId);
-            const neighbors = await getNeighbors(api);
-
-            await db.update(routers)
-                .set({ lastNeighborsSync: new Date() })
-                .where(eq(routers.id, routerId));
-
-            return neighbors;
-        } catch (error: any) {
-            logger.error({ err: error, routerId }, 'Failed to get neighbors');
-            throw new ApiError(500, `MikroTik Error: ${error.message}`);
-        } finally {
-            if (api) api.release();
-        }
+        return routerActionService.getNeighbors(routerId, tenantId);
     }
 
     /**
      * Get RoMON neighbors for a router
      */
     async getRomonNeighbors(routerId: string, tenantId?: string): Promise<RomonNeighbor[]> {
-        let api: any;
-        try {
-            api = await this.getRouterConnection(routerId, tenantId);
-            const neighbors = await getRomonNeighbors(api);
-            return neighbors;
-        } catch (error: any) {
-            logger.warn({ err: error?.message || String(error), routerId }, 'Failed to get RoMON neighbors');
-            return [];
-        } finally {
-            if (api) api.release();
-        }
+        return routerActionService.getRomonNeighbors(routerId, tenantId);
     }
 
     /**
      * Get a connection to a router, handling RoMON if configured
      */
     async getRouterConnection(routerId: string, tenantId?: string): Promise<any> {
-        const router = await this.findByIdWithPassword(routerId, tenantId);
-        if (!router) throw new ApiError(404, 'Router not found');
-
-        let config: RouterConnection = {
-            host: router.host,
-            port: router.port,
-            username: router.username,
-            password: router.password || '',
-        };
-
-        if (router.gatewayId && router.romonMac) {
-            const gateway = await this.findByIdWithPassword(router.gatewayId, tenantId);
-            if (!gateway) throw new ApiError(404, 'RoMON Gateway router not found');
-
-            config = {
-                host: gateway.host,
-                port: gateway.port,
-                username: gateway.username,
-                password: gateway.password || '',
-                romon: router.romonMac,
-            };
-        }
-
-        return await connectToRouter(config);
+        return routerActionService.getRouterConnection(routerId, tenantId);
     }
 
     /**
      * Measure ping latency to a specific IP address via MikroTik router.
      */
     async pingHost(routerId: string, ip: string, tenantId?: string): Promise<{ latency: number | null; packetLoss: number | null }> {
-        let api: any;
-        try {
-            api = await this.getRouterConnection(routerId, tenantId);
-            return await measurePing(api, ip, 3, '500ms', '3000ms');
-        } catch (error: any) {
-            logger.error({ err: error?.message || String(error), routerId, ip }, 'Failed to execute arbitrary ping');
-            return { latency: null, packetLoss: 100 };
-        } finally {
-            if (api) api.release();
-        }
+        return routerActionService.pingHost(routerId, ip, tenantId);
     }
 }
 

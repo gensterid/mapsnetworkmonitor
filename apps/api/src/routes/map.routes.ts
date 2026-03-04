@@ -31,7 +31,7 @@ router.get(
         const userId = req.user?.id || 'none';
         const cacheKey = `map_layout_${role}_${userId}`;
 
-        const cachedData = cacheService.get(cacheKey);
+        const cachedData = await cacheService.get(cacheKey);
         if (cachedData) {
             return res.json({ data: cachedData, _source: 'cache' });
         }
@@ -270,7 +270,7 @@ router.get(
         };
 
         // Cache the heavy response for 10 seconds to protect DB against refresh spam
-        cacheService.set(cacheKey, responseData, 10000);
+        await cacheService.set(cacheKey, responseData, 10);
 
         res.json({
             data: responseData

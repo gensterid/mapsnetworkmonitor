@@ -1,25 +1,24 @@
-// Simple in-memory cache utility
-// Used to reduce database load for frequently accessed, slowly changing data (like the Map topology)
+import { getRedisConnection } from './redis-client.js';
+import { logger } from './logger.js';
 
-interface CacheEntry<T> {
-    data: T;
-    expiry: number;
-}
-
+// Simple Redis-backed cache utility
 class CacheService {
-    private cache: Map<string, CacheEntry<any>> = new Map();
-
     /**
      * Set a value in the cache with a Time-To-Live (TTL)
      * @param key Unique identifier for the cached data
      * @param data The data to cache
-     * @param ttlMs Time-to-live in milliseconds
+     * @param ttlSeconds Time-to-live in seconds
      */
-    set<T>(key: string, data: T, ttlMs: number): void {
-        this.cache.set(key, {
-            data,
-            expiry: Date.now() + ttlMs,
-        });
+    async set<T>(key: string, data: T, ttlSeconds: number): Promise<void> {
+        const redis = getRedisConnection();
+        if (!redis) return;
+
+        try {
+            const value = JSON.stringify(data);
+            await redis.set(key, value, 'EX', ttlSeconds);
+        } catch (err: any) {
+            logger.error({ err: err.message, key }, 'Failed to set cache');
+        }
     }
 
     /**
@@ -27,30 +26,63 @@ class CacheService {
      * @param key Unique identifier for the cached data
      * @returns The cached data, or null if not found/expired
      */
-    get<T>(key: string): T | null {
-        const entry = this.cache.get(key);
-        if (!entry) return null;
+    async get<T>(key: string): Promise<T | null> {
+        const redis = getRedisConnection();
+        if (!redis) return null;
 
-        if (Date.now() > entry.expiry) {
-            this.cache.delete(key);
+        try {
+            const value = await redis.get(key);
+            if (!value) return null;
+            return JSON.parse(value) as T;
+        } catch (err: any) {
+            logger.error({ err: err.message, key }, 'Failed to get cache');
             return null;
         }
-
-        return entry.data as T;
     }
 
     /**
      * Delete a specific key from the cache
      */
-    delete(key: string): void {
-        this.cache.delete(key);
+    async delete(key: string): Promise<void> {
+        const redis = getRedisConnection();
+        if (!redis) return;
+
+        try {
+            await redis.del(key);
+        } catch (err: any) {
+            logger.error({ err: err.message, key }, 'Failed to delete cache');
+        }
+    }
+
+    /**
+     * Delete multiple keys matching a pattern (e.g. "routers:*")
+     */
+    async deletePattern(pattern: string): Promise<void> {
+        const redis = getRedisConnection();
+        if (!redis) return;
+
+        try {
+            const keys = await redis.keys(pattern);
+            if (keys.length > 0) {
+                await redis.del(...keys);
+            }
+        } catch (err: any) {
+            logger.error({ err: err.message, pattern }, 'Failed to delete pattern from cache');
+        }
     }
 
     /**
      * Clear the entire cache
      */
-    clear(): void {
-        this.cache.clear();
+    async clear(): Promise<void> {
+        const redis = getRedisConnection();
+        if (!redis) return;
+
+        try {
+            await redis.flushdb();
+        } catch (err: any) {
+            logger.error({ err: err.message }, 'Failed to clear cache');
+        }
     }
 }
 

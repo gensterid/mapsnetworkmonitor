@@ -7,6 +7,7 @@ import {
     onus,
     olts,
     alerts,
+    topologyNodes,
     type RouterNetwatch,
 } from '../db/schema/index.js';
 import {
@@ -17,14 +18,33 @@ import {
     connectToRouter,
     configureNetwatchWebhook,
     removeNetwatchWebhook,
+    addNetwatchEntry,
+    updateNetwatchEntry,
+    removeNetwatchEntry,
     type RouterConnection,
 } from '../lib/mikrotik-api.js';
 import { decrypt } from '../lib/encryption.js';
 import { alertService } from './alert.service.js';
 import { settingsService } from './settings.service.js';
 import { logger } from '../lib/logger.js';
+import { ApiError } from '../middleware/error.middleware.js';
+import { eventEmitter } from './event-emitter.service.js';
 
 export class RouterNetwatchService {
+    /**
+     * Internal helper to find a router and decrypt its password.
+     */
+    private async findRouterWithPassword(id: string, tenantId?: string): Promise<any> {
+        const filters = [eq(routers.id, id)];
+        if (tenantId) filters.push(eq(routers.tenantId, tenantId));
+        const [router] = await db.select().from(routers).where(and(...filters));
+        if (!router) return null;
+        return {
+            ...router,
+            password: router.passwordEncrypted ? decrypt(router.passwordEncrypted) : '',
+        };
+    }
+
     /**
      * Get all netwatch entries for a router with detailed info (ONUs/Alerts)
      */
@@ -651,6 +671,301 @@ export class RouterNetwatchService {
 
         await this.syncToOnus(routerId);
         return { synced: syncedCount, errors };
+    }
+
+    /**
+     * Create a netwatch entry
+     */
+    async create(
+        routerId: string,
+        data: {
+            host?: string;
+            name?: string;
+            deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
+            interval?: number;
+            latitude?: string;
+            longitude?: string;
+            location?: string;
+            waypoints?: string;
+            connectionType?: 'router' | 'client';
+            connectedToId?: string | null;
+            targetInterface?: string | null;
+            linkedOnuId?: string | null;
+            isAppOnly?: boolean;
+        },
+        tenantId?: string
+    ): Promise<RouterNetwatch> {
+        // 1. Apply to Router first (only for client type with host)
+        const router = await this.findRouterWithPassword(routerId, tenantId);
+        if (!router) {
+            logger.warn({ routerId }, 'Router not found for netwatch creation');
+            throw new ApiError(404, 'Router not found');
+        }
+
+        // Only add to MikroTik if it's a netwatch client/router/switch type (has IP to ping) AND is NOT App-Only
+        const isMikrotikPingable = (!data.deviceType || ['client', 'router', 'switch'].includes(data.deviceType)) && data.host && data.host !== '0.0.0.0' && data.isAppOnly !== true;
+
+        if (isMikrotikPingable) {
+            let conn;
+            try {
+                conn = await connectToRouter({
+                    host: router.host,
+                    port: router.port,
+                    username: router.username,
+                    password: router.password,
+                });
+
+                await addNetwatchEntry(conn, {
+                    host: data.host as string,
+                    interval: data.interval,
+                    comment: data.name || 'Monitoring Node',
+                });
+
+                // Smart Append Webhook scripts if Webhook feature is enabled
+                if (router.useWebhook && router.webhookSecret) {
+                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
+                    await configureNetwatchWebhook(conn, data.host as string, webhookUrl);
+                }
+
+                logger.info({ routerId, host: data.host, name: data.name }, 'Netwatch entry added to MikroTik router');
+            } catch (err: any) {
+                const msg = err?.message || String(err);
+                logger.error({ err: msg, routerId, host: data.host }, 'Failed to add netwatch to router');
+                throw new ApiError(500, `Failed to add to router: ${msg}`);
+            } finally {
+                if (conn) conn.release();
+            }
+        }
+
+        const insertData: any = {
+            routerId,
+            host: data.host || '', // Default to empty string for ODP without host
+            name: data.name,
+            deviceType: data.deviceType || 'client',
+            interval: data.interval || 30,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            location: data.location,
+            waypoints: data.waypoints,
+            connectionType: data.connectionType || 'router',
+            connectedToId: data.connectedToId,
+            targetInterface: data.targetInterface,
+            linkedOnuId: data.linkedOnuId,
+            status: data.host ? 'unknown' : 'up', // ODP without host is always "up"
+            isAppOnly: data.isAppOnly || false,
+        };
+
+        try {
+            const [netwatch] = await db
+                .insert(routerNetwatch)
+                .values(insertData)
+                .returning();
+
+            // Notify real-time listeners
+            await this.update(netwatch);
+
+            return netwatch;
+        } catch (dbErr) {
+            logger.error({ err: dbErr, data: insertData, routerId }, 'Failed to insert netwatch into DB');
+            throw new ApiError(500, `Database error: ${dbErr instanceof Error ? dbErr.message : 'Unknown database error'}`);
+        }
+    }
+
+    /**
+     * Update a netwatch entry
+     */
+    async updateEntry(
+        routerId: string,
+        netwatchId: string,
+        data: {
+            host?: string;
+            name?: string;
+            deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
+            interval?: number;
+            latitude?: string | null;
+            longitude?: string | null;
+            location?: string | null;
+            waypoints?: string | null;
+            connectionType?: 'router' | 'client';
+            connectedToId?: string | null;
+            targetInterface?: string | null;
+            status?: 'up' | 'down' | 'unknown';
+            linkedOnuId?: string | null;
+            isAppOnly?: boolean;
+        },
+        tenantId?: string
+    ): Promise<RouterNetwatch | undefined> {
+        // 0. Get original entry to know the host and check tenant
+        const filters = [eq(routerNetwatch.id, netwatchId)];
+        if (tenantId) {
+            const routerCheck = await this.findRouterWithPassword(routerId, tenantId);
+            if (!routerCheck) throw new Error('Router not found or access denied');
+        }
+
+        const [original] = await db.select().from(routerNetwatch).where(and(...filters));
+        if (!original) throw new Error('Netwatch entry not found');
+
+        // 1. Apply to Router (only for client types and only if relevant fields change)
+        const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0' || data.host === '';
+        const isOdpOrOlt = ['odp', 'olt'].includes(original.deviceType as any) || (data.deviceType && ['odp', 'olt'].includes(data.deviceType));
+        const currentDeviceType = data.deviceType || original.deviceType;
+        const currentIsAppOnly = data.isAppOnly !== undefined ? data.isAppOnly : original.isAppOnly;
+        const isClientType = !isVirtualHost && !isOdpOrOlt && !currentIsAppOnly && (currentDeviceType === 'client' || currentDeviceType === 'router' || currentDeviceType === 'switch' || !currentDeviceType);
+
+        if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
+            const router = await this.findRouterWithPassword(routerId, tenantId);
+            if (router) {
+                let conn;
+                try {
+                    conn = await connectToRouter({
+                        host: router.host,
+                        port: router.port,
+                        username: router.username,
+                        password: router.password,
+                    });
+
+                    await updateNetwatchEntry(conn, original.host, {
+                        host: data.host,
+                        interval: data.interval,
+                        comment: data.name,
+                    });
+
+                    if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
+                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
+                        const hostToConfigure = data.host || original.host;
+                        await configureNetwatchWebhook(conn, hostToConfigure, webhookUrl);
+                    }
+                } catch (err: any) {
+                    const msg = err?.message || String(err);
+                    logger.error({ err: msg, host: original.host }, 'Failed to update netwatch on router');
+                    throw new Error(`Failed to update router: ${msg}`);
+                } finally {
+                    if (conn) conn.release();
+                }
+            }
+        }
+
+        const updateData: any = {
+            updatedAt: new Date(),
+        };
+
+        if (data.host !== undefined) {
+            updateData.host = data.host;
+            if (data.host === '' || !data.host) {
+                updateData.status = 'up';
+            }
+        }
+        if (data.name !== undefined) updateData.name = data.name;
+        if (data.deviceType !== undefined) updateData.deviceType = data.deviceType;
+        if (data.interval !== undefined) updateData.interval = data.interval;
+        if (data.latitude !== undefined) updateData.latitude = data.latitude === '' ? null : data.latitude;
+        if (data.longitude !== undefined) updateData.longitude = data.longitude === '' ? null : data.longitude;
+        if (data.location !== undefined) updateData.location = data.location;
+        if (data.waypoints !== undefined) updateData.waypoints = data.waypoints;
+        if (data.connectionType !== undefined) updateData.connectionType = data.connectionType;
+        if (data.connectedToId !== undefined) updateData.connectedToId = data.connectedToId;
+        if (data.targetInterface !== undefined) updateData.targetInterface = data.targetInterface;
+        if (data.status !== undefined) updateData.status = data.status;
+        if (data.linkedOnuId !== undefined) updateData.linkedOnuId = data.linkedOnuId === '' ? null : data.linkedOnuId;
+
+        const [netwatch] = await db
+            .update(routerNetwatch)
+            .set(updateData)
+            .where(eq(routerNetwatch.id, netwatchId))
+            .returning();
+
+        if (netwatch) {
+            eventEmitter.broadcast('map_update', {
+                type: 'netwatch',
+                id: netwatch.id,
+                routerId: netwatch.routerId,
+                action: 'update',
+            });
+        }
+
+        if (data.name !== undefined || data.host !== undefined) {
+            try {
+                const topoUpdate: any = { updatedAt: new Date() };
+                if (data.name !== undefined) topoUpdate.customName = data.name;
+                if (data.host !== undefined) topoUpdate.customHost = data.host;
+                await db.update(topologyNodes).set(topoUpdate)
+                    .where(eq(topologyNodes.nodeId, netwatchId));
+            } catch (err) {
+                logger.error({ err, netwatchId }, 'Failed to sync netwatch update to topology');
+            }
+        }
+
+        return netwatch;
+    }
+
+    /**
+     * Delete a netwatch entry
+     */
+    async delete(routerId: string, netwatchId: string, tenantId?: string, deleteFromMikrotik: boolean = true): Promise<boolean> {
+        logger.info({ netwatchId, routerId, deleteFromMikrotik }, '[RouterNetwatchService] Deleting netwatch entry');
+
+        if (tenantId) {
+            const routerCheck = await this.findRouterWithPassword(routerId, tenantId);
+            if (!routerCheck) return false;
+        }
+
+        const [deleted] = await db
+            .delete(routerNetwatch)
+            .where(eq(routerNetwatch.id, netwatchId))
+            .returning();
+
+        if (deleted) {
+            eventEmitter.broadcast('map_update', {
+                type: 'netwatch',
+                id: netwatchId,
+                routerId,
+                action: 'delete',
+            });
+        }
+
+        if (!deleted) {
+            logger.warn({ netwatchId }, '[RouterNetwatchService] Netwatch entry not found in DB for deletion');
+            return false;
+        }
+
+        if (deleted.deviceType === 'client' || !deleted.deviceType) {
+            if (deleteFromMikrotik && !deleted.isAppOnly) {
+                const router = await this.findRouterWithPassword(routerId, tenantId);
+                if (router) {
+                    let conn;
+                    try {
+                        conn = await connectToRouter({
+                            host: router.host,
+                            port: router.port,
+                            username: router.username,
+                            password: router.password,
+                        });
+
+                        try {
+                            await removeNetwatchEntry(conn, deleted.host);
+                        } catch (netwatchErr: any) {
+                            const msg = netwatchErr.message || '';
+                            if (!msg.includes('no such item') && !msg.includes('not found')) {
+                                logger.error({ err: msg }, '[RouterNetwatchService] Failed to remove from MikroTik');
+                            }
+                        }
+                    } catch (err: any) {
+                        logger.error({ err: err?.message || String(err) }, 'Failed to connect/delete netwatch from router');
+                    } finally {
+                        if (conn) conn.release();
+                    }
+                }
+            }
+        }
+
+        try {
+            await db.update(topologyNodes).set({ nodeId: null, updatedAt: new Date() })
+                .where(eq(topologyNodes.nodeId, netwatchId));
+        } catch (err) {
+            logger.error({ err, netwatchId }, 'Failed to unlink topology nodes after netwatch delete');
+        }
+
+        return true;
     }
 
     /**
