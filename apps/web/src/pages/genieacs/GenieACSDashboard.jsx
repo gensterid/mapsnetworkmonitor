@@ -149,10 +149,10 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                             Signal Level Distribution
                         </h3>
                     </div>
-                    <CardContent className="p-6 h-[320px] min-w-0 relative">
+                    <CardContent className="p-6 h-[320px] min-h-[320px] min-w-0 relative">
                         {signalData.length > 0 ? (
-                            <div className="w-full h-full min-h-0 min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                            <div className="w-full h-full min-h-0 min-w-0" style={{ minHeight: '272px' }}>
+                                <ResponsiveContainer width="100%" height="100%" debounce={1}>
                                     <PieChart>
                                         <Pie
                                             data={signalData}
@@ -191,10 +191,10 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                             Model Distribution (Top 5)
                         </h3>
                     </div>
-                    <CardContent className="p-6 h-[320px] min-w-0 relative">
+                    <CardContent className="p-6 h-[320px] min-h-[320px] min-w-0 relative">
                         {modelData.length > 0 ? (
-                            <div className="w-full h-full min-h-0 min-w-0">
-                                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                            <div className="w-full h-full min-h-0 min-w-0" style={{ minHeight: '272px' }}>
+                                <ResponsiveContainer width="100%" height="100%" debounce={1}>
                                     <BarChart data={modelData} layout="vertical">
                                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={true} vertical={false} />
                                         <XAxis type="number" hide />

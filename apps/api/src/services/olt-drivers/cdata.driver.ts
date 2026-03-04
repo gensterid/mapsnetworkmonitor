@@ -110,186 +110,188 @@ export class CDataDriver extends BaseOltDriver {
         const password = this.config.password || '';
         const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
-        // 1. Try Modern API Path (/cgi-bin/h.cgi)
-        try {
-            logger.info({ baseUrl }, 'C-Data: Attempting modern login');
-            const token = await this.loginModern(baseUrl);
+        const MAX_RETRIES = 1; // Conservative retry to avoid overwhelming OLT
+        let lastError: any = null;
 
-            if (token) {
-                logger.info('C-Data: Modern login successful, fetching ONU list');
-                const onuUrl = `${baseUrl}/cgi-bin/h.cgi?module=onu_list_get`;
-                const response = await fetch(onuUrl, {
-                    headers: { 'token': token },
-                    signal: AbortSignal.timeout(10000)
-                });
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                if (attempt > 0) {
+                    logger.info({ attempt, baseUrl }, 'C-Data: Retrying OLT connection...');
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Short delay before retry
+                }
 
-                if (response.ok) {
-                    const data = await response.json() as any;
-                    if (data.code === 0) {
-                        const items = data.data?.list || data.data || [];
-                        if (items.length > 0) {
-                            logger.info({ keys: Object.keys(items[0]) }, 'C-Data: ONU list item keys');
-                            // Also log the first item raw to be sure
-                            logger.debug({ firstItem: items[0] }, 'C-Data: First ONU raw');
-                        }
-                        const onus = this.parseOnuData(data);
-                        // Signal Enrichment
-                        try {
-                            let optList: any[] = [];
-                            const endpoints = [
-                                'ont_optical_list_get',
-                                'ont_optical_get',
-                                'optical_power_list_get',
-                                'onu_optical_info_get',
-                                'onu_optical_list_get',
-                                'onu_optical_power_get',
-                                'onu_status_get',
-                                'onu_optical_power_list_get',
-                                'pon_optical_info_get',
-                                'diagnose_list_get',
-                                'port_optical_info_get',
-                                'onu_info_basic_rxpwr_get'
-                            ];
+                // 1. Try Modern API Path (/cgi-bin/h.cgi)
+                try {
+                    logger.info({ baseUrl, attempt }, 'C-Data: Attempting modern login');
+                    const token = await this.loginModern(baseUrl);
 
-                            for (const module of endpoints) {
+                    if (token) {
+                        logger.info('C-Data: Modern login successful, fetching ONU list');
+                        const onuUrl = `${baseUrl}/cgi-bin/h.cgi?module=onu_list_get`;
+                        const response = await fetch(onuUrl, {
+                            headers: { 'token': token },
+                            signal: AbortSignal.timeout(10000)
+                        });
+
+                        if (response.ok) {
+                            const data = await response.json() as any;
+                            if (data.code === 0) {
+                                const items = data.data?.list || data.data || [];
+                                if (items.length > 0) {
+                                    logger.info({ keys: Object.keys(items[0]) }, 'C-Data: ONU list item keys');
+                                    // Also log the first item raw to be sure
+                                    logger.debug({ firstItem: items[0] }, 'C-Data: First ONU raw');
+                                }
+                                const onus = this.parseOnuData(data);
+                                // Signal Enrichment
                                 try {
-                                    const optUrl = `${baseUrl}/cgi-bin/h.cgi?module=${module}`;
-                                    const optResponse = await fetch(optUrl, { headers: { 'token': token }, signal: AbortSignal.timeout(4000) });
-                                    if (optResponse.ok) {
-                                        const optData = await optResponse.json() as any;
-                                        logger.info({ module, code: optData.code, hasData: !!optData.data }, 'C-Data: Probing optical module');
+                                    let optList: any[] = [];
+                                    const endpoints = [
+                                        'ont_optical_list_get',
+                                        'ont_optical_get',
+                                        'optical_power_list_get',
+                                        'onu_optical_info_get',
+                                        'onu_optical_list_get',
+                                        'onu_optical_power_get',
+                                        'onu_status_get',
+                                        'onu_optical_power_list_get',
+                                        'pon_optical_info_get',
+                                        'diagnose_list_get',
+                                        'port_optical_info_get',
+                                        'onu_info_basic_rxpwr_get'
+                                    ];
 
-                                        const list = optData.data?.list || optData.data || optData.info || optData.onus || (Array.isArray(optData) ? optData : []);
-                                        if (Array.isArray(list) && list.length > 0) {
-                                            optList = list;
-                                            logger.info({ module, count: optList.length }, 'C-Data: Successful enrichment source found');
-                                            break;
-                                        } else if (optData.code === 0) {
-                                            console.log(`[DIAG] ${module} response:`, JSON.stringify(optData));
+                                    for (const module of endpoints) {
+                                        try {
+                                            const optUrl = `${baseUrl}/cgi-bin/h.cgi?module=${module}`;
+                                            const optResponse = await fetch(optUrl, { headers: { 'token': token }, signal: AbortSignal.timeout(4000) });
+                                            if (optResponse.ok) {
+                                                const optData = await optResponse.json() as any;
+                                                logger.info({ module, code: optData.code, hasData: !!optData.data }, 'C-Data: Probing optical module');
+
+                                                const list = optData.data?.list || optData.data || optData.info || optData.onus || (Array.isArray(optData) ? optData : []);
+                                                if (Array.isArray(list) && list.length > 0) {
+                                                    optList = list;
+                                                    logger.info({ module, count: optList.length }, 'C-Data: Successful enrichment source found');
+                                                    break;
+                                                }
+                                            }
+                                        } catch (e) {
+                                            logger.debug({ module, err: (e as any).message }, 'C-Data: Probe error');
+                                        }
+                                    }
+
+                                    if (optList.length > 0) {
+                                        logger.debug({ firstItemKeys: Object.keys(optList[0]) }, 'C-Data: Optical item keys');
+
+                                        for (const onu of onus) {
+                                            if (onu.status === 'online' && !onu.signal) {
+                                                const opt = optList.find((it: any) => {
+                                                    const itPonId = String(it.PonId ?? it.pon_id ?? it.PonID ?? it.pon_no ?? '');
+                                                    const itOnuId = String(it.OnuId ?? it.onu_id ?? it.OnuID ?? it.onu_no ?? '');
+
+                                                    return itOnuId === onu.onuId && (
+                                                        itPonId === onu.ponId ||
+                                                        onu.ponId.endsWith('/' + itPonId) ||
+                                                        itPonId === onu.ponId.split('/').pop()
+                                                    );
+                                                });
+                                                if (opt) {
+                                                    onu.signal = this.formatSignal(opt.RxPower || opt.rx_power || opt.rx_optical_power || opt.Rx_Power || opt.OnuRxPwr || opt.OpticalPower || opt.OntRxPower);
+                                                    if (onu.signal) {
+                                                        logger.debug({ sn: onu.sn, signal: onu.signal }, 'C-Data: Signal enriched');
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    // [FALLBACK] If signal still missing, try legacy status endpoints even if modern login worked
+                                    const missingSignal = onus.some(o => o.status === 'online' && !o.signal);
+                                    if (missingSignal) {
+                                        logger.info('C-Data: Signal missing after modern probes, trying legacy fallbacks');
+                                        const legacyPaths = [
+                                            '/cgi-bin/onu_status.cgi',
+                                            '/api/onu/list',
+                                            '/cgi-bin/system.cgi?module=onu_list'
+                                        ];
+                                        for (const path of legacyPaths) {
+                                            try {
+                                                const legacyRes = await fetch(`${baseUrl}${path}`, {
+                                                    headers: { 'Authorization': `Basic ${auth}`, 'User-Agent': 'Mozilla/5.0' },
+                                                    signal: AbortSignal.timeout(5000)
+                                                });
+                                                if (legacyRes.ok) {
+                                                    const text = await legacyRes.text();
+                                                    if (text.includes('{')) {
+                                                        const legacyOnus = this.parseOnuData(JSON.parse(text));
+                                                        for (const onu of onus) {
+                                                            if (!onu.signal) {
+                                                                const match = legacyOnus.find(lo => lo.sn === onu.sn || (lo.ponId === onu.ponId && lo.onuId === onu.onuId));
+                                                                if (match?.signal) {
+                                                                    onu.signal = match.signal;
+                                                                    logger.debug({ sn: onu.sn, signal: onu.signal, source: path }, 'C-Data: Signal enriched via legacy');
+                                                                }
+                                                            }
+                                                        }
+                                                        if (onus.some(o => o.status === 'online' && o.signal)) break;
+                                                    }
+                                                }
+                                            } catch (e) { }
                                         }
                                     }
                                 } catch (e) {
-                                    logger.debug({ module, err: (e as any).message }, 'C-Data: Probe error');
+                                    logger.error({ err: e }, 'C-Data: Optical power enrichment error');
                                 }
+                                return onus;
                             }
-
-                            if (optList.length > 0) {
-                                logger.debug({ firstItemKeys: Object.keys(optList[0]) }, 'C-Data: Optical item keys');
-
-                                for (const onu of onus) {
-                                    if (onu.status === 'online' && !onu.signal) {
-                                        const opt = optList.find((it: any) => {
-                                            const itPonId = String(it.PonId ?? it.pon_id ?? it.PonID ?? it.pon_no ?? '');
-                                            const itOnuId = String(it.OnuId ?? it.onu_id ?? it.OnuID ?? it.onu_no ?? '');
-
-                                            return itOnuId === onu.onuId && (
-                                                itPonId === onu.ponId ||
-                                                onu.ponId.endsWith('/' + itPonId) ||
-                                                itPonId === onu.ponId.split('/').pop()
-                                            );
-                                        });
-                                        if (opt) {
-                                            onu.signal = this.formatSignal(opt.RxPower || opt.rx_power || opt.rx_optical_power || opt.Rx_Power || opt.OnuRxPwr || opt.OpticalPower || opt.OntRxPower);
-                                            if (onu.signal) {
-                                                logger.debug({ sn: onu.sn, signal: onu.signal }, 'C-Data: Signal enriched');
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-
-                            // [FALLBACK] If signal still missing, try legacy status endpoints even if modern login worked
-                            // Some OLTs have modern login but legacy status pages
-                            const missingSignal = onus.some(o => o.status === 'online' && !o.signal);
-                            if (missingSignal) {
-                                logger.info('C-Data: Signal missing after modern probes, trying legacy fallbacks');
-                                const legacyPaths = [
-                                    '/cgi-bin/onu_status.cgi',
-                                    '/api/onu/list',
-                                    '/cgi-bin/system.cgi?module=onu_list'
-                                ];
-                                for (const path of legacyPaths) {
-                                    try {
-                                        const legacyRes = await fetch(`${baseUrl}${path}`, {
-                                            headers: { 'Authorization': `Basic ${auth}`, 'User-Agent': 'Mozilla/5.0' },
-                                            signal: AbortSignal.timeout(5000)
-                                        });
-                                        logger.info({ path, status: legacyRes.status }, 'C-Data: Legacy fallback status');
-                                        if (legacyRes.ok) {
-                                            const text = await legacyRes.text();
-                                            if (text.includes('{')) {
-                                                const legacyOnus = this.parseOnuData(JSON.parse(text));
-                                                logger.info({ path, count: legacyOnus.length }, 'C-Data: Legacy fallback results');
-                                                for (const onu of onus) {
-                                                    if (!onu.signal) {
-                                                        const match = legacyOnus.find(lo => lo.sn === onu.sn || (lo.ponId === onu.ponId && lo.onuId === onu.onuId));
-                                                        if (match?.signal) {
-                                                            onu.signal = match.signal;
-                                                            logger.debug({ sn: onu.sn, signal: onu.signal, source: path }, 'C-Data: Signal enriched via legacy');
-                                                        }
-                                                    }
-                                                }
-                                                if (onus.some(o => o.status === 'online' && o.signal)) break;
-                                            }
-                                        }
-                                    } catch (e) {
-                                        logger.debug({ path, err: (e as any).message }, 'C-Data: Legacy probe error');
-                                    }
-                                }
-                            }
-                        } catch (e) {
-                            logger.error({ err: e }, 'C-Data: Optical power enrichment error');
                         }
-                        return onus;
                     }
+                } catch (e) {
+                    lastError = e;
                 }
-            }
-        } catch (e) { }
 
-        // 2. Comprehensive Legacy Probing (Full Fallback if modern login fails entirely)
-        const legacyEndpoints = [
-            '/api/onu/list',
-            '/cgi-bin/system.cgi?module=onu_list',
-            '/cgi-bin/onu_status.cgi',
-            '/cgi-bin/onu_mgmt.cgi',
-            '/cgi-bin/system.cgi',
-            '/onu_list.cgi',
-            '/onu_mgmt.cgi',
-            '/api/v1/onu/status',
-            '/cgi-bin/h.cgi?module=onu_status_get'
-        ];
+                // 2. Comprehensive Legacy Probing
+                const legacyEndpoints = [
+                    '/api/onu/list',
+                    '/cgi-bin/system.cgi?module=onu_list',
+                    '/cgi-bin/onu_status.cgi',
+                    '/cgi-bin/onu_mgmt.cgi',
+                    '/cgi-bin/system.cgi',
+                    '/onu_list.cgi',
+                    '/api/v1/onu/status',
+                    '/cgi-bin/h.cgi?module=onu_status_get'
+                ];
 
-        for (const path of legacyEndpoints) {
-            try {
-                const url = `${baseUrl}${path}`;
-                const response = await fetch(url, {
-                    headers: {
-                        'Authorization': `Basic ${auth}`,
-                        'User-Agent': 'Mozilla/5.0'
-                    },
-                    signal: AbortSignal.timeout(8000)
-                });
+                for (const path of legacyEndpoints) {
+                    try {
+                        const url = `${baseUrl}${path}`;
+                        const response = await fetch(url, {
+                            headers: { 'Authorization': `Basic ${auth}`, 'User-Agent': 'Mozilla/5.0' },
+                            signal: AbortSignal.timeout(8000)
+                        });
 
-                if (response.ok) {
-                    const text = await response.text();
-                    if (text.includes('redirect') || text.includes('login.cgi') || text.includes('<html')) {
+                        if (response.ok) {
+                            const text = await response.text();
+                            if (text.includes('redirect') || text.includes('login.cgi') || text.includes('<html')) continue;
+
+                            try {
+                                const data = JSON.parse(text);
+                                const onus = this.parseOnuData(data);
+                                if (onus && onus.length > 0) return onus;
+                            } catch (e) { }
+                        }
+                    } catch (e: any) {
+                        lastError = e;
                         continue;
                     }
-
-                    try {
-                        const data = JSON.parse(text);
-                        const onus = this.parseOnuData(data);
-                        if (onus && onus.length > 0) {
-                            return onus;
-                        }
-                    } catch (e) { }
                 }
-            } catch (e: any) {
-                continue;
+            } catch (e) {
+                lastError = e;
             }
         }
 
-        throw new Error(`C-Data OLT: All Web API endpoints failed (Modern & Legacy). Please check OLT model and Web Port.`);
+        throw lastError || new Error(`C-Data OLT: All Web API endpoints failed after retries. Please check OLT model and Web Port.`);
     }
 
     private parseOnuData(data: any): OnuInfo[] {
