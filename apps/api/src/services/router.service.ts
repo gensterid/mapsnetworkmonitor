@@ -13,7 +13,8 @@ import {
     type RouterNetwatch,
     userRouters,
     onus,
-    olts, // Added olts here based on the instruction's implied change
+    olts,
+    topologyNodes,
 } from '../db/schema/index.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
@@ -545,6 +546,7 @@ export class RouterService {
                     identity: info.identity,
                     boardName: info.boardName,
                     architecture: info.architecture,
+                    lastErrorMessage: null, // Clear stale error messages on success
                     updatedAt: new Date(),
                     ...(isFullSync ? { lastFullSync: new Date() } : {}),
                 })
@@ -1180,6 +1182,19 @@ export class RouterService {
             });
         }
 
+        // Sync back to Topology: update linked topology nodes with new name/host
+        if (data.name !== undefined || data.host !== undefined) {
+            try {
+                const topoUpdate: any = { updatedAt: new Date() };
+                if (data.name !== undefined) topoUpdate.customName = data.name;
+                if (data.host !== undefined) topoUpdate.customHost = data.host;
+                await db.update(topologyNodes).set(topoUpdate)
+                    .where(eq(topologyNodes.nodeId, netwatchId));
+            } catch (err) {
+                logger.error({ err, netwatchId }, 'Failed to sync netwatch update to topology');
+            }
+        }
+
         return netwatch;
     }
 
@@ -1260,6 +1275,15 @@ export class RouterService {
             logger.info({ host: deleted.host }, '[RouterService] Skipped MikroTik cleanup as requested (keeping MikroTik entry)');
         } else {
             logger.debug({ deviceType: deleted.deviceType, isAppOnly: deleted.isAppOnly }, '[RouterService] Device type or AppOnly status skipped for MikroTik cleanup');
+        }
+
+        // Sync: Unlink any topology nodes that referenced this netwatch entry
+        // The topology node is kept (for schematic purposes), but its link is cleared
+        try {
+            await db.update(topologyNodes).set({ nodeId: null, updatedAt: new Date() })
+                .where(eq(topologyNodes.nodeId, netwatchId));
+        } catch (err) {
+            logger.error({ err, netwatchId }, 'Failed to unlink topology nodes after netwatch delete');
         }
 
         return true;

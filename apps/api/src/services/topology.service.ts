@@ -180,6 +180,10 @@ export class TopologyService {
     async removeNode(routerId: string, nodeId: string) {
         // Here nodeId is the SCHEMATIC ID (topology_nodes.id)
 
+        // Get the node before deleting to check for linked netwatch
+        const [node] = await db.select().from(topologyNodes)
+            .where(and(eq(topologyNodes.routerId, routerId), eq(topologyNodes.id, nodeId)));
+
         // Remove links associated with this node first
         await db.delete(topologyLinks).where(
             and(
@@ -191,12 +195,28 @@ export class TopologyService {
             )
         );
 
-        return await db.delete(topologyNodes).where(
+        const result = await db.delete(topologyNodes).where(
             and(
                 eq(topologyNodes.routerId, routerId),
                 eq(topologyNodes.id, nodeId) // Match by schematic ID
             )
         );
+
+        // Sync: If linked to an app-only netwatch entry, delete it too
+        // Safety: MikroTik-synced entries (isAppOnly=false) are NOT deleted
+        if (node?.nodeId) {
+            try {
+                const [nw] = await db.select().from(routerNetwatch).where(eq(routerNetwatch.id, node.nodeId));
+                if (nw?.isAppOnly) {
+                    await db.delete(routerNetwatch).where(eq(routerNetwatch.id, nw.id));
+                    logger.info({ netwatchId: nw.id, host: nw.host, routerId }, 'Topology: Deleted linked app-only netwatch entry');
+                }
+            } catch (err) {
+                logger.error({ err, nodeId: node.nodeId, routerId }, 'Topology: Failed to cleanup linked netwatch entry');
+            }
+        }
+
+        return result;
     }
 
     /**
