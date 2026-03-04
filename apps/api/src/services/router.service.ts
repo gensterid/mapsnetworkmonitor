@@ -449,7 +449,7 @@ export class RouterService {
         try {
             const api = await this.getRouterConnection(id, tenantId);
             const info = await getRouterInfo(api);
-            await api.close().catch(() => { });
+            if (api) api.release();
             return { success: true, info };
         } catch (error: any) {
             return { success: false, error: error.message };
@@ -598,11 +598,9 @@ export class RouterService {
             } else if (lowErrMsg.includes('network') || lowErrMsg.includes('unreachable')) {
                 friendlyError = 'Network Issue / Unreachable';
             } else {
-                // Fallback for unclassified errors
                 friendlyError = `API Error: ${errMsg.substring(0, 50)}${errMsg.length > 50 ? '...' : ''}`;
             }
 
-            // Always update status to offline if an error occurred during refresh
             const [updatedRouter] = await db
                 .update(routers)
                 .set({
@@ -613,7 +611,6 @@ export class RouterService {
                 .where(eq(routers.id, id))
                 .returning();
 
-            // Create alert if status changed from online to offline
             if (previousStatus === 'online') {
                 try {
                     await alertService.createStatusChangeAlert(
@@ -628,7 +625,6 @@ export class RouterService {
                 }
             }
 
-            // Broadcast the update so frontend map and lists refresh immediately
             eventEmitter.broadcast('map_update', {
                 type: 'router',
                 id: id,
@@ -637,13 +633,7 @@ export class RouterService {
 
             return updatedRouter;
         } finally {
-            if (conn) {
-                try {
-                    await conn.close();
-                } catch (closeErr) {
-                    logger.error({ err: closeErr, router: router.host }, 'Failed to close connection in finally block');
-                }
-            }
+            if (conn) conn.release();
         }
     }
 
@@ -665,7 +655,7 @@ export class RouterService {
             });
 
             await rebootRouter(conn);
-            conn.close();
+            if (conn) conn.release();
 
             // Update router status
             await db
@@ -697,12 +687,6 @@ export class RouterService {
         return routerInterfaceService.getInterfaces(routerId);
     }
 
-    /**
-     * Get router metrics (latest)
-     */
-    /**
-     * Get router metrics (latest)
-     */
     async getLatestMetrics(routerId: string, tenantId?: string): Promise<RouterMetric | null> {
         if (tenantId) {
             const router = await this.findById(routerId, tenantId);
@@ -717,9 +701,6 @@ export class RouterService {
         return metric || null;
     }
 
-    /**
-     * Get active hotspot users count
-     */
     async getHotspotActive(routerId: string, tenantId?: string): Promise<number> {
         const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) throw new Error('Router not found');
@@ -733,7 +714,7 @@ export class RouterService {
             });
 
             const count = await getHotspotActive(conn);
-            conn.close();
+            if (conn) conn.release();
             return count;
         } catch (error: any) {
             logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get hotspot users');
@@ -741,9 +722,6 @@ export class RouterService {
         }
     }
 
-    /**
-     * Get active PPP connections count
-     */
     async getPppActive(routerId: string, tenantId?: string): Promise<number> {
         const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) throw new Error('Router not found');
@@ -757,7 +735,7 @@ export class RouterService {
             });
 
             const count = await getPppActive(conn);
-            conn.close();
+            if (conn) conn.release();
             return count;
         } catch (error: any) {
             logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get PPP users');
@@ -765,9 +743,6 @@ export class RouterService {
         }
     }
 
-    /**
-     * Get active PPP sessions with details
-     */
     async getPppSessions(routerId: string, tenantId?: string): Promise<PppSession[]> {
         const router = await this.findByIdWithPassword(routerId, tenantId);
         if (!router) throw new Error('Router not found');
@@ -781,7 +756,7 @@ export class RouterService {
             });
 
             const sessions = await getPppSessions(conn);
-            conn.close();
+            if (conn) conn.release();
             return sessions;
         } catch (error: any) {
             logger.error({ err: error?.message || String(error), host: router.host }, 'Failed to get PPP sessions');
@@ -789,9 +764,6 @@ export class RouterService {
         }
     }
 
-    /**
-     * Get router metrics history
-     */
     async getMetricsHistory(
         routerId: string,
         limit = 100,
@@ -876,13 +848,12 @@ export class RouterService {
                 port: router.port,
                 username: router.username,
                 password: router.password,
-                timeout: 15 // Sufficient timeout for internet ping
+                timeout: 15
             });
 
             // Ping each target (sequentially to avoid overwhelming router)
-            for (const target of targets.slice(0, 6)) { // Max 6 targets
+            for (const target of targets.slice(0, 6)) {
                 try {
-                    // Use relaxed interval (500ms) and longer timeout (2000ms) for high latency internet targets
                     const { latency, packetLoss } = await measurePing(conn, target.ip, 3, '500ms', '2000ms');
                     results.push({
                         ip: target.ip,
@@ -904,7 +875,6 @@ export class RouterService {
             const errMsg = error?.message || String(error);
             logger.error({ err: errMsg, router: router.name }, 'Failed to measure ping targets completely');
 
-            // If connection failed, return targets with null results instead of 500
             if (results.length === 0) {
                 return targets.slice(0, 6).map(t => ({
                     ip: t.ip,
@@ -914,13 +884,7 @@ export class RouterService {
                 }));
             }
         } finally {
-            if (conn) {
-                try {
-                    await conn.close();
-                } catch (e) {
-                    // Ignore close error
-                }
-            }
+            if (conn) conn.release();
         }
 
         return results;
@@ -949,23 +913,17 @@ export class RouterService {
     /**
      * Create a netwatch entry
      */
-    /**
-     * Create a netwatch entry
-     */
-    /**
-     * Create a netwatch entry
-     */
     async createNetwatch(
         routerId: string,
         data: {
-            host?: string; // Optional for ODP devices
+            host?: string;
             name?: string;
             deviceType?: 'client' | 'olt' | 'odp' | 'router' | 'switch';
             interval?: number;
             latitude?: string;
             longitude?: string;
             location?: string;
-            waypoints?: string; // JSON string of coordinates
+            waypoints?: string;
             connectionType?: 'router' | 'client';
             connectedToId?: string | null;
             targetInterface?: string | null;
@@ -997,7 +955,7 @@ export class RouterService {
                 await addNetwatchEntry(conn, {
                     host: data.host as string,
                     interval: data.interval,
-                    comment: data.name || 'Monitoring Node', // Mapping name to comment
+                    comment: data.name || 'Monitoring Node',
                 });
 
                 // Smart Append Webhook scripts if Webhook feature is enabled
@@ -1012,7 +970,7 @@ export class RouterService {
                 logger.error({ err: msg, routerId, host: data.host }, 'Failed to add netwatch to router');
                 throw new ApiError(500, `Failed to add to router: ${msg}`);
             } finally {
-                if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after addNetwatch'));
+                if (conn) conn.release();
             }
         }
 
@@ -1045,8 +1003,6 @@ export class RouterService {
                 await routerNetwatchService.update(netwatch);
             } catch (serviceError: any) {
                 logger.error({ err: serviceError, routerId, netwatchId: netwatch.id }, 'Failed to update netwatch in real-time service after creation');
-                // We don't necessarily want to fail the whole update if the real-time cache update fails,
-                // but we should log it. However, if it's a critical failure, we might re-throw.
             }
 
             return netwatch;
@@ -1070,7 +1026,7 @@ export class RouterService {
             latitude?: string | null;
             longitude?: string | null;
             location?: string | null;
-            waypoints?: string | null; // JSON string of coordinates
+            waypoints?: string | null;
             connectionType?: 'router' | 'client';
             connectedToId?: string | null;
             targetInterface?: string | null;
@@ -1083,7 +1039,6 @@ export class RouterService {
         // 0. Get original entry to know the host and check tenant
         const filters = [eq(routerNetwatch.id, netwatchId)];
         if (tenantId) {
-            // Check if router belongs to tenant
             const routerCheck = await this.findById(routerId, tenantId);
             if (!routerCheck) throw new Error('Router not found or access denied');
         }
@@ -1092,27 +1047,17 @@ export class RouterService {
         if (!original) throw new Error('Netwatch entry not found');
 
         // 1. Apply to Router (only for client types and only if relevant fields change)
-        // OLT/ODP don't need to be added to MikroTik netwatch
-        // STRICT CHECK: Skip if host is 0.0.0.0 (Virtual device) or empty
         const isVirtualHost = original.host === '0.0.0.0' || data.host === '0.0.0.0' || data.host === '';
         const isOdpOrOlt = ['odp', 'olt'].includes(original.deviceType as any) || (data.deviceType && ['odp', 'olt'].includes(data.deviceType));
         const currentDeviceType = data.deviceType || original.deviceType;
         const currentIsAppOnly = data.isAppOnly !== undefined ? data.isAppOnly : original.isAppOnly;
         const isClientType = !isVirtualHost && !isOdpOrOlt && !currentIsAppOnly && (currentDeviceType === 'client' || currentDeviceType === 'router' || currentDeviceType === 'switch' || !currentDeviceType);
 
-        // Only update MikroTik for client types with valid host
         if (isClientType && original.host && (data.host || data.interval || data.name !== undefined)) {
             const router = await this.findByIdWithPassword(routerId, tenantId);
             if (router) {
                 let conn;
                 try {
-                    logger.debug({
-                        routerId,
-                        host: router.host,
-                        username: router.username,
-                        pwLength: router.password?.length
-                    }, 'Attempting MikroTik connection for Netwatch update');
-
                     conn = await connectToRouter({
                         host: router.host,
                         port: router.port,
@@ -1126,7 +1071,6 @@ export class RouterService {
                         comment: data.name,
                     });
 
-                    // Smart Append Webhook scripts if Webhook feature is enabled
                     if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
                         const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
                         const hostToConfigure = data.host || original.host;
@@ -1137,7 +1081,7 @@ export class RouterService {
                     logger.error({ err: msg, host: original.host }, 'Failed to update netwatch on router');
                     throw new Error(`Failed to update router: ${msg}`);
                 } finally {
-                    if (conn) await conn.close().catch((e: any) => logger.error({ err: e }, 'Failed to close connection after updateNetwatch'));
+                    if (conn) conn.release();
                 }
             }
         }
@@ -1148,7 +1092,6 @@ export class RouterService {
 
         if (data.host !== undefined) {
             updateData.host = data.host;
-            // If host is cleared, automatically set status to 'up' so it doesn't appear in down list
             if (data.host === '' || !data.host) {
                 updateData.status = 'up';
             }
@@ -1156,7 +1099,6 @@ export class RouterService {
         if (data.name !== undefined) updateData.name = data.name;
         if (data.deviceType !== undefined) updateData.deviceType = data.deviceType;
         if (data.interval !== undefined) updateData.interval = data.interval;
-        // Convert empty strings to null for numeric fields (Postgres decimal/numeric can't accept empty string)
         if (data.latitude !== undefined) updateData.latitude = data.latitude === '' ? null : data.latitude;
         if (data.longitude !== undefined) updateData.longitude = data.longitude === '' ? null : data.longitude;
         if (data.location !== undefined) updateData.location = data.location;
@@ -1182,7 +1124,6 @@ export class RouterService {
             });
         }
 
-        // Sync back to Topology: update linked topology nodes with new name/host
         if (data.name !== undefined || data.host !== undefined) {
             try {
                 const topoUpdate: any = { updatedAt: new Date() };
@@ -1209,8 +1150,6 @@ export class RouterService {
             if (!routerCheck) return false;
         }
 
-        // 1. Delete from DB first and get the deleted entry
-        // This ensures that even if router connection fails, the item is removed from DB/Map
         const [deleted] = await db
             .delete(routerNetwatch)
             .where(eq(routerNetwatch.id, netwatchId))
@@ -1230,55 +1169,36 @@ export class RouterService {
             return false;
         }
 
-        logger.info({ host: deleted.host, deviceType: deleted.deviceType }, '[RouterService] Deleted netwatch from DB');
-
-        // 2. Apply to Router (only for client types and if requested)
-        // OLT/ODP are not stored in MikroTik Netwatch
-        // If isAppOnly is true, it's not in MikroTik anyway
-        const isClientType = deleted.deviceType === 'client' || !deleted.deviceType;
-        if (isClientType && deleteFromMikrotik && !deleted.isAppOnly) {
-            logger.info('[RouterService] Attempting to remove from MikroTik router...');
-            const router = await this.findByIdWithPassword(routerId, tenantId);
-            if (router) {
-                let conn;
-                try {
-                    conn = await connectToRouter({
-                        host: router.host,
-                        port: router.port,
-                        username: router.username,
-                        password: router.password,
-                    });
-
+        if (deleted.deviceType === 'client' || !deleted.deviceType) {
+            if (deleteFromMikrotik && !deleted.isAppOnly) {
+                const router = await this.findByIdWithPassword(routerId, tenantId);
+                if (router) {
+                    let conn;
                     try {
-                        await removeNetwatchEntry(conn, deleted.host);
-                        logger.info({ host: deleted.host }, '[RouterService] Removed from MikroTik netwatch');
-                    } catch (netwatchErr: any) {
-                        // Ignore if entry not found, otherwise throw
-                        const msg = netwatchErr.message || '';
-                        if (!msg.includes('no such item') && !msg.includes('not found')) {
-                            logger.error({ err: netwatchErr?.message || String(netwatchErr) }, '[RouterService] Failed to remove from MikroTik');
-                        } else {
-                            logger.debug('Netwatch entry not found on router, skipping');
+                        conn = await connectToRouter({
+                            host: router.host,
+                            port: router.port,
+                            username: router.username,
+                            password: router.password,
+                        });
+
+                        try {
+                            await removeNetwatchEntry(conn, deleted.host);
+                        } catch (netwatchErr: any) {
+                            const msg = netwatchErr.message || '';
+                            if (!msg.includes('no such item') && !msg.includes('not found')) {
+                                logger.error({ err: msg }, '[RouterService] Failed to remove from MikroTik');
+                            }
                         }
+                    } catch (err: any) {
+                        logger.error({ err: err?.message || String(err) }, 'Failed to connect/delete netwatch from router');
+                    } finally {
+                        if (conn) conn.release();
                     }
-                } catch (err: any) {
-                    logger.error({ err: err?.message || String(err) }, 'Failed to connect/delete netwatch from router (DB entry was already deleted)');
-                    // We don't re-throw here because the DB entry is already gone, 
-                    // so the "primary" goal of the user (clearing the map) is achieved.
-                } finally {
-                    if (conn) await conn.close().catch((e: any) => logger.error({ err: e?.message || String(e) }, 'Failed to close connection after deleteNetwatch'));
                 }
-            } else {
-                logger.warn({ routerId }, '[RouterService] Router not found, skipped MikroTik cleanup');
             }
-        } else if (!deleteFromMikrotik) {
-            logger.info({ host: deleted.host }, '[RouterService] Skipped MikroTik cleanup as requested (keeping MikroTik entry)');
-        } else {
-            logger.debug({ deviceType: deleted.deviceType, isAppOnly: deleted.isAppOnly }, '[RouterService] Device type or AppOnly status skipped for MikroTik cleanup');
         }
 
-        // Sync: Unlink any topology nodes that referenced this netwatch entry
-        // The topology node is kept (for schematic purposes), but its link is cleared
         try {
             await db.update(topologyNodes).set({ nodeId: null, updatedAt: new Date() })
                 .where(eq(topologyNodes.nodeId, netwatchId));
@@ -1289,12 +1209,10 @@ export class RouterService {
         return true;
     }
 
-
     /**
      * Measure latency for all netwatch hosts on a router
      */
-    async measureNetwatchLatency(routerId: string, customConn?: RouterConnection | any): Promise<void> {
-        // Redirection to specialized service
+    async measureNetwatchLatency(routerId: string, customConn?: any): Promise<void> {
         if (customConn) {
             const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
             const entries = await routerNetwatchService.getNetwatch(routerId);
@@ -1314,7 +1232,7 @@ export class RouterService {
         } catch (err) {
             logger.error({ err, router: router.name }, 'Failed to measure netwatch latency');
         } finally {
-            if (conn) await conn.close().catch(() => { });
+            if (conn) conn.release();
         }
     }
 
@@ -1341,7 +1259,6 @@ export class RouterService {
             api = await this.getRouterConnection(routerId, tenantId);
             const neighbors = await getNeighbors(api);
 
-            // Update last neighbors sync timestamp
             await db.update(routers)
                 .set({ lastNeighborsSync: new Date() })
                 .where(eq(routers.id, routerId));
@@ -1351,7 +1268,7 @@ export class RouterService {
             logger.error({ err: error, routerId }, 'Failed to get neighbors');
             throw new ApiError(500, `MikroTik Error: ${error.message}`);
         } finally {
-            if (api) await api.close().catch(() => { });
+            if (api) api.release();
         }
     }
 
@@ -1365,12 +1282,10 @@ export class RouterService {
             const neighbors = await getRomonNeighbors(api);
             return neighbors;
         } catch (error: any) {
-            const errMsg = error?.message || String(error || 'Unknown Connection Error');
-            logger.warn({ err: errMsg, routerId }, 'Failed to get RoMON neighbors - returning empty list');
-            // Return empty array instead of 500 for common connection/support issues
+            logger.warn({ err: error?.message || String(error), routerId }, 'Failed to get RoMON neighbors');
             return [];
         } finally {
-            if (api) await api.close().catch(() => { });
+            if (api) api.release();
         }
     }
 
@@ -1388,7 +1303,6 @@ export class RouterService {
             password: router.password || '',
         };
 
-        // If this is a RoMON device, we need to connect to the gateway first
         if (router.gatewayId && router.romonMac) {
             const gateway = await this.findByIdWithPassword(router.gatewayId, tenantId);
             if (!gateway) throw new ApiError(404, 'RoMON Gateway router not found');
@@ -1407,21 +1321,17 @@ export class RouterService {
 
     /**
      * Measure ping latency to a specific IP address via MikroTik router.
-     * This is useful for on-demand pinging without adding to Netwatch.
      */
     async pingHost(routerId: string, ip: string, tenantId?: string): Promise<{ latency: number | null; packetLoss: number | null }> {
         let api: any;
         try {
             api = await this.getRouterConnection(routerId, tenantId);
-            // 3 packets, 500ms interval, 3000ms timeout
-            const result = await measurePing(api, ip, 3, '500ms', '3000ms');
-            return result;
+            return await measurePing(api, ip, 3, '500ms', '3000ms');
         } catch (error: any) {
             logger.error({ err: error?.message || String(error), routerId, ip }, 'Failed to execute arbitrary ping');
-            // If it fails completely, return 100% loss rather than throwing an API error to let UI handle it gracefully
             return { latency: null, packetLoss: 100 };
         } finally {
-            if (api) await api.close().catch(() => { });
+            if (api) api.release();
         }
     }
 }

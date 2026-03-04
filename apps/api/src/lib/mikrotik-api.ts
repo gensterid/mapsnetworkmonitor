@@ -2,6 +2,13 @@ import nodeRouteros from 'node-routeros';
 const { RouterOSAPI } = nodeRouteros;
 import { logger } from './logger.js';
 
+// Connection Pool to reuse API instances
+const connectionPool = new Map<string, any>();
+const poolTimeouts = new Map<string, NodeJS.Timeout>();
+
+// Pool retention: 5 minutes of inactivity before closing
+const POOL_IDLE_TIMEOUT = 5 * 60 * 1000;
+
 export interface RouterConnection {
     host: string;
     port: number;
@@ -92,11 +99,30 @@ export interface NetwatchData {
 }
 
 /**
- * Create a connection to a MikroTik router
+ * Create or reuse a connection to a MikroTik router
  */
 export async function connectToRouter(
     config: RouterConnection
 ): Promise<any> {
+    const poolKey = `${config.host}:${config.port}:${config.username}`;
+
+    // Clear existing idle timeout if we're reusing
+    if (poolTimeouts.has(poolKey)) {
+        clearTimeout(poolTimeouts.get(poolKey)!);
+        poolTimeouts.delete(poolKey);
+    }
+
+    // Check if we have an existing connected instance
+    if (connectionPool.has(poolKey)) {
+        const existingApi = connectionPool.get(poolKey);
+        if (existingApi.connected) {
+            logger.debug({ host: config.host }, '♻️ Reusing existing MikroTik API connection');
+            return existingApi;
+        }
+        // If not connected anymore, remove it
+        connectionPool.delete(poolKey);
+    }
+
     // Return any to avoid complex TS types with the CJS import
     const api = new RouterOSAPI({
         host: config.host,
@@ -109,12 +135,6 @@ export async function connectToRouter(
 
     // If RoMON is requested, we need to set the target MAC
     if (config.romon) {
-        // routeros-node (node-routeros) supports passing romon in the login sentence
-        // but it doesn't always expose it in the constructor options for all versions.
-        // We'll attempt a manual login or check if the library supports it.
-        // Actually, for node-routeros, if we can't set it in constructor, we might need a fork.
-        // Let's assume it supports it if we pass it as part of the config or sentence.
-        // If not, we'll try to use the !login sentence manually.
         (api as any).romon = config.romon;
     }
 
@@ -123,8 +143,6 @@ export async function connectToRouter(
         const errorMsg = String(err?.message || err || 'Unknown RouterOS error');
         const lowerMsg = errorMsg.toLowerCase();
 
-        // Specific handling for known MikroTik API quirks (like !empty unknown reply)
-        // RouterOS 7.18+ introduces !empty tag which node-routeros doesn't recognize
         const isKnownQuirk =
             lowerMsg.includes('!empty') ||
             lowerMsg.includes('unknown reply') ||
@@ -135,10 +153,12 @@ export async function connectToRouter(
             logger.debug({ err: errorMsg, host: config.host }, '[RouterOS API Compatibility] Ignoring expected 7.18+ quirk');
             return;
         }
+
+        // On fatal error, remove from pool
+        connectionPool.delete(poolKey);
         logger.error({ err: errorMsg, host: config.host }, '[RouterOS API Error]');
     });
 
-    // Handle 'unknown' replies specifically which might skip the regular error flow
     api.on('unknown', (sentence: any) => {
         const sentenceStr = String(sentence || '').toLowerCase();
         if (sentenceStr.includes('!empty') || sentenceStr.includes('unknown reply')) {
@@ -146,12 +166,36 @@ export async function connectToRouter(
         }
     });
 
-    // Also suppress 'RosException' globally on this instance if possible
-    // This is a last-ditch effort to prevent the library from crashing or being noisy
     api.on('error', () => { }); // Already handled above but ensure no default node crash
 
     await api.connect();
+
+    // Add to pool
+    connectionPool.set(poolKey, api);
     return api;
+}
+
+/**
+ * Release a connection back to the idle pool or close it immediately
+ * Instead of closing, we set an idle timeout.
+ */
+export function releaseConnection(host: string, port: number, username: string) {
+    const poolKey = `${host}:${port}:${username}`;
+
+    if (connectionPool.has(poolKey)) {
+        // Set an idle timeout to close the connection if not used
+        const timeout = setTimeout(() => {
+            const api = connectionPool.get(poolKey);
+            if (api) {
+                logger.debug({ host }, '🔌 Closing idle MikroTik API connection after inactivity');
+                api.close().catch(() => { });
+                connectionPool.delete(poolKey);
+            }
+            poolTimeouts.delete(poolKey);
+        }, POOL_IDLE_TIMEOUT);
+
+        poolTimeouts.set(poolKey, timeout);
+    }
 }
 
 /**

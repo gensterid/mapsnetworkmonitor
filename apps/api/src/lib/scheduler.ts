@@ -1,5 +1,5 @@
 // Polling scheduler for MikroTik devices and other services
-import { routerService, settingsService, oltService, genieacsService, backupService } from '../services/index.js';
+import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, startQueueWorker, stopQueueWorker } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routerNetwatch, routerMetrics, tenants } from '../db/schema/index.js';
@@ -116,55 +116,23 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
 
         logger.debug(`🔄 [Tenant: ${tenantId}] Polling ${routers.length} routers...`);
 
-        const processRouter = async (router: any) => {
-            try {
-                const metricsIntervalMs = (router.pollingIntervalMetrics || 300) * 1000;
-                const now = Date.now();
-                const lastFullSyncTime = router.lastFullSync ? new Date(router.lastFullSync).getTime() : 0;
-                const timeSinceLastFullSync = now - lastFullSyncTime;
-
-                // Full sync if it's been long enough or never happened
-                const isFullSync = timeSinceLastFullSync >= metricsIntervalMs || lastFullSyncTime === 0;
-
-                const needsDetection = await db.select({ count: count() })
-                    .from(routerNetwatch)
-                    .where(and(eq(routerNetwatch.routerId, router.id), eq(routerNetwatch.hasWebhook, false)))
-                    .then(res => (res[0]?.count || 0) > 0);
-
-                // Ensure Netwatch is always polled at the Tier Strategy interval
-                // even if Webhook is enabled, to keep it "same as before" and redundant.
-                const includeNetwatch = true;
-
-                if (!includeNetwatch && !isFullSync) {
-                    return { success: true, timeout: false, skipped: true };
-                }
-
-                await withTimeout(
-                    routerService.refreshRouterStatus(router.id, includeNetwatch, isFullSync),
-                    ROUTER_TIMEOUT,
-                    `Timeout polling router ${router.name}`
-                );
-                return { success: true, timeout: false, skipped: false };
-            } catch (error) {
-                const isTimeout = error instanceof Error && error.message.includes('Timeout');
-                return { success: false, timeout: isTimeout };
+        // Add all routers to the background queue
+        const jobs = routers.map(router => ({
+            name: `sync-${router.id}`,
+            data: {
+                routerId: router.id,
+                includeNetwatch: true,
+                isFullSync: (Date.now() - (router.lastFullSync ? new Date(router.lastFullSync).getTime() : 0)) >= (router.pollingIntervalMetrics || 300) * 1000,
+                tenantId
+            },
+            opts: {
+                jobId: `sync-${router.id}-${Math.floor(Date.now() / 60000)}`, // Max one sync per minute per router
             }
-        };
+        }));
 
-        for (let i = 0; i < routers.length; i += BATCH_SIZE) {
-            const batch = routers.slice(i, i + BATCH_SIZE);
-            const results = await Promise.all(batch.map(async (r, index) => {
-                const jitter = (index * 150) + Math.floor(Math.random() * 2500);
-                await new Promise(resolve => setTimeout(resolve, jitter));
-                return processRouter(r);
-            }));
-
-            results.forEach(res => {
-                if (res.success) successCount++;
-                else if (res.timeout) timeoutCount++;
-                else failCount++;
-            });
-        }
+        await routerSyncQueue.addBulk(jobs);
+        successCount = routers.length;
+        logger.info(`📨 [Tenant: ${tenantId}] Added ${routers.length} routers to background sync queue`);
     } catch (error) {
         logger.error({ tenantId, err: error }, '❌ Tenant polling error');
     }
@@ -360,6 +328,9 @@ async function cleanupOldMetrics(): Promise<void> {
 export async function startScheduler(): Promise<void> {
     logger.info('⏰ Starting multi-tenant background scheduler...');
 
+    // Start BullMQ Worker
+    startQueueWorker();
+
     // Initial Runs (Staggered)
     setTimeout(() => pollAllRouters(), 5000);
     setTimeout(() => checkAlertEscalation(), 10000);
@@ -398,6 +369,7 @@ export function stopScheduler(): void {
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
 
+    stopQueueWorker();
     logger.info('🛑 Scheduler stopped');
 }
 
