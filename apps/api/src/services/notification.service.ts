@@ -14,7 +14,7 @@ export class NotificationService {
             const payload: any = {
                 chat_id: chatId,
                 text: message,
-                parse_mode: 'Markdown',
+                parse_mode: 'HTML',
             };
 
             if (threadId) {
@@ -23,9 +23,26 @@ export class NotificationService {
 
             await axios.post(url, payload);
             logger.info({ chatId, threadId }, 'Telegram message sent successfully');
-        } catch (error) {
-            logger.error({ err: error, chatId }, 'Failed to send Telegram message');
+        } catch (error: any) {
+            logger.error({
+                err: error?.response?.data || error?.message,
+                chatId,
+                messageSnippet: message.substring(0, 100)
+            }, 'Failed to send Telegram message');
         }
+    }
+
+    /**
+     * Escape HTML special characters for Telegram HTML mode
+     */
+    private escapeHtml(text: string): string {
+        if (!text) return '';
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
 
     /**
@@ -96,7 +113,6 @@ export class NotificationService {
     async notifyAlert(alert: Alert, routerId: string) {
         try {
             // 1. Get Router to find Notification Group
-            // 1. Get Router to find Notification Group
             const [router] = await db
                 .select()
                 .from(routers)
@@ -153,25 +169,26 @@ export class NotificationService {
             const icon = alert.severity === 'critical' ? '🔴' : alert.severity === 'warning' ? '⚠️' : 'ℹ️';
 
             // Default template - different for netwatch vs router alerts
+            // Default uses HTML tags for Telegram stability
             const defaultTemplate = alert.type === 'netwatch_down'
-                ? `{{icon}} *{{title}}*
+                ? `{{icon}} <b>{{title}}</b>
 
-📍 *Device:* {{device}}
-🌐 *IP:* {{ip}}
-📌 *Location:* {{location}}
-🗺️ *Maps:* {{maps_link}}
-⏰ *Time:* {{time}}`
-                : `{{icon}} *{{title}}*
+📍 <b>Device:</b> {{device}}
+🌐 <b>IP:</b> {{ip}}
+📌 <b>Location:</b> {{location}}
+🗺️ <b>Maps:</b> {{maps_link}}
+⏰ <b>Time:</b> {{time}}`
+                : `{{icon}} <b>{{title}}</b>
 
 {{message}}
 
-📍 *Device:* {{device}}
-🌐 *IP:* {{ip}}
-📌 *Location:* {{location}}
-🗺️ *Maps:* {{maps_link}}
-⏰ *Time:* {{time}}`;
+📍 <b>Device:</b> {{device}}
+🌐 <b>IP:</b> {{ip}}
+📌 <b>Location:</b> {{location}}
+🗺️ <b>Maps:</b> {{maps_link}}
+⏰ <b>Time:</b> {{time}}`;
 
-            const template = group.messageTemplate || defaultTemplate;
+            const rawTemplate = group.messageTemplate || defaultTemplate;
 
             // Format time
             const timeStr = new Date().toLocaleString('id-ID', {
@@ -203,19 +220,22 @@ export class NotificationService {
                 ? `https://www.google.com/maps?q=${lat},${lon}`
                 : '-';
 
-            const message = template
+            // Escape all dynamic values for HTML
+            const e = (val: any) => this.escapeHtml(String(val || ''));
+
+            const message = rawTemplate
                 .replace(/{{icon}}/g, icon)
-                .replace(/{{title}}/g, alert.title)
-                .replace(/{{message}}/g, alert.message || '')
-                .replace(/{{device}}/g, deviceName)
-                .replace(/{{ip}}/g, deviceIp)
-                .replace(/{{location}}/g, deviceLocation)
-                .replace(/{{coordinates}}/g, coordinates)
-                .replace(/{{maps_link}}/g, mapsLink)
-                .replace(/{{time}}/g, timeStr)
-                .replace(/{{severity}}/g, alert.severity)
-                .replace(/{{netwatch_host}}/g, netwatchData?.host || '-')
-                .replace(/{{netwatch_name}}/g, netwatchData?.name || '-');
+                .replace(/{{title}}/g, e(alert.title))
+                .replace(/{{message}}/g, e(alert.message || ''))
+                .replace(/{{device}}/g, e(deviceName))
+                .replace(/{{ip}}/g, e(deviceIp))
+                .replace(/{{location}}/g, e(deviceLocation))
+                .replace(/{{coordinates}}/g, e(coordinates))
+                .replace(/{{maps_link}}/g, e(mapsLink))
+                .replace(/{{time}}/g, e(timeStr))
+                .replace(/{{severity}}/g, e(alert.severity))
+                .replace(/{{netwatch_host}}/g, e(netwatchData?.host || '-'))
+                .replace(/{{netwatch_name}}/g, e(netwatchData?.name || '-'));
 
             // 4. Send Telegram
             if (group.telegramEnabled && group.telegramBotToken && group.telegramChatId) {
@@ -229,13 +249,23 @@ export class NotificationService {
 
             // 5. Send WhatsApp
             if (group.whatsappEnabled && group.whatsappUrl && group.whatsappTo) {
-                // WhatsApp usually doesn't support markdown in the same way, but let's send it as is.
-                // We might want to strip markdown asterisks for WA or keep them if WA supports bold.
-                // WA supports *bold*, so it's fine.
+                // WhatsApp uses *bold* instead of <b>
+                const waMessage = message
+                    .replace(/<b>/g, '*')
+                    .replace(/<\/b>/g, '*')
+                    .replace(/<i>/g, '_')
+                    .replace(/<\/i>/g, '_')
+                    // Simple unescape for WA as it doesn't need HTML entities
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#039;/g, "'");
+
                 await this.sendWhatsapp(
                     group.whatsappUrl,
                     group.whatsappTo,
-                    message,
+                    waMessage,
                     group.whatsappKey || undefined
                 );
             }
@@ -312,16 +342,19 @@ export class NotificationService {
                 ? `https://www.google.com/maps?q=${lat},${lon}`
                 : '-';
 
-            // Build escalation message
-            const message = `🔴 *[ALERT #${escalationLevel}] ${deviceName} masih DOWN*
+            // Escape dynamic values
+            const e = (val: any) => this.escapeHtml(String(val || ''));
 
-⏱️ *Downtime:* ${downtimeDuration}
+            // Build escalation message (HTML format)
+            const message = `🔴 <b>[ALERT #${escalationLevel}] ${e(deviceName)} masih DOWN</b>
 
-📍 *Device:* ${deviceName}
-🌐 *IP:* ${deviceIp}
-📌 *Location:* ${deviceLocation}
-🗺️ *Maps:* ${mapsLink}
-⏰ *Time:* ${timeStr}`;
+⏱️ <b>Downtime:</b> ${e(downtimeDuration)}
+
+📍 <b>Device:</b> ${e(deviceName)}
+🌐 <b>IP:</b> ${e(deviceIp)}
+📌 <b>Location:</b> ${e(deviceLocation)}
+🗺️ <b>Maps:</b> ${e(mapsLink)}
+⏰ <b>Time:</b> ${e(timeStr)}`;
 
             // Send Telegram
             if (group.telegramEnabled && group.telegramBotToken && group.telegramChatId) {
@@ -335,10 +368,21 @@ export class NotificationService {
 
             // Send WhatsApp
             if (group.whatsappEnabled && group.whatsappUrl && group.whatsappTo) {
+                // Simple conversion to WA format
+                const waMessage = message
+                    .replace(/<b>/g, '*')
+                    .replace(/<\/b>/g, '*')
+                    // Simple unescape
+                    .replace(/&amp;/g, '&')
+                    .replace(/&lt;/g, '<')
+                    .replace(/&gt;/g, '>')
+                    .replace(/&quot;/g, '"')
+                    .replace(/&#039;/g, "'");
+
                 await this.sendWhatsapp(
                     group.whatsappUrl,
                     group.whatsappTo,
-                    message,
+                    waMessage,
                     group.whatsappKey || undefined
                 );
             }

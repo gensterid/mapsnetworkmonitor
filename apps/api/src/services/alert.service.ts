@@ -512,68 +512,9 @@ export class AlertService {
      * Acknowledge all alerts
      */
     async acknowledgeAll(userId: string, userRole?: string, category?: 'issues' | 'alerts', tenantId?: string): Promise<boolean> {
-        // If category is provided, we need to fetch and sort first because conditional logic is complex map-reduce
-        if (category) {
-            const filters = [eq(alerts.acknowledged, false)];
-            if (tenantId) {
-                filters.push(eq(alerts.tenantId, tenantId));
-            }
-
-            let query = db
-                .select()
-                .from(alerts)
-                .where(and(...filters));
-
-            // For non-admins/operators, check router access
-            if (userRole && userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'operator') {
-                const assigned = await db
-                    .select({ routerId: userRouters.routerId })
-                    .from(userRouters)
-                    .where(eq(userRouters.userId, userId));
-
-                const routerIds = assigned.map(a => a.routerId);
-
-                // If no routers assigned, nothing to acknowledge
-                if (routerIds.length === 0) return true;
-
-                const filterCopy = [...filters];
-                filterCopy.push(inArray(alerts.routerId, routerIds));
-                query = db
-                    .select()
-                    .from(alerts)
-                    .where(and(...filterCopy));
-            }
-
-            const unacknowledged = await query;
-            const targetIds: string[] = [];
-
-            for (const alert of unacknowledged) {
-                const isIssue = this.isIssue(alert);
-                if (category === 'issues' && isIssue) {
-                    targetIds.push(alert.id);
-                } else if (category === 'alerts' && !isIssue) {
-                    targetIds.push(alert.id);
-                }
-            }
-
-            if (targetIds.length > 0) {
-                await db
-                    .update(alerts)
-                    .set({
-                        acknowledged: true,
-                        acknowledgedBy: userId,
-                        acknowledgedAt: new Date(),
-                    })
-                    .where(inArray(alerts.id, targetIds));
-            }
-
-            return true;
-        }
-
-        // Global Acknowledge (No category) - Use efficient single query
-        const globalFilters = [eq(alerts.acknowledged, false)];
+        const filters = [eq(alerts.acknowledged, false)];
         if (tenantId) {
-            globalFilters.push(eq(alerts.tenantId, tenantId));
+            filters.push(eq(alerts.tenantId, tenantId));
         }
 
         // For non-admins/operators, check router access
@@ -588,7 +529,34 @@ export class AlertService {
             // If no routers assigned, nothing to acknowledge
             if (routerIds.length === 0) return true;
 
-            globalFilters.push(inArray(alerts.routerId, routerIds));
+            filters.push(inArray(alerts.routerId, routerIds));
+        }
+
+        // Apply category filtering directly in SQL (consistent with findAll logic)
+        if (category) {
+            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
+
+            if (category === 'issues') {
+                const condition = or(
+                    inArray(alerts.type, issueTypesList as any),
+                    and(
+                        eq(alerts.severity, 'warning'),
+                        notInArray(alerts.type, connectivityTypesList as any)
+                    )
+                );
+                if (condition) filters.push(condition);
+            } else if (category === 'alerts') {
+                const condition = and(
+                    notInArray(alerts.type, connectivityTypesList as any),
+                    not(inArray(alerts.type, issueTypesList as any)),
+                    not(and(
+                        eq(alerts.severity, 'warning'),
+                        notInArray(alerts.type, connectivityTypesList as any)
+                    ) as any)
+                );
+                if (condition) filters.push(condition as any);
+            }
         }
 
         await db
@@ -598,7 +566,8 @@ export class AlertService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(and(...globalFilters));
+            .where(and(...filters as any[]));
+
         return true;
     }
 
