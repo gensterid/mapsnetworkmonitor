@@ -551,11 +551,26 @@ export class RouterNetwatchService {
      */
     async syncToOnus(routerId: string): Promise<void> {
         try {
-            // Early exit: skip linkage entirely if there are no ONUs with hosts in the database.
-            // This prevents hundreds of "Missed sync" log lines for routers without OLT/ACS.
-            const activeOnus = await db.select().from(onus).where(isNotNull(onus.host));
+            // SCOPED CHECK: Only sync if this router has OLTs linked to it.
+            // This prevents unnecessary queries for routers without OLT/ACS.
+            const linkedOlts = await db.select({ id: olts.id })
+                .from(olts)
+                .where(eq(olts.parentId, routerId));
+
+            if (linkedOlts.length === 0) {
+                return; // Silent exit — this router has no OLTs, no linkage needed
+            }
+
+            // Only fetch ONUs belonging to this router's OLTs (scoped, not global)
+            const oltIds = linkedOlts.map(o => o.id);
+            const activeOnus = await db.select().from(onus)
+                .where(and(
+                    isNotNull(onus.host),
+                    inArray(onus.oltId, oltIds)
+                ));
+
             if (activeOnus.length === 0) {
-                return; // Silent exit — no ONUs means no linkage needed
+                return; // Silent exit — OLTs exist but no ONUs with hosts yet
             }
 
             const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
