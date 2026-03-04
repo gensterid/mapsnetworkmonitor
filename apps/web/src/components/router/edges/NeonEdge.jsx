@@ -14,31 +14,27 @@ const NeonEdge = ({
     data,
     markerEnd,
 }) => {
-    // Path offset is used when multiple links share the same path
+    // Path offset shifts the cable perpendicular to the source→target direction
+    // This separates overlapping cables between the same two nodes
     const offset = parseFloat(data?.pathOffset) || 0;
 
-    // To prevent detaching from the device handles, we shouldn't modify sourceX/Y or targetX/Y directly.
-    // Instead, we use getSmoothStepPath, but it doesn't natively support shifting the entire path sideways
-    // while keeping anchor points.
-
-    // A robust way to handle 'offset' visually in React Flow without complex custom SVG path math 
-    // is to adjust the 'offset' parameter of getSmoothStepPath (which controls the routing distance from the node)
-    // combined with a slight shift in the center. But since users want to separate overlapping cables,
-    // the best approach in getSmoothStepPath is to modify the 'offset' (routing padding) based on the user's offset value.
-
-    // Default routing offset is 20. We add the raw user offset to this padding.
-    // This makes the cable route wider or narrower around the devices, separating them.
-    const routingPadding = Math.max(5, 20 + offset); // Ensure it doesn't collapse into the node
+    // Calculate perpendicular direction for the offset
+    const dx = targetX - sourceX;
+    const dy = targetY - sourceY;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    // Normal vector (perpendicular): rotate 90° → (-dy, dx)
+    const nx = (-dy / len) * offset;
+    const ny = (dx / len) * offset;
 
     const [edgePath, labelX, labelY] = getSmoothStepPath({
-        sourceX,
-        sourceY,
+        sourceX: sourceX + nx,
+        sourceY: sourceY + ny,
         sourcePosition,
-        targetX,
-        targetY,
+        targetX: targetX + nx,
+        targetY: targetY + ny,
         targetPosition,
         borderRadius: 16,
-        offset: routingPadding,
+        offset: 20,
     });
 
     const isUp = data?.status === 'up' || data?.status === 'online';
