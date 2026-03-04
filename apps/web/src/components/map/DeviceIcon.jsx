@@ -142,8 +142,8 @@ export const createDeviceIcon = ({
         </div>
     `;
 
-    // Simplified animation logic to prevent flickering
-    const animationClass = ''; // Disabled animations: normalizedStatus === 'offline' ? 'marker-pulse-danger' : ...
+    // Optimized animation logic: Use specific classes for status
+    const animationClass = ''; // This container class can be empty as status classes handle animations
 
     return L.divIcon({
         className: `custom-marker-icon ${animationClass}`,

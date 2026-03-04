@@ -30,9 +30,6 @@ function collectTrustedOrigins(baseURL: string): string[] {
     origins.add('http://localhost:5173');
     origins.add('http://127.0.0.1:5173');
 
-    // Always trust local Proxmox IP for direct access
-    origins.add('http://10.10.70.116');
-
     // Extract origin from the resolved baseURL (e.g., https://example.com from https://example.com/api/auth)
     try {
         const baseOrigin = new URL(baseURL).origin;
@@ -122,10 +119,8 @@ export const auth = betterAuth({
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // Set to false because the server is accessed via both HTTPS (domain) and HTTP (local IP).
-        // Secure cookies would break login on http://10.10.70.116.
-        // When all access is HTTPS-only, change to: resolvedBaseURL.startsWith('https://'),
-        useSecureCookies: false,
+        // Secure cookies are enabled only in production to allow local HTTP development.
+        useSecureCookies: process.env.NODE_ENV === 'production',
     },
     trustedOrigins: resolvedTrustedOrigins,
 });

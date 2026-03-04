@@ -800,16 +800,62 @@ svg.leaflet-zoom-animated {
 }
 
 /* ===== Animations ===== */
+
+/* High Performance Blink for Offline Devices */
+@keyframes marker-blink {
+
+    0%,
+    100% {
+        opacity: 1;
+        filter: brightness(1) drop-shadow(0 0 8px rgba(239, 68, 68, 0.8));
+    }
+
+    50% {
+        opacity: 0.4;
+        filter: brightness(1.5) drop-shadow(0 0 2px rgba(239, 68, 68, 0.3));
+    }
+}
+
+/* Optimized Pulse Glow (uses opacity for better performance than pure box-shadow) */
 @keyframes pulse-glow {
 
     0%,
     100% {
+        opacity: 1;
         box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
     }
 
     50% {
-        box-shadow: 0 0 16px rgba(16, 185, 129, 0.7);
+        opacity: 0.8;
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
     }
+}
+
+@keyframes pulse-warning {
+
+    0%,
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+    }
+
+    50% {
+        opacity: 0.8;
+        box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
+    }
+}
+
+.device-icon--online .device-icon__badge {
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.device-icon--warning .device-icon__badge {
+    animation: pulse-warning 2s ease-in-out infinite;
+}
+
+/* New: Offline Blink Effect */
+.device-icon--offline .device-icon__badge {
+    animation: marker-blink 1.2s ease-in-out infinite !important;
 }
 
 @keyframes spin {
@@ -831,30 +877,6 @@ svg.leaflet-zoom-animated {
 
     50% {
         opacity: 0.5;
-    }
-}
-
-.device-icon--online .device-icon__badge {
-    animation: pulse-glow 2s ease-in-out infinite;
-}
-
-.device-icon--warning .device-icon__badge {
-    animation: pulse-warning 1.5s ease-in-out infinite;
-}
-
-.marker-pulse-warning .device-icon__badge {
-    animation: pulse-warning 1.5s ease-in-out infinite;
-}
-
-@keyframes pulse-warning {
-
-    0%,
-    100% {
-        box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
-    }
-
-    50% {
-        box-shadow: 0 0 20px rgba(245, 158, 11, 0.9);
     }
 }
 
