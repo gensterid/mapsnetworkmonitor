@@ -214,24 +214,25 @@ export class TopologyService {
 
             // NEW: If customHost is being updated and there's no system nodeId,
             // or if we want to refresh the app-only link
-            if (data.customHost && data.customHost !== '0.0.0.0' && data.customHost !== '') {
-                // Only auto-link if it's currently unmapped or already an app-only Netwatch
+            const hostToUse = data.customHost || existing.customHost;
+            if (hostToUse && hostToUse !== '0.0.0.0' && hostToUse !== '') {
+                // Only auto-link if it's currently unmapped or a device that should be monitored
                 const isUnmapped = !existing.nodeId;
-                const isNetwatch = existing.nodeType === 'netwatch' || existing.nodeType === 'router';
+                const isMonitorable = ['netwatch', 'router', 'olt', 'switch', 'client'].includes(existing.nodeType || '');
 
-                if (isUnmapped || isNetwatch) {
+                if (isUnmapped || isMonitorable) {
                     try {
                         const targetRouterId = data.routerId || existing.routerId;
                         const netwatchId = await routerNetwatchService.ensureAppOnlyEntry(
                             targetRouterId,
-                            data.customHost,
+                            hostToUse,
                             data.customName || existing.customName || 'Updated Node',
                             data.nodeType || existing.nodeType,
                             existing.tenantId || undefined
                         );
                         updateData.nodeId = netwatchId;
                     } catch (err) {
-                        logger.error({ err, host: data.customHost }, 'Failed to update netwatch link for topology node');
+                        logger.error({ err, host: hostToUse }, 'Failed to update netwatch link for topology node');
                     }
                 }
             }
