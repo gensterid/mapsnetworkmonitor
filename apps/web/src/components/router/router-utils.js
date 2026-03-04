@@ -60,3 +60,53 @@ export function formatLastSync(date) {
     if (diffHour < 24) return `${diffHour}h ago`;
     return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+/**
+ * Helper to format date to HH:mm:ss AM/PM
+ */
+export const formatTimeOnly = (date) => {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+};
+
+/**
+ * Helper to format date to relative time without "ago" (e.g. 5h 36m)
+ */
+export const formatRelativeTime = (date) => {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const now = new Date();
+    const diffMs = Math.abs(now - d);
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffDay > 0) return `${diffDay}d ${diffHour % 24}h`;
+    if (diffHour > 0) return `${diffHour}h ${diffMin % 60}m`;
+    if (diffMin > 0) return `${diffMin}m`;
+    return `${diffSec}s`;
+};
+
+/**
+ * Helper to format date with specific Netwatch format: DD/MM/YYYY, HH.mm.ss
+ */
+export const formatNetwatchDate = (date) => {
+    if (!date) return '--';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return '--';
+
+    const pad = (n) => n.toString().padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = d.getFullYear();
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+
+    return `${day}/${month}/${year}, ${hours}.${minutes}.${seconds}`;
+};

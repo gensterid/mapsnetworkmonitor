@@ -22,7 +22,7 @@ import {
 import clsx from 'clsx';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import NetwatchFormModal from '../modals/NetwatchFormModal';
-import { formatBits, formatLastSync } from '../router-utils';
+import { formatBits, formatLastSync, formatTimeOnly, formatRelativeTime, formatNetwatchDate } from '../router-utils';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -93,46 +93,49 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
         <div className="space-y-4">
             {/* Header with Stats/Filters */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Button
                         variant={filter === 'all' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setFilter('all')}
-                        className="h-9 px-4 gap-2 border border-slate-700/50"
+                        className="h-8 px-4 gap-2 border border-slate-700/50 bg-slate-900/40 text-[11px] font-bold"
                     >
-                        <Activity className="w-4 h-4" />
-                        <span>Total</span>
-                        <span className="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded text-[10px] font-bold">{stats.total}</span>
+                        <span>TOTAL: {stats.total}</span>
                     </Button>
                     <Button
                         variant={filter === 'up' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setFilter('up')}
-                        className={clsx("h-9 px-4 gap-2 border border-slate-700/50", filter === 'up' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-emerald-500 hover:bg-emerald-500/10')}
+                        className={clsx(
+                            "h-8 px-4 gap-2 border border-slate-700/50 text-[11px] font-bold",
+                            filter === 'up' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/20' : 'text-emerald-500 hover:bg-emerald-500/10'
+                        )}
                     >
-                        <CheckCircle className="w-4 h-4" />
-                        <span>Up</span>
-                        <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-bold">{stats.up}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>{stats.up} UP</span>
                     </Button>
                     <Button
                         variant={filter === 'down' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setFilter('down')}
-                        className={clsx("h-9 px-4 gap-2 border border-slate-700/50", filter === 'down' ? 'bg-red-600 hover:bg-red-700' : 'text-red-500 hover:bg-red-500/10')}
+                        className={clsx(
+                            "h-8 px-4 gap-2 border border-slate-700/50 text-[11px] font-bold",
+                            filter === 'down' ? 'bg-red-600/20 text-red-500 border-red-500/20' : 'text-red-500 hover:bg-red-500/10'
+                        )}
                     >
-                        <XCircle className="w-4 h-4" />
-                        <span>Down</span>
-                        <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-bold">{stats.down}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        <span>{stats.down} DOWN</span>
                     </Button>
                     <Button
                         variant={filter === 'disabled' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setFilter('disabled')}
-                        className="h-9 px-4 gap-2 border border-slate-700/50 text-slate-400"
+                        className={clsx(
+                            "h-8 px-4 gap-2 border border-slate-700/50 text-[11px] font-bold",
+                            filter === 'disabled' ? 'bg-slate-700/40 text-slate-300' : 'text-slate-400 hover:bg-slate-700/20'
+                        )}
                     >
-                        <Trash2 className="w-4 h-4" />
-                        <span>Disabled</span>
-                        <span className="bg-slate-800 px-1.5 py-0.5 rounded text-[10px] font-bold">{stats.disabled}</span>
+                        <span>{stats.disabled} DISABLED</span>
                     </Button>
                 </div>
 
@@ -142,7 +145,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="text-slate-400 hover:text-white border border-slate-700/50"
+                        className="text-slate-400 hover:text-white border border-slate-700/50 h-9"
                     >
                         <RefreshCw className={clsx("w-4 h-4 mr-2", isSyncing && "animate-spin")} />
                         Sync from Router
@@ -150,7 +153,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                     <Button
                         size="sm"
                         onClick={() => setFormModal({ open: true, netwatch: null })}
-                        className="flex-1 sm:flex-none shadow-lg shadow-primary/20"
+                        className="flex-1 sm:flex-none h-9 bg-primary hover:bg-primary/90"
                     >
                         <Plus className="w-4 h-4 mr-2" />
                         Add Host
@@ -158,143 +161,145 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                 </div>
             </div>
 
-            <Card className="glass-panel border-slate-800/50 overflow-hidden shadow-2xl">
+            <Card className="glass-panel border-slate-800/50 overflow-hidden bg-[#0a0c10]/80">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-[11px]">
                         <thead>
-                            <tr className="border-b border-slate-800 bg-slate-800/80 backdrop-blur-md">
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Host / Name</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Since</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Latency</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Traffic</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Location</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Coords</th>
-                                <th className="text-left py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Last Check</th>
-                                <th className="text-right py-3.5 px-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">Actions</th>
+                            <tr className="border-b border-slate-800 bg-[#0f1218]">
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">HOST</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">NAME</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">STATUS</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">SINCE</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">LOCATION</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">LATENCY</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">TRAFFIC (IN/OUT)</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">COORDS</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">LAST CHECK</th>
+                                <th className="text-right py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">ACTIONS</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-800/50">
+                        <tbody className="divide-y divide-slate-800/40">
                             {filteredNetwatch.length > 0 ? (
                                 filteredNetwatch.map((nw) => (
                                     <tr key={nw.id} className={clsx(
-                                        "group transition-all duration-200",
-                                        nw.disabled ? "bg-slate-900/40 opacity-60" : "hover:bg-slate-800/40"
+                                        "group transition-all duration-150",
+                                        nw.disabled ? "bg-slate-900/40 opacity-50" : "hover:bg-slate-800/30"
                                     )}>
-                                        <td className="py-3 px-4">
+                                        <td className="py-2.5 px-4 font-mono text-slate-300">
+                                            {nw.host}
+                                        </td>
+                                        <td className="py-2.5 px-4">
+                                            <div className="text-slate-400 font-medium max-w-[150px] truncate">
+                                                {nw.name || nw.comment || '-'}
+                                            </div>
+                                        </td>
+                                        <td className="py-2.5 px-4">
                                             <div className="flex items-center gap-2">
                                                 {nw.disabled ? (
-                                                    <div className="flex items-center gap-1.5 text-slate-500 bg-slate-500/10 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-slate-500/20">
-                                                        DISABLED
+                                                    <div className="flex items-center gap-1.5 text-slate-600 font-bold uppercase tracking-wider text-[10px]">
+                                                        <XCircle className="w-3 h-3" />
+                                                        Disabled
                                                     </div>
                                                 ) : nw.status === 'up' ? (
-                                                    <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-emerald-500/20">
-                                                        <CheckCircle className="w-3 h-3 animate-pulse-slow" />
-                                                        UP
+                                                    <div className="flex items-center gap-1.5 text-emerald-500/80 font-bold uppercase tracking-wider text-[10px] border border-emerald-500/20 px-1.5 py-0.5 rounded-md">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        Up
                                                     </div>
                                                 ) : nw.status === 'down' ? (
-                                                    <div className="flex items-center gap-1.5 text-red-500 bg-red-500/10 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border border-red-500/20 shadow-sm shadow-red-500/10">
+                                                    <div className="flex items-center gap-1.5 text-red-500/80 font-bold uppercase tracking-wider text-[10px] border border-red-500/20 px-1.5 py-0.5 rounded-md">
                                                         <XCircle className="w-3 h-3" />
-                                                        DOWN
+                                                        Down
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-1.5 text-slate-500 bg-slate-500/10 px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider">
+                                                    <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
                                                         <RefreshCw className="w-3 h-3" />
-                                                        UNK
+                                                        Unk
                                                     </div>
                                                 )}
                                                 {nw.hasWebhook && (
-                                                    <div className="flex items-center gap-1 text-primary animate-pulse" title="Real-time Webhook Active">
-                                                        <Zap className="w-3.5 h-3.5 fill-primary/20" />
-                                                        <span className="text-[9px] font-black uppercase tracking-tighter">LIVE</span>
+                                                    <div className="flex items-center gap-1.5 bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded-md border border-amber-500/20 shadow-sm" title="Real-time Webhook Active">
+                                                        <Zap className="w-2.5 h-2.5 fill-amber-500" />
+                                                        <span className="text-[9px] font-black uppercase tracking-tighter italic">REAL-TIME</span>
                                                     </div>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4">
-                                            <div className="max-w-[200px]">
-                                                <div className="text-white font-semibold truncate group-hover:text-primary transition-colors">{nw.name || nw.host}</div>
-                                                <div className="text-[10px] text-slate-500 font-mono truncate">{nw.host}</div>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2 text-slate-300">
-                                                <History className="w-3.5 h-3.5 text-slate-500" />
-                                                <span className="text-xs font-medium">
-                                                    {nw.status === 'up' ? formatLastSync(nw.lastUp) : formatLastSync(nw.lastDown)}
+                                        <td className="py-2.5 px-4">
+                                            <div className="flex flex-col">
+                                                <span className="text-slate-300 font-bold whitespace-nowrap">
+                                                    {formatNetwatchDate(nw.lastUp || nw.lastDown)}
+                                                </span>
+                                                <span className={clsx(
+                                                    "text-[9px] font-medium",
+                                                    nw.status === 'up' ? "text-emerald-500/70" : "text-red-500/70"
+                                                )}>
+                                                    ({formatRelativeTime(nw.lastUp || nw.lastDown)})
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="py-3 px-4">
+                                        <td className="py-2.5 px-4 text-slate-500">
+                                            {nw.location || '-'}
+                                        </td>
+                                        <td className="py-2.5 px-4">
                                             {nw.latency ? (
                                                 <div className={clsx(
-                                                    "font-mono text-xs font-bold px-2 py-0.5 rounded inline-flex items-center gap-1",
-                                                    nw.latency > 100 ? "text-amber-500 bg-amber-500/10" : "text-emerald-400 bg-emerald-500/10"
+                                                    "font-bold text-[10px]",
+                                                    nw.latency > 100 ? "text-amber-500" : "text-emerald-500"
                                                 )}>
-                                                    <Activity className="w-3 h-3" />
-                                                    {Math.round(nw.latency)}ms
+                                                    {Math.round(nw.latency)} ms
                                                 </div>
                                             ) : (
-                                                <span className="text-slate-600 text-[10px]">--</span>
+                                                <span className="text-slate-700">--</span>
                                             )}
                                         </td>
-                                        <td className="py-3 px-4">
-                                            {nw.txRate !== undefined && nw.txRate > 0 ? (
+                                        <td className="py-2.5 px-4">
+                                            {nw.txRate !== undefined && !nw.disabled ? (
                                                 <div className="flex flex-col gap-0.5">
-                                                    <div className="flex items-center gap-1 text-green-400 font-mono text-[10px] font-bold">
-                                                        <TrendingUp className="w-3 h-3" />
-                                                        {formatBits(nw.txRate)}
+                                                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                                                        <TrendingDown className="w-3 h-3 opacity-70" />
+                                                        ~ {formatBits(nw.rxRate)}
                                                     </div>
-                                                    <div className="flex items-center gap-1 text-blue-400 font-mono text-[10px] font-bold">
-                                                        <TrendingDown className="w-3 h-3" />
-                                                        {formatBits(nw.rxRate)}
+                                                    <div className="flex items-center gap-1.5 text-blue-400 font-bold">
+                                                        <TrendingUp className="w-3 h-3 opacity-70" />
+                                                        ~ {formatBits(nw.txRate)}
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <span className="text-slate-600 text-[10px]">Silent</span>
+                                                <span className="text-slate-700">-</span>
                                             )}
                                         </td>
-                                        <td className="py-3 px-4">
-                                            <div className="flex items-center gap-2 text-slate-400 min-w-[80px]">
-                                                <MapPin className="w-3.5 h-3.5" />
-                                                <span className="text-xs truncate max-w-[120px]">{nw.location || 'Not set'}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 px-4">
+                                        <td className="py-2.5 px-4 text-slate-500">
                                             {nw.latitude && nw.longitude ? (
-                                                <div className="flex items-center gap-1 text-slate-500 font-mono text-[10px] hover:text-primary transition-colors cursor-help" title={`${nw.latitude}, ${nw.longitude}`}>
-                                                    <Globe className="w-3 h-3" />
+                                                <div className="flex items-center gap-1 group/coords cursor-help">
+                                                    <Globe className="w-3 h-3 text-slate-600" />
                                                     {parseFloat(nw.latitude).toFixed(3)}, {parseFloat(nw.longitude).toFixed(3)}
                                                 </div>
                                             ) : (
-                                                <Button variant="ghost" size="sm" className="h-6 px-2 text-[9px] text-slate-600 hover:text-primary gap-1">
-                                                    <Plus className="w-3 h-3" /> SET
+                                                <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[9px] text-slate-600 hover:text-primary gap-1">
+                                                    <MapPin className="w-3 h-3" /> Set
                                                 </Button>
                                             )}
                                         </td>
-                                        <td className="py-3 px-4 whitespace-nowrap">
-                                            <div className="flex items-center gap-2 text-slate-500 font-mono text-[10px]">
-                                                <Clock className="w-3 h-3" />
-                                                {formatLastSync(nw.lastCheck)}
-                                            </div>
+                                        <td className="py-2.5 px-4 text-slate-300 font-medium">
+                                            {formatTimeOnly(nw.lastCheck)}
                                         </td>
-                                        <td className="py-3 px-4 text-right">
-                                            <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <td className="py-2.5 px-4 text-right">
+                                            <div className="flex justify-end gap-1">
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-700/50"
+                                                    className="h-7 w-7 text-slate-500 hover:text-white hover:bg-slate-700/50"
                                                     onClick={() => setFormModal({ open: true, netwatch: nw })}
                                                 >
-                                                    <Edit className="w-4 h-4" />
+                                                    <Edit className="w-3.5 h-3.5" />
                                                 </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-8 w-8 text-slate-400 hover:text-red-400 hover:bg-red-500/10"
+                                                    className="h-7 w-7 text-slate-500 hover:text-red-500 hover:bg-red-500/10"
                                                     onClick={() => handleDelete(nw)}
                                                 >
-                                                    <Trash2 className="w-4 h-4" />
+                                                    <Trash2 className="w-3.5 h-3.5" />
                                                 </Button>
                                             </div>
                                         </td>
@@ -302,13 +307,10 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={9} className="py-20 text-center">
+                                    <td colSpan={10} className="py-20 text-center">
                                         <div className="flex flex-col items-center">
-                                            <Eye className="w-16 h-16 text-slate-800 mb-4 opacity-10" />
-                                            <p className="text-slate-500 font-medium">No Netwatch entries found for this filter</p>
-                                            <Button variant="link" size="sm" onClick={() => setFilter('all')} className="text-primary mt-2">
-                                                Clear all filters
-                                            </Button>
+                                            <Eye className="w-12 h-12 text-slate-800 mb-2 opacity-10" />
+                                            <p className="text-slate-600 font-medium">No Netwatch entries found</p>
                                         </div>
                                     </td>
                                 </tr>
