@@ -40,9 +40,15 @@ function validateSecrets(): void {
     }
 
     if (issues.length > 0) {
+        const isMissing = issues.some(i => i.includes('is missing'));
         if (process.env.NODE_ENV === 'production') {
-            logger.fatal({ issues }, '🚨 FATAL: Insecure configuration detected. Server cannot start in production with default secrets.');
-            process.exit(1);
+            if (isMissing) {
+                logger.fatal({ issues }, '🚨 FATAL: Missing configuration detected. Server cannot start in production without secrets.');
+                process.exit(1);
+            } else {
+                logger.error({ issues }, '⚠️ CRITICAL: Insecure configuration detected. Using default secrets in production is HIGHLY INSECURE. Please update your .env file.');
+                // We no longer exit on default values to allow initial setup/testing, but it's strongly discouraged.
+            }
         } else {
             logger.warn({ issues }, '⚠️ WARNING: Insecure configuration detected. Fix before deploying to production.');
         }

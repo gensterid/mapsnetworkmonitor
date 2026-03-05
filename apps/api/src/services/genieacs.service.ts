@@ -98,10 +98,12 @@ export const genieacsService = {
      * Get all devices from GenieACS
      * Supports MongoDB-style query
      */
-    getDevices: async (routerId?: string, tenantId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
-        const cacheKey = `genieacs:devices:${tenantId || 'all'}:${routerId || 'all'}:${JSON.stringify(query)}`;
-        const cached = cacheService.get<GenieACSDevice[]>(cacheKey);
-        if (cached) return cached;
+    getDevices: async (routerId?: string, tenantId?: string, query: any = {}, force = false, projectionMode: 'full' | 'stats' = 'full'): Promise<GenieACSDevice[]> => {
+        const cacheKey = `genieacs:devices:${tenantId || 'all'}:${routerId || 'all'}:${JSON.stringify(query)}:${projectionMode}`;
+        if (!force) {
+            const cached = cacheService.get<GenieACSDevice[]>(cacheKey);
+            if (cached) return cached;
+        }
 
         try {
             if (process.env.USE_DUMMY_DATA === 'true') {
@@ -178,7 +180,7 @@ export const genieacsService = {
                 }
             }
 
-            const projection = {
+            const projection: Record<string, any> = {
                 _id: 1,
                 _registered: 1,
                 _lastInform: 1,
@@ -187,9 +189,6 @@ export const genieacsService = {
                 '_deviceId._OUI': 1,
                 '_deviceId._Manufacturer': 1,
                 '_deviceId._SoftwareVersion': 1,
-                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID': 1,
-                'Device.WiFi.SSID.1.SSID': 1,
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice': 1,
                 _tags: 1,
                 _mac: 1,
                 // STATUS (Optical Power, Temperature, IP)
@@ -210,43 +209,39 @@ export const genieacsService = {
                 // TEMPERATURE
                 'InternetGatewayDevice.DeviceInfo.Temperature': 1,
                 'Device.DeviceInfo.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANDevice.1.OpticalModuleInfo.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.X_ZTE-COM_Optical.1.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_ZTE_COM_WANDevice.1.X_ZTE_COM_Optical.1.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_HW_WANDevice.1.OpticalModuleInfo.Temperature': 1,
-                'InternetGatewayDevice.X_HW_WANDevice.1.OpticalModuleInfo.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.Temperature': 1,
-                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.OpticalModuleTemp': 1,
-                'InternetGatewayDevice.WANDevice.1.X_FH_GponInterfaceConfig.TransceiverTemperature': 1,
-                'Device.DeviceInfo.TemperatureStatus.Temperature': 1,
-                'Device.DeviceInfo.Processors.1.Temperature': 1,
                 'VirtualParameters.Temperature': 1,
                 'VirtualParameters.gettemp': 1,
                 // MAC ADDRESSES
-                'InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress': 1,
-                'InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MACAddress': 1,
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.MACAddress': 1,
-                'InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.MACAddress': 1,
-                'Device.Ethernet.Interface.1.MACAddress': 1,
                 'VirtualParameters.PonMac': 1,
                 'VirtualParameters.pppoeMac': 1,
                 'VirtualParameters.MACAddress': 1,
                 // OTHERS & CLIENT COUNT
                 'InternetGatewayDevice.DeviceInfo.UpTime': 1,
                 'Device.DeviceInfo.UpTime': 1,
-                'InternetGatewayDevice.DeviceInfo.HardwareVersion': 1,
-                'Device.DeviceInfo.HardwareVersion': 1,
-                'InternetGatewayDevice.ManagementServer.ManageableDeviceNumberOfEntries': 1,
-                'InternetGatewayDevice.Hosts.HostNumberOfEntries': 1,
-                'Device.Hosts.HostNumberOfEntries': 1,
-                'InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries': 1,
-                'InternetGatewayDevice.LANDevice.1.Hosts.Host': 1,
-                'Device.Hosts.Host': 1,
-                'Device.Hosts.Host.1.PhysAddress': 1,
-                'InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations': 1,
                 'VirtualParameters.ConnectedDevices': 1,
             };
+
+            // Add heavy paths only in FULL mode
+            if (projectionMode === 'full') {
+                projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.SSID'] = 1;
+                projection['Device.WiFi.SSID.1.SSID'] = 1;
+                projection['InternetGatewayDevice.WANDevice.1.WANConnectionDevice'] = 1;
+                projection['InternetGatewayDevice.LANDevice.1.LANEthernetInterfaceConfig.1.MACAddress'] = 1;
+                projection['InternetGatewayDevice.LANDevice.1.LANHostConfigManagement.MACAddress'] = 1;
+                projection['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.2.WANPPPConnection.1.MACAddress'] = 1;
+                projection['InternetGatewayDevice.WANDevice.1.WANConnectionDevice.3.WANIPConnection.1.MACAddress'] = 1;
+                projection['Device.Ethernet.Interface.1.MACAddress'] = 1;
+                projection['InternetGatewayDevice.DeviceInfo.HardwareVersion'] = 1;
+                projection['Device.DeviceInfo.HardwareVersion'] = 1;
+                projection['InternetGatewayDevice.ManagementServer.ManageableDeviceNumberOfEntries'] = 1;
+                projection['InternetGatewayDevice.Hosts.HostNumberOfEntries'] = 1;
+                projection['Device.Hosts.HostNumberOfEntries'] = 1;
+                projection['InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries'] = 1;
+                projection['InternetGatewayDevice.LANDevice.1.Hosts.Host'] = 1;
+                projection['Device.Hosts.Host'] = 1;
+                projection['Device.Hosts.Host.1.PhysAddress'] = 1;
+                projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations'] = 1;
+            }
 
             const response = await axios.get(`${url}/devices`, {
                 params: {
@@ -997,6 +992,67 @@ export const genieacsService = {
         }));
 
         return results;
+    },
+
+    /**
+     * Get ACS Dashboard Statistics (Warming friendly)
+     */
+    getDashboardStats: async (routerId?: string, tenantId?: string, force = false) => {
+        const cacheKey = `genieacs:stats:${tenantId || 'all'}:${routerId || 'all'}`;
+
+        if (!force) {
+            const cached = cacheService.get<any>(cacheKey);
+            if (cached) return cached;
+        }
+
+        // Use 'stats' projection mode for faster performance
+        const devices = await genieacsService.getDevices(routerId, tenantId, {}, force, 'stats');
+
+        const stats = {
+            total: devices.length,
+            online: 0,
+            offline: 0,
+            avgUptimeSeconds: 0,
+            signalDistribution: {
+                excellent: 0, // > -20
+                good: 0,      // -20 to -24
+                fair: 0,      // -25 to -27
+                poor: 0,      // < -27
+                noSignal: 0
+            },
+            vendorDistribution: {} as Record<string, number>,
+            modelDistribution: {} as Record<string, number>,
+            recentActivity: devices
+                .filter(d => d._lastInform)
+                .sort((a, b) => new Date(b._lastInform).getTime() - new Date(a._lastInform).getTime())
+                .slice(0, 10)
+        };
+
+        devices.forEach(dev => {
+            const lastInform = dev._lastInform ? new Date(dev._lastInform).getTime() : 0;
+            const isOnline = lastInform > Date.now() - 5 * 60 * 1000;
+
+            if (isOnline) stats.online++;
+            else stats.offline++;
+
+            const rxPower = parseFloat(dev._rxPower || '0');
+            if (!dev._rxPower || rxPower === 0) stats.signalDistribution.noSignal++;
+            else if (rxPower >= -20) stats.signalDistribution.excellent++;
+            else if (rxPower >= -24) stats.signalDistribution.good++;
+            else if (rxPower >= -27) stats.signalDistribution.fair++;
+            else stats.signalDistribution.poor++;
+
+            const vendor = dev._manufacturer || 'Unknown';
+            stats.vendorDistribution[vendor] = (stats.vendorDistribution[vendor] || 0) + 1;
+
+            const model = dev._productClass || 'Unknown';
+            stats.modelDistribution[model] = (stats.modelDistribution[model] || 0) + 1;
+        });
+
+        // Set cache for 65s (matches warmer interval + buffer)
+        cacheService.set(cacheKey, stats, cacheService.TTL.GENIEACS_DEVICES);
+
+        return stats;
     },
 
     /**

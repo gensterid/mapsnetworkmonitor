@@ -547,9 +547,9 @@ export class AlertService {
                 );
                 if (condition) filters.push(condition);
             } else if (category === 'alerts') {
+                // Consistent with findAll: NOT an issue (includes connectivity in this view)
                 const condition = and(
-                    notInArray(alerts.type, connectivityTypesList as any),
-                    not(inArray(alerts.type, issueTypesList as any)),
+                    notInArray(alerts.type, issueTypesList as any),
                     not(and(
                         eq(alerts.severity, 'warning'),
                         notInArray(alerts.type, connectivityTypesList as any)

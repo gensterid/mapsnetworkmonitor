@@ -3,6 +3,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { logger } from './logger.js';
+import crypto from 'node:crypto';
 
 /**
  * Resolve the Better Auth baseURL.
@@ -119,8 +120,9 @@ export const auth = betterAuth({
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // Secure cookies are enabled only in production to allow local HTTP development.
-        useSecureCookies: process.env.NODE_ENV === 'production',
+        // Secure cookies are enabled ONLY if we are in production AND using HTTPS.
+        // This allows production deployments on local IPs (like Proxmox 10.x IPs) without SSL to still work.
+        useSecureCookies: process.env.NODE_ENV === 'production' && resolvedBaseURL.startsWith('https://'),
     },
     trustedOrigins: resolvedTrustedOrigins,
 });

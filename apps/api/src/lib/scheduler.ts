@@ -346,9 +346,8 @@ async function warmAcsDashboard(): Promise<void> {
 
             const tenantId = tenant.id;
 
-            // Warm global ACS
-            cacheService.del(`genieacs:devices:${tenantId}:all:{}`);
-            await genieacsService.getDevices(undefined, tenantId).catch(() => { });
+            // Warm global ACS stats (this also warms devices internally)
+            await genieacsService.getDashboardStats(undefined, tenantId, true).catch(() => { });
 
             // Warm dedicated ACS
             const routers = await routerService.findAll(tenantId);
@@ -356,8 +355,7 @@ async function warmAcsDashboard(): Promise<void> {
 
             if (routersWithDedicatedAcs.length > 0) {
                 for (const router of routersWithDedicatedAcs) {
-                    cacheService.del(`genieacs:devices:${tenantId}:${router.id}:{}`);
-                    await genieacsService.getDevices(router.id, tenantId).catch(() => { });
+                    await genieacsService.getDashboardStats(router.id, tenantId, true).catch(() => { });
                 }
             }
         }
