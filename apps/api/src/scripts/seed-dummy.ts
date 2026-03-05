@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { db } from '../db/index.js';
 import { routers, tenants, olts, onus, routerNetwatch } from '../db/schema/index.js';
+import { eq, sql } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { encrypt } from '../lib/encryption.js';
 
@@ -8,6 +9,13 @@ async function seedDummy() {
     logger.info('🌱 Seeding full dummy network for development...');
 
     try {
+        // 0. Cleanup existing dummy data
+        logger.info('🧹 Cleaning up old dummy data...');
+        await db.delete(onus).where(sql`sn LIKE 'DMY-%'`);
+        await db.delete(routerNetwatch).where(sql`name LIKE '%MOCK%'`);
+        await db.delete(olts).where(sql`name LIKE 'OLT-%-MOCK'`);
+        await db.delete(routers).where(eq(routers.name, 'DUMMY-CORE-ROUTER'));
+
         // 1. Ensure Tenant exists
         let [tenant] = await db.select().from(tenants).limit(1);
         if (!tenant) {
