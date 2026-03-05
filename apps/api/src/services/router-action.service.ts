@@ -183,7 +183,7 @@ export class RouterActionService {
             { ip: '1.1.1.1', label: 'Cloudflare' }
         ];
 
-        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', tenantId!, defaultTargets);
+        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', router.tenantId!, defaultTargets);
         const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
 
         if (targets.length === 0) {

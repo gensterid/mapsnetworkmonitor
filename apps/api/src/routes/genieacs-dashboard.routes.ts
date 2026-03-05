@@ -3,6 +3,7 @@ import { genieacsService } from '../services/genieacs.service.js';
 import { logger } from '../lib/logger.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+import { cacheService } from '../lib/cache.js';
 
 const router = Router();
 
@@ -12,8 +13,16 @@ const router = Router();
 router.get('/stats', authMiddleware, async (req, res) => {
     try {
         const routerId = req.query.routerId as string | undefined;
+        const tenantId = getEffectiveTenantId(req);
+
+        const cacheKey = `genieacs:stats:${tenantId || 'all'}:${routerId || 'all'}`;
+        const cached = cacheService.get<any>(cacheKey);
+        if (cached) {
+            return res.json({ success: true, data: cached });
+        }
+
         // @ts-ignore
-        const devices = await genieacsService.getDevices(routerId, getEffectiveTenantId(req));
+        const devices = await genieacsService.getDevices(routerId, tenantId);
 
         const stats = {
             total: devices.length,
@@ -67,6 +76,9 @@ router.get('/stats', authMiddleware, async (req, res) => {
             // but for average we might want raw value.
             // For now, let's just use the count of online devices as a proxy for the simple AVG.
         });
+
+        // Set cache for 30s
+        cacheService.set(cacheKey, stats, cacheService.TTL.GENIEACS_DEVICES);
 
         res.json({
             success: true,

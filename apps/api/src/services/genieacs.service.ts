@@ -2,6 +2,7 @@ import axios from 'axios';
 import { logger } from '../lib/logger.js';
 import { settingsService } from './settings.service.js';
 import { routerService } from './router.service.js';
+import { cacheService } from '../lib/cache.js';
 
 export interface GenieACSDevice {
     _id: string;
@@ -98,6 +99,10 @@ export const genieacsService = {
      * Supports MongoDB-style query
      */
     getDevices: async (routerId?: string, tenantId?: string, query: any = {}): Promise<GenieACSDevice[]> => {
+        const cacheKey = `genieacs:devices:${tenantId || 'all'}:${routerId || 'all'}:${JSON.stringify(query)}`;
+        const cached = cacheService.get<GenieACSDevice[]>(cacheKey);
+        if (cached) return cached;
+
         try {
             if (process.env.USE_DUMMY_DATA === 'true') {
                 logger.info('🛠️ GenieACS: Returning dummy devices');
@@ -254,7 +259,7 @@ export const genieacsService = {
 
             logger.info({ count: response.data?.length || 0 }, 'GenieACS: Successfully fetched devices');
 
-            return response.data.map((dev: any) => ({
+            const result = response.data.map((dev: any) => ({
                 _id: dev._id,
                 _registered: dev._registered,
                 _lastInform: dev._lastInform,
@@ -275,6 +280,11 @@ export const genieacsService = {
                 _hardwareVersion: dev.InternetGatewayDevice?.DeviceInfo?.HardwareVersion?._value ||
                     dev.Device?.DeviceInfo?.HardwareVersion?._value || ''
             }));
+
+            // Cache for 30s
+            cacheService.set(cacheKey, result, cacheService.TTL.GENIEACS_DEVICES);
+
+            return result;
         } catch (error) {
             const errMsg = error instanceof Error ? error.message : String(error);
             logger.error({ err: errMsg }, 'GenieACS: Failed to fetch devices');
@@ -292,6 +302,10 @@ export const genieacsService = {
 
         try {
             logger.info({ tenantId }, 'GenieACS: Starting metadata sync');
+
+            // Invalidate device list cache before fresh sync
+            cacheService.invalidatePrefix(`genieacs:devices:${tenantId || 'all'}`);
+
             const devices = await genieacsService.getDevices(routerId, tenantId);
             total = devices.length;
 
@@ -368,6 +382,10 @@ export const genieacsService = {
      * Get single device details
      */
     getDevice: async (deviceId: string, routerId?: string, tenantId?: string) => {
+        const cacheKey = `genieacs:device:${deviceId}`;
+        const cached = cacheService.get<any>(cacheKey);
+        if (cached) return cached;
+
         try {
             if (process.env.USE_DUMMY_DATA === 'true') {
                 const devices = await genieacsService.getDevices(routerId, tenantId);
@@ -403,7 +421,9 @@ export const genieacsService = {
             });
 
             if (response.data && response.data.length > 0) {
-                return response.data[0];
+                const device = response.data[0];
+                cacheService.set(cacheKey, device, cacheService.TTL.GENIEACS_DEVICE);
+                return device;
             }
             return null;
         } catch (error) {
@@ -635,6 +655,10 @@ export const genieacsService = {
 
             logger.info({ status: response.status }, 'GenieACS: Task response');
 
+            // Invalidate cache
+            cacheService.delete(`genieacs:device:${deviceId}`);
+            cacheService.invalidatePrefix('genieacs:devices');
+
             // Proactively refresh the object to see changes immediately
             if (response.status < 300) {
                 axios.post(`${url}/devices/${encodedId}/tasks?connection_request`, {
@@ -772,6 +796,10 @@ export const genieacsService = {
 
             logger.info({ deviceId }, 'GenieACS: Updating WiFi config');
 
+            // Invalidate cache
+            cacheService.delete(`genieacs:device:${deviceId}`);
+            cacheService.invalidatePrefix('genieacs:devices');
+
             const response = await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'setParameterValues',
                 parameterValues: parameters
@@ -799,6 +827,11 @@ export const genieacsService = {
             }, {
                 auth
             });
+
+            // Invalidate cache
+            cacheService.delete(`genieacs:device:${deviceId}`);
+            cacheService.invalidatePrefix('genieacs:devices');
+
             return { success: true };
         } catch (error) {
             return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -818,6 +851,11 @@ export const genieacsService = {
             }, {
                 auth
             });
+
+            // Invalidate cache
+            cacheService.delete(`genieacs:device:${deviceId}`);
+            cacheService.invalidatePrefix('genieacs:devices');
+
             return { success: true };
         } catch (error) {
             logger.error({ deviceId, parameterName, err: error }, 'GenieACS setParameter Error');
@@ -882,6 +920,11 @@ export const genieacsService = {
                     name: 'refreshObject',
                     objectName: ''
                 }, { auth });
+
+                // Invalidate cache
+                cacheService.delete(`genieacs:device:${deviceId}`);
+                cacheService.invalidatePrefix('genieacs:devices');
+
                 return { success: true };
             } catch (retryError) {
                 return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

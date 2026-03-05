@@ -143,10 +143,14 @@ export class TopologyService {
                     customData.host,
                     customData.name || 'Unmapped Node',
                     nodeType,
-                    tenantId
+                    tenantId,
+                    null // No existing ID yet
                 );
             } catch (err) {
-                logger.error({ err, host: customData.host }, 'Failed to auto-create netwatch for topology node');
+                // Ignore validation errors (like partial IPs during creation)
+                if (err instanceof Error && !err.message.includes('Invalid or partial host')) {
+                    logger.error({ err: err.message, host: customData.host }, 'Failed to auto-create netwatch for topology node');
+                }
             }
         }
 
@@ -248,11 +252,24 @@ export class TopologyService {
                             hostToUse,
                             data.customName || existing.customName || 'Updated Node',
                             data.nodeType || existing.nodeType,
-                            existing.tenantId || undefined
+                            existing.tenantId || undefined,
+                            existing.nodeId // Pass existing ID to update in-place!
                         );
+
+                        // If the nodeId changed (promotion or host change) and the old one was AppOnly, 
+                        // we should consider cleaning up the old one if it's no longer used.
+                        if (existing.nodeId && existing.nodeId !== netwatchId) {
+                            const [oldNw] = await db.select().from(routerNetwatch).where(eq(routerNetwatch.id, existing.nodeId));
+                            if (oldNw?.isAppOnly) {
+                                await db.delete(routerNetwatch).where(eq(routerNetwatch.id, existing.nodeId));
+                                logger.info({ oldId: existing.nodeId, newId: netwatchId }, 'Topology: Cleaned up orphaned app-only netwatch entry');
+                            }
+                        }
+
                         updateData.nodeId = netwatchId;
                     } catch (err) {
-                        logger.error({ err, host: hostToUse }, 'Failed to update netwatch link for topology node');
+                        // If it fails (e.g. invalid IP), we just don't update the nodeId mapping
+                        logger.error({ err: err instanceof Error ? err.message : String(err), host: hostToUse }, 'Failed to update netwatch link for topology node');
                     }
                 }
             }

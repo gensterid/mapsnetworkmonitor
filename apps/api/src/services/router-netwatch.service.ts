@@ -723,7 +723,7 @@ export class RouterNetwatchService {
 
                 // Smart Append Webhook scripts if Webhook feature is enabled
                 if (router.useWebhook && router.webhookSecret) {
-                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
+                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId!);
                     await configureNetwatchWebhook(conn, data.host as string, webhookUrl);
                 }
 
@@ -831,7 +831,7 @@ export class RouterNetwatchService {
                     });
 
                     if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
-                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, tenantId!);
+                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId!);
                         const hostToConfigure = data.host || original.host;
                         await configureNetwatchWebhook(conn, hostToConfigure, webhookUrl);
                     }
@@ -979,22 +979,57 @@ export class RouterNetwatchService {
     }
 
     /**
-     * Ensure an app-only netwatch entry exists for the given host
+     * Ensure an app-only netwatch entry exists for the given host.
+     * If existingId is provided, it tries to update that entry instead of creating a new one.
      */
-    async ensureAppOnlyEntry(routerId: string, host: string, name: string, type: string, tenantId?: string): Promise<string> {
-        const [existing] = await db.select()
+    async ensureAppOnlyEntry(routerId: string, host: string, name: string, type: string, tenantId?: string, existingId?: string | null): Promise<string> {
+        // Validation: Host must be a valid IP or hostname (length > 3 and contains . or :)
+        // This prevents partial strings from typing (e.g. "192.168.1") from creating junk entries
+        const isLikelyPartial = !host || host === '0.0.0.0' || (host.length < 4) || (!host.includes('.') && !host.includes(':'));
+        if (isLikelyPartial) {
+            // If it's partial, we don't create/update netwatch, just return current if it exists
+            if (existingId) return existingId;
+            throw new Error('Invalid or partial host');
+        }
+
+        // 1. If we have a schematic reference ID, try to update it directly
+        if (existingId) {
+            const [existing] = await db.select().from(routerNetwatch).where(eq(routerNetwatch.id, existingId));
+            if (existing && existing.isAppOnly && existing.routerId === routerId) {
+                const updatePayload: any = {
+                    host,
+                    name,
+                    updatedAt: new Date()
+                };
+
+                if (type) {
+                    let deviceType: any = 'client';
+                    if (type === 'olt') deviceType = 'olt';
+                    else if (type === 'router') deviceType = 'router';
+                    else if (type === 'switch') deviceType = 'switch';
+                    updatePayload.deviceType = deviceType;
+                }
+
+                await db.update(routerNetwatch).set(updatePayload).where(eq(routerNetwatch.id, existingId));
+                return existingId;
+            }
+        }
+
+        // 2. Otherwise, look for an entry with the same host on this router
+        const [byHost] = await db.select()
             .from(routerNetwatch)
             .where(and(eq(routerNetwatch.routerId, routerId), eq(routerNetwatch.host, host)));
 
-        if (existing) {
+        if (byHost) {
             const updatePayload: any = { isAppOnly: true, updatedAt: new Date() };
-            if (name && existing.name !== name) {
+            if (name && byHost.name !== name) {
                 updatePayload.name = name;
             }
-            await db.update(routerNetwatch).set(updatePayload).where(eq(routerNetwatch.id, existing.id));
-            return existing.id;
+            await db.update(routerNetwatch).set(updatePayload).where(eq(routerNetwatch.id, byHost.id));
+            return byHost.id;
         }
 
+        // 3. Create new entry
         let deviceType: any = 'client';
         if (type === 'olt') deviceType = 'olt';
         else if (type === 'router') deviceType = 'router';
