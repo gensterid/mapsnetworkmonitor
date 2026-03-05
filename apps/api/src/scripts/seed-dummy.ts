@@ -1,56 +1,113 @@
 import 'dotenv/config';
 import { db } from '../db/index.js';
-import { routers, tenants } from '../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { routers, tenants, olts, onus, routerNetwatch } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
+import { encrypt } from '../lib/encryption.js';
 
 async function seedDummy() {
-    logger.info('🌱 Seeding dummy router for development...');
+    logger.info('🌱 Seeding full dummy network for development...');
 
     try {
-        const dummyHost = '1.1.1.1';
-
-        // 1. Get a valid tenantId (dynamically)
-        let tenantId: string;
-        const [existingTenant] = await db.select().from(tenants).limit(1);
-
-        if (existingTenant) {
-            tenantId = existingTenant.id;
-            logger.debug({ tenantName: existingTenant.name }, 'Using existing tenant for dummy router');
-        } else {
-            // Create a default tenant if none exists
-            logger.info('Creating default tenant for dummy mode...');
-            const [newTenant] = await db.insert(tenants).values({
-                name: 'Default Development ISP',
-                slug: 'default-isp',
-                description: 'Auto-generated for dummy testing',
+        // 1. Ensure Tenant exists
+        let [tenant] = await db.select().from(tenants).limit(1);
+        if (!tenant) {
+            [tenant] = await db.insert(tenants).values({
+                name: 'Default Tenant',
+                slug: 'default',
             }).returning();
-            tenantId = newTenant.id;
+            logger.info({ tenantId: tenant.id }, '✅ Created default tenant');
         }
 
-        // 2. Check if dummy already exists
-        const [existing] = await db.select().from(routers).where(eq(routers.host, dummyHost));
+        const tenantId = tenant.id;
 
-        if (existing) {
-            logger.info({ host: dummyHost }, '✅ Dummy router already exists. Skipping.');
-            process.exit(0);
-        }
-
-        // 3. Add dummy router
-        await db.insert(routers).values({
-            name: 'Dummy Development Router',
-            host: dummyHost,
-            port: 8728,
+        // 2. Create Main Dummy Router
+        const [router] = await db.insert(routers).values({
+            tenantId,
+            name: 'DUMMY-CORE-ROUTER',
+            host: '10.0.0.1',
             username: 'admin',
-            passwordEncrypted: '', // Mock doesn't care
+            passwordEncrypted: encrypt('admin'),
             status: 'online',
-            tenantId: tenantId
-        });
+            model: 'RB4011',
+            useGenieAcs: true,
+            genieacsUrl: 'http://10.0.0.30:7557',
+            latitude: '-6.2088',
+            longitude: '106.8456', // Jakarta Center
+        }).returning();
+        logger.info({ routerId: router.id }, '✅ Created dummy router');
 
-        logger.info('🚀 Dummy router added successfully! Make sure USE_DUMMY_DATA=true is set in your .env');
+        // 3. Create OLTs linked to Router
+        const [oltCdata] = await db.insert(olts).values({
+            tenantId,
+            parentId: router.id,
+            name: 'OLT-CDATA-MOCK',
+            host: '10.0.0.10',
+            username: 'admin',
+            passwordEncrypted: encrypt('admin'),
+            type: 'cdata',
+            status: 'online',
+        }).returning();
+
+        const [oltHsgq] = await db.insert(olts).values({
+            tenantId,
+            parentId: router.id,
+            name: 'OLT-HSGQ-MOCK',
+            host: '10.0.0.20',
+            username: 'admin',
+            passwordEncrypted: encrypt('admin'),
+            type: 'hsgq',
+            status: 'online',
+        }).returning();
+        logger.info('✅ Created dummy OLTs');
+
+        // 4. Create ONUs for OLTs
+        const dummyOnus = [
+            { sn: 'DMY-CDATA-0001', name: 'User-CData-1', oltId: oltCdata.id, lat: '-6.215', lng: '106.850' },
+            { sn: 'DMY-CDATA-0002', name: 'User-CData-2', oltId: oltCdata.id, lat: '-6.220', lng: '106.855' },
+            { sn: 'DMY-HSGQ-0001', name: 'User-HSGQ-1', oltId: oltHsgq.id, lat: '-6.200', lng: '106.840' },
+            { sn: 'DMY-ACS-SN-001', name: 'User-ACS-Zte', routerId: router.id, lat: '-6.205', lng: '106.842' },
+        ];
+
+        for (const d of dummyOnus) {
+            await db.insert(onus).values({
+                tenantId,
+                sn: d.sn,
+                name: d.name,
+                oltId: d.oltId || null,
+                routerId: d.routerId || null,
+                status: 'online',
+                latitude: d.lat ? String(d.lat) : null,
+                longitude: d.lng ? String(d.lng) : null,
+                discoverySources: d.routerId ? ['acs'] : ['olt'],
+            });
+        }
+        logger.info('✅ Created dummy ONUs');
+
+        // 5. Create Netwatch entries with coordinates
+        const netwatchData = [
+            { host: '8.8.8.8', name: 'Google DNS', lat: '-6.175', lng: '106.827' },
+            { host: '1.1.1.1', name: 'Cloudflare', lat: '-6.170', lng: '106.820' },
+            { host: '10.0.0.10', name: 'OLT-CDATA-MOCK', lat: '-6.180', lng: '106.830' },
+            { host: '10.0.0.20', name: 'OLT-HSGQ-MOCK', lat: '-6.185', lng: '106.835' },
+        ];
+
+        for (const n of netwatchData) {
+            await db.insert(routerNetwatch).values({
+                tenantId,
+                routerId: router.id,
+                host: n.host,
+                name: n.name,
+                status: 'up',
+                latitude: String(n.lat),
+                longitude: String(n.lng),
+            });
+        }
+        logger.info('✅ Created dummy Netwatch entries');
+
+        logger.info('🎉 Full dummy seeding complete!');
         process.exit(0);
-    } catch (err: any) {
-        logger.error({ err: err?.message || String(err) }, '❌ Failed to seed dummy router');
+    } catch (err) {
+        logger.error({ err }, '❌ Failed to seed dummy network');
         process.exit(1);
     }
 }

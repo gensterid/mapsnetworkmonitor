@@ -2,6 +2,7 @@ import { OltDriverConfig, IOltDriver } from './olt-driver.interface.js';
 import { HsgqDriver } from './hsgq.driver.js';
 import { CDataDriver } from './cdata.driver.js';
 import { GenericDriver } from './generic.driver.js';
+import { DummyOltDriver } from './dummy.driver.js';
 import { decrypt } from '../../lib/encryption.js';
 import { logger } from '../../lib/logger.js';
 
@@ -29,6 +30,10 @@ export class OltDriverFactory {
             logger.warn({ host }, '[DriverFactory] Telnet/SSH is disabled. Falling back to HTTP');
             config.protocol = 'http';
             config.port = port || 80;
+        }
+
+        if (process.env.USE_DUMMY_DATA === 'true') {
+            return new DummyOltDriver(config);
         }
 
         switch (type.toLowerCase()) {
