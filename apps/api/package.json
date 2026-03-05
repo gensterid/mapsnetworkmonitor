@@ -23,6 +23,7 @@
         "axios": "^1.13.2",
         "bcrypt": "^6.0.0",
         "@better-auth/drizzle-adapter": "^1.4.9",
+        "@better-auth/core": "^1.4.9",
         "better-auth": "^1.4.9",
         "bullmq": "^5.70.1",
         "compression": "^1.8.1",

@@ -14,6 +14,11 @@ export const redisOptions: RedisOptions = {
     },
 };
 
+export const bullmqRedisOptions: RedisOptions = {
+    ...redisOptions,
+    maxRetriesPerRequest: null, // Required by BullMQ for blocking commands
+};
+
 // Shared Redis connection
 let redisConnection: Redis | null = null;
 
@@ -41,7 +46,7 @@ export function getRedisConnection() {
  * Essential for BullMQ Workers as they use blocking commands.
  */
 export function createRedisConnection() {
-    const conn = new Redis(REDIS_URL, redisOptions);
+    const conn = new Redis(REDIS_URL, bullmqRedisOptions);
     conn.on('error', (err: Error) => {
         logger.error({ err: err.message }, 'Redis connection error (Fresh)');
     });
