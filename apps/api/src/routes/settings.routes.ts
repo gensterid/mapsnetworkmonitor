@@ -83,7 +83,7 @@ router.put(
             value = encrypt(value);
         }
 
-        const setting = await settingsService.setSetting(key, value, getEffectiveTenantId(req) as string, description);
+        const setting = await settingsService.setSetting(key, value, (getEffectiveTenantId(req) || req.user!.tenantId) as string, description);
 
         // Check if scheduler restart is needed
         if (key.includes('interval')) {
@@ -116,7 +116,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
-        const deleted = await settingsService.deleteSetting(key, getEffectiveTenantId(req) as string);
+        const deleted = await settingsService.deleteSetting(key, (getEffectiveTenantId(req) || req.user!.tenantId) as string);
 
         if (!deleted) {
             throw ApiError.notFound('Setting not found');

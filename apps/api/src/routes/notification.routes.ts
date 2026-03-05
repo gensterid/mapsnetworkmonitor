@@ -49,7 +49,7 @@ router.post('/', requireAdmin, async (req, res) => {
             .insert(notificationGroups)
             .values({
                 ...validated,
-                tenantId: getEffectiveTenantId(req) as string,
+                tenantId: req.user!.tenantId!,
             })
             .returning();
 

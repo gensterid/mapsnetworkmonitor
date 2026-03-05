@@ -64,7 +64,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const data = createGroupSchema.parse(req.body);
-        const group = await groupService.create(data, getEffectiveTenantId(req));
+        const group = await groupService.create(data, req.user!.tenantId!);
 
         res.status(201).json({ data: group });
     })

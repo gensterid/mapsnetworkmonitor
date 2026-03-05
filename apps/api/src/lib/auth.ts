@@ -1,5 +1,5 @@
 import { betterAuth } from 'better-auth';
-import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import { db } from '../db/index.js';
 import * as schema from '../db/schema/index.js';
 import { logger } from './logger.js';

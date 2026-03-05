@@ -87,7 +87,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // Requires: Operator or Admin
 router.post('/', requireOperator, asyncHandler(async (req, res) => {
     const data = createOltSchema.parse(req.body);
-    const olt = await oltService.create(data, getEffectiveTenantId(req));
+    const olt = await oltService.create(data, req.user!.tenantId!);
     res.status(201).json(olt);
 }));
 
