@@ -1,12 +1,15 @@
 
-import { connectToRouter } from './apps/api/src/lib/mikrotik-api.js';
-import { decrypt } from './apps/api/src/lib/encryption.js';
-import { db } from './apps/api/src/db/index.js';
-import { routers } from './apps/api/src/db/schema/index.js';
+import { connectToRouter } from '../lib/mikrotik-api.js';
+import { decrypt } from '../lib/encryption.js';
+import { db } from '../db/index.js';
+import { routers } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: './apps/api/.env' });
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '../../.env') });
 
 async function diagnose() {
     const routerId = process.argv[2];

@@ -9,7 +9,7 @@ async function check() {
             WHERE table_name = 'router_netwatch' 
             AND column_name = 'disabled';
         `);
-        console.log('Column check result:', result.rows);
+        console.log('Column check result:', result);
         process.exit(0);
     } catch (err) {
         console.error('Error checking column:', err);
