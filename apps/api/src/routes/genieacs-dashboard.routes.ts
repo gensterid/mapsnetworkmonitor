@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { genieacsService } from '../services/genieacs.service.js';
 import { logger } from '../lib/logger.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 const router = Router();
 

@@ -4,7 +4,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 // All routes require authentication
 router.use(authMiddleware);

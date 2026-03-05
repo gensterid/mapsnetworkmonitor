@@ -4,7 +4,7 @@ import { groupService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin, requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 const router = Router();
 

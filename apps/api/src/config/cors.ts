@@ -10,9 +10,10 @@ export const corsOptions = {
         // Allow requests with no origin (like mobile apps or curl requests)
         if (!origin) return callback(null, true);
 
-        // Wildcard support
+        // Security: Reject wildcard CORS — all origins must be explicitly listed
         if (allowedOrigins.includes('*')) {
-            return callback(null, true);
+            logger.warn('⚠️ CORS wildcard (*) detected in CORS_ORIGIN. This is insecure. Listing explicit domains instead.');
+            return callback(new Error('Wildcard CORS is disabled for security. Set explicit origins in CORS_ORIGIN.'));
         }
 
         const normalize = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '').toLowerCase();

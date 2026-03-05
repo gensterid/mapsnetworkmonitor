@@ -5,7 +5,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 const router = Router();
 

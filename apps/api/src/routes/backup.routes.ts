@@ -2,7 +2,7 @@
 import { Router, Request } from 'express';
 import multer from 'multer';
 import { backupService } from '../services/backup.service.js';
-import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { requireRole } from '../middleware/rbac.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { logger } from '../lib/logger.js';
 import fs from 'fs';
@@ -26,7 +26,7 @@ const upload = multer({
 });
 
 // Export Database
-router.get('/export', requireAdmin, async (_req, res) => {
+router.get('/export', requireRole('superadmin'), async (_req, res) => {
     try {
         const filePath = await backupService.exportDatabase();
         res.download(filePath, path.basename(filePath), (err) => {
@@ -47,7 +47,7 @@ router.get('/export', requireAdmin, async (_req, res) => {
 });
 
 // Import Database
-router.post('/import', requireAdmin, upload.single('backup'), async (req: Request, res) => {
+router.post('/import', requireRole('superadmin'), upload.single('backup'), async (req: Request, res) => {
     const file = (req as any).file;
     if (!file) {
         return res.status(400).json({ error: 'No backup file provided' });
@@ -71,7 +71,7 @@ router.post('/import', requireAdmin, upload.single('backup'), async (req: Reques
 });
 
 // List Backups
-router.get('/list', requireAdmin, async (_req, res) => {
+router.get('/list', requireRole('superadmin'), async (_req, res) => {
     try {
         const backups = await backupService.listBackups();
         res.json(backups);
@@ -82,7 +82,7 @@ router.get('/list', requireAdmin, async (_req, res) => {
 });
 
 // Trigger Manual (Persistent) Backup
-router.post('/trigger-manual', requireAdmin, async (_req, res) => {
+router.post('/trigger-manual', requireRole('superadmin'), async (_req, res) => {
     try {
         const filePath = await backupService.automatedBackup();
         res.json({ message: 'Backup created successfully', filename: path.basename(filePath) });
@@ -93,7 +93,7 @@ router.post('/trigger-manual', requireAdmin, async (_req, res) => {
 });
 
 // Delete Backup
-router.delete('/:filename', requireAdmin, async (req, res) => {
+router.delete('/:filename', requireRole('superadmin'), async (req, res) => {
     try {
         await backupService.deleteBackup(req.params.filename as string);
         res.json({ message: 'Backup deleted successfully' });
@@ -104,7 +104,7 @@ router.delete('/:filename', requireAdmin, async (req, res) => {
 });
 
 // Restore from Local File
-router.post('/restore-local/:filename', requireAdmin, async (req, res) => {
+router.post('/restore-local/:filename', requireRole('superadmin'), async (req, res) => {
     try {
         await backupService.restoreFromHistory(req.params.filename as string);
         res.json({ message: 'Database restored successfully from history' });

@@ -71,6 +71,21 @@ export const csrfProtection = (req: express.Request, res: express.Response, next
 };
 
 export const securityMiddleware = [
-    helmet(),
+    helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                scriptSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"], // Required for Leaflet inline styles
+                imgSrc: ["'self'", "data:", "blob:", "https://*.tile.openstreetmap.org", "https://*.google.com", "https://*.googleapis.com"],
+                connectSrc: ["'self'", "ws:", "wss:"], // WebSocket for Socket.io
+                fontSrc: ["'self'", "data:"],
+                objectSrc: ["'none'"],
+                frameSrc: ["'none'"],
+                baseUri: ["'self'"],
+                formAction: ["'self'"],
+            },
+        },
+    }),
     csrfProtection
 ];

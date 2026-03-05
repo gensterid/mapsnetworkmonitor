@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { rateLimit } from 'express-rate-limit';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { db } from '../db/index.js';
 import { eq, and, or, sql, inArray } from 'drizzle-orm';
@@ -9,6 +10,15 @@ import { logger } from '../lib/logger.js';
 import { alertService } from '../services/index.js';
 
 const router = Router();
+
+// Webhook-specific rate limiter: 60 requests per minute per IP
+const webhookLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many webhook requests, slow down' },
+});
 
 const webhookSchema = z.object({
     host: z.string().min(1),
@@ -24,7 +34,11 @@ const webhookSchema = z.object({
  */
 router.get(
     '/netwatch',
+    webhookLimiter,
     asyncHandler(async (req, res) => {
+        // Security: Prevent caching of webhook URLs (tokens in query params)
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.set('Pragma', 'no-cache');
         const query = webhookSchema.safeParse(req.query);
 
         if (!query.success) {

@@ -5,7 +5,7 @@ import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 // All analytics routes require authentication and operator role (or admin)
 router.use(authMiddleware);

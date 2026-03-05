@@ -11,7 +11,7 @@ import { routerNetwatch } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 // Validation schemas
 const createRouterSchema = z.object({

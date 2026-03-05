@@ -6,7 +6,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY apps/api/package*.json ./apps/api/
 RUN npm ci --workspace=apps/api
-COPY . .
+# Copy source AFTER install to preserve Docker layer cache
+COPY apps/api/ ./apps/api/
 RUN npm run build --workspace=apps/api
 
 # 2. Build Layer for Web Frontend (Using Vite)
@@ -15,8 +16,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY apps/web/package*.json ./apps/web/
 RUN npm ci --workspace=apps/web
-COPY . .
-# You might need to inject env vars during the web build if public ones exist
+# Copy source AFTER install to preserve Docker layer cache
+COPY apps/web/ ./apps/web/
 RUN npm run build --workspace=apps/web
 
 # 3. Production Environment (API Server + Static Hosting)

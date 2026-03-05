@@ -6,7 +6,7 @@ import { requireOperator, requireAdmin, requireUser } from '../middleware/rbac.m
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
-const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 // Validation schemas
 const acknowledgeAllSchema = z.object({
