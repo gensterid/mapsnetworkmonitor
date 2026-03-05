@@ -3,11 +3,22 @@ import { logger } from './logger.js';
 export class MockRouterOS {
     connected = true;
     host: string;
+    config: any;
 
     constructor(config: any) {
         this.host = config.host;
+        this.config = config;
         logger.info({ host: this.host }, '🛠️ Entering DUMMY MODE for MikroTik connection');
     }
+
+    /**
+     * Helper to release the connection (noop in mock mode or calls releaseConnection)
+     */
+    release() {
+        // We could call releaseConnection(this.host, this.config.port, this.config.username) 
+        // if we want to simulate pooling
+    }
+
 
     async connect() {
         return this;

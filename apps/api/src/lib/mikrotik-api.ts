@@ -127,8 +127,14 @@ export async function connectToRouter(
     // === DUMMY MODE INTERCEPTION ===
     const isMock = process.env.USE_DUMMY_DATA === 'true';
     if (isMock) {
-        return new MockRouterOS(config);
+        const mock = new MockRouterOS(config);
+        (mock as any).release = () => {
+            releaseConnection(config.host, config.port, config.username);
+        };
+        connectionPool.set(poolKey, mock);
+        return mock;
     }
+
 
     // Return any to avoid complex TS types with the CJS import
     const api = new RouterOSAPI({
