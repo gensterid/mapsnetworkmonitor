@@ -146,6 +146,11 @@ export async function connectToRouter(
         keepalive: true,
     });
 
+    // Add release method early
+    (api as any).release = () => {
+        releaseConnection(config.host, config.port, config.username);
+    };
+
     // If RoMON is requested, we need to set the target MAC
     if (config.romon) {
         (api as any).romon = config.romon;
@@ -182,11 +187,6 @@ export async function connectToRouter(
     });
 
     await api.connect();
-
-    // Add release method for easier usage in services
-    (api as any).release = () => {
-        releaseConnection(config.host, config.port, config.username);
-    };
 
     // Add to pool
     connectionPool.set(poolKey, api);

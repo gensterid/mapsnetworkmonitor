@@ -90,7 +90,7 @@ export const useAllRoutersTraffic = (routers, isEnabled) => {
 
     useEffect(() => {
         if (!isEnabled || !routers || routers.length === 0) {
-            setAllTraffic({});
+            setAllTraffic(prev => Object.keys(prev).length === 0 ? prev : {});
             return;
         }
 

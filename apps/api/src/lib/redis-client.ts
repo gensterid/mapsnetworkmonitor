@@ -4,8 +4,11 @@ import { logger } from './logger.js';
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
 export const redisOptions: RedisOptions = {
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: 3, // Fail fast instead of hanging
+    enableOfflineQueue: false, // Don't queue commands when disconnected
     retryStrategy: (times: number) => {
+        // Stop retrying after 5 attempts if we can't connect at all
+        if (times > 5) return null;
         const delay = Math.min(times * 100, 15000);
         return delay;
     },

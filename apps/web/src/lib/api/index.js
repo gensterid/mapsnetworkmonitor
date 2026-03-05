@@ -10,4 +10,5 @@ export {
     settingsService,
     aiService,
     tenantService,
+    pppoeService,
 } from './services/index';
