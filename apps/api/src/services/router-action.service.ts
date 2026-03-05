@@ -183,8 +183,16 @@ export class RouterActionService {
             { ip: '1.1.1.1', label: 'Cloudflare' }
         ];
 
-        const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', router.tenantId!, defaultTargets);
-        const targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
+        // Safely fetch targets, fallback to defaults if router has no tenant
+        let targets: Array<{ ip: string; label: string }> = defaultTargets;
+        if (router.tenantId) {
+            try {
+                const targetsValue = await settingsService.getSettingValue<Array<{ ip: string; label: string }>>('pingTargets', router.tenantId, defaultTargets);
+                targets = Array.isArray(targetsValue) ? targetsValue : defaultTargets;
+            } catch (err) {
+                logger.error({ err, routerId, tenantId: router.tenantId }, 'Error fetching pingTargets setting');
+            }
+        }
 
         if (targets.length === 0) {
             return [];

@@ -215,7 +215,7 @@ export class RouterNetwatchService {
         try {
             // Fetch Router settings to check if Webhook is enabled
             const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-            const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret;
+            const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret && !!router?.tenantId;
             const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!, router.tenantId!) : '';
 
             logger.info({ routerId, name: routerName, shouldInjectWebhook, useWebhook: router?.useWebhook, hasSecret: !!router?.webhookSecret }, 'Netwatch sync starting');
@@ -722,8 +722,8 @@ export class RouterNetwatchService {
                 });
 
                 // Smart Append Webhook scripts if Webhook feature is enabled
-                if (router.useWebhook && router.webhookSecret) {
-                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId!);
+                if (router.useWebhook && router.webhookSecret && router.tenantId) {
+                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId);
                     await configureNetwatchWebhook(conn, data.host as string, webhookUrl);
                 }
 
@@ -830,8 +830,8 @@ export class RouterNetwatchService {
                         comment: data.name,
                     });
 
-                    if (router.useWebhook && router.webhookSecret && !isOdpOrOlt) {
-                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId!);
+                    if (router.useWebhook && router.webhookSecret && router.tenantId && !isOdpOrOlt) {
+                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId);
                         const hostToConfigure = data.host || original.host;
                         await configureNetwatchWebhook(conn, hostToConfigure, webhookUrl);
                     }
