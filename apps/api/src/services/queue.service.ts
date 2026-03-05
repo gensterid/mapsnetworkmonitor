@@ -8,7 +8,7 @@ export { getRedisConnection };
 
 // === Router Sync Queue ===
 export const routerSyncQueue = new Queue('router-sync', {
-    connection: createRedisConnection(),
+    connection: createRedisConnection() as any,
     defaultJobOptions: {
         attempts: 3,
         backoff: {
@@ -53,7 +53,7 @@ export function startQueueWorker() {
             }
         },
         {
-            connection: createRedisConnection(),
+            connection: createRedisConnection() as any,
             concurrency: 10, // Process 10 routers at a time
         }
     );
