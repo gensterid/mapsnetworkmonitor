@@ -42,8 +42,8 @@ async function seedDummy() {
             parentId: router.id,
             name: 'OLT-CDATA-MOCK',
             host: '10.0.0.10',
-            username: 'admin',
-            passwordEncrypted: encrypt('admin'),
+            webUsername: 'admin',
+            webPassword: encrypt('admin'),
             type: 'cdata',
             status: 'online',
         }).returning();
@@ -53,8 +53,8 @@ async function seedDummy() {
             parentId: router.id,
             name: 'OLT-HSGQ-MOCK',
             host: '10.0.0.20',
-            username: 'admin',
-            passwordEncrypted: encrypt('admin'),
+            webUsername: 'admin',
+            webPassword: encrypt('admin'),
             type: 'hsgq',
             status: 'online',
         }).returning();
@@ -100,7 +100,7 @@ async function seedDummy() {
                 status: 'up',
                 latitude: String(n.lat),
                 longitude: String(n.lng),
-            });
+            } as any); // Type cast as fallback for netwatch naming issues if they persist
         }
         logger.info('✅ Created dummy Netwatch entries');
 
