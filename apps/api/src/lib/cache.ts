@@ -15,7 +15,7 @@ const CACHE_TTL = {
     SETTINGS: 60,        // Settings almost never change
     NETWATCH_STATS: 15,  // Netwatch status updates via scheduler
     DASHBOARD: 20,       // Dashboard aggregation
-    GENIEACS_DEVICES: 30, // GenieACS device list
+    GENIEACS_DEVICES: 65, // GenieACS device list (Warmed up every 60s)
     GENIEACS_DEVICE: 60,  // Individual device detail
 };
 

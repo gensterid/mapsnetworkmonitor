@@ -5,6 +5,7 @@ import { db } from '../db/index.js';
 import { routerNetwatch, routerMetrics, tenants } from '../db/schema/index.js';
 import { count, eq, lt, and } from 'drizzle-orm';
 import { logger } from './logger.js';
+import { cacheService } from './cache.js';
 
 // Default polling interval in milliseconds (2 minutes)
 const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
@@ -37,6 +38,7 @@ let escalationInterval: ReturnType<typeof setInterval> | null = null;
 let oltSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let oltWebInterval: ReturnType<typeof setInterval> | null = null;
 let acsInterval: ReturnType<typeof setInterval> | null = null;
+let acsWarmerInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
@@ -333,6 +335,38 @@ async function cleanupOldMetrics(): Promise<void> {
 }
 
 /**
+ * Warm up GenieACS dashboard cache
+ */
+async function warmAcsDashboard(): Promise<void> {
+    try {
+        const allTenants = await db.select().from(tenants);
+        for (const tenant of allTenants) {
+            const enabled = await settingsService.getSettingValue('acs_sync_enabled', tenant.id, true);
+            if (!enabled) continue;
+
+            const tenantId = tenant.id;
+
+            // Warm global ACS
+            cacheService.del(`genieacs:devices:${tenantId}:all:{}`);
+            await genieacsService.getDevices(undefined, tenantId).catch(() => { });
+
+            // Warm dedicated ACS
+            const routers = await routerService.findAll(tenantId);
+            const routersWithDedicatedAcs = routers.filter(r => r.useGenieAcs && r.genieacsUrl);
+
+            if (routersWithDedicatedAcs.length > 0) {
+                for (const router of routersWithDedicatedAcs) {
+                    cacheService.del(`genieacs:devices:${tenantId}:${router.id}:{}`);
+                    await genieacsService.getDevices(router.id, tenantId).catch(() => { });
+                }
+            }
+        }
+    } catch (e) {
+        logger.error({ err: e }, 'Error in GenieACS Background Warmer');
+    }
+}
+
+/**
  * Start the background polling scheduler
  */
 export async function startScheduler(): Promise<void> {
@@ -345,6 +379,7 @@ export async function startScheduler(): Promise<void> {
     setTimeout(() => pollAllRouters(), 5000);
     setTimeout(() => checkAlertEscalation(), 10000);
     setTimeout(() => pollOltsSnmp(), 15000);
+    setTimeout(() => warmAcsDashboard(), 20000); // warm dashboard quickly
     setTimeout(() => pollOltsWeb(), 60000);
     setTimeout(() => syncGenieAcs(), 30000);
     setTimeout(() => cleanupOldMetrics(), 120000);
@@ -363,6 +398,7 @@ export async function startScheduler(): Promise<void> {
     oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
     oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default
     acsInterval = setInterval(syncGenieAcs, 10 * 60 * 1000); // 10 min default
+    acsWarmerInterval = setInterval(warmAcsDashboard, 60000); // Warm dashboard every minute
     cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
     autoBackupInterval = setInterval(() => backupService.automatedBackup(), 24 * 60 * 60 * 1000); // Daily
 }
@@ -376,6 +412,7 @@ export function stopScheduler(): void {
     if (oltSnmpInterval) { clearInterval(oltSnmpInterval); oltSnmpInterval = null; }
     if (oltWebInterval) { clearInterval(oltWebInterval); oltWebInterval = null; }
     if (acsInterval) { clearInterval(acsInterval); acsInterval = null; }
+    if (acsWarmerInterval) { clearInterval(acsWarmerInterval); acsWarmerInterval = null; }
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
 

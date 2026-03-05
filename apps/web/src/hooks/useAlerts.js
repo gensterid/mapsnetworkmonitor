@@ -100,11 +100,8 @@ export function useAcknowledgeAlert() {
             // Cancel outgoing refetches
             await queryClient.cancelQueries({ queryKey: alertKeys.all() });
 
-            // Snapshot
-            const previousResult = queryClient.getQueryData(alertKeys.lists());
-
-            // Optimistically update list
-            queryClient.setQueryData(alertKeys.lists(), (old) => {
+            // Optimistically update list across all parameter variants
+            queryClient.setQueriesData({ queryKey: alertKeys.lists() }, (old) => {
                 if (!old) return old;
                 if (old.data) {
                     return {
@@ -116,23 +113,22 @@ export function useAcknowledgeAlert() {
             });
 
             // Optimistically decrement count
-            queryClient.setQueryData(alertKeys.unread(), (old) => {
+            queryClient.setQueriesData({ queryKey: alertKeys.unread() }, (old) => {
                 if (!old) return old;
                 const data = old.data || old;
                 const isNested = !!old.data;
                 const updated = {
                     ...data,
                     total: Math.max(0, data.total - 1),
-                    // We don't know the category here easily without alert object, 
-                    // but usually decrementing total is the most visible part.
                 };
                 return isNested ? { ...old, data: updated } : updated;
             });
 
-            return { previousResult };
+            return {};
         },
-        onError: (err, id, context) => {
-            queryClient.setQueryData(alertKeys.lists(), context.previousResult);
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
         },
         onSettled: (data, error, id) => {
             queryClient.invalidateQueries({ queryKey: alertKeys.detail(id) });
@@ -186,11 +182,8 @@ export function useAcknowledgeAllAlerts() {
             // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
             await queryClient.cancelQueries({ queryKey: alertKeys.all() });
 
-            // Snapshot the previous value
-            const previousResult = queryClient.getQueryData(alertKeys.lists());
-
-            // Optimistically update to the new value
-            queryClient.setQueryData(alertKeys.lists(), (old) => {
+            // Optimistically update to the new value across all variants
+            queryClient.setQueriesData({ queryKey: alertKeys.lists() }, (old) => {
                 if (!old) return old;
                 // If it's paginated result { data: [], meta: {} }
                 if (old.data) {
@@ -204,13 +197,13 @@ export function useAcknowledgeAllAlerts() {
             });
 
             // Also optimistically clear unacknowledged count for this category/total
-            queryClient.setQueryData(alertKeys.unread(), (old) => {
+            queryClient.setQueriesData({ queryKey: alertKeys.unread() }, (old) => {
                 if (!old) return old;
                 const data = old.data || old; // handle nesting
                 const isNested = !!old.data;
                 const updated = {
                     ...data,
-                    total: category === 'alerts' ? (data.total - data.connectivity) : (category === 'issues' ? (data.total - data.issues) : 0),
+                    total: category === 'alerts' ? Math.max(0, data.total - data.connectivity) : (category === 'issues' ? Math.max(0, data.total - data.issues) : 0),
                     connectivity: category === 'alerts' ? 0 : data.connectivity,
                     issues: category === 'issues' ? 0 : data.issues,
                     count: 0 // Backward compat
@@ -218,10 +211,11 @@ export function useAcknowledgeAllAlerts() {
                 return isNested ? { ...old, data: updated } : updated;
             });
 
-            return { previousResult };
+            return {};
         },
-        onError: (err, category, context) => {
-            queryClient.setQueryData(alertKeys.lists(), context.previousResult);
+        onError: () => {
+            queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
         },
         onSettled: () => {
             queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
