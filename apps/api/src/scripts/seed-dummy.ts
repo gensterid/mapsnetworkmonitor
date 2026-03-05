@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { db } from '../db/index.js';
-import { routers, tenants, olts, onus, routerNetwatch } from '../db/schema/index.js';
+import { routers, tenants, olts, onus, routerNetwatch, pppoeSessions } from '../db/schema/index.js';
 import { eq, sql } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 import { encrypt } from '../lib/encryption.js';
@@ -13,6 +13,7 @@ async function seedDummy() {
         logger.info('🧹 Cleaning up old dummy data...');
         await db.delete(onus).where(sql`sn LIKE 'DMY-%'`);
         await db.delete(routerNetwatch).where(sql`name LIKE '%MOCK%'`);
+        await db.delete(pppoeSessions).where(sql`name LIKE 'user-%'`);
         await db.delete(olts).where(sql`name LIKE 'OLT-%-MOCK'`);
         await db.delete(routers).where(eq(routers.name, 'DUMMY-CORE-ROUTER'));
 
@@ -111,6 +112,34 @@ async function seedDummy() {
             } as any); // Type cast as fallback for netwatch naming issues if they persist
         }
         logger.info('✅ Created dummy Netwatch entries');
+
+        // 6. Create PPPoE sessions
+        const pppoeData = [
+            { name: 'user-jakarta-1', callerId: 'DE:AD:BE:EF:00:01', address: '10.10.1.5', uptime: '1d05h', lat: '-6.200', lng: '106.850' },
+            { name: 'user-jakarta-2', callerId: 'DE:AD:BE:EF:00:02', address: '10.10.1.6', uptime: '02h15m', lat: '-6.210', lng: '106.840' },
+            { name: 'user-bandung-1', callerId: 'DE:AD:BE:EF:00:03', address: '10.10.2.10', uptime: '12d', lat: '-6.917', lng: '107.619' },
+            { name: 'user-surabaya-1', callerId: 'DE:AD:BE:EF:00:04', address: '10.10.3.50', uptime: '5h', lat: '-7.257', lng: '112.752' },
+            { name: 'user-medan-1', callerId: 'DE:AD:BE:EF:00:05', address: '10.10.4.12', uptime: '45m', lat: '3.595', lng: '98.672' },
+            { name: 'user-makassar-1', callerId: 'DE:AD:BE:EF:00:06', address: '10.10.5.20', uptime: '1w2d', lat: '-5.147', lng: '119.432' },
+            { name: 'user-bali-1', callerId: 'DE:AD:BE:EF:00:07', address: '10.10.6.33', uptime: '3d', lat: '-8.670', lng: '115.212' },
+            { name: 'user-jogja-1', callerId: 'DE:AD:BE:EF:00:08', address: '10.10.7.44', uptime: '10h', lat: '-7.797', lng: '110.370' },
+        ];
+
+        for (const p of pppoeData) {
+            await db.insert(pppoeSessions).values({
+                tenantId,
+                routerId: router.id,
+                name: p.name,
+                callerId: p.callerId,
+                address: p.address,
+                uptime: p.uptime,
+                latitude: p.lat,
+                longitude: p.lng,
+                status: 'active',
+                service: 'pppoe',
+            });
+        }
+        logger.info('✅ Created dummy PPPoE sessions');
 
         logger.info('🎉 Full dummy seeding complete!');
         process.exit(0);

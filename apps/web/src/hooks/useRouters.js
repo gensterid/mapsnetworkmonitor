@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { routerService } from '@/lib/api';
+import { routerService, pppoeService } from '@/lib/api';
 
 // Query Keys
 export const routerKeys = {
@@ -188,6 +188,54 @@ export function useRouterPppActive(routerId, options = {}) {
         ...options,
     });
 }
+
+/**
+ * Hook to fetch active PPP sessions with details
+ */
+export function useRouterPppSessions(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
+    return useQuery({
+        queryKey: [...routerKeys.ppp(tenantId, routerId), 'sessions'],
+        queryFn: () => routerService.getPppSessions(routerId),
+        staleTime: 30 * 1000,
+        refetchInterval: 30 * 1000,
+        enabled: !!routerId,
+        ...options,
+    });
+}
+
+/**
+ * Hook to fetch synced PPPoE sessions from DB (with coordinates)
+ */
+export function usePppoeSessions(routerId, options = {}) {
+    const tenantId = getActiveTenantId();
+    return useQuery({
+        queryKey: ['pppoe', tenantId, routerId],
+        queryFn: () => pppoeService.getAll(routerId),
+        staleTime: 30 * 1000,
+        enabled: !!routerId, // Or true if routerId is optional
+        ...options,
+    });
+}
+
+/**
+ * Hook to update PPPoE coordinates
+ */
+export function useUpdatePppoeCoordinates() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, data }) => pppoeService.updateCoordinates(id, data),
+        onSuccess: (_, { routerId }) => {
+            queryClient.invalidateQueries({ queryKey: ['pppoe'] });
+            if (routerId) {
+                queryClient.invalidateQueries({ queryKey: [...routerKeys.ppp(getActiveTenantId(), routerId), 'sessions'] });
+            }
+        },
+    });
+}
+
+
 
 import routerServiceDirect from '@/lib/api/services/router.service';
 

@@ -179,6 +179,20 @@ export interface RomonNeighbor {
     mtu?: number;
 }
 
+export interface PppSession {
+    name: string;
+    service?: string;
+    callerId?: string;
+    address?: string;
+    uptime?: string;
+    uptimeSeconds?: number;
+    encoding?: string;
+    sessionId?: string;
+    latitude?: string;
+    longitude?: string;
+}
+
+
 // Test connection types
 export interface TestConnectionInput {
     host: string;

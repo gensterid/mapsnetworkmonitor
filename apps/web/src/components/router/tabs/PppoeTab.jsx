@@ -13,20 +13,19 @@ import {
     AlertCircle
 } from 'lucide-react';
 import clsx from 'clsx';
-import { useRouterPppActive, useAppTimezone } from '@/hooks';
-import { apiClient } from '@/lib/api';
+import { usePppoeSessions, useUpdatePppoeCoordinates, useAppTimezone } from '@/hooks';
 import toast from 'react-hot-toast';
 import PppoeCoordinatesModal from '../modals/PppoeCoordinatesModal';
 import { formatDateWithTimezone } from '@/lib/timezone';
 
 function PppoeTab({ routerId }) {
-    const { data: pppData, isLoading, isRefetching, refetch } = useRouterPppActive(routerId);
+    const { data: sessions = [], isLoading, isRefetching, refetch } = usePppoeSessions(routerId);
+    const updateCoordMutation = useUpdatePppoeCoordinates();
     const [searchQuery, setSearchQuery] = useState('');
     const [coordModal, setCoordModal] = useState({ open: false, session: null });
-    const [isSaving, setIsSaving] = useState(false);
     const { timezone } = useAppTimezone();
 
-    const sessions = pppData?.sessions || [];
+
 
     const filteredSessions = sessions.filter(s =>
         !searchQuery ||
@@ -37,24 +36,23 @@ function PppoeTab({ routerId }) {
     );
 
     const handleSaveCoordinates = async (coords) => {
-        setIsSaving(true);
         try {
-            await apiClient.post(`/pppoe/sessions/${coordModal.session.name}/coordinates`, {
-                ...coords,
-                routerId
+            await updateCoordMutation.mutateAsync({
+                id: coordModal.session.id,
+                data: {
+                    ...coords,
+                    routerId
+                }
             });
             toast.success('Coordinates updated');
-            refetch();
             setCoordModal({ open: false, session: null });
         } catch (error) {
             console.error('Failed to save coordinates:', error);
             toast.error('Failed to save coordinates');
-        } finally {
-            setIsSaving(false);
         }
     };
 
-    if (isLoading && !pppData) {
+    if (isLoading && sessions.length === 0) {
         return (
             <div className="flex items-center justify-center py-12">
                 <RefreshCw className="w-6 h-6 animate-spin text-primary" />
@@ -165,7 +163,7 @@ function PppoeTab({ routerId }) {
                 isOpen={coordModal.open}
                 onClose={() => setCoordModal({ open: false, session: null })}
                 onSave={handleSaveCoordinates}
-                isSaving={isSaving}
+                isSaving={updateCoordMutation.isPending}
             />
         </div>
     );

@@ -12,6 +12,7 @@ import type {
     TestConnectionResult,
     Neighbor,
     RomonNeighbor,
+    PppSession,
 } from '../types';
 
 export interface PingLatency {
@@ -137,6 +138,13 @@ export const routerService = {
      */
     getPppActive: (routerId: string) =>
         get<{ count: number }>(`/routers/${routerId}/ppp/active`),
+
+    /**
+     * Get active PPP sessions with details
+     */
+    getPppSessions: (routerId: string) =>
+        get<PppSession[]>(`/routers/${routerId}/ppp/sessions`),
+
 
     /**
      * Get real-time traffic via SNMP
