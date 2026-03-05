@@ -8,6 +8,7 @@ import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { routerService } from '../services/index.js'; // Use existing services where possible
 import { cacheService } from '../lib/cache.js'; // New: Inject cache service
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 const router = Router();
 
@@ -36,9 +37,8 @@ router.get(
             return res.json({ data: cachedData, _source: 'cache' });
         }
 
-        // 1. Fetch Routers (Correct parameter order: tenantId, userId, userRole)
         const allRouters = await routerService.findAll(
-            req.user?.tenantId as string,
+            getEffectiveTenantId(req),
             req.user?.id as string,
             req.user?.role as string
         );
@@ -47,7 +47,8 @@ router.get(
 
         // 2. Fetch Netwatch Entries (Isolation)
         let netwatchEntries: any[] = [];
-        const tenantId = req.user?.tenantId as string;
+        const tenantId = getEffectiveTenantId(req);
+        const isSuperAdminGlobal = req.user?.role === 'superadmin' && !tenantId;
 
         if (req.user?.role === 'superadmin' && !tenantId) {
             // Global superadmin sees everything across all ISPs
@@ -59,7 +60,7 @@ router.get(
                 netwatchEntries = await db
                     .select()
                     .from(routerNetwatch)
-                    .where(eq(routerNetwatch.tenantId, tenantId));
+                    .where(tenantId ? eq(routerNetwatch.tenantId, tenantId) : undefined as any);
             } else if (routerIds.length > 0) {
                 netwatchEntries = await db
                     .select()
@@ -73,7 +74,7 @@ router.get(
 
         // 3. Fetch OLTs (Isolation)
         let allOlts: any[] = [];
-        if (req.user?.role === 'superadmin' && !tenantId) {
+        if (isSuperAdminGlobal) {
             allOlts = await db.select().from(olts);
         } else if (tenantId) {
             if (req.user?.role === 'superadmin' || req.user?.role === 'admin') {
@@ -94,7 +95,7 @@ router.get(
 
         // 4. Fetch ONUs (Inventory Isolation)
         let allOnus: any[] = [];
-        if (req.user?.role === 'superadmin' && !tenantId) {
+        if (isSuperAdminGlobal) {
             allOnus = await db.select().from(onus);
         } else if (tenantId) {
             if (req.user?.role === 'superadmin' || req.user?.role === 'admin') {
@@ -290,13 +291,14 @@ router.put(
         const { lat, lng } = updatePositionSchema.parse(req.body);
 
         // Try update Router
+        const routerTenantId = getEffectiveTenantId(req);
+        const conditions: any[] = [eq(routers.id, id)];
+        if (routerTenantId) conditions.push(eq(routers.tenantId, routerTenantId));
+
         const [updatedRouter] = await db
             .update(routers)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(and(
-                eq(routers.id, id),
-                eq(routers.tenantId, req.user?.tenantId as string)
-            ))
+            .where(and(...conditions))
             .returning();
 
         if (updatedRouter) {
@@ -304,13 +306,13 @@ router.put(
         }
 
         // Try update Netwatch
+        const netwatchConditions: any[] = [eq(routerNetwatch.id, id)];
+        if (routerTenantId) netwatchConditions.push(eq(routerNetwatch.tenantId, routerTenantId));
+
         const [updatedNetwatch] = await db
             .update(routerNetwatch)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(and(
-                eq(routerNetwatch.id, id),
-                eq(routerNetwatch.tenantId, req.user?.tenantId as string)
-            ))
+            .where(and(...netwatchConditions))
             .returning();
 
         if (updatedNetwatch) {
@@ -318,13 +320,13 @@ router.put(
         }
 
         // Try update OLT
+        const oltConditions: any[] = [eq(olts.id, id)];
+        if (routerTenantId) oltConditions.push(eq(olts.tenantId, routerTenantId));
+
         const [updatedOlt] = await db
             .update(olts)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(and(
-                eq(olts.id, id),
-                eq(olts.tenantId, req.user?.tenantId as string)
-            ))
+            .where(and(...oltConditions))
             .returning();
 
         if (updatedOlt) {
@@ -332,13 +334,13 @@ router.put(
         }
 
         // Try update ONU
+        const onuConditions: any[] = [eq(onus.id, id)];
+        if (routerTenantId) onuConditions.push(eq(onus.tenantId, routerTenantId));
+
         const [updatedOnu] = await db
             .update(onus)
             .set({ latitude: lat.toString(), longitude: lng.toString() })
-            .where(and(
-                eq(onus.id, id),
-                eq(onus.tenantId, req.user?.tenantId as string)
-            ))
+            .where(and(...onuConditions))
             .returning();
 
         if (updatedOnu) {

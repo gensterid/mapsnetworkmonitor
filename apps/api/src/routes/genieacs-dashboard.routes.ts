@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { genieacsService } from '../services/genieacs.service.js';
 import { logger } from '../lib/logger.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 const router = Router();
 
@@ -12,9 +13,7 @@ router.get('/stats', authMiddleware, async (req, res) => {
     try {
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const tenantId = req.user?.tenantId as string | undefined;
-
-        const devices = await genieacsService.getDevices(routerId, tenantId);
+        const devices = await genieacsService.getDevices(routerId, getEffectiveTenantId(req));
 
         const stats = {
             total: devices.length,

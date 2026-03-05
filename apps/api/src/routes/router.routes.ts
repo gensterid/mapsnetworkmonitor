@@ -11,6 +11,7 @@ import { routerNetwatch } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 // Validation schemas
 const createRouterSchema = z.object({
@@ -131,7 +132,7 @@ router.get(
     '/:id',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const router = await routerService.findById(id, req.user?.tenantId!);
+        const router = await routerService.findById(id, getEffectiveTenantId(req));
 
         if (!router) {
             throw ApiError.notFound('Router not found');
@@ -175,7 +176,7 @@ router.post(
 
         // Immediately try to connect and refresh status
         try {
-            const refreshed = await routerService.refreshRouterStatus(newRouter.id, false, true, req.user?.tenantId!);
+            const refreshed = await routerService.refreshRouterStatus(newRouter.id, false, true, getEffectiveTenantId(req));
             if (refreshed) {
                 newRouter = refreshed;
             }
@@ -214,7 +215,7 @@ router.put(
         if (updateData.groupId === null) updateData.groupId = null;
         if (updateData.notificationGroupId === null) updateData.notificationGroupId = null;
 
-        const router = await routerService.update(id, updateData, req.user?.tenantId!);
+        const router = await routerService.update(id, updateData, getEffectiveTenantId(req));
 
         if (!router) {
             throw ApiError.notFound('Router not found');
@@ -248,13 +249,13 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const router = await routerService.findById(id, req.user?.tenantId!);
+        const router = await routerService.findById(id, getEffectiveTenantId(req));
 
         if (!router) {
             throw ApiError.notFound('Router not found');
         }
 
-        const deleted = await routerService.delete(id, req.user?.tenantId!);
+        const deleted = await routerService.delete(id, getEffectiveTenantId(req));
 
         if (!deleted) {
             throw ApiError.internal('Failed to delete router');
@@ -285,7 +286,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const result = await routerService.testConnection(id, req.user?.tenantId!);
+        const result = await routerService.testConnection(id, getEffectiveTenantId(req));
 
         res.json({ data: result });
     })
@@ -322,7 +323,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const router = await routerService.refreshRouterStatus(id, false, true, req.user?.tenantId!);
+        const router = await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req));
 
         if (!router) {
             throw ApiError.notFound('Router not found');
@@ -345,13 +346,13 @@ router.post(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const router = await routerService.findById(id, req.user?.tenantId!);
+        const router = await routerService.findById(id, getEffectiveTenantId(req));
 
         if (!router) {
             throw ApiError.notFound('Router not found');
         }
 
-        const result = await routerService.reboot(id, req.user?.tenantId!);
+        const result = await routerService.reboot(id, getEffectiveTenantId(req));
 
         // Log action
         await settingsService.logAction(
@@ -376,7 +377,7 @@ router.get(
     '/:id/interfaces',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const interfaces = await routerService.getInterfaces(id, req.user?.tenantId!);
+        const interfaces = await routerService.getInterfaces(id, getEffectiveTenantId(req));
 
         res.json({ data: interfaces });
     })
@@ -390,7 +391,7 @@ router.get(
     '/:id/metrics',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const metrics = await routerService.getLatestMetrics(id, req.user?.tenantId!);
+        const metrics = await routerService.getLatestMetrics(id, getEffectiveTenantId(req));
 
         res.json({ data: metrics });
     })
@@ -405,7 +406,7 @@ router.get(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const limit = parseInt(req.query.limit as string) || 100;
-        const metrics = await routerService.getMetricsHistory(id, limit, req.user?.tenantId!);
+        const metrics = await routerService.getMetricsHistory(id, limit, getEffectiveTenantId(req));
 
         res.json({ data: metrics });
     })
@@ -419,7 +420,7 @@ router.get(
     '/:id/ping-latencies',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const latencies = await routerService.measurePingTargets(id, req.user?.tenantId!);
+        const latencies = await routerService.measurePingTargets(id, getEffectiveTenantId(req));
         res.json({ data: latencies });
     })
 );
@@ -432,7 +433,7 @@ router.get(
     '/:id/neighbors',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const neighbors = await routerService.getNeighbors(id, req.user?.tenantId!);
+        const neighbors = await routerService.getNeighbors(id, getEffectiveTenantId(req));
         res.json({ data: neighbors });
     })
 );
@@ -445,7 +446,7 @@ router.get(
     '/:id/romon-neighbors',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const neighbors = await routerService.getRomonNeighbors(id, req.user?.tenantId!);
+        const neighbors = await routerService.getRomonNeighbors(id, getEffectiveTenantId(req));
         res.json({ data: neighbors });
     })
 );
@@ -459,7 +460,7 @@ router.get(
     '/:id/hotspot/active',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const count = await routerService.getHotspotActive(id, req.user?.tenantId!);
+        const count = await routerService.getHotspotActive(id, getEffectiveTenantId(req));
         res.json({ data: { count } });
     })
 );
@@ -472,7 +473,7 @@ router.get(
     '/:id/ppp/active',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const count = await routerService.getPppActive(id, req.user?.tenantId!);
+        const count = await routerService.getPppActive(id, getEffectiveTenantId(req));
         res.json({ data: { count } });
     })
 );
@@ -485,7 +486,7 @@ router.get(
     '/:id/ppp/sessions',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const sessions = await routerService.getPppSessions(id, req.user?.tenantId!);
+        const sessions = await routerService.getPppSessions(id, getEffectiveTenantId(req));
         res.json({ data: sessions });
     })
 );
@@ -532,7 +533,7 @@ router.get(
     '/:id/netwatch',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const netwatch = await routerService.getNetwatch(id, req.user?.tenantId!);
+        const netwatch = await routerService.getNetwatch(id, getEffectiveTenantId(req));
         res.json({ data: netwatch });
     })
 );
@@ -554,7 +555,7 @@ router.post(
         if (rawData.host === '') rawData.host = undefined;
 
         const data = createNetwatchSchema.parse(rawData);
-        const netwatch = await routerService.createNetwatch(id, data, req.user?.tenantId!);
+        const netwatch = await routerService.createNetwatch(id, data, getEffectiveTenantId(req));
 
         await settingsService.logAction(
             'create',
@@ -604,7 +605,7 @@ router.put(
 
             const data = parseResult.data;
 
-            const netwatch = await routerService.updateNetwatch(id_str, netwatchId_str, data, req.user?.tenantId!);
+            const netwatch = await routerService.updateNetwatch(id_str, netwatchId_str, data, getEffectiveTenantId(req));
 
             if (!netwatch) {
                 throw new ApiError(404, 'Netwatch entry not found');
@@ -639,7 +640,7 @@ router.delete(
         const id = req.params.id as string;
         const netwatchId = req.params.netwatchId as string;
         const deleteFromMikrotik = req.query.deleteFromMikrotik !== 'false';
-        const deleted = await routerService.deleteNetwatch(id, netwatchId, req.user?.tenantId!, deleteFromMikrotik);
+        const deleted = await routerService.deleteNetwatch(id, netwatchId, getEffectiveTenantId(req), deleteFromMikrotik);
 
         if (!deleted) {
             throw new ApiError(404, 'Netwatch entry not found');
@@ -700,7 +701,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const traffic = await routerService.getSnmpTraffic(id, req.user?.tenantId!);
+        const traffic = await routerService.getSnmpTraffic(id, getEffectiveTenantId(req));
         res.json({ data: traffic });
     })
 );
@@ -735,7 +736,7 @@ router.patch(
             y: z.number(),
         });
         const { routerId, nodeId, x, y } = schema.parse(req.body);
-        await topologyService.updateCoords(routerId, nodeId, x, y, req.user?.tenantId ?? undefined);
+        await topologyService.updateCoords(routerId, nodeId, x, y, getEffectiveTenantId(req));
         res.json({ success: true });
     })
 );
@@ -760,7 +761,7 @@ router.post(
             id,
             nodeId || null,
             nodeType,
-            req.user?.tenantId ?? undefined,
+            getEffectiveTenantId(req),
             name || host ? { name, host } : undefined
         );
         res.json({ data: node });
@@ -832,7 +833,7 @@ router.post(
             targetNodeId,
             sourceInterface || '',
             targetInterface || '',
-            req.user?.tenantId ?? undefined,
+            getEffectiveTenantId(req),
             pathOffset ? String(pathOffset) : undefined,
             sourceHandle || undefined,
             targetHandle || undefined,
@@ -892,7 +893,7 @@ router.post(
         });
         const { ip } = schema.parse(req.body);
 
-        const result = await routerService.pingHost(id, ip, req.user?.tenantId ?? undefined);
+        const result = await routerService.pingHost(id, ip, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );

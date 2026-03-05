@@ -4,6 +4,7 @@ import { groupService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin, requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.use(authMiddleware);
 router.get(
     '/',
     asyncHandler(async (req, res) => {
-        const groups = await groupService.findAll(req.user?.tenantId!);
+        const groups = await groupService.findAll(getEffectiveTenantId(req));
         res.json({ data: groups });
     })
 );
@@ -43,7 +44,7 @@ router.get(
     '/:id',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const group = await groupService.findById(id, req.user?.tenantId!);
+        const group = await groupService.findById(id, getEffectiveTenantId(req));
 
         if (!group) {
             throw ApiError.notFound('Group not found');
@@ -63,7 +64,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const data = createGroupSchema.parse(req.body);
-        const group = await groupService.create(data, req.user?.tenantId!);
+        const group = await groupService.create(data, getEffectiveTenantId(req));
 
         res.status(201).json({ data: group });
     })
@@ -81,7 +82,7 @@ router.put(
         const id = req.params.id as string;
         const data = updateGroupSchema.parse(req.body);
 
-        const group = await groupService.update(id, data, req.user?.tenantId!);
+        const group = await groupService.update(id, data, getEffectiveTenantId(req));
 
         if (!group) {
             throw ApiError.notFound('Group not found');
@@ -101,7 +102,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const deleted = await groupService.delete(id, req.user?.tenantId!);
+        const deleted = await groupService.delete(id, getEffectiveTenantId(req));
 
         if (!deleted) {
             throw ApiError.notFound('Group not found');

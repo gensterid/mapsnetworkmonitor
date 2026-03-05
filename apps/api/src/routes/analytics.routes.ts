@@ -5,6 +5,7 @@ import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 // All analytics routes require authentication and operator role (or admin)
 router.use(authMiddleware);
@@ -33,7 +34,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore - user is attached by authMiddleware
-        const stats = await analyticsService.getOverviewStats(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const stats = await analyticsService.getOverviewStats(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: stats });
     })
 );
@@ -48,7 +49,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const trends = await analyticsService.getAlertTrends(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const trends = await analyticsService.getAlertTrends(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: trends });
     })
 );
@@ -65,7 +66,7 @@ router.get(
         const limit = parseInt(req.query.limit as string) || 50;
         const resolved = req.query.resolved === 'true' ? true : (req.query.resolved === 'false' ? false : undefined);
         // @ts-ignore
-        const alerts = await analyticsService.getAlertsList(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined, limit, resolved);
+        const alerts = await analyticsService.getAlertsList(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req), limit, resolved);
         res.json({ data: alerts });
     })
 );
@@ -80,7 +81,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const stats = await analyticsService.getUptimeStats(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const stats = await analyticsService.getUptimeStats(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: stats });
     })
 );
@@ -95,7 +96,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const trends = await analyticsService.getPerformanceTrends(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const trends = await analyticsService.getPerformanceTrends(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: trends });
     })
 );
@@ -113,7 +114,7 @@ router.get(
         const action = req.query.action as string | undefined;
         const entity = req.query.entity as string | undefined;
 
-        const result = await analyticsService.getAuditLogs(page, limit, dateRange, action, entity, req.user?.tenantId as string | undefined);
+        const result = await analyticsService.getAuditLogs(page, limit, dateRange, action, entity, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -129,7 +130,7 @@ router.get(
         const limit = parseInt(req.query.limit as string) || 10;
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const devices = await analyticsService.getTopDownDevices(dateRange, limit, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const devices = await analyticsService.getTopDownDevices(dateRange, limit, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: devices });
     })
 );
@@ -145,7 +146,7 @@ router.get(
         const limit = parseInt(req.query.limit as string) || 10;
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const data = await analyticsService.getTopPppoeDisconnectors(dateRange, limit, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getTopPppoeDisconnectors(dateRange, limit, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -159,7 +160,7 @@ router.get(
     asyncHandler(async (req, res) => {
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const data = await analyticsService.getCurrentPppoeDownStatus(routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getCurrentPppoeDownStatus(routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -175,7 +176,7 @@ router.get(
         const limit = parseInt(req.query.limit as string) || 10;
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const data = await analyticsService.getIssuesAnalysis(dateRange, limit, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getIssuesAnalysis(dateRange, limit, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -190,7 +191,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const data = await analyticsService.getCpuPeakAnalysis(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getCpuPeakAnalysis(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -206,7 +207,7 @@ router.get(
         const routerId = req.query.routerId as string | undefined;
         const minMinutes = parseInt(req.query.minMinutes as string) || 5;
         // @ts-ignore
-        const data = await analyticsService.getDowntimeAnalysis(dateRange, minMinutes, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getDowntimeAnalysis(dateRange, minMinutes, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -221,7 +222,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const data = await analyticsService.getInterfaceCapacityAnalysis(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getInterfaceCapacityAnalysis(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -236,7 +237,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const data = await analyticsService.getIncidentHeatmap(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const data = await analyticsService.getIncidentHeatmap(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data });
     })
 );
@@ -251,7 +252,7 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const stats = await analyticsService.getResolutionStats(dateRange, routerId, req.user?.id, req.user?.role, req.user?.tenantId as string | undefined);
+        const stats = await analyticsService.getResolutionStats(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: stats });
     })
 );

@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 
 const router = Router();
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -15,7 +16,7 @@ router.use(authMiddleware);
 router.get(
     '/stats',
     asyncHandler(async (req, res) => {
-        const stats = await dashboardService.getStats(req.user?.tenantId!, req.user?.id, req.user?.role);
+        const stats = await dashboardService.getStats(getEffectiveTenantId(req), req.user?.id, req.user?.role);
         res.json({ data: stats });
     })
 );
@@ -27,7 +28,7 @@ router.get(
 router.get(
     '/map-data',
     asyncHandler(async (req, res) => {
-        const markers = await dashboardService.getMapMarkers(req.user?.tenantId!, req.user?.id, req.user?.role);
+        const markers = await dashboardService.getMapMarkers(getEffectiveTenantId(req), req.user?.id, req.user?.role);
         res.json({ data: markers });
     })
 );
@@ -40,7 +41,7 @@ router.get(
     '/recent-alerts',
     asyncHandler(async (req, res) => {
         const limit = parseInt(req.query.limit as string) || 10;
-        const alerts = await dashboardService.getRecentAlerts(limit, req.user?.tenantId!, req.user?.id, req.user?.role);
+        const alerts = await dashboardService.getRecentAlerts(limit, getEffectiveTenantId(req), req.user?.id, req.user?.role);
         res.json({ data: alerts });
     })
 );

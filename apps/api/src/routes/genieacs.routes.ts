@@ -5,6 +5,7 @@ import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js'
 import { genieacsService } from '../services/genieacs.service.js';
 import { routerService } from '../services/router.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 const router = Router();
 
@@ -80,7 +81,7 @@ router.get(
             }
         }
 
-        const devices = await genieacsService.getDevices(routerId, req.user?.tenantId!, query);
+        const devices = await genieacsService.getDevices(routerId, getEffectiveTenantId(req), query);
         res.json({ data: devices });
     })
 );
@@ -103,7 +104,7 @@ router.get(
             if (!hasAccess) throw ApiError.forbidden('Access denied');
         }
 
-        const device = await genieacsService.getDevice(id, routerId, req.user?.tenantId!);
+        const device = await genieacsService.getDevice(id, routerId, getEffectiveTenantId(req));
         if (!device) {
             throw ApiError.notFound('Device not found');
         }
@@ -121,7 +122,7 @@ router.post(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const result = await genieacsService.rebootDevice(id, routerId, req.user?.tenantId!);
+        const result = await genieacsService.rebootDevice(id, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -138,7 +139,7 @@ router.patch(
         const routerId = req.query.routerId as string | undefined;
         const { parameterName, value, type } = setParameterSchema.parse(req.body);
 
-        const result = await genieacsService.setParameter(id, parameterName, value, type, routerId, req.user?.tenantId!);
+        const result = await genieacsService.setParameter(id, parameterName, value, type, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -155,7 +156,7 @@ router.patch(
         const routerId = req.query.routerId as string | undefined;
         const config = wanConfigSchema.parse(req.body);
 
-        const result = await genieacsService.updateWanConfig(id, config, routerId, req.user?.tenantId!);
+        const result = await genieacsService.updateWanConfig(id, config, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -172,7 +173,7 @@ router.patch(
         const routerId = req.query.routerId as string | undefined;
         const config = wifiConfigSchema.parse(req.body);
 
-        const result = await genieacsService.updateWifiConfig(id, config, routerId, req.user?.tenantId!);
+        const result = await genieacsService.updateWifiConfig(id, config, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -187,7 +188,7 @@ router.post(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const result = await genieacsService.refreshDevice(id, routerId, req.user?.tenantId!);
+        const result = await genieacsService.refreshDevice(id, routerId, getEffectiveTenantId(req));
         if (result.success) {
             res.json({ success: true });
         } else {
@@ -206,7 +207,7 @@ router.post(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
-        const result = await genieacsService.factoryReset(id, routerId, req.user?.tenantId!);
+        const result = await genieacsService.factoryReset(id, routerId, getEffectiveTenantId(req));
         if (result.success) {
             res.json({ success: true });
         } else {
@@ -226,7 +227,7 @@ router.post(
         const { deviceIds } = bulkActionSchema.parse(req.body);
         const routerId = req.query.routerId as string | undefined;
 
-        const result = await genieacsService.bulkReboot(deviceIds, routerId, req.user?.tenantId!);
+        const result = await genieacsService.bulkReboot(deviceIds, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -242,7 +243,7 @@ router.post(
         const { deviceIds, type, config } = bulkConfigSchema.parse(req.body);
         const routerId = req.query.routerId as string | undefined;
 
-        const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId, req.user?.tenantId!);
+        const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );

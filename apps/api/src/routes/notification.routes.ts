@@ -5,6 +5,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 const router = Router();
 
@@ -27,10 +28,11 @@ const notificationGroupSchema = z.object({
 // Get all groups (accessible by operators and admins for dropdown selection)
 router.get('/', async (req, res) => {
     try {
+        const tenantId = getEffectiveTenantId(req);
         const groups = await db
             .select()
             .from(notificationGroups)
-            .where(eq(notificationGroups.tenantId, req.user?.tenantId as string))
+            .where(tenantId ? eq(notificationGroups.tenantId, tenantId) : undefined as any)
             .orderBy(desc(notificationGroups.createdAt));
         res.json({ data: groups });
     } catch (error) {
@@ -47,7 +49,7 @@ router.post('/', requireAdmin, async (req, res) => {
             .insert(notificationGroups)
             .values({
                 ...validated,
-                tenantId: req.user?.tenantId as string,
+                tenantId: getEffectiveTenantId(req) as string,
             })
             .returning();
 
@@ -75,7 +77,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
             })
             .where(and(
                 eq(notificationGroups.id, id),
-                eq(notificationGroups.tenantId, req.user?.tenantId as string)
+                getEffectiveTenantId(req) ? eq(notificationGroups.tenantId, getEffectiveTenantId(req) as string) : undefined as any
             ))
             .returning();
 
@@ -102,7 +104,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
             .delete(notificationGroups)
             .where(and(
                 eq(notificationGroups.id, id),
-                eq(notificationGroups.tenantId, req.user?.tenantId as string)
+                getEffectiveTenantId(req) ? eq(notificationGroups.tenantId, getEffectiveTenantId(req) as string) : undefined as any
             ))
             .returning();
 

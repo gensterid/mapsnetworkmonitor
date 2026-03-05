@@ -4,6 +4,7 @@ import { settingsService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 const router = Router();
 
@@ -24,7 +25,7 @@ router.use(authMiddleware);
 router.get(
     '/',
     asyncHandler(async (req, res) => {
-        const settings = await settingsService.findAllSettings(req.user?.tenantId || undefined);
+        const settings = await settingsService.findAllSettings(getEffectiveTenantId(req));
 
         // Redact sensitive settings
         const sanitized = settings.map(s => {
@@ -47,8 +48,8 @@ router.get(
     '/:key',
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
-        const tenantId = req.user!.tenantId!;
-        const setting = await settingsService.getSetting(key, tenantId);
+        const tenantId = getEffectiveTenantId(req);
+        const setting = await settingsService.getSetting(key, tenantId as string);
 
         if (!setting) {
             throw ApiError.notFound('Setting not found');
@@ -82,7 +83,7 @@ router.put(
             value = encrypt(value);
         }
 
-        const setting = await settingsService.setSetting(key, value, req.user!.tenantId!, description);
+        const setting = await settingsService.setSetting(key, value, getEffectiveTenantId(req) as string, description);
 
         // Check if scheduler restart is needed
         if (key.includes('interval')) {
@@ -96,7 +97,7 @@ router.put(
             'settings',
             setting.id,
             req.user!.id,
-            req.user?.tenantId ?? null,
+            getEffectiveTenantId(req) ?? null,
             { key },
             req
         );
@@ -115,7 +116,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
-        const deleted = await settingsService.deleteSetting(key, req.user!.tenantId!);
+        const deleted = await settingsService.deleteSetting(key, getEffectiveTenantId(req) as string);
 
         if (!deleted) {
             throw ApiError.notFound('Setting not found');
@@ -135,7 +136,7 @@ router.get(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const limit = parseInt(req.query.limit as string) || 100;
-        const logs = await settingsService.getAuditLogs(req.user?.tenantId || undefined, limit);
+        const logs = await settingsService.getAuditLogs(getEffectiveTenantId(req), limit);
 
         res.json({ data: logs });
     })

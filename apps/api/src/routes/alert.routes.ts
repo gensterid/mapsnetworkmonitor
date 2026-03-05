@@ -6,6 +6,7 @@ import { requireOperator, requireAdmin, requireUser } from '../middleware/rbac.m
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 
 const router = Router();
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 // Validation schemas
 const acknowledgeAllSchema = z.object({
@@ -47,7 +48,7 @@ router.get(
             routerId,
             category,
             resolved,
-            tenantId: req.user?.tenantId || undefined
+            tenantId: getEffectiveTenantId(req)
         });
 
         res.json(result);
@@ -61,7 +62,7 @@ router.get(
 router.get(
     '/unread',
     asyncHandler(async (req, res) => {
-        const stats = await alertService.getUnreadStats(req.user?.id, req.user?.role, req.user?.tenantId || undefined);
+        const stats = await alertService.getUnreadStats(req.user?.id, req.user?.role, getEffectiveTenantId(req));
 
         res.json({
             data: {
@@ -93,7 +94,7 @@ router.get(
             endDate,
             userId: req.user?.id,
             userRole: req.user?.role,
-            tenantId: req.user?.tenantId || undefined
+            tenantId: getEffectiveTenantId(req)
         });
 
         res.json(result);
@@ -108,7 +109,7 @@ router.get(
     '/:id',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const alert = await alertService.findById(id, req.user?.tenantId || undefined);
+        const alert = await alertService.findById(id, getEffectiveTenantId(req));
 
         if (!alert) {
             throw ApiError.notFound('Alert not found');
@@ -128,7 +129,7 @@ router.put(
     requireUser,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const alert = await alertService.acknowledge(id, req.user!.id, req.user!.role, req.user?.tenantId || undefined);
+        const alert = await alertService.acknowledge(id, req.user!.id, req.user!.role, getEffectiveTenantId(req));
 
         if (!alert) {
             throw ApiError.notFound('Alert not found');
@@ -148,7 +149,7 @@ router.put(
     requireUser,
     asyncHandler(async (req, res) => {
         const { category } = acknowledgeAllSchema.parse(req.query);
-        await alertService.acknowledgeAll(req.user!.id, req.user!.role, category, req.user?.tenantId || undefined);
+        await alertService.acknowledgeAll(req.user!.id, req.user!.role, category, getEffectiveTenantId(req));
         res.json({ message: 'All alerts acknowledged successfully' });
     })
 );
@@ -163,7 +164,7 @@ router.put(
     requireUser,
     asyncHandler(async (req, res) => {
         const { category } = resolveAllSchema.parse(req.query);
-        await alertService.resolveAll(req.user!.id, req.user!.role, category, req.user?.tenantId || undefined);
+        await alertService.resolveAll(req.user!.id, req.user!.role, category, getEffectiveTenantId(req));
         res.json({ message: 'All alerts resolved successfully' });
     })
 );
@@ -178,7 +179,7 @@ router.put(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const alert = await alertService.resolve(id, req.user?.tenantId || undefined);
+        const alert = await alertService.resolve(id, getEffectiveTenantId(req));
 
         if (!alert) {
             throw ApiError.notFound('Alert not found');
@@ -198,7 +199,7 @@ router.delete(
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const deleted = await alertService.delete(id, req.user?.tenantId || undefined);
+        const deleted = await alertService.delete(id, getEffectiveTenantId(req));
 
         if (!deleted) {
             throw ApiError.notFound('Alert not found');

@@ -7,6 +7,7 @@ import { asyncHandler } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 // Validation schemas
 const updateCoordinatesSchema = z.object({
@@ -27,7 +28,7 @@ router.get('/', asyncHandler(async (req, res) => {
         routerId,
         req.user?.id,
         req.user?.role,
-        (req.user?.tenantId as string) || undefined
+        getEffectiveTenantId(req)
     );
     res.json({ data: sessions });
 }));
@@ -43,7 +44,7 @@ router.get('/map', asyncHandler(async (req, res) => {
         routerId,
         req.user?.id,
         req.user?.role,
-        (req.user?.tenantId as string) || undefined
+        getEffectiveTenantId(req)
     );
     res.json({ data: sessions });
 }));
@@ -53,7 +54,7 @@ router.get('/map', asyncHandler(async (req, res) => {
  * Get a single PPPoE session
  */
 router.get('/:id', asyncHandler(async (req, res) => {
-    const session = await pppoeService.findById(req.params.id as string, (req.user?.tenantId as string) || undefined);
+    const session = await pppoeService.findById(req.params.id as string, getEffectiveTenantId(req));
     if (!session) {
         return res.status(404).json({ error: 'Session not found' });
     }
@@ -74,7 +75,7 @@ router.patch('/:id/coordinates', requireOperator, asyncHandler(async (req, res) 
         waypoints,
         connectionType,
         connectedToId,
-        (req.user?.tenantId as string) || undefined
+        getEffectiveTenantId(req)
     );
 
     if (!session) {
@@ -98,7 +99,7 @@ router.put('/:id', requireOperator, asyncHandler(async (req, res) => {
         waypoints,
         connectionType,
         connectedToId,
-        (req.user?.tenantId as string) || undefined
+        getEffectiveTenantId(req)
     );
 
     if (!session) {

@@ -7,6 +7,7 @@ import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
+const getEffectiveTenantId = (req: any) => req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
 
 // Validation schemas
 const createOltSchema = z.object({
@@ -50,14 +51,14 @@ router.use(authMiddleware);
 
 // Get all ONUs for a specific router (via OLTs)
 router.get('/onus/by-router/:routerId', asyncHandler(async (req, res) => {
-    const onus = await oltService.getOnusByRouter(req.params.routerId as string, req.user?.tenantId!);
+    const onus = await oltService.getOnusByRouter(req.params.routerId as string, getEffectiveTenantId(req));
     res.json(onus);
 }));
 
 // Get all ONUs with coordinates for map display
 router.get('/onus/map', asyncHandler(async (req, res) => {
     const onus = await oltService.getAllOnusWithCoordinates(
-        req.user?.tenantId!,
+        getEffectiveTenantId(req),
         req.user?.id,
         req.user?.role
     );
@@ -69,13 +70,13 @@ router.use(authMiddleware);
 
 // Get all OLTs
 router.get('/', asyncHandler(async (req, res) => {
-    const olts = await oltService.findAll(req.user?.tenantId!, req.user?.id, req.user?.role);
+    const olts = await oltService.findAll(getEffectiveTenantId(req), req.user?.id, req.user?.role);
     res.json(olts);
 }));
 
 // Get OLT by ID
 router.get('/:id', asyncHandler(async (req, res) => {
-    const olt = await oltService.findById(req.params.id as string, req.user?.tenantId!, req.user?.id, req.user?.role);
+    const olt = await oltService.findById(req.params.id as string, getEffectiveTenantId(req), req.user?.id, req.user?.role);
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
@@ -86,7 +87,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // Requires: Operator or Admin
 router.post('/', requireOperator, asyncHandler(async (req, res) => {
     const data = createOltSchema.parse(req.body);
-    const olt = await oltService.create(data, req.user?.tenantId!);
+    const olt = await oltService.create(data, getEffectiveTenantId(req));
     res.status(201).json(olt);
 }));
 
@@ -94,7 +95,7 @@ router.post('/', requireOperator, asyncHandler(async (req, res) => {
 // Requires: Operator or Admin
 router.patch('/:id', requireOperator, asyncHandler(async (req, res) => {
     const data = updateOltSchema.parse(req.body);
-    const olt = await oltService.update(req.params.id as string, data, req.user?.tenantId!);
+    const olt = await oltService.update(req.params.id as string, data, getEffectiveTenantId(req));
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
@@ -104,7 +105,7 @@ router.patch('/:id', requireOperator, asyncHandler(async (req, res) => {
 // Delete OLT
 // Requires: Admin
 router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
-    const success = await oltService.delete(req.params.id as string, req.user?.tenantId!);
+    const success = await oltService.delete(req.params.id as string, getEffectiveTenantId(req));
     if (!success) {
         throw ApiError.notFound('OLT not found');
     }
@@ -113,7 +114,7 @@ router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
 
 // Get OLT ONUs (via Driver)
 router.get('/:id/onus', asyncHandler(async (req, res) => {
-    const onus = await oltService.getOnus(req.params.id as string, req.user?.tenantId!);
+    const onus = await oltService.getOnus(req.params.id as string, getEffectiveTenantId(req));
     res.json(onus);
 }));
 
@@ -126,7 +127,7 @@ router.patch('/:id/onus/:onuId', requireOperator, asyncHandler(async (req, res) 
     const updatedHook = await oltService.updateOnu(
         onuId as string,
         validatedData,
-        req.user?.tenantId!,
+        getEffectiveTenantId(req),
         req.user?.id,
         req.user?.role
     );
@@ -139,7 +140,7 @@ router.patch('/:id/onus/:onuId', requireOperator, asyncHandler(async (req, res) 
 // Refresh OLT status
 // Requires: Operator or Admin
 router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
-    const olt = await oltService.refreshStatus(req.params.id as string, req.user?.tenantId!);
+    const olt = await oltService.refreshStatus(req.params.id as string, getEffectiveTenantId(req));
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
