@@ -13,6 +13,7 @@
         "db:push:dev": "npm run db:push",
         "db:studio": "npx tsx node_modules/drizzle-kit/bin.cjs studio",
         "create-admin": "tsx src/scripts/create-admin.ts",
+        "seed:dummy": "tsx src/scripts/seed-dummy.ts",
         "db:repair": "tsx src/scripts/repair-db.ts",
         "migrate-encryption": "tsx src/scripts/migrate-encryption.ts",
         "test": "vitest"
