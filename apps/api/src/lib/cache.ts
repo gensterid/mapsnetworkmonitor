@@ -1,6 +1,6 @@
 /**
  * In-memory cache layer using node-cache.
- * Provides typed get/set/invalidate for hot data paths.
+ * Provides typed get/set/delete for hot data paths.
  * 
  * Cache is local to the process — suitable for single-instance deployments.
  * For horizontal scaling, replace with Redis.
@@ -11,6 +11,7 @@ import { logger } from './logger.js';
 // Default TTLs (in seconds)
 const CACHE_TTL = {
     ROUTER_LIST: 30,     // Router list changes infrequently
+    ROUTER_DETAIL: 60,   // Individual router cache
     SETTINGS: 60,        // Settings almost never change
     NETWATCH_STATS: 15,  // Netwatch status updates via scheduler
     DASHBOARD: 20,       // Dashboard aggregation
@@ -28,7 +29,8 @@ cache.on('expired', (key) => {
 });
 
 /**
- * Cache service with typed helpers
+ * Cache service with typed helpers.
+ * Method names match the API used in router.service.ts and other services.
  */
 export const cacheService = {
     /**
@@ -39,14 +41,31 @@ export const cacheService = {
     },
 
     /**
-     * Set a cached value with optional TTL
+     * Set a cached value with optional TTL (in seconds)
      */
     set<T>(key: string, value: T, ttl?: number): boolean {
         return cache.set(key, value, ttl ?? 30);
     },
 
     /**
-     * Delete a cached value
+     * Delete a specific cached key
+     */
+    delete(key: string): number {
+        return cache.del(key);
+    },
+
+    /**
+     * Delete all cache entries matching a glob-like pattern (e.g., "routers:list:*")
+     * Converts wildcards to prefix-based matching for simplicity.
+     */
+    deletePattern(pattern: string): number {
+        const prefix = pattern.replace(/\*$/, '');
+        const keys = cache.keys().filter(k => k.startsWith(prefix));
+        return cache.del(keys);
+    },
+
+    /**
+     * Delete multiple keys
      */
     del(key: string | string[]): number {
         return cache.del(key);
