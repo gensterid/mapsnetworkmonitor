@@ -34,6 +34,12 @@ export class RouterSyncService {
         const [router] = await db.select().from(routers).where(eq(routers.id, id));
         if (!router) return undefined;
 
+        // Skip synchronization if router is in maintenance mode
+        if (router.status === 'maintenance' && !isFullSync) {
+            logger.debug({ routerId: id, name: router.name }, '⏭️ Skipping background sync for router in maintenance mode');
+            return router;
+        }
+
         const previousStatus = router.status;
 
         let conn: any;

@@ -112,12 +112,16 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
 
     try {
         const routers = await routerService.findAll(tenantId);
-        if (routers.length === 0) return { success: 0, fail: 0, timeout: 0 };
 
-        logger.debug(`🔄 [Tenant: ${tenantId}] Polling ${routers.length} routers...`);
+        // Filter out routers in maintenance mode to prevent conflicts
+        const activeRouters = routers.filter(r => r.status !== 'maintenance');
 
-        // Add all routers to the background queue
-        const jobs = routers.map(router => ({
+        if (activeRouters.length === 0) return { success: 0, fail: 0, timeout: 0 };
+
+        logger.debug(`🔄 [Tenant: ${tenantId}] Polling ${activeRouters.length} active routers (Skipped ${routers.length - activeRouters.length} in maintenance)...`);
+
+        // Add all active routers to the background queue
+        const jobs = activeRouters.map(router => ({
             name: `sync-${router.id}`,
             data: {
                 routerId: router.id,
@@ -145,6 +149,12 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
  */
 async function pollAllRouters(): Promise<void> {
     checkPollingStuck();
+
+    if (process.env.SYNC_ENABLED === 'false') {
+        logger.debug('⏭️ Background sync is disabled via SYNC_ENABLED=false');
+        return;
+    }
+
     if (isPolling) {
         logger.debug('⏳ Previous polling still in progress, skipping...');
         return;
@@ -171,7 +181,7 @@ async function pollAllRouters(): Promise<void> {
             totalTimeout += results.timeout;
         }
 
-        const duration = ((Date.now() - pollingStartTime) / 1000).toFixed(1);
+        const duration = ((Date.now() - pollingStartTime!) / 1000).toFixed(1);
         const timeoutMsg = totalTimeout > 0 ? `, ${totalTimeout} timeout` : '';
         logger.info(`✅ Polling complete: ${totalSuccess} success, ${totalFail} failed${timeoutMsg} (${duration}s)`);
 
