@@ -54,7 +54,7 @@ export class RouterSyncService {
             // Fetch and sync netwatch in the same connection if requested
             if (includeNetwatch) {
                 // 1. Sync hosts (Netwatch list)
-                const availableInterfaces = new Set(interfaces?.map(i => i.name) || []);
+                const availableInterfaces = interfaces ? new Set(interfaces.map(i => i.name)) : new Set<string>();
                 await routerNetwatchService.syncHosts(id, router.name, conn, availableInterfaces);
 
                 // 2. Measure latency for synced hosts

@@ -1,6 +1,6 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { logger } from '../lib/logger.js';
-import { getRedisConnection, closeRedisConnection } from '../lib/redis-client.js';
+import { getRedisConnection, closeRedisConnection, createRedisConnection } from '../lib/redis-client.js';
 import { routerService } from './router.service.js';
 
 // Re-export for compatibility
@@ -8,7 +8,7 @@ export { getRedisConnection };
 
 // === Router Sync Queue ===
 export const routerSyncQueue = new Queue('router-sync', {
-    connection: getRedisConnection() as any,
+    connection: createRedisConnection(),
     defaultJobOptions: {
         attempts: 3,
         backoff: {
@@ -53,7 +53,7 @@ export function startQueueWorker() {
             }
         },
         {
-            connection: getRedisConnection() as any,
+            connection: createRedisConnection(),
             concurrency: 10, // Process 10 routers at a time
         }
     );
