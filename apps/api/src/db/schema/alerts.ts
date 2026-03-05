@@ -66,9 +66,11 @@ export const alerts = pgTable('alerts', {
     routerIdIdx: index('alerts_router_id_idx').on(table.routerId),
     tenantIdIdx: index('alerts_tenant_id_idx').on(table.tenantId),
     typeIdx: index('alerts_type_idx').on(table.type),
+    acknowledgedIdx: index('alerts_acknowledged_idx').on(table.acknowledged),
     resolvedIdx: index('alerts_resolved_idx').on(table.resolved),
     createdAtIdx: index('alerts_created_at_idx').on(table.createdAt),
     // Composite indexes for common query patterns
+    tenantAcknowledgedIdx: index('alerts_tenant_acknowledged_idx').on(table.tenantId, table.acknowledged),
     routerResolvedIdx: index('alerts_router_resolved_idx').on(table.routerId, table.resolved),
     routerCreatedAtIdx: index('alerts_router_created_at_idx').on(table.routerId, table.createdAt),
 }));
