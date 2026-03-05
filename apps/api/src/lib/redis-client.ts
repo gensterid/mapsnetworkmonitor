@@ -16,6 +16,7 @@ export const redisOptions: RedisOptions = {
 
 export const bullmqRedisOptions: RedisOptions = {
     ...redisOptions,
+    enableOfflineQueue: true, // MUST be true for BullMQ to buffer initial commands
     maxRetriesPerRequest: null, // Required by BullMQ for blocking commands
 };
 
