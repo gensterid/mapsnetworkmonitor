@@ -84,22 +84,25 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
     const [timeframe, setTimeframe] = useState('7d');
     const limit = 15;
 
-    // Date range for charts (last 14 days)
-    const chartParams = useMemo(() => {
+    // Unified Date Range based on global timeframe
+    const dateRange = useMemo(() => {
         const end = new Date();
         const start = new Date();
-        start.setDate(start.getDate() - 14);
-        return {
-            routerId,
-            search: deviceHost || deviceName, // Filter chart by device
-            startDate: start.toISOString(),
-            endDate: end.toISOString()
-        };
-    }, [routerId, deviceHost, deviceName]);
+        const days = timeframe === '30d' ? 30 : 7;
+        start.setDate(start.getDate() - days);
+        return { start, end };
+    }, [timeframe]);
 
-    // Construct query filters based on category
+    // Construct query filters based on category and timeframe
     const alertFilters = useMemo(() => {
-        const filters = { routerId, page, limit, sortOrder: 'desc' };
+        const filters = { 
+            routerId, 
+            page, 
+            limit, 
+            sortOrder: 'desc',
+            startDate: dateRange.start.toISOString(),
+            endDate: dateRange.end.toISOString()
+        };
 
         if (deviceHost || deviceName) {
             filters.search = deviceHost || deviceName;
@@ -110,12 +113,11 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
         } else if (category === 'connectivity') {
             filters.category = 'alerts'; // Backend 'alerts' category maps to connectivity
         } else if (category === 'signal') {
-            // Signal & Latency specifically uses high_latency, packet_loss, and threshold types
             filters.type = ['high_latency', 'packet_loss', 'threshold'];
         }
 
         return filters;
-    }, [routerId, page, category, limit, deviceHost, deviceName]);
+    }, [routerId, page, category, limit, deviceHost, deviceName, dateRange]);
 
     // Queries
     const { data: alertsData, isLoading: alertsLoading, refetch: refetchAlerts } = useAlerts(alertFilters, { enabled: !!routerId });
@@ -123,18 +125,9 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
     const { data: alertTrends, isLoading: trendsLoading } = useAlertTrends({
         routerId,
         search: deviceHost || deviceName,
-        startDate: chartParams.startDate,
-        endDate: chartParams.endDate
+        startDate: dateRange.start.toISOString(),
+        endDate: dateRange.end.toISOString()
     }, { enabled: !!routerId });
-
-    // Performance trends date range
-    const perfRange = useMemo(() => {
-        const end = new Date();
-        const start = new Date();
-        const days = timeframe === '30d' ? 30 : 7;
-        start.setDate(start.getDate() - days);
-        return { start, end };
-    }, [timeframe]);
 
     const { data: perfTrends, isLoading: perfLoading } = useQuery({
         queryKey: ['device_perf_trends', routerId, deviceHost, onuId, timeframe],
@@ -142,22 +135,22 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
             routerId,
             host: deviceHost,
             onuId,
-            startDate: perfRange.start.toISOString(),
-            endDate: perfRange.end.toISOString()
+            startDate: dateRange.start.toISOString(),
+            endDate: dateRange.end.toISOString()
         }),
         enabled: !!(deviceHost || onuId)
     });
 
-    const uptimeDataResult = useUptimeStats({
+    const { data: uptimeData, isLoading: uptimeLoading } = useUptimeStats({
         routerId,
-        search: deviceHost || deviceName
+        search: deviceHost || deviceName,
+        startDate: dateRange.start.toISOString(),
+        endDate: dateRange.end.toISOString()
     }, { enabled: !!routerId });
-    const uptimeData = uptimeDataResult.data;
-    const uptimeLoading = uptimeDataResult.isLoading;
 
     const alerts = Array.isArray(alertsData) ? alertsData : (alertsData?.data || []);
     const meta = alertsData?.meta || {};
-    const totalAlerts = meta.total || alerts.length;
+    const totalAlerts = meta.total !== undefined ? meta.total : alerts.length;
 
     const handleRefresh = () => {
         refetchAlerts();
@@ -175,6 +168,34 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
 
     return (
         <div className="space-y-6">
+            {/* Top Navigation & Timeframe Selector */}
+            <div className="flex items-center justify-between bg-slate-900/40 border border-slate-800/60 p-2 rounded-2xl backdrop-blur-md">
+                <div className="flex items-center gap-2 pl-2">
+                    <History className="w-5 h-5 text-primary" />
+                    <span className="text-[13px] font-black text-slate-200 uppercase tracking-widest">Device History</span>
+                </div>
+
+                <div className="flex bg-slate-950 border border-slate-800/80 p-1.5 rounded-xl shadow-2xl scale-95">
+                    {['7d', '30d'].map((t) => (
+                        <button
+                            key={t}
+                            onClick={() => {
+                                setTimeframe(t);
+                                setPage(1); // Reset page on timeframe change
+                            }}
+                            className={clsx(
+                                "px-6 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all duration-300",
+                                timeframe === t 
+                                    ? "bg-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]" 
+                                    : "text-slate-600 hover:text-slate-300"
+                            )}
+                        >
+                            {t}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Header Cards (Top Stats) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
@@ -231,34 +252,14 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                             </CardTitle>
                         </div>
                         
-                        <div className="flex items-center gap-6">
-                            {/* Timeframe Selector moved here */}
-                            <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl shadow-inner scale-90">
-                                {['7d', '30d'].map((t) => (
-                                    <button
-                                        key={t}
-                                        onClick={() => setTimeframe(t)}
-                                        className={clsx(
-                                            "px-4 py-1 rounded-lg text-[10px] font-black uppercase transition-all duration-300",
-                                            timeframe === t 
-                                                ? "bg-primary text-white shadow-lg shadow-primary/30" 
-                                                : "text-slate-600 hover:text-slate-400"
-                                        )}
-                                    >
-                                        {t}
-                                    </button>
-                                ))}
+                        <div className="flex items-center gap-1.5 border-l border-slate-800 pl-6">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Latency</span>
                             </div>
-
-                            <div className="flex items-center gap-4 text-[10px] font-bold border-l border-slate-800 pl-6">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                    <span className="text-slate-500">LATENCY</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-                                    <span className="text-slate-500">RX POWER</span>
-                                </div>
+                            <div className="flex items-center gap-2 ml-4">
+                                <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Rx Power</span>
                             </div>
                         </div>
                     </CardHeader>
