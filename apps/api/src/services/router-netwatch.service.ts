@@ -300,7 +300,8 @@ export class RouterNetwatchService {
 
                         // Trigger injection if the webhook is not "Complete" (both UP and DOWN), 
                         // explicitly missing from one, or if we need a token takeover.
-                        if (!finalHasWebhook || isPartiallyMissing || forceReconfig) {
+                        // BUGFIX: Skip "Partially Missing" check if we suspect truncation (to avoid infinite reconfig loops)
+                        if (!finalHasWebhook || (isPartiallyMissing && !isLikelyTruncated) || forceReconfig) {
                             logger.debug({
                                 host: nw.host,
                                 suspicious: isSuspiciouslyEmpty,

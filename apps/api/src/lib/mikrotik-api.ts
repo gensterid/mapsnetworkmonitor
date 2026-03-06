@@ -473,15 +473,13 @@ export async function getNetwatchHosts(
     let hostsResult: any[];
     try {
         hostsResult = await safeWrite(api, [
-            '/tool/netwatch/print',
-            '=.proplist=.id,host,status,since,comment,up-script,up_script,down-script,down_script,disabled'
+            '/tool/netwatch/print'
         ]);
     } catch (err) {
-        // Fallback for older ROS versions (ROS6) that might fail if underscores properties are requested
-        logger.debug({ err: String(err) }, 'Netwatch bulk print with underscores failed, retrying with standard fields');
+        // Fallback for older ROS versions
+        logger.debug({ err: String(err) }, 'Netwatch bulk print failed');
         hostsResult = await safeWrite(api, [
-            '/tool/netwatch/print',
-            '=.proplist=.id,host,status,since,comment,up-script,down-script,disabled'
+            '/tool/netwatch/print'
         ]);
     }
 
