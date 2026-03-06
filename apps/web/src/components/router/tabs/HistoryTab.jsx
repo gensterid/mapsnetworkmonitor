@@ -269,7 +269,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                 <RefreshCw className="w-8 h-8 animate-spin text-slate-800" />
                             </div>
                         ) : perfTrends?.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                                 <ComposedChart data={perfTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
@@ -374,7 +374,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                 <RefreshCw className="w-6 h-6 animate-spin text-slate-700" />
                             </div>
                         ) : alertChartData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0} debounce={1}>
                                 <BarChart data={alertChartData}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                                     <XAxis
