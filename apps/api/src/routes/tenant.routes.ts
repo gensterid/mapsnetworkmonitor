@@ -121,7 +121,7 @@ router.delete(
 
         const success = await tenantService.delete(req.params.id as string);
         if (!success) throw ApiError.notFound('Tenant not found');
-        res.json({ message: 'Tenant deleted successfully' });
+        res.json({ data: { message: 'Tenant deleted successfully' } });
     })
 );
 

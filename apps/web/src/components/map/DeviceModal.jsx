@@ -76,7 +76,9 @@ const DeviceModal = ({
             try {
                 const { apiClient } = await import('@/lib/api');
                 const res = await apiClient.get(`/olts/onus/by-router/${routerId}`);
-                setAvailableOnus(res.data || []);
+                // Use .data.data if wrapped, or .data if not, ensuring it's always an array
+                const data = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+                setAvailableOnus(data);
             } catch (err) {
                 console.error('Failed to fetch ONUs for dropdown:', err);
                 setAvailableOnus([]);
@@ -407,7 +409,7 @@ const DeviceModal = ({
                                         </label>
                                         <SearchableSelect
                                             name="linkedOnuId"
-                                            options={availableOnus.map(onu => ({
+                                            options={(Array.isArray(availableOnus) ? availableOnus : []).map(onu => ({
                                                 value: onu.id,
                                                 label: `${onu.name || 'Unnamed ONU'} [SN: ${onu.sn}]`
                                             }))}

@@ -252,7 +252,8 @@ function RecentAlerts({ alerts, settings, currentUser }) {
 
 export default function Dashboard() {
     const { data: routers = [], isLoading: routersLoading } = useRouters();
-    const { data: alerts = [] } = useAlerts();
+    const { data: alertsResponse = [] } = useAlerts();
+    const alerts = Array.isArray(alertsResponse) ? alertsResponse : (alertsResponse?.data || []);
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const [statusFilter, setStatusFilter] = useState('all');

@@ -52,7 +52,7 @@ router.get(
             tenantId: getEffectiveTenantId(req)
         });
 
-        res.json(result);
+        res.json({ data: result });
     })
 );
 
@@ -98,7 +98,7 @@ router.get(
             tenantId: getEffectiveTenantId(req)
         });
 
-        res.json(result);
+        res.json({ data: result });
     })
 );
 
@@ -151,7 +151,7 @@ router.put(
     asyncHandler(async (req, res) => {
         const { category } = acknowledgeAllSchema.parse(req.query);
         await alertService.acknowledgeAll(req.user!.id, req.user!.role, category, getEffectiveTenantId(req));
-        res.json({ message: 'All alerts acknowledged successfully' });
+        res.json({ data: { message: 'All alerts acknowledged successfully' } });
     })
 );
 
@@ -166,7 +166,7 @@ router.put(
     asyncHandler(async (req, res) => {
         const { category } = resolveAllSchema.parse(req.query);
         await alertService.resolveAll(req.user!.id, req.user!.role, category, getEffectiveTenantId(req));
-        res.json({ message: 'All alerts resolved successfully' });
+        res.json({ data: { message: 'All alerts resolved successfully' } });
     })
 );
 
@@ -206,7 +206,7 @@ router.delete(
             throw ApiError.notFound('Alert not found');
         }
 
-        res.json({ message: 'Alert deleted successfully' });
+        res.json({ data: { message: 'Alert deleted successfully' } });
     })
 );
 

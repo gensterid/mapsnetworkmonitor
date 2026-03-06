@@ -1,51 +1,27 @@
-import { apiClient } from '@/lib/api';
+import { get, post, patch, del } from '@/lib/api';
 
 export const oltService = {
     // Get all OLTs
-    getAll: async () => {
-        const response = await apiClient.get('/olts');
-        return response.data;
-    },
+    getAll: () => get<any[]>('/olts'),
 
     // Get OLT by ID
-    getById: async (id: string) => {
-        const response = await apiClient.get(`/olts/${id}`);
-        return response.data;
-    },
+    getById: (id: string) => get<any>(`/olts/${id}`),
 
     // Create OLT
-    create: async (data: any) => {
-        const response = await apiClient.post('/olts', data);
-        return response.data;
-    },
+    create: (data: any) => post<any>('/olts', data),
 
     // Update OLT
-    update: async (id: string, data: any) => {
-        const response = await apiClient.patch(`/olts/${id}`, data);
-        return response.data;
-    },
+    update: (id: string, data: any) => patch<any>(`/olts/${id}`, data),
 
     // Delete OLT
-    delete: async (id: string) => {
-        const response = await apiClient.delete(`/olts/${id}`);
-        return response.data;
-    },
+    delete: (id: string) => del(`/olts/${id}`),
 
     // Refresh OLT status
-    refresh: async (id: string) => {
-        const response = await apiClient.post(`/olts/${id}/refresh`);
-        return response.data;
-    },
+    refresh: (id: string) => post<any>(`/olts/${id}/refresh`),
 
     // Get OLT ONUs
-    getOnus: async (id: string) => {
-        const response = await apiClient.get(`/olts/${id}/onus`);
-        return response.data;
-    },
+    getOnus: (id: string) => get<any[]>(`/olts/${id}/onus`),
 
     // Update ONU
-    updateOnu: async (id: string, onuId: string, data: any) => {
-        const response = await apiClient.patch(`/olts/${id}/onus/${onuId}`, data);
-        return response.data;
-    },
+    updateOnu: (id: string, onuId: string, data: any) => patch<any>(`/olts/${id}/onus/${onuId}`, data),
 };

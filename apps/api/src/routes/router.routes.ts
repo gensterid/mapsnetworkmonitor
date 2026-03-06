@@ -272,7 +272,7 @@ router.delete(
             req
         );
 
-        res.json({ message: 'Router deleted successfully' });
+        res.json({ data: { message: 'Router deleted successfully' } });
     })
 );
 
@@ -656,7 +656,7 @@ router.delete(
             req
         );
 
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     })
 );
 
@@ -737,7 +737,7 @@ router.patch(
         });
         const { routerId, nodeId, x, y } = schema.parse(req.body);
         await topologyService.updateCoords(routerId, nodeId, x, y, getEffectiveTenantId(req));
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     })
 );
 
@@ -779,7 +779,7 @@ router.delete(
         const id = req.params.id as string;
         const nodeId = req.params.nodeId as string;
         await topologyService.removeNode(id, nodeId);
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     })
 );
 
@@ -852,7 +852,7 @@ router.delete(
     asyncHandler(async (req, res) => {
         const linkId = req.params.linkId as string;
         await topologyService.removeLink(linkId);
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     })
 );
 
@@ -875,7 +875,7 @@ router.patch(
         });
         const data = schema.parse(req.body);
         await topologyService.updateLink(linkId, data as any);
-        res.json({ success: true });
+        res.json({ data: { success: true } });
     })
 );
 

@@ -52,7 +52,7 @@ router.use(authMiddleware);
 // Get all ONUs for a specific router (via OLTs)
 router.get('/onus/by-router/:routerId', asyncHandler(async (req, res) => {
     const onus = await oltService.getOnusByRouter(req.params.routerId as string, getEffectiveTenantId(req));
-    res.json(onus);
+    res.json({ data: onus });
 }));
 
 // Get all ONUs with coordinates for map display
@@ -62,7 +62,7 @@ router.get('/onus/map', asyncHandler(async (req, res) => {
         req.user?.id,
         req.user?.role
     );
-    res.json(onus);
+    res.json({ data: onus });
 }));
 
 // Apply auth middleware to all OTHER routes
@@ -71,7 +71,7 @@ router.use(authMiddleware);
 // Get all OLTs
 router.get('/', asyncHandler(async (req, res) => {
     const olts = await oltService.findAll(getEffectiveTenantId(req), req.user?.id, req.user?.role);
-    res.json(olts);
+    res.json({ data: olts });
 }));
 
 // Get OLT by ID
@@ -80,7 +80,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
-    res.json(olt);
+    res.json({ data: olt });
 }));
 
 // Create OLT
@@ -88,7 +88,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 router.post('/', requireOperator, asyncHandler(async (req, res) => {
     const data = createOltSchema.parse(req.body);
     const olt = await oltService.create(data, req.user!.tenantId!);
-    res.status(201).json(olt);
+    res.status(201).json({ data: olt });
 }));
 
 // Update OLT
@@ -99,7 +99,7 @@ router.patch('/:id', requireOperator, asyncHandler(async (req, res) => {
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
-    res.json(olt);
+    res.json({ data: olt });
 }));
 
 // Delete OLT
@@ -109,13 +109,13 @@ router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
     if (!success) {
         throw ApiError.notFound('OLT not found');
     }
-    res.json({ success: true });
+    res.json({ data: { success: true } });
 }));
 
 // Get OLT ONUs (via Driver)
 router.get('/:id/onus', asyncHandler(async (req, res) => {
     const onus = await oltService.getOnus(req.params.id as string, getEffectiveTenantId(req));
-    res.json(onus);
+    res.json({ data: onus });
 }));
 
 // Update ONU
@@ -134,7 +134,7 @@ router.patch('/:id/onus/:onuId', requireOperator, asyncHandler(async (req, res) 
     if (!updatedHook) {
         throw ApiError.notFound('ONU not found or access denied');
     }
-    res.json(updatedHook);
+    res.json({ data: updatedHook });
 }));
 
 // Refresh OLT status
@@ -144,7 +144,7 @@ router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
     if (!olt) {
         throw ApiError.notFound('OLT not found');
     }
-    res.json(olt);
+    res.json({ data: olt });
 }));
 
 export default router;

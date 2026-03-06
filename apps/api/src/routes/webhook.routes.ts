@@ -83,7 +83,7 @@ router.get(
 
         if (netwatchRecords.length === 0) {
             // Netwatch entry not found in DB, just ignore (might be a deleted node still in mikrotik)
-            res.json({ success: true, message: 'Host not tracked, ignored' });
+            res.json({ data: { success: true, message: 'Host not tracked, ignored' } });
             return;
         }
 
@@ -144,7 +144,7 @@ router.get(
             }, 'Multi-router Webhook update processed');
         }
 
-        res.json({ success: true, status: 'updated' });
+        res.json({ data: { success: true, status: 'updated' } });
     })
 );
 

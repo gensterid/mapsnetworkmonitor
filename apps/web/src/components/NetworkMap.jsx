@@ -161,7 +161,7 @@ const NetworkMap = ({
         queryKey: ['onus-map'],
         queryFn: async () => {
             const res = await apiClient.get('/olts/onus/map');
-            return res.data;
+            return res.data.data;
         },
         enabled: !showRoutersOnly,
         staleTime: 60000,

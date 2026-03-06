@@ -13,7 +13,7 @@ export class OltService {
 
     private constructor() { }
 
-    private parseSignal(signal: any): number | null {
+    public parseSignal(signal: any): number | null {
         if (signal === null || signal === undefined) return null;
         const str = String(signal);
         const match = str.match(/([+-]?\d+(\.\d+)?)/);

@@ -1,5 +1,5 @@
 // Export API client
-export { apiClient, get, post, put, del } from './client';
+export { apiClient, get, post, put, del, patch } from './client';
 
 // Export all services
 export {

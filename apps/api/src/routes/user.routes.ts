@@ -470,7 +470,7 @@ router.delete(
             req
         );
 
-        res.json({ message: 'User deleted successfully' });
+        res.json({ data: { message: 'User deleted successfully' } });
     })
 );
 

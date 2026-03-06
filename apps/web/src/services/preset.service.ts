@@ -1,5 +1,4 @@
-
-import { apiClient } from '@/lib/api';
+import { get, post, patch, del } from '@/lib/api';
 
 export interface Preset {
     id: string;
@@ -12,28 +11,13 @@ export interface Preset {
 }
 
 export const presetService = {
-    getAll: async () => {
-        const response = await apiClient.get('/presets');
-        return response.data;
-    },
+    getAll: () => get<Preset[]>('/presets'),
 
-    getById: async (id) => {
-        const response = await apiClient.get(`/presets/${id}`);
-        return response.data;
-    },
+    getById: (id) => get<Preset>(`/presets/${id}`),
 
-    create: async (data) => {
-        const response = await apiClient.post('/presets', data);
-        return response.data;
-    },
+    create: (data) => post<Preset>('/presets', data),
 
-    update: async (id, data) => {
-        const response = await apiClient.patch(`/presets/${id}`, data);
-        return response.data;
-    },
+    update: (id, data) => patch<Preset>(`/presets/${id}`, data),
 
-    delete: async (id) => {
-        const response = await apiClient.delete(`/presets/${id}`);
-        return response.data;
-    }
+    delete: (id) => del(`/presets/${id}`)
 };

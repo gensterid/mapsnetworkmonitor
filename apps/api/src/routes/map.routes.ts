@@ -302,7 +302,7 @@ router.put(
             .returning();
 
         if (updatedRouter) {
-            return res.json({ success: true, type: 'router' });
+            return res.json({ data: { success: true, type: 'router' } });
         }
 
         // Try update Netwatch
@@ -316,7 +316,7 @@ router.put(
             .returning();
 
         if (updatedNetwatch) {
-            return res.json({ success: true, type: 'netwatch' });
+            return res.json({ data: { success: true, type: 'netwatch' } });
         }
 
         // Try update OLT
@@ -330,7 +330,7 @@ router.put(
             .returning();
 
         if (updatedOlt) {
-            return res.json({ success: true, type: 'olt' });
+            return res.json({ data: { success: true, type: 'olt' } });
         }
 
         // Try update ONU
@@ -344,7 +344,7 @@ router.put(
             .returning();
 
         if (updatedOnu) {
-            return res.json({ success: true, type: 'onu' });
+            return res.json({ data: { success: true, type: 'onu' } });
         }
 
         res.status(404).json({ error: 'Node not found' });

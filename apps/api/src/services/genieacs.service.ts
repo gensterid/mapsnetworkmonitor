@@ -3,6 +3,11 @@ import { logger } from '../lib/logger.js';
 import { settingsService } from './settings.service.js';
 import { routerService } from './router.service.js';
 import { cacheService } from '../lib/cache.js';
+import { encrypt, decrypt } from '../lib/encryption.js';
+import { db } from '../db/index.js';
+import { onus, olts, devicePerformanceHistory, routerNetwatch } from '../db/schema/index.js';
+import { oltService } from './olt.service.js';
+import { eq, inArray, and } from 'drizzle-orm';
 
 export interface GenieACSDevice {
     _id: string;
@@ -54,10 +59,7 @@ export interface WifiConfigPayload {
     channel?: number | 'Auto';
 }
 
-import { encrypt, decrypt } from '../lib/encryption.js';
-import { db } from '../db/index.js';
-import { onus, olts } from '../db/schema/index.js';
-import { eq, inArray, and } from 'drizzle-orm';
+// End of imports
 
 async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
     let url = '';
@@ -169,7 +171,7 @@ export const genieacsService = {
                     .innerJoin(olts, eq(onus.oltId, olts.id))
                     .where(eq(olts.parentId, routerId));
 
-                const snFilter = routerOnus.map(o => o.sn).filter(Boolean);
+                const snFilter = routerOnus.map((o: any) => o.sn).filter(Boolean);
 
                 if (snFilter.length > 0) {
                     // Merge with existing query if any
@@ -192,6 +194,8 @@ export const genieacsService = {
                 _tags: 1,
                 _mac: 1,
                 // STATUS (Optical Power, Temperature, IP)
+                'InternetGatewayDevice.ManagementServer.ConnectionRequestURL': 1,
+                'Device.ManagementServer.ConnectionRequestURL': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalModuleInfo.RXPower': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANDevice.1.OpticalInstance.1.OpticalSignalLevel': 1,
                 'InternetGatewayDevice.WANDevice.1.X_ZTE-COM_WANPONInterfaceConfig.RXPower': 1,
@@ -314,6 +318,25 @@ export const genieacsService = {
                 if (tenantId) filters.push(eq(onus.tenantId, tenantId));
                 const [existing] = await db.select().from(onus).where(and(...filters));
 
+                // AUTO-DISCOVERY: If routerId is not defined (Shared ACS), try to link via IP match in netwatch
+                let resolvedRouterId = routerId || existing?.routerId;
+                if (!resolvedRouterId && dev._ip) {
+                    try {
+                        const [matchedNetwatch] = await db.select({ routerId: routerNetwatch.routerId })
+                            .from(routerNetwatch)
+                            .where(eq(routerNetwatch.host, dev._ip))
+                            .limit(1);
+                        if (matchedNetwatch) {
+                            resolvedRouterId = matchedNetwatch.routerId;
+                            logger.info({ sn, ip: dev._ip, routerId: resolvedRouterId }, 'Successfully linked ACS device to router via IP discovery');
+                        }
+                    } catch (e) {
+                        // Ignore lookup errors
+                    }
+                }
+
+                let targetOnuId = existing?.id;
+
                 if (existing) {
                     // Update
                     const sources = (existing.discoverySources as string[]) || [];
@@ -324,7 +347,7 @@ export const genieacsService = {
                     const newRxPower = shouldKeepOltSignal ? existing.lastRxPower : (dev._rxPower || existing.lastRxPower);
 
                     await db.update(onus).set({
-                        routerId: routerId || existing.routerId,
+                        routerId: resolvedRouterId,
                         model: dev._productClass || existing.model,
                         ssid: dev._ssid || existing.ssid,
                         firmwareVersion: dev._softwareVersion || existing.firmwareVersion,
@@ -335,6 +358,20 @@ export const genieacsService = {
                         updatedAt: new Date(),
                         lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen
                     }).where(eq(onus.id, existing.id));
+
+                    // 📈 Log to Performance History for Charts (Sync/Update scenario)
+                    if (dev._rxPower && resolvedRouterId) {
+                        const parsedSignal = oltService.parseSignal(dev._rxPower);
+                        if (parsedSignal !== null) {
+                            await db.insert(devicePerformanceHistory).values({
+                                tenantId: tenantId || (existing as any).tenantId || '',
+                                routerId: resolvedRouterId,
+                                onuId: existing.id,
+                                signal: parsedSignal,
+                                recordedAt: new Date()
+                            }).execute().catch((err: any) => logger.error({ err, sn }, 'Failed to record ACS signal history update'));
+                        }
+                    }
                     updated++;
                 } else {
                     // Insert (GenieACS Only scenario)
@@ -346,9 +383,9 @@ export const genieacsService = {
                         else status = 'offline';
                     }
 
-                    await db.insert(onus).values({
+                    const [newOnu] = await db.insert(onus).values({
                         sn: sn,
-                        routerId: routerId,
+                        routerId: resolvedRouterId,
                         tenantId: tenantId,
                         name: `ACS-${sn.slice(-4)}`,
                         model: dev._productClass,
@@ -360,8 +397,35 @@ export const genieacsService = {
                         status: status as any,
                         discoverySources: ['acs'],
                         lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined,
-                    });
+                    }).returning();
+                    
+                    if (newOnu) targetOnuId = newOnu.id;
+
+                    // 📈 Log to Performance History for Charts (ACS Only scenario)
+                    if (dev._rxPower && newOnu && resolvedRouterId) {
+                        const parsedSignal = oltService.parseSignal(dev._rxPower);
+                        if (parsedSignal !== null) {
+                            await db.insert(devicePerformanceHistory).values({
+                                tenantId: tenantId || '',
+                                routerId: resolvedRouterId,
+                                onuId: newOnu.id,
+                                signal: parsedSignal,
+                                recordedAt: new Date()
+                            }).execute().catch((err: any) => logger.error({ err, sn }, 'Failed to record ACS signal history'));
+                        }
+                    }
                     added++;
+                }
+
+                // AUTO-LINK: Update the routerNetwatch linkedOnuId if we matched by IP
+                if (dev._ip && targetOnuId) {
+                    try {
+                        await db.update(routerNetwatch)
+                            .set({ linkedOnuId: targetOnuId })
+                            .where(eq(routerNetwatch.host, dev._ip));
+                    } catch (e) {
+                        logger.error({ err: e, ip: dev._ip }, 'Failed to link routerNetwatch to ACS ONU');
+                    }
                 }
             }
             logger.info({ total, added, updated }, 'GenieACS: Metadata sync completed');
@@ -399,7 +463,7 @@ export const genieacsService = {
                     .innerJoin(olts, eq(onus.oltId, olts.id))
                     .where(eq(olts.parentId, routerId));
 
-                const snFilter = routerOnus.map(o => o.sn).filter(Boolean);
+                const snFilter = routerOnus.map((o: any) => o.sn).filter(Boolean);
                 if (snFilter.length > 0) {
                     query['_deviceId._SerialNumber'] = { '$in': snFilter };
                 } else {
@@ -1089,8 +1153,22 @@ export const genieacsService = {
     }
 };
 
-// Helper to extract IP from common paths
 function getDeviceIp(dev: any): string {
+    // 1. Native GenieACS properties (if available in summary or projection)
+    if (dev._ip) return dev._ip;
+
+    // 2. Reliable TR-069 Connection Request URL (http://192.168.1.5:7547/)
+    const connReqUrl1 = dev.InternetGatewayDevice?.ManagementServer?.ConnectionRequestURL?._value;
+    const connReqUrl2 = dev.Device?.ManagementServer?.ConnectionRequestURL?._value;
+    const url = connReqUrl1 || connReqUrl2;
+    if (url && typeof url === 'string') {
+        const match = url.match(/:\/\/(?:[a-zA-Z0-9-._~%]+@)?([0-9a-zA-Z.-]+)(?::[0-9]+)?/);
+        if (match && match[1]) {
+            return match[1];
+        }
+    }
+
+    // 3. Fallbacks
     return dev.VirtualParameters?.IPTR069?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[1]?.WANPPPConnection?.[1]?.ExternalIPAddress?._value ||
         dev.InternetGatewayDevice?.WANDevice?.[1]?.WANConnectionDevice?.[1]?.WANIPConnection?.[1]?.ExternalIPAddress?._value ||
@@ -1131,11 +1209,13 @@ function getDeviceRxPower(dev: any): string {
 
     // Convert to string and handle formatting if raw
     const strVal = String(rawValue);
-    if (!strVal.includes('.') && strVal.length > 2 && !isNaN(Number(strVal))) {
-        // If it looks like raw integer (e.g., -2318 or 2318), format it? 
-        // But some return actual dBm already. For now return as is or if it's very large, treat as 0.01 units
-        const num = Number(strVal);
-        if (num < -500 || num > 500) return (num / 100).toFixed(2);
+    const num = Number(strVal);
+    
+    if (!strVal.includes('.') && !isNaN(num)) {
+        const absNum = Math.abs(num);
+        // Catch raw units (e.g., -192 for -19.2 or -2318 for -23.18)
+        if (absNum > 500) return (num / 100).toFixed(2);
+        if (absNum > 50) return (num / 10).toFixed(1);
     }
 
     return strVal;

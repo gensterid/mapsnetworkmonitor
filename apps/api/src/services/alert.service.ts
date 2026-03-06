@@ -219,29 +219,13 @@ export class AlertService {
 
         // Category filtering
         if (options.category) {
-            // Consistent with isIssue() but SQL-friendly
             const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
             const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
 
             if (options.category === 'issues') {
-                // Issues: Specific types OR (Warning severity AND NOT connectivity types)
-                filters.push(or(
-                    inArray(alerts.type, issueTypesList as any),
-                    and(
-                        eq(alerts.severity, 'warning'),
-                        notInArray(alerts.type, connectivityTypesList as any)
-                    )
-                ));
+                filters.push(inArray(alerts.type, issueTypesList as any));
             } else if (options.category === 'alerts') {
-                // Alerts: Connectivity types OR (NOT Issue types AND NOT (Warning + Non-Connectivity))
-                filters.push(and(
-                    notInArray(alerts.type, issueTypesList as any),
-                    not(eq(alerts.type, 'threshold')), // redundant but safe
-                    not(and(
-                        eq(alerts.severity, 'warning'),
-                        notInArray(alerts.type, connectivityTypesList as any)
-                    ) as any)
-                ));
+                filters.push(inArray(alerts.type, connectivityTypesList as any));
             }
         }
 
@@ -542,30 +526,15 @@ export class AlertService {
             filters.push(inArray(alerts.routerId, routerIds));
         }
 
-        // Apply category filtering directly in SQL (consistent with findAll logic)
+        // Apply category filtering directly in SQL
         if (category) {
             const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
             const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
 
             if (category === 'issues') {
-                const condition = or(
-                    inArray(alerts.type, issueTypesList as any),
-                    and(
-                        eq(alerts.severity, 'warning'),
-                        notInArray(alerts.type, connectivityTypesList as any)
-                    )
-                );
-                if (condition) filters.push(condition);
+                filters.push(inArray(alerts.type, issueTypesList as any));
             } else if (category === 'alerts') {
-                // Consistent with findAll: NOT an issue (includes connectivity in this view)
-                const condition = and(
-                    notInArray(alerts.type, issueTypesList as any),
-                    not(and(
-                        eq(alerts.severity, 'warning'),
-                        notInArray(alerts.type, connectivityTypesList as any)
-                    ) as any)
-                );
-                if (condition) filters.push(condition as any);
+                filters.push(inArray(alerts.type, connectivityTypesList as any));
             }
         }
 
@@ -607,11 +576,11 @@ export class AlertService {
             const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
             const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
 
-            const categoryCondition = category === 'issues'
-                ? inArray(alerts.type, issueTypesList as any)
-                : inArray(alerts.type, connectivityTypesList as any);
-
-            filters.push(categoryCondition);
+            if (category === 'issues') {
+                filters.push(inArray(alerts.type, issueTypesList as any));
+            } else if (category === 'alerts') {
+                filters.push(inArray(alerts.type, connectivityTypesList as any));
+            }
         }
 
         await db

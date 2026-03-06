@@ -122,7 +122,7 @@ router.delete(
             throw ApiError.notFound('Setting not found');
         }
 
-        res.json({ message: 'Setting deleted successfully' });
+        res.json({ data: { message: 'Setting deleted successfully' } });
     })
 );
 

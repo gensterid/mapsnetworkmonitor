@@ -104,8 +104,8 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
             endDate: dateRange.end.toISOString()
         };
 
-        if (deviceHost || deviceName) {
-            filters.search = deviceHost || deviceName;
+        if (deviceName || deviceHost) {
+            filters.search = deviceName || deviceHost;
         }
 
         if (category === 'issues') {
@@ -198,25 +198,25 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
 
             {/* Header Cards (Top Stats) */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
-                    <CardContent className="p-5 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner">
+                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm shadow-xl min-h-[160px]">
+                    <CardContent className="p-6 pt-9 flex flex-col items-center justify-center gap-3 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner group-hover:scale-110 transition-transform">
                             <AlertTriangle className="w-6 h-6" />
                         </div>
-                        <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.15em] font-black pb-0.5">Total Insiden</p>
+                        <div className="mt-1">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Total Insiden</p>
                             <p className="text-2xl font-black text-white tracking-tight">{totalAlerts}</p>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
-                    <CardContent className="p-5 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm shadow-xl min-h-[160px]">
+                    <CardContent className="p-6 pt-9 flex flex-col items-center justify-center gap-3 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner group-hover:scale-110 transition-transform">
                             <Activity className="w-6 h-6" />
                         </div>
-                        <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.15em] font-black pb-0.5">Uptime Rate</p>
+                        <div className="mt-1">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Uptime Rate</p>
                             <p className="text-2xl font-black text-white tracking-tight">
                                 {uptimeData?.[0] ? `${uptimeData[0].uptimePercentage}%` : '---'}
                             </p>
@@ -224,13 +224,13 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                     </CardContent>
                 </Card>
 
-                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
-                    <CardContent className="p-5 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
+                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm shadow-xl min-h-[160px]">
+                    <CardContent className="p-6 pt-9 flex flex-col items-center justify-center gap-3 text-center">
+                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner group-hover:scale-110 transition-transform">
                             <Wifi className="w-6 h-6" />
                         </div>
-                        <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.15em] font-black pb-0.5">Latency Avg</p>
+                        <div className="mt-1">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Latency Avg</p>
                             <p className="text-2xl font-black text-white tracking-tight">
                                 {perfTrends?.length > 0
                                     ? `${Math.round(perfTrends.reduce((acc, curr) => acc + (curr.latency || 0), 0) / perfTrends.length)} ms`

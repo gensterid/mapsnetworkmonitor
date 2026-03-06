@@ -15,7 +15,15 @@ import {
     Zap,
     Eye,
     AlertCircle,
-    History
+    History,
+    Gauge,
+    PhoneCall,
+    Network,
+    MapPin,
+    RefreshCw,
+    ArrowLeft,
+    Clock,
+    Edit
 } from 'lucide-react';
 import clsx from 'clsx';
 
