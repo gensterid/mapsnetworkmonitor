@@ -14,6 +14,7 @@ import {
     Line,
     AreaChart,
     Area,
+    ComposedChart,
     XAxis,
     YAxis,
     CartesianGrid,
@@ -43,13 +44,24 @@ import { analyticsService } from '@/lib/api/services/analytics.service';
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
         return (
-            <div className="bg-slate-800 border border-slate-700 p-2 rounded-lg shadow-xl text-[10px]">
-                <p className="text-slate-300 font-medium mb-1">{label}</p>
+            <div className="bg-slate-900/95 border border-slate-800 p-2.5 rounded-lg shadow-2xl text-[10px] min-w-[140px] backdrop-blur-md">
+                <p className="text-slate-400 font-bold mb-2 pb-1 border-b border-slate-800/50">
+                    {new Date(label).toLocaleString('id-ID', { 
+                        hour: '2-digit', 
+                        minute: '2-digit',
+                        day: '2-digit',
+                        month: 'short'
+                    })}
+                </p>
                 {payload.map((entry, index) => (
-                    <div key={index} className="flex items-center gap-2 mb-0.5 last:mb-0">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
-                        <span className="text-slate-400 capitalize">{entry.name}:</span>
-                        <span className="text-white font-mono font-medium">{entry.value}{entry.unit || ''}</span>
+                    <div key={index} className="flex items-center justify-between gap-3 mb-1.5 last:mb-0">
+                        <div className="flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                            <span className="text-slate-500 font-medium">{entry.name}:</span>
+                        </div>
+                        <span className="text-white font-mono font-bold">
+                            {entry.value !== null ? `${entry.value}${entry.unit || ''}` : '---'}
+                        </span>
                     </div>
                 ))}
             </div>
@@ -233,120 +245,116 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                 </Card>
             </div>
 
-            {/* Performance Charts (Latency & Signal) */}
+            {/* Performance Charts (Latency & Signal Combined) */}
             {category === 'signal' && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Latency History Chart */}
-                    <Card className="bg-slate-950 border-slate-800 overflow-hidden">
-                        <CardHeader className="p-4 border-b border-slate-800 pb-2">
-                            <CardTitle className="text-xs font-bold text-slate-400 flex items-center gap-2 uppercase tracking-tight">
-                                <Activity className="w-3.5 h-3.5 text-blue-500" />
-                                Riwayat Latency ({timeframe})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 h-[200px]">
-                            {perfLoading ? (
-                                <div className="h-full flex items-center justify-center">
-                                    <RefreshCw className="w-6 h-6 animate-spin text-slate-700" />
-                                </div>
-                            ) : perfTrends?.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={perfTrends}>
-                                        <defs>
-                                            <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                        <XAxis
-                                            dataKey="timestamp"
-                                            stroke="#475569"
-                                            fontSize={8}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tickFormatter={(val) => new Date(val).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
-                                        />
-                                        <YAxis
-                                            stroke="#475569"
-                                            fontSize={8}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            unit="ms"
-                                        />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="latency"
-                                            stroke="#3b82f6"
-                                            fillOpacity={1}
-                                            fill="url(#colorLatency)"
-                                            name="Latency"
-                                            unit="ms"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-slate-600">
-                                    <p className="text-xs italic">Data latency tidak tersedia</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    {/* Signal / Rx Power History Chart */}
-                    <Card className="bg-slate-950 border-slate-800 overflow-hidden">
-                        <CardHeader className="p-4 border-b border-slate-800 pb-2">
-                            <CardTitle className="text-xs font-bold text-slate-400 flex items-center gap-2 uppercase tracking-tight">
-                                <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                                Riwayat Signal Rx Power ({timeframe})
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="p-4 h-[200px]">
-                            {perfLoading ? (
-                                <div className="h-full flex items-center justify-center">
-                                    <RefreshCw className="w-6 h-6 animate-spin text-slate-700" />
-                                </div>
-                            ) : perfTrends?.length > 0 ? (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <LineChart data={perfTrends}>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                                        <XAxis
-                                            dataKey="timestamp"
-                                            stroke="#475569"
-                                            fontSize={8}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            tickFormatter={(val) => new Date(val).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' })}
-                                        />
-                                        <YAxis
-                                            stroke="#475569"
-                                            fontSize={8}
-                                            tickLine={false}
-                                            axisLine={false}
-                                            unit="dBm"
-                                            domain={['auto', 'auto']}
-                                        />
-                                        <Tooltip content={<CustomTooltip />} />
-                                        <Line
-                                            type="monotone"
-                                            dataKey="signal"
-                                            stroke="#10b981"
-                                            strokeWidth={2}
-                                            dot={false}
-                                            name="Signal"
-                                            unit="dBm"
-                                        />
-                                    </LineChart>
-                                </ResponsiveContainer>
-                            ) : (
-                                <div className="h-full flex flex-col items-center justify-center text-slate-600">
-                                    <p className="text-xs italic">Data signal tidak tersedia</p>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-                </div>
+                <Card className="bg-slate-950 border-slate-800 overflow-hidden shadow-2xl">
+                    <CardHeader className="p-5 border-b border-slate-900 flex flex-row items-center justify-between">
+                        <CardTitle className="text-xs font-black text-slate-400 flex items-center gap-2.5 uppercase tracking-[0.1em]">
+                            <TrendingUp className="w-4 h-4 text-primary" />
+                            ONU Performance History: Latency & Rx Power ({timeframe})
+                        </CardTitle>
+                        <div className="flex items-center gap-4 text-[10px] font-bold">
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                <span className="text-slate-500">LATENCY (ms)</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-2 h-2 rounded-full bg-purple-500" />
+                                <span className="text-slate-500">RX ONU (dBm)</span>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6 h-[320px] relative">
+                        {perfLoading ? (
+                            <div className="h-full flex items-center justify-center">
+                                <RefreshCw className="w-8 h-8 animate-spin text-slate-800" />
+                            </div>
+                        ) : perfTrends?.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <ComposedChart data={perfTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                    <defs>
+                                        <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                                        </linearGradient>
+                                        <linearGradient id="colorSignal" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#a855f7" stopOpacity={0.1} />
+                                            <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} opacity={0.3} />
+                                    <XAxis
+                                        dataKey="timestamp"
+                                        stroke="#475569"
+                                        fontSize={9}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        dy={10}
+                                        tickFormatter={(val) => {
+                                            const date = new Date(val);
+                                            return date.getHours().toString().padStart(2, '0') + ':00';
+                                        }}
+                                    />
+                                    {/* Left Axis: Latency */}
+                                    <YAxis
+                                        yAxisId="left"
+                                        orientation="left"
+                                        stroke="#3b82f6"
+                                        fontSize={9}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        domain={[0, 'auto']}
+                                        unit="ms"
+                                        dx={-5}
+                                    />
+                                    {/* Right Axis: Signal */}
+                                    <YAxis
+                                        yAxisId="right"
+                                        orientation="right"
+                                        stroke="#a855f7"
+                                        fontSize={9}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        domain={[-35, -5]}
+                                        unit="dBm"
+                                        dx={5}
+                                    />
+                                    <Tooltip content={<CustomTooltip />} />
+                                    
+                                    <Area
+                                        yAxisId="left"
+                                        type="monotone"
+                                        dataKey="latency"
+                                        stroke="#3b82f6"
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill="url(#colorLatency)"
+                                        name="Latency"
+                                        unit="ms"
+                                        animationDuration={1500}
+                                    />
+                                    <Area
+                                        yAxisId="right"
+                                        type="monotone"
+                                        dataKey="signal"
+                                        stroke="#a855f7"
+                                        strokeWidth={2}
+                                        fillOpacity={1}
+                                        fill="url(#colorSignal)"
+                                        name="Rx Power"
+                                        unit="dBm"
+                                        animationDuration={2000}
+                                    />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="h-full flex flex-col items-center justify-center text-slate-700">
+                                <Activity className="w-12 h-12 mb-4 opacity-10" />
+                                <p className="text-xs font-bold uppercase tracking-widest opacity-40 italic">Data Performa Tidak Tersedia</p>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
             )}
 
             {/* Alert Trends Chart (Show only in overall or issues view) */}
