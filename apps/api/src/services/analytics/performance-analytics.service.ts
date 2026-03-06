@@ -1,4 +1,4 @@
-import { sql, eq, and, gte, lte, desc, avg, inArray } from 'drizzle-orm';
+import { sql, eq, and, or, gte, lte, desc, avg, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { routers, routerMetrics, devicePerformanceHistory, onus } from '../../db/schema/index.js';
 import {
@@ -302,7 +302,19 @@ export class PerformanceAnalyticsService {
             tenantId?: string;
         }
     ): Promise<any[]> {
-        const { routerId, host, onuId, startDate, endDate, tenantId } = params;
+        const { routerId, host: paramHost, onuId: paramOnuId, startDate, endDate, tenantId } = params;
+        let host = paramHost;
+        let onuId = paramOnuId;
+
+        // Auto-resolve ONU ID if we only have host, or host if we only have ONU ID
+        // This ensures both latency (tracked by host) and signal (tracked by onuId) are returned
+        if (host && !onuId) {
+            const [matchedOnu] = await db.select({ id: onus.id }).from(onus).where(eq(onus.host, host)).limit(1);
+            if (matchedOnu) onuId = matchedOnu.id;
+        } else if (onuId && !host) {
+            const [matchedOnu] = await db.select({ host: onus.host }).from(onus).where(eq(onus.id, onuId)).limit(1);
+            if (matchedOnu?.host) host = matchedOnu.host;
+        }
 
         const conditions: any[] = [
             gte(devicePerformanceHistory.recordedAt, startDate),
@@ -312,13 +324,16 @@ export class PerformanceAnalyticsService {
         if (tenantId) conditions.push(eq(devicePerformanceHistory.tenantId, tenantId));
         if (routerId) conditions.push(eq(devicePerformanceHistory.routerId, routerId));
 
-        if (onuId) {
-            conditions.push(eq(devicePerformanceHistory.onuId, onuId));
-        } else if (host) {
-            conditions.push(eq(devicePerformanceHistory.host, host));
-        } else {
+        const idConditions: any[] = [];
+        if (host) idConditions.push(eq(devicePerformanceHistory.host, host));
+        if (onuId) idConditions.push(eq(devicePerformanceHistory.onuId, onuId));
+
+        if (idConditions.length === 0) {
             return []; // Need at least host or onuId
         }
+
+        // Use OR condition so we get both latency and signal records
+        conditions.push(or(...idConditions));
 
         // Determine grouping interval based on range
         const diffMs = endDate.getTime() - startDate.getTime();
