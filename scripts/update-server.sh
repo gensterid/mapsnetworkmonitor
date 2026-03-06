@@ -13,10 +13,18 @@ if ! command -v git &> /dev/null; then echo "❌ git not found"; exit 1; fi
 if ! command -v node &> /dev/null; then echo "❌ node not found"; exit 1; fi
 if ! command -v npm &> /dev/null; then echo "❌ npm not found"; exit 1; fi
 
-# 2. Safety: Reset local changes to avoid conflicts
+# 2. Safety: Check Environment & Reset
+echo "🔍 Checking configuration..."
+if [ ! -f .env ]; then
+    echo "⚠️ Warning: .env file not found in root directory!"
+    echo "   Ensure your environment variables are configured correctly."
+fi
+
 echo "📥 Fetching latest code from GitHub..."
 git fetch origin main
-echo "⚠️ Resetting local changes to match origin/main..."
+
+echo "⚠️ Syncing code with origin/main..."
+echo "   Note: This only affects tracked code files. Your .env and database are safe."
 git reset --hard origin/main
 
 # 3. Clean Dependencies
