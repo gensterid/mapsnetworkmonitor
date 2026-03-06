@@ -26,7 +26,7 @@ const updateSchema = z.object({
 router.get('/', authMiddleware, async (req, res) => {
     try {
         const presets = await presetService.findAll();
-        res.json(presets);
+        res.json({ data: presets });
     } catch (error) {
         res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
@@ -37,7 +37,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     try {
         const preset = await presetService.findById(req.params.id as string);
         if (!preset) return res.status(404).json({ error: 'Preset not found' });
-        res.json(preset);
+        res.json({ data: preset });
     } catch (error) {
         res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
@@ -48,7 +48,7 @@ router.post('/', authMiddleware, requireAdmin, async (req, res) => {
     try {
         const data = createSchema.parse(req.body);
         const preset = await presetService.create(data as unknown as NewPreset); // Fix type mismatch
-        res.status(201).json(preset);
+        res.status(201).json({ data: preset });
     } catch (error) {
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: error.errors });
@@ -63,7 +63,7 @@ router.patch('/:id', authMiddleware, requireAdmin, async (req, res) => {
         const data = updateSchema.parse(req.body);
         const preset = await presetService.update(req.params.id as string, data);
         if (!preset) return res.status(404).json({ error: 'Preset not found' });
-        res.json(preset);
+        res.json({ data: preset });
     } catch (error) {
         if (error instanceof z.ZodError) {
             return res.status(400).json({ error: error.errors });
