@@ -17,7 +17,7 @@ async function repairLinkage() {
         .where(sql`${routerNetwatch.linkedOnuId} IS NOT NULL`);
     
     netwatchLinks.forEach(link => {
-        if (link.host && !hostToOnuId.has(link.host)) {
+        if (link.host && link.linkedOnuId && !hostToOnuId.has(link.host)) {
             hostToOnuId.set(link.host, link.linkedOnuId);
         }
     });
