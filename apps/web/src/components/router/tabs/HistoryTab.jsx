@@ -175,71 +175,46 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
 
     return (
         <div className="space-y-6">
-            {/* Header Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="bg-slate-900/50 border-slate-800">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-red-500/10 flex items-center justify-center text-red-500">
-                            <AlertTriangle className="w-5 h-5" />
+            {/* Header Cards (Top Stats) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
+                    <CardContent className="p-5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner">
+                            <AlertTriangle className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">Total Insiden</p>
-                            <p className="text-xl font-bold text-white">{totalAlerts}</p>
+                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.15em] font-black pb-0.5">Total Insiden</p>
+                            <p className="text-2xl font-black text-white tracking-tight">{totalAlerts}</p>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-slate-900/50 border-slate-800">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                            <Activity className="w-5 h-5" />
+                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
+                    <CardContent className="p-5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shadow-inner">
+                            <Activity className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">Uptime Rate</p>
-                            <p className="text-xl font-bold text-white">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.15em] font-black pb-0.5">Uptime Rate</p>
+                            <p className="text-2xl font-black text-white tracking-tight">
                                 {uptimeData?.[0] ? `${uptimeData[0].uptimePercentage}%` : '---'}
                             </p>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-slate-900/50 border-slate-800">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500">
-                            <Wifi className="w-5 h-5" />
+                <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm">
+                    <CardContent className="p-5 flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-inner">
+                            <Wifi className="w-6 h-6" />
                         </div>
                         <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">Latency Avg</p>
-                            <p className="text-xl font-bold text-white">
+                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.15em] font-black pb-0.5">Latency Avg</p>
+                            <p className="text-2xl font-black text-white tracking-tight">
                                 {perfTrends?.length > 0
                                     ? `${Math.round(perfTrends.reduce((acc, curr) => acc + (curr.latency || 0), 0) / perfTrends.length)} ms`
                                     : '--- ms'}
                             </p>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-slate-900/50 border-slate-800">
-                    <CardContent className="p-4 flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500">
-                            <Clock className="w-5 h-5" />
-                        </div>
-                        <div>
-                            <p className="text-slate-500 text-[10px] uppercase tracking-wider font-bold">Timeframe</p>
-                            <div className="flex bg-slate-800/50 p-0.5 rounded-lg">
-                                {['7d', '30d'].map((t) => (
-                                    <button
-                                        key={t}
-                                        onClick={() => setTimeframe(t)}
-                                        className={clsx(
-                                            "px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all",
-                                            timeframe === t ? "bg-primary text-white" : "text-slate-500 hover:text-slate-300"
-                                        )}
-                                    >
-                                        {t}
-                                    </button>
-                                ))}
-                            </div>
                         </div>
                     </CardContent>
                 </Card>
@@ -249,18 +224,41 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
             {category === 'signal' && (
                 <Card className="bg-slate-950 border-slate-800 overflow-hidden shadow-2xl">
                     <CardHeader className="p-5 border-b border-slate-900 flex flex-row items-center justify-between">
-                        <CardTitle className="text-xs font-black text-slate-400 flex items-center gap-2.5 uppercase tracking-[0.1em]">
+                        <div className="flex items-center gap-3">
                             <TrendingUp className="w-4 h-4 text-primary" />
-                            ONU Performance History: Latency & Rx Power ({timeframe})
-                        </CardTitle>
-                        <div className="flex items-center gap-4 text-[10px] font-bold">
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-blue-500" />
-                                <span className="text-slate-500">LATENCY (ms)</span>
+                            <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-[0.1em]">
+                                ONU Performance History ({timeframe})
+                            </CardTitle>
+                        </div>
+                        
+                        <div className="flex items-center gap-6">
+                            {/* Timeframe Selector moved here */}
+                            <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl shadow-inner scale-90">
+                                {['7d', '30d'].map((t) => (
+                                    <button
+                                        key={t}
+                                        onClick={() => setTimeframe(t)}
+                                        className={clsx(
+                                            "px-4 py-1 rounded-lg text-[10px] font-black uppercase transition-all duration-300",
+                                            timeframe === t 
+                                                ? "bg-primary text-white shadow-lg shadow-primary/30" 
+                                                : "text-slate-600 hover:text-slate-400"
+                                        )}
+                                    >
+                                        {t}
+                                    </button>
+                                ))}
                             </div>
-                            <div className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full bg-purple-500" />
-                                <span className="text-slate-500">RX ONU (dBm)</span>
+
+                            <div className="flex items-center gap-4 text-[10px] font-bold border-l border-slate-800 pl-6">
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                    <span className="text-slate-500">LATENCY</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
+                                    <span className="text-slate-500">RX POWER</span>
+                                </div>
                             </div>
                         </div>
                     </CardHeader>
@@ -292,7 +290,10 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                         dy={10}
                                         tickFormatter={(val) => {
                                             const date = new Date(val);
-                                            return date.getHours().toString().padStart(2, '0') + ':00';
+                                            const day = date.getDate().toString().padStart(2, '0');
+                                            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                                            const hour = date.getHours().toString().padStart(2, '0');
+                                            return `${day}/${month} ${hour}:00`;
                                         }}
                                     />
                                     {/* Left Axis: Latency */}
