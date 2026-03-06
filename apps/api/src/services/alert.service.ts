@@ -123,6 +123,7 @@ export class AlertService {
         category?: 'issues' | 'alerts';
         resolved?: boolean;
         tenantId?: string;
+        type?: string | string[];
     } = {}): Promise<{ data: any[]; meta: { total: number; page: number; limit: number; totalPages: number } }> {
 
 
@@ -175,6 +176,15 @@ export class AlertService {
         // Router ID filtering
         if (options.routerId) {
             filters.push(eq(alerts.routerId, options.routerId));
+        }
+
+        // Alert Type filtering
+        if (options.type) {
+            if (Array.isArray(options.type)) {
+                filters.push(inArray(alerts.type, options.type as any));
+            } else {
+                filters.push(eq(alerts.type, options.type as any));
+            }
         }
 
         // Search filtering

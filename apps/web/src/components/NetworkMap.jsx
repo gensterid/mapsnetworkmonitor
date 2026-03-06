@@ -186,6 +186,7 @@ const NetworkMap = ({
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [modalInitialTab, setModalInitialTab] = useState('settings');
     const [isEditingPath, setIsEditingPath] = useState(false);
     const [editingDevice, setEditingDevice] = useState(null);
     const [editWaypoints, setEditWaypoints] = useState([]);
@@ -836,8 +837,9 @@ const NetworkMap = ({
     ], [mapData.routers, mapData.nodes, mapData.pppoeNodes]);
 
     // Handlers
-    const handleDeviceClick = useCallback((device, type) => {
+    const handleDeviceClick = useCallback((device, type, initialTab = 'settings') => {
         setSelectedDevice({ ...device, type });
+        setModalInitialTab(initialTab);
         setIsModalOpen(true);
     }, []);
 
@@ -1175,7 +1177,7 @@ const NetworkMap = ({
                     />
                     <DevicePopup
                         node={{ ...router, deviceType: 'router' }}
-                        onEdit={() => handleDeviceClick({ ...router, deviceType: 'router' }, 'router')}
+                        onEdit={(node, tab) => handleDeviceClick(node, 'router', tab)}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1254,7 +1256,7 @@ const NetworkMap = ({
                     <DevicePopup
                         node={node}
                         line={line}
-                        onEdit={() => handleDeviceClick(node, node.deviceType)}
+                        onEdit={(n, tab) => handleDeviceClick(n, n.deviceType || 'netwatch', tab)}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1302,7 +1304,7 @@ const NetworkMap = ({
                     <DevicePopup
                         node={{ ...pppoe, deviceType: 'pppoe' }}
                         line={line}
-                        onEdit={() => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
+                        onEdit={(n, tab) => handleDeviceClick(n, 'pppoe', tab)}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1709,6 +1711,7 @@ const NetworkMap = ({
                         onDelete={handleDeleteDevice}
                         onEditPath={handleEditPath}
                         isSaving={isSaving}
+                        initialTab={modalInitialTab}
                         routerInterfaces={routerInterfaces || []}
                     />
                 </HoveredItemContext.Provider>

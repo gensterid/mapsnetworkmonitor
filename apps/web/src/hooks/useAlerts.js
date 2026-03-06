@@ -176,24 +176,56 @@ export function useDeleteAlert() {
 export function useAcknowledgeAllAlerts() {
     const queryClient = useQueryClient();
 
+    const isIssueAlert = (alert) => {
+        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+        if (issueTypes.includes(alert.type)) return true;
+        if (alert.type === 'threshold') return true;
+
+        if (alert.severity === 'warning' &&
+            !alert.type?.includes('status_change') &&
+            !alert.type?.includes('down') &&
+            !alert.type?.includes('offline') &&
+            !alert.type?.includes('pppoe') &&
+            !alert.type?.includes('interface') &&
+            !alert.type?.includes('netwatch')) {
+            return true;
+        }
+        return false;
+    };
+
     return useMutation({
         mutationFn: (category) => alertService.acknowledgeAll(category),
         onMutate: async (category) => {
             // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
             await queryClient.cancelQueries({ queryKey: alertKeys.all() });
 
+            // Snapshot the previous values
+            const previousLists = queryClient.getQueryData({ queryKey: alertKeys.lists() });
+            const previousUnread = queryClient.getQueryData({ queryKey: alertKeys.unread() });
+
             // Optimistically update to the new value across all variants
             queryClient.setQueriesData({ queryKey: alertKeys.lists() }, (old) => {
                 if (!old) return old;
+
+                const shouldAck = (alert) => {
+                    if (!category) return true;
+                    const isIssue = isIssueAlert(alert);
+                    return category === 'issues' ? isIssue : !isIssue;
+                };
+
+                const updateAlerts = (list) => list.map(alert =>
+                    shouldAck(alert) ? { ...alert, acknowledged: true } : alert
+                );
+
                 // If it's paginated result { data: [], meta: {} }
                 if (old.data) {
                     return {
                         ...old,
-                        data: old.data.map(alert => ({ ...alert, acknowledged: true }))
+                        data: updateAlerts(old.data)
                     };
                 }
                 // If it's direct array
-                return old.map(alert => ({ ...alert, acknowledged: true }));
+                return updateAlerts(old);
             });
 
             // Also optimistically clear unacknowledged count for this category/total
@@ -211,13 +243,18 @@ export function useAcknowledgeAllAlerts() {
                 return isNested ? { ...old, data: updated } : updated;
             });
 
-            return {};
+            return { previousLists, previousUnread };
         },
-        onError: () => {
-            queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
+        onError: (err, category, context) => {
+            if (context?.previousLists) {
+                queryClient.setQueriesData({ queryKey: alertKeys.lists() }, context.previousLists);
+            }
+            if (context?.previousUnread) {
+                queryClient.setQueriesData({ queryKey: alertKeys.unread() }, context.previousUnread);
+            }
         },
-        onSettled: () => {
+        onSuccess: () => {
+            // Background refetch
             queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
             queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
             queryClient.invalidateQueries({ queryKey: alertKeys.unacknowledged() });

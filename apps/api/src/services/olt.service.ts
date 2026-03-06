@@ -1,7 +1,7 @@
 import { eq, desc, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { olts, type Olt, type NewOlt } from '../db/schema/olts.js';
-import { onus, type Onu } from '../db/schema/onus.js';
+import { onus, type Onu, devicePerformanceHistory } from '../db/schema/index.js';
 import { snmpService } from './snmp.service.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
@@ -12,6 +12,13 @@ export class OltService {
     private static instance: OltService;
 
     private constructor() { }
+
+    private parseSignal(signal: any): number | null {
+        if (signal === null || signal === undefined) return null;
+        const str = String(signal);
+        const match = str.match(/([+-]?\d+(\.\d+)?)/);
+        return match ? parseFloat(match[1]) : null;
+    }
 
     public static getInstance(): OltService {
         if (!OltService.instance) {
@@ -431,6 +438,21 @@ export class OltService {
                             })
                             .where(eq(onus.id, dbOnu.id))
                             .execute()
+                            .then(async () => {
+                                // 📈 Log to Performance History for Charts
+                                if (device.signal && dbOnu) {
+                                    const parsedSignal = this.parseSignal(device.signal);
+                                    if (parsedSignal !== null) {
+                                        await db.insert(devicePerformanceHistory).values({
+                                            tenantId: olt.tenantId || '',
+                                            routerId: olt.parentId || '',
+                                            onuId: dbOnu.id,
+                                            signal: parsedSignal,
+                                            recordedAt: new Date()
+                                        }).execute();
+                                    }
+                                }
+                            })
                             .catch(err => logger.error({ err, sn: device.sn }, 'Failed to background sync ONU'));
 
                         // Update local object for the return value immediately
@@ -567,6 +589,33 @@ export class OltService {
                             updatedAt: sql`excluded.updated_at`,
                         } as any
                     });
+
+                // 📈 Log to Performance History for Charts
+                const syncedOnus = await db.select({ id: onus.id, sn: onus.sn })
+                    .from(onus)
+                    .where(eq(onus.oltId, oltId));
+
+                const snToIdMap = new Map(syncedOnus.map(o => [o.sn, o.id]));
+                const historyValues = valuesToUpsert
+                    .filter(v => v.lastRxPower !== null)
+                    .map(v => {
+                        const parsedSignal = this.parseSignal(v.lastRxPower);
+                        if (parsedSignal === null) return null;
+                        const onuId = snToIdMap.get(v.sn);
+                        if (!onuId) return null;
+                        return {
+                            tenantId: tenantId || '',
+                            routerId: olt.parentId || '',
+                            onuId: onuId,
+                            signal: parsedSignal,
+                            recordedAt: now
+                        };
+                    })
+                    .filter((v): v is NonNullable<typeof v> => v !== null);
+
+                if (historyValues.length > 0) {
+                    await db.insert(devicePerformanceHistory).values(historyValues as any).execute();
+                }
 
                 added = valuesToUpsert.length; // Approximate simplified report
                 logger.info({ count: valuesToUpsert.length, olt: olt.name }, '✅ Batch Upserted ONUs');

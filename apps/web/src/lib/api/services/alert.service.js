@@ -19,7 +19,11 @@ export const alertService = {
         // Add all standard params
         Object.keys(params).forEach(key => {
             if (params[key] !== undefined && params[key] !== null) {
-                queryParams.append(key, params[key]);
+                if (Array.isArray(params[key])) {
+                    params[key].forEach(val => queryParams.append(key, val));
+                } else {
+                    queryParams.append(key, params[key]);
+                }
             }
         });
 

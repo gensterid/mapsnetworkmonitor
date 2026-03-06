@@ -136,11 +136,27 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
             }
         }));
 
-        await routerSyncQueue.addBulk(jobs);
-        successCount = routers.length;
-        logger.info(`📨 [Tenant: ${tenantId}] Added ${routers.length} routers to background sync queue`);
-    } catch (error) {
-        logger.error({ tenantId, err: error }, '❌ Tenant polling error');
+        try {
+            await routerSyncQueue.addBulk(jobs);
+            successCount = routers.length;
+            logger.info(`📨 [Tenant: ${tenantId}] Added ${routers.length} routers to background sync queue`);
+        } catch (queueError: any) {
+            logger.warn({ tenantId, err: queueError.message }, '⚠️ Redis Queue failed, falling back to direct polling (Sequentially)...');
+            
+            // Sequential fallback to avoid overwhelming the system/router without Redis concurrency control
+            for (const router of activeRouters) {
+                try {
+                    const isFullSync = (Date.now() - (router.lastFullSync ? new Date(router.lastFullSync).getTime() : 0)) >= (router.pollingIntervalMetrics || 300) * 1000;
+                    await routerService.refreshRouterStatus(router.id, true, isFullSync, tenantId);
+                    successCount++;
+                } catch (syncErr: any) {
+                    logger.error({ routerId: router.id, err: syncErr.message }, '❌ Direct polling failed for router');
+                    failCount++;
+                }
+            }
+        }
+    } catch (error: any) {
+        logger.error({ tenantId, err: error.message }, '❌ Tenant polling error');
     }
 
     return { success: successCount, fail: failCount, timeout: timeoutCount };

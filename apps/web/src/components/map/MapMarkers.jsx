@@ -586,17 +586,30 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         {displayStatus.replace(/_/g, ' ')}
                     </div>
                     {onEdit && (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                onEdit();
-                            }}
-                            className="w-6 h-6 flex items-center justify-center bg-white/20 hover:bg-white/40 rounded transition-colors text-white"
-                            title="Edit Device"
-                        >
-                            <span className="material-symbols-outlined text-[16px]">edit</span>
-                        </button>
+                        <div className="flex gap-1">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    onEdit(node, 'history');
+                                }}
+                                className="w-6 h-6 flex items-center justify-center bg-blue-500/30 hover:bg-blue-500/50 rounded transition-colors text-white"
+                                title="View History"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">history</span>
+                            </button>
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    e.preventDefault();
+                                    onEdit(node, 'settings');
+                                }}
+                                className="w-6 h-6 flex items-center justify-center bg-white/20 hover:bg-white/40 rounded transition-colors text-white"
+                                title="Edit Device"
+                            >
+                                <span className="material-symbols-outlined text-[16px]">edit</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>

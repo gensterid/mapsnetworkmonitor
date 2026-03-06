@@ -41,7 +41,7 @@ export function startQueueWorker() {
 
             try {
                 // We use routerService directly which handles state/db updates
-                await routerService.refreshRouterStatus(routerId, includeNetwatch, isFullSync);
+                await routerService.refreshRouterStatus(routerId, includeNetwatch, isFullSync, tenantId);
                 return { success: true };
             } catch (err: any) {
                 logger.error({

@@ -23,7 +23,7 @@ const cache = new NodeCache({
     stdTTL: 30,          // Default TTL: 30 seconds
     checkperiod: 60,     // Cleanup check every 60 seconds
     useClones: false,    // Don't clone objects (faster, but be careful with mutations)
-    maxKeys: 1000,       // Prevent memory leak
+    maxKeys: 10000,      // Prevent memory leak (Increased from 1000 to 10000)
 });
 
 cache.on('expired', (key) => {

@@ -155,6 +155,21 @@ export async function runMigrations() {
                         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
                 `
+            },
+            {
+                name: 'device_performance_history',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS device_performance_history (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                        router_id UUID NOT NULL REFERENCES routers(id) ON DELETE CASCADE,
+                        host TEXT,
+                        onu_id UUID REFERENCES onus(id) ON DELETE CASCADE,
+                        latency REAL,
+                        signal REAL,
+                        recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
             }
         ];
 
@@ -427,6 +442,10 @@ export async function runMigrations() {
             {
                 name: 'router_netwatch.has_webhook',
                 sql: sql`ALTER TABLE router_netwatch ADD COLUMN has_webhook BOOLEAN DEFAULT false NOT NULL`
+            },
+            {
+                name: 'device_performance_history.host',
+                sql: sql`ALTER TABLE device_performance_history ADD COLUMN host TEXT`
             },
         ];
 

@@ -48,6 +48,7 @@ router.get(
             routerId,
             category,
             resolved,
+            type: req.query.type as string | string[],
             tenantId: getEffectiveTenantId(req)
         });
 

@@ -13,3 +13,4 @@ export * from './presets.js';
 export * from './tenants.js';
 export * from './user-tenants.js';
 export * from './topology_schematics.js';
+export * from './performance-history.js';

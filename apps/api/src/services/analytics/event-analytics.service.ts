@@ -1,4 +1,4 @@
-import { sql, eq, and, gte, lte, desc, count, inArray } from 'drizzle-orm';
+import { sql, eq, gte, lte, and, count, inArray, or, ilike, desc } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { alerts, routers, routerNetwatch, auditLogs } from '../../db/schema/index.js';
 import {
@@ -6,7 +6,8 @@ import {
     type OverviewStats,
     type AlertTrend,
     getDefaultDateRange,
-    getAllowedRouterIds
+    getAllowedRouterIds,
+    normalizeDateRange
 } from './analytics-utils.js';
 import { cacheService } from '../../lib/cache.js';
 import { logger } from '../../lib/logger.js';
@@ -23,8 +24,9 @@ export class EventAnalyticsService {
         tenantId?: string
     ): Promise<OverviewStats> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
 
-        const cacheKey = `analytics:overview:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${range.startDate.getTime()}-${range.endDate.getTime()}`;
+        const cacheKey = `analytics:overview:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}`;
         const cached = await cacheService.get<OverviewStats>(cacheKey);
         if (cached) return cached;
 
@@ -143,11 +145,13 @@ export class EventAnalyticsService {
         routerId?: string,
         userId?: string,
         userRole?: string,
-        tenantId?: string
+        tenantId?: string,
+        search?: string
     ): Promise<AlertTrend[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
 
-        const cacheKey = `analytics:alert_trends:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${range.startDate.getTime()}-${range.endDate.getTime()}`;
+        const cacheKey = `analytics:alert_trends:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${search || 'none'}:${normalized.start}-${normalized.end}`;
         const cached = await cacheService.get<AlertTrend[]>(cacheKey);
         if (cached) return cached;
 
@@ -171,6 +175,14 @@ export class EventAnalyticsService {
             conditions.push(eq(alerts.routerId, routerId));
         } else if (userRole !== 'admin' && userRole !== 'superadmin') {
             conditions.push(inArray(alerts.routerId, allowedIds));
+        }
+
+        if (search) {
+            const searchTerm = `%${search}%`;
+            conditions.push(or(
+                ilike(alerts.title, searchTerm),
+                ilike(alerts.message, searchTerm)
+            ));
         }
 
         const trends = await db

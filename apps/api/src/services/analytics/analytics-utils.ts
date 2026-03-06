@@ -94,3 +94,15 @@ export async function getAllowedRouterIds(userId: string, userRole: string, tena
 
     return assigned.map(a => a.routerId);
 }
+/**
+ * Normalize date range to the nearest 5-minute interval.
+ * This prevents "cache key explosion" where every millisecond difference
+ * creates a new cache entry.
+ */
+export function normalizeDateRange(range: DateRange): { start: number; end: number } {
+    const roundTo = 5 * 60 * 1000; // 5 minutes in ms
+    return {
+        start: Math.floor(range.startDate.getTime() / roundTo) * roundTo,
+        end: Math.floor(range.endDate.getTime() / roundTo) * roundTo,
+    };
+}

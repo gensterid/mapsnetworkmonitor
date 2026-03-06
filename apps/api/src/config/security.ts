@@ -9,9 +9,13 @@ import { allowedOrigins } from './cors.js';
  */
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 1000,
+    max: 5000, // Increased for development and to support high-frequency polling
     standardHeaders: true,
     legacyHeaders: false,
+    skipSuccessfulRequests: false, // Keep tracking all requests for now
+    // Skip all auth routes from general API limiting to prevent double-limiting
+    // better-auth handles its own state and session caching
+    skip: (req) => req.originalUrl?.includes('/api/auth'),
     message: {
         error: 'Too Many Requests',
         message: 'Too many requests from this IP, please try again after 15 minutes',
@@ -23,10 +27,12 @@ export const apiLimiter = rateLimit({
  */
 export const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 20, // Strict limit for brute-force protection (OWASP recommendation)
+    max: 200, // Increased to 200 to provide a very safe buffer for session checks and dev reloads
     standardHeaders: true,
     legacyHeaders: false,
-    skipSuccessfulRequests: true, // Only count failed attempts — prevents false positives from session checks
+    skipSuccessfulRequests: true,
+    // Skip session checks from the strict auth limit to prevent 429 loops
+    skip: (req) => req.method === 'GET' && req.originalUrl?.includes('/get-session'),
     message: {
         error: 'Too Many Requests',
         message: 'Too many authentication attempts, please try again after 15 minutes',

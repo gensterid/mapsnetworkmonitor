@@ -8,6 +8,9 @@ export function useGenieACSDevices(routerId, options = {}) {
         queryFn: () => genieacsService.getDevices(routerId),
         refetchInterval: options.refetchInterval || false,
         refetchIntervalInBackground: true,
+        staleTime: 30 * 1000, // 30 seconds
+        gcTime: 5 * 60 * 1000, // 5 minutes
+        placeholderData: (previousData) => previousData,
         ...options
     });
 }

@@ -169,6 +169,13 @@
       "when": 1772484128084,
       "tag": "0023_demonic_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1772800951736,
+      "tag": "0024_past_karen_page",
+      "breakpoints": true
     }
   ]
 }

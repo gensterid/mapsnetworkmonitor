@@ -49,7 +49,8 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const trends = await analyticsService.getAlertTrends(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
+        const search = req.query.search as string;
+        const trends = await analyticsService.getAlertTrends(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req), search);
         res.json({ data: trends });
     })
 );
@@ -81,7 +82,8 @@ router.get(
         const dateRange = parseDateRange(req.query);
         const routerId = req.query.routerId as string | undefined;
         // @ts-ignore
-        const stats = await analyticsService.getUptimeStats(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
+        const search = req.query.search as string;
+        const stats = await analyticsService.getUptimeStats(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req), search);
         res.json({ data: stats });
     })
 );
@@ -98,6 +100,33 @@ router.get(
         // @ts-ignore
         const trends = await analyticsService.getPerformanceTrends(dateRange, routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
         res.json({ data: trends });
+    })
+);
+
+/**
+ * GET /api/analytics/performance/device
+ * Get performance trends for a specific device (Latency/Signal)
+ */
+router.get(
+    '/performance/device',
+    asyncHandler(async (req, res) => {
+        const { routerId, host, onuId, startDate, endDate } = req.query;
+
+        if (!host && !onuId) {
+            return res.status(400).json({ error: 'host or onuId is required' });
+        }
+
+        const data = await analyticsService.getDevicePerformanceTrends({
+            routerId: routerId as string,
+            host: host as string,
+            onuId: onuId as string,
+            startDate: startDate ? new Date(startDate as string) : new Date(Date.now() - 24 * 60 * 60 * 1000),
+            endDate: endDate ? new Date(endDate as string) : new Date(),
+            // @ts-ignore
+            tenantId: getEffectiveTenantId(req)
+        });
+
+        res.json({ data });
     })
 );
 

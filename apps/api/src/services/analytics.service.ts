@@ -43,9 +43,10 @@ class AnalyticsService {
         routerId?: string,
         userId?: string,
         userRole?: string,
-        tenantId?: string
+        tenantId?: string,
+        search?: string
     ): Promise<AlertTrend[]> {
-        return eventAnalyticsService.getAlertTrends(dateRange, routerId, userId, userRole, tenantId);
+        return eventAnalyticsService.getAlertTrends(dateRange, routerId, userId, userRole, tenantId, search);
     }
 
     /**
@@ -56,9 +57,10 @@ class AnalyticsService {
         routerId?: string,
         userId?: string,
         userRole?: string,
-        tenantId?: string
+        tenantId?: string,
+        search?: string
     ): Promise<UptimeStats[]> {
-        return availabilityAnalyticsService.getUptimeStats(dateRange, routerId, userId, userRole, tenantId);
+        return availabilityAnalyticsService.getUptimeStats(dateRange, routerId, userId, userRole, tenantId, search);
     }
 
     /**
@@ -72,6 +74,17 @@ class AnalyticsService {
         tenantId?: string
     ): Promise<PerformanceData[]> {
         return performanceAnalyticsService.getPerformanceTrends(dateRange, routerId, userId, userRole, tenantId);
+    }
+
+    async getDevicePerformanceTrends(params: {
+        routerId?: string;
+        host?: string;
+        onuId?: string;
+        startDate: Date;
+        endDate: Date;
+        tenantId?: string;
+    }) {
+        return performanceAnalyticsService.getDevicePerformanceTrends(params);
     }
 
     /**

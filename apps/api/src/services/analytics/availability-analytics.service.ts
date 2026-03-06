@@ -1,11 +1,12 @@
-import { sql, eq, and, gte, lte, desc, count, inArray } from 'drizzle-orm';
+import { sql, eq, and, gte, lte, desc, count, inArray, or, ilike } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { alerts, routers, routerNetwatch, pppoeSessions } from '../../db/schema/index.js';
 import {
     type DateRange,
     type UptimeStats,
     getDefaultDateRange,
-    getAllowedRouterIds
+    getAllowedRouterIds,
+    normalizeDateRange
 } from './analytics-utils.js';
 import { cacheService } from '../../lib/cache.js';
 import { logger } from '../../lib/logger.js';
@@ -19,11 +20,13 @@ export class AvailabilityAnalyticsService {
         routerId?: string,
         userId?: string,
         userRole?: string,
-        tenantId?: string
+        tenantId?: string,
+        search?: string
     ): Promise<UptimeStats[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
 
-        const cacheKey = `analytics:uptime_stats:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${range.startDate.getTime()}-${range.endDate.getTime()}`;
+        const cacheKey = `analytics:uptime_stats:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${search || 'none'}:${normalized.start}-${normalized.end}`;
         const cached = await cacheService.get<UptimeStats[]>(cacheKey);
         if (cached) return cached;
 
@@ -56,7 +59,28 @@ export class AvailabilityAnalyticsService {
         const stats: UptimeStats[] = [];
 
         for (const router of routerList) {
-            // Get detailed incidents to calculate actual downtime
+            const incidentConditions = [
+                eq(alerts.routerId, router.id),
+                gte(alerts.createdAt, range.startDate),
+                lte(alerts.createdAt, range.endDate)
+            ];
+
+            if (search) {
+                const searchTerm = `%${search}%`;
+                incidentConditions.push(
+                    eq(alerts.type, 'netwatch_down'), // For specific device, we use netwatch alerts
+                    or(
+                        ilike(alerts.message, searchTerm),
+                        ilike(alerts.title, searchTerm)
+                    ) as any
+                );
+            } else {
+                incidentConditions.push(
+                    eq(alerts.type, 'status_change'),
+                    eq(alerts.message, 'Router is DOWN')
+                );
+            }
+
             const incidents = await db
                 .select({
                     createdAt: alerts.createdAt,
@@ -64,13 +88,7 @@ export class AvailabilityAnalyticsService {
                     resolved: alerts.resolved,
                 })
                 .from(alerts)
-                .where(and(
-                    eq(alerts.routerId, router.id),
-                    eq(alerts.type, 'status_change'), // Only consider router status changes (up/down)
-                    eq(alerts.message, 'Router is DOWN'), // Specifically DOWN events
-                    gte(alerts.createdAt, range.startDate),
-                    lte(alerts.createdAt, range.endDate)
-                ));
+                .where(and(...incidentConditions) as any);
 
             const incidentCount = incidents.length;
             let totalDowntimeMinutes = 0;

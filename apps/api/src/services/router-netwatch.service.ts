@@ -8,6 +8,7 @@ import {
     olts,
     alerts,
     topologyNodes,
+    devicePerformanceHistory,
     type RouterNetwatch,
 } from '../db/schema/index.js';
 import {
@@ -462,6 +463,19 @@ export class RouterNetwatchService {
                         }
 
                         await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, target.id));
+
+                        // 📈 Log to Performance History for Charts
+                        try {
+                            await db.insert(devicePerformanceHistory).values({
+                                tenantId: target.tenantId,
+                                routerId: target.routerId,
+                                host: target.host,
+                                latency: latency,
+                                recordedAt: new Date()
+                            });
+                        } catch (histErr) {
+                            // Silent fail for history logging
+                        }
 
                         if (latency > 100 || packetLoss > 0) {
                             await alertService.createPerformanceAlert(

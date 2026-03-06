@@ -12,17 +12,10 @@ import {
 } from '@/hooks';
 import { Button } from '@/components/ui/Button';
 import {
-    ArrowLeft,
-    MapPin,
-    Clock,
-    RefreshCw,
-    Edit,
-    Gauge,
-    PhoneCall,
-    Network,
     Zap,
     Eye,
-    AlertCircle
+    AlertCircle,
+    History
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -33,6 +26,7 @@ import DashboardTab from '@/components/router/tabs/DashboardTab';
 import NetwatchTab from '@/components/router/tabs/NetwatchTab';
 import PppoeTab from '@/components/router/tabs/PppoeTab';
 import NeighborsTab from '@/components/router/tabs/NeighborsTab';
+import HistoryTab from '@/components/router/tabs/HistoryTab';
 import MapTab from '@/components/router/tabs/MapTab';
 import MiniTopology from '@/components/router/MiniTopology';
 
@@ -164,6 +158,7 @@ export default function RouterDetails() {
 
     const tabs = [
         { id: 'dashboard', label: 'Dashboard', icon: <Gauge className="w-4 h-4" /> },
+        { id: 'history', label: 'History', icon: <History className="w-4 h-4" /> },
         { id: 'netwatch', label: 'Netwatch', icon: <Eye className="w-4 h-4" /> },
         { id: 'pppoe', label: 'PPPoE', icon: <PhoneCall className="w-4 h-4" /> },
         { id: 'neighbors', label: 'Neighbors', icon: <Network className="w-4 h-4" /> },
@@ -280,6 +275,9 @@ export default function RouterDetails() {
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
                 {activeTab === 'dashboard' && (
                     <DashboardTab router={router} metrics={metrics} interfaces={interfaces} />
+                )}
+                {activeTab === 'history' && (
+                    <HistoryTab routerId={id} />
                 )}
                 {activeTab === 'netwatch' && (
                     <NetwatchTab routerId={id} netwatch={mergedNetwatch} onRefresh={refetchNetwatch} />

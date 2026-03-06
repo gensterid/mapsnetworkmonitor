@@ -1,11 +1,12 @@
 import { sql, eq, and, gte, lte, desc, avg, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { routers, routerMetrics } from '../../db/schema/index.js';
+import { routers, routerMetrics, devicePerformanceHistory, onus } from '../../db/schema/index.js';
 import {
     type DateRange,
     type PerformanceData,
     getDefaultDateRange,
-    getAllowedRouterIds
+    getAllowedRouterIds,
+    normalizeDateRange
 } from './analytics-utils.js';
 import { cacheService } from '../../lib/cache.js';
 import { logger } from '../../lib/logger.js';
@@ -22,8 +23,9 @@ export class PerformanceAnalyticsService {
         tenantId?: string
     ): Promise<PerformanceData[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
 
-        const cacheKey = `analytics:perf_trends:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${range.startDate.getTime()}-${range.endDate.getTime()}`;
+        const cacheKey = `analytics:perf_trends:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}`;
         const cached = await cacheService.get<PerformanceData[]>(cacheKey);
         if (cached) return cached;
 
@@ -93,8 +95,9 @@ export class PerformanceAnalyticsService {
         peakCount: number;
     }[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
 
-        const cacheKey = `analytics:cpu_peak:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${range.startDate.getTime()}-${range.endDate.getTime()}`;
+        const cacheKey = `analytics:cpu_peak:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}`;
         const cached = await cacheService.get<any[]>(cacheKey);
         if (cached) return cached;
 
@@ -284,6 +287,68 @@ export class PerformanceAnalyticsService {
 
         // Sort by utilization descending
         return withRouterNames.sort((a, b) => b.utilizationPercent - a.utilizationPercent).slice(0, 20);
+    }
+
+    /**
+     * Get device-specific performance trends (Latency & Signal)
+     */
+    async getDevicePerformanceTrends(
+        params: {
+            routerId?: string;
+            host?: string; // IP for Netwatch
+            onuId?: string; // ID for ONU
+            startDate: Date;
+            endDate: Date;
+            tenantId?: string;
+        }
+    ): Promise<any[]> {
+        const { routerId, host, onuId, startDate, endDate, tenantId } = params;
+
+        const conditions: any[] = [
+            gte(devicePerformanceHistory.recordedAt, startDate),
+            lte(devicePerformanceHistory.recordedAt, endDate),
+        ];
+
+        if (tenantId) conditions.push(eq(devicePerformanceHistory.tenantId, tenantId));
+        if (routerId) conditions.push(eq(devicePerformanceHistory.routerId, routerId));
+
+        if (onuId) {
+            conditions.push(eq(devicePerformanceHistory.onuId, onuId));
+        } else if (host) {
+            conditions.push(eq(devicePerformanceHistory.host, host));
+        } else {
+            return []; // Need at least host or onuId
+        }
+
+        // Determine grouping interval based on range
+        const diffMs = endDate.getTime() - startDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        
+        let timeSelect: any;
+        if (diffDays > 7) {
+            // Group by 3 hours (10800 seconds) - safely using epoch math to avoid PG interval string errors
+            timeSelect = sql<string>`to_timestamp(floor(extract('epoch' from ${devicePerformanceHistory.recordedAt}) / 10800) * 10800) AT TIME ZONE 'UTC'`;
+        } else {
+            // Group by 1 hour using standard PG interval 'hour'
+            timeSelect = sql<string>`DATE_TRUNC('hour', ${devicePerformanceHistory.recordedAt})`;
+        }
+
+        const results = await db
+            .select({
+                timestamp: timeSelect.as('timestamp'),
+                avgLatency: avg(devicePerformanceHistory.latency),
+                avgSignal: avg(devicePerformanceHistory.signal),
+            })
+            .from(devicePerformanceHistory)
+            .where(and(...conditions))
+            .groupBy(timeSelect)
+            .orderBy(timeSelect);
+
+        return results.map(r => ({
+            timestamp: r.timestamp,
+            latency: r.avgLatency ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
+            signal: r.avgSignal ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
+        }));
     }
 }
 
