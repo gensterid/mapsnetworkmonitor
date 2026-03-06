@@ -737,21 +737,27 @@ export async function configureNetwatchWebhook(
     }, 'Webhook inject: field analysis');
 
     // Smart Append: add webhook command to existing script without touching other content
+    // Smart Append: add webhook command to existing script without touching other content
     const smartAppend = (current: string, command: string, force: boolean) => {
         const base = current.trim();
         const lowerBase = base.toLowerCase();
 
-        // Already has THIS EXACT command → no change needed
-        if (lowerBase.includes(command.toLowerCase().trim())) {
+        // Normalize for comparison: remove extra spaces and semicolons to avoid redundant updates
+        const normalize = (s: string) => s.toLowerCase().replace(/[\s;]/g, '');
+        const normCommand = normalize(command);
+        const normBase = normalize(base);
+
+        // Already has THIS EXACT command (normalized) → no change needed
+        if (normBase.includes(normCommand)) {
             return { script: current, modified: false };
         }
 
-        // Has a DIFFERENT webhook → replace it (takeover) or skip
+        // Has a DIFFERENT webhook (same endpoint but different params/token) → replace it
         if (lowerBase.includes('/api/webhook/netwatch')) {
             if (!force) return { script: current, modified: false };
             const lines = current.split(/\r?\n/);
             const updatedLines = lines.map(line =>
-                line.toLowerCase().includes('/api/webhook/netwatch') ? command : line
+                normalize(line).includes('api/webhook/netwatch') ? command : line
             );
             return { script: updatedLines.join('\r\n'), modified: true };
         }

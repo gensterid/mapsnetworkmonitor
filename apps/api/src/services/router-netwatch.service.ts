@@ -595,22 +595,40 @@ export class RouterNetwatchService {
                 .where(eq(olts.parentId, routerId));
 
             if (linkedOlts.length === 0) {
-                return; // Silent exit — this router has no OLTs, no linkage needed
+                // FALLBACK: If this router has no direct OLT children, it might be a Core Router 
+                // monitoring devices that are physically connected to OTHER routers (e.g. OLT routers).
+                // We should check ALL ONUs in the same tenant to allow cross-router linkage.
+                const [router] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId)).limit(1);
+                if (!router?.tenantId) return;
+
+                const activeOnus = await db.select().from(onus).where(eq(onus.tenantId, router.tenantId));
+                if (activeOnus.length === 0) return;
+
+                // Continue with these ONUs
+                return this.performLinkage(routerId, activeOnus);
             }
 
-            // Only fetch ONUs belonging to this router's OLTs (scoped, not global)
             const oltIds = linkedOlts.map(o => o.id);
             const activeOnus = await db.select().from(onus)
-                .where(inArray(onus.oltId, oltIds)); // Fetch ALL ONUs for these OLTs (even those with NULL host)
+                .where(inArray(onus.oltId, oltIds));
 
             if (activeOnus.length === 0) {
-                return; // Silent exit — OLTs exist but no ONUs with hosts yet
+                return;
             }
 
+            return this.performLinkage(routerId, activeOnus);
+        } catch (err: any) {
+            logger.error({ err: err?.message || String(err), routerId }, 'Failed to sync netwatch to onus');
+        }
+    }
+
+    /**
+     * Shared linkage logic (extracted from syncToOnus)
+     */
+    private async performLinkage(routerId: string, activeOnus: any[]): Promise<void> {
+        try {
             const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
-            if (netwatchEntries.length === 0) {
-                return; // Silent exit — nothing to link
-            }
+            if (netwatchEntries.length === 0) return;
             // 1. Map ONUs by Host (High Confidence)
             const hostToOnu = new Map(activeOnus.filter(o => o.host).map(o => [(o.host || '').trim(), o]));
             

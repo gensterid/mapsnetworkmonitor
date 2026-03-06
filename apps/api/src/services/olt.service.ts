@@ -343,7 +343,12 @@ export class OltService {
             );
 
             await driver.connect();
-            const driverOnus = await driver.getOnuList();
+            let driverOnus: any[] = [];
+            try {
+                driverOnus = await driver.getOnuList();
+            } catch (driverErr) {
+                logger.warn({ err: driverErr, oltId: id, type: olt.type }, 'OLT Driver failed to fetch ONU list, returning partial/cached data');
+            }
             await driver.disconnect();
 
             // UNIFIED LINKAGE: Auto-sync newly discovered ONUs and enrich with DB metadata
