@@ -20,7 +20,9 @@ const DeviceModal = ({
     onEditPath,
     isSaving = false,
     routerInterfaces = [], // List of interfaces from the router (for heatmap)
-    initialTab = 'settings'
+    initialTab = 'settings',
+    onStartPicking = null, // Callback to start map click capture
+    isPicking = false, // Current picking state
 }) => {
     const [activeTab, setActiveTab] = useState(initialTab);
     const [formData, setFormData] = useState({
@@ -174,8 +176,16 @@ const DeviceModal = ({
     const isNetwatch = device?.deviceType !== 'router';
 
     return (
-        <div className="device-modal-overlay" onClick={onClose}>
-            <div className="device-modal" onClick={e => e.stopPropagation()}>
+        <div 
+            className="device-modal-overlay" 
+            onClick={() => !isPicking && onClose()}
+            style={{ pointerEvents: isPicking ? 'none' : 'auto' }}
+        >
+            <div 
+                className="device-modal" 
+                onClick={e => e.stopPropagation()}
+                style={{ pointerEvents: 'auto' }}
+            >
                 {/* Header */}
                 <div className="device-modal__header">
                     <h2 className="device-modal__title">
@@ -285,51 +295,78 @@ const DeviceModal = ({
                                 />
                             </div>
 
-                            {/* Location - Latitude */}
-                            <div className="device-modal__field-row">
-                                <div className="device-modal__field" style={{ flex: 1 }}>
-                                    <label className="device-modal__label">Latitude</label>
-                                    <input
-                                        type="text"
-                                        name="latitude"
-                                        className="device-modal__input"
-                                        value={formData.latitude}
-                                        onChange={handleChange}
-                                        onPaste={(e) => {
-                                            const pasted = e.clipboardData.getData('text');
-                                            if (pasted.includes(',')) {
-                                                e.preventDefault();
-                                                const [lat, lng] = pasted.split(',').map(s => s.trim());
-                                                if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-                                                    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
-                                                }
-                                            }
-                                        }}
-                                        placeholder="-8.123456"
-                                        disabled={isSaving}
-                                    />
+                            {/* Location - Latitude & Longitude */}
+                            <div className="device-modal__field" style={{ gap: 4 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                                    <label className="device-modal__label">Location Coordinates</label>
+                                    {onStartPicking && (
+                                        <button
+                                            type="button"
+                                            className={`device-modal__pick-btn-text ${isPicking ? 'device-modal__pick-btn-text--active' : ''}`}
+                                            onClick={() => onStartPicking(!isPicking)}
+                                            style={{
+                                                fontSize: '11px',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '4px',
+                                                color: isPicking ? '#3b82f6' : '#60a5fa',
+                                                background: 'transparent',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                padding: '2px 4px',
+                                                borderRadius: '4px'
+                                            }}
+                                        >
+                                            <span className="material-symbols-outlined" style={{ fontSize: '16px' }}>
+                                                {isPicking ? 'near_me' : 'add_location_alt'}
+                                            </span>
+                                            {isPicking ? 'Klik di Peta...' : 'Pilih dari Peta'}
+                                        </button>
+                                    )}
                                 </div>
-                                <div className="device-modal__field" style={{ flex: 1 }}>
-                                    <label className="device-modal__label">Longitude</label>
-                                    <input
-                                        type="text"
-                                        name="longitude"
-                                        className="device-modal__input"
-                                        value={formData.longitude}
-                                        onChange={handleChange}
-                                        onPaste={(e) => {
-                                            const pasted = e.clipboardData.getData('text');
-                                            if (pasted.includes(',')) {
-                                                e.preventDefault();
-                                                const [lat, lng] = pasted.split(',').map(s => s.trim());
-                                                if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
-                                                    setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                <div className="device-modal__field-row">
+                                    <div className="device-modal__field" style={{ flex: 1 }}>
+                                        <input
+                                            type="text"
+                                            name="latitude"
+                                            className="device-modal__input"
+                                            value={formData.latitude}
+                                            onChange={handleChange}
+                                            onPaste={(e) => {
+                                                const pasted = e.clipboardData.getData('text');
+                                                if (pasted.includes(',')) {
+                                                    e.preventDefault();
+                                                    const [lat, lng] = pasted.split(',').map(s => s.trim());
+                                                    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                                        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                                    }
                                                 }
-                                            }
-                                        }}
-                                        placeholder="120.123456"
-                                        disabled={isSaving}
-                                    />
+                                            }}
+                                            placeholder="Latitude"
+                                            disabled={isSaving}
+                                        />
+                                    </div>
+                                    <div className="device-modal__field" style={{ flex: 1 }}>
+                                        <input
+                                            type="text"
+                                            name="longitude"
+                                            className="device-modal__input"
+                                            value={formData.longitude}
+                                            onChange={handleChange}
+                                            onPaste={(e) => {
+                                                const pasted = e.clipboardData.getData('text');
+                                                if (pasted.includes(',')) {
+                                                    e.preventDefault();
+                                                    const [lat, lng] = pasted.split(',').map(s => s.trim());
+                                                    if (lat && lng && !isNaN(lat) && !isNaN(lng)) {
+                                                        setFormData(prev => ({ ...prev, latitude: lat, longitude: lng }));
+                                                    }
+                                                }
+                                            }}
+                                            placeholder="Longitude"
+                                            disabled={isSaving}
+                                        />
+                                    </div>
                                 </div>
                             </div>
 

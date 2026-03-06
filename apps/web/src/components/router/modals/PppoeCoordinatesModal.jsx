@@ -18,6 +18,24 @@ function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
         }
     }, [session]);
 
+    const handlePaste = (e) => {
+        const pasteData = e.clipboardData.getData('Text');
+        if (pasteData && pasteData.includes(',')) {
+            const parts = pasteData.split(',').map(s => s.trim());
+            if (parts.length >= 2) {
+                const lat = parseFloat(parts[0]);
+                const lng = parseFloat(parts[1]);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    e.preventDefault();
+                    setFormData({
+                        latitude: lat.toString(),
+                        longitude: lng.toString()
+                    });
+                }
+            }
+        }
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -37,6 +55,7 @@ function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
                         name="latitude"
                         value={formData.latitude}
                         onChange={handleChange}
+                        onPaste={handlePaste}
                         placeholder="e.g. -6.123"
                         required
                     />
@@ -45,6 +64,7 @@ function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
                         name="longitude"
                         value={formData.longitude}
                         onChange={handleChange}
+                        onPaste={handlePaste}
                         placeholder="e.g. 106.123"
                         required
                     />

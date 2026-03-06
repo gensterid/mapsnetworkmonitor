@@ -23,13 +23,20 @@ const MapZoomHandler = ({ onZoomChange }) => {
 };
 
 const MapClickHandler = ({ enabled, onMapClick }) => {
-    useMapEvents({
-        click: (e) => {
-            if (enabled) {
-                onMapClick([e.latlng.lat, e.latlng.lng]);
-            }
-        },
-    });
+    const map = useMap();
+    
+    useEffect(() => {
+        if (!enabled) return;
+        
+        const handleClick = (e) => {
+            console.log('Map capture click handled:', e.latlng);
+            onMapClick([e.latlng.lat, e.latlng.lng]);
+        };
+        
+        map.on('click', handleClick);
+        return () => map.off('click', handleClick);
+    }, [map, enabled, onMapClick]);
+    
     return null;
 };
 
@@ -194,6 +201,7 @@ const NetworkMap = ({
     const [lineThickness, setLineThickness] = useState(4);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isPickingCoordinate, setIsPickingCoordinate] = useState(false);
     const [isFullscreen, setIsFullscreen] = useState(false);
     const [hoveredMarkerId, setHoveredMarkerId] = useState(null); // Consolidating all marker hover here
     const [hoveredLineId, setHoveredLineId] = useState(null);
@@ -846,7 +854,24 @@ const NetworkMap = ({
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false);
         setSelectedDevice(null);
+        setIsPickingCoordinate(false);
     }, []);
+
+    const handlePickCoordinate = useCallback((pos) => {
+        if (!selectedDevice) return;
+
+        // Force update the selected item with new coordinates
+        setSelectedDevice(prev => ({
+            ...prev,
+            latitude: String(pos[0]),
+            longitude: String(pos[1]),
+            lat: pos[0], // for compatibility
+            lng: pos[1]
+        }));
+
+        setIsPickingCoordinate(false);
+        toast.success(`Koordinat diambil: ${pos[0].toFixed(6)}, ${pos[1].toFixed(6)}`);
+    }, [selectedDevice]);
 
     const handleEditPath = (device) => {
         setIsModalOpen(false);
@@ -1505,14 +1530,15 @@ const NetworkMap = ({
                         zoom={10}
                         maxZoom={22} // Increased to allow high zoom ungrouping
                         scrollWheelZoom={true}
+                        className={isPickingCoordinate ? 'picking-location' : ''}
                         preferCanvas={lowPerfMode} // Enable canvas rendering only in low-performance mode to preserve animations
                         aria-label="Network Topology Map"
                         style={{ height: "100%", width: "100%", background: mapType === 'satellite_dark' ? '#000' : "#0f172a" }}
                     >
                         <MapZoomHandler onZoomChange={setZoomLevel} />
                         <MapClickHandler
-                            enabled={!!selectedUnplacedDevice}
-                            onMapClick={handleQuickPlaceClick}
+                            enabled={!!selectedUnplacedDevice || isPickingCoordinate}
+                            onMapClick={isPickingCoordinate ? handlePickCoordinate : handleQuickPlaceClick}
                         />
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
                         {(!apiKey || googleFailed) ? (
@@ -1585,7 +1611,7 @@ const NetworkMap = ({
 
                     {/* Path Edit Toolbar */}
                     {
-                        !showRoutersOnly && (
+                        !showRoutersOnly && !selectedUnplacedDevice && (
                             <MapToolbar
                                 isVisible={isEditingPath}
                                 pathLength={pathLength}
@@ -1597,7 +1623,7 @@ const NetworkMap = ({
                     }
 
                     {/* Map Controls (Right Panel) */}
-                    {!showRoutersOnly && (
+                    {!showRoutersOnly && !selectedUnplacedDevice && (
                         <MapControls
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}
@@ -1648,7 +1674,7 @@ const NetworkMap = ({
                     )}
 
                     {/* Legend (With Performance Controls) */}
-                    {!showRoutersOnly && (
+                    {!showRoutersOnly && !selectedUnplacedDevice && (
                         <MapLegend
                             showLabels={showLabels}
                             onToggleLabels={handleToggleLabels}
@@ -1674,7 +1700,7 @@ const NetworkMap = ({
 
                     {/* Floating Action Button */}
                     {
-                        !showRoutersOnly && (
+                        !showRoutersOnly && !selectedUnplacedDevice && (
                             <MapFAB
                                 onAddDevice={handleAddDevice}
                                 disabled={isEditingPath || !!selectedUnplacedDevice}
@@ -1695,7 +1721,10 @@ const NetworkMap = ({
                                 onClose={() => setIsPlacementModeOpen(false)}
                                 unplacedDevices={unplacedDevices}
                                 selectedDevice={selectedUnplacedDevice}
-                                onSelectDevice={setSelectedUnplacedDevice}
+                                onSelectDevice={(device) => {
+                                    setSelectedUnplacedDevice(device);
+                                    if (device) setIsPlacementModeOpen(false);
+                                }}
                             />
                         </>
                     )}
@@ -1710,6 +1739,8 @@ const NetworkMap = ({
                         onSave={handleSaveDevice}
                         onDelete={handleDeleteDevice}
                         onEditPath={handleEditPath}
+                        onStartPicking={setIsPickingCoordinate}
+                        isPicking={isPickingCoordinate}
                         isSaving={isSaving}
                         initialTab={modalInitialTab}
                         routerInterfaces={routerInterfaces || []}

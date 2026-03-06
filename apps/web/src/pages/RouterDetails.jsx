@@ -16,7 +16,7 @@ import {
     Eye,
     AlertCircle,
     History,
-    Gauge,
+    Gauge as GaugeIcon,
     PhoneCall,
     Network,
     MapPin,
@@ -165,7 +165,7 @@ export default function RouterDetails() {
     };
 
     const tabs = [
-        { id: 'dashboard', label: 'Dashboard', icon: <Gauge className="w-4 h-4" /> },
+        { id: 'dashboard', label: 'Dashboard', icon: <GaugeIcon className="w-4 h-4" /> },
         { id: 'history', label: 'History', icon: <History className="w-4 h-4" /> },
         { id: 'netwatch', label: 'Netwatch', icon: <Eye className="w-4 h-4" /> },
         { id: 'pppoe', label: 'PPPoE', icon: <PhoneCall className="w-4 h-4" /> },
