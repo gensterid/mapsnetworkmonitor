@@ -232,9 +232,12 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                         <div className="mt-1">
                             <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Latency Avg</p>
                             <p className="text-2xl font-black text-white tracking-tight">
-                                {perfTrends?.length > 0
-                                    ? `${Math.round(perfTrends.reduce((acc, curr) => acc + (curr.latency || 0), 0) / perfTrends.length)} ms`
-                                    : '--- ms'}
+                                {(() => {
+                                    const validPoints = perfTrends?.filter(p => p.latency !== null) || [];
+                                    if (validPoints.length === 0) return '--- ms';
+                                    const avg = Math.round(validPoints.reduce((acc, curr) => acc + curr.latency, 0) / validPoints.length);
+                                    return `${avg} ms`;
+                                })()}
                             </p>
                         </div>
                     </CardContent>

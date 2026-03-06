@@ -464,12 +464,12 @@ export class RouterNetwatchService {
 
                         await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, target.id));
 
-                        // 📈 Log to Performance History for Charts
                         try {
                             await db.insert(devicePerformanceHistory).values({
                                 tenantId: target.tenantId,
                                 routerId: target.routerId,
                                 host: target.host,
+                                onuId: target.linkedOnuId,
                                 latency: latency,
                                 recordedAt: new Date()
                             });

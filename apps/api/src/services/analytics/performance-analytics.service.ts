@@ -361,8 +361,8 @@ export class PerformanceAnalyticsService {
 
         return results.map(r => ({
             timestamp: r.timestamp,
-            latency: r.avgLatency ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
-            signal: r.avgSignal ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
+            latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
+            signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
         }));
     }
 }
