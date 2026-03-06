@@ -25,7 +25,7 @@ export const analyticsService = {
      */
     getDevicePerformanceTrends: async (params) => {
         const res = await apiClient.get('/analytics/performance/device', { params });
-        return res.data;
+        return res.data.data;
     },
 
     /**
