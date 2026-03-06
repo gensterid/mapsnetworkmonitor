@@ -469,7 +469,11 @@ export class RouterNetwatchService {
                                 tenantId: target.tenantId,
                                 routerId: target.routerId,
                                 host: target.host,
-                                onuId: target.linkedOnuId,
+                                onuId: target.linkedOnuId || (await (async () => {
+                                    // REAL-TIME LOOKUP: If no link exists in netwatch, check if any ONU has this host
+                                    const [match] = await db.select({ id: onus.id }).from(onus).where(eq(onus.host, target.host)).limit(1);
+                                    return match?.id || null;
+                                })()),
                                 latency: latency,
                                 recordedAt: new Date()
                             });
@@ -597,10 +601,7 @@ export class RouterNetwatchService {
             // Only fetch ONUs belonging to this router's OLTs (scoped, not global)
             const oltIds = linkedOlts.map(o => o.id);
             const activeOnus = await db.select().from(onus)
-                .where(and(
-                    isNotNull(onus.host),
-                    inArray(onus.oltId, oltIds)
-                ));
+                .where(inArray(onus.oltId, oltIds)); // Fetch ALL ONUs for these OLTs (even those with NULL host)
 
             if (activeOnus.length === 0) {
                 return; // Silent exit — OLTs exist but no ONUs with hosts yet
@@ -610,7 +611,11 @@ export class RouterNetwatchService {
             if (netwatchEntries.length === 0) {
                 return; // Silent exit — nothing to link
             }
-            const hostToOnuId = new Map(activeOnus.map(o => [(o.host || '').trim(), o]));
+            // 1. Map ONUs by Host (High Confidence)
+            const hostToOnu = new Map(activeOnus.filter(o => o.host).map(o => [(o.host || '').trim(), o]));
+            
+            // 2. Map ONUs by Name (Fallback for NULL hosts)
+            const nameToOnu = new Map(activeOnus.filter(o => !o.host).map(o => [(o.name || '').toLowerCase().trim(), o]));
 
             let linkedCount = 0;
             let missedCount = 0;
@@ -619,21 +624,27 @@ export class RouterNetwatchService {
                 const host = (entry.host || '').trim();
                 if (!host || host === '0.0.0.0') continue;
 
-                const targetOnu = hostToOnuId.get(host);
+                const targetOnu = hostToOnu.get(host) || nameToOnu.get((entry.name || '').toLowerCase().trim());
                 if (targetOnu) {
-                    let status: 'online' | 'offline' | 'unknown' = 'unknown';
-                    if (entry.status === 'up') status = 'online';
-                    else if (entry.status === 'down') status = 'offline';
+                    const status = entry.status === 'up' ? 'online' : (entry.status === 'down' ? 'offline' : targetOnu.status);
+                    
+                    const updateData: any = {
+                        status,
+                        lastSeen: status === 'online' ? new Date() : targetOnu.lastSeen,
+                        updatedAt: new Date(),
+                    };
+
+                    // AUTO-POPULATE HOST: If the ONU was matched by name but had no host, set it now
+                    if (!targetOnu.host && host) {
+                        updateData.host = host;
+                        logger.info({ onu: targetOnu.name, sn: targetOnu.sn, host }, '[Linkage] Auto-populated host from Netwatch match');
+                    }
 
                     const sources = (targetOnu.discoverySources as string[]) || [];
                     if (!sources.includes('netwatch')) sources.push('netwatch');
+                    updateData.discoverySources = sources;
 
-                    await db.update(onus).set({
-                        status: status === 'unknown' ? targetOnu.status : status,
-                        lastSeen: new Date(),
-                        discoverySources: sources,
-                        updatedAt: new Date()
-                    }).where(eq(onus.id, targetOnu.id));
+                    await db.update(onus).set(updateData).where(eq(onus.id, targetOnu.id));
                     linkedCount++;
                 } else {
                     missedCount++;

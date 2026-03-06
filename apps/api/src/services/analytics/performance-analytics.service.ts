@@ -1,6 +1,6 @@
 import { sql, eq, and, or, gte, lte, desc, avg, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { routers, routerMetrics, devicePerformanceHistory, onus } from '../../db/schema/index.js';
+import { routers, routerMetrics, devicePerformanceHistory, onus, routerNetwatch } from '../../db/schema/index.js';
 import {
     type DateRange,
     type PerformanceData,
@@ -310,10 +310,28 @@ export class PerformanceAnalyticsService {
         // This ensures both latency (tracked by host) and signal (tracked by onuId) are returned
         if (host && !onuId) {
             const [matchedOnu] = await db.select({ id: onus.id }).from(onus).where(eq(onus.host, host)).limit(1);
-            if (matchedOnu) onuId = matchedOnu.id;
+            if (matchedOnu) {
+                onuId = matchedOnu.id;
+            } else {
+                // FALLBACK: Check routerNetwatch for a link
+                const [matchedNetwatch] = await db.select({ linkedOnuId: routerNetwatch.linkedOnuId })
+                    .from(routerNetwatch)
+                    .where(eq(routerNetwatch.host, host))
+                    .limit(1);
+                if (matchedNetwatch?.linkedOnuId) onuId = matchedNetwatch.linkedOnuId;
+            }
         } else if (onuId && !host) {
             const [matchedOnu] = await db.select({ host: onus.host }).from(onus).where(eq(onus.id, onuId)).limit(1);
-            if (matchedOnu?.host) host = matchedOnu.host;
+            if (matchedOnu?.host) {
+                host = matchedOnu.host;
+            } else {
+                // FALLBACK: Check routerNetwatch for a link back to this ONU
+                const [matchedNetwatch] = await db.select({ host: routerNetwatch.host })
+                    .from(routerNetwatch)
+                    .where(eq(routerNetwatch.linkedOnuId, onuId))
+                    .limit(1);
+                if (matchedNetwatch?.host) host = matchedNetwatch.host;
+            }
         }
 
         const conditions: any[] = [
