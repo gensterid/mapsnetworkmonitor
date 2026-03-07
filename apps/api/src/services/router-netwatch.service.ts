@@ -221,7 +221,11 @@ export class RouterNetwatchService {
 
             const os = await import('os');
             const hostname = os.hostname();
-            logger.info({ routerId, name: routerName, shouldInjectWebhook, useWebhook: router?.useWebhook, hasSecret: !!router?.webhookSecret, server: hostname }, 'Netwatch sync starting');
+            
+            const baseUrl = await settingsService.getSettingValue<string>('webhook_base_url', router.tenantId!, 'http://localhost:5173');
+            const cleanBaseUrl = (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl).toLowerCase();
+            
+            logger.info({ routerId, name: routerName, shouldInjectWebhook, useWebhook: router?.useWebhook, hasSecret: !!router?.webhookSecret, server: hostname, baseUrl: cleanBaseUrl }, 'Netwatch sync starting');
 
             // First fetch the router's current clock to calculate the exact offset
             const routerClock = await getRouterClock(conn).catch(() => undefined);
@@ -272,6 +276,11 @@ export class RouterNetwatchService {
                     const detectedWebhook = (hasUpWebhook && hasDownWebhook) || false;
                     const isPartiallyMissing = (hasUpWebhook || hasDownWebhook) && !detectedWebhook;
 
+                    // ORIGIN DETECTION: Check if this webhook belongs to US (this server instance)
+                    const isOurUpWebhook = nw.upScript?.toLowerCase().includes(cleanBaseUrl);
+                    const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl);
+                    const isOurWebhook = isOurUpWebhook || isOurDownWebhook;
+
                     const isSuspiciouslyEmpty = (!nw.upScript || nw.upScript === '') && (!nw.downScript || nw.downScript === '');
                     const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 64 || (nw.downScript?.length || 0) > 64);
                     let finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : (detectedWebhook || isLikelyTruncated);
@@ -321,7 +330,7 @@ export class RouterNetwatchService {
                                 logger.warn({ err: String(err), host: nw.host }, 'Failed to configure webhook');
                             }
                         }
-                    } else if (!shouldInjectWebhook && finalHasWebhook) {
+                    } else if (!shouldInjectWebhook && finalHasWebhook && isOurWebhook) {
                         // Smart Cleanup: Remove webhook if disabled but still present on router.
                         // COLLISION PREVENTION: Check if ANY other router with the same host (or physical device) has webhook enabled. 
                         try {
@@ -348,7 +357,7 @@ export class RouterNetwatchService {
                             });
 
                             if (otherWantsItems.length === 0) {
-                                logger.info({ host: nw.host, routerId, server: hostname }, 'No other routers want webhooks on this device, proceeding with cleanup');
+                                logger.info({ host: nw.host, routerId, server: hostname, url: nw.upScript || nw.downScript }, 'Webhook belongs to us and no other routers want it, proceeding with cleanup');
                                 await removeNetwatchWebhook(conn, nw.host, nw);
                                 finalHasWebhook = false;
                             } else {
