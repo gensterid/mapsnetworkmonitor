@@ -1,8 +1,8 @@
-$ErrorActionPreference = "Continue"
-
 param (
     [string]$CommitMessage = "fix: maintenance sync and bug fixes"
 )
+
+$ErrorActionPreference = "Continue"
 
 function Invoke-GitCommand {
     param (
