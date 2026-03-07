@@ -467,8 +467,8 @@ export class RouterNetwatchService {
                     }
 
                     // Stability-First Ping: 2 packets, 300ms interval, 5000ms timeout
-                    const { latency, packetLoss } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
-                    logger.debug({ host: target.host, routerId, latency, packetLoss }, '[MeasureLatency] Ping result calculated');
+                    const { latency, packetLoss, error: pingError } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
+                    logger.debug({ host: target.host, routerId, latency, packetLoss, pingError }, '[MeasureLatency] Ping result calculated');
 
                     if (latency >= 0) {
                         const updateData: any = {
@@ -529,6 +529,24 @@ export class RouterNetwatchService {
                         }
 
                         await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, target.id));
+
+                        // 📈 Record the Error in History for Charts/Tooltips
+                        try {
+                            await db.insert(devicePerformanceHistory).values({
+                                tenantId: target.tenantId,
+                                routerId: target.routerId,
+                                host: target.host,
+                                onuId: target.linkedOnuId || (await (async () => {
+                                    const [match] = await db.select({ id: onus.id }).from(onus).where(eq(onus.host, target.host)).limit(1);
+                                    return match?.id || null;
+                                })()),
+                                latency: null,
+                                errorMessage: pingError || 'Unreachable',
+                                recordedAt: new Date()
+                            });
+                        } catch (histErr: any) {
+                            logger.error({ err: histErr?.message || String(histErr), host: target.host, routerId }, '[MeasureLatency] Failed to insert error record to devicePerformanceHistory');
+                        }
 
                         if (packetLoss > 0) {
                             await alertService.createPerformanceAlert(

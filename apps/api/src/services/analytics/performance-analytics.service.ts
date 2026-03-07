@@ -387,6 +387,7 @@ export class PerformanceAnalyticsService {
                 timestamp: timeSelect.as('timestamp'),
                 avgLatency: avg(devicePerformanceHistory.latency),
                 avgSignal: avg(devicePerformanceHistory.signal),
+                error: sql<string>`MAX(${devicePerformanceHistory.errorMessage})`
             })
             .from(devicePerformanceHistory)
             .where(and(...conditions))
@@ -397,6 +398,7 @@ export class PerformanceAnalyticsService {
             timestamp: r.timestamp,
             latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
             signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
+            error: r.error || null
         }));
     }
 }

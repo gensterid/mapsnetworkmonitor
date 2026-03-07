@@ -956,9 +956,9 @@ export async function measurePing(
     count: number = 3,
     interval: string = '100ms',
     timeout: string = '1000ms'
-): Promise<{ latency: number, packetLoss: number }> {
+): Promise<{ latency: number, packetLoss: number, error?: string }> {
     if (!address) {
-        return { latency: -1, packetLoss: 100 };
+        return { latency: -1, packetLoss: 100, error: 'No address provided' };
     }
 
     try {
@@ -972,18 +972,25 @@ export async function measurePing(
         ]);
 
         const timeoutMs = parseInt(timeout) || 10000;
-        const result = await Promise.race([
-            resultPromise,
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), timeoutMs))
-        ]) as any[];
+        let result: any[];
+        try {
+            result = await Promise.race([
+                resultPromise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), timeoutMs))
+            ]) as any[];
+        } catch (raceErr: any) {
+            return { latency: -1, packetLoss: 100, error: raceErr?.message || 'Timeout' };
+        }
 
         if (result && Array.isArray(result) && result.length > 0) {
             logger.debug({ address, resultCount: result.length, firstResult: result[0] }, '[Ping Debug] Raw ping result received');
             let totalLatency = 0;
             let receivedCount = 0;
             let sentCount = count;
+            let lastStatus = '';
 
             for (const entry of result) {
+                if (entry['status']) lastStatus = entry['status'];
                 if (entry['time'] !== undefined && entry['time'] !== null) {
                     const lat = parseLatencyValue(entry['time']);
                     if (lat >= 0) {
@@ -1014,18 +1021,24 @@ export async function measurePing(
                 ? Math.round(totalLatency / receivedCount)
                 : -1;
 
-            return { latency: avgLatency, packetLoss: lossPercent };
+            return { 
+                latency: avgLatency, 
+                packetLoss: lossPercent,
+                error: lossPercent === 100 ? (lastStatus || 'Timeout') : undefined
+            };
         }
 
-        return { latency: -1, packetLoss: 100 };
+        return { latency: -1, packetLoss: 100, error: 'Empty result from RouterOS' };
     } catch (error: any) {
         // Specifically catch the "Tried to process unknown reply" to avoid global crash
         if (error.message?.includes('unknown reply')) {
             logger.warn({ err: error, address }, '[Ping Warning] MikroTik sent unexpected reply');
+            return { latency: -1, packetLoss: 100, error: 'RouterOS unknown reply' };
         } else {
-            logger.error({ err: error, address }, 'Error pinging host');
+            const errMsg = error instanceof Error ? error.message : String(error);
+            logger.error({ address, err: errMsg }, 'measurePing failed');
+            return { latency: -1, packetLoss: 100, error: errMsg };
         }
-        return { latency: -1, packetLoss: 100 };
     }
 }
 

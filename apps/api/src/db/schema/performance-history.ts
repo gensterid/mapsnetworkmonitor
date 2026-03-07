@@ -31,6 +31,7 @@ export const devicePerformanceHistory = pgTable('device_performance_history', {
     // Metrics
     latency: real('latency'), // Latency in ms
     signal: real('signal'), // Signal / Rx Power in dBm
+    errorMessage: text('error_message'), // Error details for failed pings
 
     recordedAt: timestamp('recorded_at').defaultNow().notNull(),
 }, (table) => ({

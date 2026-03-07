@@ -43,6 +43,8 @@ import { analyticsService } from '@/lib/api/services/analytics.service';
 // Custom Tooltip for Recharts
 const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+        const error = payload[0]?.payload?.error;
+        
         return (
             <div className="bg-slate-900/95 border border-slate-800 p-2.5 rounded-lg shadow-2xl text-[10px] min-w-[140px] backdrop-blur-md">
                 <p className="text-slate-400 font-bold mb-2 pb-1 border-b border-slate-800/50">
@@ -53,17 +55,28 @@ const CustomTooltip = ({ active, payload, label }) => {
                         month: 'short'
                     })}
                 </p>
-                {payload.map((entry, index) => (
-                    <div key={index} className="flex items-center justify-between gap-3 mb-1.5 last:mb-0">
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                            <span className="text-slate-500 font-medium">{entry.name}:</span>
+                <div className="space-y-1.5">
+                    {payload.map((entry, index) => (
+                        <div key={index} className="flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                                <span className="text-slate-500 font-medium">{entry.name}:</span>
+                            </div>
+                            <span className="text-white font-mono font-bold">
+                                {entry.value !== null ? `${entry.value}${entry.unit || ''}` : '---'}
+                            </span>
                         </div>
-                        <span className="text-white font-mono font-bold">
-                            {entry.value !== null ? `${entry.value}${entry.unit || ''}` : '---'}
-                        </span>
+                    ))}
+                </div>
+
+                {error && (
+                    <div className="mt-2 pt-2 border-t border-slate-800/50">
+                        <p className="text-red-400 font-bold mb-0.5 uppercase tracking-wider text-[9px]">Error Log:</p>
+                        <p className="text-red-300/90 leading-tight">
+                            {error}
+                        </p>
                     </div>
-                ))}
+                )}
             </div>
         );
     }
