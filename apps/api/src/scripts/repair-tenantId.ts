@@ -1,5 +1,5 @@
-import { db } from './apps/api/src/db/index.js';
-import { routerNetwatch, routers, onus } from './apps/api/src/db/schema/index.js';
+import { db } from '../db/index.js';
+import { routerNetwatch, routers, onus } from '../db/schema/index.js';
 import { isNull, eq, or } from 'drizzle-orm';
 
 async function main() {
