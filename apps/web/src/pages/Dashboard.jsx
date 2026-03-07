@@ -194,10 +194,8 @@ function RecentAlerts({ alerts, settings, currentUser }) {
     // Limit to 5 most recent alerts for dashboard
     const recentAlerts = alerts.slice(0, 5);
 
-    // Mock alerts if none exist
-    const displayAlerts = recentAlerts.length > 0 ? recentAlerts : [
-        { id: 1, title: 'System Ready', description: 'All systems are operational and ready for monitoring.', severity: 'success', createdAt: new Date() },
-    ];
+    // Remove mock alerts and just use the actual recent alerts
+    const displayAlerts = recentAlerts;
 
     return (
         <div className="glass-panel rounded-xl h-full flex flex-col">
@@ -212,33 +210,43 @@ function RecentAlerts({ alerts, settings, currentUser }) {
                     {/* Timeline line */}
                     <div className="absolute left-[9px] top-2 bottom-0 w-px bg-slate-800" />
 
-                    {displayAlerts.map((alert, idx) => {
-                        const colors = getSeverityColor(alert.severity);
-                        return (
-                            <div key={alert.id} className="relative pl-8 pb-8 group">
-                                <div className={clsx(
-                                    "absolute left-0 top-1 w-[19px] h-[19px] rounded-full border-[3px] border-background-dark z-10",
-                                    colors.dot,
-                                    alert.severity === 'critical' && "shadow-[0_0_0_4px_rgba(239,68,68,0.2)]"
-                                )} />
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-semibold text-white">{alert.title}</span>
-                                        <span className="text-[10px] text-slate-500 font-mono">{formatTime(alert.createdAt)}</span>
-                                    </div>
-                                    <p className="text-xs text-slate-400 leading-relaxed">{alert.message || alert.description}</p>
-                                    <div className="mt-2">
-                                        <span className={clsx(
-                                            "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border capitalize",
-                                            colors.badge
-                                        )}>
-                                            {alert.severity}
-                                        </span>
+                    {displayAlerts.length > 0 ? (
+                        displayAlerts.map((alert, idx) => {
+                            const colors = getSeverityColor(alert.severity);
+                            return (
+                                <div key={alert.id} className="relative pl-8 pb-8 group">
+                                    <div className={clsx(
+                                        "absolute left-0 top-1 w-[19px] h-[19px] rounded-full border-[3px] border-background-dark z-10",
+                                        colors.dot,
+                                        alert.severity === 'critical' && "shadow-[0_0_0_4px_rgba(239,68,68,0.2)]"
+                                    )} />
+                                    <div className="flex flex-col gap-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-semibold text-white">{alert.title}</span>
+                                            <span className="text-[10px] text-slate-500 font-mono">{formatTime(alert.createdAt)}</span>
+                                        </div>
+                                        <p className="text-xs text-slate-400 leading-relaxed">{alert.message || alert.description}</p>
+                                        <div className="mt-2">
+                                            <span className={clsx(
+                                                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border capitalize",
+                                                colors.badge
+                                            )}>
+                                                {alert.severity}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
+                            );
+                        })
+                    ) : (
+                        <div className="py-8 flex flex-col items-center justify-center text-center px-4">
+                            <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mb-3">
+                                <CheckCircle className="w-6 h-6 text-emerald-500/50" />
                             </div>
-                        );
-                    })}
+                            <p className="text-sm font-medium text-slate-300">All Clear</p>
+                            <p className="text-xs text-slate-500 mt-1">No recent alerts in the system.</p>
+                        </div>
+                    )}
                 </div>
             </div>
             <div className="p-4 border-t border-slate-700/30">

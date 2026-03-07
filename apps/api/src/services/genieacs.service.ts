@@ -108,49 +108,7 @@ export const genieacsService = {
         }
 
         try {
-            if (process.env.USE_DUMMY_DATA === 'true') {
-                logger.info('🛠️ GenieACS: Returning dummy devices');
-                return [
-                    {
-                        _id: 'DMY-ACS-001',
-                        _registered: new Date(Date.now() - 3600000 * 24).toISOString(),
-                        _lastInform: new Date(Date.now() - 60000).toISOString(),
-                        _serialNumber: 'DMY-ACS-SN-001',
-                        _productClass: 'F670L',
-                        _manufacturer: 'ZTE',
-                        _softwareVersion: 'V2.0',
-                        _ip: '10.10.2.1',
-                        _ssid: 'DUMMY-WIFI-1',
-                        _rxPower: '-19.2',
-                        _macAddress: 'AA:BB:CC:11:22:33',
-                        _isTr181: false,
-                        _uptime: '3600',
-                        _temperature: '45',
-                        _tags: ['dummy'],
-                        _clientCount: 5,
-                        _hardwareVersion: 'V1.0'
-                    },
-                    {
-                        _id: 'DMY-ACS-002',
-                        _registered: new Date(Date.now() - 3600000 * 48).toISOString(),
-                        _lastInform: new Date(Date.now() - 300000).toISOString(),
-                        _serialNumber: 'DMY-ACS-SN-002',
-                        _productClass: 'HG6245D',
-                        _manufacturer: 'Fiberhome',
-                        _softwareVersion: 'V3.0',
-                        _ip: '10.10.2.2',
-                        _ssid: 'DUMMY-WIFI-2',
-                        _rxPower: '-21.5',
-                        _macAddress: 'AA:BB:CC:44:55:66',
-                        _isTr181: false,
-                        _uptime: '86400',
-                        _temperature: '42',
-                        _tags: ['dummy'],
-                        _clientCount: 2,
-                        _hardwareVersion: 'V2.0'
-                    }
-                ];
-            }
+
             const { url, auth, isDedicated } = await getGenieAcsConfig(routerId, tenantId);
 
             if (!url || url === 'http://localhost:7557') {
@@ -446,10 +404,7 @@ export const genieacsService = {
         if (cached) return cached;
 
         try {
-            if (process.env.USE_DUMMY_DATA === 'true') {
-                const devices = await genieacsService.getDevices(routerId, tenantId);
-                return devices.find(d => d._id === deviceId) || null;
-            }
+
             const { url, auth, isDedicated } = await getGenieAcsConfig(routerId, tenantId);
 
             // Use query to avoid 405 Method Not Allowed on some GenieACS versions

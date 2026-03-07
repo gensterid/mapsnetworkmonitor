@@ -32,10 +32,6 @@ export class OltDriverFactory {
             config.port = port || 80;
         }
 
-        if (process.env.USE_DUMMY_DATA === 'true') {
-            return new DummyOltDriver(config);
-        }
-
         switch (type.toLowerCase()) {
             case 'hsgq':
                 return new HsgqDriver(config);

@@ -9,7 +9,7 @@ import {
     useDeleteRouter,
     useRefreshRouter,
 } from '@/hooks';
-import { Plus, Router as RouterIcon, Signal, RefreshCw, Trash2, Edit, Search, ArrowUpDown, LayoutGrid, List, Power, Clock } from 'lucide-react';
+import { Plus, Router as RouterIcon, Signal, RefreshCw, Trash2, Edit, Search, ArrowUpDown, LayoutGrid, List, Power, Clock, Webhook, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
@@ -798,9 +798,25 @@ export default function Routers() {
                                                 <div className="text-xs text-slate-500">
                                                     {router.model || 'Unknown'} • {router.routerOsVersion || router.version || '-'}
                                                 </div>
-                                                <div className="flex items-center gap-1 text-xs text-slate-400">
-                                                    <Clock className="w-3.5 h-3.5" />
-                                                    <span>{formatLastSync(router.lastSeen || router.updatedAt)}</span>
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex items-center gap-1.5">
+                                                        {router.useWebhook && (
+                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20" title="Webhook Enabled">
+                                                                <Webhook className="w-3 h-3" />
+                                                                <span className="text-[9px] font-bold uppercase">WEB</span>
+                                                            </div>
+                                                        )}
+                                                        {router.useGenieAcs && (
+                                                            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" title="GenieACS Enabled">
+                                                                <ShieldCheck className="w-3 h-3" />
+                                                                <span className="text-[9px] font-bold uppercase">ACS</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-xs text-slate-400">
+                                                        <Clock className="w-3.5 h-3.5" />
+                                                        <span>{formatLastSync(router.lastSeen || router.updatedAt)}</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </CardContent>
@@ -848,9 +864,23 @@ export default function Routers() {
                                                     </div>
                                                 </td>
                                                 <td className="px-4 py-3">
-                                                    <Link to={`/routers/${router.id}`} className="text-sm font-medium text-white hover:text-primary transition-colors">
-                                                        {router.name}
-                                                    </Link>
+                                                    <div className="flex items-center gap-3">
+                                                        <Link to={`/routers/${router.id}`} className="text-sm font-medium text-white hover:text-primary transition-colors">
+                                                            {router.name}
+                                                        </Link>
+                                                        <div className="flex items-center gap-1.5">
+                                                            {router.useWebhook && (
+                                                                <div className="p-1 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20" title="Webhook Enabled">
+                                                                    <Webhook className="w-3 h-3" />
+                                                                </div>
+                                                            )}
+                                                            {router.useGenieAcs && (
+                                                                <div className="p-1 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" title="GenieACS Enabled">
+                                                                    <ShieldCheck className="w-3 h-3" />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
                                                 </td>
                                                 <td className="px-4 py-3">
                                                     <div className="text-sm text-slate-300 font-mono">{router.host}:{router.port}</div>

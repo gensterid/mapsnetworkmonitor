@@ -1,8 +1,6 @@
 import nodeRouteros from 'node-routeros';
 const { RouterOSAPI } = nodeRouteros;
 import { logger } from './logger.js';
-import { MockRouterOS } from './dummy-mikrotik.js';
-
 // Connection Pool to reuse API instances
 const connectionPool = new Map<string, any>();
 const poolTimeouts = new Map<string, NodeJS.Timeout>();
@@ -122,17 +120,6 @@ export async function connectToRouter(
         }
         // If not connected anymore, remove it
         connectionPool.delete(poolKey);
-    }
-
-    // === DUMMY MODE INTERCEPTION ===
-    const isMock = process.env.USE_DUMMY_DATA === 'true';
-    if (isMock) {
-        const mock = new MockRouterOS(config);
-        (mock as any).release = () => {
-            releaseConnection(config.host, config.port, config.username);
-        };
-        connectionPool.set(poolKey, mock);
-        return mock;
     }
 
 
