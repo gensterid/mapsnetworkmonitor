@@ -487,8 +487,16 @@ export class RouterNetwatchService {
                         await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, target.id));
 
                         try {
+                            // 🛑 CRITICAL FIX: Drizzle UUID columns crash if given an empty string. Must use NULL or a valid UUID.
+                            // We attempt to derive tenantId aggressively to prevent lost data.
+                            let derivedTenantId = target.tenantId;
+                            if (!derivedTenantId || derivedTenantId.trim() === '') {
+                                const [parentRouter] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, target.routerId));
+                                derivedTenantId = parentRouter?.tenantId || null;
+                            }
+
                             await db.insert(devicePerformanceHistory).values({
-                                tenantId: target.tenantId,
+                                tenantId: derivedTenantId || sql`NULL`, // Force NULL instead of empty string
                                 routerId: target.routerId,
                                 host: target.host,
                                 onuId: target.linkedOnuId || (await (async () => {
@@ -540,8 +548,15 @@ export class RouterNetwatchService {
 
                         // 📈 Record the Error in History for Charts/Tooltips
                         try {
+                            // 🛑 CRITICAL FIX: Same missing tenantId handling for offline records
+                            let derivedTenantId = target.tenantId;
+                            if (!derivedTenantId || derivedTenantId.trim() === '') {
+                                const [parentRouter] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, target.routerId));
+                                derivedTenantId = parentRouter?.tenantId || null;
+                            }
+
                             await db.insert(devicePerformanceHistory).values({
-                                tenantId: target.tenantId,
+                                tenantId: derivedTenantId || sql`NULL`,
                                 routerId: target.routerId,
                                 host: target.host,
                                 onuId: target.linkedOnuId || (await (async () => {
