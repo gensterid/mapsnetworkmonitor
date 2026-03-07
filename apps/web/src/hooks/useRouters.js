@@ -309,7 +309,8 @@ export function useCreateRouter() {
     return useMutation({
         mutationFn: (data) => routerService.create(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.lists() });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.lists(tenantId) });
         },
     });
 }
@@ -323,8 +324,9 @@ export function useUpdateRouter() {
     return useMutation({
         mutationFn: ({ id, data }) => routerService.update(id, data),
         onSuccess: (_, { id }) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.detail(id) });
-            queryClient.invalidateQueries({ queryKey: routerKeys.lists() });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.detail(tenantId, id) });
+            queryClient.invalidateQueries({ queryKey: routerKeys.lists(tenantId) });
         },
     });
 }
@@ -338,7 +340,8 @@ export function useDeleteRouter() {
     return useMutation({
         mutationFn: (id) => routerService.delete(id),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.lists() });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.lists(tenantId) });
         },
     });
 }
@@ -370,8 +373,9 @@ export function useRefreshRouter() {
     return useMutation({
         mutationFn: (id) => routerService.refresh(id),
         onSuccess: (_, id) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.detail(id) });
-            queryClient.invalidateQueries({ queryKey: routerKeys.lists() });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.detail(tenantId, id) });
+            queryClient.invalidateQueries({ queryKey: routerKeys.lists(tenantId) });
         },
     });
 }
@@ -385,7 +389,8 @@ export function useRebootRouter() {
     return useMutation({
         mutationFn: (id) => routerService.reboot(id),
         onSuccess: (_, id) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.detail(id) });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.detail(tenantId, id) });
         },
     });
 }
@@ -401,7 +406,8 @@ export function useCreateNetwatch() {
     return useMutation({
         mutationFn: ({ routerId, data }) => routerService.createNetwatch(routerId, data),
         onSuccess: (_, { routerId }) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(routerId) });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(tenantId, routerId) });
         },
     });
 }
@@ -416,7 +422,8 @@ export function useUpdateNetwatch() {
         mutationFn: ({ routerId, netwatchId, data }) =>
             routerService.updateNetwatch(routerId, netwatchId, data),
         onSuccess: (_, { routerId }) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(routerId) });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(tenantId, routerId) });
         },
     });
 }
@@ -431,7 +438,8 @@ export function useDeleteNetwatch() {
         mutationFn: ({ routerId, netwatchId }) =>
             routerService.deleteNetwatch(routerId, netwatchId),
         onSuccess: (_, { routerId }) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(routerId) });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(tenantId, routerId) });
         },
     });
 }
@@ -445,7 +453,8 @@ export function useSyncNetwatch() {
     return useMutation({
         mutationFn: (routerId) => routerService.syncNetwatch(routerId),
         onSuccess: (_, routerId) => {
-            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(routerId) });
+            const tenantId = getActiveTenantId();
+            queryClient.invalidateQueries({ queryKey: routerKeys.netwatch(tenantId, routerId) });
         },
     });
 }

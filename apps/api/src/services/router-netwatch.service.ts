@@ -219,7 +219,9 @@ export class RouterNetwatchService {
             const shouldInjectWebhook = router?.useWebhook && !!router?.webhookSecret && !!router?.tenantId;
             const webhookUrl = shouldInjectWebhook ? await settingsService.getWebhookUrl(router.webhookSecret!, router.tenantId!) : '';
 
-            logger.info({ routerId, name: routerName, shouldInjectWebhook, useWebhook: router?.useWebhook, hasSecret: !!router?.webhookSecret }, 'Netwatch sync starting');
+            const os = await import('os');
+            const hostname = os.hostname();
+            logger.info({ routerId, name: routerName, shouldInjectWebhook, useWebhook: router?.useWebhook, hasSecret: !!router?.webhookSecret, server: hostname }, 'Netwatch sync starting');
 
             // First fetch the router's current clock to calculate the exact offset
             const routerClock = await getRouterClock(conn).catch(() => undefined);
@@ -308,7 +310,8 @@ export class RouterNetwatchService {
                                 upLen: nw.upScript?.length,
                                 downLen: nw.downScript?.length,
                                 isTruncated: isLikelyTruncated,
-                                forceReconfig
+                                forceReconfig,
+                                server: hostname
                             }, 'Webhook missing or stale, triggering configuration');
 
                             try {
@@ -345,7 +348,7 @@ export class RouterNetwatchService {
                             });
 
                             if (otherWantsItems.length === 0) {
-                                logger.info({ host: nw.host, routerId }, 'No other routers want webhooks on this device, proceeding with cleanup');
+                                logger.info({ host: nw.host, routerId, server: hostname }, 'No other routers want webhooks on this device, proceeding with cleanup');
                                 await removeNetwatchWebhook(conn, nw.host, nw);
                                 finalHasWebhook = false;
                             } else {
