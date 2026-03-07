@@ -5,7 +5,7 @@ import { routerService } from './router.service.js';
 import { cacheService } from '../lib/cache.js';
 import { encrypt, decrypt } from '../lib/encryption.js';
 import { db } from '../db/index.js';
-import { onus, olts, devicePerformanceHistory, routerNetwatch } from '../db/schema/index.js';
+import { onus, olts, devicePerformanceHistory, routerNetwatch, appSettings } from '../db/schema/index.js';
 import { oltService } from './olt.service.js';
 import { eq, inArray, and } from 'drizzle-orm';
 
@@ -77,14 +77,31 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
         }
     }
 
-    if (!url && tenantId) {
-        const urlSetting = await settingsService.getSetting('genieacs_url', tenantId);
-        const userSetting = await settingsService.getSetting('genieacs_username', tenantId);
-        const passSetting = await settingsService.getSetting('genieacs_password_encrypted', tenantId);
+    if (!url) {
+        // Fallback Logic: If no tenantId is provided (Superadmin/Background Jobs),
+        // try to find the first tenant that has GenieACS configured.
+        let effectiveTenantId = tenantId;
+        
+        if (!effectiveTenantId) {
+            const [firstWithAcs] = await db.select({ tenantId: appSettings.tenantId })
+                .from(appSettings)
+                .where(eq(appSettings.key, 'genieacs_url'))
+                .limit(1);
+            effectiveTenantId = firstWithAcs?.tenantId;
+        }
 
-        url = urlSetting?.value as string || process.env.GENIEACS_URL || 'http://localhost:7557';
-        username = userSetting?.value as string || '';
-        password = passSetting?.value ? decrypt(passSetting.value as string) : '';
+        if (effectiveTenantId) {
+            const urlSetting = await settingsService.getSetting('genieacs_url', effectiveTenantId);
+            const userSetting = await settingsService.getSetting('genieacs_username', effectiveTenantId);
+            const passSetting = await settingsService.getSetting('genieacs_password_encrypted', effectiveTenantId);
+
+            url = urlSetting?.value as string || process.env.GENIEACS_URL || 'http://localhost:7557';
+            username = userSetting?.value as string || '';
+            password = passSetting?.value ? decrypt(passSetting.value as string) : '';
+        } else {
+            // Absolute fallback to ENV or localhost
+            url = process.env.GENIEACS_URL || 'http://localhost:7557';
+        }
         isDedicated = false;
     }
 
