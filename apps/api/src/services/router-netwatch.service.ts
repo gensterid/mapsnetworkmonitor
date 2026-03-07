@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, count, not } from 'drizzle-orm';
+import { eq, and, isNotNull, or, sql, desc, getTableColumns, inArray, count, not, ilike } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../db/index.js';
 import {
@@ -492,8 +492,16 @@ export class RouterNetwatchService {
                                 routerId: target.routerId,
                                 host: target.host,
                                 onuId: target.linkedOnuId || (await (async () => {
-                                    // REAL-TIME LOOKUP: If no link exists in netwatch, check if any ONU has this host
-                                    const [match] = await db.select({ id: onus.id }).from(onus).where(eq(onus.host, target.host)).limit(1);
+                                    // REAL-TIME LOOKUP: Match by host OR Name fallback
+                                    const match = await db.query.onus.findFirst({
+                                        where: (onus, { or, eq, and, ilike }) => or(
+                                            eq(onus.host, target.host),
+                                            and(
+                                                eq(onus.routerId, target.routerId),
+                                                ilike(onus.name, target.name || '')
+                                            )
+                                        )
+                                    });
                                     return match?.id || null;
                                 })()),
                                 latency: latency,
@@ -537,7 +545,16 @@ export class RouterNetwatchService {
                                 routerId: target.routerId,
                                 host: target.host,
                                 onuId: target.linkedOnuId || (await (async () => {
-                                    const [match] = await db.select({ id: onus.id }).from(onus).where(eq(onus.host, target.host)).limit(1);
+                                    // REAL-TIME LOOKUP: Match by host OR Name fallback
+                                    const match = await db.query.onus.findFirst({
+                                        where: (onus, { or, eq, and, ilike }) => or(
+                                            eq(onus.host, target.host),
+                                            and(
+                                                eq(onus.routerId, target.routerId),
+                                                ilike(onus.name, target.name || '')
+                                            )
+                                        )
+                                    });
                                     return match?.id || null;
                                 })()),
                                 latency: null,

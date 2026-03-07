@@ -1,4 +1,4 @@
-import { sql, eq, and, or, gte, lte, desc, avg, inArray } from 'drizzle-orm';
+import { sql, eq, and, or, gte, lte, desc, avg, inArray, ilike } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { routers, routerMetrics, devicePerformanceHistory, onus, routerNetwatch } from '../../db/schema/index.js';
 import {
@@ -346,7 +346,7 @@ export class PerformanceAnalyticsService {
         if (onuId) {
             idConditions.push(eq(devicePerformanceHistory.onuId, onuId));
             
-            // Also find ANY hosts linked to this ONU in Netwatch
+            // 1. Find hosts linked via explicit linkage field
             const linkedNetwatch = await db.select({ host: routerNetwatch.host })
                 .from(routerNetwatch)
                 .where(eq(routerNetwatch.linkedOnuId, onuId));
@@ -354,6 +354,33 @@ export class PerformanceAnalyticsService {
             for (const nw of linkedNetwatch) {
                 if (nw.host && nw.host !== '0.0.0.0' && nw.host !== host) {
                     idConditions.push(eq(devicePerformanceHistory.host, nw.host));
+                }
+            }
+
+            // 2. FALLBACK: Look at the ONU's own host field
+            const [onu] = await db.select({ host: onus.host, name: onus.name }).from(onus).where(eq(onus.id, onuId));
+            if (onu?.host && onu.host !== '0.0.0.0' && onu.host !== host) {
+                // Ensure we don't duplicate conditions
+                if (!idConditions.some(c => c.value === onu.host)) {
+                    idConditions.push(eq(devicePerformanceHistory.host, onu.host));
+                }
+            }
+
+            // 3. AGGRESSIVE FALLBACK: Match by name similarity in Netwatch
+            if (onu?.name) {
+                const nameMatches = await db.select({ host: routerNetwatch.host })
+                    .from(routerNetwatch)
+                    .where(and(
+                        eq(routerNetwatch.routerId, routerId || ''),
+                        ilike(routerNetwatch.name, onu.name)
+                    ));
+                
+                for (const nm of nameMatches) {
+                    if (nm.host && nm.host !== '0.0.0.0' && nm.host !== host) {
+                        if (!idConditions.some(c => c.value === nm.host)) {
+                            idConditions.push(eq(devicePerformanceHistory.host, nm.host));
+                        }
+                    }
                 }
             }
         }

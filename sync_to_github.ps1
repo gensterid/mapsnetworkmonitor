@@ -1,5 +1,9 @@
 $ErrorActionPreference = "Continue"
 
+param (
+    [string]$CommitMessage = "fix: maintenance sync and bug fixes"
+)
+
 function Invoke-GitCommand {
     param (
         [string]$Arguments,
@@ -24,7 +28,7 @@ function Invoke-GitCommand {
 }
 
 Invoke-GitCommand -Arguments "add ." -Name "add"
-Invoke-GitCommand -Arguments "commit -m ""fix: v8 ultimate-fix for Netwatch with independent script safety and host normalization""" -Name "commit"
+Invoke-GitCommand -Arguments "commit -m ""$CommitMessage""" -Name "commit"
 Invoke-GitCommand -Arguments "push origin main" -Name "push"
 
 Write-Host "Sync process finished."
