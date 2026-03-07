@@ -1035,8 +1035,16 @@ export async function measurePing(
             logger.warn({ err: error, address }, '[Ping Warning] MikroTik sent unexpected reply');
             return { latency: -1, packetLoss: 100, error: 'RouterOS unknown reply' };
         } else {
-            const errMsg = error instanceof Error ? error.message : String(error);
-            logger.error({ address, err: errMsg }, 'measurePing failed');
+            let errMsg = error instanceof Error ? error.message : String(error);
+            
+            // Sanitize confusing library-specific runtime errors (like null streams in node-routeros)
+            if (errMsg.includes("reading 'read'")) {
+                errMsg = 'RouterOS connection interrupted externally';
+                logger.warn({ address, err: errMsg }, 'measurePing failed due to closed socket/stream');
+            } else {
+                logger.error({ address, err: errMsg }, 'measurePing failed');
+            }
+            
             return { latency: -1, packetLoss: 100, error: errMsg };
         }
     }
