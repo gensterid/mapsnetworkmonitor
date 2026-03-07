@@ -305,7 +305,10 @@ async function syncGenieAcs(): Promise<void> {
             logger.info({ tenantId }, '[Scheduler] Running GenieACS sync for tenant...');
 
             // 1. Sync metadata from global ACS if configured for this tenant
-            await genieacsService.syncMetadata(undefined, tenantId);
+            const hasGlobalAcs = await genieacsService.getDevices(undefined, tenantId, {}, false, 'stats').then(d => d.length >= 0).catch(() => false);
+            if (hasGlobalAcs) {
+                await genieacsService.syncMetadata(undefined, tenantId);
+            }
 
             // 2. Sync specific routers that have dedicated GenieACS settings
             const routers = await routerService.findAll(tenantId);
@@ -362,8 +365,11 @@ async function warmAcsDashboard(): Promise<void> {
 
             const tenantId = tenant.id;
 
-            // Warm global ACS stats (this also warms devices internally)
-            await genieacsService.getDashboardStats(undefined, tenantId, true).catch(() => { });
+            // Warm global ACS stats if configured
+            const hasGlobalAcs = await genieacsService.getDevices(undefined, tenantId, {}, false, 'stats').then(d => d.length >= 0).catch(() => false);
+            if (hasGlobalAcs) {
+                await genieacsService.getDashboardStats(undefined, tenantId, true).catch(() => { });
+            }
 
             // Warm dedicated ACS
             const routers = await routerService.findAll(tenantId);

@@ -95,14 +95,18 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
             const userSetting = await settingsService.getSetting('genieacs_username', effectiveTenantId);
             const passSetting = await settingsService.getSetting('genieacs_password_encrypted', effectiveTenantId);
 
-            url = urlSetting?.value as string || process.env.GENIEACS_URL || 'http://localhost:7557';
+            url = urlSetting?.value as string || process.env.GENIEACS_URL || '';
             username = userSetting?.value as string || '';
             password = passSetting?.value ? decrypt(passSetting.value as string) : '';
         } else {
-            // Absolute fallback to ENV or localhost
-            url = process.env.GENIEACS_URL || 'http://localhost:7557';
+            // Absolute fallback to ENV
+            url = process.env.GENIEACS_URL || '';
         }
         isDedicated = false;
+    }
+
+    if (!url) {
+        return null;
     }
 
     return {
@@ -125,13 +129,12 @@ export const genieacsService = {
         }
 
         try {
-
-            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId, tenantId);
-
-            if (!url || url === 'http://localhost:7557') {
-                logger.warn({ url }, 'GenieACS: Using default or empty URL. Please check Settings.');
-                if (!url) throw new Error('Invalid URL: URL is empty');
+            const config = await getGenieAcsConfig(routerId, tenantId);
+            if (!config) {
+                logger.debug({ routerId, tenantId }, 'GenieACS: No configuration found, skipping fetch.');
+                return [];
             }
+            const { url, auth, isDedicated } = config;
 
             // Debug: Log URL to verify Proxmox connectivity
             logger.info({ url, routerId, isDedicated }, 'GenieACS: Fetching devices');
@@ -421,8 +424,9 @@ export const genieacsService = {
         if (cached) return cached;
 
         try {
-
-            const { url, auth, isDedicated } = await getGenieAcsConfig(routerId, tenantId);
+            const config = await getGenieAcsConfig(routerId, tenantId);
+            if (!config) return null;
+            const { url, auth, isDedicated } = config;
 
             // Use query to avoid 405 Method Not Allowed on some GenieACS versions
             const query: any = { _id: deviceId };
@@ -476,7 +480,9 @@ export const genieacsService = {
      */
     updateWanConfig: async (deviceId: string, config: WanConfigPayload, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+            const acsConfig = await getGenieAcsConfig(routerId, tenantId);
+            if (!acsConfig) return { success: false, error: 'GenieACS: No configuration found' };
+            const { url, auth } = acsConfig;
             const encodedId = encodeURIComponent(deviceId);
 
             // Fetch device first to determine TR version
@@ -714,7 +720,9 @@ export const genieacsService = {
      */
     updateWifiConfig: async (deviceId: string, config: WifiConfigPayload, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+            const acsConfig = await getGenieAcsConfig(routerId, tenantId);
+            if (!acsConfig) return { success: false, error: 'GenieACS: No configuration found' };
+            const { url, auth } = acsConfig;
             const encodedId = encodeURIComponent(deviceId);
 
             // Fetch device first to determine TR version / Manufacturer
@@ -851,7 +859,9 @@ export const genieacsService = {
      */
     rebootDevice: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+            const config = await getGenieAcsConfig(routerId, tenantId);
+            if (!config) return { success: false, error: 'GenieACS: No configuration found' };
+            const { url, auth } = config;
             const encodedId = encodeURIComponent(deviceId);
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'reboot'
@@ -874,7 +884,9 @@ export const genieacsService = {
      */
     setParameter: async (deviceId: string, parameterName: string, value: any, type: string = 'xsd:string', routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+            const config = await getGenieAcsConfig(routerId, tenantId);
+            if (!config) return { success: false, error: 'GenieACS: No configuration found' };
+            const { url, auth } = config;
             const encodedId = encodeURIComponent(deviceId);
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'setParameterValues',
@@ -899,7 +911,9 @@ export const genieacsService = {
      */
     refreshDevice: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+            const config = await getGenieAcsConfig(routerId, tenantId);
+            if (!config) return { success: false, error: 'GenieACS: No configuration found' };
+            const { url, auth } = config;
             const encodedId = encodeURIComponent(deviceId);
 
             // Refresh entire objects for better reliability instead of specific params
@@ -945,7 +959,9 @@ export const genieacsService = {
             logger.error({ deviceId, err: error }, 'GenieACS refreshDevice Error');
             // Fallback to simple refreshObject if getParameterValues fails (e.g., too many params)
             try {
-                const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+                const config = await getGenieAcsConfig(routerId, tenantId);
+                if (!config) return { success: false, error: 'GenieACS: No configuration found' };
+                const { url, auth } = config;
                 const encodedId = encodeURIComponent(deviceId);
                 await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                     name: 'refreshObject',
@@ -968,7 +984,9 @@ export const genieacsService = {
      */
     factoryReset: async (deviceId: string, routerId?: string, tenantId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId, tenantId);
+            const config = await getGenieAcsConfig(routerId, tenantId);
+            if (!config) return { success: false, error: 'GenieACS: No configuration found' };
+            const { url, auth } = config;
             const encodedId = encodeURIComponent(deviceId);
             await axios.post(`${url}/devices/${encodedId}/tasks?timeout=3000&connection_request`, {
                 name: 'factoryReset'
@@ -1041,6 +1059,9 @@ export const genieacsService = {
             if (cached) return cached;
         }
 
+        const config = await getGenieAcsConfig(routerId, tenantId);
+        if (!config) return null;
+
         // Use 'stats' projection mode for faster performance
         const devices = await genieacsService.getDevices(routerId, tenantId, {}, force, 'stats');
 
@@ -1096,8 +1117,9 @@ export const genieacsService = {
      */
     testConnection: async (routerId?: string) => {
         try {
-            const { url, auth } = await getGenieAcsConfig(routerId);
-            if (!url) throw new Error('URL is not configured');
+            const config = await getGenieAcsConfig(routerId);
+            if (!config) throw new Error('GenieACS: No configuration found');
+            const { url, auth } = config;
 
             const response = await axios.get(`${url}/devices`, {
                 params: {
