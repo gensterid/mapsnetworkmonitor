@@ -1,13 +1,19 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsService } from '@/lib/api';
 
+// ==================== Helpers ====================
+const getActiveTenantId = () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('active-tenant-id');
+};
+
 // Query Keys
 export const settingsKeys = {
-    all: ['settings'],
-    lists: () => [...settingsKeys.all, 'list'],
-    map: () => [...settingsKeys.all, 'map'],
-    detail: (key) => [...settingsKeys.all, key],
-    auditLogs: () => [...settingsKeys.all, 'audit-logs'],
+    all: (tenantId) => ['settings', tenantId || 'default'],
+    lists: (tenantId) => [...settingsKeys.all(tenantId), 'list'],
+    map: (tenantId) => [...settingsKeys.all(tenantId), 'map'],
+    detail: (tenantId, key) => [...settingsKeys.all(tenantId), key],
+    auditLogs: (tenantId) => [...settingsKeys.all(tenantId), 'audit-logs'],
 };
 
 // ==================== Queries ====================
@@ -16,8 +22,9 @@ export const settingsKeys = {
  * Hook to fetch all settings as an array
  */
 export function useSettingsList(options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: settingsKeys.lists(),
+        queryKey: settingsKeys.lists(tenantId),
         queryFn: () => settingsService.getAll(),
         staleTime: 5 * 60 * 1000,
         ...options,
@@ -28,8 +35,9 @@ export function useSettingsList(options = {}) {
  * Hook to fetch all settings as a key-value map
  */
 export function useSettings(options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: settingsKeys.map(),
+        queryKey: settingsKeys.map(tenantId),
         queryFn: () => settingsService.getAllAsMap(),
         staleTime: 5 * 60 * 1000,
         ...options,
@@ -40,8 +48,9 @@ export function useSettings(options = {}) {
  * Hook to fetch a single setting by key
  */
 export function useSetting(key, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: settingsKeys.detail(key),
+        queryKey: settingsKeys.detail(tenantId, key),
         queryFn: () => settingsService.getByKey(key),
         enabled: !!key,
         ...options,
@@ -52,8 +61,9 @@ export function useSetting(key, options = {}) {
  * Hook to fetch audit logs
  */
 export function useAuditLogs(limit = 100, options = {}) {
+    const tenantId = getActiveTenantId();
     return useQuery({
-        queryKey: settingsKeys.auditLogs(),
+        queryKey: settingsKeys.auditLogs(tenantId),
         queryFn: () => settingsService.getAuditLogs(limit),
         staleTime: 60 * 1000,
         ...options,
@@ -67,13 +77,14 @@ export function useAuditLogs(limit = 100, options = {}) {
  */
 export function useUpdateSetting() {
     const queryClient = useQueryClient();
+    const tenantId = getActiveTenantId();
 
     return useMutation({
         mutationFn: ({ key, value, description }) => settingsService.set(key, value, description),
         onSuccess: (_, { key }) => {
-            queryClient.invalidateQueries({ queryKey: settingsKeys.detail(key) });
-            queryClient.invalidateQueries({ queryKey: settingsKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: settingsKeys.map() });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.detail(tenantId, key) });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.lists(tenantId) });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.map(tenantId) });
         },
     });
 }
@@ -83,12 +94,13 @@ export function useUpdateSetting() {
  */
 export function useDeleteSetting() {
     const queryClient = useQueryClient();
+    const tenantId = getActiveTenantId();
 
     return useMutation({
         mutationFn: (key) => settingsService.delete(key),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: settingsKeys.lists() });
-            queryClient.invalidateQueries({ queryKey: settingsKeys.map() });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.lists(tenantId) });
+            queryClient.invalidateQueries({ queryKey: settingsKeys.map(tenantId) });
         },
     });
 }
