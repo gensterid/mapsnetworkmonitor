@@ -412,12 +412,29 @@ export class PerformanceAnalyticsService {
             .groupBy(timeSelect)
             .orderBy(timeSelect);
 
-        return results.map(r => ({
-            timestamp: r.timestamp,
-            latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
-            signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
-            error: r.error || null
-        }));
+        return results.map(r => {
+            // Ensure the timestamp is always treated as UTC so the frontend converts it to the user's local time correctly
+            let formatTs = r.timestamp;
+            if (formatTs instanceof Date) {
+                formatTs = formatTs.toISOString();
+            } else if (typeof formatTs === 'string') {
+                // If postgres returns '2026-03-07 19:00:00', format it as '2026-03-07T19:00:00Z'
+                if (!formatTs.endsWith('Z')) {
+                    formatTs = formatTs.replace(' ', 'T');
+                    // Only append Z if there is no timezone offset already (like +00)
+                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
+                        formatTs += 'Z';
+                    }
+                }
+            }
+
+            return {
+                timestamp: formatTs,
+                latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
+                signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
+                error: r.error || null
+            };
+        });
     }
 }
 
