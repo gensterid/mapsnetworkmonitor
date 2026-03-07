@@ -8,12 +8,7 @@ async function main() {
     // 1. Repair Router Netwatch
     const netwatchWithoutTenant = await db.select()
         .from(routerNetwatch)
-        .where(
-            or(
-                isNull(routerNetwatch.tenantId),
-                eq(routerNetwatch.tenantId, '')
-            )
-        );
+        .where(isNull(routerNetwatch.tenantId));
         
     console.log(`Found ${netwatchWithoutTenant.length} router_netwatch entries missing tenantId.`);
     
@@ -31,12 +26,7 @@ async function main() {
     // 2. Repair ONUs
     const onusWithoutTenant = await db.select()
         .from(onus)
-        .where(
-            or(
-                isNull(onus.tenantId),
-                eq(onus.tenantId, '')
-            )
-        );
+        .where(isNull(onus.tenantId));
         
     console.log(`Found ${onusWithoutTenant.length} onus entries missing tenantId.`);
     
