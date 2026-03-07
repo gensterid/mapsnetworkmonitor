@@ -342,29 +342,22 @@ export class PerformanceAnalyticsService {
         if (tenantId) conditions.push(eq(devicePerformanceHistory.tenantId, tenantId));
         if (routerId) conditions.push(eq(devicePerformanceHistory.routerId, routerId));
 
-        const idConditions: any[] = [];
+        const hosts = new Set<string>();
+        if (host) hosts.add(host);
+
         if (onuId) {
-            idConditions.push(eq(devicePerformanceHistory.onuId, onuId));
-            
             // 1. Find hosts linked via explicit linkage field
             const linkedNetwatch = await db.select({ host: routerNetwatch.host })
                 .from(routerNetwatch)
                 .where(eq(routerNetwatch.linkedOnuId, onuId));
             
             for (const nw of linkedNetwatch) {
-                if (nw.host && nw.host !== '0.0.0.0' && nw.host !== host) {
-                    idConditions.push(eq(devicePerformanceHistory.host, nw.host));
-                }
+                if (nw.host && nw.host !== '0.0.0.0') hosts.add(nw.host);
             }
 
             // 2. FALLBACK: Look at the ONU's own host field
             const [onu] = await db.select({ host: onus.host, name: onus.name }).from(onus).where(eq(onus.id, onuId));
-            if (onu?.host && onu.host !== '0.0.0.0' && onu.host !== host) {
-                // Ensure we don't duplicate conditions
-                if (!idConditions.some(c => c.value === onu.host)) {
-                    idConditions.push(eq(devicePerformanceHistory.host, onu.host));
-                }
-            }
+            if (onu?.host && onu.host !== '0.0.0.0') hosts.add(onu.host);
 
             // 3. AGGRESSIVE FALLBACK: Match by name similarity in Netwatch
             if (onu?.name) {
@@ -376,24 +369,22 @@ export class PerformanceAnalyticsService {
                     ));
                 
                 for (const nm of nameMatches) {
-                    if (nm.host && nm.host !== '0.0.0.0' && nm.host !== host) {
-                        if (!idConditions.some(c => c.value === nm.host)) {
-                            idConditions.push(eq(devicePerformanceHistory.host, nm.host));
-                        }
-                    }
+                    if (nm.host && nm.host !== '0.0.0.0') hosts.add(nm.host);
                 }
             }
         }
-        
-        if (host) {
-            idConditions.push(eq(devicePerformanceHistory.host, host));
+
+        // Final ID conditions: either the specific ONU ID or any of these hosts
+        const idConditions: any[] = [];
+        if (onuId) idConditions.push(eq(devicePerformanceHistory.onuId, onuId));
+        for (const h of hosts) {
+            idConditions.push(eq(devicePerformanceHistory.host, h));
         }
 
         if (idConditions.length === 0) {
-            return []; // Need at least host or onuId
+            return [];
         }
 
-        // Use OR condition so we get both latency and signal records
         conditions.push(or(...idConditions));
 
         // Determine grouping interval based on range
