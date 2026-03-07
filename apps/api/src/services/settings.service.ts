@@ -33,27 +33,27 @@ export class SettingsService {
         }
         const dbSettings = await query;
 
-        // If we have a tenantId, merge with global fallbacks for missing keys
-        if (tenantId) {
-            const dbKeys = new Set(dbSettings.map(s => s.key));
-            const merged = [...dbSettings];
+        // Merge with global fallbacks for missing keys
+        const dbKeys = new Set(dbSettings.map((s) => s.key));
+        const merged = [...dbSettings];
 
-            Object.entries(this.GLOBAL_FALLBACKS).forEach(([key, value]) => {
-                if (!dbKeys.has(key) && value !== null) {
-                    merged.push({
-                        id: '00000000-0000-0000-0000-000000000000' as any, // Virtual ID
-                        tenantId: tenantId as any,
-                        key,
-                        value,
-                        description: 'Global Fallback Setting',
-                        updatedAt: new Date()
-                    });
-                }
-            });
-            return merged;
-        }
+        // If no tenantId is provided (superadmin), use a dummy or first available for the virtual objects
+        const effectiveTenantId = tenantId || '00000000-0000-0000-0000-000000000000';
 
-        return dbSettings;
+        Object.entries(this.GLOBAL_FALLBACKS).forEach(([key, value]) => {
+            if (!dbKeys.has(key) && value !== null) {
+                merged.push({
+                    id: '00000000-0000-0000-0000-000000000000' as any, // Virtual ID
+                    tenantId: effectiveTenantId as any,
+                    key,
+                    value,
+                    description: 'Global Fallback Setting',
+                    updatedAt: new Date(),
+                });
+            }
+        });
+
+        return merged;
     }
 
     /**
