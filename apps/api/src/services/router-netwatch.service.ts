@@ -468,6 +468,7 @@ export class RouterNetwatchService {
 
                     // Stability-First Ping: 2 packets, 300ms interval, 5000ms timeout
                     const { latency, packetLoss } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
+                    logger.debug({ host: target.host, routerId, latency, packetLoss }, '[MeasureLatency] Ping result calculated');
 
                     if (latency >= 0) {
                         const updateData: any = {
@@ -498,8 +499,8 @@ export class RouterNetwatchService {
                                 latency: latency,
                                 recordedAt: new Date()
                             });
-                        } catch (histErr) {
-                            // Silent fail for history logging
+                        } catch (histErr: any) {
+                            logger.error({ err: histErr?.message || String(histErr), host: target.host, routerId }, '[MeasureLatency] Failed to insert latency to devicePerformanceHistory');
                         }
 
                         if (latency > 100 || packetLoss > 0) {
@@ -541,8 +542,8 @@ export class RouterNetwatchService {
                             );
                         }
                     }
-                } catch (e) {
-                    // Ignore ping error
+                } catch (e: any) {
+                    logger.warn({ err: e?.message || String(e), host: target.host }, '[MeasureLatency] Full error for target ping');
                 }
             }));
         }
