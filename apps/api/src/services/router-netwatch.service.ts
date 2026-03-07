@@ -281,7 +281,8 @@ export class RouterNetwatchService {
                     const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl) && (router?.webhookSecret && nw.downScript?.includes(router.webhookSecret));
                     const isOurWebhook = isOurUpWebhook || isOurDownWebhook;
 
-                    let finalHasWebhook = detectedWebhook;
+                    // STRICT TOKEN AWARENESS: A router only "has a webhook" if it owns the token
+                    let finalHasWebhook = detectedWebhook && isOurWebhook;
 
                     // Smart Append/Cleanup Webhook scripts if Webhook feature is enabled
                     const deviceType = existing?.deviceType || 'client';
@@ -318,6 +319,30 @@ export class RouterNetwatchService {
                         // explicitly missing from one, or if we need a token takeover.
                         // BUGFIX: Skip "Partially Missing" check if we suspect truncation (to avoid infinite reconfig loops)
                         if (!finalHasWebhook || isPartiallyMissing || forceReconfig) {
+                            if (detectedWebhook && !isOurWebhook) {
+                                // Extract the token currently on the router (if any)
+                                const upMatch = nw.upScript?.match(/token=([a-zA-Z0-9_-]+)/);
+                                const downMatch = nw.downScript?.match(/token=([a-zA-Z0-9_-]+)/);
+                                const existingToken = upMatch?.[1] || downMatch?.[1];
+
+                                // If the webhook exists but isn't ours, and it has a token, check if that token is valid.
+                                // If it's not valid, or belongs to a disabled router, we can take over.
+                                if (existingToken) {
+                                    const [owner] = await db.select({ id: routers.id, useWebhook: routers.useWebhook })
+                                        .from(routers)
+                                        .where(eq(routers.webhookSecret, existingToken));
+
+                                    if (!owner || !owner.useWebhook) {
+                                        forceReconfig = true;
+                                        logger.info({ host: nw.host, existingToken, routerId }, 'Detected foreign/stale webhook token, forcing takeover');
+                                    }
+                                } else {
+                                    // If no token is found, it's likely a manual or old webhook, we can take over.
+                                    forceReconfig = true;
+                                    logger.info({ host: nw.host, routerId }, 'Detected foreign webhook without token, forcing takeover');
+                                }
+                            }
+
                             logger.debug({
                                 host: nw.host,
                                 upLen: nw.upScript?.length,
@@ -328,47 +353,27 @@ export class RouterNetwatchService {
 
                             try {
                                 await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw, forceReconfig);
-                                finalHasWebhook = true; // Update state for DB update below
+                                
+                                // Only mark as true if we actually own it or successfully forced a takeover.
+                                // If forceReconfig is false and it belongs to another active router, we skipped it.
+                                if (!detectedWebhook || isOurWebhook || forceReconfig) {
+                                    finalHasWebhook = true; 
+                                }
                             } catch (err) {
                                 logger.warn({ err: String(err), host: nw.host }, 'Failed to configure webhook');
                             }
                         }
-                    } else if (!shouldInjectWebhook && finalHasWebhook && isOurWebhook) {
-                        // Smart Cleanup: Remove webhook if disabled but still present on router.
-                        // COLLISION PREVENTION: Check if ANY other router with the same host (or physical device) has webhook enabled. 
+                    } else if (!shouldInjectWebhook && isOurWebhook) {
+                        // Smart Cleanup: Remove webhook if disabled but still present on router AND belongs to us.
                         try {
                             const normalizeHost = (h: string) => h.split(':')[0].trim().toLowerCase();
                             const targetHostBase = normalizeHost(router.host);
 
-                            const allWantsWebhook = await db.select()
-                                .from(routers)
-                                .where(and(
-                                    eq(routers.useWebhook, true),
-                                    not(eq(routers.id, routerId))
-                                ));
-
-                            const otherWantsItems = allWantsWebhook.filter(r => {
-                                // 1. Hardware Identity Match (Strongest)
-                                const sMatch = router.serialNumber && r.serialNumber && router.serialNumber.trim() !== '' && r.serialNumber.trim() === router.serialNumber.trim();
-                                const iMatch = router.identity && r.identity && router.identity.trim() !== '' && r.identity.trim() === router.identity.trim();
-                                if (sMatch || iMatch) return true;
-
-                                // Base Host Match (Ignoring Ports)
-                                if (normalizeHost(r.host) === targetHostBase) return true;
-
-                                return false;
-                            });
-
-                            if (otherWantsItems.length === 0) {
-                                logger.info({ host: nw.host, routerId, server: hostname, url: nw.upScript || nw.downScript }, 'Webhook belongs to us and no other routers want it, proceeding with cleanup');
-                                await removeNetwatchWebhook(conn, nw.host, nw);
-                                finalHasWebhook = false;
-                            } else {
-                                const names = otherWantsItems.map(r => r.name).join(', ');
-                                logger.info({ host: nw.host, routerId, othersCount: otherWantsItems.length, conflictingRouters: names }, 'Skipping webhook cleanup: another logical router on this physical box has webhooks enabled');
-                            }
+                            logger.info({ host: nw.host, routerId, server: hostname, url: nw.upScript || nw.downScript }, 'Webhook disabled for this router, proceeding with cleanup');
+                            await removeNetwatchWebhook(conn, nw.host, router.webhookSecret || '', nw);
+                            finalHasWebhook = false;
                         } catch (err) {
-                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook or check collisions');
+                            logger.warn({ err: String(err), host: nw.host }, 'Failed to smart-cleanup webhook');
                         }
                     }
 

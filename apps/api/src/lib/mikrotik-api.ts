@@ -798,6 +798,7 @@ export async function configureNetwatchWebhook(
 export async function removeNetwatchWebhook(
     api: any,
     host: string,
+    secret: string,
     existingEntry?: { _id?: string, upScript?: string, downScript?: string }
 ): Promise<void> {
     let id = '';
@@ -843,11 +844,16 @@ export async function removeNetwatchWebhook(
         downPresent: downRead.fieldPresent, downLen: downRead.value.length
     }, 'Webhook cleanup: field analysis');
 
-    // Surgical cleanup: remove ONLY the webhook command, preserving everything else
+    // Surgical cleanup: remove ONLY the webhook command for OUR specific token, preserving everything else
     const cleanScript = (script: string) => {
-        // Remove the webhook fetch command line(s)
         const lines = script.split(/\r?\n/);
-        const cleaned = lines.filter(line => !line.toLowerCase().includes('/api/webhook/netwatch')).join('\r\n').trim();
+        const cleaned = lines.filter(line => {
+            const isWebhookCmd = line.toLowerCase().includes('/api/webhook/netwatch');
+            const isOurs = secret ? line.includes(secret) : true; 
+            // If we don't have a token to protect, fallback to deleting any webhook line.
+            // Otherwise, only delete the line if it's a webhook AND it contains OUR token.
+            return !(isWebhookCmd && isOurs);
+        }).join('\r\n').trim();
         return cleaned;
     };
 
