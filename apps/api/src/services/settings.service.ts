@@ -33,9 +33,16 @@ export class SettingsService {
         }
         const dbSettings = await query;
 
-        // Merge with global fallbacks for missing keys
-        const dbKeys = new Set(dbSettings.map((s) => s.key));
-        const merged = [...dbSettings];
+        // If environment variable is set, it overrides ANY database value for webhook_base_url
+        const hasEnvOverride = !!process.env.WEBHOOK_BASE_URL;
+        
+        // Filter out database records that are being overridden by environment
+        const filteredDbSettings = hasEnvOverride 
+            ? dbSettings.filter(s => s.key !== 'webhook_base_url')
+            : dbSettings;
+
+        const dbKeys = new Set(filteredDbSettings.map((s) => s.key));
+        const merged = [...filteredDbSettings];
 
         // If no tenantId is provided (superadmin), use a dummy or first available for the virtual objects
         const effectiveTenantId = tenantId || '00000000-0000-0000-0000-000000000000';
@@ -47,7 +54,7 @@ export class SettingsService {
                     tenantId: effectiveTenantId as any,
                     key,
                     value,
-                    description: 'Global Fallback Setting',
+                    description: key === 'webhook_base_url' && hasEnvOverride ? 'System Environment Override' : 'Global Fallback Setting',
                     updatedAt: new Date(),
                 });
             }
@@ -65,6 +72,18 @@ export class SettingsService {
         const cached = this.cache.get(cacheKey);
         if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
             return cached.data;
+        }
+
+        // Explicit Environment Overrides (Priority 1)
+        if (key === 'webhook_base_url' && process.env.WEBHOOK_BASE_URL) {
+            return {
+                id: '00000000-0000-0000-0000-000000000000' as any,
+                tenantId: tenantId as any,
+                key,
+                value: process.env.WEBHOOK_BASE_URL,
+                description: 'System Environment Override',
+                updatedAt: new Date()
+            };
         }
 
         const [setting] = await db
