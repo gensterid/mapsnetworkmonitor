@@ -276,9 +276,9 @@ export class RouterNetwatchService {
                     const detectedWebhook = (hasUpWebhook && hasDownWebhook) || false;
                     const isPartiallyMissing = (hasUpWebhook || hasDownWebhook) && !detectedWebhook;
 
-                    // ORIGIN DETECTION: Check if this webhook belongs to US (this server instance)
-                    const isOurUpWebhook = nw.upScript?.toLowerCase().includes(cleanBaseUrl);
-                    const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl);
+                    // ORIGIN DETECTION: Check if this webhook belongs to US (this server instance) AND this specific router
+                    const isOurUpWebhook = nw.upScript?.toLowerCase().includes(cleanBaseUrl) && (router?.webhookSecret && nw.upScript?.includes(router.webhookSecret));
+                    const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl) && (router?.webhookSecret && nw.downScript?.includes(router.webhookSecret));
                     const isOurWebhook = isOurUpWebhook || isOurDownWebhook;
 
                     const isSuspiciouslyEmpty = (!nw.upScript || nw.upScript === '') && (!nw.downScript || nw.downScript === '');
