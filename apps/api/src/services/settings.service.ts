@@ -20,7 +20,10 @@ export class SettingsService {
     private readonly GLOBAL_FALLBACKS: Record<string, any> = {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || null,
         webhook_base_url: process.env.WEBHOOK_BASE_URL || 'http://localhost:5173',
-        appName: 'NetMonitor'
+        appName: 'NetMonitor',
+        genieacs_url: process.env.GENIEACS_URL || 'http://localhost:7557',
+        genieacs_username: '',
+        genieacs_password_encrypted: ''
     };
 
     /**
@@ -269,7 +272,10 @@ export class SettingsService {
             { key: 'olt_sync_enabled', value: true, description: 'Enable OLT Polling' },
             { key: 'acs_sync_enabled', value: true, description: 'Enable GenieACS Sync' },
             { key: 'webhook_base_url', value: 'http://localhost:5173', description: 'Base URL for Webhooks (e.g. https://domain.com)' },
-            { key: 'googleMapsApiKey', value: this.GLOBAL_FALLBACKS.googleMapsApiKey, description: 'Google Maps API Key' }
+            { key: 'googleMapsApiKey', value: this.GLOBAL_FALLBACKS.googleMapsApiKey, description: 'Google Maps API Key' },
+            { key: 'genieacs_url', value: 'http://localhost:7557', description: 'Global GenieACS URL' },
+            { key: 'genieacs_username', value: '', description: 'Global GenieACS Username' },
+            { key: 'genieacs_password_encrypted', value: '', description: 'Global GenieACS Password (Encrypted)' }
         ];
 
         for (const setting of defaults) {

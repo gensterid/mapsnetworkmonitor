@@ -1003,7 +1003,7 @@ export default function Settings() {
                                                         name="genieacs_url"
                                                         value={formData.genieacs_url}
                                                         onChange={handleChange}
-                                                        placeholder="http://192.168.1.10:7557"
+                                                        placeholder="http://ACS-SERVER-IP:7557"
                                                     />
                                                     <p className="text-[10px] text-slate-500">URL server GenieACS yang akan digunakan jika router tidak memiliki URL spesifik.</p>
                                                 </div>
@@ -1029,7 +1029,9 @@ export default function Settings() {
                                                         />
                                                     </div>
                                                 </div>
-                                                <p className="text-[10px] text-slate-500 italic">Biarkan kosong jika server GenieACS tidak menggunakan autentikasi.</p>
+                                                <p className="text-[10px] text-slate-500 italic">
+                                                    <strong>Catatan:</strong> Teks berwarna abu-abu adalah contoh (placeholder). Anda harus mengetikkan nilai yang sebenarnya dan klik "Save" agar pengaturan tersimpan. Biarkan kosong jika tidak menggunakan autentikasi.
+                                                </p>
                                             </div>
                                         )}
                                     </div>
