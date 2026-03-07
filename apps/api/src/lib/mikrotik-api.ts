@@ -1,5 +1,6 @@
-import nodeRouteros from 'node-routeros';
-const { RouterOSAPI } = nodeRouteros;
+import * as nodeRouterosModule from 'node-routeros';
+const nodeRouteros: any = (nodeRouterosModule as any).default || nodeRouterosModule;
+const RouterOSAPI = nodeRouteros.RouterOSAPI || nodeRouteros;
 import { logger } from './logger.js';
 // Connection Pool to reuse API instances
 const connectionPool = new Map<string, any>();

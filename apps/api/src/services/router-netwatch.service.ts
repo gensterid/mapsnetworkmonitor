@@ -307,6 +307,13 @@ export class RouterNetwatchService {
                                     logger.info({ host: nw.host, staleToken: currentToken, routerId }, 'Stale or unauthorized webhook token detected in MikroTik, forcing takeover');
                                 }
                             }
+
+                            // NEW: If it has a webhook but it's not OURS (wrong domain/baseUrl), force reconfig
+                            // This handles the transition from localhost to domain without needing a token change
+                            if (!isOurWebhook && detectedWebhook) {
+                                forceReconfig = true;
+                                logger.info({ host: nw.host, routerId, baseUrl: cleanBaseUrl }, 'Webhook domain mismatch detected (e.g. localhost vs domain), forcing reconfig');
+                            }
                         }
 
                         // Trigger injection if the webhook is not "Complete" (both UP and DOWN), 
