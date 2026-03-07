@@ -695,8 +695,10 @@ export async function configureNetwatchWebhook(
     // We handle UP and DOWN scripts 100% independently.
     // If we can't read a field, we DON'T write to it.
 
-    const upCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=up" keep-result=no;`;
-    const downCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=down" keep-result=no;`;
+    // Cloudflare Anti-Bot Bypass: Add standard User-Agent so Cloudflare doesn't block the request
+    const userAgent = 'http-header-field="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"';
+    const upCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=up" ${userAgent} keep-result=no;`;
+    const downCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=down" ${userAgent} keep-result=no;`;
 
     // Read each script field. MikroTik may use hyphen or underscore variants.
     const readField = (obj: any, type: string): { value: string, fieldPresent: boolean } => {
