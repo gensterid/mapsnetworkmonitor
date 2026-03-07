@@ -445,7 +445,11 @@ export async function runMigrations() {
             },
             {
                 name: 'device_performance_history.host',
-                sql: sql`ALTER TABLE device_performance_history ADD COLUMN host TEXT`
+                sql: sql`ALTER TABLE device_performance_history ADD COLUMN IF NOT EXISTS host TEXT`
+            },
+            {
+                name: 'device_performance_history.error_message',
+                sql: sql`ALTER TABLE device_performance_history ADD COLUMN IF NOT EXISTS error_message TEXT`
             },
         ];
 
