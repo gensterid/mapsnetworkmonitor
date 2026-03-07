@@ -146,6 +146,17 @@ const runRepair = async () => {
             }
         }
 
+        // 6. Fix: device_performance_history missing error_message
+        console.log('🔍 Checking device_performance_history table...');
+        const checkPerfErr = await db.execute(sql.raw(`
+            SELECT column_name FROM information_schema.columns 
+            WHERE table_name='device_performance_history' AND column_name='error_message';
+        `));
+        if (checkPerfErr.length === 0) {
+            console.log('⚠️ Column error_message missing in device_performance_history. Adding it...');
+            await db.execute(sql`ALTER TABLE device_performance_history ADD COLUMN error_message text;`);
+        }
+
         console.log('🎉 Database repair completed successfully!');
         process.exit(0);
     } catch (err) {
