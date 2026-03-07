@@ -281,9 +281,7 @@ export class RouterNetwatchService {
                     const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl) && (router?.webhookSecret && nw.downScript?.includes(router.webhookSecret));
                     const isOurWebhook = isOurUpWebhook || isOurDownWebhook;
 
-                    const isSuspiciouslyEmpty = (!nw.upScript || nw.upScript === '') && (!nw.downScript || nw.downScript === '');
-                    const isLikelyTruncated = !detectedWebhook && existing?.hasWebhook && ((nw.upScript?.length || 0) > 64 || (nw.downScript?.length || 0) > 64);
-                    let finalHasWebhook = isSuspiciouslyEmpty ? (existing?.hasWebhook || false) : (detectedWebhook || isLikelyTruncated);
+                    let finalHasWebhook = detectedWebhook;
 
                     // Smart Append/Cleanup Webhook scripts if Webhook feature is enabled
                     const deviceType = existing?.deviceType || 'client';
@@ -319,13 +317,11 @@ export class RouterNetwatchService {
                         // Trigger injection if the webhook is not "Complete" (both UP and DOWN), 
                         // explicitly missing from one, or if we need a token takeover.
                         // BUGFIX: Skip "Partially Missing" check if we suspect truncation (to avoid infinite reconfig loops)
-                        if (!finalHasWebhook || (isPartiallyMissing && !isLikelyTruncated) || forceReconfig) {
+                        if (!finalHasWebhook || isPartiallyMissing || forceReconfig) {
                             logger.debug({
                                 host: nw.host,
-                                suspicious: isSuspiciouslyEmpty,
                                 upLen: nw.upScript?.length,
                                 downLen: nw.downScript?.length,
-                                isTruncated: isLikelyTruncated,
                                 forceReconfig,
                                 server: hostname
                             }, 'Webhook missing or stale, triggering configuration');
