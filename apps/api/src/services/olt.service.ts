@@ -557,6 +557,7 @@ export class OltService {
                 onuIndex: device.onuId,
                 name: defaultName,
                 description: device.description,
+                host: device.host, // Include host IP if provided by driver
                 status: status,
                 tenantId: tenantId,
                 lastRxPower: rxPower,
@@ -582,6 +583,7 @@ export class OltService {
                             ponPort: sql`excluded.pon_port`,
                             onuIndex: sql`excluded.onu_index`,
                             description: sql`COALESCE(onus.description, excluded.description)`,
+                            host: sql`COALESCE(onus.host, excluded.host)`, // Save host if not already set
                             lastRxPower: sql`excluded.last_rx_power`,
                             status: sql`excluded.status`,
                             // Keep existing name if present, otherwise use OLT discovered name

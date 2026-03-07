@@ -343,8 +343,24 @@ export class PerformanceAnalyticsService {
         if (routerId) conditions.push(eq(devicePerformanceHistory.routerId, routerId));
 
         const idConditions: any[] = [];
-        if (host) idConditions.push(eq(devicePerformanceHistory.host, host));
-        if (onuId) idConditions.push(eq(devicePerformanceHistory.onuId, onuId));
+        if (onuId) {
+            idConditions.push(eq(devicePerformanceHistory.onuId, onuId));
+            
+            // Also find ANY hosts linked to this ONU in Netwatch
+            const linkedNetwatch = await db.select({ host: routerNetwatch.host })
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.linkedOnuId, onuId));
+            
+            for (const nw of linkedNetwatch) {
+                if (nw.host && nw.host !== '0.0.0.0' && nw.host !== host) {
+                    idConditions.push(eq(devicePerformanceHistory.host, nw.host));
+                }
+            }
+        }
+        
+        if (host) {
+            idConditions.push(eq(devicePerformanceHistory.host, host));
+        }
 
         if (idConditions.length === 0) {
             return []; // Need at least host or onuId

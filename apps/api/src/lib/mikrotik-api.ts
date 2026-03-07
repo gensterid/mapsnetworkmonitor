@@ -978,6 +978,7 @@ export async function measurePing(
         ]) as any[];
 
         if (result && Array.isArray(result) && result.length > 0) {
+            logger.debug({ address, resultCount: result.length, firstResult: result[0] }, '[Ping Debug] Raw ping result received');
             let totalLatency = 0;
             let receivedCount = 0;
             let sentCount = count;

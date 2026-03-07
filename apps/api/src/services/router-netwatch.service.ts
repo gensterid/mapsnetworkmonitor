@@ -651,6 +651,7 @@ export class RouterNetwatchService {
         try {
             const netwatchEntries = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
             if (netwatchEntries.length === 0) return;
+
             // 1. Map ONUs by Host (High Confidence)
             const hostToOnu = new Map(activeOnus.filter(o => o.host).map(o => [(o.host || '').trim(), o]));
             
@@ -662,13 +663,16 @@ export class RouterNetwatchService {
 
             for (const entry of netwatchEntries) {
                 const host = (entry.host || '').trim();
+                const entryNameNormalized = (entry.name || '').toLowerCase().trim();
                 if (!host || host === '0.0.0.0') continue;
 
-                const targetOnu = hostToOnu.get(host) || nameToOnu.get((entry.name || '').toLowerCase().trim());
+                const targetOnu = hostToOnu.get(host) || nameToOnu.get(entryNameNormalized);
+                
                 if (targetOnu) {
                     const status = entry.status === 'up' ? 'online' : (entry.status === 'down' ? 'offline' : targetOnu.status);
                     
-                    const updateData: any = {
+                    // Update ONU table
+                    const onuUpdateData: any = {
                         status,
                         lastSeen: status === 'online' ? new Date() : targetOnu.lastSeen,
                         updatedAt: new Date(),
@@ -676,18 +680,30 @@ export class RouterNetwatchService {
 
                     // AUTO-POPULATE HOST: If the ONU was matched by name but had no host, set it now
                     if (!targetOnu.host && host) {
-                        updateData.host = host;
+                        onuUpdateData.host = host;
                         logger.info({ onu: targetOnu.name, sn: targetOnu.sn, host }, '[Linkage] Auto-populated host from Netwatch match');
                     }
 
                     const sources = (targetOnu.discoverySources as string[]) || [];
                     if (!sources.includes('netwatch')) sources.push('netwatch');
-                    updateData.discoverySources = sources;
+                    onuUpdateData.discoverySources = sources;
 
-                    await db.update(onus).set(updateData).where(eq(onus.id, targetOnu.id));
+                    await db.update(onus).set(onuUpdateData).where(eq(onus.id, targetOnu.id));
+
+                    // PERSIST LINKAGE: Update Netwatch entry to point to this ONU
+                    if (entry.linkedOnuId !== targetOnu.id) {
+                        await db.update(routerNetwatch)
+                            .set({ linkedOnuId: targetOnu.id })
+                            .where(eq(routerNetwatch.id, entry.id));
+                        logger.debug({ host, onuId: targetOnu.id }, '[Linkage] Persisted linkedOnuId in Netwatch entry');
+                    }
+
                     linkedCount++;
                 } else {
                     missedCount++;
+                    
+                    // If previously linked but now no match, clear the link?
+                    // For now, let's keep it to avoid "flickering" links if one fetch fails.
                 }
             }
 
