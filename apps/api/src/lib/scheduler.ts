@@ -2,7 +2,7 @@
 import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, startQueueWorker, stopQueueWorker } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
-import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs } from '../db/schema/index.js';
+import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
 import { count, eq, lt, and } from 'drizzle-orm';
 import { logger } from './logger.js';
 import { cacheService } from './cache.js';
@@ -345,6 +345,11 @@ async function cleanupOldMetrics(): Promise<void> {
                 .where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, mCutoff)))
                 .returning();
 
+            // 1b. Device Latency history
+            const pResult = await db.delete(devicePerformanceHistory)
+                .where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, mCutoff)))
+                .returning();
+
             // 2. Interface traffic metrics
             const ifMetricsRetention = await settingsService.getSettingValue('interface_metrics_retention_days', tenant.id, 30);
             const ifCutoff = new Date();
@@ -376,10 +381,11 @@ async function cleanupOldMetrics(): Promise<void> {
                 .where(and(eq(auditLogs.tenantId, tenant.id), lt(auditLogs.createdAt, auCutoff)))
                 .returning();
 
-            if (mResult.length > 0 || ifResult.length > 0 || aResult.length > 0 || auResult.length > 0) {
+            if (mResult.length > 0 || pResult.length > 0 || ifResult.length > 0 || aResult.length > 0 || auResult.length > 0) {
                 logger.info({ 
                     tenantId: tenant.id, 
                     metrics: mResult.length, 
+                    perfHistory: pResult.length,
                     ifMetrics: ifResult.length,
                     alerts: aResult.length,
                     auditLogs: auResult.length
