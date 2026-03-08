@@ -61,28 +61,40 @@ export class RouterBackupService {
                 await safeWrite(conn, ['/export', `=file=${remoteFilename}`], 60000);
             }
 
-            // Small delay for file to be ready (some ROS versions return before file is fully flushed)
-            await new Promise(resolve => setTimeout(resolve, 3000));
+            // Delay for file to be ready (critical on slow flash storage)
+            await new Promise(resolve => setTimeout(resolve, 10000));
 
             logger.info({ routerId, remoteFilename }, 'Initiating HTTP Push upload from MikroTik...');
 
-            // 2. Instruct MikroTik to push the file to our server via HTTP
+            // 2. Instruct MikroTik to push the file to our server via script (more stable for long tasks)
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
             const uploadUrl = `${baseUrl}/api/router-backups/upload?routerId=${encodeURIComponent(router.id)}&token=${encodeURIComponent(token)}&filename=${encodeURIComponent(remoteFilename)}&type=${encodeURIComponent(type)}`;
-            
-            // Determine mode from URL
             const isHttps = uploadUrl.startsWith('https://');
+            
+            const scriptName = `upload-${shortId}`;
+            const fetchCommand = `/tool fetch url="${uploadUrl}" http-method=post src-path="${remoteFilename}" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:MikroTik/7.x,Accept:*/*"`;
+            
+            logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
+            
+            // Clean up any old script with same name first
+            try { await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 5000); } catch (e) {}
 
             await safeWrite(conn, [
-                '/tool/fetch',
-                `=url=${uploadUrl}`,
-                '=http-method=post',
-                `=src-path=${remoteFilename}`,
-                '=keep-result=no',
-                '=check-certificate=no',
-                `=mode=${isHttps ? 'https' : 'http'}`,
-                '=http-header-field=User-Agent:MikroTik/7.x,Accept:*/*'
-            ], 120000); // 120s timeout for the command execution
+                '/system/script/add',
+                `=name=${scriptName}`,
+                `=source=${fetchCommand}`
+            ], 10000);
+
+            logger.info({ routerId, scriptName }, 'Executing upload script...');
+            
+            // Running the script (we don't wait for completion here as network tasks can be slow)
+            await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 60000);
+
+            // Give it some time to start the transfer before we delete the script
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000);
+
+            logger.info({ routerId }, 'Backup upload command sent successfully');
 
             // Note: The actual backup record creation will happen in the upload endpoint
             // when the file is successfully received.
