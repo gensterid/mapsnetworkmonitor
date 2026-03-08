@@ -275,7 +275,11 @@ export class SettingsService {
             { key: 'googleMapsApiKey', value: this.GLOBAL_FALLBACKS.googleMapsApiKey, description: 'Google Maps API Key' },
             { key: 'genieacs_url', value: 'http://localhost:7557', description: 'Global GenieACS URL' },
             { key: 'genieacs_username', value: '', description: 'Global GenieACS Username' },
-            { key: 'genieacs_password_encrypted', value: '', description: 'Global GenieACS Password (Encrypted)' }
+            { key: 'genieacs_password_encrypted', value: '', description: 'Global GenieACS Password (Encrypted)' },
+            { key: 'metrics_retention_days', value: 30, description: 'Retention period for device metrics (days)' },
+            { key: 'interface_metrics_retention_days', value: 30, description: 'Retention period for interface traffic metrics (days)' },
+            { key: 'alerts_retention_days', value: 60, description: 'Retention period for resolved alerts (days)' },
+            { key: 'audit_logs_retention_days', value: 365, description: 'Retention period for system audit logs (days)' }
         ];
 
         for (const setting of defaults) {
