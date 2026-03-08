@@ -5,7 +5,7 @@ import { db } from '../db/index.js';
 import { routers, routerBackups } from '../db/schema/index.js';
 import { decrypt } from '../lib/encryption.js';
 import { logger } from '../lib/logger.js';
-import { connectToRouter } from '../lib/mikrotik-api.js';
+import { connectToRouter, safeWrite } from '../lib/mikrotik-api.js';
 
 export class RouterBackupService {
     private backupDir: string;
@@ -61,14 +61,19 @@ export class RouterBackupService {
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
             const uploadUrl = `${baseUrl}/api/router-backups/upload?routerId=${router.id}&token=${token}&filename=${remoteFilename}&type=${type}`;
             
-            await conn.write([
+            // Determine mode from URL
+            const isHttps = uploadUrl.startsWith('https://');
+
+            await safeWrite(conn, [
                 '/tool/fetch',
                 `=url=${uploadUrl}`,
                 '=http-method=post',
                 `=src-path=${remoteFilename}`,
                 '=keep-result=no',
-                '=check-certificate=no'
-            ]);
+                '=check-certificate=no',
+                `=mode=${isHttps ? 'https' : 'http'}`,
+                '=timeout=60'
+            ], 120000); // 120s timeout for the command execution
 
             // Note: The actual backup record creation will happen in the upload endpoint
             // when the file is successfully received.
