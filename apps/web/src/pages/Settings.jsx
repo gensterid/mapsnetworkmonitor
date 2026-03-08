@@ -73,9 +73,13 @@ export default function Settings() {
         genieacs_username: '',
         genieacs_password: '',
         webhook_base_url: 'http://localhost:5173',
-        // AI Settings
         aiEnabled: false,
         aiApiKey: '',
+        // Retention Settings
+        metrics_retention_days: '360',
+        interface_metrics_retention_days: '360',
+        alerts_retention_days: '60',
+        audit_logs_retention_days: '365',
     });
     const [saveStatus, setSaveStatus] = useState('');
     const [pingTargets, setPingTargets] = useState([
@@ -157,6 +161,14 @@ export default function Settings() {
             if (settings.pingTargets && Array.isArray(settings.pingTargets)) {
                 setPingTargets(settings.pingTargets);
             }
+            // Load Retention Settings
+            setFormData(prev => ({
+                ...prev,
+                metrics_retention_days: String(settings.metrics_retention_days || 360),
+                interface_metrics_retention_days: String(settings.interface_metrics_retention_days || 360),
+                alerts_retention_days: String(settings.alerts_retention_days || 60),
+                audit_logs_retention_days: String(settings.audit_logs_retention_days || 365),
+            }));
             // Load map colors
             if (settings.mapColors) {
                 setFormData(prev => ({
@@ -233,6 +245,12 @@ export default function Settings() {
                 await updateSettingMutation.mutateAsync({ key: 'acs_polling_interval', value: parseInt(formData.acs_polling_interval) });
                 await updateSettingMutation.mutateAsync({ key: 'olt_sync_enabled', value: formData.olt_sync_enabled });
                 await updateSettingMutation.mutateAsync({ key: 'acs_sync_enabled', value: formData.acs_sync_enabled });
+
+                // Save Retention Settings
+                await updateSettingMutation.mutateAsync({ key: 'metrics_retention_days', value: parseInt(formData.metrics_retention_days, 10) });
+                await updateSettingMutation.mutateAsync({ key: 'interface_metrics_retention_days', value: parseInt(formData.interface_metrics_retention_days, 10) });
+                await updateSettingMutation.mutateAsync({ key: 'alerts_retention_days', value: parseInt(formData.alerts_retention_days, 10) });
+                await updateSettingMutation.mutateAsync({ key: 'audit_logs_retention_days', value: parseInt(formData.audit_logs_retention_days, 10) });
             }
 
             // Update User Profile (Self)
@@ -699,6 +717,98 @@ export default function Settings() {
 
                 {activeTab === 'maintenance' && (
                     <div className="max-w-4xl space-y-6">
+                        {/* Data Retention Policy (Admin Only) */}
+                        {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                            <Card className="border-primary/20 shadow-lg shadow-primary/5">
+                                <CardHeader>
+                                    <CardTitle className="flex items-center gap-2">
+                                        <History className="w-5 h-5 text-primary" />
+                                        Data Retention Policy
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-300">Device Metrics (CPU/RAM/Temp)</label>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    name="metrics_retention_days"
+                                                    value={formData.metrics_retention_days}
+                                                    onChange={handleChange}
+                                                    min={1}
+                                                    className="bg-slate-900/50"
+                                                />
+                                                <span className="text-xs text-slate-500 w-12">Days</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-300">Traffic History (Links)</label>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    name="interface_metrics_retention_days"
+                                                    value={formData.interface_metrics_retention_days}
+                                                    onChange={handleChange}
+                                                    min={1}
+                                                    className="bg-slate-900/50"
+                                                />
+                                                <span className="text-xs text-slate-500 w-12">Days</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-300">Resolved Alerts</label>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    name="alerts_retention_days"
+                                                    value={formData.alerts_retention_days}
+                                                    onChange={handleChange}
+                                                    min={1}
+                                                    className="bg-slate-900/50"
+                                                />
+                                                <span className="text-xs text-slate-500 w-12">Days</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-slate-300">System Audit Logs</label>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    type="number"
+                                                    name="audit_logs_retention_days"
+                                                    value={formData.audit_logs_retention_days}
+                                                    onChange={handleChange}
+                                                    min={1}
+                                                    className="bg-slate-900/50"
+                                                />
+                                                <span className="text-xs text-slate-500 w-12">Days</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-start gap-3">
+                                        <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                                        <div className="text-xs text-slate-400">
+                                            <p className="font-bold text-amber-500/80 mb-1">Catatan Skalabilitas</p>
+                                            Menyimpan data trafik untuk 500+ perangkat selama 360 hari akan menghasilkan ratusan juta baris data.
+                                            Pastikan kapasitas disk server mencukupi. Pembersihan otomatis berjalan setiap hari pukul 00:00.
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end pt-2">
+                                        <Button
+                                            onClick={handleSubmit}
+                                            loading={updateSettingMutation.isPending}
+                                            className="shadow-lg shadow-primary/20"
+                                        >
+                                            <Save className="w-4 h-4 mr-2" />
+                                            Update Policy
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+
                         <Card>
                             <CardHeader>
                                 <CardTitle className="flex items-center gap-2">
