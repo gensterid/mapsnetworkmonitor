@@ -61,7 +61,7 @@ export class RouterBackupService {
 
             // 2. Instruct MikroTik to push the file to our server via HTTP
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
-            const uploadUrl = `${baseUrl}/api/router-backups/upload?routerId=${router.id}&token=${token}&filename=${remoteFilename}&type=${type}`;
+            const uploadUrl = `${baseUrl}/api/router-backups/upload?routerId=${encodeURIComponent(router.id)}&token=${encodeURIComponent(token)}&filename=${encodeURIComponent(remoteFilename)}&type=${encodeURIComponent(type)}`;
             
             // Determine mode from URL
             const isHttps = uploadUrl.startsWith('https://');
@@ -69,12 +69,11 @@ export class RouterBackupService {
             await safeWrite(conn, [
                 '/tool/fetch',
                 `=url=${uploadUrl}`,
-                '=http-method=post',
+                '=http-method=post', // Keep http-method but remove timeout
                 `=src-path=${remoteFilename}`,
                 '=keep-result=no',
                 '=check-certificate=no',
-                `=mode=${isHttps ? 'https' : 'http'}`,
-                '=timeout=60'
+                `=mode=${isHttps ? 'https' : 'http'}`
             ], 120000); // 120s timeout for the command execution
 
             // Note: The actual backup record creation will happen in the upload endpoint
