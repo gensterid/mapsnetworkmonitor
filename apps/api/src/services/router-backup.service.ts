@@ -7,6 +7,8 @@ import { decrypt } from '../lib/encryption.js';
 import { logger } from '../lib/logger.js';
 import { connectToRouter, safeWrite } from '../lib/mikrotik-api.js';
 
+// Router Backup Service handles creating and managing MikroTik backups using HTTP Push method
+
 export class RouterBackupService {
     private backupDir: string;
 
