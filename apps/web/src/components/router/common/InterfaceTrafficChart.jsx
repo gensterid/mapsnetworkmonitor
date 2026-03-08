@@ -9,13 +9,16 @@ import {
     CartesianGrid,
     Tooltip
 } from 'recharts';
-import { formatBits } from '../router-utils';
+import { formatBits, formatTimeOnly } from '../router-utils';
+import { routerService } from '@/lib/api';
 
 function InterfaceTrafficChart({ routerId, interfaces }) {
     const [selectedInterface, setSelectedInterface] = useState('');
     const [history, setHistory] = useState([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
     const containerRef = useRef(null);
     const [chartAttributes, setChartAttributes] = useState({ width: 0, height: 250 });
+    const lastHistoryTimestamp = useRef(null);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -43,41 +46,82 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
 
     useEffect(() => {
         if (interfaces?.length > 0) {
-            if (!selectedInterface || !interfaces.find(i => i.name === selectedInterface)) {
+            const current = interfaces.find(i => i.name === selectedInterface);
+            if (!selectedInterface || !current) {
                 setSelectedInterface(interfaces[0].name);
             }
         }
     }, [interfaces, selectedInterface]);
 
+    // Fetch history when selected interface changes
     useEffect(() => {
-        if (!currentInterface) return;
+        const fetchHistory = async () => {
+            if (!routerId || !currentInterface?.id) return;
+            
+            setIsLoadingHistory(true);
+            try {
+                const rawData = await routerService.getInterfaceHistory(routerId, currentInterface.id, 30);
+                const formattedHistory = (rawData || [])
+                    .map(item => ({
+                        time: formatTimeOnly(item.recordedAt),
+                        timestamp: new Date(item.recordedAt).getTime(),
+                        tx: item.txRate || 0,
+                        rx: item.rxRate || 0,
+                    }))
+                    .sort((a, b) => a.timestamp - b.timestamp);
+
+                if (formattedHistory.length > 0) {
+                    lastHistoryTimestamp.current = formattedHistory[formattedHistory.length - 1].timestamp;
+                }
+                
+                setHistory(formattedHistory);
+            } catch (error) {
+                console.error('Failed to fetch interface traffic history:', error);
+                setHistory([]);
+            } finally {
+                setIsLoadingHistory(false);
+            }
+        };
+
+        if (currentInterface?.id) {
+            fetchHistory();
+        } else {
+            setHistory([]);
+        }
+    }, [routerId, currentInterface?.id]);
+
+    // Append live updates
+    useEffect(() => {
+        if (!currentInterface || isLoadingHistory) return;
 
         const now = new Date();
-        const timeLabel = now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const currentTs = now.getTime();
+        
+        // Prevent adding a live point if it's too close to the last history point (within 5 seconds)
+        if (lastHistoryTimestamp.current && (currentTs - lastHistoryTimestamp.current < 5000)) {
+            return;
+        }
+
+        const timeLabel = formatTimeOnly(now);
 
         setHistory(prev => {
             const newPoint = {
                 time: timeLabel,
+                timestamp: currentTs,
                 tx: currentInterface.txRate || 0,
                 rx: currentInterface.rxRate || 0,
             };
 
-            if (prev.length === 0) {
-                return [
-                    { ...newPoint, time: '' },
-                    newPoint
-                ];
+            // Avoid duplicate points by timestamp
+            if (prev.length > 0 && prev[prev.length - 1].time === timeLabel) {
+                 return prev;
             }
 
             const newHistory = [...prev, newPoint];
-            if (newHistory.length > 20) return newHistory.slice(newHistory.length - 20);
+            if (newHistory.length > 40) return newHistory.slice(newHistory.length - 40);
             return newHistory;
         });
-    }, [currentInterface]);
-
-    useEffect(() => {
-        setHistory([]);
-    }, [selectedInterface]);
+    }, [currentInterface, isLoadingHistory]);
 
     return (
         <Card className="glass-panel col-span-1 lg:col-span-2">
@@ -121,6 +165,7 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                                 fontSize={10}
                                 tickLine={false}
                                 axisLine={false}
+                                minTickGap={30}
                             />
                             <YAxis
                                 stroke="#475569"
@@ -135,7 +180,7 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                                 contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', color: '#f1f5f9' }}
                                 itemStyle={{ fontSize: '12px' }}
                                 labelStyle={{ color: '#94a3b8', marginBottom: '5px' }}
-                                formatter={(value) => [formatBits(value), value === history[history.length - 1]?.tx ? 'TX (Upload)' : 'RX (Download)']}
+                                formatter={(value) => [formatBits(value)]}
                             />
                             <Area
                                 type="monotone"
@@ -144,7 +189,7 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                                 strokeWidth={2}
                                 fillOpacity={1}
                                 fill="url(#colorTx)"
-                                name="TX"
+                                name="TX (Upload)"
                                 isAnimationActive={false}
                             />
                             <Area
@@ -154,13 +199,13 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
                                 strokeWidth={2}
                                 fillOpacity={1}
                                 fill="url(#colorRx)"
-                                name="RX"
+                                name="RX (Download)"
                                 isAnimationActive={false}
                             />
                         </AreaChart>
                     ) : (
                         <div className="flex h-full items-center justify-center text-slate-500 text-sm">
-                            {history.length === 0 ? "Waiting for traffic data..." : "Initializing chart..."}
+                            {isLoadingHistory ? "Loading history..." : "Waiting for traffic data..."}
                         </div>
                     )}
                 </div>

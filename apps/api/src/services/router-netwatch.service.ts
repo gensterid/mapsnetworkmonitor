@@ -786,12 +786,24 @@ export class RouterNetwatchService {
             };
 
             api = await connectToRouter(connection);
+            
+            // 1. Sync host list and configurations (FAST)
             await this.syncHosts(routerId, router.name, api);
 
-            const entries = await this.getNetwatch(routerId);
-            await this.measureLatency(routerId, router.name, api, entries);
+            // 2. Initial linkage update based on current host list
+            await this.syncToOnus(routerId);
 
-            syncedCount = entries.length;
+            // 3. Get count for response
+            const entries = await db.select({ count: sql<number>`count(*)` })
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.routerId, routerId));
+            syncedCount = Number(entries[0]?.count || 0);
+
+            // 4. Trigger heavy pings in background to avoid 524 Cloudflare timeouts
+            this.triggerBackgroundPings(routerId, router.name).catch(err => {
+                logger.error({ err: err?.message || String(err), routerId }, 'Failed to start background pings');
+            });
+
         } catch (error: any) {
             const errorMessage = error?.message || String(error);
             logger.error({ err: error, router: router.name }, '[RouterNetwatchService] Sync failed');
@@ -800,8 +812,46 @@ export class RouterNetwatchService {
             if (api) api.release();
         }
 
-        await this.syncToOnus(routerId);
         return { synced: syncedCount, errors };
+    }
+
+    /**
+     * Trigger heavy netwatch pings in the background.
+     * This avoids blocking the API request and hitting Cloudflare gateway timeouts.
+     */
+    private async triggerBackgroundPings(routerId: string, routerName: string): Promise<void> {
+        // Delay slightly to allow the main request connection to be released and DB to settle
+        setTimeout(async () => {
+            let api: any;
+            try {
+                const router = await this.findRouterWithPassword(routerId);
+                if (!router) return;
+
+                const connection: RouterConnection = {
+                    host: router.host,
+                    port: router.port,
+                    username: router.username,
+                    password: router.password,
+                };
+
+                logger.info({ routerId, routerName }, '[RouterNetwatchService] Starting background latency measurement');
+                
+                api = await connectToRouter(connection);
+                const entries = await this.getNetwatch(routerId);
+                
+                // Measure latency for all active entries
+                await this.measureLatency(routerId, routerName, api, entries);
+                
+                // Final consistency sync for ONUs after pings complete
+                await this.syncToOnus(routerId);
+                
+                logger.info({ routerId, routerName }, '[RouterNetwatchService] Background latency measurement complete');
+            } catch (err: any) {
+                logger.error({ err: err?.message || String(err), routerId }, '[RouterNetwatchService] Background pinging failed');
+            } finally {
+                if (api) api.release();
+            }
+        }, 1000);
     }
 
     /**

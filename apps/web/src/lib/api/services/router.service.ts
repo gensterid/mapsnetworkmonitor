@@ -78,6 +78,12 @@ export const routerService = {
     getInterfaces: (routerId: string) => get<RouterInterface[]>(`/routers/${routerId}/interfaces`),
 
     /**
+     * Get interface traffic history
+     */
+    getInterfaceHistory: (routerId: string, interfaceId: string, limit = 50) =>
+        get<any[]>(`/routers/${routerId}/interfaces/${interfaceId}/history?limit=${limit}`),
+
+    /**
      * Get latest router metrics
      */
     getMetrics: (routerId: string) => get<RouterMetric>(`/routers/${routerId}/metrics`),

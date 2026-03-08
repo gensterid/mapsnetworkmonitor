@@ -1,7 +1,9 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routerInterfaces,
+    routerInterfaceMetrics,
+    routers,
     type RouterInterface,
 } from '../db/schema/index.js';
 
@@ -67,6 +69,27 @@ export class RouterInterfaceService {
                         rxRate
                     })
                     .where(eq(routerInterfaces.id, existingInterface.id));
+
+                // Store history with rate-limiting (min 5s between points)
+                const [lastMetric] = await db
+                    .select({ recordedAt: routerInterfaceMetrics.recordedAt })
+                    .from(routerInterfaceMetrics)
+                    .where(eq(routerInterfaceMetrics.interfaceId, existingInterface.id))
+                    .orderBy(desc(routerInterfaceMetrics.recordedAt))
+                    .limit(1);
+
+                if (!lastMetric || (new Date().getTime() - lastMetric.recordedAt.getTime() > 5000)) {
+                    // Fetch tenantId from router
+                    const [router] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId)).limit(1);
+
+                    await db.insert(routerInterfaceMetrics).values({
+                        interfaceId: existingInterface.id,
+                        txRate,
+                        rxRate,
+                        tenantId: router?.tenantId,
+                        recordedAt: new Date(),
+                    });
+                }
             } else {
                 // Create new interface record
                 await db.insert(routerInterfaces).values({
@@ -78,6 +101,23 @@ export class RouterInterfaceService {
                 });
             }
         }
+    }
+
+    /**
+     * Get historical traffic metrics for an interface
+     */
+    async getInterfaceHistory(interfaceId: string, limit = 50, tenantId?: string): Promise<any[]> {
+        const conditions: any[] = [eq(routerInterfaceMetrics.interfaceId, interfaceId)];
+        if (tenantId) {
+            conditions.push(eq(routerInterfaceMetrics.tenantId, tenantId));
+        }
+
+        return db
+            .select()
+            .from(routerInterfaceMetrics)
+            .where(and(...conditions))
+            .orderBy(desc(routerInterfaceMetrics.recordedAt))
+            .limit(limit);
     }
 }
 

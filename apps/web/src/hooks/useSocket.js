@@ -12,7 +12,14 @@ export const getSocket = () => {
         // In production (same origin), it works automatically.
         // For this setup: 
         const envUrl = import.meta.env.VITE_API_URL || '';
-        const url = envUrl.startsWith('http') ? envUrl : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
+        const envWsUrl = import.meta.env.VITE_WS_URL;
+        
+        let url;
+        if (envWsUrl && envWsUrl !== '/') {
+            url = envWsUrl;
+        } else {
+            url = envUrl.startsWith('http') ? envUrl : (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
+        }
 
         socket = io(url, {
             path: '/socket.io',

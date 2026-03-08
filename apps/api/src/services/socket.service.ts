@@ -1,10 +1,11 @@
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { db } from '../db/index.js';
-import { routerInterfaces, routers } from '../db/schema/index.js';
+import { routerInterfaces, routers, olts } from '../db/schema/index.js';
 import { eq } from 'drizzle-orm';
 import { decrypt } from '../lib/encryption.js';
 import { logger } from '../lib/logger.js';
+import { oltService } from './olt.service.js';
 import {
     connectToRouter,
     getInterfaceTraffic,
@@ -25,6 +26,7 @@ interface RouterPollState {
     config: RouterConnection | null;
     interfaceNames: string[];
     lastInterfaceSync: number;
+    deviceType: 'router' | 'olt';
 }
 
 export class SocketService {
@@ -86,7 +88,8 @@ export class SocketService {
                 api: null,
                 config: null,
                 interfaceNames: [],
-                lastInterfaceSync: 0
+                lastInterfaceSync: 0,
+                deviceType: 'router' // Default, will be updated in startPolling
             };
             this.pollStates.set(routerId, state);
         }
@@ -134,7 +137,7 @@ export class SocketService {
     }
 
     private async startPolling(routerId: string) {
-        logger.info({ routerId }, '🚀 Starting REST API polling');
+        logger.info({ routerId }, '🚀 Starting polling');
         const state = this.pollStates.get(routerId);
         if (!state) {
             logger.error({ routerId }, 'No poll state found');
@@ -142,34 +145,83 @@ export class SocketService {
         }
 
         try {
-            // Fetch Router Config
+            // 1. Try to find as Router
             const router = await db.query.routers.findFirst({
                 where: eq(routers.id, routerId)
             });
 
-            if (!router) {
-                logger.error({ routerId }, 'Router not found in DB');
-                return;
+            if (router) {
+                state.deviceType = 'router';
+                const password = decrypt(router.passwordEncrypted);
+
+                state.config = {
+                    host: router.host,
+                    username: router.username,
+                    password: password,
+                    port: router.port || 8728,
+                    timeout: 10
+                };
+                logger.debug({ host: router.host, device: 'router' }, '📋 Loaded Router API config');
+            } else {
+                // 2. Try to find as OLT
+                const olt = await db.query.olts.findFirst({
+                    where: eq(olts.id, routerId)
+                });
+
+                if (olt) {
+                    state.deviceType = 'olt';
+                    // OLTs don't use the same config object for pollRouter yet, 
+                    // but we mark the state
+                    logger.debug({ host: olt.host, device: 'olt' }, '📋 Loaded OLT config');
+                } else {
+                    logger.error({ routerId }, 'Device not found in DB (Router or OLT)');
+                    return;
+                }
             }
 
-            // Decrypt password
-            const password = decrypt(router.passwordEncrypted);
-
-            state.config = {
-                host: router.host,
-                username: router.username,
-                password: password,
-                port: router.port || 8728,
-                timeout: 10
-            };
-
-            logger.debug({ host: router.host, port: state.config.port }, '📋 Loaded API config');
-
             // Start simple interval
-            state.intervalId = setInterval(() => this.pollRouter(routerId), 1000); // 1s interval for smoothness
+            state.intervalId = setInterval(() => this.pollDevice(routerId), 1000); // 1s interval for smoothness
 
-        } catch (err) {
+        } catch (err: any) {
             logger.error({ err, routerId }, 'Failed to start polling');
+        }
+    }
+ 
+    private async pollDevice(routerId: string) {
+        const state = this.pollStates.get(routerId);
+        if (!state) return;
+ 
+        if (state.deviceType === 'router') {
+            await this.pollRouter(routerId);
+        } else if (state.deviceType === 'olt') {
+            await this.pollOlt(routerId);
+        }
+    }
+ 
+    private async pollOlt(routerId: string) {
+        const state = this.pollStates.get(routerId);
+        if (!state) return;
+ 
+        try {
+            // OLT polling is usually slower than 1s, but we can call it.
+            // oltService.getOnus already fetches live data from the device if useWeb is true.
+            // For general OLT interface traffic, we might need a dedicated method.
+            // However, most OLT links in the topology are OLT -> Router or OLT -> Client.
+            
+            // For now, let's try to get aggregate traffic or just ONUs.
+            // If the user wants interface-level traffic for the OLT (e.g. Uplink), 
+            // we need an oltService method for that.
+            
+            // [TEMPORARY] Since OLT traffic is complex and diverse, 
+            // we'll at least broadcast an update to trigger the frontend to show "Online" status
+            const now = Date.now();
+            this.io?.to(`router_${routerId}`).emit('traffic_update', {
+                routerId,
+                timestamp: now,
+                data: {} // Empty data for now, just a heartbeat
+            });
+        } catch (err) {
+            // Log error
         }
     }
 

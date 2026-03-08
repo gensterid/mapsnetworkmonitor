@@ -517,6 +517,10 @@ export class RouterService {
         return routerInterfaceService.getInterfaces(routerId);
     }
 
+    async getInterfaceHistory(interfaceId: string, limit = 50, tenantId?: string): Promise<any[]> {
+        return routerInterfaceService.getInterfaceHistory(interfaceId, limit, tenantId);
+    }
+
     async getLatestMetrics(routerId: string, tenantId?: string): Promise<RouterMetric | null> {
         if (tenantId) {
             const router = await this.findById(routerId, tenantId);

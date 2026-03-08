@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import {
     routerMetrics,
     routerInterfaces,
+    routerInterfaceMetrics,
     routerNetwatch,
     type RouterMetric,
 } from '../db/schema/index.js';
@@ -152,6 +153,24 @@ export class RouterMetricsService {
                         rxRate,
                         lastUpdated: new Date()
                     }).where(eq(routerInterfaces.id, existing.id));
+
+                    // Store history with rate-limiting (min 5s between points)
+                    const [lastMetric] = await db
+                        .select({ recordedAt: routerInterfaceMetrics.recordedAt })
+                        .from(routerInterfaceMetrics)
+                        .where(eq(routerInterfaceMetrics.interfaceId, existing.id))
+                        .orderBy(desc(routerInterfaceMetrics.recordedAt))
+                        .limit(1);
+
+                    if (!lastMetric || (new Date().getTime() - lastMetric.recordedAt.getTime() > 5000)) {
+                        await db.insert(routerInterfaceMetrics).values({
+                            interfaceId: existing.id,
+                            txRate,
+                            rxRate,
+                            tenantId: router.tenantId,
+                            recordedAt: new Date(),
+                        });
+                    }
 
                     calculatedRates[name] = { tx: txRate, rx: rxRate };
 

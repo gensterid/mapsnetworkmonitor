@@ -213,6 +213,9 @@ export class RouterActionService {
                         latency: latency >= 0 ? latency : null,
                         packetLoss: packetLoss
                     });
+
+                    // Small delay between targets to reduce API stress
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 } catch (err) {
                     logger.error({ err, router: router.name, target: target.ip }, 'Error pinging target');
                     results.push({

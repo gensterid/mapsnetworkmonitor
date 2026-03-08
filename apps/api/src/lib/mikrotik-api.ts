@@ -962,24 +962,40 @@ export async function measurePing(
     }
 
     try {
-        // node-routeros might throw if RouterOS sends unexpected tags like !empty
-        // We Use Promise.race to ensure it never hangs too long
-        const resultPromise = safeWrite(api, [
-            '/ping',
-            `=address=${address}`,
-            `=count=${count}`,
-            `=interval=${interval}`
-        ]);
+        const MAX_RETRIES = 2;
+        let attempts = 0;
+        let result: any[] = [];
 
-        const timeoutMs = parseInt(timeout) || 10000;
-        let result: any[];
-        try {
-            result = await Promise.race([
-                resultPromise,
-                new Promise((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), timeoutMs))
-            ]) as any[];
-        } catch (raceErr: any) {
-            return { latency: -1, packetLoss: 100, error: raceErr?.message || 'Timeout' };
+        while (attempts < MAX_RETRIES) {
+            attempts++;
+            try {
+                // node-routeros might throw if RouterOS sends unexpected tags like !empty
+                // We Use Promise.race to ensure it never hangs too long
+                const resultPromise = safeWrite(api, [
+                    '/ping',
+                    `=address=${address}`,
+                    `=count=${count}`,
+                    `=interval=${interval}`
+                ]);
+
+                const timeoutMs = parseInt(timeout) || 10000;
+                result = (await Promise.race([
+                    resultPromise,
+                    new Promise<any[]>((_, reject) => setTimeout(() => reject(new Error('Ping timeout')), timeoutMs))
+                ])) as any[];
+
+                if (result && Array.isArray(result) && result.length > 0) {
+                    // Success! Exit retry loop
+                    break;
+                } else if (attempts < MAX_RETRIES) {
+                    logger.warn({ address, attempts }, '[Ping Retry] Empty result from RouterOS, retrying measurement...');
+                    await new Promise(resolve => setTimeout(resolve, 200)); // Short pause before retry
+                }
+            } catch (err: any) {
+                if (attempts === MAX_RETRIES) throw err;
+                logger.warn({ address, attempts, err: err?.message }, '[Ping Retry] Error during measurement, retrying...');
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
         }
 
         if (result && Array.isArray(result) && result.length > 0) {

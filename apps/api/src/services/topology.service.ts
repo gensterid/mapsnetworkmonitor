@@ -1,6 +1,6 @@
 import { eq, or, and, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { routers, routerNetwatch, olts, onus, topologyNodes, topologyLinks } from '../db/schema/index.js';
+import { routers, routerInterfaces, routerNetwatch, olts, onus, topologyNodes, topologyLinks } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
 import { routerNetwatchService } from './router-netwatch.service.js';
 
@@ -104,12 +104,81 @@ export class TopologyService {
             schematicNodeMap[targetRouter.id] = nodes[nodes.length - 1];
         }
 
-        // 4. Resolve Edges (Using Schematic IDs)
+        // 4. Fetch interface rates for all mapped devices
+        const interfaceRates = nodeIds.length > 0
+            ? await db.select({
+                routerId: routerInterfaces.routerId,
+                name: routerInterfaces.name,
+                txRate: routerInterfaces.txRate,
+                rxRate: routerInterfaces.rxRate
+            })
+            .from(routerInterfaces)
+            .where(inArray(routerInterfaces.routerId, nodeIds))
+            : [];
+
+        const interfaceRateMap: Record<string, { tx: number, rx: number }> = {};
+        interfaceRates.forEach(rate => {
+            interfaceRateMap[`${rate.routerId}:${rate.name}`] = { 
+                tx: rate.txRate || 0, 
+                rx: rate.rxRate || 0 
+            };
+        });
+
+        // Add netwatch rates to the map (netwatch has direct txRate/rxRate)
+        netwatchInSchematic.forEach(n => {
+            interfaceRateMap[`${n.id}:netwatch`] = { 
+                tx: n.txRate || 0, 
+                rx: n.rxRate || 0 
+            };
+        });
+
+        // 5. Resolve Edges (Using Schematic IDs)
         for (const link of manualLinks) {
             const fromNode = schematicNodeMap[link.sourceNodeId];
             const toNode = schematicNodeMap[link.targetNodeId];
-
+ 
             if (fromNode && toNode) {
+                // Determine base rates from DB polling
+                let txRate = 0;
+                let rxRate = 0;
+
+                // Helper for fuzzy match on static data (best effort)
+                const getStaticStats = (deviceId: string, iface: string | null) => {
+                    if (!iface || !deviceId) return null;
+                    const exact = interfaceRateMap[`${deviceId}:${iface}`];
+                    if (exact) return exact;
+                    
+                    // Netwatch fallback (if the interface name is 'netwatch' or matches the netwatch entry)
+                    if (iface.toLowerCase() === 'netwatch' || iface === deviceId) {
+                        return interfaceRateMap[`${deviceId}:netwatch`];
+                    }
+
+                    // Basic prefix search for things like 'ether1-WAN' vs 'ether1'
+                    const partialMatchKey = Object.keys(interfaceRateMap).find(k => 
+                        k.startsWith(`${deviceId}:`) && 
+                        (k.toLowerCase().includes(iface.toLowerCase()) || iface.toLowerCase().includes(k.split(':')[1].toLowerCase()))
+                    );
+                    return partialMatchKey ? interfaceRateMap[partialMatchKey] : null;
+                };
+
+                // Try source side
+                if (link.sourceInterface && fromNode.systemId) {
+                    const stats = getStaticStats(fromNode.systemId, link.sourceInterface);
+                    if (stats) {
+                        txRate = stats.tx;
+                        rxRate = stats.rx;
+                    }
+                }
+
+                // Fallback to target side (Swap TX/RX)
+                if (txRate === 0 && rxRate === 0 && link.targetInterface && toNode.systemId) {
+                    const stats = getStaticStats(toNode.systemId, link.targetInterface);
+                    if (stats) {
+                        txRate = stats.rx; // Perspective flip
+                        rxRate = stats.tx;
+                    }
+                }
+
                 edges.push({
                     id: link.id,
                     from: link.sourceNodeId,
@@ -122,6 +191,8 @@ export class TopologyService {
                     pathOffset: link.pathOffset || '0',
                     animationType: link.animationType || 'pulse',
                     notes: link.notes,
+                    txRate,
+                    rxRate
                 });
             }
         }

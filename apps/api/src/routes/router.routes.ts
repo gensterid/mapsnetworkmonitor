@@ -384,6 +384,29 @@ router.get(
 );
 
 /**
+ * GET /api/routers/:id/interfaces/:interfaceId/history
+ * Get interface traffic history
+ */
+router.get(
+    '/:id/interfaces/:interfaceId/history',
+    asyncHandler(async (req, res) => {
+        const { id, interfaceId } = req.params;
+        const tenantId = getEffectiveTenantId(req);
+
+        // Security check: Verify router exists and belongs to tenant
+        const routerData = await routerService.findById(id, tenantId);
+        if (!routerData) {
+            throw new ApiError(404, 'Router not found or access denied');
+        }
+
+        const limit = parseInt(req.query.limit as string) || 50;
+        const history = await routerService.getInterfaceHistory(interfaceId, limit, tenantId);
+
+        res.json({ data: history });
+    })
+);
+
+/**
  * GET /api/routers/:id/metrics
  * Get latest router metrics
  */

@@ -39,6 +39,20 @@ const NeonEdge = ({
 
     const isUp = data?.status === 'up' || data?.status === 'online';
 
+    // Format bitrate for display
+    const formatBitrate = (bits) => {
+        if (!bits || isNaN(bits)) return '0 bps';
+        if (bits >= 1000000000) return `${(bits / 1000000000).toFixed(2)} Gbps`;
+        if (bits >= 1000000) return `${(bits / 1000000).toFixed(1)} Mbps`;
+        if (bits >= 1000) return `${(bits / 1000).toFixed(1)} Kbps`;
+        return `${Math.round(bits)} bps`;
+    };
+
+    // Calculate dynamic animation duration based on traffic (100bps base, faster at higher speeds)
+    const totalTraffic = (data?.txRate || 0) + (data?.rxRate || 0);
+    const speedFactor = Math.min(5, Math.max(1, totalTraffic / 1000000)); // Faster up to 5x at 5Mbps+
+    const animationDuration = `${2 / speedFactor}s`;
+
     return (
         <>
             {/* Background path for the cable look */}
@@ -69,6 +83,9 @@ const NeonEdge = ({
                         data?.animationType || 'pulse',
                         !isUp && "down"
                     )}
+                    style={{ 
+                        animationDuration: data?.isLiveMode ? animationDuration : undefined 
+                    }}
                     d={edgePath}
                     fill="none"
                     pathLength="100"
@@ -82,6 +99,7 @@ const NeonEdge = ({
                 strokeWidth={20}
                 stroke="transparent"
                 className="edge-hover-area"
+                onClick={(e) => data?.isEditMode && e.stopPropagation()}
             />
 
             {data?.notes && (
@@ -102,17 +120,38 @@ const NeonEdge = ({
                 </foreignObject>
             )}
 
-            {data?.label && (
-                <EdgeText
-                    x={labelX}
-                    y={labelY}
-                    label={data.label}
-                    labelStyle={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
-                    labelShowBg
-                    labelBgStyle={{ fill: '#0b0e14', fillOpacity: 0.8 }}
-                    labelBgPadding={[4, 2]}
-                    labelBgBorderRadius={4}
-                />
+            {(data?.label || (data?.txRate > 0 || data?.rxRate > 0) || data?.isLiveMode) && (
+                <g>
+                    {data?.label && (
+                        <EdgeText
+                            x={labelX}
+                            y={(data?.txRate > 0 || data?.rxRate > 0 || data?.isLiveMode) ? labelY - 10 : labelY}
+                            label={data.label}
+                            labelStyle={{ fill: '#94a3b8', fontSize: 10, fontWeight: 700 }}
+                            labelShowBg
+                            labelBgStyle={{ fill: '#0b0e14', fillOpacity: 0.8 }}
+                            labelBgPadding={[4, 2]}
+                            labelBgBorderRadius={4}
+                        />
+                    )}
+                    {(data?.txRate > 0 || data?.rxRate > 0 || data?.isLiveMode) && (
+                        <EdgeText
+                            x={labelX}
+                            y={data?.label ? labelY + 8 : labelY}
+                            label={`TX: ${formatBitrate(data.txRate)} | RX: ${formatBitrate(data.rxRate)}`}
+                            labelStyle={{ 
+                                fill: totalTraffic > 0 ? '#fbbf24' : '#64748b', 
+                                fontSize: 9, 
+                                fontWeight: 800,
+                                fontFamily: 'monospace'
+                            }}
+                            labelShowBg
+                            labelBgStyle={{ fill: '#0b0e14', fillOpacity: 0.9 }}
+                            labelBgPadding={[3, 1]}
+                            labelBgBorderRadius={2}
+                        />
+                    )}
+                </g>
             )}
         </>
     );

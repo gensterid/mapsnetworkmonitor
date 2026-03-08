@@ -170,6 +170,19 @@ export async function runMigrations() {
                         recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
                 `
+            },
+            {
+                name: 'router_interface_metrics',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS router_interface_metrics (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        interface_id UUID NOT NULL REFERENCES router_interfaces(id) ON DELETE CASCADE,
+                        tx_rate BIGINT DEFAULT 0,
+                        rx_rate BIGINT DEFAULT 0,
+                        tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+                        recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
             }
         ];
 

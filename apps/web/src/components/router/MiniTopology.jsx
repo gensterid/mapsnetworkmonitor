@@ -6,7 +6,6 @@ import {
     Controls,
     useNodesState,
     useEdgesState,
-    addEdge,
     MarkerType,
 } from '@xyflow/react';
 import {
@@ -20,12 +19,11 @@ import {
     useUpdateTopologyNode,
     useRouters,
     useOlts,
-    useRouterNetwatch,
-    useCreateNetwatch,
     useRouterNeighbors,
     useRouterRomonNeighbors,
     useRouterInterfaces,
-    usePingHost
+    usePingHost,
+    useAllRoutersTraffic
 } from '@/hooks';
 import { Plus, Check, Edit2, X, Box, Network, Layers, Globe, Cpu, Zap, Trash2, Settings, Link2, Wand2, RefreshCw } from 'lucide-react';
 import { clsx } from 'clsx';
@@ -84,17 +82,25 @@ const DebouncedUpdate = ({ value, onUpdate, delay = 500 }) => {
 };
 
 const MiniTopology = ({ routerId }) => {
-    if (!routerId || routerId === 'undefined') {
-        return <div className="p-8 text-slate-500 text-xs italic flex items-center gap-2">
-            <RefreshCw className="w-3 h-3 animate-spin" /> Loading topology context...
-        </div>;
-    }
-
     const [isEditMode, setIsEditMode] = useState(false);
+
+    const [isLiveMode, setIsLiveMode] = useState(false);
     const [isAddingNode, setIsAddingNode] = useState(false);
     const [editingNode, setEditingNode] = useState(null);
 
     const { data: topology, isLoading, refetch } = useRouterTopology(routerId);
+    
+    // Extract router systems for real-time traffic subscription
+    const topologyRouters = useMemo(() => {
+        if (!topology?.nodes) return [];
+        return topology.nodes
+            .filter(n => (n.type === 'router' || n.type === 'olt') && n.systemId)
+            .map(n => ({ id: n.systemId }));
+    }, [topology]);
+
+    // High-frequency traffic (WebSockets) is only active in Live Mode
+    const allTraffic = useAllRoutersTraffic(topologyRouters, isLiveMode);
+
     const { mutate: updateCoords } = useUpdateTopologyCoords();
     const { mutate: addNode } = useAddTopologyNode();
     const { mutate: addLink } = useAddTopologyLink();
@@ -103,11 +109,12 @@ const MiniTopology = ({ routerId }) => {
     const { mutate: updateNode } = useUpdateTopologyNode();
     const { mutate: removeNode } = useRemoveTopologyNode();
     const [editingEdge, setEditingEdge] = useState(null);
-    const { data: nodeInterfaces } = useRouterInterfaces((editingNode?.data?.type === 'router' || editingNode?.data?.type === 'olt') ? editingNode?.data?.systemId : null);
+    useRouterInterfaces((editingNode?.data?.type === 'router' || editingNode?.data?.type === 'olt') ? editingNode?.data?.systemId : null);
 
-    const { data: allRouters } = useRouters();
-    const { data: allOlts } = useOlts();
+    useRouters();
+    useOlts();
     const { data: mndpNeighbors } = useRouterNeighbors(routerId);
+
     const { data: romonNeighbors } = useRouterRomonNeighbors(routerId, { enabled: isEditMode });
 
     const { mutate: pingHost } = usePingHost();
@@ -131,17 +138,42 @@ const MiniTopology = ({ routerId }) => {
             }
         });
     };
+ 
+    // Helper for fuzzy interface matching
+    const findTrafficStats = useCallback((deviceId, ifaceName) => {
+        if (!deviceId || !ifaceName || !allTraffic) return null;
+        
+        // 1. Exact match
+        let stats = allTraffic[`${deviceId}:${ifaceName}`];
+        if (stats) return stats;
+        
+        // 2. Normalized match (lowercase, no spaces)
+        const normName = ifaceName.toLowerCase().trim();
+        const entry = Object.entries(allTraffic).find(([key, val]) => {
+            const [rId, rIface] = key.split(':');
+            if (rId !== deviceId) return false;
+            const normRIface = rIface.toLowerCase().trim();
+            // Match ether1 to ether1-WAN or Port1(ether1)
+            return normRIface === normName || 
+                   normRIface.startsWith(normName + '-') || 
+                   normRIface.endsWith('-' + normName) ||
+                   normRIface.includes('(' + normName + ')');
+        });
+        
+        return entry ? entry[1] : null;
+    }, [allTraffic]);
 
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
+
     const sourceNode = nodes.find(n => n.id === editingEdge?.source);
+
     const targetNode = nodes.find(n => n.id === editingEdge?.target);
     const sourceRouterId = (sourceNode?.data?.type === 'router' || sourceNode?.data?.type === 'olt') ? sourceNode?.data?.systemId : null;
     const targetRouterId = (targetNode?.data?.type === 'router' || targetNode?.data?.type === 'olt') ? targetNode?.data?.systemId : null;
     const { data: sourceInterfaces } = useRouterInterfaces(sourceRouterId);
     const { data: targetInterfaces } = useRouterInterfaces(targetRouterId);
-
     useEffect(() => {
         if (!topology) return;
 
@@ -164,7 +196,7 @@ const MiniTopology = ({ routerId }) => {
                     id: node.id,
                     type: node.type || 'router',
                     position,
-                    data: { ...node, deviceId: node.id, isEditMode },
+                    data: { ...node, deviceId: node.id, isEditMode, isLiveMode },
                     draggable: isEditMode,
                 };
             });
@@ -173,33 +205,71 @@ const MiniTopology = ({ routerId }) => {
             return prevNodes.map(n => {
                 const updated = rfNodes.find(rn => rn.id === n.id);
                 if (!updated) return n;
-                return { ...n, draggable: isEditMode, data: updated.data };
+                return { ...n, draggable: isEditMode, data: { ...updated.data, isLiveMode } };
             });
         });
 
-        const rfEdges = (topology.edges || []).map(edge => ({
-            id: edge.id,
-            source: edge.from,
-            target: edge.to,
-            type: 'neon',
-            animated: false, // We use custom SVG/CSS animations in NeonEdge
-            sourceHandle: edge.sourceHandle,
-            targetHandle: edge.targetHandle,
-            data: {
-                ...edge,
-                status: edge.status,
-                label: (edge.fromInterface && edge.toInterface) ? `${edge.fromInterface} → ${edge.toInterface}` : (edge.fromInterface || edge.toInterface || ''),
-                fromInterface: edge.fromInterface,
-                toInterface: edge.toInterface,
-                pathOffset: edge.pathOffset || '0',
-                animationType: edge.animationType || 'pulse',
-                sourceHandle: edge.sourceHandle, // Explicitly include sourceHandle in data
-                targetHandle: edge.targetHandle, // Explicitly include targetHandle in data
-                isEditMode
+        const rfEdges = (topology.edges || []).map(edge => {
+            // Calculate traffic rates
+            // 1. Start with static polling data from backend (passed via edge)
+            let txRate = edge.txRate || 0;
+            let rxRate = edge.rxRate || 0;
+ 
+            // 2. Override with real-time WebSocket data ONLY if Live Mode is active
+            if (isLiveMode && edge.fromInterface) {
+                const sourceNodeFound = (topology.nodes || []).find(n => n.id === edge.from);
+                if (sourceNodeFound?.systemId) {
+                    const stats = findTrafficStats(sourceNodeFound.systemId, edge.fromInterface);
+                    if (stats) {
+                        txRate = stats.tx;
+                        rxRate = stats.rx;
+                    }
+                }
             }
-        }));
+ 
+            // 3. Fallback: If source side has no traffic in Live Mode, try target side (and swap TX/RX)
+            if (isLiveMode && txRate === 0 && rxRate === 0 && edge.toInterface) {
+                const targetNodeFound = (topology.nodes || []).find(n => n.id === edge.to);
+                if (targetNodeFound?.systemId) {
+                    const stats = findTrafficStats(targetNodeFound.systemId, edge.toInterface);
+                    if (stats) {
+                        // Swap perspective: Target's RX is the link's TX from source perspective
+                        txRate = stats.rx; 
+                        rxRate = stats.tx;
+                    }
+                }
+            }
+
+            return ({
+                id: edge.id,
+                source: edge.from,
+                target: edge.to,
+                type: 'neon',
+                animated: false,
+                sourceHandle: edge.sourceHandle,
+                targetHandle: edge.targetHandle,
+                data: {
+                    ...edge,
+                    status: edge.status,
+                    label: (edge.fromInterface && edge.toInterface) ? `${edge.fromInterface} → ${edge.toInterface}` : (edge.fromInterface || edge.toInterface || ''),
+                    fromInterface: edge.fromInterface,
+                    toInterface: edge.toInterface,
+                    pathOffset: edge.pathOffset || '0',
+                    animationType: edge.animationType || 'pulse',
+                    sourceHandle: edge.sourceHandle,
+                    targetHandle: edge.targetHandle,
+                    isEditMode,
+                    isLiveMode,
+                    txRate,
+                    rxRate
+                }
+            });
+        });
         setEdges(rfEdges);
-    }, [topology, isEditMode, routerId]);
+    }, [topology, isEditMode, routerId, isLiveMode, allTraffic, setNodes, setEdges]);
+
+
+
 
     const onNodeDragStop = useCallback((event, node) => {
         updateCoords({ routerId, nodeId: node.id, x: node.position.x, y: node.position.y });
@@ -251,7 +321,8 @@ const MiniTopology = ({ routerId }) => {
             return newNode;
         });
         setNodes(layoutedNodes);
-    }, [nodes, edges, updateCoords, routerId]);
+    }, [nodes, edges, updateCoords, routerId, setNodes]);
+
 
     const onNodeDoubleClick = useCallback((event, node) => {
         if (!isEditMode) return;
@@ -283,7 +354,14 @@ const MiniTopology = ({ routerId }) => {
         }, { onSuccess: () => { setIsAddingNode(false); refetch(); } });
     };
 
+    if (!routerId || routerId === 'undefined') {
+        return <div className="p-8 text-slate-500 text-xs italic flex items-center gap-2">
+            <RefreshCw className="w-3 h-3 animate-spin" /> Loading topology context...
+        </div>;
+    }
+
     if (isLoading) return <div className="topology-loading">Initializing Neural Map...</div>;
+
 
     return (
         <div className={clsx("mini-topology-container", isEditMode && "edit-mode")}>
@@ -295,6 +373,18 @@ const MiniTopology = ({ routerId }) => {
                     </p>
                 </div>
                 <div className="header-actions">
+                    <div className={clsx("live-mode-toggle-container", isLiveMode && "active")}>
+                        <div className="live-mode-label">
+                            <Zap size={14} className={clsx(isLiveMode ? "text-amber-400" : "text-slate-500")} />
+                            <span>Live Mode</span>
+                        </div>
+                        <div 
+                            className={clsx("toggle-switch", isLiveMode && "active")}
+                            onClick={() => setIsLiveMode(!isLiveMode)}
+                        >
+                            <div className="toggle-knob" />
+                        </div>
+                    </div>
                     {isEditMode ? (
                         <>
                             <button className="action-btn bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded text-xs transition-all flex items-center gap-1.5 font-semibold mx-2" onClick={onLayout}>
@@ -505,11 +595,37 @@ const MiniTopology = ({ routerId }) => {
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-slate-500 uppercase font-bold block">Port (Local)</label>
-                                    <input type="text" className="w-full bg-slate-900/50 border border-slate-700/50 rounded px-2 py-1.5 text-white text-xs" value={editingEdge.data?.fromInterface || ''} onChange={(e) => setEditingEdge({ ...editingEdge, data: { ...editingEdge.data, fromInterface: e.target.value } })} />
+                                    {(sourceInterfaces && sourceInterfaces.length > 0) ? (
+                                        <select 
+                                            className="w-full bg-slate-900/50 border border-slate-700/50 rounded px-2 py-1.5 text-white text-xs outline-none focus:border-cyan-500"
+                                            value={editingEdge.data?.fromInterface || ''}
+                                            onChange={(e) => setEditingEdge({ ...editingEdge, data: { ...editingEdge.data, fromInterface: e.target.value } })}
+                                        >
+                                            <option value="">Select Port</option>
+                                            {sourceInterfaces.map(iface => (
+                                                <option key={iface.id} value={iface.name}>{iface.name}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input type="text" className="w-full bg-slate-900/50 border border-slate-700/50 rounded px-2 py-1.5 text-white text-xs" value={editingEdge.data?.fromInterface || ''} onChange={(e) => setEditingEdge({ ...editingEdge, data: { ...editingEdge.data, fromInterface: e.target.value } })} />
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-slate-500 uppercase font-bold block">Port (Remote)</label>
-                                    <input type="text" className="w-full bg-slate-900/50 border border-slate-700/50 rounded px-2 py-1.5 text-white text-xs" value={editingEdge.data?.toInterface || ''} onChange={(e) => setEditingEdge({ ...editingEdge, data: { ...editingEdge.data, toInterface: e.target.value } })} />
+                                    {(targetInterfaces && targetInterfaces.length > 0) ? (
+                                        <select 
+                                            className="w-full bg-slate-900/50 border border-slate-700/50 rounded px-2 py-1.5 text-white text-xs outline-none focus:border-cyan-500"
+                                            value={editingEdge.data?.toInterface || ''}
+                                            onChange={(e) => setEditingEdge({ ...editingEdge, data: { ...editingEdge.data, toInterface: e.target.value } })}
+                                        >
+                                            <option value="">Select Port</option>
+                                            {targetInterfaces.map(iface => (
+                                                <option key={iface.id} value={iface.name}>{iface.name}</option>
+                                            ))}
+                                        </select>
+                                    ) : (
+                                        <input type="text" className="w-full bg-slate-900/50 border border-slate-700/50 rounded px-2 py-1.5 text-white text-xs" value={editingEdge.data?.toInterface || ''} onChange={(e) => setEditingEdge({ ...editingEdge, data: { ...editingEdge.data, toInterface: e.target.value } })} />
+                                    )}
                                 </div>
                             </div>
 

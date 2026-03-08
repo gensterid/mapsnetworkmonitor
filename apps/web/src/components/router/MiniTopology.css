@@ -418,3 +418,76 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
     padding-bottom: 4px;
 }
+
+/* -------------------------------------------------------------------------- */
+/*                               Live Mode Toggle                             */
+/* -------------------------------------------------------------------------- */
+.live-mode-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-right: 16px;
+    background: rgba(15, 23, 42, 0.6);
+    padding: 6px 12px;
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.live-mode-toggle-container.active {
+    background: rgba(245, 158, 11, 0.05);
+    border-color: rgba(245, 158, 11, 0.2);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.05);
+}
+
+.live-mode-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+}
+
+.live-mode-label span {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #64748b;
+}
+
+.live-mode-toggle-container.active .live-mode-label span {
+    color: #fbbf24;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 32px;
+    height: 16px;
+    background: #1e293b;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.toggle-switch.active {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.4);
+}
+
+.toggle-knob {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 10px;
+    height: 10px;
+    background: #475569;
+    border-radius: 50%;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.toggle-switch.active .toggle-knob {
+    left: 18px;
+    background: #fbbf24;
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.8);
+}
