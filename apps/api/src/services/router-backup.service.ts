@@ -6,6 +6,7 @@ import { routers, routerBackups } from '../db/schema/index.js';
 import { decrypt } from '../lib/encryption.js';
 import { logger } from '../lib/logger.js';
 import { connectToRouter, safeWrite } from '../lib/mikrotik-api.js';
+import { ApiError } from '../middleware/error.middleware.js';
 
 // Router Backup Service handles creating and managing MikroTik backups using HTTP Push method
 
@@ -27,7 +28,7 @@ export class RouterBackupService {
             where: eq(routers.id, routerId)
         });
 
-        if (!router) throw new Error('Router not found');
+        if (!router) throw ApiError.notFound('Router not found');
  
         let token = router.webhookSecret;
         if (!token) {
@@ -50,14 +51,20 @@ export class RouterBackupService {
                 username: router.username,
                 password: decrypt(router.passwordEncrypted)
             });
+            if (!conn) throw ApiError.internal('Failed to connect to router API');
+
+            logger.info({ routerId, type, remoteFilename }, 'Generating backup on MikroTik...');
+            
             if (type === 'backup') {
-                await conn.write(['/system/backup/save', `=name=${remoteFilename}`]);
+                await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 30000);
             } else {
-                await conn.write(['/export', `=file=${remoteFilename}`]);
+                await safeWrite(conn, ['/export', `=file=${remoteFilename}`], 60000);
             }
 
-            // Small delay for file to be ready
+            // Small delay for file to be ready (some ROS versions return before file is fully flushed)
             await new Promise(resolve => setTimeout(resolve, 3000));
+
+            logger.info({ routerId, remoteFilename }, 'Initiating HTTP Push upload from MikroTik...');
 
             // 2. Instruct MikroTik to push the file to our server via HTTP
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
@@ -86,8 +93,10 @@ export class RouterBackupService {
             
             return { message: 'Backup triggered and upload initiated', filename: remoteFilename };
         } catch (error: any) {
-            logger.error({ error, routerId }, 'MikroTik backup failed');
-            throw new Error(`MikroTik Backup Failed: ${error.message}`);
+            logger.error({ error: error.message, stack: error.stack, routerId }, 'MikroTik backup process failed');
+            
+            if (error instanceof ApiError) throw error;
+            throw ApiError.internal(`MikroTik Backup Failed: ${error.message}`);
         }
     }
 
@@ -99,8 +108,8 @@ export class RouterBackupService {
             where: eq(routers.id, routerId)
         });
 
-        if (!router) throw new Error('Router not found');
-        if (router.webhookSecret !== token) throw new Error('Invalid token');
+        if (!router) throw ApiError.notFound('Router not found');
+        if (router.webhookSecret !== token) throw ApiError.unauthorized('Invalid backup token');
 
         const localPath = path.join(this.backupDir, filename);
         fs.writeFileSync(localPath, fileBuffer);
