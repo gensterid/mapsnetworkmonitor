@@ -76,11 +76,12 @@ export class RouterBackupService {
             await safeWrite(conn, [
                 '/tool/fetch',
                 `=url=${uploadUrl}`,
-                '=http-method=post', // Keep http-method but remove timeout
+                '=http-method=post',
                 `=src-path=${remoteFilename}`,
                 '=keep-result=no',
                 '=check-certificate=no',
-                `=mode=${isHttps ? 'https' : 'http'}`
+                `=mode=${isHttps ? 'https' : 'http'}`,
+                '=http-header-field=User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
             ], 120000); // 120s timeout for the command execution
 
             // Note: The actual backup record creation will happen in the upload endpoint
