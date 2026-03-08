@@ -23,7 +23,8 @@ import {
     RefreshCw,
     ArrowLeft,
     Clock,
-    Edit
+    Edit,
+    HardDrive
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -36,6 +37,7 @@ import PppoeTab from '@/components/router/tabs/PppoeTab';
 import NeighborsTab from '@/components/router/tabs/NeighborsTab';
 import HistoryTab from '@/components/router/tabs/HistoryTab';
 import MapTab from '@/components/router/tabs/MapTab';
+import BackupsTab from '@/components/router/tabs/BackupsTab';
 import MiniTopology from '@/components/router/MiniTopology';
 
 // Utils
@@ -171,6 +173,7 @@ export default function RouterDetails() {
         { id: 'pppoe', label: 'PPPoE', icon: <PhoneCall className="w-4 h-4" /> },
         { id: 'neighbors', label: 'Neighbors', icon: <Network className="w-4 h-4" /> },
         { id: 'topology', label: 'Topology', icon: <Zap className="w-4 h-4" /> },
+        { id: 'backups', label: 'Backups', icon: <HardDrive className="w-4 h-4" /> },
         { id: 'map', label: 'Map', icon: <MapPin className="w-4 h-4" /> },
     ];
 
@@ -298,6 +301,9 @@ export default function RouterDetails() {
                 )}
                 {activeTab === 'topology' && (
                     <MiniTopology routerId={id} />
+                )}
+                {activeTab === 'backups' && (
+                    <BackupsTab routerId={id} />
                 )}
                 {activeTab === 'map' && (
                     <MapTab

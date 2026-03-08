@@ -15,3 +15,4 @@ export * from './user-tenants.js';
 export * from './topology_schematics.js';
 export * from './performance-history.js';
 export * from './interface-metrics.js';
+export * from './router_backups.js';
