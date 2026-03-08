@@ -23,7 +23,7 @@ export class RouterBackupService {
     /**
      * Trigger a binary backup (.backup) or export (.rsc) and download via SFTP
      */
-    async createBackup(routerId: string, type: 'backup' | 'rsc', comment?: string): Promise<any> {
+    async createBackup(routerId: string, type: 'backup' | 'rsc', comment?: string, delay: number = 10): Promise<any> {
         const router = await db.query.routers.findFirst({
             where: eq(routers.id, routerId)
         });
@@ -58,11 +58,13 @@ export class RouterBackupService {
             if (type === 'backup') {
                 await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 30000);
             } else {
-                await safeWrite(conn, ['/export', `=file=${remoteFilename}`], 60000);
+                // Modified: Added show-sensitive=yes for .rsc exports as requested
+                await safeWrite(conn, ['/export', `=file=${remoteFilename}`, '=show-sensitive=yes'], 60000);
             }
 
-            // Delay for file to be ready (critical on slow flash storage)
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            // Delay for file to be ready (user can now customize this)
+            logger.info({ routerId, delay }, `Waiting ${delay} seconds for file to be ready...`);
+            await new Promise(resolve => setTimeout(resolve, delay * 1000));
 
             logger.info({ routerId, remoteFilename }, 'Initiating HTTP Push upload from MikroTik...');
 

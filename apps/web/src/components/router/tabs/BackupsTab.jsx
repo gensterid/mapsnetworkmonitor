@@ -23,6 +23,7 @@ export default function BackupsTab({ routerId }) {
     const queryClient = useQueryClient();
     const [backupType, setBackupType] = useState('backup');
     const [comment, setComment] = useState('');
+    const [delay, setDelay] = useState(10);
 
     // Fetch backups
     const { data: backups = [], isLoading, error } = useQuery({
@@ -32,7 +33,7 @@ export default function BackupsTab({ routerId }) {
 
     // Create backup mutation
     const createMutation = useMutation({
-        mutationFn: ({ type, comment }) => routerBackupService.createBackup(routerId, type, comment),
+        mutationFn: ({ type, comment, delay }) => routerBackupService.createBackup(routerId, type, comment, delay),
         onSuccess: () => {
             queryClient.invalidateQueries(['router-backups', routerId]);
             setComment('');
@@ -48,7 +49,7 @@ export default function BackupsTab({ routerId }) {
     });
 
     const handleCreate = () => {
-        createMutation.mutate({ type: backupType, comment });
+        createMutation.mutate({ type: backupType, comment, delay: parseInt(delay) || 10 });
     };
 
     const handleDownload = (backupId) => {
@@ -111,6 +112,17 @@ export default function BackupsTab({ routerId }) {
                                 placeholder="Purpose of this backup..."
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
+                                className="bg-slate-800/50 border-slate-700"
+                            />
+                        </div>
+                        <div className="flex-1 space-y-2 w-full">
+                            <label className="text-sm font-medium text-slate-400">Wait Time (Seconds)</label>
+                            <Input 
+                                type="number"
+                                min="3"
+                                max="300"
+                                value={delay}
+                                onChange={(e) => setDelay(e.target.value)}
                                 className="bg-slate-800/50 border-slate-700"
                             />
                         </div>

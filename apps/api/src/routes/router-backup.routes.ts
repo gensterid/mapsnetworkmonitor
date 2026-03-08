@@ -35,12 +35,12 @@ router.get('/:routerId', authMiddleware, asyncHandler(async (req, res) => {
 
 // Create a new backup
 router.post('/:routerId', authMiddleware, asyncHandler(async (req, res) => {
-    const { type, comment } = req.body;
+    const { type, comment, delay } = req.body;
     if (!['backup', 'rsc'].includes(type)) {
         return res.status(400).json({ error: 'Invalid backup type' });
     }
     
-    const result = await routerBackupService.createBackup(req.params.routerId, type, comment);
+    const result = await routerBackupService.createBackup(req.params.routerId, type, comment, delay ? parseInt(delay) : 10);
     res.json(result);
 }));
 

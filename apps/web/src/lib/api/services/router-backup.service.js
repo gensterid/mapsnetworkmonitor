@@ -8,8 +8,8 @@ export const routerBackupService = {
     },
 
     // Create a new backup
-    createBackup: async (routerId, type, comment) => {
-        const response = await api.post(`/router-backups/${routerId}`, { type, comment });
+    createBackup: async (routerId, type, comment, delay) => {
+        const response = await api.post(`/router-backups/${routerId}`, { type, comment, delay });
         return response.data;
     },
 
