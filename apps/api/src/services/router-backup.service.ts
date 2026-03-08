@@ -34,9 +34,10 @@ export class RouterBackupService {
             await db.update(routers).set({ webhookSecret: token }).where(eq(routers.id, routerId));
         }
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0] + '-' + Date.now();
         const ext = type === 'backup' ? '.backup' : '.rsc';
-        const remoteFilename = `bkp-${router.id}-${timestamp}${ext}`;
+        const shortId = router.id.split('-')[0];
+        const remoteFilename = `bkp-${shortId}-${timestamp}${ext}`;
         const localPath = path.join(this.backupDir, remoteFilename);
 
         try {
