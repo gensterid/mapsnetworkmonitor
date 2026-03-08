@@ -5,17 +5,14 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 
 const router = Router();
 
-/**
- * Handle incoming backup file upload from MikroTik (Push Method)
- * Publicly accessible but protected by token
- */
-router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
-    const { routerId, token, filename, type } = req.query;
-    
-    if (!routerId || !token || !filename || !type) {
-        return res.status(400).json({ error: 'Missing required parameters' });
-    }
 
+/**
+ * Path-based push endpoint (resilient to MikroTik '?' help character issue)
+ * Under /upload/push to match existing Cloudflare WAF rule
+ */
+router.post('/upload/push/:routerId/:token/:filename/:type', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
+    const { routerId, token, filename, type } = req.params;
+    
     const result = await routerBackupService.handleBackupUpload(
         routerId as string,
         token as string,

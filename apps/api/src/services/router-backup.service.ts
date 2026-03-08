@@ -21,7 +21,7 @@ export class RouterBackupService {
     }
 
     /**
-     * Trigger a binary backup (.backup) or export (.rsc) and download via SFTP
+     * Trigger a binary backup (.backup) or export (.rsc) and upload via HTTP Push
      */
     async createBackup(routerId: string, type: 'backup' | 'rsc', comment?: string, delay: number = 10): Promise<any> {
         const router = await db.query.routers.findFirst({
@@ -70,7 +70,8 @@ export class RouterBackupService {
 
             // 2. Instruct MikroTik to push the file to our server via script (more stable for long tasks)
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
-            const uploadUrl = `${baseUrl}/api/router-backups/upload?routerId=${encodeURIComponent(router.id)}&token=${encodeURIComponent(token)}&filename=${encodeURIComponent(remoteFilename)}&type=${encodeURIComponent(type)}`;
+            // Path-based URL to avoid '?' help character issues in MikroTik/Cloudflare
+            const uploadUrl = `${baseUrl}/api/router-backups/upload/push/${encodeURIComponent(router.id)}/${encodeURIComponent(token)}/${encodeURIComponent(remoteFilename)}/${encodeURIComponent(type)}`;
             const isHttps = uploadUrl.startsWith('https://');
             
             const scriptName = `upload-${shortId}`;
