@@ -9,6 +9,7 @@ export async function runMigrations() {
         // 1. Ensure user_role enum exists
         try {
             await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'operator', 'user'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
+            await db.execute(sql`DO $$ BEGIN CREATE TYPE router_backup_type AS ENUM ('backup', 'rsc'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
         } catch (e) { /* ignore if already exists */ }
 
         // 2. Ensure device_type enum has new values
@@ -181,6 +182,21 @@ export async function runMigrations() {
                         rx_rate BIGINT DEFAULT 0,
                         tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
                         recorded_at TIMESTAMP NOT NULL DEFAULT NOW()
+                    )
+                `
+            },
+            {
+                name: 'router_backups',
+                sql: sql`
+                    CREATE TABLE IF NOT EXISTS router_backups (
+                        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                        router_id UUID NOT NULL REFERENCES routers(id) ON DELETE CASCADE,
+                        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+                        filename TEXT NOT NULL,
+                        type router_backup_type NOT NULL,
+                        size BIGINT DEFAULT 0,
+                        comment TEXT,
+                        created_at TIMESTAMP NOT NULL DEFAULT NOW()
                     )
                 `
             }

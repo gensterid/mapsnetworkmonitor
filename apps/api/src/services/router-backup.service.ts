@@ -1,4 +1,3 @@
-import { Client } from 'ssh2';
 import path from 'path';
 import fs from 'fs';
 import { eq, and, desc } from 'drizzle-orm';
@@ -27,6 +26,13 @@ export class RouterBackupService {
         });
 
         if (!router) throw new Error('Router not found');
+ 
+        let token = router.webhookSecret;
+        if (!token) {
+            const { randomBytes } = await import('crypto');
+            token = randomBytes(16).toString('hex');
+            await db.update(routers).set({ webhookSecret: token }).where(eq(routers.id, routerId));
+        }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
         const ext = type === 'backup' ? '.backup' : '.rsc';
@@ -50,30 +56,28 @@ export class RouterBackupService {
             // Small delay for file to be ready
             await new Promise(resolve => setTimeout(resolve, 3000));
 
-            // 2. Download via SFTP
-            const password = decrypt(router.passwordEncrypted);
-            await this.downloadFileViaSftp(router.host, router.username, password, remoteFilename, localPath);
+            // 2. Instruct MikroTik to push the file to our server via HTTP
+            const baseUrl = process.env.APP_URL || 'http://localhost:3001';
+            const uploadUrl = `${baseUrl}/api/router-backups/upload?routerId=${router.id}&token=${token}&filename=${remoteFilename}&type=${type}`;
+            
+            await conn.write([
+                '/tool/fetch',
+                `=url=${uploadUrl}`,
+                '=http-method=post',
+                `=src-path=${remoteFilename}`,
+                '=keep-result=no',
+                '=check-certificate=no'
+            ]);
 
-            // 3. Save metadata to DB
-            const stats = fs.statSync(localPath);
-            const [backupRecord] = await db.insert(routerBackups).values({
-                routerId,
-                tenantId: router.tenantId!,
-                filename: remoteFilename,
-                type,
-                size: stats.size,
-                comment,
-                createdAt: new Date()
-            }).returning();
-
-            // 4. Cleanup remote file
-            try {
-                await conn.write(['/file/remove', `=numbers=${remoteFilename}`]);
-            } catch (err) {
-                logger.warn({ err, remoteFilename }, 'Failed to cleanup remote backup file');
-            }
-
-            return backupRecord;
+            // Note: The actual backup record creation will happen in the upload endpoint
+            // when the file is successfully received.
+            
+            // 3. Cleanup remote file is handled by keep-result=no usually, but we can double check
+            // Actually, keep-result=no is for the FETCH result, not the src-path.
+            // We should cleanup after upload, but we don't know when it's done here.
+            // The upload endpoint will handle cleanup if we give it the router connection info.
+            
+            return { message: 'Backup triggered and upload initiated', filename: remoteFilename };
         } catch (error: any) {
             logger.error({ error, routerId }, 'MikroTik backup failed');
             throw new Error(`MikroTik Backup Failed: ${error.message}`);
@@ -81,34 +85,44 @@ export class RouterBackupService {
     }
 
     /**
-     * SFTP Download implementation using ssh2
+     * Handle incoming backup file upload from MikroTik
      */
-    private downloadFileViaSftp(host: string, username: string, password: string, remoteFile: string, localPath: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const conn = new Client();
-            conn.on('ready', () => {
-                conn.sftp((err, sftp) => {
-                    if (err) {
-                        conn.end();
-                        return reject(err);
-                    }
-                    
-                    sftp.fastGet(remoteFile, localPath, (downloadErr) => {
-                        conn.end();
-                        if (downloadErr) return reject(downloadErr);
-                        resolve();
-                    });
-                });
-            }).on('error', (err) => {
-                reject(err);
-            }).connect({
-                host,
-                port: 22,
-                username,
-                password,
-                readyTimeout: 10000
-            });
+    async handleBackupUpload(routerId: string, token: string, filename: string, type: 'backup' | 'rsc', fileBuffer: Buffer) {
+        const router = await db.query.routers.findFirst({
+            where: eq(routers.id, routerId)
         });
+
+        if (!router) throw new Error('Router not found');
+        if (router.webhookSecret !== token) throw new Error('Invalid token');
+
+        const localPath = path.join(this.backupDir, filename);
+        fs.writeFileSync(localPath, fileBuffer);
+
+        const stats = fs.statSync(localPath);
+        const [backupRecord] = await db.insert(routerBackups).values({
+            routerId,
+            tenantId: router.tenantId!,
+            filename,
+            type,
+            size: stats.size,
+            createdAt: new Date()
+        }).returning();
+
+        // Cleanup remote file on MikroTik
+        try {
+            const conn = await connectToRouter({
+                host: router.host,
+                port: router.port,
+                username: router.username,
+                password: decrypt(router.passwordEncrypted)
+            });
+            await conn.write(['/file/remove', `=numbers=${filename}`]);
+            conn.close();
+        } catch (err) {
+            logger.warn({ err, filename }, 'Failed to cleanup remote backup file after upload');
+        }
+
+        return backupRecord;
     }
 
     async listRouterBackups(routerId: string) {
