@@ -7,6 +7,7 @@ import { decrypt } from '../lib/encryption.js';
 import { logger } from '../lib/logger.js';
 import { connectToRouter, safeWrite } from '../lib/mikrotik-api.js';
 import { ApiError } from '../middleware/error.middleware.js';
+import { routerGroups, tenants as tenantsSchema } from '../db/schema/index.js';
 
 // Router Backup Service handles creating and managing MikroTik backups using HTTP Push method
 
@@ -131,30 +132,71 @@ export class RouterBackupService {
         fs.writeFileSync(localPath, fileBuffer);
 
         const stats = fs.statSync(localPath);
-        const [backupRecord] = await db.insert(routerBackups).values({
-            routerId,
-            tenantId: router.tenantId!,
-            filename,
-            type,
-            size: stats.size,
-            createdAt: new Date()
-        }).returning();
-
-        // Cleanup remote file on MikroTik
-        try {
-            const conn = await connectToRouter({
-                host: router.host,
-                port: router.port,
-                username: router.username,
-                password: decrypt(router.passwordEncrypted)
-            });
-            await conn.write(['/file/remove', `=numbers=${filename}`]);
-            conn.close();
-        } catch (err) {
-            logger.warn({ err, filename }, 'Failed to cleanup remote backup file after upload');
+        
+        // Ensure we have a tenantId (required by DB schema constraint)
+        let finalTenantId = router.tenantId;
+        
+        if (!finalTenantId) {
+            logger.warn({ routerId, filename }, 'Router record missing tenantId, attempting fallback lookup...');
+            
+            // 1. Try to inherit from Group
+            if (router.groupId) {
+                const group = await db.query.routerGroups.findFirst({
+                    where: eq(routerGroups.id, router.groupId)
+                });
+                if (group?.tenantId) {
+                    finalTenantId = group.tenantId;
+                    logger.info({ routerId, tenantId: finalTenantId }, 'Inherited tenantId from router group');
+                }
+            }
+            
+            // 2. Fallback to any available tenant (crash prevention in single-tenant/incomplete migrations)
+            if (!finalTenantId) {
+                const [firstTenant] = await db.select({ id: tenantsSchema.id }).from(tenantsSchema).limit(1);
+                if (firstTenant) {
+                    finalTenantId = firstTenant.id;
+                    logger.info({ routerId, tenantId: finalTenantId }, 'Fallback to first available system tenant');
+                }
+            }
         }
 
-        return backupRecord;
+        if (!finalTenantId) {
+            logger.error({ routerId, filename }, 'FATAL: No tenantId found for backup record. Insert will fail.');
+            throw ApiError.internal('Internal Configuration Error: Router has no tenant assignment');
+        }
+
+        try {
+            const [backupRecord] = await db.insert(routerBackups).values({
+                routerId,
+                tenantId: finalTenantId,
+                filename,
+                type,
+                size: stats.size,
+                createdAt: new Date()
+            }).returning();
+            
+            logger.info({ routerId, backupId: backupRecord.id, size: stats.size }, 'Successfully saved MikroTik backup record');
+            
+            // Cleanup remote file on MikroTik
+            try {
+                const conn = await connectToRouter({
+                    host: router.host,
+                    port: router.port,
+                    username: router.username,
+                    password: decrypt(router.passwordEncrypted)
+                });
+                await conn.write(['/file/remove', `=numbers=${filename}`]);
+                conn.close();
+                logger.info({ routerId, filename }, 'Successfully cleaned up remote backup file on MikroTik');
+            } catch (err: any) {
+                logger.warn({ err: err.message, filename }, 'Failed to cleanup remote backup file after upload');
+            }
+
+            return backupRecord;
+        } catch (dbErr: any) {
+            logger.error({ dbErr: dbErr.message, routerId, filename }, 'Database error while saving backup record');
+            throw ApiError.internal(`Failed to save backup record: ${dbErr.message}`);
+        }
     }
 
     async listRouterBackups(routerId: string) {
