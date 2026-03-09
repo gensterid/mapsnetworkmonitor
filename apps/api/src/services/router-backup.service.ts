@@ -101,7 +101,7 @@ export class RouterBackupService {
                 "  :local fs [/file get [find name=$fn] size]; " +
                 "  :if ($fs > 0) do={ " +
                 `    :local u ("${uploadUrlBase}/" . $fs); ` +
-                `    /tool fetch url=$u http-method=post ${!isVersion7 ? 'upload=yes ' : ''}src-path=$fn keep-result=no check-certificate=no http-header-field="User-Agent:Mozilla/5.0,Content-Type:application/octet-stream"; ` +
+                `    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0,Content-Type:application/octet-stream"; ` +
                 "  } else={ :log error \"Backup 0B\" }; " +
                 "} else={ :log error \"Backup missing\" }";
             
@@ -180,22 +180,23 @@ export class RouterBackupService {
             
             logger.debug({ absolutePath }, 'Target backup file path');
 
-            try {
-                const isValidBuffer = fileBuffer instanceof Buffer && fileBuffer.length > 0;
+            const isValidBuffer = fileBuffer instanceof Buffer && fileBuffer.length > 0;
+            
+            if (!isValidBuffer) {
+                const receivedType = typeof fileBuffer === 'object' ? (fileBuffer?.constructor?.name || 'Object') : typeof fileBuffer;
+                logger.error({ receivedType, bufferSize: fileBuffer?.length, expectedSize }, 'Received invalid or empty backup data');
                 
-                if (!isValidBuffer) {
-                    const receivedType = typeof fileBuffer === 'object' ? (fileBuffer?.constructor?.name || 'Object') : typeof fileBuffer;
-                    logger.error({ receivedType, bufferSize: fileBuffer?.length, expectedSize }, 'Received invalid or empty backup data');
-                    
-                    let errorMsg = `Received invalid backup file (${receivedType}, ${fileBuffer?.length || 0} bytes).`;
-                    if (expectedSize && expectedSize > 0) {
-                        errorMsg += ` MikroTik reported ${expectedSize} bytes before transmission. Proxy/WAF likely stripped the body.`;
-                    } else {
-                        errorMsg += ` MikroTik may still be generating the file.`;
-                    }
-                    
-                    throw ApiError.badRequest(errorMsg);
+                let errorMsg = `Received 0-byte file from MikroTik.`;
+                if (expectedSize && expectedSize > 0) {
+                    errorMsg += ` MikroTik OS Limitation Detected: RouterOS v6 cannot attach large files > 64KB to HTTP POST requests. Only RouterOS v7+ natively supports HTTP push backups. Please upgrade your router.`;
+                } else {
+                    errorMsg += ` Proxy/WAF likely stripped the body, or the file generation failed.`;
                 }
+                
+                throw ApiError.badRequest(errorMsg);
+            }
+
+            try {
                 fs.writeFileSync(localPath, fileBuffer);
                 logger.info({ filename, size: fileBuffer.length }, 'File written to disk successfully');
             } catch (fsErr: any) {
@@ -205,7 +206,7 @@ export class RouterBackupService {
                     path: absolutePath,
                     cwd: process.cwd()
                 }, 'Failed to write backup file to disk');
-                throw ApiError.internal(`File system error: ${fsErr.message} at ${absolutePath}`);
+                throw ApiError.internal(`File system error: ${fsErr.message}`);
             }
 
             const stats = fs.statSync(localPath);
