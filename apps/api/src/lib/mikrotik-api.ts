@@ -209,19 +209,45 @@ export function releaseConnection(host: string, port: number, username: string) 
  * and adds a command-level timeout to prevent hangs.
  */
 export async function safeWrite(api: any, command: string | string[], timeoutMs: number = 30000): Promise<any[]> {
+    const poolKey = api?.host ? `${api.host}:${api.port}:${api.user}` : null;
+    
     try {
         if (!api || typeof api.write !== 'function') {
             throw new Error('Invalid API instance provided to safeWrite');
         }
 
+        // Proactive check: if underlying streams are gone, node-routeros might crash inside write()
+        if (!api.connected || (api.connector && !api.connector.connected)) {
+             throw new Error('MicroTik connection closed (proactive check)');
+        }
+
         // Use Promise.race to prevent hanging forever on malformed sentences (like ROS 7.18 !empty)
-        const writePromise = api.write(command);
+        const writePromise = api.write(command).catch((e: any) => {
+            // Translate the "Cannot read properties of null (reading 'read')" crash into a clean error
+            const msg = String(e?.message || '');
+            if (msg.includes('null (reading \'read\')') || msg.includes('null (reading \'write\')')) {
+                throw new Error('MikroTik API internal stream crash (null reference)');
+            }
+            throw e;
+        });
+
         const timeoutPromise = new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error(`Command timed out after ${timeoutMs}ms`)), timeoutMs)
         );
 
         return await Promise.race([writePromise, timeoutPromise]);
     } catch (error: any) {
+        // If it's a fatal connection error or internal crash, remove from pool
+        if (poolKey && (
+            error.message.includes('closed') || 
+            error.message.includes('timeout') || 
+            error.message.includes('crash') ||
+            error.message.includes('null reference')
+        )) {
+            logger.warn({ host: api?.host, err: error.message }, 'Fatal MikroTik API error, evicting from pool');
+            connectionPool.delete(poolKey);
+        }
+
         if (isRouterosQuirk(error)) {
             // Log it briefly as debug if it's !empty
             const msg = String(error?.message || '').toLowerCase();
