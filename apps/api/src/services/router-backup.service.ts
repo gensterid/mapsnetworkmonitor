@@ -57,10 +57,11 @@ export class RouterBackupService {
             logger.info({ routerId, type, remoteFilename }, 'Generating backup on MikroTik...');
             
             if (type === 'backup') {
-                await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 30000);
+                // Increased timeout for binary backup generation
+                await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 120000);
             } else {
                 // Modified: Added show-sensitive=yes for .rsc exports as requested
-                await safeWrite(conn, ['/export', `=file=${remoteFilename}`, '=show-sensitive=yes'], 60000);
+                await safeWrite(conn, ['/export', `=file=${remoteFilename}`, '=show-sensitive=yes'], 120000);
             }
 
             // Delay for file to be ready (user can now customize this)
@@ -81,24 +82,24 @@ export class RouterBackupService {
             logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
             
             // Clean up any old script with same name first
-            try { await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 5000); } catch (e) {}
+            try { await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000); } catch (e) {}
 
             await safeWrite(conn, [
                 '/system/script/add',
                 `=name=${scriptName}`,
                 `=source=${fetchCommand}`
-            ], 10000);
+            ], 15000);
 
             logger.info({ routerId, scriptName }, 'Executing upload script...');
             
-            // Running the script (we don't wait for completion here as network tasks can be slow)
-            await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 60000);
+            // Running the script (we wait for completion or 2-minute timeout)
+            await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 120000);
 
             // Give it some time to start the transfer before we delete the script
             await new Promise(resolve => setTimeout(resolve, 5000));
             
             try {
-                await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000);
+                await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 15000);
             } catch (cleanupErr: any) {
                 logger.warn({ routerId, err: cleanupErr.message }, 'Failed to remove temporary upload script (non-fatal)');
             }
@@ -152,6 +153,9 @@ export class RouterBackupService {
             logger.debug({ absolutePath }, 'Target backup file path');
 
             try {
+                if (!fileBuffer || fileBuffer.length === 0) {
+                    throw ApiError.badRequest('Received empty backup file (0 bytes). MikroTik may still be generating the file.');
+                }
                 fs.writeFileSync(localPath, fileBuffer);
                 logger.info({ filename, size: fileBuffer.length }, 'File written to disk successfully');
             } catch (fsErr: any) {
