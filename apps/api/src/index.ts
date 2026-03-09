@@ -15,6 +15,7 @@ import { join, extname, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { eventEmitter } from './services/event-emitter.service.js';
 import { createRequire } from 'module';
+import routerBackupRoutes from './routes/router-backup.routes.js';
 
 const REQUIRE = createRequire(import.meta.url);
 
@@ -115,6 +116,10 @@ app.use(securityMiddleware);
 app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
 
+// MikroTik Backup upload routes MUST be before global body parsers
+// to allow express.raw() to handle binary data correctly.
+app.use('/api/router-backups', routerBackupRoutes);
+
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -131,7 +136,6 @@ app.get('/api/health', (_req, res) => {
 
 // API routes
 app.use('/api', routes);
-app.use('/api/backup', backupRoutes);
 
 // Error handling
 app.use(notFoundMiddleware);

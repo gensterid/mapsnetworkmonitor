@@ -19,7 +19,6 @@ import webhookRoutes from './webhook.routes.js';
 import aiRoutes from './ai.routes.js';
 import tenantRoutes from './tenant.routes.js';
 import genieacsDashboardRoutes from './genieacs-dashboard.routes.js';
-import routerBackupRoutes from './router-backup.routes.js';
 
 const router = Router();
 
@@ -53,7 +52,6 @@ router.use('/webhook', webhookRoutes);
 router.use('/ai', aiRoutes);
 router.use('/tenants', tenantRoutes);
 router.use('/genieacs-dashboard', genieacsDashboardRoutes);
-router.use('/router-backups', routerBackupRoutes);
 
 export default router;
 
