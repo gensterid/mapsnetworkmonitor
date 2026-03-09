@@ -111,9 +111,10 @@ export class RouterBackupService {
                 ":if ([:len [/file find name=$fn]] > 0) do={ " +
                 "  :local fs [/file get [find name=$fn] size]; " +
                 "  :if ($fs > 0) do={ " +
-                `    /tool fetch url=("${uploadUrlBase}/" . $fs) http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="Content-Type:application/octet-stream"; ` +
-                "  } else={ :log error \"Backup file 0 bytes\"; }; " +
-                "} else={ :log error \"Backup file not found\"; };";
+                `    :local u ("${uploadUrlBase}/" . $fs); ` +
+                "    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=" + (isHttps ? "https" : "http") + " http-header-field=\"Content-Type:application/octet-stream\"; " +
+                "  } else={ :log error \"Backup file 0 bytes\" }; " +
+                "} else={ :log error \"Backup file not found\" }";
             
             logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
             
