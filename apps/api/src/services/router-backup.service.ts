@@ -96,17 +96,17 @@ export class RouterBackupService {
 
             // Give it some time to start the transfer before we delete the script
             await new Promise(resolve => setTimeout(resolve, 5000));
-            await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000);
+            
+            try {
+                await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000);
+            } catch (cleanupErr: any) {
+                logger.warn({ routerId, err: cleanupErr.message }, 'Failed to remove temporary upload script (non-fatal)');
+            }
+
+            // Release connection back to pool
+            if ((conn as any).release) (conn as any).release();
 
             logger.info({ routerId }, 'Backup upload command sent successfully');
-
-            // Note: The actual backup record creation will happen in the upload endpoint
-            // when the file is successfully received.
-            
-            // 3. Cleanup remote file is handled by keep-result=no usually, but we can double check
-            // Actually, keep-result=no is for the FETCH result, not the src-path.
-            // We should cleanup after upload, but we don't know when it's done here.
-            // The upload endpoint will handle cleanup if we give it the router connection info.
             
             return { message: 'Backup triggered and upload initiated', filename: remoteFilename };
         } catch (error: any) {
@@ -134,10 +134,8 @@ export class RouterBackupService {
             }
 
             // Simple token verification
-            const expectedToken = decrypt(router.passwordEncrypted).substring(0, 32); 
-            // Note: The token in the URL is actually a hash or a substring for security
-            // We'll accept it for now as it's triggered by our own system
-            if (expectedToken !== token) {
+            const expectedToken = router.webhookSecret;
+            if (!expectedToken || expectedToken !== token) {
                 logger.warn({ routerId, token, expectedToken }, 'Invalid backup token received');
                 throw ApiError.unauthorized('Invalid backup token');
             }
