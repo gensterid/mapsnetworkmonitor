@@ -60,8 +60,30 @@ export class RouterBackupService {
                 // Increased timeout for binary backup generation
                 await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 120000);
             } else {
-                // Modified: Added show-sensitive=yes for .rsc exports as requested
-                await safeWrite(conn, ['/export', `=file=${remoteFilename}`, '=show-sensitive=yes'], 120000);
+                // Handle different export syntax for ROS 6 vs 7
+                // RouterOS 7 requires show-sensitive=yes to include passwords/secrets
+                let osVersion = router.routerOsVersion;
+                
+                // If version not in DB, try to fetch it live
+                if (!osVersion) {
+                    try {
+                        const { getRouterInfo } = await import('../lib/mikrotik-api.js');
+                        const info = await getRouterInfo(conn);
+                        osVersion = info.version || null;
+                    } catch (e) {
+                        logger.warn({ routerId, err: (e as Error).message }, 'Failed to fetch router version for export, defaulting to v7 syntax');
+                    }
+                }
+
+                const isVersion7 = osVersion && osVersion.startsWith('7');
+                const exportCmd = ['/export', `=file=${remoteFilename}`];
+                
+                if (isVersion7) {
+                    exportCmd.push('=show-sensitive=yes');
+                }
+                
+                logger.info({ routerId, osVersion, isVersion7, remoteFilename }, 'Running version-aware export command');
+                await safeWrite(conn, exportCmd, 120000);
             }
 
             // Delay for file to be ready (user can now customize this)
