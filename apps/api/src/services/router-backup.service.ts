@@ -101,10 +101,9 @@ export class RouterBackupService {
             const scriptName = `upload-${shortId}`;
             
             // Robust script v6/v7 compatible
-            // 1. Uses 'and' instead of '&&' for v6
-            // 2. Uses :len for safe empty find checks
-            // 3. Forces Content-Type to avoid Cloudflare body stripping
-            // 4. Appends size to URL for server-side verification
+            // - Uses 'Mozilla/5.0' UA to bypass Cloudflare Bot Fight Mode stripping body
+            // - Explicitly waits for file and non-zero size
+            // - Concise syntax for older v6 parsers
             const robustScript = 
                 `:local fn "${remoteFilename}"; :local r 0; ` +
                 ":while ([:len [/file find name=$fn]] = 0 and $r < 15) do={ :delay 2s; :set r ($r + 1); }; " +
@@ -112,9 +111,9 @@ export class RouterBackupService {
                 "  :local fs [/file get [find name=$fn] size]; " +
                 "  :if ($fs > 0) do={ " +
                 `    :local u ("${uploadUrlBase}/" . $fs); ` +
-                "    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=" + (isHttps ? "https" : "http") + " http-header-field=\"Content-Type:application/octet-stream\"; " +
-                "  } else={ :log error \"Backup file 0 bytes\" }; " +
-                "} else={ :log error \"Backup file not found\" }";
+                `    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0,Content-Type:application/octet-stream"; ` +
+                "  } else={ :log error \"Backup 0B\" }; " +
+                "} else={ :log error \"Backup missing\" }";
             
             logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
             
@@ -129,7 +128,7 @@ export class RouterBackupService {
 
             logger.info({ routerId, scriptName }, 'Executing upload script...');
             
-            // Running the script (via name for better v6 compatibility)
+            // Running the script
             await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 120000);
 
             // Give it some time to start the transfer before we delete the script
