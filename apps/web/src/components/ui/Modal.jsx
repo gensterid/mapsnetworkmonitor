@@ -30,6 +30,11 @@ export const Modal = ({ isOpen, onClose, title, children, maxWidth = 'max-w-md' 
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
+            onClick={(e) => {
+                e.stopPropagation();
+                // Optional: if generic Modal should close on backdrop, uncomment:
+                // if (e.target === e.currentTarget) onClose();
+            }}
         >
             <div
                 className={clsx(

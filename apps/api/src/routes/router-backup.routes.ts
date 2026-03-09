@@ -24,6 +24,28 @@ router.post('/upload/push/:routerId/:token/:filename/:type', express.raw({ type:
     res.json(result);
 }));
 
+/**
+ * Backward-compatible endpoint for query-string based uploads
+ * Used by existing scripts or manual triggers using the old format
+ */
+router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
+    const { routerId, token, filename, type } = req.query;
+    
+    if (!routerId || !token || !filename || !type) {
+        return res.status(400).json({ error: 'Missing required backup parameters in query string' });
+    }
+
+    const result = await routerBackupService.handleBackupUpload(
+        routerId as string,
+        token as string,
+        filename as string,
+        type as 'backup' | 'rsc',
+        req.body as Buffer
+    );
+
+    res.json(result);
+}));
+
 // List backups for a router
 router.get('/:routerId', authMiddleware, asyncHandler(async (req, res) => {
     const list = await routerBackupService.listRouterBackups(req.params.routerId);

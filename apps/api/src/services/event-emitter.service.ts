@@ -65,9 +65,9 @@ class EventEmitterService {
         const message = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
 
         this.clients.forEach(client => {
-            // Check access: Admins see everything, others only see assigned routers
-            const isAdmin = client.user?.role === 'admin';
-            const hasAccess = isAdmin || (client.user?.id && allowedUserIds.includes(client.user.id));
+            // Check access: Superadmins see everything, others only see assigned routers
+            const isSuperAdmin = client.user?.role === 'superadmin';
+            const hasAccess = isSuperAdmin || (client.user?.id && allowedUserIds.includes(client.user.id));
 
             if (!hasAccess && client.user) {
                 // Skip if user is logged in but doesn't have access

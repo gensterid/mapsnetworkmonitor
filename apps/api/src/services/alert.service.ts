@@ -198,8 +198,8 @@ export class AlertService {
             ));
         }
 
-        // Filter for non-admins
-        if (options.userId && options.userRole && options.userRole !== 'admin' && options.userRole !== 'superadmin') {
+        // Filter for non-superadmins
+        if (options.userId && options.userRole && options.userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -306,8 +306,8 @@ export class AlertService {
             filters.push(lte(alerts.createdAt, options.endDate));
         }
 
-        // Filter for non-admins
-        if (options.userId && options.userRole && options.userRole !== 'admin' && options.userRole !== 'superadmin') {
+        // Filter for non-superadmins
+        if (options.userId && options.userRole && options.userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -452,8 +452,8 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        // For non-admins/operators, check router access
-        if (userRole && userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'operator') {
+        // For non-superadmins, check router access
+        if (userRole && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -511,8 +511,8 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        // For non-admins/operators, check router access
-        if (userRole && userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'operator') {
+        // For non-superadmins, check router access
+        if (userRole && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -559,8 +559,8 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        // For non-admins/operators, check router access
-        if (userRole && userRole !== 'admin' && userRole !== 'superadmin' && userRole !== 'operator') {
+        // For non-superadmins, check router access
+        if (userRole && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -640,8 +640,8 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        // Filter for non-admins
-        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+        // Filter for non-superadmins
+        if (userId && userRole && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -679,8 +679,8 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        // Filter for non-admins
-        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+        // Filter for non-superadmins
+        if (userId && userRole && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
@@ -725,8 +725,8 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        // Filter for non-admins
-        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+        // Filter for non-superadmins
+        if (userId && userRole && userRole !== 'superadmin') {
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)

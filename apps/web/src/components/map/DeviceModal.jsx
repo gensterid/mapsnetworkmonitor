@@ -19,6 +19,7 @@ const DeviceModal = ({
     onDelete,
     onEditPath,
     isSaving = false,
+    isDeleting = false,
     routerInterfaces = [], // List of interfaces from the router (for heatmap)
     initialTab = 'settings',
     onStartPicking = null, // Callback to start map click capture
@@ -581,7 +582,7 @@ const DeviceModal = ({
                                         e.preventDefault();
                                         setIsDeleteConfirmOpen(true);
                                     }}
-                                    disabled={isSaving}
+                                    disabled={isSaving || isDeleting}
                                 >
                                     <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
                                         delete
@@ -599,11 +600,12 @@ const DeviceModal = ({
                 onClose={() => setIsDeleteConfirmOpen(false)}
                 onConfirm={(deleteFromMikrotik) => {
                     onDelete(deleteFromMikrotik);
-                    setIsDeleteConfirmOpen(false);
+                    // Deletion handler will close the modal locally on success
                 }}
                 itemName={device?.name || device?.host}
                 message="Yakin ingin menghapus perangkat ini dari peta?"
                 showMikrotikOption={device && (device.deviceType === 'client' || !device.deviceType) && !device.isAppOnly}
+                isDeleting={isDeleting}
             />
         </div>
     );

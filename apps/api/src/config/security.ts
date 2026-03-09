@@ -45,7 +45,7 @@ export const authLimiter = rateLimit({
 export const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {
     const stateChangingMethods = ['POST', 'PUT', 'DELETE', 'PATCH'];
     if (stateChangingMethods.includes(req.method)) {
-        if (req.originalUrl?.startsWith('/api/auth')) {
+        if (req.originalUrl?.startsWith('/api/auth') || req.originalUrl?.includes('/api/router-backups/upload')) {
             return next();
         }
 

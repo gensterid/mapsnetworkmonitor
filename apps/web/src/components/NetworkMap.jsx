@@ -1742,6 +1742,7 @@ const NetworkMap = ({
                         onStartPicking={setIsPickingCoordinate}
                         isPicking={isPickingCoordinate}
                         isSaving={isSaving}
+                        isDeleting={deleteNetwatchMutation.isPending || deleteNetwatchMutation.isLoading}
                         initialTab={modalInitialTab}
                         routerInterfaces={routerInterfaces || []}
                     />
