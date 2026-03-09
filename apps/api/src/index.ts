@@ -136,6 +136,7 @@ app.get('/api/health', (_req, res) => {
 
 // API routes
 app.use('/api', routes);
+app.use('/api/backup', backupRoutes);
 
 // Error handling
 app.use(notFoundMiddleware);
