@@ -55,25 +55,23 @@ export class RouterBackupService {
             });
             logger.info({ routerId, type, remoteFilename }, 'Generating backup on MikroTik...');
             
+            // Attempt to determine OS version earlier so we can use it for both export format and fetch format
+            let osVersion = router.routerOsVersion;
+            if (!osVersion) {
+                try {
+                    const { getRouterInfo } = await import('../lib/mikrotik-api.js');
+                    const info = await getRouterInfo(conn);
+                    osVersion = info.version || null;
+                } catch (e) {
+                    logger.warn({ routerId, err: (e as Error).message }, 'Failed to fetch router version for export, defaulting to v7 syntax');
+                }
+            }
+            const isVersion7 = osVersion && osVersion.startsWith('7');
+
             if (type === 'backup') {
                 // Increased timeout for binary backup generation
                 await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 120000);
             } else {
-                // Handle different export syntax for ROS 6 vs 7
-                let osVersion = router.routerOsVersion;
-                
-                // If version not in DB, try to fetch it live
-                if (!osVersion) {
-                    try {
-                        const { getRouterInfo } = await import('../lib/mikrotik-api.js');
-                        const info = await getRouterInfo(conn);
-                        osVersion = info.version || null;
-                    } catch (e) {
-                        logger.warn({ routerId, err: (e as Error).message }, 'Failed to fetch router version for export, defaulting to v7 syntax');
-                    }
-                }
-
-                const isVersion7 = osVersion && osVersion.startsWith('7');
                 const exportCmd = ['/export', `=file=${remoteFilename}`];
                 
                 if (isVersion7) {
@@ -103,7 +101,7 @@ export class RouterBackupService {
                 "  :local fs [/file get [find name=$fn] size]; " +
                 "  :if ($fs > 0) do={ " +
                 `    :local u ("${uploadUrlBase}/" . $fs); ` +
-                `    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0,Content-Type:application/octet-stream"; ` +
+                `    /tool fetch url=$u http-method=post ${!isVersion7 ? 'upload=yes ' : ''}src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0,Content-Type:application/octet-stream"; ` +
                 "  } else={ :log error \"Backup 0B\" }; " +
                 "} else={ :log error \"Backup missing\" }";
             
