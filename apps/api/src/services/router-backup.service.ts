@@ -95,25 +95,25 @@ export class RouterBackupService {
             // 2. Instruct MikroTik to push the file to our server via script (more stable for long tasks)
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
             // Path-based URL to avoid '?' help character issues in MikroTik/Cloudflare
-            // Added :SIZE placeholder for the script to fill
             const uploadUrlBase = `${baseUrl}/api/router-backups/upload/push/${encodeURIComponent(router.id)}/${encodeURIComponent(token)}/${encodeURIComponent(remoteFilename)}/${encodeURIComponent(type)}`;
             const isHttps = uploadUrlBase.startsWith('https://');
             
             const scriptName = `upload-${shortId}`;
             
-            // Robust script: waits for file to exist and have non-zero size (max 30s)
-            // Now also fetches size and appends to URL to help server validate
+            // Robust script v6/v7 compatible
+            // 1. Uses 'and' instead of '&&' for v6
+            // 2. Uses :len for safe empty find checks
+            // 3. Forces Content-Type to avoid Cloudflare body stripping
+            // 4. Appends size to URL for server-side verification
             const robustScript = 
-                `:local fileName "${remoteFilename}"; ` +
-                ":local retry 0; " +
-                ":while (([/file find name=$fileName] = \"\") && ($retry < 15)) do={ :delay 2s; :set retry ($retry + 1); }; " +
-                ":if ([/file find name=$fileName] != \"\") do={ " +
-                "  :local fSize [/file get [find name=$fileName] size]; " +
-                "  :if ($fSize > 0) do={ " +
-                `    :local finalUrl "${uploadUrlBase}/" . $fSize; ` +
-                `    /tool fetch url=$finalUrl http-method=post src-path="$fileName" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="Content-Type: application/octet-stream,User-Agent: MikroTik-Backup-Agent,Accept: */*"; ` +
-                "  } else={ :log error (\"Backup file $fileName is 0 bytes, upload skipped\"); } " +
-                "} else={ :log error (\"Backup file $fileName not found on disk, upload skipped\"); }";
+                `:local fn "${remoteFilename}"; :local r 0; ` +
+                ":while ([:len [/file find name=$fn]] = 0 and $r < 15) do={ :delay 2s; :set r ($r + 1); }; " +
+                ":if ([:len [/file find name=$fn]] > 0) do={ " +
+                "  :local fs [/file get [find name=$fn] size]; " +
+                "  :if ($fs > 0) do={ " +
+                `    /tool fetch url=("${uploadUrlBase}/" . $fs) http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="Content-Type:application/octet-stream"; ` +
+                "  } else={ :log error \"Backup file 0 bytes\"; }; " +
+                "} else={ :log error \"Backup file not found\"; };";
             
             logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
             
@@ -128,7 +128,7 @@ export class RouterBackupService {
 
             logger.info({ routerId, scriptName }, 'Executing upload script...');
             
-            // Running the script (we wait for completion or 2-minute timeout)
+            // Running the script (via name for better v6 compatibility)
             await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 120000);
 
             // Give it some time to start the transfer before we delete the script
