@@ -95,19 +95,23 @@ export class RouterBackupService {
             // 2. Instruct MikroTik to push the file to our server via script (more stable for long tasks)
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
             // Path-based URL to avoid '?' help character issues in MikroTik/Cloudflare
-            const uploadUrl = `${baseUrl}/api/router-backups/upload/push/${encodeURIComponent(router.id)}/${encodeURIComponent(token)}/${encodeURIComponent(remoteFilename)}/${encodeURIComponent(type)}`;
-            const isHttps = uploadUrl.startsWith('https://');
+            // Added :SIZE placeholder for the script to fill
+            const uploadUrlBase = `${baseUrl}/api/router-backups/upload/push/${encodeURIComponent(router.id)}/${encodeURIComponent(token)}/${encodeURIComponent(remoteFilename)}/${encodeURIComponent(type)}`;
+            const isHttps = uploadUrlBase.startsWith('https://');
             
             const scriptName = `upload-${shortId}`;
             
             // Robust script: waits for file to exist and have non-zero size (max 30s)
+            // Now also fetches size and appends to URL to help server validate
             const robustScript = 
                 `:local fileName "${remoteFilename}"; ` +
                 ":local retry 0; " +
                 ":while (([/file find name=$fileName] = \"\") && ($retry < 15)) do={ :delay 2s; :set retry ($retry + 1); }; " +
                 ":if ([/file find name=$fileName] != \"\") do={ " +
-                "  :if ([/file get [find name=$fileName] size] > 0) do={ " +
-                `    /tool fetch url="${uploadUrl}" http-method=post src-path="$fileName" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:MikroTik/7.x,Accept:*/*"; ` +
+                "  :local fSize [/file get [find name=$fileName] size]; " +
+                "  :if ($fSize > 0) do={ " +
+                `    :local finalUrl "${uploadUrlBase}/" . $fSize; ` +
+                `    /tool fetch url=$finalUrl http-method=post src-path="$fileName" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="Content-Type: application/octet-stream,User-Agent: MikroTik-Backup-Agent,Accept: */*"; ` +
                 "  } else={ :log error (\"Backup file $fileName is 0 bytes, upload skipped\"); } " +
                 "} else={ :log error (\"Backup file $fileName not found on disk, upload skipped\"); }";
             
@@ -153,15 +157,15 @@ export class RouterBackupService {
     /**
      * Handle incoming backup file upload from MikroTik
      */
-    async handleBackupUpload(routerId: string, token: string, filename: string, type: 'backup' | 'rsc', fileBuffer: any, req?: any) {
+    async handleBackupUpload(routerId: string, token: string, filename: string, type: 'backup' | 'rsc', fileBuffer: any, req?: any, expectedSize?: number) {
         try {
             // Debug logging for headers
             if (req && req.headers) {
-                logger.debug({ headers: req.headers, routerId, filename }, 'Backup upload request headers');
+                logger.debug({ headers: req.headers, routerId, filename, expectedSize }, 'Backup upload request headers');
             }
 
             const bufferSize = fileBuffer instanceof Buffer ? fileBuffer.length : (fileBuffer?.length || 0);
-            logger.info({ routerId, filename, type, bufferSize }, 'Starting backup upload processing');
+            logger.info({ routerId, filename, type, bufferSize, expectedSize }, 'Starting backup upload processing');
             
             const router = await db.query.routers.findFirst({
                 where: eq(routers.id, routerId)
@@ -195,8 +199,16 @@ export class RouterBackupService {
                 
                 if (!isValidBuffer) {
                     const receivedType = typeof fileBuffer === 'object' ? (fileBuffer?.constructor?.name || 'Object') : typeof fileBuffer;
-                    logger.error({ receivedType, bufferSize: fileBuffer?.length }, 'Received invalid or empty backup data');
-                    throw ApiError.badRequest(`Received invalid backup file (${receivedType}, ${fileBuffer?.length || 0} bytes). MikroTik may still be generating the file or proxy stripped the body.`);
+                    logger.error({ receivedType, bufferSize: fileBuffer?.length, expectedSize }, 'Received invalid or empty backup data');
+                    
+                    let errorMsg = `Received invalid backup file (${receivedType}, ${fileBuffer?.length || 0} bytes).`;
+                    if (expectedSize && expectedSize > 0) {
+                        errorMsg += ` MikroTik reported ${expectedSize} bytes before transmission. Proxy/WAF likely stripped the body.`;
+                    } else {
+                        errorMsg += ` MikroTik may still be generating the file.`;
+                    }
+                    
+                    throw ApiError.badRequest(errorMsg);
                 }
                 fs.writeFileSync(localPath, fileBuffer);
                 logger.info({ filename, size: fileBuffer.length }, 'File written to disk successfully');

@@ -10,8 +10,8 @@ const router = Router();
  * Path-based push endpoint (resilient to MikroTik '?' help character issue)
  * Under /upload/push to match existing Cloudflare WAF rule
  */
-router.post('/upload/push/:routerId/:token/:filename/:type', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
-    const { routerId, token, filename, type } = req.params;
+router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
+    const { routerId, token, filename, type, expectedSize } = req.params;
     
     const result = await routerBackupService.handleBackupUpload(
         routerId as string,
@@ -19,7 +19,8 @@ router.post('/upload/push/:routerId/:token/:filename/:type', express.raw({ type:
         filename as string,
         type as 'backup' | 'rsc',
         req.body,
-        req
+        req,
+        expectedSize ? parseInt(expectedSize) : undefined
     );
 
     res.json(result);
@@ -30,7 +31,7 @@ router.post('/upload/push/:routerId/:token/:filename/:type', express.raw({ type:
  * Used by existing scripts or manual triggers using the old format
  */
 router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
-    const { routerId, token, filename, type } = req.query;
+    const { routerId, token, filename, type, size } = req.query;
     
     if (!routerId || !token || !filename || !type) {
         return res.status(400).json({ error: 'Missing required backup parameters in query string' });
@@ -42,7 +43,8 @@ router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler
         filename as string,
         type as 'backup' | 'rsc',
         req.body,
-        req
+        req,
+        size ? parseInt(size as string) : undefined
     );
 
     res.json(result);
