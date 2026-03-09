@@ -44,16 +44,15 @@ export class RouterBackupService {
         const remoteFilename = `bkp-${shortId}-${timestamp}${ext}`;
         const localPath = path.join(this.backupDir, remoteFilename);
 
+        let conn: any = null;
         try {
             // 1. Trigger backup generation on MikroTik via API
-            const conn = await connectToRouter({
+            conn = await connectToRouter({
                 host: router.host,
                 port: router.port,
                 username: router.username,
                 password: decrypt(router.passwordEncrypted)
             });
-            if (!conn) throw ApiError.internal('Failed to connect to router API');
-
             logger.info({ routerId, type, remoteFilename }, 'Generating backup on MikroTik...');
             
             if (type === 'backup') {
@@ -61,7 +60,6 @@ export class RouterBackupService {
                 await safeWrite(conn, ['/system/backup/save', `=name=${remoteFilename}`], 120000);
             } else {
                 // Handle different export syntax for ROS 6 vs 7
-                // RouterOS 7 requires show-sensitive=yes to include passwords/secrets
                 let osVersion = router.routerOsVersion;
                 
                 // If version not in DB, try to fetch it live
@@ -86,24 +84,18 @@ export class RouterBackupService {
                 await safeWrite(conn, exportCmd, 120000);
             }
 
-            // Delay for file to be ready (user can now customize this)
+            // Delay for file to be ready
             logger.info({ routerId, delay }, `Waiting ${delay} seconds for file to be ready...`);
             await new Promise(resolve => setTimeout(resolve, delay * 1000));
 
             logger.info({ routerId, remoteFilename }, 'Initiating HTTP Push upload from MikroTik...');
 
-            // 2. Instruct MikroTik to push the file to our server via script (more stable for long tasks)
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
-            // Path-based URL to avoid '?' help character issues in MikroTik/Cloudflare
             const uploadUrlBase = `${baseUrl}/api/router-backups/upload/push/${encodeURIComponent(router.id)}/${encodeURIComponent(token)}/${encodeURIComponent(remoteFilename)}/${encodeURIComponent(type)}`;
             const isHttps = uploadUrlBase.startsWith('https://');
             
             const scriptName = `upload-${shortId}`;
             
-            // Robust script v6/v7 compatible
-            // - Uses 'Mozilla/5.0' UA to bypass Cloudflare Bot Fight Mode stripping body
-            // - Explicitly waits for file and non-zero size
-            // - Concise syntax for older v6 parsers
             const robustScript = 
                 `:local fn "${remoteFilename}"; :local r 0; ` +
                 ":while ([:len [/file find name=$fn]] = 0 and $r < 15) do={ :delay 2s; :set r ($r + 1); }; " +
@@ -117,7 +109,6 @@ export class RouterBackupService {
             
             logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
             
-            // Clean up any old script with same name first
             try { await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000); } catch (e) {}
 
             await safeWrite(conn, [
@@ -127,11 +118,8 @@ export class RouterBackupService {
             ], 15000);
 
             logger.info({ routerId, scriptName }, 'Executing upload script...');
-            
-            // Running the script
             await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 120000);
 
-            // Give it some time to start the transfer before we delete the script
             await new Promise(resolve => setTimeout(resolve, 5000));
             
             try {
@@ -140,17 +128,17 @@ export class RouterBackupService {
                 logger.warn({ routerId, err: cleanupErr.message }, 'Failed to remove temporary upload script (non-fatal)');
             }
 
-            // Release connection back to pool
-            if ((conn as any).release) (conn as any).release();
-
             logger.info({ routerId }, 'Backup upload command sent successfully');
-            
             return { message: 'Backup triggered and upload initiated', filename: remoteFilename };
         } catch (error: any) {
             logger.error({ error: error.message, stack: error.stack, routerId }, 'MikroTik backup process failed');
-            
             if (error instanceof ApiError) throw error;
             throw ApiError.internal(`MikroTik Backup Failed: ${error.message}`);
+
+
+        } finally {
+            // Release connection back to pool
+            if (conn && (conn as any).release) (conn as any).release();
         }
     }
 
