@@ -18,7 +18,8 @@ router.post('/upload/push/:routerId/:token/:filename/:type', express.raw({ type:
         token as string,
         filename as string,
         type as 'backup' | 'rsc',
-        req.body as Buffer
+        req.body,
+        req
     );
 
     res.json(result);
@@ -40,7 +41,8 @@ router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler
         token as string,
         filename as string,
         type as 'backup' | 'rsc',
-        req.body as Buffer
+        req.body,
+        req
     );
 
     res.json(result);
