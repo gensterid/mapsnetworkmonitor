@@ -121,19 +121,54 @@ export class RouterBackupService {
      * Handle incoming backup file upload from MikroTik
      */
     async handleBackupUpload(routerId: string, token: string, filename: string, type: 'backup' | 'rsc', fileBuffer: Buffer) {
-        const router = await db.query.routers.findFirst({
-            where: eq(routers.id, routerId)
-        });
+        try {
+            logger.info({ routerId, filename, type, bufferSize: fileBuffer.length }, 'Starting backup upload processing');
+            
+            const router = await db.query.routers.findFirst({
+                where: eq(routers.id, routerId)
+            });
 
-        if (!router) throw ApiError.notFound('Router not found');
-        if (router.webhookSecret !== token) throw ApiError.unauthorized('Invalid backup token');
+            if (!router) {
+                logger.error({ routerId }, 'Router not found for backup upload');
+                throw ApiError.notFound('Router not found');
+            }
 
-        const localPath = path.join(this.backupDir, filename);
-        fs.writeFileSync(localPath, fileBuffer);
+            // Simple token verification
+            const expectedToken = decrypt(router.passwordEncrypted).substring(0, 32); 
+            // Note: The token in the URL is actually a hash or a substring for security
+            // We'll accept it for now as it's triggered by our own system
+            if (expectedToken !== token) {
+                logger.warn({ routerId, token, expectedToken }, 'Invalid backup token received');
+                throw ApiError.unauthorized('Invalid backup token');
+            }
+            
+            // Ensure directory exists (again, just in case)
+            if (!fs.existsSync(this.backupDir)) {
+                logger.info({ backupDir: this.backupDir }, 'Creating missing backup directory');
+                fs.mkdirSync(this.backupDir, { recursive: true });
+            }
 
-        const stats = fs.statSync(localPath);
-        
-        // Ensure we have a tenantId (required by DB schema constraint)
+            const localPath = path.join(this.backupDir, filename);
+            const absolutePath = path.resolve(localPath);
+            
+            logger.debug({ absolutePath }, 'Target backup file path');
+
+            try {
+                fs.writeFileSync(localPath, fileBuffer);
+                logger.info({ filename, size: fileBuffer.length }, 'File written to disk successfully');
+            } catch (fsErr: any) {
+                logger.error({ 
+                    err: fsErr.message, 
+                    code: fsErr.code, 
+                    path: absolutePath,
+                    cwd: process.cwd()
+                }, 'Failed to write backup file to disk');
+                throw ApiError.internal(`File system error: ${fsErr.message} at ${absolutePath}`);
+            }
+
+            const stats = fs.statSync(localPath);
+            
+            // Ensure we have a tenantId (required by DB schema constraint)
         let finalTenantId = router.tenantId;
         
         if (!finalTenantId) {
@@ -197,7 +232,18 @@ export class RouterBackupService {
             logger.error({ dbErr: dbErr.message, routerId, filename }, 'Database error while saving backup record');
             throw ApiError.internal(`Failed to save backup record: ${dbErr.message}`);
         }
+    } catch (globalErr: any) {
+        logger.error({ 
+            err: globalErr.message, 
+            stack: globalErr.stack, 
+            routerId, 
+            filename 
+        }, 'Global error in handleBackupUpload');
+        
+        if (globalErr instanceof ApiError) throw globalErr;
+        throw ApiError.internal(`System error during backup processing: ${globalErr.message}`);
     }
+}
 
     async listRouterBackups(routerId: string) {
         return db.select()
