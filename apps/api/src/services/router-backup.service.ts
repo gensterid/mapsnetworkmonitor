@@ -540,6 +540,93 @@ export class RouterBackupService {
             await db.delete(routerBackups).where(eq(routerBackups.id, backupId));
         }
     }
+
+    /**
+     * Push SMTP configuration and automated backup script/scheduler to MikroTik
+     */
+    async pushEmailConfig(routerId: string, config: {
+        server: string,
+        port: number,
+        user: string,
+        pass: string,
+        recipient: string,
+        interval: string
+    }): Promise<any> {
+        const router = await db.query.routers.findFirst({
+            where: eq(routers.id, routerId)
+        });
+
+        if (!router) throw ApiError.notFound('Router not found');
+
+        const conn = await connectToRouter({
+            host: router.host,
+            port: router.port,
+            username: router.username,
+            password: decrypt(router.passwordEncrypted)
+        });
+
+        try {
+            // 1. Configure SMTP
+            logger.info({ routerId, server: config.server }, 'Configuring MikroTik SMTP settings...');
+            await safeWrite(conn, [
+                '/tool/e-mail/set',
+                `=address=${config.server}`,
+                `=port=${config.port}`,
+                `=user=${config.user}`,
+                `=password=${config.pass}`,
+                '=from=mikrotik-monitor'
+            ]);
+
+            // 2. Clear old instances of the script/scheduler if they exist to avoid "already exists" errors
+            try {
+                const existingScripts = await safeWrite(conn, ['/system/script/print', '?name=auto-email-backup']);
+                if (existingScripts.length > 0) {
+                    await safeWrite(conn, ['/system/script/remove', `=numbers=${existingScripts[0]['.id']}`]);
+                }
+                const existingScheds = await safeWrite(conn, ['/system/scheduler/print', '?name=auto-email-backup-task']);
+                if (existingScheds.length > 0) {
+                    await safeWrite(conn, ['/system/scheduler/remove', `=numbers=${existingScheds[0]['.id']}`]);
+                }
+            } catch (e) {
+                logger.debug('Cleanup of existing scripts failed (likely missing), proceeding...');
+            }
+
+            // 3. Inject the self-cleaning script
+            const scriptName = "auto-email-backup";
+            const scriptSource = [
+                ":local ts [/system clock get date];",
+                ":local host [/system identity get name];",
+                ":local filename (\"bkp-\" . $host . \"-\" . [:pick $ts 7 11] . [:pick $ts 0 3] . [:pick $ts 4 6] . \".rsc\");",
+                "/export file=$filename;",
+                ":delay 10s;",
+                `/tool e-mail send to="${config.recipient}" subject=($host . \" Backup - \" . $ts) file=$filename body=\"Attached is the automatic configuration backup for \" . $host;`,
+                ":delay 30s;",
+                "/file remove $filename;",
+                ":log info (\"Automated email backup sent and cleaned up for \" . $host);"
+            ].join("");
+
+            logger.info({ routerId }, 'Injecting MikroTik backup script...');
+            await safeWrite(conn, [
+                '/system/script/add',
+                `=name=${scriptName}`,
+                `=source=${scriptSource}`
+            ]);
+
+            // 4. Set up the scheduler
+            logger.info({ routerId, interval: config.interval }, 'Configuring MikroTik backup scheduler...');
+            await safeWrite(conn, [
+                '/system/scheduler/add',
+                '=name=auto-email-backup-task',
+                `=interval=${config.interval}`,
+                `=on-event=${scriptName}`,
+                '=start-time=startup'
+            ]);
+
+            return { success: true, message: 'Automated email backup configured on MikroTik successfully' };
+        } finally {
+            conn.close();
+        }
+    }
 }
 
 export const routerBackupService = new RouterBackupService();

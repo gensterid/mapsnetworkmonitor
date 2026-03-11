@@ -28,5 +28,11 @@ export const routerBackupService = {
     convertSnapshot: async (backupId) => {
         const response = await api.post(`/router-backups/convert/${backupId}`);
         return response.data;
+    },
+
+    // Push Email Config
+    pushEmailConfig: async (routerId, config) => {
+        const response = await api.post(`/router-backups/email-config/${routerId}`, config);
+        return response.data;
     }
 };

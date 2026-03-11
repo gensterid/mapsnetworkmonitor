@@ -92,4 +92,10 @@ router.post('/convert/:backupId', authMiddleware, asyncHandler(async (req, res) 
     res.json(result);
 }));
 
+// Push automated email backup configuration to MikroTik
+router.post('/email-config/:routerId', authMiddleware, express.json(), asyncHandler(async (req, res) => {
+    const result = await routerBackupService.pushEmailConfig(req.params.routerId, req.body);
+    res.json(result);
+}));
+
 export default router;
