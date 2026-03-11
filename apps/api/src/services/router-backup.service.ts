@@ -64,7 +64,8 @@ export class RouterBackupService {
         for (const cmd of endpoints) {
             try {
                 logger.debug({ routerId, cmd }, `Crawling ${cmd}`);
-                const result = await safeWrite(conn, [cmd], 10000);
+                // Increased timeout to 60s to handle large datasets (10k+ users)
+                const result = await safeWrite(conn, [cmd], 60000);
                 const key = cmd.replace(/\/print$/, '').replace(/^\//, '');
                 snapshot.data[key] = result;
             } catch (error: any) {
