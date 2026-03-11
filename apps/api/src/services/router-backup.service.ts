@@ -407,6 +407,117 @@ export class RouterBackupService {
         };
     }
 
+    /**
+     * Reconstruct a .rsc script from an existing JSON backup record
+     */
+    async generateRscFromSnapshot(backupId: string): Promise<any> {
+        const backup = await db.query.routerBackups.findFirst({
+            where: eq(routerBackups.id, backupId)
+        });
+
+        if (!backup || backup.type !== 'json') {
+            throw ApiError.notFound('JSON snapshot not found or invalid type');
+        }
+
+        const localPath = path.join(this.backupDir, backup.filename);
+        if (!fs.existsSync(localPath)) {
+            throw ApiError.notFound('Snapshot file missing on disk');
+        }
+
+        const snapshotData = JSON.parse(fs.readFileSync(localPath, 'utf8'));
+        const rscContent = this.convertJsonToRsc(snapshotData);
+        
+        const rscFilename = backup.filename.replace('.json', '.reconstructed.rsc');
+        const rscPath = path.join(this.backupDir, rscFilename);
+        fs.writeFileSync(rscPath, rscContent);
+
+        const stats = fs.statSync(rscPath);
+
+        const [newRecord] = await db.insert(routerBackups).values({
+            routerId: backup.routerId,
+            tenantId: backup.tenantId,
+            filename: rscFilename,
+            type: 'rsc',
+            size: stats.size,
+            comment: `Reconstructed from Snapshot: ${backup.comment || backup.filename}`,
+            createdAt: new Date()
+        }).returning();
+
+        return { message: 'RSC script reconstructed successfully', record: newRecord };
+    }
+
+    private convertJsonToRsc(snapshot: any): string {
+        const lines: string[] = [
+            "# ===========================================================",
+            "# MIKROTIK CONFIGURATION RECONSTRUCTED FROM JSON SNAPSHOT",
+            `# Generated on: ${new Date().toISOString()}`,
+            `# Router ID: ${snapshot.metadata?.routerId || 'Unknown'}`,
+            "# WARNING: USE WITH CAUTION. VERIFY COMMANDS BEFORE IMPORT.",
+            "# ===========================================================\n"
+        ];
+
+        const menuOrder = [
+            'system/identity',
+            'ip/pool',
+            'ip/address',
+            'ip/dns',
+            'ppp/profile',
+            'ppp/secret',
+            'ip/firewall/nat',
+            'ip/firewall/filter',
+            'queue/simple'
+        ];
+
+        for (const menu of menuOrder) {
+            const data = snapshot.data?.[menu];
+            if (!data || !Array.isArray(data)) continue;
+
+            lines.push(`\n# --- ${menu.toUpperCase()} ---`);
+            
+            for (const item of data) {
+                const cmd = this.formatRscCommand(menu, item);
+                if (cmd) lines.push(cmd);
+            }
+        }
+
+        return lines.join('\n');
+    }
+
+    private formatRscCommand(menu: string, item: any): string | null {
+        const basePath = `/${menu}`;
+        const skipKeys = ['.id', '.nextid', '.id_local', 'bytes', 'packets', 'invalid', 'dynamic', 'running', 'disabled', 'comment'];
+        
+        // Special case for identity
+        if (menu === 'system/identity') {
+            return `/system identity set name="${item.name || 'MikroTik'}"`;
+        }
+
+        // Build add command
+        const parts = [basePath, 'add'];
+        
+        // Add comment first if it exists
+        if (item.comment) {
+            parts.push(`comment="${item.comment}"`);
+        }
+
+        let hasData = false;
+
+        for (const [key, value] of Object.entries(item)) {
+            if (skipKeys.includes(key) || value === undefined || value === '') continue;
+            
+            // Format value: quote if contains spaces or special chars
+            let formattedValue = String(value);
+            if (formattedValue.includes(' ') || formattedValue.includes(';') || formattedValue === '') {
+                formattedValue = `"${formattedValue}"`;
+            }
+
+            parts.push(`${key}=${formattedValue}`);
+            hasData = true;
+        }
+
+        return hasData ? parts.join(' ') : null;
+    }
+
     async deleteBackup(backupId: string) {
         const backup = await db.query.routerBackups.findFirst({
             where: eq(routerBackups.id, backupId)

@@ -22,5 +22,11 @@ export const routerBackupService = {
     // Get download URL
     getDownloadUrl: (backupId) => {
         return `${api.defaults.baseURL}/router-backups/download/${backupId}`;
+    },
+
+    // Convert Snapshot to RSC
+    convertSnapshot: async (backupId) => {
+        const response = await api.post(`/router-backups/convert/${backupId}`);
+        return response.data;
     }
 };

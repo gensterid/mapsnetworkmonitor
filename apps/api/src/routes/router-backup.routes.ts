@@ -86,4 +86,10 @@ router.delete('/:backupId', authMiddleware, asyncHandler(async (req, res) => {
     res.json({ success: true });
 }));
 
+// Reconstruct .rsc from .json snapshot
+router.post('/convert/:backupId', authMiddleware, asyncHandler(async (req, res) => {
+    const result = await routerBackupService.generateRscFromSnapshot(req.params.backupId);
+    res.json(result);
+}));
+
 export default router;

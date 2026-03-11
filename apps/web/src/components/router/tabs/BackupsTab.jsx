@@ -11,7 +11,8 @@ import {
     AlertCircle, 
     CheckCircle2,
     HardDrive,
-    History
+    History,
+    Wand2
 } from 'lucide-react';
 import { routerBackupService } from '@/lib/api/services/router-backup.service';
 import { Button } from '@/components/ui/Button';
@@ -44,6 +45,13 @@ export default function BackupsTab({ routerId }) {
     // Delete backup mutation
     const deleteMutation = useMutation({
         mutationFn: (backupId) => routerBackupService.deleteBackup(backupId),
+        onSuccess: () => {
+            queryClient.invalidateQueries(['router-backups', routerId]);
+        }
+    });
+
+    const convertMutation = useMutation({
+        mutationFn: (backupId) => routerBackupService.convertSnapshot(backupId),
         onSuccess: () => {
             queryClient.invalidateQueries(['router-backups', routerId]);
         }
@@ -212,6 +220,18 @@ export default function BackupsTab({ routerId }) {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    {bkp.type === 'json' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10"
+                                            onClick={() => convertMutation.mutate(bkp.id)}
+                                            loading={convertMutation.isPending && convertMutation.variables === bkp.id}
+                                            title="Magic Wand: Reconstruct .rsc Script from this Snapshot"
+                                        >
+                                            <Wand2 className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="ghost"
                                         size="icon"
