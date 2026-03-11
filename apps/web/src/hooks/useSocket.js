@@ -25,7 +25,11 @@ export const getSocket = () => {
             path: '/socket.io',
             withCredentials: true,
             transports: ['websocket', 'polling'], // Prefer WebSocket
-            reconnectionAttempts: 5,
+            reconnection: true,
+            reconnectionAttempts: Infinity, // Keep trying forever
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000,
+            timeout: 20000,
         });
 
         socket.on('connect', () => {

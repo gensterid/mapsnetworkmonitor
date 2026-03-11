@@ -15,7 +15,7 @@ const safeErrSerializer = (err: any) => {
 };
 
 export const logger = pino({
-    level: 'debug',
+    level: isProduction ? 'info' : 'debug',
     serializers: {
         err: safeErrSerializer,
         error: safeErrSerializer,

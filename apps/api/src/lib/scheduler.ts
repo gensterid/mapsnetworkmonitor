@@ -341,56 +341,43 @@ async function cleanupOldMetrics(): Promise<void> {
             const mCutoff = new Date();
             mCutoff.setDate(mCutoff.getDate() - metricsRetention);
 
-            const mResult = await db.delete(routerMetrics)
-                .where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, mCutoff)))
-                .returning();
+            await db.delete(routerMetrics)
+                .where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, mCutoff)));
 
             // 1b. Device Latency history
-            const pResult = await db.delete(devicePerformanceHistory)
-                .where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, mCutoff)))
-                .returning();
+            await db.delete(devicePerformanceHistory)
+                .where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, mCutoff)));
 
             // 2. Interface traffic metrics
             const ifMetricsRetention = await settingsService.getSettingValue('interface_metrics_retention_days', tenant.id, 30);
             const ifCutoff = new Date();
             ifCutoff.setDate(ifCutoff.getDate() - ifMetricsRetention);
 
-            const ifResult = await db.delete(routerInterfaceMetrics)
-                .where(and(eq(routerInterfaceMetrics.tenantId, tenant.id), lt(routerInterfaceMetrics.recordedAt, ifCutoff)))
-                .returning();
+            await db.delete(routerInterfaceMetrics)
+                .where(and(eq(routerInterfaceMetrics.tenantId, tenant.id), lt(routerInterfaceMetrics.recordedAt, ifCutoff)));
 
             // 3. Resolved Alerts
             const alertsRetention = await settingsService.getSettingValue('alerts_retention_days', tenant.id, 60);
             const aCutoff = new Date();
             aCutoff.setDate(aCutoff.getDate() - alertsRetention);
 
-            const aResult = await db.delete(alerts)
+            await db.delete(alerts)
                 .where(and(
                     eq(alerts.tenantId, tenant.id), 
                     eq(alerts.resolved, true), 
                     lt(alerts.createdAt, aCutoff)
-                ))
-                .returning();
+                ));
 
             // 4. Audit Logs
             const auditRetention = await settingsService.getSettingValue('audit_logs_retention_days', tenant.id, 365);
             const auCutoff = new Date();
             auCutoff.setDate(auCutoff.getDate() - auditRetention);
 
-            const auResult = await db.delete(auditLogs)
-                .where(and(eq(auditLogs.tenantId, tenant.id), lt(auditLogs.createdAt, auCutoff)))
-                .returning();
+            await db.delete(auditLogs)
+                .where(and(eq(auditLogs.tenantId, tenant.id), lt(auditLogs.createdAt, auCutoff)));
 
-            if (mResult.length > 0 || pResult.length > 0 || ifResult.length > 0 || aResult.length > 0 || auResult.length > 0) {
-                logger.info({ 
-                    tenantId: tenant.id, 
-                    metrics: mResult.length, 
-                    perfHistory: pResult.length,
-                    ifMetrics: ifResult.length,
-                    alerts: aResult.length,
-                    auditLogs: auResult.length
-                }, '✅ Tenant database maintenance complete');
-            }
+            // Cleanup finished for tenant
+            logger.info({ tenantId: tenant.id }, '✅ Tenant database maintenance complete');
         }
     } catch (error) {
         logger.error({ err: error }, 'Database maintenance cleanup error');

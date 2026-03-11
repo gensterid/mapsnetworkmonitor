@@ -21,7 +21,7 @@ import clsx from 'clsx';
 
 export default function BackupsTab({ routerId }) {
     const queryClient = useQueryClient();
-    const [backupType, setBackupType] = useState('backup');
+    const [backupType, setBackupType] = useState('rsc');
     const [comment, setComment] = useState('');
     const [delay, setDelay] = useState(10);
 

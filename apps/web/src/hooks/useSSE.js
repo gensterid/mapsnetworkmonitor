@@ -36,9 +36,14 @@ export function useSSE() {
         eventSource.onerror = (error) => {
             console.error('SSE error:', error);
             setIsConnected(false);
-            // Reconnect after 5 seconds
+            
+            // Reconnect after 5 seconds if connection is lost
+            // We use a timeout to prevent immediate spamming of the server
             setTimeout(() => {
-                if (eventSourceRef.current?.readyState === EventSource.CLOSED) {
+                // If the app is still mounted and the source is closed, try to reconnect
+                if (eventSourceRef.current && 
+                    (eventSourceRef.current.readyState === EventSource.CLOSED)) {
+                    console.log('🔄 Reconfirming SSE connection...');
                     connect();
                 }
             }, 5000);

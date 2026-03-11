@@ -1,48 +1,50 @@
 import { RouterOSAPI } from 'node-routeros';
-import { db } from './src/db/index';
-import { routers } from './src/db/schema';
-import { decrypt } from './src/lib/encryption';
+import { db } from './src/db/index.js';
+import { routers } from './src/db/schema/index.js';
+import { decrypt } from './src/lib/encryption.js';
 
-async function testExport() {
-    console.log('Fetching a router from DB...');
-    const routerList = await db.select().from(routers).limit(1);
-    const router = routerList[0];
-    
-    console.log(`Testing against ${router.host}...`);
-    const conn = new RouterOSAPI({
-        host: router.host,
-        port: router.port,
-        user: router.username,
-        password: decrypt(router.passwordEncrypted),
-        timeout: 30
-    });
-
+async function run() {
     try {
+        const routerList = await db.query.routers.findMany({ limit: 1 });
+        const router = routerList[0];
+        if (!router) return console.log('No router found');
+
+        console.log(`Connecting to ${router.host}:${router.port}...`);
+        const conn = new RouterOSAPI({
+            host: router.host,
+            user: router.username,
+            port: router.port,
+            password: decrypt(router.passwordEncrypted),
+            timeout: 10
+        });
+
         await conn.connect();
-        console.log('Connected! Generating test file...');
-        await conn.write(['/export', '=file=test_api_read.rsc']);
-        
-        await new Promise(r => setTimeout(r, 2000));
-        
-        console.log('Reading file contents...');
-        const res = await conn.write(['/file/print', '=detail=', '?name=test_api_read.rsc']);
-        console.log('Result type:', typeof res);
-        console.log('Result length:', Array.isArray(res) ? res.length : 'not array');
-        if (Array.isArray(res) && res.length > 0) {
-            console.log('File attributes:', Object.keys(res[0]));
-            if (res[0].contents) {
-                console.log('Contents length:', res[0].contents.length);
-                console.log('Contents sample:', res[0].contents.substring(0, 100));
+        console.log('Connected! Executing /export...');
+
+        // In RouterOS API, /export outputs lines. Often they come back in the 'message' or 'data' fields
+        const res = await conn.write('/export').catch(e => {
+            console.error('Export command error:', e.message);
+            return null;
+        });
+
+        if (res) {
+            console.log('Export command returned type:', typeof res);
+            if (Array.isArray(res)) {
+                console.log(`Array length: ${res.length}`);
+                if (res.length > 0) {
+                    console.log('First item keys:', Object.keys(res[0]));
+                    console.log('Sample entry:', JSON.stringify(res[0]).substring(0, 150));
+                }
             } else {
-                console.log('NO CONTENTS FIELD RETURNED');
+                console.log('Result:', JSON.stringify(res).substring(0, 150));
             }
         }
-    } catch (e: any) {
-        console.error('Error:', e.message);
-    } finally {
+        
         conn.close();
+    } catch (e: any) {
+        console.error('Global Error:', e.message);
+    } finally {
         process.exit(0);
     }
 }
-
-testExport();
+run();
