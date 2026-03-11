@@ -10,7 +10,7 @@ const router = Router();
  * Path-based push endpoint (resilient to MikroTik '?' help character issue)
  * Under /upload/push to match existing Cloudflare WAF rule
  */
-router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
+router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', express.raw({ type: () => true, limit: '50mb' }), asyncHandler(async (req, res) => {
     const { routerId, token, filename, type, expectedSize } = req.params;
     
     const result = await routerBackupService.handleBackupUpload(
@@ -30,7 +30,7 @@ router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', expr
  * Backward-compatible endpoint for query-string based uploads
  * Used by existing scripts or manual triggers using the old format
  */
-router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), asyncHandler(async (req, res) => {
+router.post('/upload', express.raw({ type: () => true, limit: '50mb' }), asyncHandler(async (req, res) => {
     const { routerId, token, filename, type, size } = req.query;
     
     if (!routerId || !token || !filename || !type) {
