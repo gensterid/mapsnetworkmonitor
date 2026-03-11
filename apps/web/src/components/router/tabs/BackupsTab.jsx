@@ -5,6 +5,7 @@ import {
     Trash2, 
     FileText, 
     FileArchive, 
+    FileJson,
     Plus, 
     Loader2, 
     AlertCircle, 
@@ -21,7 +22,7 @@ import clsx from 'clsx';
 
 export default function BackupsTab({ routerId }) {
     const queryClient = useQueryClient();
-    const [backupType, setBackupType] = useState('rsc');
+    const [backupType, setBackupType] = useState('json');
     const [comment, setComment] = useState('');
     const [delay, setDelay] = useState(10);
 
@@ -83,26 +84,40 @@ export default function BackupsTab({ routerId }) {
                                 <button
                                     onClick={() => setBackupType('backup')}
                                     className={clsx(
-                                        "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-all",
+                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all pointer-events-none opacity-50",
                                         backupType === 'backup' 
                                             ? "bg-primary/20 border-primary text-primary" 
                                             : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600"
                                     )}
+                                    title="Disabled: Requires OS v7 due to TLS truncation bugs."
                                 >
                                     <FileArchive className="w-4 h-4" />
-                                    Binary (.backup)
+                                    <span className="text-xs">.backup</span>
                                 </button>
                                 <button
                                     onClick={() => setBackupType('rsc')}
                                     className={clsx(
-                                        "flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg border transition-all",
+                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
                                         backupType === 'rsc' 
                                             ? "bg-primary/20 border-primary text-primary" 
                                             : "bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-600"
                                     )}
                                 >
                                     <FileText className="w-4 h-4" />
-                                    Script (.rsc)
+                                    <span className="text-xs">.rsc</span>
+                                </button>
+                                <button
+                                    onClick={() => setBackupType('json')}
+                                    className={clsx(
+                                        "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all shadow-[0_0_15px_rgba(34,197,94,0.1)]",
+                                        backupType === 'json' 
+                                            ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" 
+                                            : "bg-slate-800/50 border-emerald-900/50 text-slate-400 hover:border-emerald-600/50"
+                                    )}
+                                    title="100% Reliable Native API Extraction"
+                                >
+                                    <FileJson className="w-4 h-4" />
+                                    <span className="text-xs">Snapshot</span>
                                 </button>
                             </div>
                         </div>
@@ -175,9 +190,11 @@ export default function BackupsTab({ routerId }) {
                                 <div className="flex items-center gap-4">
                                     <div className={clsx(
                                         "p-2.5 rounded-lg",
-                                        bkp.type === 'backup' ? "bg-amber-500/10 text-amber-500" : "bg-blue-500/10 text-blue-500"
+                                        bkp.type === 'backup' ? "bg-amber-500/10 text-amber-500" : 
+                                        bkp.type === 'json' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
                                     )}>
-                                        {bkp.type === 'backup' ? <FileArchive className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                        {bkp.type === 'backup' ? <FileArchive className="w-5 h-5" /> : 
+                                         bkp.type === 'json' ? <FileJson className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
                                     </div>
                                     <div>
                                         <div className="font-medium text-slate-200">{bkp.filename}</div>

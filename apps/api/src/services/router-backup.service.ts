@@ -22,10 +22,58 @@ export class RouterBackupService {
         }
     }
 
+    private async extractJsonSnapshot(routerId: string, conn: any, comment?: string): Promise<any> {
+        const snapshot: any = {
+            metadata: {
+                timestamp: new Date().toISOString(),
+                routerId,
+                comment,
+                generator: "Maps Network Monitor JSON API Crawler",
+                version: "1.0"
+            },
+            data: {}
+        };
+        
+        const endpoints = [
+            '/system/identity/print',
+            '/system/resource/print',
+            '/system/routerboard/print',
+            '/system/user/print',
+            '/ip/address/print',
+            '/ip/route/print',
+            '/ip/pool/print',
+            '/ip/dhcp-server/print',
+            '/ip/dhcp-server/network/print',
+            '/ip/dhcp-client/print',
+            '/ip/dns/print',
+            '/ip/firewall/filter/print',
+            '/ip/firewall/nat/print',
+            '/ip/firewall/mangle/print',
+            '/queue/simple/print',
+            '/interface/print',
+            '/interface/pppoe-server/server/print',
+            '/ppp/profile/print',
+            '/ppp/secret/print'
+        ];
+
+        for (const cmd of endpoints) {
+            try {
+                logger.debug({ routerId, cmd }, `Crawling ${cmd}`);
+                const result = await safeWrite(conn, [cmd], 10000);
+                const key = cmd.replace(/\/print$/, '').replace(/^\//, '');
+                snapshot.data[key] = result;
+            } catch (error: any) {
+                logger.warn({ routerId, cmd, error: error.message }, `Failed to crawl ${cmd} (might not be supported on this RouterOS version)`);
+            }
+        }
+        
+        return snapshot;
+    }
+
     /**
-     * Trigger a binary backup (.backup) or export (.rsc) and upload via HTTP Push
+     * Trigger a binary backup (.backup), export (.rsc), or crawl a JSON Snapshot and save it.
      */
-    async createBackup(routerId: string, type: 'backup' | 'rsc', comment?: string, delay: number = 10): Promise<any> {
+    async createBackup(routerId: string, type: 'backup' | 'rsc' | 'json', comment?: string, delay: number = 10): Promise<any> {
         const router = await db.query.routers.findFirst({
             where: eq(routers.id, routerId)
         });
@@ -54,8 +102,49 @@ export class RouterBackupService {
                 username: router.username,
                 password: decrypt(router.passwordEncrypted)
             });
-            logger.info({ routerId, type, remoteFilename }, 'Generating backup on MikroTik...');
+            logger.info({ routerId, type, remoteFilename }, 'Processing backup request...');
+
+            if (type === 'json') {
+                logger.info({ routerId }, 'Initiating JSON API Snapshot crawler...');
+                const snapshotData = await this.extractJsonSnapshot(routerId, conn, comment);
+                
+                const localBasename = `bkp-${shortId}-${timestamp}.json`;
+                const localPath = path.join(this.backupDir, localBasename);
+                fs.writeFileSync(localPath, JSON.stringify(snapshotData, null, 2));
+                
+                const stats = fs.statSync(localPath);
+                
+                let finalTenantId = router.tenantId;
+                if (!finalTenantId) {
+                    if (router.groupId) {
+                        const group = await db.query.routerGroups.findFirst({ where: eq(routerGroups.id, router.groupId) });
+                        if (group?.tenantId) finalTenantId = group.tenantId;
+                    }
+                    if (!finalTenantId) {
+                        const [firstTenant] = await db.select({ id: tenantsSchema.id }).from(tenantsSchema).limit(1);
+                        if (firstTenant) finalTenantId = firstTenant.id;
+                    }
+                }
+
+                if (!finalTenantId) {
+                    throw ApiError.internal('Internal Configuration Error: Router has no tenant assignment');
+                }
+
+                const [backupRecord] = await db.insert(routerBackups).values({
+                    routerId,
+                    tenantId: finalTenantId,
+                    filename: localBasename,
+                    type: 'json',
+                    size: stats.size,
+                    comment,
+                    createdAt: new Date()
+                }).returning();
+
+                return { message: 'JSON API Snapshot completed successfully.', filename: localBasename, record: backupRecord };
+            }
             
+            // For .rsc and .backup types below
+            logger.info({ routerId, type, remoteFilename }, 'Generating backup on MikroTik...');
             // Attempt to determine OS version earlier so we can use it for both export format and fetch format
             let osVersion = router.routerOsVersion;
             if (!osVersion) {

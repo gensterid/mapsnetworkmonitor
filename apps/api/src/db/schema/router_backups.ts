@@ -14,6 +14,7 @@ import { tenants } from './tenants.js';
 export const backupTypeEnum = pgEnum('router_backup_type', [
     'backup', // Binary .backup
     'rsc',    // Export script .rsc
+    'json',   // Custom API Snapshot
 ]);
 
 // Router Backups table
