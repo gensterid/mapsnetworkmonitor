@@ -6,11 +6,22 @@ export async function runMigrations() {
     try {
         console.log('🔄 Checking core database schema...');
 
-        // 1. Ensure user_role enum exists
+        // 1. Ensure enums exist and are up to date
         try {
             await db.execute(sql`DO $$ BEGIN CREATE TYPE user_role AS ENUM ('admin', 'operator', 'user'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
             await db.execute(sql`DO $$ BEGIN CREATE TYPE router_backup_type AS ENUM ('backup', 'rsc'); EXCEPTION WHEN duplicate_object THEN null; END $$;`);
-        } catch (e) { /* ignore if already exists */ }
+            
+            // Add 'json' value if missing (failsafe for existing DBs)
+            await db.execute(sql`
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM pg_type t JOIN pg_enum e ON t.oid = e.enumtypid WHERE t.typname = 'router_backup_type' AND e.enumlabel = 'json') THEN
+                        ALTER TYPE router_backup_type ADD VALUE 'json';
+                    END IF;
+                END
+                $$;
+            `);
+        } catch (e) { /* ignore or log */ }
 
         // 2. Ensure device_type enum has new values
         try {
