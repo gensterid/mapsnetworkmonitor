@@ -101,7 +101,7 @@ export class RouterBackupService {
                 "  :local fs [/file get [find name=$fn] size]; " +
                 "  :if ($fs > 0) do={ " +
                 `    :local u ("${uploadUrlBase}/" . $fs); ` +
-                `    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0,Content-Type:application/octet-stream"; ` +
+                `    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0","Content-Type:application/octet-stream"; ` +
                 "  } else={ :log error \"Backup 0B\" }; " +
                 "} else={ :log error \"Backup missing\" }";
             
