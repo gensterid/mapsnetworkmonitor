@@ -8,6 +8,7 @@ import { logger } from '../lib/logger.js';
 import { connectToRouter, safeWrite } from '../lib/mikrotik-api.js';
 import { ApiError } from '../middleware/error.middleware.js';
 import { routerGroups, tenants as tenantsSchema } from '../db/schema/index.js';
+import { Client as FtpClient } from 'basic-ftp';
 
 // Router Backup Service handles creating and managing MikroTik backups using HTTP Push method
 
@@ -86,48 +87,80 @@ export class RouterBackupService {
             logger.info({ routerId, delay }, `Waiting ${delay} seconds for file to be ready...`);
             await new Promise(resolve => setTimeout(resolve, delay * 1000));
 
-            logger.info({ routerId, remoteFilename }, 'Initiating HTTP Push upload from MikroTik...');
+            logger.info({ routerId, remoteFilename }, 'Attempting to download backup via FTP...');
 
-            const baseUrl = process.env.APP_URL || 'http://localhost:3001';
-            const uploadUrlBase = `${baseUrl}/api/router-backups/upload/push/${encodeURIComponent(router.id)}/${encodeURIComponent(token)}/${encodeURIComponent(remoteFilename)}/${encodeURIComponent(type)}`;
-            const isHttps = uploadUrlBase.startsWith('https://');
-            
-            const scriptName = `upload-${shortId}`;
-            
-            const robustScript = 
-                `:local fn "${remoteFilename}"; :local r 0; ` +
-                ":while ([:len [/file find name=$fn]] = 0 and $r < 15) do={ :delay 2s; :set r ($r + 1); }; " +
-                ":if ([:len [/file find name=$fn]] > 0) do={ " +
-                "  :local fs [/file get [find name=$fn] size]; " +
-                "  :if ($fs > 0) do={ " +
-                `    :local u ("${uploadUrlBase}/" . $fs); ` +
-                `    /tool fetch url=$u http-method=post src-path=$fn keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'} http-header-field="User-Agent:Mozilla/5.0","Content-Type:application/octet-stream"; ` +
-                "  } else={ :log error \"Backup 0B\" }; " +
-                "} else={ :log error \"Backup missing\" }";
-            
-            logger.info({ routerId, scriptName }, 'Creating temporary upload script on MikroTik...');
-            
-            try { await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 10000); } catch (e) {}
-
-            await safeWrite(conn, [
-                '/system/script/add',
-                `=name=${scriptName}`,
-                `=source=${robustScript}`
-            ], 15000);
-
-            logger.info({ routerId, scriptName }, 'Executing upload script...');
-            await safeWrite(conn, ['/system/script/run', `=number=${scriptName}`], 120000);
-
-            await new Promise(resolve => setTimeout(resolve, 5000));
+            const ftpClient = new FtpClient();
             
             try {
-                await safeWrite(conn, ['/system/script/remove', `=numbers=${scriptName}`], 15000);
-            } catch (cleanupErr: any) {
-                logger.warn({ routerId, err: cleanupErr.message }, 'Failed to remove temporary upload script (non-fatal)');
+                await ftpClient.access({
+                    host: router.host,
+                    port: 21,
+                    user: router.username,
+                    password: decrypt(router.passwordEncrypted),
+                    secure: false
+                });
+
+                logger.info({ routerId, remoteFilename }, 'FTP connected successfully, initiating download');
+                await ftpClient.downloadTo(localPath, remoteFilename);
+                
+                const stats = fs.statSync(localPath);
+                if (stats.size === 0) {
+                    throw new Error('Downloaded file is 0 bytes');
+                }
+                logger.info({ routerId, remoteFilename, size: stats.size }, 'FTP download completed successfully');
+                
+            } catch (ftpError: any) {
+                logger.error({ routerId, err: ftpError.message }, 'FTP download failed');
+                if (fs.existsSync(localPath)) fs.unlinkSync(localPath);
+                
+                // Specific error for FTP disabled
+                if (ftpError.message?.includes('ECONNREFUSED')) {
+                    throw ApiError.internal(`Layanan FTP belum aktif di MikroTik. Silakan aktifkan FTP port 21 di menu IP -> Services.`);
+                }
+                throw ApiError.internal(`Transfer FTP Gagal: ${ftpError.message}. Pastikan FTP aktif di router.`);
+            } finally {
+                ftpClient.close();
             }
 
-            logger.info({ routerId }, 'Backup upload command sent successfully');
-            return { message: 'Backup triggered and upload initiated', filename: remoteFilename };
+            // Cleanup remote file on MikroTik immediately
+            try {
+                logger.debug({ routerId, remoteFilename }, 'Cleaning up temporary backup file on MikroTik');
+                await safeWrite(conn, ['/file/remove', `=numbers=${remoteFilename}`], 15000);
+            } catch (cleanupErr: any) {
+                logger.warn({ routerId, err: cleanupErr.message }, 'Failed to remove backup file from MikroTik (non-fatal)');
+            }
+
+            // Resolve Tenant ID for database insert
+            let finalTenantId = router.tenantId;
+
+            if (!finalTenantId) {
+                if (router.groupId) {
+                    const group = await db.query.routerGroups.findFirst({ where: eq(routerGroups.id, router.groupId) });
+                    if (group?.tenantId) finalTenantId = group.tenantId;
+                }
+                if (!finalTenantId) {
+                    const [firstTenant] = await db.select({ id: tenantsSchema.id }).from(tenantsSchema).limit(1);
+                    if (firstTenant) finalTenantId = firstTenant.id;
+                }
+            }
+
+            if (!finalTenantId) {
+                throw ApiError.internal('Internal Configuration Error: Router has no tenant assignment');
+            }
+
+            // Save record
+            const stats = fs.statSync(localPath);
+            const [backupRecord] = await db.insert(routerBackups).values({
+                routerId,
+                tenantId: finalTenantId,
+                filename: remoteFilename,
+                type,
+                size: stats.size,
+                createdAt: new Date()
+            }).returning();
+
+            logger.info({ routerId, backupId: backupRecord.id }, 'Successfully saved MikroTik backup record (FTP Pull mode)');
+            return { message: 'Backup generated and downloaded successfully', filename: remoteFilename, record: backupRecord };
         } catch (error: any) {
             logger.error({ error: error.message, stack: error.stack, routerId }, 'MikroTik backup process failed');
             if (error instanceof ApiError) throw error;
