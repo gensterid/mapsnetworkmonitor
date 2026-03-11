@@ -39,21 +39,26 @@ export class RouterBackupService {
             '/system/resource/print',
             '/system/routerboard/print',
             '/system/user/print',
-            '/ip/address/print',
-            '/ip/route/print',
+            '/ip/dns/print',
             '/ip/pool/print',
+            '/ip/address/print',
             '/ip/dhcp-server/print',
             '/ip/dhcp-server/network/print',
-            '/ip/dhcp-client/print',
-            '/ip/dns/print',
-            '/ip/firewall/filter/print',
             '/ip/firewall/nat/print',
+            '/ip/firewall/filter/print',
             '/ip/firewall/mangle/print',
-            '/queue/simple/print',
             '/interface/print',
+            '/interface/bridge/print',
+            '/interface/vlan/print',
             '/interface/pppoe-server/server/print',
             '/ppp/profile/print',
-            '/ppp/secret/print'
+            '/ppp/secret/print',
+            '/ip/hotspot/print',
+            '/ip/hotspot/profile/print',
+            '/ip/hotspot/user/profile/print',
+            '/ip/hotspot/user/print',
+            '/ip/hotspot/ip-binding/print',
+            '/ip/hotspot/walled-garden/print'
         ];
 
         for (const cmd of endpoints) {
@@ -459,13 +464,18 @@ export class RouterBackupService {
         const menuOrder = [
             'system/identity',
             'ip/pool',
-            'ip/address',
             'ip/dns',
+            'ip/address',
             'ppp/profile',
             'ppp/secret',
+            'interface/pppoe-server/server',
+            'ip/hotspot/profile',
+            'ip/hotspot/user/profile',
+            'ip/hotspot/user',
+            'ip/hotspot',
+            'ip/hotspot/ip-binding',
             'ip/firewall/nat',
-            'ip/firewall/filter',
-            'queue/simple'
+            'ip/firewall/filter'
         ];
 
         for (const menu of menuOrder) {
