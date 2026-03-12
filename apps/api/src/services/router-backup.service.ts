@@ -611,7 +611,7 @@ export class RouterBackupService {
                 ":local filename (\"bkp-\" . $host . \"-\" . [:pick $ts 7 11] . [:pick $ts 0 3] . [:pick $ts 4 6] . \".rsc\");",
                 "/export file=$filename;",
                 ":delay 10s;",
-                `/tool e-mail send to="${config.recipient}" subject=($host . \" Backup - \" . $ts) file=$filename body=(\"Attached is the automatic configuration backup for \" . $host);`,
+                `/tool e-mail send from="${config.user}" to="${config.recipient}" subject=($host . \" Backup - \" . $ts) file=$filename body=(\"Attached is the automatic configuration backup for \" . $host);`,
                 ":delay 30s;",
                 "/file remove $filename;",
                 ":log info (\"Automated email backup sent and cleaned up for \" . $host);"
