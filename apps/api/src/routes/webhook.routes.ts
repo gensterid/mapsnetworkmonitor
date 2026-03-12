@@ -159,6 +159,7 @@ router.get(
         const { routerId, type, status, token } = req.query;
 
         if (!routerId || !token) {
+            logger.warn({ query: req.query }, 'Backup report missing routerId or token');
             throw new ApiError(400, 'Missing routerId or token');
         }
 
@@ -171,6 +172,18 @@ router.get(
         });
 
         if (!routerRecord) {
+            // DIAGNOSTIC LOGGING: Check if router exists at all with this ID
+            const routerExists = await db.query.routers.findFirst({
+                where: eq(routers.id, routerId as string)
+            });
+
+            logger.error({ 
+                routerId, 
+                tokenProvided: token,
+                routerExists: !!routerExists,
+                actualSecretMatch: routerExists ? (routerExists.webhookSecret === token) : 'N/A'
+            }, 'Unauthorized backup report attempt');
+
             throw new ApiError(401, 'Unauthorized');
         }
 
