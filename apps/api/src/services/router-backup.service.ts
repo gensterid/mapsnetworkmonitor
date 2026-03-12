@@ -553,7 +553,8 @@ export class RouterBackupService {
         interval: string,
         startTime: string,
         exportDelay: number,
-        cleanupDelay: number
+        cleanupDelay: number,
+        tls: boolean
     }): Promise<any> {
         const router = await db.query.routers.findFirst({
             where: eq(routers.id, routerId)
@@ -577,7 +578,8 @@ export class RouterBackupService {
                 `=port=${config.port}`,
                 `=user=${config.user}`,
                 `=password=${config.pass}`,
-                `=from=${config.user}`
+                `=from=${config.user}`,
+                `=start-tls=${config.tls ? 'yes' : 'no'}`
             ]);
 
             // 2. Save SMTP configuration to database for persistence
@@ -589,6 +591,7 @@ export class RouterBackupService {
                 emailSmtpPassEncrypted: encrypt(config.pass),
                 emailSmtpRecipient: config.recipient,
                 emailSmtpInterval: config.interval,
+                emailSmtpTls: config.tls,
                 emailSmtpStartTime: config.startTime,
                 emailSmtpExportDelay: config.exportDelay,
                 emailSmtpCleanupDelay: config.cleanupDelay,
@@ -659,6 +662,7 @@ export class RouterBackupService {
                 emailSmtpPassEncrypted: true,
                 emailSmtpRecipient: true,
                 emailSmtpInterval: true,
+                emailSmtpTls: true,
                 emailSmtpStartTime: true,
                 emailSmtpExportDelay: true,
                 emailSmtpCleanupDelay: true
@@ -674,6 +678,7 @@ export class RouterBackupService {
             pass: router.emailSmtpPassEncrypted ? decrypt(router.emailSmtpPassEncrypted) : '',
             recipient: router.emailSmtpRecipient || '',
             interval: router.emailSmtpInterval || '24:00:00',
+            tls: router.emailSmtpTls ?? true,
             startTime: router.emailSmtpStartTime || 'startup',
             exportDelay: router.emailSmtpExportDelay || 10,
             cleanupDelay: router.emailSmtpCleanupDelay || 30

@@ -40,7 +40,8 @@ export default function BackupsTab({ routerId }) {
         interval: '24:00:00',
         startTime: 'startup',
         exportDelay: 10,
-        cleanupDelay: 30
+        cleanupDelay: 30,
+        tls: true
     });
 
     // Fetch backups
@@ -324,6 +325,16 @@ export default function BackupsTab({ routerId }) {
                                         onChange={(e) => setEmailConfig({...emailConfig, cleanupDelay: parseInt(e.target.value)})}
                                         className="bg-slate-800/50 border-slate-700"
                                     />
+                                </div>
+                                <div className="flex items-center gap-2 pt-6">
+                                    <input 
+                                        type="checkbox"
+                                        id="email-tls"
+                                        checked={emailConfig.tls}
+                                        onChange={(e) => setEmailConfig({...emailConfig, tls: e.target.checked})}
+                                        className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500"
+                                    />
+                                    <label htmlFor="email-tls" className="text-xs font-medium text-slate-400 cursor-pointer">Use Start TLS (Port 587)</label>
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3 pt-2">

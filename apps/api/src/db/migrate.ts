@@ -527,6 +527,10 @@ export async function runMigrations() {
                 name: 'routers.email_smtp_cleanup_delay',
                 sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_cleanup_delay INTEGER DEFAULT 30`
             },
+            {
+                name: 'routers.email_smtp_tls',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_tls BOOLEAN DEFAULT TRUE`
+            },
         ];
 
         for (const m of migrations) {

@@ -1,0 +1,1 @@
+ALTER TABLE "routers" ADD COLUMN "email_smtp_tls" boolean DEFAULT true;
