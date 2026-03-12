@@ -633,10 +633,16 @@ export class RouterBackupService {
                 `:delay ${config.exportDelay}s;`,
                 `/tool e-mail send from="${config.user}" to="${config.recipient}" subject=($host . \" Backup - \" . $ts) file=$filename body=(\"Attached is the automatic configuration backup for \" . $host);`,
                 ":delay 5s;",
-                `/tool fetch url="${webhookUrl}" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'};`,
+                ":log info \"Reporting backup status to server...\";",
+                "do {",
+                `    /tool fetch url="${webhookUrl}" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'};`,
+                "    :log info \"Webhook report successful!\";",
+                "} on-error={",
+                "    :log error \"Webhook report FAILED (Check domain/connectivity)\";",
+                "};",
                 `:delay ${config.cleanupDelay}s;`,
                 "/file remove $filename;",
-                ":log info (\"Automated email backup sent and reported for \" . $host);"
+                ":log info (\"Automated email backup process finished for \" . $host);"
             ].join("");
 
             // 6. Set up the scheduler with the logic directly in on-event
