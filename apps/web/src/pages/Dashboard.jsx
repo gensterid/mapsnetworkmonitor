@@ -121,9 +121,42 @@ function ActiveConnectionsTable({ routers }) {
         <div className="glass-panel rounded-xl flex flex-col overflow-hidden">
             <div className="p-4 border-b border-slate-700/30 flex items-center justify-between">
                 <h3 className="text-base font-semibold text-white">Active Connections</h3>
-                <Link to="/routers" className="text-xs text-primary hover:text-blue-400 font-medium">View All</Link>
+                <Link to="/routers" className="text-xs text-primary hover:text-blue-400 font-medium tracking-wider uppercase">View All</Link>
             </div>
-            <div className="overflow-x-auto">
+
+            {/* Mobile Card View */}
+            <div className="md:hidden divide-y divide-slate-800/50">
+                {routers.slice(0, 5).map((router) => (
+                    <Link
+                        key={router.id}
+                        to={`/routers/${router.id}`}
+                        className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400 shadow-inner">
+                                <RouterIcon className="w-5 h-5" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="font-bold text-white text-sm">{router.name}</span>
+                                <span className="text-[10px] text-slate-500 font-mono tracking-tighter">{router.host}</span>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1.5">
+                            {getStatusBadge(router.status, router.latency)}
+                            <span className={clsx(
+                                "text-[10px] font-black uppercase tracking-widest",
+                                router.status !== 'online' ? "text-slate-600" :
+                                    router.latency > 100 ? "text-yellow-500" : "text-emerald-500"
+                            )}>
+                                {router.status === 'online' ? `${router.latency || '--'}ms` : '--'}
+                            </span>
+                        </div>
+                    </Link>
+                ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
                         <tr className="bg-surface-dark/50 border-b border-slate-700/30 text-xs uppercase text-slate-500 font-semibold tracking-wider">
@@ -161,16 +194,21 @@ function ActiveConnectionsTable({ routers }) {
                                 </td>
                             </tr>
                         ))}
-                        {routers.length === 0 && (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-8 text-center text-slate-500">
-                                    No devices found. Add your first router to get started.
-                                </td>
-                            </tr>
-                        )}
                     </tbody>
                 </table>
             </div>
+
+            {routers.length === 0 && (
+                <div className="px-6 py-12 text-center flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center">
+                        <RouterIcon className="w-6 h-6 text-slate-600" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-slate-400">No devices found</p>
+                        <p className="text-xs text-slate-500 mt-1 italic">Add your first router to get started.</p>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -619,14 +619,14 @@ export default function Routers() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="p-4 md:p-6 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-white">Devices</h1>
-                    <p className="text-slate-400 text-sm">Manage your MikroTik routers</p>
+                    <h1 className="text-xl md:text-2xl font-bold text-white">Devices</h1>
+                    <p className="text-slate-400 text-xs md:sm">Manage your MikroTik routers</p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative">
+                <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
+                    <div className="relative flex-1 sm:flex-none">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
                         <input
                             type="text"
@@ -637,52 +637,55 @@ export default function Routers() {
                         />
                     </div>
 
-                    <div className="relative">
-                        <select
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto"
-                        >
-                            <option value="name">Sort by Name</option>
-                            <option value="host">Sort by IP</option>
-                            <option value="status">Sort by Status</option>
-                        </select>
-                        <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                    </div>
+                    <div className="flex gap-2">
+                        <div className="relative flex-1">
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full"
+                            >
+                                <option value="name">Sort by Name</option>
+                                <option value="host">Sort by IP</option>
+                                <option value="status">Status</option>
+                            </select>
+                            <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                        </div>
 
-                    <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
-                        <button
-                            onClick={() => {
-                                setViewMode('grid');
-                                localStorage.setItem('routers-view-mode', 'grid');
-                            }}
-                            className={clsx(
-                                "p-1.5 rounded-md transition-colors",
-                                viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
-                            )}
-                            title="Grid View"
-                        >
-                            <LayoutGrid className="w-4 h-4" />
-                        </button>
-                        <button
-                            onClick={() => {
-                                setViewMode('list');
-                                localStorage.setItem('routers-view-mode', 'list');
-                            }}
-                            className={clsx(
-                                "p-1.5 rounded-md transition-colors",
-                                viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
-                            )}
-                            title="List View"
-                        >
-                            <List className="w-4 h-4" />
-                        </button>
-                    </div>
+                        <div className="hidden md:flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+                            <button
+                                onClick={() => {
+                                    setViewMode('grid');
+                                    localStorage.setItem('routers-view-mode', 'grid');
+                                }}
+                                className={clsx(
+                                    "p-1.5 rounded-md transition-colors",
+                                    viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                                )}
+                                title="Grid View"
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setViewMode('list');
+                                    localStorage.setItem('routers-view-mode', 'list');
+                                }}
+                                className={clsx(
+                                    "p-1.5 rounded-md transition-colors",
+                                    viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                                )}
+                                title="List View"
+                            >
+                                <List className="w-4 h-4" />
+                            </button>
+                        </div>
 
-                    <Button onClick={() => setIsAddModalOpen(true)}>
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Router
-                    </Button>
+                        <Button onClick={() => setIsAddModalOpen(true)} className="flex-1 sm:flex-none">
+                            <Plus className="w-4 h-4 mr-2" />
+                            <span className="hidden sm:inline">Add Router</span>
+                            <span className="sm:hidden">Add</span>
+                        </Button>
+                    </div>
                 </div>
             </div>
 

@@ -1,0 +1,9 @@
+{
+  "appId": "com.gensterid.netmonitor",
+  "appName": "NetMonitor",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true
+  }
+}

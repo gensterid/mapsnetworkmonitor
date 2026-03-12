@@ -126,43 +126,68 @@ export default function Issues() {
 
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold text-white">Issues</h1>
-                    <p className="text-slate-400 text-sm">Monitor performance and system issues</p>
-                </div>
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <Button
-                        variant="outline"
-                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                        className="flex-1 sm:flex-none justify-center"
-                    >
-                        {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
-                        Sort Date
-                    </Button>
-                    <Button onClick={() => refetch()} variant="outline" className="flex-1 sm:flex-none justify-center">
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refresh
-                    </Button>
+            <div className="p-4 border-b border-slate-800 flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Issues</h1>
+                        <p className="text-slate-400 text-xs md:sm">Monitor system performance</p>
+                    </div>
                     {hasUnacknowledged && (
-                        <Button onClick={handleAcknowledgeAll} variant="primary" loading={acknowledgeAllMutation.isPending} className="ml-0 flex-1 sm:flex-none justify-center">
+                        <Button
+                            onClick={handleAcknowledgeAll}
+                            variant="primary"
+                            size="sm"
+                            loading={acknowledgeAllMutation.isPending}
+                            className="lg:hidden"
+                        >
                             <CheckCheck className="w-4 h-4 mr-2" />
                             Ack All
                         </Button>
                     )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex gap-2 flex-1">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                            className="flex-1 justify-center"
+                        >
+                            {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
+                            Sort
+                        </Button>
+                        <Button onClick={() => refetch()} variant="outline" size="sm" className="flex-1 justify-center lg:flex-none">
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Refresh
+                        </Button>
+                        {hasUnacknowledged && (
+                            <Button
+                                onClick={handleAcknowledgeAll}
+                                variant="primary"
+                                size="sm"
+                                loading={acknowledgeAllMutation.isPending}
+                                className="hidden lg:flex"
+                            >
+                                <CheckCheck className="w-4 h-4 mr-2" />
+                                Ack All
+                            </Button>
+                        )}
+                    </div>
+
                     <div className="flex items-center gap-2">
                         <input
                             type="date"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary w-32 sm:w-auto"
+                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary flex-1 sm:w-auto font-mono"
                         />
                         {dateFilter && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setDateFilter('')}
-                                className="text-slate-400 hover:text-white"
+                                className="text-slate-400 hover:text-white shrink-0"
                             >
                                 <X className="w-4 h-4" />
                             </Button>

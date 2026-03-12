@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import { Menu } from 'lucide-react';
 import Sidebar from '../Sidebar';
+import BottomNav from './BottomNav';
 import { useSSE } from '@/hooks';
 
 export default function AppLayout() {
@@ -39,9 +40,11 @@ export default function AppLayout() {
                     <span className="ml-3 font-semibold text-white">NetMonitor</span>
                 </div>
 
-                <div className="flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto pb-16 lg:pb-0">
                     <Outlet />
                 </div>
+
+                <BottomNav />
             </main>
         </div>
     );
