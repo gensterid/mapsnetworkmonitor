@@ -266,13 +266,23 @@ export default function BackupsTab({ routerId }) {
                                     />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">SMTP Password</label>
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">SMTP Password</label>
+                                        <a 
+                                            href="https://support.google.com/mail/answer/185833?hl=id" 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="text-[10px] text-emerald-500 hover:text-emerald-400 underline underline-offset-2 flex items-center gap-1"
+                                        >
+                                            Tutorial Sandi Aplikasi
+                                        </a>
+                                    </div>
                                     <Input 
                                         type="password"
-                                        placeholder="App password or login pass"
+                                        placeholder="Sandi Aplikasi 16 karakter"
                                         value={emailConfig.pass}
                                         onChange={(e) => setEmailConfig({...emailConfig, pass: e.target.value})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-800/50 border-slate-700 focus:ring-emerald-500"
                                     />
                                 </div>
                                 <div className="space-y-2">
