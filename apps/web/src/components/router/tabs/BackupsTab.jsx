@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
     Download, 
@@ -46,6 +46,20 @@ export default function BackupsTab({ routerId }) {
         queryFn: () => routerBackupService.listBackups(routerId)
     });
 
+    // Fetch SMTP config
+    const { data: fetchedEmailConfig } = useQuery({
+        queryKey: ['router-email-config', routerId],
+        queryFn: () => routerBackupService.getEmailConfig(routerId),
+        enabled: showEmailSettings
+    });
+
+    // Sync email config state when data is fetched
+    useEffect(() => {
+        if (fetchedEmailConfig) {
+            setEmailConfig(fetchedEmailConfig);
+        }
+    }, [fetchedEmailConfig]);
+
     // Create backup mutation
     const createMutation = useMutation({
         mutationFn: ({ type, comment, delay }) => routerBackupService.createBackup(routerId, type, comment, delay),
@@ -74,6 +88,7 @@ export default function BackupsTab({ routerId }) {
         mutationFn: (config) => routerBackupService.pushEmailConfig(routerId, config),
         onSuccess: (data) => {
             setShowEmailSettings(false);
+            queryClient.invalidateQueries(['router-email-config', routerId]);
         }
     });
 

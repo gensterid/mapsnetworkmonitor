@@ -85,6 +85,14 @@ export const routers = pgTable('routers', {
     topologyX: decimal('topology_x', { precision: 10, scale: 2 }),
     topologyY: decimal('topology_y', { precision: 10, scale: 2 }),
 
+    // Automated Email Backup SMTP Settings
+    emailSmtpServer: text('email_smtp_server'),
+    emailSmtpPort: integer('email_smtp_port'),
+    emailSmtpUser: text('email_smtp_user'),
+    emailSmtpPassEncrypted: text('email_smtp_pass_encrypted'),
+    emailSmtpRecipient: text('email_smtp_recipient'),
+    emailSmtpInterval: text('email_smtp_interval'),
+
     // Timestamps
     lastSeen: timestamp('last_seen'),
     lastFullSync: timestamp('last_full_sync'),

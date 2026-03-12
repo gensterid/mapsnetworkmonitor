@@ -98,4 +98,10 @@ router.post('/email-config/:routerId', authMiddleware, express.json(), asyncHand
     res.json(result);
 }));
 
+// Fetch saved email configuration
+router.get('/email-config/:routerId', authMiddleware, asyncHandler(async (req, res) => {
+    const result = await routerBackupService.getEmailConfig(req.params.routerId);
+    res.json(result);
+}));
+
 export default router;

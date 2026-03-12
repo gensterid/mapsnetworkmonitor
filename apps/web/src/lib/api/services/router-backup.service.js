@@ -34,5 +34,11 @@ export const routerBackupService = {
     pushEmailConfig: async (routerId, config) => {
         const response = await api.post(`/router-backups/email-config/${routerId}`, config);
         return response.data;
+    },
+
+    // Get saved Email Config
+    getEmailConfig: async (routerId) => {
+        const response = await api.get(`/router-backups/email-config/${routerId}`);
+        return response.data;
     }
 };

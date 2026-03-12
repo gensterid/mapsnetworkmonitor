@@ -1,2 +1,1 @@
-To https://github.com/gensterid/mapsnetworkmonitor
-   82779cd..7c548e8  main -> main
+fatal: unable to access 'https://github.com/gensterid/mapsnetworkmonitor/': Failed to connect to github.com port 443 after 21194 ms: Could not connect to server

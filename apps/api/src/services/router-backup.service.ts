@@ -3,7 +3,7 @@ import fs from 'fs';
 import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { routers, routerBackups } from '../db/schema/index.js';
-import { decrypt } from '../lib/encryption.js';
+import { decrypt, encrypt } from '../lib/encryption.js';
 import { logger } from '../lib/logger.js';
 import { connectToRouter, safeWrite } from '../lib/mikrotik-api.js';
 import { ApiError } from '../middleware/error.middleware.js';
@@ -574,10 +574,22 @@ export class RouterBackupService {
                 `=port=${config.port}`,
                 `=user=${config.user}`,
                 `=password=${config.pass}`,
-                '=from=mikrotik-monitor'
+                `=from=${config.user}`
             ]);
 
-            // 2. Clear old instances of the script/scheduler if they exist to avoid "already exists" errors
+            // 2. Save SMTP configuration to database for persistence
+            logger.info({ routerId }, 'Saving SMTP configuration to database...');
+            await db.update(routers).set({
+                emailSmtpServer: config.server,
+                emailSmtpPort: config.port,
+                emailSmtpUser: config.user,
+                emailSmtpPassEncrypted: encrypt(config.pass),
+                emailSmtpRecipient: config.recipient,
+                emailSmtpInterval: config.interval,
+                updatedAt: new Date()
+            }).where(eq(routers.id, routerId));
+
+            // 3. Clear old instances of the script/scheduler if they exist to avoid "already exists" errors
             try {
                 const existingScripts = await safeWrite(conn, ['/system/script/print', '?name=auto-email-backup']);
                 if (existingScripts.length > 0) {
@@ -626,6 +638,34 @@ export class RouterBackupService {
         } finally {
             conn.close();
         }
+    }
+
+    /**
+     * Get saved SMTP configuration for a router
+     */
+    async getEmailConfig(routerId: string) {
+        const router = await db.query.routers.findFirst({
+            where: eq(routers.id, routerId),
+            columns: {
+                emailSmtpServer: true,
+                emailSmtpPort: true,
+                emailSmtpUser: true,
+                emailSmtpPassEncrypted: true,
+                emailSmtpRecipient: true,
+                emailSmtpInterval: true
+            }
+        });
+
+        if (!router) throw ApiError.notFound('Router not found');
+
+        return {
+            server: router.emailSmtpServer || '',
+            port: router.emailSmtpPort || 587,
+            user: router.emailSmtpUser || '',
+            pass: router.emailSmtpPassEncrypted ? decrypt(router.emailSmtpPassEncrypted) : '',
+            recipient: router.emailSmtpRecipient || '',
+            interval: router.emailSmtpInterval || '24:00:00'
+        };
     }
 }
 
