@@ -550,7 +550,10 @@ export class RouterBackupService {
         user: string,
         pass: string,
         recipient: string,
-        interval: string
+        interval: string,
+        startTime: string,
+        exportDelay: number,
+        cleanupDelay: number
     }): Promise<any> {
         const router = await db.query.routers.findFirst({
             where: eq(routers.id, routerId)
@@ -586,6 +589,9 @@ export class RouterBackupService {
                 emailSmtpPassEncrypted: encrypt(config.pass),
                 emailSmtpRecipient: config.recipient,
                 emailSmtpInterval: config.interval,
+                emailSmtpStartTime: config.startTime,
+                emailSmtpExportDelay: config.exportDelay,
+                emailSmtpCleanupDelay: config.cleanupDelay,
                 updatedAt: new Date()
             }).where(eq(routers.id, routerId));
 
@@ -610,9 +616,9 @@ export class RouterBackupService {
                 ":local host [/system identity get name];",
                 ":local filename (\"bkp-\" . $host . \"-\" . [:pick $ts 7 11] . [:pick $ts 0 3] . [:pick $ts 4 6] . \".rsc\");",
                 "/export file=$filename;",
-                ":delay 10s;",
+                `:delay ${config.exportDelay}s;`,
                 `/tool e-mail send from="${config.user}" to="${config.recipient}" subject=($host . \" Backup - \" . $ts) file=$filename body=(\"Attached is the automatic configuration backup for \" . $host);`,
-                ":delay 30s;",
+                `:delay ${config.cleanupDelay}s;`,
                 "/file remove $filename;",
                 ":log info (\"Automated email backup sent and cleaned up for \" . $host);"
             ].join("");
@@ -631,7 +637,7 @@ export class RouterBackupService {
                 '=name=auto-email-backup-task',
                 `=interval=${config.interval}`,
                 `=on-event=${scriptName}`,
-                '=start-time=startup'
+                `=start-time=${config.startTime || 'startup'}`
             ]);
 
             return { success: true, message: 'Automated email backup configured on MikroTik successfully' };
@@ -652,7 +658,10 @@ export class RouterBackupService {
                 emailSmtpUser: true,
                 emailSmtpPassEncrypted: true,
                 emailSmtpRecipient: true,
-                emailSmtpInterval: true
+                emailSmtpInterval: true,
+                emailSmtpStartTime: true,
+                emailSmtpExportDelay: true,
+                emailSmtpCleanupDelay: true
             }
         });
 
@@ -664,7 +673,10 @@ export class RouterBackupService {
             user: router.emailSmtpUser || '',
             pass: router.emailSmtpPassEncrypted ? decrypt(router.emailSmtpPassEncrypted) : '',
             recipient: router.emailSmtpRecipient || '',
-            interval: router.emailSmtpInterval || '24:00:00'
+            interval: router.emailSmtpInterval || '24:00:00',
+            startTime: router.emailSmtpStartTime || 'startup',
+            exportDelay: router.emailSmtpExportDelay || 10,
+            cleanupDelay: router.emailSmtpCleanupDelay || 30
         };
     }
 }

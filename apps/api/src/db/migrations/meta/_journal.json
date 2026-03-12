@@ -183,6 +183,13 @@
       "when": 1773333394573,
       "tag": "0025_nostalgic_thaddeus_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1773335282296,
+      "tag": "0026_sticky_tomorrow_man",
+      "breakpoints": true
     }
   ]
 }

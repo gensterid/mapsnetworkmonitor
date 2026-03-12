@@ -515,6 +515,18 @@ export async function runMigrations() {
                 name: 'routers.email_smtp_interval',
                 sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_interval TEXT`
             },
+            {
+                name: 'routers.email_smtp_start_time',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_start_time TEXT DEFAULT '00:00:00'`
+            },
+            {
+                name: 'routers.email_smtp_export_delay',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_export_delay INTEGER DEFAULT 10`
+            },
+            {
+                name: 'routers.email_smtp_cleanup_delay',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_cleanup_delay INTEGER DEFAULT 30`
+            },
         ];
 
         for (const m of migrations) {

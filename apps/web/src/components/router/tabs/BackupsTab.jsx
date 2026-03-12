@@ -37,7 +37,10 @@ export default function BackupsTab({ routerId }) {
         user: '',
         pass: '',
         recipient: '',
-        interval: '24h'
+        interval: '24:00:00',
+        startTime: 'startup',
+        exportDelay: 10,
+        cleanupDelay: 30
     });
 
     // Fetch backups
@@ -292,6 +295,35 @@ export default function BackupsTab({ routerId }) {
                                         <option value="24:00:00">Daily</option>
                                         <option value="7d 00:00:00">Weekly</option>
                                     </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Start Time</label>
+                                    <Input 
+                                        placeholder="e.g. 03:00:00 or startup"
+                                        value={emailConfig.startTime}
+                                        onChange={(e) => setEmailConfig({...emailConfig, startTime: e.target.value})}
+                                        className="bg-slate-800/50 border-slate-700"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Export Delay (s)</label>
+                                    <Input 
+                                        type="number"
+                                        placeholder="10"
+                                        value={emailConfig.exportDelay}
+                                        onChange={(e) => setEmailConfig({...emailConfig, exportDelay: parseInt(e.target.value)})}
+                                        className="bg-slate-800/50 border-slate-700"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Cleanup Delay (s)</label>
+                                    <Input 
+                                        type="number"
+                                        placeholder="30"
+                                        value={emailConfig.cleanupDelay}
+                                        onChange={(e) => setEmailConfig({...emailConfig, cleanupDelay: parseInt(e.target.value)})}
+                                        className="bg-slate-800/50 border-slate-700"
+                                    />
                                 </div>
                             </div>
                             <div className="flex justify-end gap-3 pt-2">

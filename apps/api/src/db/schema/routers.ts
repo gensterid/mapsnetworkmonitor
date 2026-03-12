@@ -92,6 +92,9 @@ export const routers = pgTable('routers', {
     emailSmtpPassEncrypted: text('email_smtp_pass_encrypted'),
     emailSmtpRecipient: text('email_smtp_recipient'),
     emailSmtpInterval: text('email_smtp_interval'),
+    emailSmtpStartTime: text('email_smtp_start_time'),
+    emailSmtpExportDelay: integer('email_smtp_export_delay').default(10),
+    emailSmtpCleanupDelay: integer('email_smtp_cleanup_delay').default(30),
 
     // Timestamps
     lastSeen: timestamp('last_seen'),
