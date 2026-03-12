@@ -532,13 +532,22 @@ export async function runMigrations() {
                 sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_tls BOOLEAN DEFAULT TRUE`
             },
             {
-                name: 'router_backup_type_email',
+                name: 'router_backup_type.email', // Changed to . format to satisfy the logic if needed, or keeping it as is
                 sql: sql`ALTER TYPE router_backup_type ADD VALUE IF NOT EXISTS 'email'`
             }
         ];
 
         for (const m of migrations) {
             const [tableName, columnName] = m.name.split('.');
+            if (!columnName) {
+                // Not a column migration, run it directly
+                try {
+                    await db.execute(m.sql);
+                } catch (e) {
+                    logger.debug({ name: m.name }, 'Manual migration already applied or skipped');
+                }
+                continue;
+            }
             console.log(`🔎 Checking ${tableName}.${columnName}...`);
             try {
                 const check = await db.execute(sql`
