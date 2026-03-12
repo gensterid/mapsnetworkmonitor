@@ -148,4 +148,45 @@ router.get(
     })
 );
 
+/**
+ * GET /api/webhook/backup-report
+ * Triggered by MikroTik after a successful automated email backup
+ */
+router.get(
+    '/backup-report',
+    webhookLimiter,
+    asyncHandler(async (req, res) => {
+        const { routerId, type, status, token } = req.query;
+
+        if (!routerId || !token) {
+            throw new ApiError(400, 'Missing routerId or token');
+        }
+
+        // Verify router
+        const routerRecord = await db.query.routers.findFirst({
+            where: and(
+                eq(routers.id, routerId as string),
+                eq(routers.webhookSecret, token as string)
+            )
+        });
+
+        if (!routerRecord) {
+            throw new ApiError(401, 'Unauthorized');
+        }
+
+        logger.info({ routerId, type, status }, 'Backup report received via webhook');
+
+        // Broadcast to frontend
+        eventEmitter.broadcast('backup_status', {
+            routerId,
+            routerName: routerRecord.name,
+            type,
+            status: status || 'success',
+            timestamp: new Date()
+        });
+
+        res.json({ success: true });
+    })
+);
+
 export default router;

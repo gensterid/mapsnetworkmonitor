@@ -90,6 +90,24 @@ export function useSSE() {
             }
         });
 
+        // Handle backup success events
+        eventSource.addEventListener('backup_status', (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Backup status received:', data);
+
+            if (data.status === 'success') {
+                toast.success(`✅ Backup ${data.type === 'email' ? 'Email' : ''} Sukses: ${data.routerName}`, {
+                    duration: 6000,
+                    position: 'top-right',
+                });
+            } else {
+                toast.error(`❌ Backup Gagal: ${data.routerName}`, {
+                    duration: 8000,
+                    position: 'top-right',
+                });
+            }
+        });
+
         eventSourceRef.current = eventSource;
     }, [queryClient]);
 

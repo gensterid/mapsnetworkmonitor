@@ -612,7 +612,19 @@ export class RouterBackupService {
                 logger.debug('Cleanup of existing scripts failed (likely missing), proceeding...');
             }
 
-            // 3. Inject the self-cleaning script
+            // 3. Ensure webhook secret exists
+            let token = router.webhookSecret;
+            if (!token) {
+                const { randomBytes } = await import('crypto');
+                token = randomBytes(16).toString('hex');
+                await db.update(routers).set({ webhookSecret: token }).where(eq(routers.id, routerId));
+            }
+
+            // 4. Inject the self-cleaning script
+            const baseUrl = process.env.APP_URL || 'http://localhost:3001';
+            const webhookUrl = `${baseUrl}/api/webhook/backup-report?routerId=${routerId}&type=email&status=success&token=${token}`;
+            const isHttps = webhookUrl.startsWith('https://');
+
             const scriptName = "auto-email-backup";
             const scriptSource = [
                 ":local ts [/system clock get date];",
@@ -621,6 +633,8 @@ export class RouterBackupService {
                 "/export file=$filename;",
                 `:delay ${config.exportDelay}s;`,
                 `/tool e-mail send from="${config.user}" to="${config.recipient}" subject=($host . \" Backup - \" . $ts) file=$filename body=(\"Attached is the automatic configuration backup for \" . $host);`,
+                ":delay 5s;",
+                `/tool fetch url="${webhookUrl}" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'};`,
                 `:delay ${config.cleanupDelay}s;`,
                 "/file remove $filename;",
                 ":log info (\"Automated email backup sent and cleaned up for \" . $host);"
