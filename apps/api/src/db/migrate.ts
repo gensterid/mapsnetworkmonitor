@@ -531,6 +531,10 @@ export async function runMigrations() {
                 name: 'routers.email_smtp_tls',
                 sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_tls BOOLEAN DEFAULT TRUE`
             },
+            {
+                name: 'router_backup_type_email',
+                sql: sql`ALTER TYPE router_backup_type ADD VALUE IF NOT EXISTS 'email'`
+            }
         ];
 
         for (const m of migrations) {

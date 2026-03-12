@@ -389,17 +389,27 @@ export default function BackupsTab({ routerId }) {
                                     <div className={clsx(
                                         "p-2.5 rounded-lg",
                                         bkp.type === 'backup' ? "bg-amber-500/10 text-amber-500" : 
-                                        bkp.type === 'json' ? "bg-emerald-500/10 text-emerald-500" : "bg-blue-500/10 text-blue-500"
+                                        bkp.type === 'json' ? "bg-emerald-500/10 text-emerald-500" : 
+                                        bkp.type === 'email' ? "bg-purple-500/10 text-purple-400" :
+                                        "bg-blue-500/10 text-blue-500"
                                     )}>
                                         {bkp.type === 'backup' ? <FileArchive className="w-5 h-5" /> : 
-                                         bkp.type === 'json' ? <FileJson className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
+                                         bkp.type === 'json' ? <FileJson className="w-5 h-5" /> : 
+                                         bkp.type === 'email' ? <Mail className="w-5 h-5" /> :
+                                         <FileText className="w-5 h-5" />}
                                     </div>
                                     <div>
-                                        <div className="font-medium text-slate-200">{bkp.filename}</div>
+                                        <div className="font-medium text-slate-200">
+                                            {bkp.type === 'email' ? 'Direct to Email Report' : bkp.filename}
+                                        </div>
                                         <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
                                             <span>{formatLastSync(bkp.createdAt)}</span>
-                                            <span className="w-1 h-1 bg-slate-700 rounded-full" />
-                                            <span>{formatBytes(bkp.size)}</span>
+                                            {bkp.type !== 'email' && (
+                                                <>
+                                                    <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                                                    <span>{formatBytes(bkp.size)}</span>
+                                                </>
+                                            )}
                                             {bkp.comment && (
                                                 <>
                                                     <span className="w-1 h-1 bg-slate-700 rounded-full" />
@@ -422,20 +432,22 @@ export default function BackupsTab({ routerId }) {
                                             <Wand2 className="w-4 h-4" />
                                         </Button>
                                     )}
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleDownload(bkp.id)}
-                                        title="Download to PC"
-                                        className="text-slate-400 hover:text-primary hover:bg-primary/10"
-                                    >
-                                        <Download className="w-4 h-4" />
-                                    </Button>
+                                    {bkp.type !== 'email' && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => handleDownload(bkp.id)}
+                                            title="Download to PC"
+                                            className="text-slate-400 hover:text-primary hover:bg-primary/10"
+                                        >
+                                            <Download className="w-4 h-4" />
+                                        </Button>
+                                    )}
                                     <Button
                                         variant="ghost"
                                         size="icon"
                                         onClick={() => {
-                                            if (window.confirm('Are you sure you want to delete this backup?')) {
+                                            if (window.confirm('Are you sure you want to delete this record?')) {
                                                 deleteMutation.mutate(bkp.id);
                                             }
                                         }}

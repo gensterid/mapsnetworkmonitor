@@ -612,7 +612,7 @@ export class RouterBackupService {
                 logger.debug('Cleanup of existing scripts failed (likely missing), proceeding...');
             }
 
-            // 3. Ensure webhook secret exists
+            // 4. Ensure webhook secret exists
             let token = router.webhookSecret;
             if (!token) {
                 const { randomBytes } = await import('crypto');
@@ -620,13 +620,12 @@ export class RouterBackupService {
                 await db.update(routers).set({ webhookSecret: token }).where(eq(routers.id, routerId));
             }
 
-            // 4. Inject the self-cleaning script
+            // 5. Build the script logic for the scheduler's on-event
             const baseUrl = process.env.APP_URL || 'http://localhost:3001';
             const webhookUrl = `${baseUrl}/api/webhook/backup-report?routerId=${routerId}&type=email&status=success&token=${token}`;
             const isHttps = webhookUrl.startsWith('https://');
 
-            const scriptName = "auto-email-backup";
-            const scriptSource = [
+            const onEventSource = [
                 ":local ts [/system clock get date];",
                 ":local host [/system identity get name];",
                 ":local filename (\"bkp-\" . $host . \"-\" . [:pick $ts 7 11] . [:pick $ts 0 3] . [:pick $ts 4 6] . \".rsc\");",
@@ -637,23 +636,16 @@ export class RouterBackupService {
                 `/tool fetch url="${webhookUrl}" keep-result=no check-certificate=no mode=${isHttps ? 'https' : 'http'};`,
                 `:delay ${config.cleanupDelay}s;`,
                 "/file remove $filename;",
-                ":log info (\"Automated email backup sent and cleaned up for \" . $host);"
+                ":log info (\"Automated email backup sent and reported for \" . $host);"
             ].join("");
 
-            logger.info({ routerId }, 'Injecting MikroTik backup script...');
-            await safeWrite(conn, [
-                '/system/script/add',
-                `=name=${scriptName}`,
-                `=source=${scriptSource}`
-            ]);
-
-            // 4. Set up the scheduler
-            logger.info({ routerId, interval: config.interval }, 'Configuring MikroTik backup scheduler...');
+            // 6. Set up the scheduler with the logic directly in on-event
+            logger.info({ routerId, interval: config.interval }, 'Configuring MikroTik backup scheduler (embedded script)...');
             await safeWrite(conn, [
                 '/system/scheduler/add',
                 '=name=auto-email-backup-task',
                 `=interval=${config.interval}`,
-                `=on-event=${scriptName}`,
+                `=on-event=${onEventSource}`,
                 `=start-time=${config.startTime || 'startup'}`
             ]);
 

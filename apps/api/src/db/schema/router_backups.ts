@@ -15,6 +15,7 @@ export const backupTypeEnum = pgEnum('router_backup_type', [
     'backup', // Binary .backup
     'rsc',    // Export script .rsc
     'json',   // Custom API Snapshot
+    'email',  // Direct-to-Email report
 ]);
 
 // Router Backups table

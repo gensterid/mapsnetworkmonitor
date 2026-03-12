@@ -176,11 +176,29 @@ router.get(
 
         logger.info({ routerId, type, status }, 'Backup report received via webhook');
 
+        // Persistent Logging: If it's a successful email backup, save to history
+        if (type === 'email' && status === 'success') {
+            try {
+                const { routerBackups } = await import('../db/schema/index.js');
+                await db.insert(routerBackups).values({
+                    routerId: routerId as string,
+                    tenantId: routerRecord.tenantId!,
+                    filename: 'Direct to Email',
+                    type: 'email',
+                    size: 0,
+                    comment: `Automated Email Backup sent to ${routerRecord.emailSmtpRecipient}`,
+                    createdAt: new Date()
+                });
+            } catch (err) {
+                logger.error({ err, routerId }, 'Failed to log email backup to database');
+            }
+        }
+
         // Broadcast to frontend
         eventEmitter.broadcast('backup_status', {
             routerId,
             routerName: routerRecord.name,
-            type,
+            type: type || 'email',
             status: status || 'success',
             timestamp: new Date()
         });
