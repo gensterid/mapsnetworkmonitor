@@ -491,6 +491,30 @@ export async function runMigrations() {
                 name: 'device_performance_history.error_message',
                 sql: sql`ALTER TABLE device_performance_history ADD COLUMN IF NOT EXISTS error_message TEXT`
             },
+            {
+                name: 'routers.email_smtp_server',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_server TEXT`
+            },
+            {
+                name: 'routers.email_smtp_port',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_port INTEGER`
+            },
+            {
+                name: 'routers.email_smtp_user',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_user TEXT`
+            },
+            {
+                name: 'routers.email_smtp_pass_encrypted',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_pass_encrypted TEXT`
+            },
+            {
+                name: 'routers.email_smtp_recipient',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_recipient TEXT`
+            },
+            {
+                name: 'routers.email_smtp_interval',
+                sql: sql`ALTER TABLE routers ADD COLUMN email_smtp_interval TEXT`
+            },
         ];
 
         for (const m of migrations) {
