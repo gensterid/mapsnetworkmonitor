@@ -70,6 +70,20 @@ export class SettingsService {
      * Get setting by key
      */
     async getSetting(key: string, tenantId: string): Promise<AppSetting | undefined> {
+        if (!tenantId) {
+            if (this.GLOBAL_FALLBACKS[key] !== undefined && this.GLOBAL_FALLBACKS[key] !== null) {
+                return {
+                    id: '00000000-0000-0000-0000-000000000000' as any,
+                    tenantId: '00000000-0000-0000-0000-000000000000' as any,
+                    key,
+                    value: this.GLOBAL_FALLBACKS[key],
+                    description: 'Global Fallback Setting',
+                    updatedAt: new Date()
+                };
+            }
+            return undefined;
+        }
+
         // Check cache
         const cacheKey = `${tenantId}:${key}`;
         const cached = this.cache.get(cacheKey);

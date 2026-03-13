@@ -68,14 +68,11 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
     let isDedicated = false;
 
     // 1. MASTER FEATURE TOGGLE (Kill Switch for everything ACS)
-    const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId as string, true);
-    if (!masterEnabled) {
-        logger.debug({ tenantId }, 'GenieACS: Feature is MASTER DISABLED, skipping config fetch.');
-        return null;
-    }
+    // Normalize routerId: empty string should be treated as undefined
+    const effectiveRouterId = (routerId && routerId.trim() !== '') ? routerId : undefined;
 
-    if (routerId) {
-        const router = await routerService.findById(routerId, tenantId as string);
+    if (effectiveRouterId) {
+        const router = await routerService.findById(effectiveRouterId, tenantId as string);
         if (router && router.useGenieAcs) {
             url = router.genieacsUrl || '';
             username = router.genieacsUsername || '';
@@ -111,7 +108,9 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
             username = userSetting?.value as string || '';
             password = passSetting?.value ? decrypt(passSetting.value as string) : '';
         } else {
-            url = process.env.GENIEACS_URL || '';
+            // Absolute last resort: ENV or global fallbacks via settingsService with undefined
+            const urlSetting = await settingsService.getSetting('genieacs_url', undefined as any);
+            url = urlSetting?.value as string || process.env.GENIEACS_URL || '';
         }
         isDedicated = false;
     }
@@ -1088,7 +1087,18 @@ export const genieacsService = {
         }
 
         const config = await getGenieAcsConfig(routerId, tenantId);
-        if (!config) return null;
+        if (!config) {
+            return {
+                total: 0,
+                online: 0,
+                offline: 0,
+                avgUptimeSeconds: 0,
+                signalDistribution: { excellent: 0, good: 0, fair: 0, poor: 0, noSignal: 0 },
+                vendorDistribution: {},
+                modelDistribution: {},
+                recentActivity: []
+            };
+        }
 
         // Use 'stats' projection mode for faster performance
         const devices = await genieacsService.getDevices(routerId, tenantId, {}, force, 'stats');
