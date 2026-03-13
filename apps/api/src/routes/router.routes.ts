@@ -394,13 +394,13 @@ router.get(
         const tenantId = getEffectiveTenantId(req);
 
         // Security check: Verify router exists and belongs to tenant
-        const routerData = await routerService.findById(id, tenantId);
+        const routerData = await routerService.findById(id as string, tenantId as string);
         if (!routerData) {
             throw new ApiError(404, 'Router not found or access denied');
         }
 
         const limit = parseInt(req.query.limit as string) || 50;
-        const history = await routerService.getInterfaceHistory(interfaceId, limit, tenantId);
+        const history = await routerService.getInterfaceHistory(interfaceId as string, limit, tenantId as string);
 
         res.json({ data: history });
     })

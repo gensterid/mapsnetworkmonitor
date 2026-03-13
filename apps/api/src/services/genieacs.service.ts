@@ -68,7 +68,7 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
     let isDedicated = false;
 
     // 1. MASTER FEATURE TOGGLE (Kill Switch for everything ACS)
-    const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId, true);
+    const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId as string, true);
     if (!masterEnabled) {
         logger.debug({ tenantId }, 'GenieACS: Feature is MASTER DISABLED, skipping config fetch.');
         return null;
@@ -291,8 +291,8 @@ export const genieacsService = {
         try {
             // Check Master Toggle and Sync Toggle
             if (tenantId) {
-                const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId, true);
-                const syncEnabled = await settingsService.getSettingValue<boolean>('acs_sync_enabled', tenantId, true);
+                const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId as string, true);
+                const syncEnabled = await settingsService.getSettingValue<boolean>('acs_sync_enabled', tenantId as string, true);
                 
                 if (!masterEnabled) {
                     logger.debug({ tenantId }, 'GenieACS: Master toggle OFF, skipping metadata sync');

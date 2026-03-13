@@ -20,7 +20,7 @@ const uploadHandler = asyncHandler(async (req, res) => {
         type as 'backup' | 'rsc',
         req.body,
         req,
-        expectedSize ? parseInt(expectedSize) : undefined
+        expectedSize ? parseInt(expectedSize as string) : undefined
     );
 
     res.json(result);
@@ -54,7 +54,7 @@ router.post('/upload', express.raw({ type: () => true, limit: '50mb' }), asyncHa
 
 // List backups for a router
 router.get('/:routerId', authMiddleware, asyncHandler(async (req, res) => {
-    const list = await routerBackupService.listRouterBackups(req.params.routerId);
+    const list = await routerBackupService.listRouterBackups(req.params.routerId as string);
     res.json(list);
 }));
 
@@ -65,13 +65,13 @@ router.post('/:routerId', authMiddleware, express.json(), asyncHandler(async (re
         return res.status(400).json({ error: 'Invalid backup type' });
     }
     
-    const result = await routerBackupService.createBackup(req.params.routerId, type, comment, delay ? parseInt(delay) : 10);
+    const result = await routerBackupService.createBackup(req.params.routerId as string, type, comment, delay ? parseInt(delay as string) : 10);
     res.json(result);
 }));
 
 // Download backup file
 router.get('/download/:backupId', authMiddleware, asyncHandler(async (req, res) => {
-    const { stream, filename, size } = await routerBackupService.getBackupFileStream(req.params.backupId);
+    const { stream, filename, size } = await routerBackupService.getBackupFileStream(req.params.backupId as string);
     
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'application/octet-stream');
@@ -82,25 +82,25 @@ router.get('/download/:backupId', authMiddleware, asyncHandler(async (req, res) 
 
 // Delete a backup
 router.delete('/:backupId', authMiddleware, asyncHandler(async (req, res) => {
-    await routerBackupService.deleteBackup(req.params.backupId);
+    await routerBackupService.deleteBackup(req.params.backupId as string);
     res.json({ success: true });
 }));
 
 // Reconstruct .rsc from .json snapshot
 router.post('/convert/:backupId', authMiddleware, asyncHandler(async (req, res) => {
-    const result = await routerBackupService.generateRscFromSnapshot(req.params.backupId);
+    const result = await routerBackupService.generateRscFromSnapshot(req.params.backupId as string);
     res.json(result);
 }));
 
 // Push automated email backup configuration to MikroTik
 router.post('/email-config/:routerId', authMiddleware, express.json(), asyncHandler(async (req, res) => {
-    const result = await routerBackupService.pushEmailConfig(req.params.routerId, req.body);
+    const result = await routerBackupService.pushEmailConfig(req.params.routerId as string, req.body);
     res.json(result);
 }));
 
 // Fetch saved email configuration
 router.get('/email-config/:routerId', authMiddleware, asyncHandler(async (req, res) => {
-    const result = await routerBackupService.getEmailConfig(req.params.routerId);
+    const result = await routerBackupService.getEmailConfig(req.params.routerId as string);
     res.json(result);
 }));
 
