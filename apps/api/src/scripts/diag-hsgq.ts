@@ -1,5 +1,5 @@
-import { OltDriverFactory } from './services/olt-drivers/driver.factory.js';
-import { logger } from './lib/logger.js';
+import { OltDriverFactory } from '../services/olt-drivers/driver.factory.js';
+import { logger } from '../lib/logger.js';
 
 // Get args: host port username password
 const args = process.argv.slice(2);
