@@ -133,39 +133,57 @@ export class HsgqDriver extends BaseOltDriver {
             const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
             // Attempt legacy CGI
+            logger.info({ baseUrl, authLen: auth.length }, 'HSGQ: Attempting Legacy CGI ONUs Fetch');
             let response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
                 headers: { 'Authorization': `Basic ${auth}` },
                 signal: AbortSignal.timeout(20000)
-            }).catch(() => null);
+            }).catch(e => {
+                logger.warn({ err: e.message, baseUrl }, 'HSGQ: Legacy CGI fetch threw error');
+                return null;
+            });
 
             if (response && response.ok) {
+                logger.info({ baseUrl, status: response.status }, 'HSGQ: Legacy CGI SUCCESS');
                 const data = await response.json();
                 return this.parseOnuData(data);
+            } else if (response) {
+                 logger.warn({ baseUrl, status: response.status, text: await response.text().catch(()=>'') }, 'HSGQ: Legacy CGI rejected/failed');
             }
 
             // Attempt Modern API
+            logger.info({ baseUrl }, 'HSGQ: Attempting Modern API Login for ONUs Fetch');
             const token = await this.loginModern(baseUrl);
             if (token) {
+                logger.info({ baseUrl }, 'HSGQ: Modern Login Success, proceeding to endpoints');
                 // Stateful Port Auth
                 await fetch(`${baseUrl}/gponont_mgmt?form=auth&port_id=0`, {
                     headers: { 'x-token': token }
-                }).catch(() => null);
+                }).catch(e => logger.warn({ err: e.message }, 'HSGQ: Auth port 0 failed (ignoring)'));
 
                 const endpoints = ['/ontinfo_table', '/onu_basic_info', '/ontinfo_config'];
                 for (const endpoint of endpoints) {
                     try {
+                        logger.debug({ baseUrl, endpoint }, 'HSGQ: Trying fetch endpoint');
                         const res = await fetch(`${baseUrl}${endpoint}`, {
                             headers: { 'x-token': token },
                             signal: AbortSignal.timeout(20000)
                         });
                         if (res.ok) {
+                            logger.info({ baseUrl, endpoint }, 'HSGQ: Endpoint SUCCESS');
                             const data = await res.json();
                             return this.parseOnuData(data);
+                        } else {
+                            logger.warn({ baseUrl, endpoint, status: res.status }, 'HSGQ: Endpoint returned non-OK');
                         }
-                    } catch (e) { }
+                    } catch (e: any) { 
+                        logger.warn({ baseUrl, endpoint, err: e.message }, 'HSGQ: Endpoint threw error');
+                    }
                 }
+            } else {
+                 logger.warn({ baseUrl }, 'HSGQ: Modern API Login returned null token');
             }
 
+            logger.error({ baseUrl }, 'HSGQ: Exhausted all fetch attempts without success');
             throw new Error('All HSGQ Web API attempts failed');
         } catch (error: any) {
             logger.error({ err: error }, 'HSGQ HTTP Fetch failed');
