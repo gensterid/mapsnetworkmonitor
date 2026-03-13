@@ -24,4 +24,7 @@ export const oltService = {
 
     // Update ONU
     updateOnu: (id: string, onuId: string, data: any) => patch<any>(`/olts/${id}/onus/${onuId}`, data),
+
+    // Reboot ONU
+    rebootOnu: (id: string, onuId: string, ponId: string) => post<any>(`/olts/${id}/onus/${onuId}/reboot`, { ponId }),
 };

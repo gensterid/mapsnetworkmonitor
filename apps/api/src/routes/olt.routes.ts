@@ -147,4 +147,28 @@ router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
     res.json({ data: olt });
 }));
 
+// Reboot ONU
+// Requires: Operator or Admin
+router.post('/:id/onus/:onuId/reboot', requireOperator, asyncHandler(async (req, res) => {
+    const { id, onuId } = req.params;
+    const { ponId } = req.body;
+
+    if (!ponId) {
+        throw ApiError.badRequest('ponId is required in request body');
+    }
+
+    const success = await oltService.rebootOnu(
+        id as string,
+        ponId as string,
+        onuId as string,
+        getEffectiveTenantId(req)
+    );
+
+    if (!success) {
+        throw new ApiError(500, 'Failed to reboot ONU. The OLT might be unreachable or the protocol is not supported.');
+    }
+
+    res.json({ data: { success: true } });
+}));
+
 export default router;

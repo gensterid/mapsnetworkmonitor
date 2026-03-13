@@ -712,6 +712,32 @@ export class OltService {
             .returning();
         return updated;
     }
+
+    async rebootOnu(oltId: string, ponId: string, onuId: string, tenantId?: string): Promise<boolean> {
+        const olt = await this.findByIdInternal(oltId, tenantId);
+        if (!olt) throw new Error('OLT not found');
+
+        try {
+            const decryptedPassword = olt.webPassword ? decrypt(olt.webPassword) : undefined;
+            const driver = OltDriverFactory.getDriver(
+                olt.type || 'generic',
+                olt.host,
+                olt.webPort || undefined,
+                olt.webUsername || undefined,
+                decryptedPassword,
+                olt.webProtocol || undefined
+            );
+
+            await driver.connect();
+            const success = await driver.rebootOnu(ponId, onuId);
+            await driver.disconnect();
+            
+            return success;
+        } catch (error) {
+            logger.error({ err: error, oltId, ponId, onuId }, 'Failed to reboot ONU via service');
+            return false;
+        }
+    }
 }
 
 export const oltService = OltService.getInstance();

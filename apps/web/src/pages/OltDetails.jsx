@@ -5,7 +5,8 @@ import {
     useOltOnus,
     useRefreshOlt,
     useUpdateOnu,
-    useRouterNetwatch
+    useRouterNetwatch,
+    useRebootOnu
 } from '@/hooks';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -84,8 +85,10 @@ export default function OltDetails() {
 
     const refreshMutation = useRefreshOlt();
     const updateOnuMutation = useUpdateOnu();
+    const rebootOnuMutation = useRebootOnu();
     const [searchTerm, setSearchTerm] = useState('');
     const [editingOnu, setEditingOnu] = useState(null); // { id, name, latitude, longitude, ... }
+    const [rebootingOnu, setRebootingOnu] = useState(null); // { id, sn, ponId, onuId }
 
     // Create a lookup for netwatch by SN/Host to identify linked devices
     const netwatchLookup = useMemo(() => {
@@ -154,6 +157,31 @@ export default function OltDetails() {
         }
 
         return `${ponId}-${onuId}`;
+    };
+
+    const getSignalColor = (signal) => {
+        if (!signal) return "text-slate-600";
+        const numeric = parseFloat(signal);
+        if (isNaN(numeric)) return "text-slate-600";
+        
+        if (numeric >= -25 && numeric <= -12) return "text-emerald-400";
+        if (numeric < -25 && numeric >= -28) return "text-amber-400";
+        if (numeric < -28 || numeric > -10) return "text-red-400";
+        return "text-blue-400";
+    };
+
+    const handleRebootOnu = async () => {
+        if (!rebootingOnu) return;
+        try {
+            await rebootOnuMutation.mutateAsync({
+                id: id,
+                onuId: rebootingOnu.onuId,
+                ponId: rebootingOnu.ponId
+            });
+            setRebootingOnu(null);
+        } catch (e) {
+            // Error managed by hook
+        }
     };
 
     if (isLoadingOlt) {
@@ -460,7 +488,7 @@ export default function OltDetails() {
                                                     <td className="px-4 py-3 whitespace-nowrap text-right">
                                                         <span className={clsx(
                                                             "text-sm font-mono font-medium",
-                                                            onu.status === 'online' ? "text-blue-400" : "text-slate-600"
+                                                            onu.status === 'online' ? getSignalColor(onu.signal) : "text-slate-600"
                                                         )}>
                                                             {onu.signal || '--'}
                                                         </span>
@@ -486,7 +514,15 @@ export default function OltDetails() {
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-right flex items-center justify-end gap-1">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="ghost"
+                                                            className="h-7 text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                                                            onClick={() => setRebootingOnu(onu)}
+                                                        >
+                                                            Restart
+                                                        </Button>
                                                         <Button
                                                             size="sm"
                                                             variant="ghost"
@@ -610,6 +646,39 @@ export default function OltDetails() {
                         </Button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* Reboot Confirmation Modal */}
+            <Modal
+                isOpen={!!rebootingOnu}
+                onClose={() => setRebootingOnu(null)}
+                title="Confirm ONU Restart"
+            >
+                <div className="space-y-4">
+                    <div className="flex items-start gap-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                        <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-sm font-medium text-white">Critical Action</p>
+                            <p className="text-xs text-slate-400">Are you sure you want to restart ONU <span className="text-white font-mono">{rebootingOnu?.sn}</span>? This will temporarily disconnect the user.</p>
+                        </div>
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                            variant="ghost"
+                            onClick={() => setRebootingOnu(null)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleRebootOnu}
+                            disabled={rebootOnuMutation.isPending}
+                        >
+                            {rebootOnuMutation.isPending ? 'Restarting...' : 'Yes, Restart ONU'}
+                        </Button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );

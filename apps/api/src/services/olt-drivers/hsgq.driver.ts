@@ -178,7 +178,6 @@ export class HsgqDriver extends BaseOltDriver {
 
         return items.map((item: any) => {
             const sn = item.ont_sn || item.sn || item.alias || item.mac || 'Unknown';
-            const name = item.ont_name || item.name || item.onu_name || undefined;
             const ponId = String(item.pon_id || item.port_id || item.ponIndex || '0');
             const onuId = String(item.identifier || item.onu_id || item.onuIndex || item.id || '0');
 
@@ -213,6 +212,10 @@ export class HsgqDriver extends BaseOltDriver {
                 }
             }
 
+            // Description Logic: fallback to alias or remark if description is empty or default
+            const rawDesc = item.ont_description || item.Description || item.description || item.remark || item.alias || undefined;
+            const description = (rawDesc === 'No-description' || rawDesc === 'None') ? undefined : rawDesc;
+
             return {
                 ponId,
                 onuId,
@@ -220,8 +223,8 @@ export class HsgqDriver extends BaseOltDriver {
                 macAddress: item.ont_mac || item.onu_mac || item.mac_addr || item.mac || undefined,
                 status,
                 signal: item.receive_power || item.rx_power || item.rxPower || item.signals || item.optical_power || undefined,
-                name: item.ont_name || item.Name || item.name || item.onu_name || undefined,
-                description: item.ont_description || item.Description || item.description || item.remark || undefined,
+                name: item.ont_name || item.Name || item.name || item.onu_name || item.alias || undefined,
+                description,
                 lastDownReason,
                 lastDownTime: item.last_d_time || undefined,
                 lastUpTime: item.last_u_time || undefined
@@ -230,10 +233,59 @@ export class HsgqDriver extends BaseOltDriver {
     }
 
     async getOnuDetails(ponId: string, onuId: string): Promise<OnuInfo | null> {
-        return null;
+        const list = await this.getOnuList();
+        return list.find(o => o.ponId === ponId && o.onuId === onuId) || null;
     }
 
     async rebootOnu(ponId: string, onuId: string): Promise<boolean> {
-        throw new Error('HSGQ ONU Reboot via Telnet is disabled.');
+        const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
+        const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
+
+        try {
+            const token = await this.loginModern(baseUrl);
+            if (!token) {
+                // Try legacy reboot if modern fails
+                const username = this.config.username || 'admin';
+                const password = this.config.password || '';
+                const auth = Buffer.from(`${username}:${password}`).toString('base64');
+                
+                const res = await fetch(`${baseUrl}/cgi-bin/v2/onu_reboot.cgi?pon_id=${ponId}&onu_id=${onuId}`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Basic ${auth}` },
+                    signal: AbortSignal.timeout(10000)
+                }).catch(() => null);
+
+                return !!(res && res.ok);
+            }
+
+            // Modern API Reboot
+            const payload = {
+                method: "set",
+                param: {
+                    pon_id: parseInt(ponId),
+                    onu_id: parseInt(onuId)
+                }
+            };
+
+            const response = await fetch(`${baseUrl}/gponont_mgmt?form=reboot`, {
+                method: 'POST',
+                body: JSON.stringify(payload),
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-token': token
+                },
+                signal: AbortSignal.timeout(10000)
+            });
+
+            if (response.ok) {
+                const data = await response.json() as any;
+                return data.code === 1;
+            }
+
+            return false;
+        } catch (error) {
+            logger.error({ err: error, ponId, onuId }, 'HSGQ Reboot failed');
+            return false;
+        }
     }
 }

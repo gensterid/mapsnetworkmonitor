@@ -108,3 +108,15 @@ export function useUpdateOnu() {
         },
     });
 }
+
+export function useRebootOnu() {
+    return useMutation({
+        mutationFn: ({ id, onuId, ponId }) => oltService.rebootOnu(id, onuId, ponId),
+        onSuccess: () => {
+            toast.success('Reboot command sent to ONU');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to reboot ONU');
+        },
+    });
+}
