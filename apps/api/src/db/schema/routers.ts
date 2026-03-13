@@ -10,6 +10,7 @@ import {
     real,
     pgEnum,
     index,
+    primaryKey,
 } from 'drizzle-orm/pg-core';
 import { routerGroups } from './groups.js';
 import { notificationGroups } from './notifications.js';
@@ -141,7 +142,7 @@ export const routerInterfaces = pgTable('router_interfaces', {
 
 // Router metrics table (time-series data)
 export const routerMetrics = pgTable('router_metrics', {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').defaultRandom(),
     routerId: uuid('router_id')
         .notNull()
         .references(() => routers.id, { onDelete: 'cascade' }),
@@ -166,6 +167,8 @@ export const routerMetrics = pgTable('router_metrics', {
     routerIdIdx: index('router_metrics_router_id_idx').on(table.routerId),
     tenantIdIdx: index('router_metrics_tenant_id_idx').on(table.tenantId),
     recordedAtIdx: index('router_metrics_recorded_at_idx').on(table.recordedAt),
+    combinedIdx: index('router_metrics_combined_idx').on(table.routerId, table.recordedAt.desc()),
+    pk: primaryKey({ columns: [table.id, table.recordedAt] }),
 }));
 
 // Netwatch status enum

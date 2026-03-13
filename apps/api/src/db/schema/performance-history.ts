@@ -5,6 +5,7 @@ import {
     timestamp,
     real,
     index,
+    primaryKey,
 } from 'drizzle-orm/pg-core';
 import { routers } from './routers.js';
 import { tenants } from './tenants.js';
@@ -16,7 +17,7 @@ import { onus } from './onus.js';
  * for both MikroTik Netwatch hosts and ONUs.
  */
 export const devicePerformanceHistory = pgTable('device_performance_history', {
-    id: uuid('id').defaultRandom().primaryKey(),
+    id: uuid('id').defaultRandom(),
     tenantId: uuid('tenant_id')
         .notNull()
         .references(() => tenants.id, { onDelete: 'cascade' }),
@@ -40,6 +41,8 @@ export const devicePerformanceHistory = pgTable('device_performance_history', {
     hostIdx: index('dev_perf_host_idx').on(table.host),
     onuIdIdx: index('dev_perf_onu_id_idx').on(table.onuId),
     recordedAtIdx: index('dev_perf_recorded_at_idx').on(table.recordedAt),
+    combinedIdx: index('dev_perf_combined_idx').on(table.routerId, table.recordedAt.desc()),
+    pk: primaryKey({ columns: [table.id, table.recordedAt] }),
 }));
 
 export type DevicePerformanceHistory = typeof devicePerformanceHistory.$inferSelect;
