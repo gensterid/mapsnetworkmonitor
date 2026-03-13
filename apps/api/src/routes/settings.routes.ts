@@ -83,7 +83,13 @@ router.put(
             value = encrypt(value);
         }
 
-        const setting = await settingsService.setSetting(key, value, (getEffectiveTenantId(req) || req.user!.tenantId) as string, description);
+        // Determine tenant context
+        const tenantId = getEffectiveTenantId(req) || req.user?.tenantId;
+        if (!tenantId) {
+            throw ApiError.badRequest('Tenant context is required to update settings');
+        }
+
+        const setting = await settingsService.setSetting(key, value, tenantId as string, description);
 
         // Check if scheduler restart is needed
         if (key.includes('interval')) {

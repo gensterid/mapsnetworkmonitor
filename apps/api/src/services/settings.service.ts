@@ -132,21 +132,29 @@ export class SettingsService {
         tenantId: string,
         description?: string
     ): Promise<AppSetting> {
-        // Check if setting exists and is not a virtual fallback
-        const existing = await this.getSetting(key, tenantId);
-        const isVirtual = existing?.id === '00000000-0000-0000-0000-000000000000';
+        if (!tenantId) {
+            throw new Error(`Cannot set setting "${key}": tenantId is required.`);
+        }
+
+        // [FIX] Check database directly for existence to avoid virtual override collision
+        // We bypass getSetting() here because it returns virtual/fallbacks which confuse the INSERT/UPDATE logic
+        const [existing] = await db
+            .select()
+            .from(appSettings)
+            .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)));
+
         let setting: AppSetting;
 
-        if (existing && !isVirtual) {
+        if (existing) {
             // Update existing real setting
             const [updated] = await db
                 .update(appSettings)
-                .set({ value, description, updatedAt: new Date() })
+                .set({ value, description: description || existing.description, updatedAt: new Date() })
                 .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)))
                 .returning();
             setting = updated;
         } else {
-            // Create new (if doesn't exist OR is just a fallback)
+            // Create new
             const [created] = await db
                 .insert(appSettings)
                 .values({ key, value, description, tenantId })
