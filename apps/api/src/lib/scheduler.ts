@@ -291,35 +291,56 @@ async function pollOltsWeb(): Promise<void> {
     }
 }
 
+const lastGlobalAcsSync = new Map<string, number>();
+const lastDedicatedAcsSync = new Map<string, number>();
+
 /**
  * Sync GenieACS Devices
  */
 async function syncGenieAcs(): Promise<void> {
     try {
         const allTenants = await db.select().from(tenants);
+        const now = Date.now();
+
         for (const tenant of allTenants) {
-            const enabled = await settingsService.getSettingValue('acs_sync_enabled', tenant.id, true);
-            if (!enabled) continue;
-
             const tenantId = tenant.id;
-            logger.info({ tenantId }, '[Scheduler] Running GenieACS sync for tenant...');
+            const masterEnabled = await settingsService.getSettingValue('genieacs_enabled', tenantId, true);
+            if (!masterEnabled) continue;
 
-            // 1. Sync metadata from global ACS if configured for this tenant
-            const hasGlobalAcs = await genieacsService.getDevices(undefined, tenantId, {}, false, 'stats').then(d => d.length >= 0).catch(() => false);
-            if (hasGlobalAcs) {
-                await genieacsService.syncMetadata(undefined, tenantId);
+            const syncEnabled = await settingsService.getSettingValue('acs_sync_enabled', tenantId, true);
+            const pollingIntervalMin = await settingsService.getSettingValue('acs_polling_interval', tenantId, 10);
+            const pollingIntervalMs = pollingIntervalMin * 60 * 1000;
+
+            // 1. Sync metadata from global ACS
+            if (syncEnabled) {
+                const lastSync = lastGlobalAcsSync.get(tenantId) || 0;
+                if (now - lastSync >= pollingIntervalMs) {
+                    logger.info({ tenantId }, '[Scheduler] Running Global GenieACS sync for tenant...');
+                    const hasGlobalAcs = await genieacsService.getDevices(undefined, tenantId, {}, false, 'stats').then(d => d.length >= 0).catch(() => false);
+                    if (hasGlobalAcs) {
+                        await genieacsService.syncMetadata(undefined, tenantId);
+                        lastGlobalAcsSync.set(tenantId, now);
+                    }
+                }
             }
 
             // 2. Sync specific routers that have dedicated GenieACS settings
+            // Dedicated sync runs on the same frequency as global for now, but is independently enabled.
             const routers = await routerService.findAll(tenantId);
             const routersWithDedicatedAcs = routers.filter(r => r.useGenieAcs && r.genieacsUrl);
 
             if (routersWithDedicatedAcs.length > 0) {
                 for (const router of routersWithDedicatedAcs) {
-                    try {
-                        await genieacsService.syncMetadata(router.id, tenantId);
-                    } catch (e) {
-                        logger.error({ err: e, router: router.name }, 'Failed to sync GenieACS for router');
+                    const lastSync = lastDedicatedAcsSync.get(router.id) || 0;
+                    // We use the same pollingIntervalMs for dedicated routers as well, 
+                    // providing a single logical "ACS Polling Frequency" setting.
+                    if (now - lastSync >= pollingIntervalMs) {
+                        try {
+                            await genieacsService.syncMetadata(router.id, tenantId);
+                            lastDedicatedAcsSync.set(router.id, now);
+                        } catch (e) {
+                            logger.error({ err: e, router: router.name }, 'Failed to sync GenieACS for router');
+                        }
                     }
                 }
             }
@@ -391,14 +412,16 @@ async function warmAcsDashboard(): Promise<void> {
     try {
         const allTenants = await db.select().from(tenants);
         for (const tenant of allTenants) {
-            const enabled = await settingsService.getSettingValue('acs_sync_enabled', tenant.id, true);
-            if (!enabled) continue;
+            const masterEnabled = await settingsService.getSettingValue('genieacs_enabled', tenant.id, true);
+            if (!masterEnabled) continue;
 
+            const syncEnabled = await settingsService.getSettingValue('acs_sync_enabled', tenant.id, true);
             const tenantId = tenant.id;
 
-            // Warm global ACS stats if configured
-            const hasGlobalAcs = await genieacsService.getDevices(undefined, tenantId, {}, false, 'stats').then(d => d.length >= 0).catch(() => false);
-            if (hasGlobalAcs) {
+            // Warm global ACS stats ONLY if sync toggle is ON
+            if (syncEnabled) {
+                // Warm global ACS stats if sync toggle is ON. 
+                // getDashboardStats handles the config check internally.
                 await genieacsService.getDashboardStats(undefined, tenantId, true).catch(() => { });
             }
 
@@ -448,7 +471,7 @@ export async function startScheduler(): Promise<void> {
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
     oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
     oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default
-    acsInterval = setInterval(syncGenieAcs, 10 * 60 * 1000); // 10 min default
+    acsInterval = setInterval(syncGenieAcs, 60000); // Check every minute
     acsWarmerInterval = setInterval(warmAcsDashboard, 60000); // Warm dashboard every minute
     cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
     autoBackupInterval = setInterval(() => backupService.automatedBackup(), 24 * 60 * 60 * 1000); // Daily

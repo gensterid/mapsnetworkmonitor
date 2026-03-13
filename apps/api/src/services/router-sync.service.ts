@@ -142,7 +142,13 @@ export class RouterSyncService {
             }
 
             const errMsg = error?.message || String(error);
-            logger.error({ err: errMsg, router: router.host }, 'Connection failed during refresh');
+            
+            // Reduced logging for persistent offline routers
+            if (previousStatus === 'offline') {
+                logger.debug({ err: errMsg, router: router.name, host: router.host }, 'Router still offline');
+            } else {
+                logger.error({ err: errMsg, router: router.host, name: router.name }, 'Connection failed during refresh');
+            }
 
             // Classify the error with human readable messages
             let friendlyError = 'API Error';

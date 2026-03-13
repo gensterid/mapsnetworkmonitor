@@ -67,8 +67,15 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
     let password = '';
     let isDedicated = false;
 
+    // 1. MASTER FEATURE TOGGLE (Kill Switch for everything ACS)
+    const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId, true);
+    if (!masterEnabled) {
+        logger.debug({ tenantId }, 'GenieACS: Feature is MASTER DISABLED, skipping config fetch.');
+        return null;
+    }
+
     if (routerId) {
-        const router = await routerService.findById(routerId, tenantId);
+        const router = await routerService.findById(routerId, tenantId as string);
         if (router && router.useGenieAcs) {
             url = router.genieacsUrl || '';
             username = router.genieacsUsername || '';
@@ -78,16 +85,21 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
     }
 
     if (!url) {
-        // Fallback Logic: If no tenantId is provided (Superadmin/Background Jobs),
-        // try to find the first tenant that has GenieACS configured.
+        // Fallback Logic: Check if Global Fallback is allowed
+        const globalEnabled = await settingsService.getSettingValue<boolean>('genieacs_global_enabled', tenantId as string, true);
+        if (!globalEnabled) {
+            logger.debug({ tenantId }, 'GenieACS: Global fallback is explicitly DISABLED.');
+            return null;
+        }
+
+        // Try to find the first tenant that has GenieACS configured if tenantId is missing
         let effectiveTenantId = tenantId;
-        
         if (!effectiveTenantId) {
             const [firstWithAcs] = await db.select({ tenantId: appSettings.tenantId })
                 .from(appSettings)
-                .where(eq(appSettings.key, 'genieacs_url'))
+                .where(eq(appSettings.key as any, 'genieacs_url'))
                 .limit(1);
-            effectiveTenantId = firstWithAcs?.tenantId;
+            effectiveTenantId = firstWithAcs?.tenantId as string;
         }
 
         if (effectiveTenantId) {
@@ -99,7 +111,6 @@ async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
             username = userSetting?.value as string || '';
             password = passSetting?.value ? decrypt(passSetting.value as string) : '';
         } else {
-            // Absolute fallback to ENV
             url = process.env.GENIEACS_URL || '';
         }
         isDedicated = false;
@@ -278,6 +289,23 @@ export const genieacsService = {
         let total = 0;
 
         try {
+            // Check Master Toggle and Sync Toggle
+            if (tenantId) {
+                const masterEnabled = await settingsService.getSettingValue<boolean>('genieacs_enabled', tenantId, true);
+                const syncEnabled = await settingsService.getSettingValue<boolean>('acs_sync_enabled', tenantId, true);
+                
+                if (!masterEnabled) {
+                    logger.debug({ tenantId }, 'GenieACS: Master toggle OFF, skipping metadata sync');
+                    return { added, updated, total };
+                }
+                
+                // acs_sync_enabled (Global Polling) ONLY blocks global sync (no routerId)
+                if (!routerId && !syncEnabled) {
+                    logger.debug({ tenantId }, 'GenieACS: Global polling OFF, skipping global metadata sync');
+                    return { added, updated, total };
+                }
+            }
+
             logger.info({ tenantId }, 'GenieACS: Starting metadata sync');
 
             // Invalidate device list cache before fresh sync
