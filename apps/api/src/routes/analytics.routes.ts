@@ -131,6 +131,31 @@ router.get(
 );
 
 /**
+ * GET /api/analytics/performance/interface
+ * Get performance trends for a specific interface (TX/RX)
+ */
+router.get(
+    '/performance/interface',
+    asyncHandler(async (req, res) => {
+        const { interfaceId, startDate, endDate } = req.query;
+
+        if (!interfaceId) {
+            return res.status(400).json({ error: 'interfaceId is required' });
+        }
+
+        const data = await analyticsService.getInterfacePerformanceTrends({
+            interfaceId: interfaceId as string,
+            startDate: startDate ? new Date(startDate as string) : new Date(Date.now() - 24 * 60 * 60 * 1000),
+            endDate: endDate ? new Date(endDate as string) : new Date(),
+            // @ts-ignore
+            tenantId: getEffectiveTenantId(req)
+        });
+
+        res.json({ data });
+    })
+);
+
+/**
  * GET /api/analytics/audit-logs
  * Get audit logs with pagination
  */

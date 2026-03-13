@@ -272,6 +272,18 @@ class AnalyticsService {
     }> {
         return eventAnalyticsService.getResolutionStats(dateRange, routerId, userId, userRole, tenantId);
     }
+
+    /**
+     * Get interface performance trends (TX/RX rates)
+     */
+    async getInterfacePerformanceTrends(params: {
+        interfaceId: string;
+        startDate: Date;
+        endDate: Date;
+        tenantId?: string;
+    }) {
+        return performanceAnalyticsService.getInterfacePerformanceTrends(params);
+    }
 }
 
 export const analyticsService = new AnalyticsService();

@@ -436,6 +436,71 @@ export class PerformanceAnalyticsService {
             };
         });
     }
+
+    /**
+     * Get interface performance trends (TX/RX rates)
+     */
+    async getInterfacePerformanceTrends(
+        params: {
+            interfaceId: string;
+            startDate: Date;
+            endDate: Date;
+            tenantId?: string;
+        }
+    ): Promise<any[]> {
+        const { interfaceId, startDate, endDate, tenantId } = params;
+        const { routerInterfaceMetrics } = await import('../../db/schema/index.js');
+
+        const conditions: any[] = [
+            eq(routerInterfaceMetrics.interfaceId, interfaceId),
+            gte(routerInterfaceMetrics.recordedAt, startDate),
+            lte(routerInterfaceMetrics.recordedAt, endDate),
+        ];
+
+        if (tenantId) conditions.push(eq(routerInterfaceMetrics.tenantId, tenantId));
+
+        // Determine grouping interval based on range
+        const diffMs = endDate.getTime() - startDate.getTime();
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        
+        let timeSelect: any;
+        if (diffDays > 7) {
+            timeSelect = sql<string>`to_timestamp(floor(extract('epoch' from ${routerInterfaceMetrics.recordedAt}) / 10800) * 10800) AT TIME ZONE 'UTC'`;
+        } else {
+            timeSelect = sql<string>`DATE_TRUNC('hour', ${routerInterfaceMetrics.recordedAt})`;
+        }
+
+        const results = await db
+            .select({
+                timestamp: timeSelect.as('timestamp'),
+                avgTx: avg(routerInterfaceMetrics.txRate),
+                avgRx: avg(routerInterfaceMetrics.rxRate),
+            })
+            .from(routerInterfaceMetrics)
+            .where(and(...conditions))
+            .groupBy(timeSelect)
+            .orderBy(timeSelect);
+
+        return results.map(r => {
+            let formatTs = r.timestamp;
+            if (formatTs instanceof Date) {
+                formatTs = formatTs.toISOString();
+            } else if (typeof formatTs === 'string') {
+                if (!formatTs.endsWith('Z')) {
+                    formatTs = formatTs.replace(' ', 'T');
+                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
+                        formatTs += 'Z';
+                    }
+                }
+            }
+
+            return {
+                timestamp: formatTs,
+                txRate: r.avgTx !== null ? Math.round(Number(r.avgTx)) : 0,
+                rxRate: r.avgRx !== null ? Math.round(Number(r.avgRx)) : 0,
+            };
+        });
+    }
 }
 
 export const performanceAnalyticsService = new PerformanceAnalyticsService();

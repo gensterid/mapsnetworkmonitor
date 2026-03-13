@@ -275,5 +275,8 @@ export function useResolveAllAlerts() {
             queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
             queryClient.invalidateQueries({ queryKey: alertKeys.unacknowledged() });
         },
+        onError: (error) => {
+            console.error('Resolve All Error:', error);
+        }
     });
 }

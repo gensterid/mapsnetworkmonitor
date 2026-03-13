@@ -25,6 +25,9 @@ const DEFAULT_THRESHOLDS = {
 // Cooldown period in minutes - don't create duplicate alerts within this period
 const ALERT_COOLDOWN_MINUTES = 30;
 
+const ISSUE_TYPES = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+const CONNECTIVITY_TYPES = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
+
 /**
  * Alert Service - handles alert operations
  */
@@ -476,6 +479,16 @@ export class AlertService {
             })
             .where(and(...filters))
             .returning();
+
+        if (alert) {
+            eventEmitter.broadcast('alerts_updated', {
+                type: 'acknowledge',
+                alertId: id,
+                userId,
+                timestamp: new Date().toISOString()
+            });
+        }
+
         return alert;
     }
 
@@ -528,13 +541,10 @@ export class AlertService {
 
         // Apply category filtering directly in SQL
         if (category) {
-            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
-            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
-
             if (category === 'issues') {
-                filters.push(inArray(alerts.type, issueTypesList as any));
+                filters.push(inArray(alerts.type, ISSUE_TYPES as any));
             } else if (category === 'alerts') {
-                filters.push(inArray(alerts.type, connectivityTypesList as any));
+                filters.push(inArray(alerts.type, CONNECTIVITY_TYPES as any));
             }
         }
 
@@ -546,6 +556,13 @@ export class AlertService {
                 acknowledgedAt: new Date(),
             })
             .where(and(...filters as any[]));
+
+        eventEmitter.broadcast('alerts_updated', {
+            type: 'acknowledge_all',
+            category,
+            userId,
+            timestamp: new Date().toISOString()
+        });
 
         return true;
     }
@@ -573,15 +590,14 @@ export class AlertService {
         }
 
         if (category) {
-            const issueTypesList = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
-            const connectivityTypesList = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
-
             if (category === 'issues') {
-                filters.push(inArray(alerts.type, issueTypesList as any));
+                filters.push(inArray(alerts.type, ISSUE_TYPES as any));
             } else if (category === 'alerts') {
-                filters.push(inArray(alerts.type, connectivityTypesList as any));
+                filters.push(inArray(alerts.type, CONNECTIVITY_TYPES as any));
             }
         }
+
+        logger.info({ userId, category, tenantId }, 'Resolving all alerts');
 
         await db
             .update(alerts)
@@ -592,7 +608,14 @@ export class AlertService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(and(...filters));
+            .where(and(...filters as any[]));
+
+        eventEmitter.broadcast('alerts_updated', {
+            type: 'resolve_all',
+            category,
+            userId,
+            timestamp: new Date().toISOString()
+        });
 
         return true;
     }
@@ -613,6 +636,15 @@ export class AlertService {
             })
             .where(and(...filters))
             .returning();
+
+        if (alert) {
+            eventEmitter.broadcast('alerts_updated', {
+                type: 'resolve',
+                alertId: id,
+                timestamp: new Date().toISOString()
+            });
+        }
+
         return alert;
     }
 

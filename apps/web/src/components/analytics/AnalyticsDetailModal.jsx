@@ -84,7 +84,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             toast.success('All alerts resolved/acknowledged');
             onClose();
         } catch (error) {
-            toast.error('Failed to resolve all alerts');
+            toast.error(error.message || 'Failed to resolve all alerts');
         }
     };
 

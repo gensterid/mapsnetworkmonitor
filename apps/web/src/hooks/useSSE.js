@@ -55,6 +55,16 @@ export function useSSE() {
             console.log('SSE connection confirmed:', data);
         });
 
+        // Handle and sync all types of alert updates (acknowledge, resolve, bulk actions)
+        eventSource.addEventListener('alerts_updated', (event) => {
+            const data = JSON.parse(event.data);
+            console.log('Alerts updated (sync event):', data);
+            
+            // Shared invalidation for any alert state change
+            queryClient.invalidateQueries({ queryKey: ['alerts'] });
+            queryClient.invalidateQueries({ queryKey: ['unread-alert-count'] });
+        });
+
         // Handle new alert events
         eventSource.addEventListener('new_alert', (event) => {
             const data = JSON.parse(event.data);

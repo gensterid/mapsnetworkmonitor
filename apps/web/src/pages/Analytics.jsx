@@ -78,8 +78,8 @@ function SimpleBarChart({ data, dataKey = 'total', color = '#3b82f6', height = 2
     }));
 
     return (
-        <div style={{ height }}>
-            <ResponsiveContainer width="100%" height="100%">
+        <div style={{ height, width: '100%', position: 'relative' }}>
+            <ResponsiveContainer minWidth={0} width="100%" height="100%">
                 <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                     <XAxis
@@ -113,12 +113,147 @@ function SimpleBarChart({ data, dataKey = 'total', color = '#3b82f6', height = 2
     );
 }
 
-// Multi-line trend chart using Recharts
+// Interface Traffic Chart
+function InterfaceTrafficChart({ data, height = 250 }) {
+    if (!data || data.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-48 text-slate-500">
+                Pilih interface untuk melihat data
+            </div>
+        );
+    }
+
+    const formatRate = (bps) => {
+        if (bps === null || bps === undefined) return '0 bps';
+        if (bps >= 1000000) return `${(bps / 1000000).toFixed(2)} Mbps`;
+        if (bps >= 1000) return `${(bps / 1000).toFixed(1)} Kbps`;
+        return `${bps} bps`;
+    };
+
+    const chartData = data.map(item => ({
+        ...item,
+        time: new Date(item.timestamp).toLocaleString('id-ID', { 
+            day: '2-digit', 
+            month: 'short', 
+            year: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit' 
+        }),
+        tx: Number(item.txRate || 0),
+        rx: Number(item.rxRate || 0)
+    }));
+
+    return (
+        <div style={{ height, width: '100%', position: 'relative' }}>
+            <ResponsiveContainer minWidth={0} width="100%" height="100%">
+                <AreaChart data={chartData}>
+                    <defs>
+                        <linearGradient id="colorTx" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                        <linearGradient id="colorRx" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                    <XAxis
+                        dataKey="time"
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        minTickGap={40}
+                        dy={10}
+                    />
+                    <YAxis
+                        stroke="#94a3b8"
+                        fontSize={10}
+                        tickLine={false}
+                        axisLine={false}
+                        dx={-10}
+                        tickFormatter={(val) => formatRate(val)}
+                    />
+                    <Tooltip
+                        content={({ active, payload, label }) => {
+                            if (active && payload && payload.length) {
+                                return (
+                                    <div className="bg-slate-800 border border-slate-700 p-2 rounded-lg shadow-xl text-xs">
+                                        <p className="text-slate-300 font-medium mb-1">{label}</p>
+                                        <div className="flex items-center gap-2 mb-0.5">
+                                            <div className="w-2 h-2 rounded-full bg-blue-500" />
+                                            <span className="text-slate-400">TX:</span>
+                                            <span className="text-white font-mono font-medium">{formatRate(payload[0].value)}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                                            <span className="text-slate-400">RX:</span>
+                                            <span className="text-white font-mono font-medium">{formatRate(payload[1].value)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                            return null;
+                        }}
+                    />
+                    <Area type="monotone" dataKey="tx" name="TX" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorTx)" />
+                    <Area type="monotone" dataKey="rx" name="RX" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#colorRx)" />
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    );
+}
+
+// Latency & ONU Power Chart (Generic Line Chart)
+function MetricHistoryChart({ data, dataKey, name, unit, color = '#3b82f6', height = 250, placeholder = "Pilih perangkat untuk melihat data" }) {
+    if (!data || data.length === 0) {
+        return (
+            <div className="flex items-center justify-center h-48 text-slate-500">
+                {placeholder}
+            </div>
+        );
+    }
+
+    const chartData = data.map(item => ({
+        ...item,
+        time: new Date(item.timestamp).toLocaleString('id-ID', { 
+            day: '2-digit', 
+            month: 'short', 
+            year: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit' 
+        }),
+        value: Number(item[dataKey] || 0)
+    }));
+
+    return (
+        <div style={{ height, width: '100%', position: 'relative' }}>
+            <ResponsiveContainer minWidth={0} width="100%" height="100%">
+                <AreaChart data={chartData}>
+                    <defs>
+                        <linearGradient id={`grad-${dataKey}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                            <stop offset="95%" stopColor={color} stopOpacity={0} />
+                        </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} minTickGap={40} dy={10} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} dx={-10} unit={unit} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Area type="monotone" dataKey="value" name={name} stroke={color} strokeWidth={2} fillOpacity={1} fill={`url(#grad-${dataKey})`} unit={unit} />
+                </AreaChart>
+            </ResponsiveContainer>
+        </div>
+    );
+}
+
+// Multi-line trend chart for CPU & Memory
 function TrendChart({ data, height = 200 }) {
     if (!data || data.length === 0) {
         return (
             <div className="flex items-center justify-center h-48 text-slate-500">
-                No data available
+                Data tidak tersedia
             </div>
         );
     }
@@ -126,14 +261,20 @@ function TrendChart({ data, height = 200 }) {
     // Format data timestamps
     const chartData = data.map(item => ({
         ...item,
-        time: new Date(item.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+        time: new Date(item.timestamp).toLocaleString('id-ID', { 
+            day: '2-digit', 
+            month: 'short', 
+            year: 'numeric',
+            hour: '2-digit', 
+            minute: '2-digit' 
+        }),
         avgCpu: Number(item.avgCpu || 0),
         avgMemory: Number(item.avgMemory || 0)
     }));
 
     return (
-        <div style={{ height }}>
-            <ResponsiveContainer width="100%" height="100%">
+        <div style={{ height, width: '100%', position: 'relative' }}>
+            <ResponsiveContainer minWidth={0} width="100%" height="100%">
                 <AreaChart data={chartData}>
                     <defs>
                         <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
@@ -408,6 +549,11 @@ export default function Analytics() {
     // History/Detail modal for list items
     const [historyModal, setHistoryModal] = useState({ open: false, type: null, target: null });
 
+    // Target Sub-filters
+    const [selectedInterfaceId, setSelectedInterfaceId] = useState(null);
+    const [selectedHost, setSelectedHost] = useState(null);
+    const [selectedOnuId, setSelectedOnuId] = useState(null);
+
     // Helper to get default date range (30 days)
     const getDefaultDateRange = () => {
         const end = new Date();
@@ -435,6 +581,11 @@ export default function Analytics() {
         if (isSingleDayView && dateRange.startDate) {
             startDateParam = `${dateRange.startDate}T00:00:00`;
             endDateParam = `${dateRange.endDate}T23:59:59`;
+        }
+
+        // For multi-day view, also ensure we capture the full end day
+        if (endDateParam && !endDateParam.includes('T')) {
+            endDateParam = `${endDateParam}T23:59:59`;
         }
 
         return {
@@ -552,6 +703,74 @@ export default function Analytics() {
             const res = await apiClient.get('/analytics/resolution', { params: queryParams });
             return res.data.data;
         },
+    });
+
+    // --- Detail Metrics History Options ---
+    const { data: interfaces = [] } = useQuery({
+        queryKey: ['router-interfaces', selectedRouterId],
+        queryFn: async () => {
+            if (!selectedRouterId) return [];
+            const res = await apiClient.get(`/routers/${selectedRouterId}/interfaces`);
+            return res.data.data;
+        },
+        enabled: !!selectedRouterId
+    });
+
+    const { data: netwatch = [] } = useQuery({
+        queryKey: ['router-netwatch', selectedRouterId],
+        queryFn: async () => {
+            if (!selectedRouterId) return [];
+            const res = await apiClient.get(`/routers/${selectedRouterId}/netwatch`);
+            return res.data.data;
+        },
+        enabled: !!selectedRouterId
+    });
+
+    const { data: onus = [] } = useQuery({
+        queryKey: ['router-onus', selectedRouterId],
+        queryFn: async () => {
+            if (!selectedRouterId) return [];
+            const res = await apiClient.get(`/olts/onus/by-router/${selectedRouterId}`);
+            return res.data.data;
+        },
+        enabled: !!selectedRouterId
+    });
+
+    // --- Detail Metrics Trends ---
+    const { data: interfaceHistory, isLoading: interfaceHistoryLoading } = useQuery({
+        queryKey: ['analytics-interface-history', selectedInterfaceId, queryParams],
+        queryFn: async () => {
+            if (!selectedInterfaceId) return [];
+            const res = await apiClient.get('/analytics/performance/interface', { 
+                params: { ...queryParams, interfaceId: selectedInterfaceId } 
+            });
+            return res.data.data;
+        },
+        enabled: !!selectedInterfaceId
+    });
+
+    const { data: latencyHistory, isLoading: latencyHistoryLoading } = useQuery({
+        queryKey: ['analytics-latency-history', selectedHost, queryParams],
+        queryFn: async () => {
+            if (!selectedHost) return [];
+            const res = await apiClient.get('/analytics/performance/device', { 
+                params: { ...queryParams, host: selectedHost } 
+            });
+            return res.data.data;
+        },
+        enabled: !!selectedHost
+    });
+
+    const { data: onuHistory, isLoading: onuHistoryLoading } = useQuery({
+        queryKey: ['analytics-onu-history', selectedOnuId, queryParams],
+        queryFn: async () => {
+            if (!selectedOnuId) return [];
+            const res = await apiClient.get('/analytics/performance/device', { 
+                params: { ...queryParams, onuId: selectedOnuId } 
+            });
+            return res.data.data;
+        },
+        enabled: !!selectedOnuId
     });
 
     // Alerts list query - for showing detailed alerts in single day view
@@ -724,7 +943,7 @@ export default function Analytics() {
                                     </div>
                                 ) : (
                                     <SimpleBarChart
-                                        data={alertTrends?.slice(-14) || []}
+                                        data={alertTrends || []}
                                         dataKey="total"
                                         color="warning"
                                         height={180}
@@ -747,7 +966,7 @@ export default function Analytics() {
                                         <RefreshCw className="w-6 h-6 animate-spin text-primary" />
                                     </div>
                                 ) : (
-                                    <TrendChart data={performance?.slice(-24) || []} height={180} />
+                                    <TrendChart data={performance || []} height={180} />
                                 )}
                             </CardContent>
                         </Card>
@@ -1040,6 +1259,128 @@ export default function Analytics() {
                                 </div>
                             </CardContent>
                         </Card>
+                    </div>
+
+                    {/* Histori Data Detail */}
+                    <div className="mt-8">
+                        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-primary" />
+                            Grafik Perangkat & Interface
+                        </h2>
+                        
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Interface Traffic Chart */}
+                            <Card className="glass-panel lg:col-span-1">
+                                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                            <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                            Trafik Interface
+                                        </CardTitle>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">Histori Tx/Rx per interface</p>
+                                    </div>
+                                    <select 
+                                        className="bg-slate-800 border-none text-xs rounded px-2 py-1 text-slate-300 focus:ring-1 focus:ring-primary h-8 max-w-[150px]"
+                                        value={selectedInterfaceId || ''}
+                                        onChange={(e) => setSelectedInterfaceId(e.target.value)}
+                                        disabled={!selectedRouterId}
+                                    >
+                                        <option value="">Pilih Interface</option>
+                                        {interfaces.map(iface => (
+                                            <option key={iface.id} value={iface.id}>{iface.name}</option>
+                                        ))}
+                                    </select>
+                                </CardHeader>
+                                <CardContent>
+                                    {interfaceHistoryLoading ? (
+                                        <div className="flex items-center justify-center py-20">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <InterfaceTrafficChart data={interfaceHistory} />
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* Latency History Chart */}
+                            <Card className="glass-panel lg:col-span-1">
+                                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                            <Activity className="w-4 h-4 text-blue-400" />
+                                            Analisis Latency
+                                        </CardTitle>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">Histori ping per host</p>
+                                    </div>
+                                    <select 
+                                        className="bg-slate-800 border-none text-xs rounded px-2 py-1 text-slate-300 focus:ring-1 focus:ring-primary h-8 max-w-[150px]"
+                                        value={selectedHost || ''}
+                                        onChange={(e) => setSelectedHost(e.target.value)}
+                                        disabled={!selectedRouterId}
+                                    >
+                                        <option value="">Pilih Host</option>
+                                        {netwatch.map(nw => (
+                                            <option key={nw.id} value={nw.host}>{nw.name || nw.host}</option>
+                                        ))}
+                                    </select>
+                                </CardHeader>
+                                <CardContent>
+                                    {latencyHistoryLoading ? (
+                                        <div className="flex items-center justify-center py-20">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <MetricHistoryChart 
+                                            data={latencyHistory} 
+                                            dataKey="latency" 
+                                            name="Latency" 
+                                            unit="ms" 
+                                            color="#3b82f6" 
+                                        />
+                                    )}
+                                </CardContent>
+                            </Card>
+
+                            {/* ONU Power History Chart */}
+                            <Card className="glass-panel lg:col-span-1">
+                                <CardHeader className="pb-2 flex flex-row items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                            <Search className="w-4 h-4 text-amber-400" />
+                                            Daya ONU (Rx)
+                                        </CardTitle>
+                                        <p className="text-[10px] text-slate-500 mt-0.5">Histori signal level</p>
+                                    </div>
+                                    <select 
+                                        className="bg-slate-800 border-none text-xs rounded px-2 py-1 text-slate-300 focus:ring-1 focus:ring-primary h-8 max-w-[150px]"
+                                        value={selectedOnuId || ''}
+                                        onChange={(e) => setSelectedOnuId(e.target.value)}
+                                        disabled={!selectedRouterId}
+                                    >
+                                        <option value="">Pilih ONU</option>
+                                        {onus.map(onu => (
+                                            <option key={onu.id} value={onu.id}>{onu.name}</option>
+                                        ))}
+                                    </select>
+                                </CardHeader>
+                                <CardContent>
+                                    {onuHistoryLoading ? (
+                                        <div className="flex items-center justify-center py-20">
+                                            <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                                        </div>
+                                    ) : (
+                                        <MetricHistoryChart 
+                                            data={onuHistory} 
+                                            dataKey="signal" 
+                                            name="Signal Power" 
+                                            unit="dBm" 
+                                            color="#f59e0b" 
+                                            placeholder="Pilih ONU untuk melihat data"
+                                        />
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
                     </div>
 
                     {/* Advanced Analytics Section */}

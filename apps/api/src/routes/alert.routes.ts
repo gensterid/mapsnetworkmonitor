@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { alertService } from '../services/index.js';
+import { logger } from '../lib/logger.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator, requireAdmin, requireUser } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
@@ -162,9 +163,10 @@ router.put(
  */
 router.put(
     '/resolve-all',
-    requireUser,
+    requireOperator,
     asyncHandler(async (req, res) => {
         const { category } = resolveAllSchema.parse(req.query);
+        logger.info({ userId: req.user!.id, category }, 'API Request: Resolve all alerts');
         await alertService.resolveAll(req.user!.id, req.user!.role, category, getEffectiveTenantId(req));
         res.json({ data: { message: 'All alerts resolved successfully' } });
     })

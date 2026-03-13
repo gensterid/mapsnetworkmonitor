@@ -80,6 +80,14 @@ export const alertService = {
         const query = category ? `?category=${category}` : '';
         return put(`/alerts/acknowledge-all${query}`);
     },
+
+    /**
+     * Resolve all alerts
+     */
+    resolveAll: (category) => {
+        const query = category ? `?category=${category}` : '';
+        return put(`/alerts/resolve-all${query}`);
+    },
 };
 
 export default alertService;
