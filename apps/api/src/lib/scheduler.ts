@@ -316,11 +316,11 @@ async function syncGenieAcs(): Promise<void> {
                 const lastSync = lastGlobalAcsSync.get(tenantId) || 0;
                 if (now - lastSync >= pollingIntervalMs) {
                     logger.info({ tenantId }, '[Scheduler] Running Global GenieACS sync for tenant...');
-                    const hasGlobalAcs = await genieacsService.getDevices(undefined, tenantId, {}, false, 'stats').then(d => d.length >= 0).catch(() => false);
-                    if (hasGlobalAcs) {
-                        await genieacsService.syncMetadata(undefined, tenantId);
-                        lastGlobalAcsSync.set(tenantId, now);
-                    }
+                    // Optimized: Directly call syncMetadata which now handles connectivity internally or fails gracefully
+                    await genieacsService.syncMetadata(undefined, tenantId).catch(e => {
+                        logger.warn({ err: e.message, tenantId }, 'Global GenieACS sync failed');
+                    });
+                    lastGlobalAcsSync.set(tenantId, now);
                 }
             }
 
@@ -449,15 +449,15 @@ export async function startScheduler(): Promise<void> {
     // Start BullMQ Worker
     startQueueWorker();
 
-    // Initial Runs (Staggered)
-    setTimeout(() => pollAllRouters(), 5000);
-    setTimeout(() => checkAlertEscalation(), 10000);
-    setTimeout(() => pollOltsSnmp(), 15000);
-    setTimeout(() => warmAcsDashboard(), 20000); // warm dashboard quickly
-    setTimeout(() => pollOltsWeb(), 60000);
-    setTimeout(() => syncGenieAcs(), 30000);
-    setTimeout(() => cleanupOldMetrics(), 120000);
-    setTimeout(() => backupService.automatedBackup(), 180000);
+    // Initial Runs (Spread out to avoid peak load)
+    setTimeout(() => pollAllRouters(), 10000);
+    setTimeout(() => checkAlertEscalation(), 25000);
+    setTimeout(() => pollOltsSnmp(), 40000);
+    setTimeout(() => warmAcsDashboard(), 55000);
+    setTimeout(() => syncGenieAcs(), 75000);
+    setTimeout(() => pollOltsWeb(), 120000); // Wait 2 mins for web sync
+    setTimeout(() => cleanupOldMetrics(), 180000);
+    setTimeout(() => backupService.automatedBackup(), 240000);
 
     // Heartbeat Intervals (Simplified to check all tenants each pulse)
     // We use a frequent heartbeat and internal checks if needed, 

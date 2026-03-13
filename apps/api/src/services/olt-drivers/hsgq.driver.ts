@@ -44,7 +44,7 @@ export class HsgqDriver extends BaseOltDriver {
             const response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
                 method: 'GET',
                 headers: { 'Authorization': `Basic ${auth}` },
-                signal: AbortSignal.timeout(5000)
+                signal: AbortSignal.timeout(15000)
             }).catch(() => null);
 
             if (response && (response.ok || response.status === 401 || response.status === 403)) {
@@ -54,7 +54,7 @@ export class HsgqDriver extends BaseOltDriver {
 
             // 3. Simple fetch without token as fallback
             try {
-                const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(5000) });
+                const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(10000) });
                 if (res.ok || res.status === 401 || res.status === 403) {
                     logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Simple Fetch');
                     return true;
@@ -101,7 +101,7 @@ export class HsgqDriver extends BaseOltDriver {
                 method: 'POST',
                 body: JSON.stringify(payload),
                 headers: { 'Content-Type': 'application/json' },
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(20000)
             });
 
             if (!response.ok) {
@@ -135,7 +135,7 @@ export class HsgqDriver extends BaseOltDriver {
             // Attempt legacy CGI
             let response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
                 headers: { 'Authorization': `Basic ${auth}` },
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(20000)
             }).catch(() => null);
 
             if (response && response.ok) {
@@ -156,7 +156,7 @@ export class HsgqDriver extends BaseOltDriver {
                     try {
                         const res = await fetch(`${baseUrl}${endpoint}`, {
                             headers: { 'x-token': token },
-                            signal: AbortSignal.timeout(10000)
+                            signal: AbortSignal.timeout(20000)
                         });
                         if (res.ok) {
                             const data = await res.json();
@@ -252,7 +252,7 @@ export class HsgqDriver extends BaseOltDriver {
                 const res = await fetch(`${baseUrl}/cgi-bin/v2/onu_reboot.cgi?pon_id=${ponId}&onu_id=${onuId}`, {
                     method: 'GET',
                     headers: { 'Authorization': `Basic ${auth}` },
-                    signal: AbortSignal.timeout(10000)
+                    signal: AbortSignal.timeout(20000)
                 }).catch(() => null);
 
                 return !!(res && res.ok);
@@ -274,7 +274,7 @@ export class HsgqDriver extends BaseOltDriver {
                     'Content-Type': 'application/json',
                     'x-token': token
                 },
-                signal: AbortSignal.timeout(10000)
+                signal: AbortSignal.timeout(20000)
             });
 
             if (response.ok) {
