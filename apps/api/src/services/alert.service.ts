@@ -1340,6 +1340,12 @@ export class AlertService {
             })
             .where(inArray(alerts.id, idsToResolve));
 
+        eventEmitter.broadcast('alerts_updated', {
+            type: 'resolve_batch',
+            ids: idsToResolve,
+            timestamp: new Date().toISOString()
+        });
+
         return idsToResolve.length;
     }
 }

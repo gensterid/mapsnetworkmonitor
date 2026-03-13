@@ -466,6 +466,23 @@ export class RouterNetwatchService {
                         return;
                     }
 
+                    // 🛑 ODP/HUB FIX: Skip pings for devices without a valid IP to prevent erroneous packet loss alerts.
+                    // Passive devices (ODP/HUB) without an IP are always considered "up" by system logic.
+                    const isPingable = target.host && target.host !== '' && target.host !== '0.0.0.0';
+                    if (!isPingable) {
+                        // Mark as up without pinging
+                        await db.update(routerNetwatch).set({
+                            status: 'up',
+                            latency: null,
+                            packetLoss: 0,
+                            updatedAt: new Date()
+                        }).where(eq(routerNetwatch.id, target.id));
+                        
+                        // Resolve any existing performance alerts for this host
+                        await alertService.resolvePerformanceAlert(routerId, target.host);
+                        return;
+                    }
+
                     // Stability-First Ping: 2 packets, 300ms interval, 5000ms timeout
                     const { latency, packetLoss, error: pingError } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
                     logger.debug({ host: target.host, routerId, latency, packetLoss, pingError }, '[MeasureLatency] Ping result calculated');
