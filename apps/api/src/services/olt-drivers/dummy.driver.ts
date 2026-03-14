@@ -56,7 +56,7 @@ export class DummyOltDriver extends BaseOltDriver {
         return true;
     }
 
-    async testConnection(): Promise<boolean> {
-        return true;
+    async testConnection(): Promise<{ success: boolean; error?: string }> {
+        return { success: true };
     }
 }

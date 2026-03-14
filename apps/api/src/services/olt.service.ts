@@ -181,6 +181,7 @@ export class OltService {
         let snmpStatus: 'online' | 'offline' | null = olt.useSnmp ? 'offline' : null;
         let webStatus: 'online' | 'offline' | null = olt.useWeb ? 'offline' : null;
         let activeProtocol: string | null = null;
+        let statusReason: string | null = olt.statusReason;
 
         // 1. Check SNMP
         if (olt.useSnmp) {
@@ -230,21 +231,24 @@ export class OltService {
                     decryptedPassword,
                     olt.webProtocol ?? undefined
                 );
-                const isWebOnline = await driver.testConnection();
+                const webResult = await driver.testConnection();
 
-                if (isWebOnline) {
+                if (webResult.success) {
                     webStatus = 'online';
                     isOnline = true;
                     if (!activeProtocol) activeProtocol = 'web';
+                    statusReason = null;
 
                     // Trigger ONU sync in background to update descriptors/signals
                     this.getOnus(id).catch(err => logger.error({ err, olt: olt.name }, 'Background ONU refresh failed'));
                 } else {
                     webStatus = 'offline';
+                    statusReason = webResult.error || 'Web API Unreachable';
                 }
-            } catch (error) {
+            } catch (error: any) {
                 logger.error({ err: error, olt: olt.name }, 'Web check failed for OLT using driver');
                 webStatus = 'offline';
+                statusReason = error.message || 'Driver Execution Error';
             }
         }
 
@@ -283,6 +287,7 @@ export class OltService {
                     activeProtocol: isOnline ? activeProtocol : null,
                     lastSnmpStatus: snmpStatus,
                     lastWebStatus: webStatus,
+                    statusReason: statusReason,
                     updatedAt: new Date()
                 })
                 .where(eq(olts.id, id))

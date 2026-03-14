@@ -40,7 +40,7 @@ export interface IOltDriver {
     /**
      * Test if the connection and credentials are valid
      */
-    testConnection(): Promise<boolean>;
+    testConnection(): Promise<{ success: boolean; error?: string }>;
 
     /**
      * Reboot a specific ONU
@@ -64,5 +64,5 @@ export abstract class BaseOltDriver implements IOltDriver {
     abstract getOnuList(): Promise<OnuInfo[]>;
     abstract getOnuDetails(ponId: string, onuId: string): Promise<OnuInfo | null>;
     abstract rebootOnu(ponId: string, onuId: string): Promise<boolean>;
-    abstract testConnection(): Promise<boolean>;
+    abstract testConnection(): Promise<{ success: boolean; error?: string }>;
 }

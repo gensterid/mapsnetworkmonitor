@@ -37,6 +37,7 @@ export const olts = pgTable('olts', {
     activeProtocol: text('active_protocol'), // 'snmp' or 'web'
     lastSnmpStatus: text('last_snmp_status'), // 'online', 'offline'
     lastWebStatus: text('last_web_status'), // 'online', 'offline'
+    statusReason: text('status_reason'), // Detailed error message
 
     uptime: integer('uptime'), // in seconds
     description: text('description'),

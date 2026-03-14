@@ -229,6 +229,12 @@ export default function OltDetails() {
                             )}>
                                 {olt.status}
                             </span>
+                            {olt.status !== 'online' && olt.statusReason && (
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-red-400 bg-red-500/5 px-2 py-0.5 rounded border border-red-500/10">
+                                    <AlertCircle className="w-3.5 h-3.5" />
+                                    <span>{olt.statusReason}</span>
+                                </div>
+                            )}
                         </div>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-sm text-slate-400">
                             <p>{olt.host} • {olt.type || 'Generic'}</p>
@@ -323,6 +329,12 @@ export default function OltDetails() {
                                     {olt.updatedAt ? new Date(olt.updatedAt).toLocaleTimeString() : 'Never'}
                                 </span>
                             </div>
+                            {olt.statusReason && (
+                                <div className="py-3 px-3 bg-red-500/5 border border-red-500/10 rounded-lg mt-2">
+                                    <p className="text-[10px] font-bold text-red-500 uppercase tracking-widest mb-1">Diagnostic Report</p>
+                                    <p className="text-xs text-red-200 leading-relaxed">{olt.statusReason}</p>
+                                </div>
+                            )}
 
                             <div className="pt-4">
                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Protocol Health</p>

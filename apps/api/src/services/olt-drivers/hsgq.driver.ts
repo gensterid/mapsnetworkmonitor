@@ -21,7 +21,7 @@ export class HsgqDriver extends BaseOltDriver {
         this.connected = false;
     }
 
-    async testConnection(): Promise<boolean> {
+    async testConnection(): Promise<{ success: boolean; error?: string }> {
         const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
         const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
 
@@ -29,10 +29,15 @@ export class HsgqDriver extends BaseOltDriver {
 
         if (this.config.protocol === 'http' || this.config.protocol === 'https' || [80, 443, 5785, 8080].includes(this.config.port)) {
             // 1. Modern Login (Aggressive check)
-            const token = await this.loginModern(baseUrl);
-            if (token) {
-                logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Modern API');
-                return true;
+            try {
+                const token = await this.loginModern(baseUrl);
+                if (token) {
+                    logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Modern API');
+                    return { success: true };
+                }
+            } catch (loginErr: any) {
+                logger.warn({ err: loginErr.message, baseUrl }, 'HSGQ: Modern login check threw error');
+                // Don't return yet, try fallback
             }
 
             // 2. Fallback to basic auth check (Legacy)
@@ -41,31 +46,42 @@ export class HsgqDriver extends BaseOltDriver {
             const auth = Buffer.from(`${username}:${password}`).toString('base64');
 
             logger.info({ baseUrl }, 'HSGQ: Attempting Legacy Auth check');
-            const response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
-                method: 'GET',
-                headers: { 'Authorization': `Basic ${auth}` },
-                signal: AbortSignal.timeout(15000)
-            }).catch(() => null);
+            try {
+                const response = await fetch(`${baseUrl}/cgi-bin/v2/get_onu_info.cgi`, {
+                    method: 'GET',
+                    headers: { 'Authorization': `Basic ${auth}` },
+                    signal: AbortSignal.timeout(25000) // Increased to 25s
+                });
 
-            if (response && (response.ok || response.status === 401 || response.status === 403)) {
-                logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Legacy API');
-                return true;
+                if (response.ok) {
+                    logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Legacy API');
+                    return { success: true };
+                }
+                
+                if (response.status === 401 || response.status === 403) {
+                    return { success: false, error: 'Auth Failed: Invalid Web Username/Password' };
+                }
+            } catch (e: any) {
+                logger.warn({ err: e.message, baseUrl }, 'HSGQ: Legacy Auth check failed');
             }
 
-            // 3. Simple fetch without token as fallback
+            // 3. Simple fetch without token as fallback (Check if IP is reachable)
             try {
-                const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(10000) });
-                if (res.ok || res.status === 401 || res.status === 403) {
-                    logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Simple Fetch');
-                    return true;
+                const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(15000) });
+                if (res.ok) {
+                    return { success: false, error: 'Login required but reachable' };
                 }
-            } catch (e) {
-                logger.warn({ err: e, baseUrl }, 'HSGQ: Simple fetch failed');
+                if (res.status === 401 || res.status === 403) {
+                    return { success: false, error: 'Auth Required: Invalid Web Username/Password' };
+                }
+            } catch (e: any) {
+                if (e.name === 'TimeoutError') return { success: false, error: 'Connection Timeout (25s)' };
+                return { success: false, error: `Connection Refused: ${e.message}` };
             }
         }
 
         logger.error({ baseUrl }, 'HSGQ: testConnection FINAL FAILURE');
-        return false;
+        return { success: false, error: 'Device Unreachable or Unsupported API response' };
     }
 
     async getOnuList(): Promise<OnuInfo[]> {
