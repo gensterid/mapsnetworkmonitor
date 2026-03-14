@@ -21,6 +21,7 @@ const NotificationGroups = lazy(() => import('./pages/NotificationGroups'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
 const Tenants = lazy(() => import('./pages/Tenants'));
+const KioskView = lazy(() => import('./pages/KioskView'));
 
 import { useSession, useRole } from './lib/auth-client';
 
@@ -199,6 +200,11 @@ function App() {
                   </SuperAdminRoute>
                 } />
               </Route>
+              <Route path="/kiosk" element={
+                <ProtectedRoute>
+                  <KioskView />
+                </ProtectedRoute>
+              } />
             </Routes>
           </Suspense>
         </BrowserRouter>

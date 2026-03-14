@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import NetworkMap from '@/components/NetworkMap';
 import AiNetworkSummary from '@/components/AiNetworkSummary';
+import NetworkHealthCard from '@/components/NetworkHealthCard';
 import { useRouters, useAlerts, useSettings, useCurrentUser, useAppTimezone } from '@/hooks';
 import { formatRelativeTime, formatDateOnly, formatTimeOnly } from '@/lib/timezone';
 import {
@@ -19,7 +20,8 @@ import {
     MapPin,
     Settings,
     Maximize,
-    Minimize
+    Minimize,
+    Monitor
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import clsx from 'clsx';
@@ -384,6 +386,12 @@ export default function Dashboard() {
                                     </div>
                                 </>
                             )}
+                            <Link to="/kiosk">
+                                <Button variant="outline" size="sm" className="hidden lg:flex border-primary/30 text-primary hover:bg-primary/10">
+                                    <Monitor className="w-4 h-4 mr-2" />
+                                    NOC View
+                                </Button>
+                            </Link>
                             <Link to="/routers">
                                 <Button size="sm">
                                     <Plus className="w-4 h-4 mr-2" />
@@ -462,8 +470,9 @@ export default function Dashboard() {
                             <ActiveConnectionsTable routers={filteredRouters} />
                         </div>
 
-                        {/* Right Column: Alerts Panel */}
-                        <div className="xl:col-span-1">
+                        {/* Right Column: Health & Alerts Panel */}
+                        <div className="xl:col-span-1 flex flex-col gap-6">
+                            <NetworkHealthCard />
                             <RecentAlerts alerts={alerts} settings={settings} currentUser={currentUser} />
                         </div>
                     </div>

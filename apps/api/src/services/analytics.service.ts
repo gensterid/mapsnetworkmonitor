@@ -10,6 +10,8 @@ import {
 import { performanceAnalyticsService } from './analytics/performance-analytics.service.js';
 import { eventAnalyticsService } from './analytics/event-analytics.service.js';
 import { availabilityAnalyticsService } from './analytics/availability-analytics.service.js';
+import { networkHealthService } from './analytics/network-health.service.js';
+import { predictionService } from './analytics/prediction.service.js';
 
 // Re-export types for backward compatibility
 export type { DateRange, OverviewStats, AlertTrend, UptimeStats, PerformanceData, AuditLogEntry };
@@ -283,6 +285,20 @@ class AnalyticsService {
         tenantId?: string;
     }) {
         return performanceAnalyticsService.getInterfacePerformanceTrends(params);
+    }
+
+    /**
+     * Get overall network health score for a tenant
+     */
+    async getNetworkHealth(tenantId?: string) {
+        return networkHealthService.calculateOverallHealth(tenantId);
+    }
+
+    /**
+     * Get predictive analytics (deteriorating devices)
+     */
+    async getPredictiveAnalytics(tenantId: string) {
+        return predictionService.getPredictiveAnalytics(tenantId);
     }
 }
 

@@ -60,3 +60,28 @@ export function useAuditLogsAnalytics(params, options = {}) {
         ...options,
     });
 }
+
+/**
+ * Hook to fetch overall network health score
+ */
+export function useNetworkHealth(options = {}) {
+    return useQuery({
+        queryKey: [...analyticsKeys.all, 'health-score'],
+        queryFn: () => analyticsService.getNetworkHealth(),
+        staleTime: 60 * 1000, // 1 minute stale
+        refetchInterval: 5 * 60 * 1000, // Auto refresh every 5 mins
+        ...options,
+    });
+}
+
+/**
+ * Hook to fetch predictive analytics
+ */
+export function usePredictions(options = {}) {
+    return useQuery({
+        queryKey: [...analyticsKeys.all, 'predictions'],
+        queryFn: () => analyticsService.getPredictions(),
+        staleTime: 5 * 60 * 1000,
+        ...options,
+    });
+}

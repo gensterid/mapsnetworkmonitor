@@ -44,6 +44,22 @@ export const analyticsService = {
     getAuditLogs: async (params) => {
         const res = await apiClient.get('/analytics/audit-logs', { params });
         return res.data.data;
+    },
+
+    /**
+     * Get overall network health score
+     */
+    getNetworkHealth: async () => {
+        const res = await apiClient.get('/analytics/health-score');
+        return res.data.data;
+    },
+
+    /**
+     * Get predictive analytics (deteriorating devices)
+     */
+    getPredictions: async () => {
+        const res = await apiClient.get('/analytics/predictions');
+        return res.data.data;
     }
 };
 

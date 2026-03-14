@@ -19,7 +19,17 @@ export const MapControls = ({
     setIsPlacementModeOpen
 }) => {
     const [isOpen, setIsOpen] = useState(false);
+    const [isMinimized, setIsMinimized] = useState(() => {
+        const saved = localStorage.getItem('map_controls_minimized');
+        return saved !== null ? JSON.parse(saved) : false;
+    });
     const [localSearch, setLocalSearch] = useState(searchQuery);
+
+    const toggleMinimize = () => {
+        const newValue = !isMinimized;
+        setIsMinimized(newValue);
+        localStorage.setItem('map_controls_minimized', JSON.stringify(newValue));
+    };
 
     // Debounce search update
     useEffect(() => {
@@ -65,12 +75,34 @@ export const MapControls = ({
 
             {/* Controls Container */}
             <div className={`
-                absolute top-16 right-4 sm:top-4 sm:right-4 z-[1000] 
-                flex flex-col gap-1.5 pointer-events-auto
+                absolute top-16 right-4 sm:top-4 sm:right-4 z-[1001] 
                 transition-all duration-200 origin-top-right
                 ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
             `}>
-                <div className="flex flex-col gap-1.5 bg-slate-900/90 sm:bg-slate-900/80 p-2 rounded-lg backdrop-blur-sm border border-slate-700 shadow-xl sm:shadow-none min-w-[180px]">
+                <div 
+                    className={`flex flex-col gap-1.5 bg-slate-900/90 sm:bg-slate-900/80 p-2 rounded-lg backdrop-blur-sm border border-slate-700 shadow-xl transition-all duration-300 ${
+                        isMinimized ? 'w-10 min-w-0 h-10 overflow-hidden' : 'min-w-[180px]'
+                    }`}
+                >
+                    {/* Header with Minimize Toggle */}
+                    <div className="flex items-center justify-between mb-1 px-1 min-h-[24px]">
+                        {!isMinimized && <div className="text-slate-400 text-[9px] uppercase font-bold tracking-wider">Settings</div>}
+                        <button
+                            onClick={toggleMinimize}
+                            className={`flex items-center justify-center rounded transition-colors ${
+                                isMinimized ? 'w-full h-full text-primary' : 'w-5 h-5 bg-slate-800 hover:bg-slate-700 text-slate-400'
+                            }`}
+                            aria-label={isMinimized ? "Expand Settings" : "Minimize Settings"}
+                            title={isMinimized ? "Expand Settings" : "Minimize Settings"}
+                        >
+                            <span className="material-symbols-outlined text-[16px]" aria-hidden="true">
+                                {isMinimized ? 'settings' : 'keyboard_arrow_up'}
+                            </span>
+                        </button>
+                    </div>
+
+                    {!isMinimized && (
+                        <>
 
                     {/* Search Box */}
                     <div className="mb-1 w-full">
@@ -227,6 +259,8 @@ export const MapControls = ({
                             {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Mode'}
                         </button>
                     </div>
+                    </>
+                )}
                 </div>
             </div>
         </>

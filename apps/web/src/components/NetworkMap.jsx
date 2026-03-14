@@ -92,8 +92,9 @@ const NetworkMap = ({
     netwatchOverride = null,
     realtimeTraffic = null,
     isLiveMode = false,
-    onLiveModeChange = null, // New prop to control live mode from parent
-    disableScaling = false // New prop to disable dynamic icon scaling
+    onLiveModeChange = null,
+    disableScaling = false,
+    onMarkerClick = null
 }) => {
     // 1. Hooks & Data Fetching (Must be at the top)
     const queryClient = useQueryClient();

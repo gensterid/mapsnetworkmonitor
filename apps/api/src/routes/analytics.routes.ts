@@ -311,5 +311,31 @@ router.get(
     })
 );
 
+/**
+ * GET /api/analytics/health-score
+ * Get overall network health score for a tenant
+ */
+router.get(
+    '/health-score',
+    asyncHandler(async (req, res) => {
+        // @ts-ignore
+        const score = await analyticsService.getNetworkHealth(getEffectiveTenantId(req));
+        res.json({ data: score });
+    })
+);
+
+/**
+ * GET /api/analytics/predictions
+ * Get predictive analytics for deteriorating devices
+ */
+router.get(
+    '/predictions',
+    asyncHandler(async (req, res) => {
+        // @ts-ignore
+        const data = await analyticsService.getPredictiveAnalytics(getEffectiveTenantId(req));
+        res.json({ data });
+    })
+);
+
 export default router;
 
