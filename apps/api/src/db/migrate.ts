@@ -304,6 +304,10 @@ export async function runMigrations() {
                 sql: sql`ALTER TABLE olts ADD COLUMN last_web_status TEXT`
             },
             {
+                name: 'olts.status_reason',
+                sql: sql`ALTER TABLE olts ADD COLUMN status_reason TEXT`
+            },
+            {
                 name: 'olts.latitude',
                 sql: sql`ALTER TABLE olts ADD COLUMN latitude NUMERIC(10, 7)`
             },
