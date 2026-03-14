@@ -61,8 +61,8 @@ fi
 
 # 6. PM2 Restart (if applicable)
 if command -v pm2 &> /dev/null; then
-    echo "🔄 Restarting services with PM2..."
-    pm2 restart all || echo "⚠️ PM2 restart failed - please restart manually"
+    echo "🔄 Updating services with PM2..."
+    pm2 startOrReload ecosystem.config.cjs --env production || echo "⚠️ PM2 update failed - please start manually"
     pm2 save
 else
     echo "ℹ️ PM2 not found. Please restart your services manually."
