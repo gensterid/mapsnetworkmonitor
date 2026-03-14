@@ -2,8 +2,9 @@ module.exports = {
   apps: [
     {
       name: 'monitoring-api',
+      cwd: 'apps/api',
       script: 'node',
-      args: 'apps/api/dist/index.js',
+      args: 'dist/index.js',
       env_production: {
         NODE_ENV: 'production',
         PORT: 3001,
@@ -12,8 +13,9 @@ module.exports = {
     },
     {
       name: 'monitoring-web',
+      cwd: 'apps/web',
       script: 'npx',
-      args: 'serve -s apps/web/dist -l 5173',
+      args: 'serve -s dist -l 5173',
       env_production: {
         NODE_ENV: 'production'
       }
