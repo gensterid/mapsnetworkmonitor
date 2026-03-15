@@ -838,12 +838,19 @@ const NetworkMap = ({
         return defaultCenter;
     }, [mapData.routers]);
 
-    // Combine all points for auto-fitting
     const allMarkers = useMemo(() => [
         ...mapData.routers,
         ...mapData.nodes,
         ...(mapData.pppoeNodes || [])
     ], [mapData.routers, mapData.nodes, mapData.pppoeNodes]);
+
+    // Force cluster refresh when down counts change
+    const downHash = useMemo(() => {
+        return allMarkers.reduce((acc, m) => {
+            const isDown = ['down', 'offline', 'lost', 'power_down', 'dying_gasp'].includes(m.status);
+            return acc + (isDown ? 1 : 0);
+        }, 0);
+    }, [allMarkers]);
 
     // Handlers
     const handleDeviceClick = useCallback((device, type, initialTab = 'settings') => {
@@ -1578,7 +1585,7 @@ const NetworkMap = ({
                             if (enableClustering) {
                                 return (
                                     <MarkerClusterGroup
-                                        key={`cluster-${enableClustering}-${mapType}-${apiKey ? 'google' : 'osm'}`} // Force remount on engine change
+                                        key={`cluster-${enableClustering}-${mapType}-${apiKey ? 'google' : 'osm'}-${downHash}`} // Force remount on engine or status change
                                         chunkedLoading
                                         zoomToBoundsOnClick={true}
                                         spiderfyOnMaxZoom={false}
