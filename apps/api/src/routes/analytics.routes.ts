@@ -15,11 +15,28 @@ router.use(requireOperator);
  * Parse date range from query parameters
  */
 function parseDateRange(query: any): { startDate: Date; endDate: Date } | undefined {
-    if (query.startDate && query.endDate) {
-        return {
-            startDate: new Date(query.startDate),
-            endDate: new Date(query.endDate),
-        };
+    const start = query.startDate;
+    const end = query.endDate;
+    
+    if (start && end) {
+        // If it's a date only string (YYYY-MM-DD), treat as UTC start/end
+        let sStr = String(start);
+        let eStr = String(end);
+        
+        if (sStr.length === 10 && !sStr.includes('T')) sStr += 'T00:00:00Z';
+        if (eStr.length === 10 && !eStr.includes('T')) eStr += 'T23:59:59Z';
+        
+        // Ensure Z if missing to avoid local time shifts
+        if (sStr.includes('T') && !sStr.endsWith('Z')) sStr += 'Z';
+        if (eStr.includes('T') && !eStr.endsWith('Z')) eStr += 'Z';
+        
+        const s = new Date(sStr);
+        const e = new Date(eStr);
+        
+        // Check for invalid dates
+        if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+            return { startDate: s, endDate: e };
+        }
     }
     return undefined;
 }
@@ -110,7 +127,11 @@ router.get(
 router.get(
     '/performance/device',
     asyncHandler(async (req, res) => {
-        const { routerId, host, onuId, startDate, endDate } = req.query;
+        const { routerId, host, onuId } = req.query;
+        const dateRange = parseDateRange(req.query) || {
+            startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            endDate: new Date()
+        };
 
         if (!host && !onuId) {
             return res.status(400).json({ error: 'host or onuId is required' });
@@ -120,8 +141,8 @@ router.get(
             routerId: routerId as string,
             host: host as string,
             onuId: onuId as string,
-            startDate: startDate ? new Date(startDate as string) : new Date(Date.now() - 24 * 60 * 60 * 1000),
-            endDate: endDate ? new Date(endDate as string) : new Date(),
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
             // @ts-ignore
             tenantId: getEffectiveTenantId(req)
         });
@@ -137,7 +158,11 @@ router.get(
 router.get(
     '/performance/interface',
     asyncHandler(async (req, res) => {
-        const { interfaceId, startDate, endDate } = req.query;
+        const { interfaceId } = req.query;
+        const dateRange = parseDateRange(req.query) || {
+            startDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+            endDate: new Date()
+        };
 
         if (!interfaceId) {
             return res.status(400).json({ error: 'interfaceId is required' });
@@ -145,8 +170,8 @@ router.get(
 
         const data = await analyticsService.getInterfacePerformanceTrends({
             interfaceId: interfaceId as string,
-            startDate: startDate ? new Date(startDate as string) : new Date(Date.now() - 24 * 60 * 60 * 1000),
-            endDate: endDate ? new Date(endDate as string) : new Date(),
+            startDate: dateRange.startDate,
+            endDate: dateRange.endDate,
             // @ts-ignore
             tenantId: getEffectiveTenantId(req)
         });

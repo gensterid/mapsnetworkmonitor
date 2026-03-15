@@ -70,12 +70,17 @@ function SimpleBarChart({ data, dataKey = 'total', color = '#3b82f6', height = 2
         );
     }
 
-    // Transform data for display if needed
-    const chartData = data.map(item => ({
-        ...item,
-        displayDate: item.date ? new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : item.label,
-        [dataKey]: Number(item[dataKey] || 0)
-    }));
+    // Transform and sort data for display
+    const chartData = useMemo(() => {
+        if (!data) return [];
+        return [...data]
+            .sort((a, b) => new Date(a.date || a.timestamp).getTime() - new Date(b.date || b.timestamp).getTime())
+            .map(item => ({
+                ...item,
+                displayDate: item.date ? new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : item.label,
+                [dataKey]: Number(item[dataKey] || 0)
+            }));
+    }, [data, dataKey]);
 
     return (
         <div style={{ height, width: '100%', position: 'relative' }}>
@@ -130,18 +135,23 @@ function InterfaceTrafficChart({ data, height = 250 }) {
         return `${bps} bps`;
     };
 
-    const chartData = data.map(item => ({
-        ...item,
-        time: new Date(item.timestamp).toLocaleString('id-ID', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-        }),
-        tx: Number(item.txRate || 0),
-        rx: Number(item.rxRate || 0)
-    }));
+    const chartData = useMemo(() => {
+        if (!data) return [];
+        return [...data]
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .map(item => ({
+                ...item,
+                time: new Date(item.timestamp).toLocaleString('id-ID', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                }),
+                tx: Number(item.txRate || 0),
+                rx: Number(item.rxRate || 0)
+            }));
+    }, [data]);
 
     return (
         <div style={{ height, width: '100%', position: 'relative' }}>
@@ -215,17 +225,22 @@ function MetricHistoryChart({ data, dataKey, name, unit, color = '#3b82f6', heig
         );
     }
 
-    const chartData = data.map(item => ({
-        ...item,
-        time: new Date(item.timestamp).toLocaleString('id-ID', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-        }),
-        value: Number(item[dataKey] || 0)
-    }));
+    const chartData = useMemo(() => {
+        if (!data) return [];
+        return [...data]
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .map(item => ({
+                ...item,
+                time: new Date(item.timestamp).toLocaleString('id-ID', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                }),
+                value: Number(item[dataKey] || 0)
+            }));
+    }, [data, dataKey]);
 
     return (
         <div style={{ height, width: '100%', position: 'relative' }}>
@@ -258,19 +273,24 @@ function TrendChart({ data, height = 200 }) {
         );
     }
 
-    // Format data timestamps
-    const chartData = data.map(item => ({
-        ...item,
-        time: new Date(item.timestamp).toLocaleString('id-ID', { 
-            day: '2-digit', 
-            month: 'short', 
-            year: 'numeric',
-            hour: '2-digit', 
-            minute: '2-digit' 
-        }),
-        avgCpu: Number(item.avgCpu || 0),
-        avgMemory: Number(item.avgMemory || 0)
-    }));
+    // Format and sort data timestamps
+    const chartData = useMemo(() => {
+        if (!data) return [];
+        return [...data]
+            .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+            .map(item => ({
+                ...item,
+                time: new Date(item.timestamp).toLocaleString('id-ID', { 
+                    day: '2-digit', 
+                    month: 'short', 
+                    year: 'numeric',
+                    hour: '2-digit', 
+                    minute: '2-digit' 
+                }),
+                avgCpu: Number(item.avgCpu || 0),
+                avgMemory: Number(item.avgMemory || 0)
+            }));
+    }, [data]);
 
     return (
         <div style={{ height, width: '100%', position: 'relative' }}>

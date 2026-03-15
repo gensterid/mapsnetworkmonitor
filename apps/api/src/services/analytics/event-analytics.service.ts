@@ -187,7 +187,7 @@ export class EventAnalyticsService {
 
         const trends = await db
             .select({
-                date: sql<string>`DATE(${alerts.createdAt})`.as('date'),
+                date: sql<any>`DATE(${alerts.createdAt})`.as('date'),
                 total: count(),
                 critical: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'critical' THEN 1 ELSE 0 END)`,
                 warning: sql<number>`SUM(CASE WHEN ${alerts.severity} = 'warning' THEN 1 ELSE 0 END)`,
@@ -200,15 +200,28 @@ export class EventAnalyticsService {
             .groupBy(sql`DATE(${alerts.createdAt})`)
             .orderBy(sql`DATE(${alerts.createdAt})`);
 
-        const results = trends.map(t => ({
-            date: String(t.date),
-            total: Number(t.total) || 0,
-            critical: Number(t.critical) || 0,
-            warning: Number(t.warning) || 0,
-            info: Number(t.info) || 0,
-            pppoeConnect: Number(t.pppoeConnect) || 0,
-            pppoeDisconnect: Number(t.pppoeDisconnect) || 0,
-        }));
+        const results = trends.map(t => {
+            let formatTs = t.date;
+            if (formatTs instanceof Date) {
+                formatTs = formatTs.toISOString();
+            } else if (typeof formatTs === 'string') {
+                if (!formatTs.endsWith('Z')) {
+                    formatTs = formatTs.replace(' ', 'T');
+                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
+                        formatTs += 'Z';
+                    }
+                }
+            }
+            return {
+                date: formatTs,
+                total: Number(t.total) || 0,
+                critical: Number(t.critical) || 0,
+                warning: Number(t.warning) || 0,
+                info: Number(t.info) || 0,
+                pppoeConnect: Number(t.pppoeConnect) || 0,
+                pppoeDisconnect: Number(t.pppoeDisconnect) || 0,
+            };
+        });
 
         // Cache for 5 minutes
         await cacheService.set(cacheKey, results, 300);

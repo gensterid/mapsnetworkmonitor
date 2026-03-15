@@ -84,6 +84,10 @@ export const auth = betterAuth({
         cookieCache: {
             enabled: false, // Disable cache for more reliable user switching behind proxies
         },
+        cookie: {
+            domain: undefined,
+            sameSite: 'lax',
+        },
     },
     user: {
         additionalFields: {

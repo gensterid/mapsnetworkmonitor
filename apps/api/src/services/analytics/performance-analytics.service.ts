@@ -55,7 +55,7 @@ export class PerformanceAnalyticsService {
 
         let query = db
             .select({
-                timestamp: sql<string>`DATE_TRUNC('hour', ${routerMetrics.recordedAt})`.as('timestamp'),
+                timestamp: sql<any>`DATE_TRUNC('hour', ${routerMetrics.recordedAt})`.as('timestamp'),
                 avgCpu: avg(routerMetrics.cpuLoad),
                 avgMemory: sql<number>`AVG(CASE WHEN ${routerMetrics.totalMemory} > 0 THEN (${routerMetrics.usedMemory}::float / ${routerMetrics.totalMemory}::float * 100) ELSE 0 END)`,
             })
@@ -66,11 +66,25 @@ export class PerformanceAnalyticsService {
 
         const results = await query;
 
-        const data = results.map(r => ({
-            timestamp: String(r.timestamp),
-            avgCpu: Math.round((Number(r.avgCpu) || 0) * 10) / 10,
-            avgMemory: Math.round((Number(r.avgMemory) || 0) * 10) / 10,
-        }));
+        const data = results.map(r => {
+            let formatTs = r.timestamp;
+            if (formatTs instanceof Date) {
+                formatTs = formatTs.toISOString();
+            } else if (typeof formatTs === 'string') {
+                if (!formatTs.endsWith('Z')) {
+                    formatTs = formatTs.replace(' ', 'T');
+                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
+                        formatTs += 'Z';
+                    }
+                }
+            }
+            
+            return {
+                timestamp: formatTs,
+                avgCpu: Math.round((Number(r.avgCpu) || 0) * 10) / 10,
+                avgMemory: Math.round((Number(r.avgMemory) || 0) * 10) / 10,
+            };
+        });
 
         // Cache for 5 minutes
         await cacheService.set(cacheKey, data, 300);
@@ -413,15 +427,12 @@ export class PerformanceAnalyticsService {
             .orderBy(timeSelect);
 
         return results.map(r => {
-            // Ensure the timestamp is always treated as UTC so the frontend converts it to the user's local time correctly
             let formatTs = r.timestamp;
             if (formatTs instanceof Date) {
                 formatTs = formatTs.toISOString();
             } else if (typeof formatTs === 'string') {
-                // If postgres returns '2026-03-07 19:00:00', format it as '2026-03-07T19:00:00Z'
                 if (!formatTs.endsWith('Z')) {
                     formatTs = formatTs.replace(' ', 'T');
-                    // Only append Z if there is no timezone offset already (like +00)
                     if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
                         formatTs += 'Z';
                     }
@@ -465,9 +476,14 @@ export class PerformanceAnalyticsService {
         
         let timeSelect: any;
         if (diffDays > 7) {
-            timeSelect = sql<string>`to_timestamp(floor(extract('epoch' from ${routerInterfaceMetrics.recordedAt}) / 10800) * 10800) AT TIME ZONE 'UTC'`;
-        } else {
+            // 3-hour grouping for > 7 days
+            timeSelect = sql<string>`DATE_TRUNC('hour', ${routerInterfaceMetrics.recordedAt}) - (CAST(EXTRACT(HOUR FROM ${routerInterfaceMetrics.recordedAt} AT TIME ZONE 'UTC') AS INTEGER) % 3) * INTERVAL '1 hour'`;
+        } else if (diffDays > 2) {
+            // 1-hour grouping for 2-7 days
             timeSelect = sql<string>`DATE_TRUNC('hour', ${routerInterfaceMetrics.recordedAt})`;
+        } else {
+            // 15-minute grouping for < 2 days for more detail
+            timeSelect = sql<string>`to_timestamp(floor(extract('epoch' from ${routerInterfaceMetrics.recordedAt}) / 900) * 900) AT TIME ZONE 'UTC'`;
         }
 
         const results = await db
