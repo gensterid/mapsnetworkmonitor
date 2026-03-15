@@ -124,9 +124,10 @@ export const auth = betterAuth({
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // Secure cookies are enabled ONLY if we are in production AND using HTTPS.
-        // This allows production deployments on local IPs (like Proxmox 10.x IPs) without SSL to still work.
-        useSecureCookies: process.env.NODE_ENV === 'production' && resolvedBaseURL.startsWith('https://'),
+        // We disable useSecureCookies enforcement so that login works on both 
+        // the local IP (http://10.10.70.53) and the Cloudflare tunnel (https).
+        // The tunnel already provides HTTPS security at the edge.
+        useSecureCookies: false,
     },
     trustedOrigins: resolvedTrustedOrigins,
 });
