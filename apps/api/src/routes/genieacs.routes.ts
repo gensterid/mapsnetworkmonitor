@@ -6,6 +6,9 @@ import { genieacsService } from '../services/genieacs.service.js';
 import { routerService } from '../services/router.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+import { db } from '../db/index.js';
+import { onus } from '../db/schema/index.js';
+import { eq, sql } from 'drizzle-orm';
 
 const router = Router();
 
@@ -35,6 +38,9 @@ const wanConfigSchema = z.object({
     connectionIndex: z.number().optional(),
     addressingType: z.enum(['Static', 'DHCP']).optional(),
     bindPorts: z.string().optional(),
+    connectionPath: z.string().optional(),
+    dhcpServerEnable: z.boolean().optional(),
+    remoteAccessEnable: z.boolean().optional(),
 });
 
 const wifiConfigSchema = z.object({
@@ -46,6 +52,12 @@ const wifiConfigSchema = z.object({
     encryption: z.enum(['AES', 'TKIP+AES']).optional(),
     hidden: z.boolean().optional(),
     channel: z.union([z.number(), z.literal('Auto')]).optional(),
+});
+
+const acsSettingsSchema = z.object({
+    url: z.string().url(),
+    username: z.string().optional(),
+    password: z.string().optional(),
 });
 
 const bulkActionSchema = z.object({
@@ -123,7 +135,12 @@ router.post(
         const id = req.params.id as string;
         const routerId = req.query.routerId as string | undefined;
         const result = await genieacsService.rebootDevice(id, routerId, getEffectiveTenantId(req));
-        res.json({ data: result });
+        
+        if (result.success) {
+            res.json({ data: result });
+        } else {
+            res.status(400).json({ message: result.error });
+        }
     })
 );
 
@@ -162,6 +179,27 @@ router.patch(
 );
 
 /**
+ * DELETE /api/genieacs/devices/:id/wan-config
+ * Delete a WAN connection instance
+ */
+router.delete(
+    '/devices/:id/wan-config',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const { connectionPath } = z.object({ connectionPath: z.string().min(1) }).parse(req.body);
+
+        const result = await genieacsService.deleteWanConnection(id, connectionPath, routerId, getEffectiveTenantId(req));
+        if (result.success) {
+            res.json({ data: { success: true, taskId: result.taskId } });
+        } else {
+            res.status(400).json({ error: result.error });
+        }
+    })
+);
+
+/**
  * PATCH /api/genieacs/devices/:id/wifi-config
  * Update device WiFi configuration
  */
@@ -174,6 +212,23 @@ router.patch(
         const config = wifiConfigSchema.parse(req.body);
 
         const result = await genieacsService.updateWifiConfig(id, config, routerId, getEffectiveTenantId(req));
+        res.json({ data: result });
+    })
+);
+
+/**
+ * PATCH /api/genieacs/devices/:id/acs-settings
+ * Update Management Server (ACS) settings
+ */
+router.patch(
+    '/devices/:id/acs-settings',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        const settings = acsSettingsSchema.parse(req.body);
+
+        const result = await genieacsService.updateAcsSettings(id, settings, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -245,6 +300,118 @@ router.post(
 
         const result = await genieacsService.bulkPushConfig(deviceIds, type, config, routerId, getEffectiveTenantId(req));
         res.json({ data: result });
+    })
+);
+
+/**
+ * GET /api/genieacs/devices/:id/backups
+ * Get all backups for a device
+ */
+router.get(
+    '/devices/:id/backups',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        // First get the ONU to get its UUID
+        const device = await genieacsService.getDevice(id, req.query.routerId as string, getEffectiveTenantId(req));
+        if (!device) throw ApiError.notFound('Device not found');
+
+        const sn = device._deviceId._SerialNumber;
+        let [onu] = await db.select().from(onus).where(eq(onus.sn, sn)).limit(1);
+        
+        // Suffix fallback for vendors with varying OUI prefixes (e.g. FiberHome)
+        if (!onu && sn.length > 8) {
+            const suffix = sn.substring(sn.length - 8);
+            [onu] = await db.select().from(onus).where(sql`${onus.sn} LIKE ${'%' + suffix}`).limit(1);
+        }
+
+        if (!onu) throw ApiError.notFound(`ONU record with SN ${sn} not found in inventory.`);
+
+        const backups = await genieacsService.getBackups(onu.id, device._deviceId?._ProductClass);
+        res.json({ data: backups });
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/:id/backup
+ * Create a new backup
+ */
+router.post(
+    '/devices/:id/backup',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const { name } = z.object({ name: z.string().min(1) }).parse(req.body);
+        const routerId = req.query.routerId as string | undefined;
+
+        const result = await genieacsService.backupDevice(id, name, routerId, getEffectiveTenantId(req));
+        res.json(result);
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/:id/restore-auto
+ * Restore configuration automatically
+ */
+router.post(
+    '/devices/:id/restore-auto',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const { backupId, selectedWanIndices } = z.object({ 
+            backupId: z.string().uuid(),
+            selectedWanIndices: z.array(z.number()).optional()
+        }).parse(req.body);
+        const routerId = req.query.routerId as string | undefined;
+
+        const result = await genieacsService.restoreDeviceAuto(id, backupId, routerId, getEffectiveTenantId(req), selectedWanIndices);
+        res.json(result);
+    })
+);
+
+/**
+ * DELETE /api/genieacs/devices/:id/backups/:backupId
+ * Delete a backup
+ */
+router.delete(
+    '/devices/:id/backups/:backupId',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const backupId = req.params.backupId as string;
+        const routerId = req.query.routerId as string | undefined;
+
+        // Verify device access First (Generic for all routes)
+        const device = await genieacsService.getDevice(id, routerId, getEffectiveTenantId(req));
+        if (!device) throw ApiError.notFound('Device not found or access denied');
+
+        const result = await genieacsService.deleteBackup(backupId, getEffectiveTenantId(req));
+        if (result.success) {
+            res.json({ success: true });
+        } else {
+            res.status(400).json({ error: result.error });
+        }
+    })
+);
+
+/**
+ * POST /api/genieacs/devices/:id/restore-manual
+ * Restore configuration manually
+ */
+router.post(
+    '/devices/:id/restore-manual',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const id = req.params.id as string;
+        const routerId = req.query.routerId as string | undefined;
+        // Basic validation for manual config
+        const config = req.body;
+        if (!config.vlanId && !config.ssid && !config.ssidIndex) {
+            throw ApiError.badRequest('Either WAN (VLAN ID) or WiFi configuration is required');
+        }
+
+        const result = await genieacsService.restoreDeviceManual(id, config, routerId, getEffectiveTenantId(req));
+        res.json(result);
     })
 );
 

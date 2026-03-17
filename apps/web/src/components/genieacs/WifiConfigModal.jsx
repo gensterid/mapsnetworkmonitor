@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { useUpdateGenieACSWifiConfig, useCreatePreset } from '@/hooks';
-import { Wifi, Router, Lock, Eye, EyeOff } from 'lucide-react';
+import { useUpdateGenieACSWifiConfig, useCreatePreset, useGenieACSDevice } from '@/hooks';
+import { Wifi, Router, Lock, Eye, EyeOff, Signal, AlertTriangle, RefreshCw } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import clsx from 'clsx';
 
-export default function WifiConfigModal({ isOpen, onClose, device }) {
-    const [ssidIndex, setSsidIndex] = useState(1);
+export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
+    const [wifiConfigs, setWifiConfigs] = useState([]);
+    const [ssidIndex, setSsidIndex] = useState(null);
+    const syncLockRef = useRef(false);
+    const [lastSyncTime, setLastSyncTime] = useState(Date.now());
     const [ssid, setSsid] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -18,21 +22,95 @@ export default function WifiConfigModal({ isOpen, onClose, device }) {
     const [channel, setChannel] = useState('Auto');
     const [enable, setEnable] = useState(true);
 
-    const updateWifiMutation = useUpdateGenieACSWifiConfig();
+    const { data: deviceData } = useGenieACSDevice(device?._id, routerId);
+
+    const updateWifiConfig = useUpdateGenieACSWifiConfig();
     const createPresetMutation = useCreatePreset();
 
-    useEffect(() => {
-        if (isOpen && device) {
-            if (ssidIndex === 1) {
-                setSsid(device._ssid || '');
-            } else {
-                setSsid('');
-            }
-            setPassword('');
-            setSecurityMode('WPA2-PSK');
-            setEnable(true);
+    // Help get Wifi configurations
+    function getWifiConfigs(dev) {
+        if (!dev) return [];
+        const configs = [];
+        const isTrue = (val) => val === true || val === 'true' || val === '1' || val === 1;
+        
+        // TR-181 Support
+        const tr181SSIDs = dev.Device?.WiFi?.SSID;
+        if (tr181SSIDs) {
+            Object.keys(tr181SSIDs).forEach(key => {
+                if (key.startsWith('_')) return;
+                const config = tr181SSIDs[key];
+                configs.push({
+                    index: parseInt(key),
+                    ssid: config.SSID?._value || `WLAN ${key}`,
+                    enable: isTrue(config.Enable?._value) || config.Status?._value === 'Enabled',
+                    hidden: config.SSIDAdvertisementEnabled?._value === false,
+                    securityMode: 'WPA2-PSK', 
+                    band: parseInt(key) > 4 ? '5GHz' : '2.4GHz'
+                });
+            });
+            if (configs.length > 0) return configs.sort((a,b) => a.index - b.index);
         }
-    }, [isOpen, device, ssidIndex]);
+
+        // TR-098 Support
+        const lanDevice = dev.InternetGatewayDevice?.LANDevice?.[1] || dev.Device?.LANDevice?.[1];
+        if (lanDevice && lanDevice.WLANConfiguration) {
+            Object.keys(lanDevice.WLANConfiguration).forEach(key => {
+                if (key.startsWith('_')) return;
+                const config = lanDevice.WLANConfiguration[key];
+                
+                // Fiberhome/TR-098 logic: Enable and Status are reliable trackers. 
+                // Status is usually 'Up' when active.
+                const isEnabled = isTrue(config.Enable?._value) || config.Status?._value === 'Up';
+                
+                configs.push({
+                    index: parseInt(key),
+                    ssid: config.SSID?._value || `WLAN ${key}`,
+                    enable: isEnabled,
+                    hidden: config.SSIDAdvertisementEnabled?._value === false || config.BeaconAdvertisementEnabled?._value === false,
+                    beaconType: config.BeaconType?._value,
+                    securityMode: config.BeaconType?._value === 'None' ? 'Open' : 'WPA2-PSK',
+                    band: parseInt(key) >= 5 ? '5GHz' : '2.4GHz'
+                });
+            });
+        }
+        return configs.sort((a,b) => a.index - b.index);
+    }
+
+    useEffect(() => {
+        if (deviceData && !syncLockRef.current) {
+            const configs = getWifiConfigs(deviceData);
+            setWifiConfigs(configs);
+            setLastSyncTime(Date.now());
+            
+            // Auto-select first if none
+            if (!ssidIndex && configs.length > 0) {
+                setSsidIndex(configs[0].index);
+                syncWifiForm(configs[0]);
+            } else if (ssidIndex) {
+                // Sync currently selected if data changed
+                const current = configs.find(c => c.index === parseInt(ssidIndex));
+                if (current) syncWifiForm(current);
+            }
+        }
+    }, [deviceData, ssidIndex]);
+
+    const syncWifiForm = (conf) => {
+        if (conf) {
+            setSsidIndex(conf.index);
+            setSsid(conf.ssid || '');
+            setEnable(!!conf.enable);
+            setHidden(!!conf.hidden);
+            setSecurityMode(conf.securityMode || 'WPA2-PSK');
+            return true;
+        }
+        return false;
+    };
+
+    const handleCardClick = (conf) => {
+        syncLockRef.current = false; // Release lock if user manually switches cards
+        setSsidIndex(conf.index);
+        syncWifiForm(conf);
+    };
 
     const getFormConfig = () => {
         return {
@@ -47,14 +125,27 @@ export default function WifiConfigModal({ isOpen, onClose, device }) {
         };
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
-        updateWifiMutation.mutate({
+    const handleSave = async () => {
+        if (!device) return;
+        const config = getFormConfig();
+        
+        // Lock syncing for 8 seconds to allow ONT to update and ACS to poll
+        syncLockRef.current = true;
+        
+        updateWifiConfig.mutate({
             id: device._id,
-            config: getFormConfig(),
-            routerId: device.routerId
+            config,
+            routerId: routerId
         }, {
-            onSuccess: () => onClose()
+            onSuccess: () => {
+                toast.success('Settings saved. Syncing with device...');
+                setTimeout(() => {
+                    syncLockRef.current = false;
+                }, 8000);
+            },
+            onError: () => {
+                syncLockRef.current = false;
+            }
         });
     };
 
@@ -71,24 +162,67 @@ export default function WifiConfigModal({ isOpen, onClose, device }) {
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`WiFi Configuration (${device?._id})`}>
-            <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        <Modal isOpen={isOpen} onClose={onClose} title={
+            <div className="flex flex-col">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    WiFi Configuration ({device?._id})
+                    {updateWifiConfig.isPending && <RefreshCw className="w-4 h-4 animate-spin text-primary" />}
+                </h2>
+                <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mt-0.5">
+                    Last device sync: {new Date(lastSyncTime).toLocaleTimeString()}
+                </p>
+            </div>
+        }>
+            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4 py-2">
 
-                {/* SSID Index Selector */}
-                <div className="flex gap-2 p-1 bg-slate-900 rounded-lg">
-                    {[1, 2, 3, 4].map((idx) => (
+                {/* Wireless Management Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                    {wifiConfigs.map((conf) => (
+                        <div
+                            key={conf.index}
+                            onClick={() => handleCardClick(conf)}
+                            className={clsx(
+                                "flex flex-col p-2 rounded-lg border cursor-pointer transition-all",
+                                ssidIndex === conf.index 
+                                    ? "bg-blue-600/20 border-blue-500 shadow-md ring-1 ring-blue-500" 
+                                    : "bg-slate-900/50 border-slate-800 hover:border-slate-600"
+                            )}
+                        >
+                            <div className="flex justify-between items-start mb-1">
+                                <span className="text-[10px] font-bold text-slate-500">#{conf.index}</span>
+                                <div className={clsx(
+                                    "px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase",
+                                    conf.enable ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                                )}>
+                                    {conf.enable ? 'ON' : 'OFF'}
+                                </div>
+                            </div>
+                            <span className="text-xs font-semibold text-white truncate max-w-full mb-1">
+                                {conf.ssid}
+                            </span>
+                            <div className="flex items-center gap-1 text-[9px] text-slate-400">
+                                <Signal size={10} className={conf.band === '5GHz' ? 'text-purple-400' : 'text-blue-400'} />
+                                <span>{conf.band}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* SSID Index Selector (Mobile/Alternative) */}
+                <div className="flex flex-wrap gap-2 p-1 bg-slate-900 rounded-lg">
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
                         <button
                             key={idx}
                             type="button"
-                            onClick={() => setSsidIndex(idx)}
+                            onClick={() => handleCardClick(wifiConfigs.find(c => c.index === idx) || { index: idx })}
                             className={clsx(
-                                "flex-1 py-1 text-xs font-medium rounded-md transition-all",
+                                "w-[45px] py-1 text-xs font-medium rounded-md transition-all",
                                 ssidIndex === idx
                                     ? "bg-blue-600 text-white shadow-sm"
                                     : "text-slate-400 hover:text-slate-200"
                             )}
                         >
-                            SSID {idx}
+                            #{idx}
                         </button>
                     ))}
                 </div>
@@ -219,7 +353,7 @@ export default function WifiConfigModal({ isOpen, onClose, device }) {
                     <Button
                         variant="primary"
                         type="submit"
-                        loading={updateWifiMutation.isPending}
+                        loading={updateWifiConfig.isPending}
                     >
                         Save WiFi Settings
                     </Button>

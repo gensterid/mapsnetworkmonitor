@@ -7,6 +7,7 @@ import {
     pgEnum,
     json,
     index,
+    integer,
     foreignKey,
 } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.js';
@@ -60,6 +61,11 @@ export const onus = pgTable('onus', {
 
     // Traffic Mapping (Experimental for Passive)
     targetInterface: text('target_interface'),
+    
+    // GenieACS Automated Provisioning data
+    pppoeUser: text('pppoe_user'),
+    pppoePass: text('pppoe_pass'),
+    vlanId: integer('vlan_id'),
 
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),

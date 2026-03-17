@@ -70,15 +70,26 @@ export function useUpdateGenieACSWanConfig() {
 export function useUpdateGenieACSWifiConfig() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, config, routerId }) => {
-            const { data } = await genieacsService.updateWifiConfig(id, config, routerId);
-            return data;
-        },
-        onSuccess: (_, { id, routerId }) => {
+        mutationFn: ({ id, config, routerId }) => genieacsService.updateWifiConfig(id, config, routerId),
+        onSuccess: async (data, { id, routerId }) => {
             toast.success('WiFi Configuration task queued');
-            queryClient.invalidateQueries(['genieacs-device', id]);
+            
+            // Fix invalidation keys to match useGenieACSDevice
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+            
             if (routerId) {
-                queryClient.invalidateQueries(['genieacs-devices', routerId]);
+                queryClient.invalidateQueries({ queryKey: ['genieacs-devices', routerId] });
+            }
+
+            // Proactively trigger a refresh (Summon) after a short delay
+            // to pull the new state from the ONT back to ACS
+            try {
+                setTimeout(async () => {
+                    await genieacsService.refreshDevice(id, routerId);
+                    queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+                }, 3000);
+            } catch (e) {
+                console.error("Post-update refresh failed", e);
             }
         },
         onError: (error) => {
@@ -119,7 +130,7 @@ export function useBulkRebootGenieAcs() {
     return useMutation({
         mutationFn: ({ deviceIds, routerId }) => genieacsService.bulkReboot(deviceIds, routerId),
         onSuccess: (data, { routerId }) => {
-            const { success, failed } = data.data;
+            const { success, failed } = data;
             if (failed > 0) {
                 toast.success(`Reboot command sent: ${success} successful, ${failed} failed`);
             } else {
@@ -138,7 +149,7 @@ export function useBulkPushConfigGenieAcs() {
     return useMutation({
         mutationFn: ({ deviceIds, type, config, routerId }) => genieacsService.bulkPushConfig(deviceIds, type, config, routerId),
         onSuccess: (data, { routerId }) => {
-            const { success, failed } = data.data;
+            const { success, failed } = data;
             if (failed > 0) {
                 toast.success(`Config push task created: ${success} successful, ${failed} failed`);
             } else {
@@ -157,5 +168,100 @@ export function useGenieACSDashboardStats(routerId) {
         queryKey: ['genieacs-dashboard-stats', routerId],
         queryFn: () => genieacsService.getDashboardStats(routerId),
         refetchInterval: 30 * 1000, // Refresh every 30 seconds
+    });
+}
+
+export function useGenieACSBackups(id, routerId) {
+    return useQuery({
+        queryKey: ['genieacs-backups', id],
+        queryFn: () => genieacsService.getBackups(id, routerId),
+        enabled: !!id,
+    });
+}
+
+export function useCreateGenieACSBackup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, name, routerId }) => genieacsService.createBackup(id, name, routerId),
+        onSuccess: (_, { id }) => {
+            toast.success('Backup created successfully');
+            queryClient.invalidateQueries({ queryKey: ['genieacs-backups', id] });
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to create backup');
+        },
+    });
+}
+
+export function useDeleteGenieACSBackup() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, backupId, routerId }) => genieacsService.deleteBackup(id, backupId, routerId),
+        onSuccess: (_, { id }) => {
+            toast.success('Backup deleted successfully');
+            queryClient.invalidateQueries({ queryKey: ['genieacs-backups', id] });
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to delete backup');
+        },
+    });
+}
+
+export function useRestoreGenieACSAuto() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        onSuccess: (_, { id, routerId }) => {
+            toast.success('Auto restore command sent');
+            // Proactive refresh to make device pick up tasks immediately
+            setTimeout(() => {
+                genieacsService.refreshDevice(id, routerId).catch(() => {});
+            }, 1000);
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to restore configuration');
+        },
+    });
+}
+
+export function useRestoreGenieACSManual() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, config, routerId }) => genieacsService.restoreManual(id, config, routerId),
+        onSuccess: (_, { id, routerId }) => {
+            toast.success('Manual restore command sent');
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to restore configuration');
+        },
+    });
+}
+
+export function useDeleteGenieACSWanConfig() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, connectionPath, routerId }) => genieacsService.deleteWanConfig(id, connectionPath, routerId),
+        onSuccess: (_, { id, routerId }) => {
+            toast.success('WAN connection deletion task created');
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to delete WAN configuration');
+        },
+    });
+}
+
+export function useUpdateGenieACSSettings() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, settings, routerId }) => genieacsService.updateAcsSettings(id, settings, routerId),
+        onSuccess: (_, { id, routerId }) => {
+            toast.success('ACS settings update task created');
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Failed to update ACS settings');
+        },
     });
 }

@@ -21,15 +21,17 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
+        const data = error.response?.data;
         const apiError = {
-            message: error.response?.data?.message || error.message || 'Something went wrong',
+            message: data?.message || data?.error || error.message || 'Something went wrong',
             status: error.response?.status,
             code: error.code,
+            details: data?.details
         };
-
+        
         // Handle 401 unauthorized - redirect to login
         if (error.response?.status === 401) {
-            if (!window.location.pathname.startsWith('/login') &&
+            if (!window.location.pathname.startsWith('/login') && 
                 !window.location.pathname.startsWith('/signup')) {
                 window.location.href = '/login';
             }
