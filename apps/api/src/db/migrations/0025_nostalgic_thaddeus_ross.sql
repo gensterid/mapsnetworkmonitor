@@ -1,4 +1,7 @@
-CREATE TYPE "public"."router_backup_type" AS ENUM('backup', 'rsc', 'json');--> statement-breakpoint
+DO $$ BEGIN
+    CREATE TYPE "public"."router_backup_type" AS ENUM('backup', 'rsc', 'json');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "router_interface_metrics" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"interface_id" uuid NOT NULL,
@@ -26,13 +29,25 @@ ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_pass_encrypted" text;
 ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_recipient" text;--> statement-breakpoint
 ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_interval" text;--> statement-breakpoint
 ALTER TABLE "device_performance_history" ADD COLUMN IF NOT EXISTS "error_message" text;--> statement-breakpoint
-ALTER TABLE "router_interface_metrics" ADD CONSTRAINT "router_interface_metrics_interface_id_router_interfaces_id_fk" FOREIGN KEY ("interface_id") REFERENCES "public"."router_interfaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "router_interface_metrics" ADD CONSTRAINT "router_interface_metrics_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "router_backups" ADD CONSTRAINT "router_backups_router_id_routers_id_fk" FOREIGN KEY ("router_id") REFERENCES "public"."routers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "router_backups" ADD CONSTRAINT "router_backups_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "router_if_metrics_interface_id_idx" ON "router_interface_metrics" USING btree ("interface_id");--> statement-breakpoint
-CREATE INDEX "router_if_metrics_tenant_id_idx" ON "router_interface_metrics" USING btree ("tenant_id");--> statement-breakpoint
-CREATE INDEX "router_if_metrics_recorded_at_idx" ON "router_interface_metrics" USING btree ("recorded_at");--> statement-breakpoint
-CREATE INDEX "router_backups_router_id_idx" ON "router_backups" USING btree ("router_id");--> statement-breakpoint
-CREATE INDEX "router_backups_tenant_id_idx" ON "router_backups" USING btree ("tenant_id");--> statement-breakpoint
-CREATE INDEX "router_backups_created_at_idx" ON "router_backups" USING btree ("created_at");
+DO $$ BEGIN
+    ALTER TABLE "router_interface_metrics" ADD CONSTRAINT "router_interface_metrics_interface_id_router_interfaces_id_fk" FOREIGN KEY ("interface_id") REFERENCES "public"."router_interfaces"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "router_interface_metrics" ADD CONSTRAINT "router_interface_metrics_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "router_backups" ADD CONSTRAINT "router_backups_router_id_routers_id_fk" FOREIGN KEY ("router_id") REFERENCES "public"."routers"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+    ALTER TABLE "router_backups" ADD CONSTRAINT "router_backups_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_if_metrics_interface_id_idx" ON "router_interface_metrics" USING btree ("interface_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_if_metrics_tenant_id_idx" ON "router_interface_metrics" USING btree ("tenant_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_if_metrics_recorded_at_idx" ON "router_interface_metrics" USING btree ("recorded_at");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_backups_router_id_idx" ON "router_backups" USING btree ("router_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_backups_tenant_id_idx" ON "router_backups" USING btree ("tenant_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "router_backups_created_at_idx" ON "router_backups" USING btree ("created_at");
