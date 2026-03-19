@@ -38,12 +38,12 @@ fi
 # We use --legacy-peer-deps to handle monorepo dependency conflicts and --force for Rollup locks
 npm install --legacy-peer-deps --force
 
-# 4. Database Migration & Schema Sync
-echo "🗄️ Running database migrations..."
-# db:migrate handles all schema changes safely (ALTER TABLE IF NOT EXISTS)
-# NOTE: db:push was removed because it causes destructive constraint recreation
-# (truncating app_settings table on every update)
-npm run db:migrate || { echo "❌ Database migration failed!"; exit 1; }
+# 4. Database Schema Sync
+echo "🗄️ Syncing database schema..."
+# Using drizzle-kit push which introspects the live database and only applies
+# differences. This is more reliable than file-based migrations when the DB
+# state may have been modified outside the migration system.
+cd apps/api && npx drizzle-kit push --force && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
 # 5. Build Process
 echo "🏗️ Building applications..."
