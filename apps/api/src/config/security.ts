@@ -40,6 +40,34 @@ export const authLimiter = rateLimit({
 });
 
 /**
+ * Strict limiter for sensitive configuration changes (Settings, Routers, OLTs)
+ */
+export const strictLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // 100 changes per 15 mins is more than enough for normal use
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too Many Requests',
+        message: 'Rate limit exceeded for configuration changes. Please wait.',
+    },
+});
+
+/**
+ * Limiter for resource-heavy file uploads (Backups, Database Import)
+ */
+export const uploadLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 20, // 20 uploads per hour is a safe limit for normal operations
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too Many Requests',
+        message: 'Upload limit exceeded. Please try again in an hour.',
+    },
+});
+
+/**
  * CSRF Protection Middleware
  */
 export const csrfProtection = (req: express.Request, res: express.Response, next: express.NextFunction) => {

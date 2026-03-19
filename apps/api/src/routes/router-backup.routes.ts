@@ -2,6 +2,7 @@ import express, { Router } from 'express';
 import { routerBackupService } from '../services/index.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { uploadLimiter } from '../config/security.js';
 
 const router = Router();
 
@@ -26,13 +27,13 @@ const uploadHandler = asyncHandler(async (req, res) => {
     res.json(result);
 });
 
-router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', express.raw({ type: () => true, limit: '50mb' }), uploadHandler);
-router.put('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', express.raw({ type: () => true, limit: '50mb' }), uploadHandler);
+router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', uploadLimiter, express.raw({ type: () => true, limit: '50mb' }), uploadHandler);
+router.put('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', uploadLimiter, express.raw({ type: () => true, limit: '50mb' }), uploadHandler);
 /**
  * Backward-compatible endpoint for query-string based uploads
  * Used by existing scripts or manual triggers using the old format
  */
-router.post('/upload', express.raw({ type: () => true, limit: '50mb' }), asyncHandler(async (req, res) => {
+router.post('/upload', uploadLimiter, express.raw({ type: () => true, limit: '50mb' }), asyncHandler(async (req, res) => {
     const { routerId, token, filename, type, size } = req.query;
     
     if (!routerId || !token || !filename || !type) {

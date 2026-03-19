@@ -9,13 +9,15 @@ import { logger } from './lib/logger.js';
 import { socketService } from './services/socket.service.js';
 import { corsMiddleware, allowedOrigins } from './config/cors.js';
 import { securityMiddleware, apiLimiter, authLimiter } from './config/security.js';
-import { runMigrations } from './db/migrate.js';
+import { runDrizzleMigrations } from './db/migrate-drizzle.js';
 import { fork, ChildProcess } from 'child_process';
 import { join, extname, dirname } from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 import { eventEmitter } from './services/event-emitter.service.js';
 import { createRequire } from 'module';
 import routerBackupRoutes from './routes/router-backup.routes.js';
+import { metricsMiddleware } from './middleware/metrics.middleware.js';
+import { metricsService } from './services/metrics.service.js';
 
 const REQUIRE = createRequire(import.meta.url);
 
@@ -112,6 +114,9 @@ app.set('trust proxy', 1);
 app.use(corsMiddleware);
 app.use(securityMiddleware);
 
+// Prometheus Metrics Middleware (Track all requests)
+app.use(metricsMiddleware);
+
 // Early sanitization for Query and Params (to protect routes that bypass global body parser)
 app.use((req, _res, next) => {
     sanitizeMiddleware(req, _res, next);
@@ -126,20 +131,47 @@ app.use('/api', apiLimiter);
 app.use('/api/router-backups', routerBackupRoutes);
 
 // Body parsing
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true }));
 // Global sanitization after body parsing (to catch JSON/URL-encoded bodies)
 app.use(sanitizeMiddleware);
 
 // Health check endpoint (no auth required)
 app.get('/api/health', (_req, res) => {
+    const isProd = process.env.NODE_ENV === 'production';
     res.json({
         status: 'ok',
         uptime: process.uptime(),
-        environment: process.env.NODE_ENV || 'development',
+        ...(isProd ? {} : { environment: process.env.NODE_ENV || 'development' }),
         timestamp: new Date().toISOString(),
     });
 });
+
+// Prometheus Metrics endpoint (no auth required)
+app.get('/api/metrics', async (_req, res) => {
+    try {
+        // Optional: Trigger a refresh on scrape if needed, 
+        // but we rely on the 1-min periodic update for performance.
+        res.set('Content-Type', metricsService.getContentType());
+        res.end(await metricsService.getMetrics());
+    } catch (err) {
+        res.status(500).end(err);
+    }
+});
+
+// Periodic Metrics Update (once per minute in main process)
+setInterval(async () => {
+    try {
+        await metricsService.updateSystemGauges();
+        await metricsService.updateQueueGauges();
+    } catch (err) {
+        logger.error({ err }, 'Failed to update Prometheus metrics Gauges in main thread');
+    }
+}, 60 * 1000);
+
+// Initial update
+metricsService.updateSystemGauges();
+metricsService.updateQueueGauges();
 
 // API routes
 app.use('/api', routes);
@@ -210,8 +242,8 @@ function startSchedulerWorker() {
 httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
 
-    // Run migrations
-    await runMigrations();
+    // Run migrations (Drizzle versioned)
+    await runDrizzleMigrations();
 
     // Start background scheduler in separate thread
     startSchedulerWorker();

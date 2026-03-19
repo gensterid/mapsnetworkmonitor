@@ -10,13 +10,21 @@ export { getRedisConnection };
 export const routerSyncQueue = new Queue('router-sync', {
     connection: createRedisConnection() as any,
     defaultJobOptions: {
-        attempts: 3,
-        backoff: {
-            type: 'exponential',
-            delay: 10000,
-        },
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 30000 },
         removeOnComplete: true,
-        removeOnFail: 100, // Keep last 100 failures for debugging
+        removeOnFail: 100,
+    },
+});
+
+// === OLT Sync Queue ===
+export const oltSyncQueue = new Queue('olt-sync', {
+    connection: createRedisConnection() as any,
+    defaultJobOptions: {
+        attempts: 2,
+        backoff: { type: 'exponential', delay: 30000 },
+        removeOnComplete: true,
+        removeOnFail: 100,
     },
 });
 
@@ -65,6 +73,34 @@ export function startQueueWorker() {
     worker.on('failed', (job: Job | undefined, err: Error) => {
         logger.error({ jobId: job?.id, err: err.message }, 'Sync job failed permanently');
     });
+
+    // OLT Worker Implementation
+    new Worker(
+        'olt-sync',
+        async (job: Job) => {
+            const { oltId, tenantId, type } = job.data;
+            const { oltService } = await import('./olt.service.js');
+
+            logger.debug({ oltId, type }, 'Processing OLT sync job');
+
+            try {
+                if (type === 'refresh') {
+                    await oltService.refreshStatus(oltId, tenantId);
+                } else if (type === 'sync-inventory') {
+                    await oltService.refreshStatus(oltId, tenantId);
+                    await oltService.syncOnuInventory(oltId, tenantId);
+                }
+                return { success: true };
+            } catch (err: any) {
+                logger.error({ err: err.message, oltId, type }, 'OLT sync job failed');
+                throw err;
+            }
+        },
+        {
+            connection: createRedisConnection() as any,
+            concurrency: 5,
+        }
+    );
 }
 
 export async function stopQueueWorker() {

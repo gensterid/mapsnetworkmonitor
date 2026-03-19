@@ -7,6 +7,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { logger } from '../lib/logger.js';
 import fs from 'fs';
 import path from 'path';
+import { uploadLimiter } from '../config/security.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -48,7 +49,7 @@ router.get('/export', requireRole('superadmin'), async (_req, res) => {
 });
 
 // Import Database
-router.post('/import', requireRole('superadmin'), upload.single('backup'), async (req: Request, res) => {
+router.post('/import', uploadLimiter, requireRole('superadmin'), upload.single('backup'), async (req: Request, res) => {
     const file = (req as any).file;
     if (!file) {
         return res.status(400).json({ error: 'No backup file provided' });

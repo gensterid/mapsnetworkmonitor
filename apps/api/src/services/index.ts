@@ -16,3 +16,4 @@ export * from './backup.service.js';
 export * from './router-backup.service.js';
 export * from './topology.service.js';
 export * from './queue.service.js';
+export * from './metrics.service.js';

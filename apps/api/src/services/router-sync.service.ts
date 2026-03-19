@@ -59,6 +59,8 @@ export class RouterSyncService {
 
             let finalUpdatedRouter: Router | undefined;
  
+            const latency = await measureLatency(router.host);
+
             await db.transaction(async (tx) => {
                 // Fetch and sync netwatch in the same connection if requested
                 if (includeNetwatch) {
@@ -95,7 +97,6 @@ export class RouterSyncService {
                     await routerNetwatchService.syncToOnus(id, tx);
                 }
  
-                const latency = await measureLatency(router.host);
  
                 // Update router info
                 const [updatedRouter] = await tx

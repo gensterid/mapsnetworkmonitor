@@ -5,9 +5,11 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+import { strictLimiter } from '../config/security.js';
 
 const router = Router();
-import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+
 
 // Validation schemas
 const createOltSchema = z.object({
@@ -65,9 +67,7 @@ router.get('/onus/map', asyncHandler(async (req, res) => {
     res.json({ data: onus });
 }));
 
-// Apply auth middleware to all OTHER routes
-router.use(authMiddleware);
-
+ 
 // Get all OLTs
 router.get('/', asyncHandler(async (req, res) => {
     const olts = await oltService.findAll(getEffectiveTenantId(req), req.user?.id, req.user?.role);
@@ -85,7 +85,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
 
 // Create OLT
 // Requires: Operator or Admin
-router.post('/', requireOperator, asyncHandler(async (req, res) => {
+router.post('/', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const data = createOltSchema.parse(req.body);
     const olt = await oltService.create(data, req.user!.tenantId!);
     res.status(201).json({ data: olt });
@@ -93,7 +93,7 @@ router.post('/', requireOperator, asyncHandler(async (req, res) => {
 
 // Update OLT
 // Requires: Operator or Admin
-router.patch('/:id', requireOperator, asyncHandler(async (req, res) => {
+router.patch('/:id', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const data = updateOltSchema.parse(req.body);
     const olt = await oltService.update(req.params.id as string, data, getEffectiveTenantId(req));
     if (!olt) {
@@ -104,7 +104,7 @@ router.patch('/:id', requireOperator, asyncHandler(async (req, res) => {
 
 // Delete OLT
 // Requires: Admin
-router.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
+router.delete('/:id', strictLimiter, requireAdmin, asyncHandler(async (req, res) => {
     const success = await oltService.delete(req.params.id as string, getEffectiveTenantId(req));
     if (!success) {
         throw ApiError.notFound('OLT not found');
@@ -120,7 +120,7 @@ router.get('/:id/onus', asyncHandler(async (req, res) => {
 
 // Update ONU
 // Requires: Operator or Admin
-router.patch('/:id/onus/:onuId', requireOperator, asyncHandler(async (req, res) => {
+router.patch('/:id/onus/:onuId', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const { onuId } = req.params;
     const validatedData = updateOnuSchema.parse(req.body);
 
@@ -139,7 +139,7 @@ router.patch('/:id/onus/:onuId', requireOperator, asyncHandler(async (req, res) 
 
 // Refresh OLT status
 // Requires: Operator or Admin
-router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
+router.post('/:id/refresh', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const olt = await oltService.refreshStatus(req.params.id as string, getEffectiveTenantId(req));
     if (!olt) {
         throw ApiError.notFound('OLT not found');
@@ -149,7 +149,7 @@ router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
 
 // Reboot ONU
 // Requires: Operator or Admin
-router.post('/:id/onus/:onuId/reboot', requireOperator, asyncHandler(async (req, res) => {
+router.post('/:id/onus/:onuId/reboot', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const { id, onuId } = req.params;
     const { ponId } = req.body;
 

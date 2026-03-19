@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+import { strictLimiter } from '../config/security.js';
 
 const router = Router();
 
@@ -73,6 +74,7 @@ import { encrypt } from '../lib/encryption.js';
  */
 router.put(
     '/:key',
+    strictLimiter,
     requireAdmin,
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;
@@ -119,6 +121,7 @@ router.put(
  */
 router.delete(
     '/:key',
+    strictLimiter,
     requireAdmin,
     asyncHandler(async (req, res) => {
         const key = req.params.key as string;

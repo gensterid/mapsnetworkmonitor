@@ -1,5 +1,5 @@
 // Polling scheduler for MikroTik devices and other services
-import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, startQueueWorker, stopQueueWorker } from '../services/index.js';
+import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, oltSyncQueue, startQueueWorker, stopQueueWorker, metricsService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
@@ -39,6 +39,7 @@ let oltSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let oltWebInterval: ReturnType<typeof setInterval> | null = null;
 let acsInterval: ReturnType<typeof setInterval> | null = null;
 let acsWarmerInterval: ReturnType<typeof setInterval> | null = null;
+let metricsInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
@@ -247,19 +248,19 @@ async function pollOltsSnmp(): Promise<void> {
             if (!enabled) continue;
 
             const allOlts = await oltService.findAll(tenant.id);
-            // Staggered execution per tenant
-            for (let i = 0; i < allOlts.length; i++) {
-                setTimeout(async () => {
-                    try {
-                        await oltService.refreshStatus(allOlts[i].id, tenant.id);
-                    } catch (e) {
-                        logger.error({ err: e, olt: allOlts[i].name }, 'Failed to poll OLT (SNMP)');
-                    }
-                }, i * 2000);
+            for (const olt of allOlts) {
+                await oltSyncQueue.add('olt-refresh', {
+                    oltId: olt.id,
+                    tenantId: tenant.id,
+                    type: 'refresh'
+                }, {
+                    jobId: `olt-refresh-${olt.id}-${Date.now()}`,
+                    removeOnComplete: true
+                });
             }
         }
     } catch (e) {
-        logger.error({ err: e }, 'Error in OLT SNMP Polling');
+        logger.error({ err: e }, 'Error in OLT SNMP Polling Dispatch');
     }
 }
 
@@ -274,20 +275,32 @@ async function pollOltsWeb(): Promise<void> {
             if (!enabled) continue;
 
             const allOlts = await oltService.findAll(tenant.id);
-            // Staggered execution per tenant
-            for (let i = 0; i < allOlts.length; i++) {
-                setTimeout(async () => {
-                    try {
-                        await oltService.refreshStatus(allOlts[i].id, tenant.id);
-                        await oltService.syncOnuInventory(allOlts[i].id, tenant.id);
-                    } catch (e) {
-                        logger.error({ err: e, olt: allOlts[i].name }, 'Failed to sync OLT (Web)');
-                    }
-                }, i * 10000);
+            for (const olt of allOlts) {
+                await oltSyncQueue.add('olt-inventory', {
+                    oltId: olt.id,
+                    tenantId: tenant.id,
+                    type: 'sync-inventory'
+                }, {
+                    jobId: `olt-inventory-${olt.id}-${Date.now()}`,
+                    removeOnComplete: true
+                });
             }
         }
     } catch (e) {
-        logger.error({ err: e }, 'Error in OLT Web Polling');
+        logger.error({ err: e }, 'Error in OLT Web Polling Dispatch');
+    }
+}
+
+/**
+ * Update Prometheus Metrics Gauges
+ */
+async function updatePrometheusMetrics(): Promise<void> {
+    try {
+        await metricsService.updateSystemGauges();
+        await metricsService.updateQueueGauges();
+        logger.debug('📊 Prometheus gauges updated');
+    } catch (e) {
+        logger.error({ err: e }, 'Failed to update Prometheus metrics');
     }
 }
 
@@ -474,7 +487,15 @@ export async function startScheduler(): Promise<void> {
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
     oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
     oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default
-    acsInterval = setInterval(syncGenieAcs, 60000); // Check every minute
+
+    // GenieACS sync (every 10 minutes)
+    acsInterval = setInterval(syncGenieAcs, 10 * 60 * 1000);
+
+    // Prometheus Metrics (every 1 minute)
+    metricsInterval = setInterval(updatePrometheusMetrics, 60 * 1000);
+
+    // Run immediately on start
+    updatePrometheusMetrics();
     acsWarmerInterval = setInterval(warmAcsDashboard, 60000); // Warm dashboard every minute
     cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
     autoBackupInterval = setInterval(() => backupService.automatedBackup(), 24 * 60 * 60 * 1000); // Daily
@@ -490,9 +511,10 @@ export function stopScheduler(): void {
     if (oltWebInterval) { clearInterval(oltWebInterval); oltWebInterval = null; }
     if (acsInterval) { clearInterval(acsInterval); acsInterval = null; }
     if (acsWarmerInterval) { clearInterval(acsWarmerInterval); acsWarmerInterval = null; }
+    if (metricsInterval) { clearInterval(metricsInterval); metricsInterval = null; }
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
-
+    
     stopQueueWorker();
     logger.info('🛑 Scheduler stopped');
 }

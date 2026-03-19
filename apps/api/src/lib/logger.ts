@@ -16,6 +16,22 @@ const safeErrSerializer = (err: any) => {
 
 export const logger = pino({
     level: isProduction ? 'info' : 'debug',
+    redact: {
+        paths: [
+            'password', '*.password', '**.*.password',
+            'passwordEncrypted', '*.passwordEncrypted',
+            'webPassword', '*.webPassword',
+            'emailSmtpPassEncrypted',
+            'token', '*.token',
+            'webhookSecret', '*.webhookSecret',
+            'BETTER_AUTH_SECRET',
+            'ENCRYPTION_KEY',
+            'DATABASE_URL',
+            'secret', '*.secret'
+        ],
+        remove: false,
+        censor: '[REDACTED]'
+    },
     serializers: {
         err: safeErrSerializer,
         error: safeErrSerializer,

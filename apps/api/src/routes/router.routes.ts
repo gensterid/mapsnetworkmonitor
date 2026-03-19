@@ -9,6 +9,7 @@ import topologyRoutes from './topology.routes.js';
 import { settingsService } from '../services/index.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 import { logger } from '../lib/logger.js';
+import { strictLimiter } from '../config/security.js';
 
 const router = Router();
 
@@ -137,6 +138,7 @@ router.get(
  */
 router.post(
     '/',
+    strictLimiter,
     requireOperator,
     asyncHandler(async (req, res) => {
         const data = createRouterSchema.parse(req.body);
@@ -164,6 +166,7 @@ router.post(
  */
 router.put(
     '/:id',
+    strictLimiter,
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
@@ -192,6 +195,7 @@ router.put(
  */
 router.delete(
     '/:id',
+    strictLimiter,
     requireAdmin,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
@@ -207,12 +211,12 @@ router.delete(
 /**
  * Operations
  */
-router.post('/:id/test-connection', requireOperator, asyncHandler(async (req, res) => {
+router.post('/:id/test-connection', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const result = await routerService.testConnection(req.params.id, getEffectiveTenantId(req));
     res.json({ data: result });
 }));
 
-router.post('/test-connection', requireOperator, asyncHandler(async (req, res) => {
+router.post('/test-connection', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
     const data = testConnectionSchema.parse(req.body);
     const result = await routerService.testConnectionWithCredentials(data.host, data.port, data.username, data.password);
     res.json({ data: result });
@@ -225,7 +229,7 @@ router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
     res.json({ data: sanitized });
 }));
 
-router.post('/:id/reboot', requireAdmin, asyncHandler(async (req, res) => {
+router.post('/:id/reboot', strictLimiter, requireAdmin, asyncHandler(async (req, res) => {
     const router = await routerService.findById(req.params.id, getEffectiveTenantId(req));
     if (!router) throw ApiError.notFound('Router not found');
     const result = await routerService.reboot(req.params.id, getEffectiveTenantId(req));
