@@ -57,7 +57,7 @@ echo "🗄️ Syncing database schema with drizzle-kit push..."
 # 1. It compares the current code schema with the live DB structure.
 # 2. It only adds what's missing (tables, columns, indexes).
 # 3. It will only drop items if they are NOT in the current code (which they are).
-cd apps/api && npx drizzle-kit push --force && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
+cd apps/api && npm run db:push && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
 # 5. Build Process
 echo "🏗️ Building applications..."
