@@ -10,6 +10,7 @@
         "db:migrate": "tsx src/db/migrate-drizzle.ts",
         "db:migrate:manual": "tsx src/db/migrate.ts",
         "db:push": "tsx node_modules/drizzle-kit/bin.cjs push",
+        "db:fix-genieacs": "tsx src/scripts/fix-genieacs-db.ts",
         "db:studio": "drizzle-kit studio",
         "create-admin": "tsx src/scripts/create-admin.ts",
         "seed:dummy": "tsx src/scripts/seed-dummy.ts",

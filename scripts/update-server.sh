@@ -64,9 +64,9 @@ if [ -f .env ]; then
     echo "   (Backup will be handled by the system if pg_dump is available)"
 fi
 
-echo "🗄️ Syncing database schema with drizzle-kit push..."
-# We use the compiled dist files to avoid ESM extension issues in .ts source
-cd apps/api && DRIZZLE_BOOTSTRAP=dist npm run db:push -- --force && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
+echo "🗄️ Syncing database schema with focused fix script..."
+# Using focused fix instead of drizzle-kit push to avoid TimescaleDB hypertable issues
+cd apps/api && npm run db:fix-genieacs && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
 # 6. PM2 Restart (if applicable)
 if command -v pm2 &> /dev/null; then
