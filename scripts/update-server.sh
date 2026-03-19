@@ -66,7 +66,7 @@ fi
 
 echo "🗄️ Syncing database schema with drizzle-kit push..."
 # We use the compiled dist files to avoid ESM extension issues in .ts source
-cd apps/api && DRIZZLE_BOOTSTRAP=dist npm run db:push && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
+cd apps/api && DRIZZLE_BOOTSTRAP=dist npm run db:push -- --force && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
 # 6. PM2 Restart (if applicable)
 if command -v pm2 &> /dev/null; then
