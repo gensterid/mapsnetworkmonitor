@@ -1,1 +1,1 @@
-ALTER TABLE "onus" ADD COLUMN "mac_address" text;
+ALTER TABLE "onus" ADD COLUMN IF NOT EXISTS "mac_address" text;

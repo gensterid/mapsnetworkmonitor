@@ -1,4 +1,4 @@
-CREATE TABLE "device_performance_history" (
+CREATE TABLE IF NOT EXISTS "device_performance_history" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"tenant_id" uuid NOT NULL,
 	"router_id" uuid NOT NULL,
@@ -9,7 +9,7 @@ CREATE TABLE "device_performance_history" (
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "router_netwatch" ADD COLUMN "disabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+ALTER TABLE "router_netwatch" ADD COLUMN IF NOT EXISTS "disabled" boolean DEFAULT false NOT NULL;--> statement-breakpoint
 ALTER TABLE "device_performance_history" ADD CONSTRAINT "device_performance_history_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "device_performance_history" ADD CONSTRAINT "device_performance_history_router_id_routers_id_fk" FOREIGN KEY ("router_id") REFERENCES "public"."routers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "device_performance_history" ADD CONSTRAINT "device_performance_history_onu_id_onus_id_fk" FOREIGN KEY ("onu_id") REFERENCES "public"."onus"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

@@ -1,1 +1,1 @@
-ALTER TABLE "routers" ADD COLUMN "email_smtp_tls" boolean DEFAULT true;
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_tls" boolean DEFAULT true;

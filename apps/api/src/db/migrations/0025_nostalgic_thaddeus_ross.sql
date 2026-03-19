@@ -1,5 +1,5 @@
 CREATE TYPE "public"."router_backup_type" AS ENUM('backup', 'rsc', 'json');--> statement-breakpoint
-CREATE TABLE "router_interface_metrics" (
+CREATE TABLE IF NOT EXISTS "router_interface_metrics" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"interface_id" uuid NOT NULL,
 	"tx_rate" bigint DEFAULT 0,
@@ -8,7 +8,7 @@ CREATE TABLE "router_interface_metrics" (
 	"recorded_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "router_backups" (
+CREATE TABLE IF NOT EXISTS "router_backups" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"router_id" uuid NOT NULL,
 	"tenant_id" uuid NOT NULL,
@@ -19,13 +19,13 @@ CREATE TABLE "router_backups" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "email_smtp_server" text;--> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "email_smtp_port" integer;--> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "email_smtp_user" text;--> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "email_smtp_pass_encrypted" text;--> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "email_smtp_recipient" text;--> statement-breakpoint
-ALTER TABLE "routers" ADD COLUMN "email_smtp_interval" text;--> statement-breakpoint
-ALTER TABLE "device_performance_history" ADD COLUMN "error_message" text;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_server" text;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_port" integer;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_user" text;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_pass_encrypted" text;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_recipient" text;--> statement-breakpoint
+ALTER TABLE "routers" ADD COLUMN IF NOT EXISTS "email_smtp_interval" text;--> statement-breakpoint
+ALTER TABLE "device_performance_history" ADD COLUMN IF NOT EXISTS "error_message" text;--> statement-breakpoint
 ALTER TABLE "router_interface_metrics" ADD CONSTRAINT "router_interface_metrics_interface_id_router_interfaces_id_fk" FOREIGN KEY ("interface_id") REFERENCES "public"."router_interfaces"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "router_interface_metrics" ADD CONSTRAINT "router_interface_metrics_tenant_id_tenants_id_fk" FOREIGN KEY ("tenant_id") REFERENCES "public"."tenants"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "router_backups" ADD CONSTRAINT "router_backups_router_id_routers_id_fk" FOREIGN KEY ("router_id") REFERENCES "public"."routers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
