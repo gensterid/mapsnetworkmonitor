@@ -30,10 +30,14 @@ export class HsgqDriver extends BaseOltDriver {
         if (this.config.protocol === 'http' || this.config.protocol === 'https' || [80, 443, 5785, 8080].includes(this.config.port)) {
             // 1. Modern Login (Aggressive check)
             try {
-                const token = await this.loginModern(baseUrl);
+                const { token, error } = await this.loginModern(baseUrl);
                 if (token) {
                     logger.info({ baseUrl }, 'HSGQ: testConnection SUCCESS via Modern API');
                     return { success: true };
+                }
+                if (error) {
+                    logger.warn({ baseUrl, error }, 'HSGQ: Modern login rejected with specific error');
+                    return { success: false, error };
                 }
             } catch (loginErr: any) {
                 logger.warn({ err: loginErr.message, baseUrl }, 'HSGQ: Modern login check threw error');
@@ -69,7 +73,7 @@ export class HsgqDriver extends BaseOltDriver {
             try {
                 const res = await fetch(`${baseUrl}/`, { signal: AbortSignal.timeout(15000) });
                 if (res.ok) {
-                    return { success: false, error: 'Login required but reachable' };
+                    return { success: false, error: 'Login required but reachable (Web GUI responding)' };
                 }
                 if (res.status === 401 || res.status === 403) {
                     return { success: false, error: 'Auth Required: Invalid Web Username/Password' };
@@ -94,7 +98,7 @@ export class HsgqDriver extends BaseOltDriver {
         throw new Error('HSGQ Telnet/SSH access is disabled. Please use HTTP/HTTPS.');
     }
 
-    private async loginModern(baseUrl: string): Promise<string | null> {
+    private async loginModern(baseUrl: string): Promise<{ token: string | null; error?: string }> {
         try {
             const uname = this.config.username || 'admin';
             const password = this.config.password || '';
@@ -122,20 +126,29 @@ export class HsgqDriver extends BaseOltDriver {
 
             if (!response.ok) {
                 logger.warn({ baseUrl, status: response.status }, 'HSGQ Modern login failed');
-                return null;
+                return { token: null, error: `HTTP ${response.status}: Login Failed` };
             }
 
             const data = await response.json() as any;
             if (data.code !== 1) {
                 logger.warn({ baseUrl, code: data.code }, 'HSGQ Modern login rejected');
-                return null;
+                if (data.code === 4039) {
+                    return { token: null, error: 'Account Locked (Error 4039). Please wait 30 minutes or reboot OLT.' };
+                }
+                if (data.code === 4033) {
+                    return { token: null, error: 'Invalid Password (Error 4033)' };
+                }
+                return { token: null, error: `Login Rejected (Code ${data.code})` };
             }
 
             const token = response.headers.get('x-token') || response.headers.get('token');
-            if (token) logger.debug({ baseUrl }, 'HSGQ Modern: Login SUCCESS');
-            return token;
-        } catch (e) {
-            return null;
+            if (token) {
+                logger.debug({ baseUrl }, 'HSGQ Modern: Login SUCCESS');
+                return { token };
+            }
+            return { token: null, error: 'Login successful but no token received' };
+        } catch (e: any) {
+            return { token: null, error: e.message };
         }
     }
 
@@ -168,7 +181,7 @@ export class HsgqDriver extends BaseOltDriver {
 
             // Attempt Modern API
             logger.info({ baseUrl }, 'HSGQ: Attempting Modern API Login for ONUs Fetch');
-            const token = await this.loginModern(baseUrl);
+            const { token, error } = await this.loginModern(baseUrl);
             if (token) {
                 logger.info({ baseUrl }, 'HSGQ: Modern Login Success, proceeding to endpoints');
                 // Stateful Port Auth
@@ -196,7 +209,7 @@ export class HsgqDriver extends BaseOltDriver {
                     }
                 }
             } else {
-                 logger.warn({ baseUrl }, 'HSGQ: Modern API Login returned null token');
+                 logger.warn({ baseUrl, error }, 'HSGQ: Modern API Login failed to get token');
             }
 
             logger.error({ baseUrl }, 'HSGQ: Exhausted all fetch attempts without success');
@@ -276,7 +289,7 @@ export class HsgqDriver extends BaseOltDriver {
         const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
 
         try {
-            const token = await this.loginModern(baseUrl);
+            const { token } = await this.loginModern(baseUrl);
             if (!token) {
                 // Try legacy reboot if modern fails
                 const username = this.config.username || 'admin';
