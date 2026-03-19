@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import PresetManagerModal from '@/components/genieacs/PresetManagerModal';
-import Button from '@/components/ui/Button';
+import { Button } from '@/components/ui/Button';
 import {
     useGenieACSDevices,
     useRebootGenieACSDevice,
