@@ -22,28 +22,37 @@ RUN npm run build --workspace=apps/web
 
 # 3. Production Environment (API Server + Static Hosting)
 FROM node:22-alpine AS runner
+
+# Install tini for signal handling and basic utilities
+RUN apk add --no-cache tini tzdata openssh-client curl
+
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache tzdata openssh-client curl
 
-# Install PM2 globally to manage multiple processes if needed, 
-# although Docker prefers one process per container.
+# Install PM2 globally to manage multiple processes if needed
 RUN npm install -g pm2 serve
 
-COPY --from=api-builder /app/package*.json ./
-COPY --from=api-builder /app/apps/api/package*.json ./apps/api/
-COPY --from=api-builder /app/apps/api/dist ./apps/api/dist
+COPY --from=api-builder --chown=node:node /app/package*.json ./
+COPY --from=api-builder --chown=node:node /app/apps/api/package*.json ./apps/api/
+COPY --from=api-builder --chown=node:node /app/apps/api/dist ./apps/api/dist
 # Using npm install --omit=dev to install only production dependencies
 RUN npm ci --workspace=apps/api --omit=dev
 
-COPY --from=web-builder /app/apps/web/dist ./apps/web/dist
+COPY --from=web-builder --chown=node:node /app/apps/web/dist ./apps/web/dist
+
+# Ensure the app directory is owned by node
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
 
 # Expose API PORT
 EXPOSE 3001
 # Expose Serve PORT (Frontend)
 EXPOSE 5173
 
+# Use tini as entrypoint
+ENTRYPOINT ["/sbin/tini", "--"]
+
 # Start script
-# We will use concurrent or PM2 to serve both if you want them in the same container.
-# For a cleaner setup, docker-compose should be used to separate them.
 CMD ["npm", "run", "start", "--workspace=apps/api"]

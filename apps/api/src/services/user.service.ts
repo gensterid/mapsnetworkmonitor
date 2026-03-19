@@ -3,6 +3,8 @@ import { db } from '../db/index.js';
 import { users, accounts, tenants, userTenants, type User, type NewUser } from '../db/schema/index.js';
 import { scryptSync, randomBytes } from 'crypto';
 
+export type SafeUser = Omit<User, 'aiApiKey'>;
+
 /**
  * User Service - handles user-related operations
  */
@@ -10,10 +12,24 @@ export class UserService {
     /**
      * Get all users
      */
-    async findAll(tenantId?: string): Promise<(User & { tenantName?: string | null; additionalTenantIds?: string[] })[]> {
+    async findAll(tenantId?: string): Promise<(SafeUser & { tenantName?: string | null; additionalTenantIds?: string[] })[]> {
         let query = db
             .select({
-                user: users,
+                user: {
+                    id: users.id,
+                    email: users.email,
+                    username: users.username,
+                    name: users.name,
+                    image: users.image,
+                    emailVerified: users.emailVerified,
+                    role: users.role,
+                    tenantId: users.tenantId,
+                    timezone: users.timezone,
+                    animationStyle: users.animationStyle,
+                    aiEnabled: users.aiEnabled,
+                    createdAt: users.createdAt,
+                    updatedAt: users.updatedAt,
+                },
                 tenantName: tenants.name,
             })
             .from(users)
@@ -50,11 +66,29 @@ export class UserService {
     /**
      * Get user by ID
      */
-    async findById(id: string, tenantId?: string): Promise<(User & { additionalTenantIds?: string[] }) | undefined> {
+    async findById(id: string, tenantId?: string): Promise<(SafeUser & { additionalTenantIds?: string[] }) | undefined> {
         const conditions = [eq(users.id, id)];
         if (tenantId) conditions.push(eq(users.tenantId, tenantId));
 
-        const [user] = await db.select().from(users).where(and(...conditions));
+        const [user] = await db
+            .select({
+                id: users.id,
+                email: users.email,
+                username: users.username,
+                name: users.name,
+                image: users.image,
+                emailVerified: users.emailVerified,
+                role: users.role,
+                tenantId: users.tenantId,
+                timezone: users.timezone,
+                animationStyle: users.animationStyle,
+                aiEnabled: users.aiEnabled,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            })
+            .from(users)
+            .where(and(...conditions));
+        
         if (!user) return undefined;
 
         const addTenants = await db
@@ -71,25 +105,76 @@ export class UserService {
     /**
      * Get user by email
      */
-    async findByEmail(email: string): Promise<User | undefined> {
-        const [user] = await db.select().from(users).where(eq(users.email, email));
-        return user;
+    async findByEmail(email: string): Promise<SafeUser | undefined> {
+        const [user] = await db
+            .select({
+                id: users.id,
+                email: users.email,
+                username: users.username,
+                name: users.name,
+                image: users.image,
+                emailVerified: users.emailVerified,
+                role: users.role,
+                tenantId: users.tenantId,
+                timezone: users.timezone,
+                animationStyle: users.animationStyle,
+                aiEnabled: users.aiEnabled,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            })
+            .from(users)
+            .where(eq(users.email, email));
+        return user as SafeUser;
     }
 
     /**
      * Get user by username
      */
-    async findByUsername(username: string): Promise<User | undefined> {
-        const [user] = await db.select().from(users).where(eq(users.username, username));
-        return user;
+    async findByUsername(username: string): Promise<SafeUser | undefined> {
+        const [user] = await db
+            .select({
+                id: users.id,
+                email: users.email,
+                username: users.username,
+                name: users.name,
+                image: users.image,
+                emailVerified: users.emailVerified,
+                role: users.role,
+                tenantId: users.tenantId,
+                timezone: users.timezone,
+                animationStyle: users.animationStyle,
+                aiEnabled: users.aiEnabled,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            })
+            .from(users)
+            .where(eq(users.username, username));
+        return user as SafeUser;
     }
 
     /**
      * Create a new user
      */
-    async create(data: NewUser): Promise<User> {
-        const [user] = await db.insert(users).values(data).returning();
-        return user;
+    async create(data: NewUser): Promise<SafeUser> {
+        const [user] = await db
+            .insert(users)
+            .values(data)
+            .returning({
+                id: users.id,
+                email: users.email,
+                username: users.username,
+                name: users.name,
+                image: users.image,
+                emailVerified: users.emailVerified,
+                role: users.role,
+                tenantId: users.tenantId,
+                timezone: users.timezone,
+                animationStyle: users.animationStyle,
+                aiEnabled: users.aiEnabled,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            });
+        return user as SafeUser;
     }
 
     /**
@@ -98,13 +183,27 @@ export class UserService {
     async update(
         id: string,
         data: Partial<Omit<NewUser, 'id'>>
-    ): Promise<User | undefined> {
+    ): Promise<SafeUser | undefined> {
         const [user] = await db
             .update(users)
             .set({ ...data, updatedAt: new Date() })
             .where(eq(users.id, id))
-            .returning();
-        return user;
+            .returning({
+                id: users.id,
+                email: users.email,
+                username: users.username,
+                name: users.name,
+                image: users.image,
+                emailVerified: users.emailVerified,
+                role: users.role,
+                tenantId: users.tenantId,
+                timezone: users.timezone,
+                animationStyle: users.animationStyle,
+                aiEnabled: users.aiEnabled,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            });
+        return user as SafeUser;
     }
 
     /**
@@ -113,13 +212,27 @@ export class UserService {
     async updateRole(
         id: string,
         role: 'admin' | 'operator' | 'user'
-    ): Promise<User | undefined> {
+    ): Promise<SafeUser | undefined> {
         const [user] = await db
             .update(users)
             .set({ role, updatedAt: new Date() })
             .where(eq(users.id, id))
-            .returning();
-        return user;
+            .returning({
+                id: users.id,
+                email: users.email,
+                username: users.username,
+                name: users.name,
+                image: users.image,
+                emailVerified: users.emailVerified,
+                role: users.role,
+                tenantId: users.tenantId,
+                timezone: users.timezone,
+                animationStyle: users.animationStyle,
+                aiEnabled: users.aiEnabled,
+                createdAt: users.createdAt,
+                updatedAt: users.updatedAt,
+            });
+        return user as SafeUser;
     }
 
     /**

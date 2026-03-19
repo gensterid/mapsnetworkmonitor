@@ -21,7 +21,11 @@ RUN npm run build -w apps/api
 # Production stage
 FROM node:22-alpine
 
+# Install tini for signal handling and basic utilities
+RUN apk add --no-cache tini curl
+
 WORKDIR /app
+ENV NODE_ENV=production
 
 # Install production dependencies only
 COPY package.json package-lock.json ./
@@ -29,11 +33,20 @@ COPY apps/api/package.json ./apps/api/
 
 RUN npm ci -w apps/api --omit=dev
 
-# Copy built files from builder
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
+# Copy built files from builder with correct ownership
+COPY --from=builder --chown=node:node /app/apps/api/dist ./apps/api/dist
+
+# Ensure the app directory is owned by node
+RUN chown -R node:node /app
+
+# Switch to non-root user
+USER node
 
 # Expose API port
-EXPOSE 3000
+EXPOSE 3001
+
+# Use tini as entrypoint
+ENTRYPOINT ["/sbin/tini", "--"]
 
 # Start API
 CMD ["npm", "start", "-w", "apps/api"]

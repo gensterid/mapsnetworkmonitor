@@ -22,12 +22,12 @@ export class RouterInterfaceService {
     /**
      * Sync and update interface status and traffic rates from MikroTik data
      */
-    async syncInterfaces(routerId: string, interfaces: any[]): Promise<void> {
+    async syncInterfaces(routerId: string, interfaces: any[], tx: any = db): Promise<void> {
         if (!interfaces) return;
 
         for (const iface of interfaces) {
             // Check if interface exists in our database
-            const [existingInterface] = await db
+            const [existingInterface] = await tx
                 .select()
                 .from(routerInterfaces)
                 .where(and(
@@ -58,7 +58,7 @@ export class RouterInterfaceService {
                 }
 
                 // Update existing interface record
-                await db
+                await tx
                     .update(routerInterfaces)
                     .set({
                         ...iface,
@@ -71,7 +71,7 @@ export class RouterInterfaceService {
                     .where(eq(routerInterfaces.id, existingInterface.id));
 
                 // Store history with rate-limiting (min 5s between points)
-                const [lastMetric] = await db
+                const [lastMetric] = await tx
                     .select({ recordedAt: routerInterfaceMetrics.recordedAt })
                     .from(routerInterfaceMetrics)
                     .where(eq(routerInterfaceMetrics.interfaceId, existingInterface.id))
@@ -80,9 +80,9 @@ export class RouterInterfaceService {
 
                 if (!lastMetric || (new Date().getTime() - lastMetric.recordedAt.getTime() > 5000)) {
                     // Fetch tenantId from router
-                    const [router] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId)).limit(1);
-
-                    await db.insert(routerInterfaceMetrics).values({
+                    const [router] = await tx.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId)).limit(1);
+ 
+                    await tx.insert(routerInterfaceMetrics).values({
                         interfaceId: existingInterface.id,
                         txRate,
                         rxRate,
@@ -92,7 +92,7 @@ export class RouterInterfaceService {
                 }
             } else {
                 // Create new interface record
-                await db.insert(routerInterfaces).values({
+                await tx.insert(routerInterfaces).values({
                     routerId,
                     ...iface,
                     status: iface.running ? 'up' : 'down',

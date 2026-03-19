@@ -35,7 +35,8 @@ class PppoeService {
     async trackSessions(
         routerId: string,
         routerName: string,
-        currentSessions: PppSession[]
+        currentSessions: PppSession[],
+        tx?: any
     ): Promise<{
         connected: string[];
         disconnected: string[];
@@ -62,7 +63,7 @@ class PppoeService {
 
             logger.debug({ previous: previousSessions.length, current: currentSessions.length }, '[PPPoE] Session sync counts');
 
-            await db.transaction(async (tx) => {
+            const executeTracking = async (transaction: any) => {
                 // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
                 for (const session of previousSessions) {
                     // Skip if already disconnected
@@ -98,7 +99,8 @@ class PppoeService {
                                 routerName,
                                 session.name,
                                 session.address || 'N/A',
-                                duration
+                                duration,
+                                transaction
                             );
                             logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Disconnect alert created');
                         } catch (alertErr) {
@@ -111,7 +113,7 @@ class PppoeService {
                             lastSeen: new Date(),
                             lastDown: new Date(),
                             status: 'disconnected'
-                        }, tx);
+                        }, transaction);
                     }
                 }
 
@@ -151,7 +153,7 @@ class PppoeService {
                             this.coordinatesCache.delete(cacheKey);
                         }
 
-                        await this.createSession(newSessionData, tx);
+                        await this.createSession(newSessionData, transaction);
 
                         // Create connect alert
                         try {
@@ -159,7 +161,8 @@ class PppoeService {
                                 routerId,
                                 routerName,
                                 session.name,
-                                session.address || 'N/A'
+                                session.address || 'N/A',
+                                transaction
                             );
                             logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Connect alert created');
                         } catch (alertErr) {
@@ -168,7 +171,7 @@ class PppoeService {
 
                         // UNIFIED LINKAGE: Link to ONU
                         if (session.address) {
-                            this.linkSessionToOnu(session.name, session.address).catch(err =>
+                            this.linkSessionToOnu(session.name, session.address, transaction).catch(err =>
                                 logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed')
                             );
                         }
@@ -178,7 +181,7 @@ class PppoeService {
                         if (existingSession) {
                             // Check if address changed
                             if (existingSession.address !== session.address && session.address) {
-                                this.linkSessionToOnu(session.name, session.address).catch(err =>
+                                this.linkSessionToOnu(session.name, session.address, transaction).catch(err =>
                                     logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed (IP Change)')
                                 );
                             }
@@ -188,11 +191,19 @@ class PppoeService {
                                 uptime: session.uptime,
                                 address: session.address,
                                 status: 'active'
-                            }, tx);
+                            }, transaction);
                         }
                     }
                 } // End of currentSessions loop
-            }); // End transaction
+            };
+
+            if (tx) {
+                await executeTracking(tx);
+            } else {
+                await db.transaction(async (innerTx) => {
+                    await executeTracking(innerTx);
+                });
+            }
 
             if (connected.length > 0 || disconnected.length > 0) {
                 logger.info({ routerName, connected: connected.length, disconnected: disconnected.length }, '[PPPoE] Session sync summary');
@@ -399,9 +410,9 @@ class PppoeService {
     /**
      * Update traffic stats for PPPoE sessions from Simple Queues
      */
-    async updateTraffic(routerId: string, queues: SimpleQueueData[]): Promise<void> {
+    async updateTraffic(routerId: string, queues: SimpleQueueData[], tx: any = db): Promise<void> {
         // Get active sessions
-        const sessions = await db
+        const sessions = await tx
             .select()
             .from(pppoeSessions)
             .where(and(
@@ -466,7 +477,7 @@ class PppoeService {
                 }
 
                 // Update DB
-                await db
+                await tx
                     .update(pppoeSessions)
                     .set({
                         txBytes: txBytes,
@@ -484,7 +495,7 @@ class PppoeService {
      * Link PPPoE Session to ONU
      * If username matches an SN in 'onus', update the IP and status
      */
-    private async linkSessionToOnu(username: string, ip: string): Promise<void> {
+    private async linkSessionToOnu(username: string, ip: string, tx: any = db): Promise<void> {
         try {
             // Lazy import to avoid circular dependency issues if any
             const { onus } = await import('../db/schema/index.js');
@@ -496,7 +507,7 @@ class PppoeService {
             if (!sn || !host) return;
 
             // Check if matches SN
-            const [onu] = await db
+            const [onu] = await tx
                 .select()
                 .from(onus)
                 .where(eq(onus.sn, sn));
@@ -506,7 +517,7 @@ class PppoeService {
                 const sources = (onu.discoverySources as string[]) || [];
                 if (!sources.includes('netwatch')) sources.push('netwatch'); // Using netwatch tag as it implies connectivity source
 
-                await db.update(onus)
+                await tx.update(onus)
                     .set({
                         host: host,
                         status: 'online', // PPPoE active implies online

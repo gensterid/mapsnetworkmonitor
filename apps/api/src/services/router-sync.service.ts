@@ -57,84 +57,92 @@ export class RouterSyncService {
                 interfaces = await getRouterInterfaces(conn);
             }
 
-            // Fetch and sync netwatch in the same connection if requested
-            if (includeNetwatch) {
-                // 1. Sync hosts (Netwatch list)
-                const availableInterfaces = interfaces ? new Set(interfaces.map(i => i.name)) : new Set<string>();
-                await routerNetwatchService.syncHosts(id, router.name, conn, availableInterfaces);
-
-                // 2. Measure latency for synced hosts
-                const syncedEntries = await routerNetwatchService.getNetwatch(id);
-                // Filter targets for ping
-                const targets = syncedEntries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
-                await routerNetwatchService.measureLatency(id, router.name, conn, targets);
-
-                // 3. Track PPPoE sessions
-                try {
-                    const currentPppSessions = await getPppSessions(conn);
-                    await pppoeService.trackSessions(id, router.name, currentPppSessions);
-                } catch (pppoeError) {
-                    logger.error({ err: pppoeError, router: router.name }, 'Failed to track PPPoE sessions');
+            let finalUpdatedRouter: Router | undefined;
+ 
+            await db.transaction(async (tx) => {
+                // Fetch and sync netwatch in the same connection if requested
+                if (includeNetwatch) {
+                    // 1. Sync hosts (Netwatch list)
+                    const availableInterfaces = interfaces ? new Set(interfaces.map((i: any) => i.name)) : new Set<string>();
+                    await routerNetwatchService.syncHosts(id, router.name, conn, availableInterfaces, tx);
+ 
+                    // 2. Measure latency for synced hosts
+                    const syncedEntries = await routerNetwatchService.getNetwatch(id, tx);
+                    // Filter targets for ping
+                    const targets = syncedEntries.filter((e: any) => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
+                    await routerNetwatchService.measureLatency(id, router.name, conn, targets, tx);
+ 
+                    // 3. Track PPPoE sessions
+                    try {
+                        const currentPppSessions = await getPppSessions(conn);
+                        await pppoeService.trackSessions(id, router.name, currentPppSessions, tx);
+                    } catch (pppoeError) {
+                        logger.error({ err: pppoeError, router: router.name }, 'Failed to track PPPoE sessions');
+                    }
+ 
+                    // 4. Fetch Simple Queues for Heatmap Traffic
+                    try {
+                        const queues = await getSimpleQueues(conn);
+                        await pppoeService.updateTraffic(id, queues, tx);
+                    } catch (qErr) {
+                        logger.error({ err: qErr, router: router.name }, 'Failed to sync queues');
+                    }
+ 
+                    // 5. Propagate Interface Traffic
+                    await routerNetwatchService.propagateTraffic(id, router.name, conn, tx);
+ 
+                    // 6. Sync Netwatch Status to ONUs (Bridging)
+                    await routerNetwatchService.syncToOnus(id, tx);
                 }
-
-                // 4. Fetch Simple Queues for Heatmap Traffic
-                try {
-                    const queues = await getSimpleQueues(conn);
-                    await pppoeService.updateTraffic(id, queues);
-                } catch (qErr) {
-                    logger.error({ err: qErr, router: router.name }, 'Failed to sync queues');
+ 
+                const latency = await measureLatency(router.host);
+ 
+                // Update router info
+                const [updatedRouter] = await tx
+                    .update(routers)
+                    .set({
+                        status: 'online',
+                        lastSeen: new Date(),
+                        latency: latency >= 0 ? latency : null,
+                        routerOsVersion: info.version,
+                        model: info.model,
+                        serialNumber: info.serialNumber,
+                        identity: info.identity,
+                        boardName: info.boardName,
+                        architecture: info.architecture,
+                        lastErrorMessage: null, // Clear stale error messages on success
+                        updatedAt: new Date(),
+                        ...(isFullSync ? { lastFullSync: new Date() } : {}),
+                    })
+                    .where(eq(routers.id, id))
+                    .returning();
+ 
+                finalUpdatedRouter = updatedRouter;
+ 
+                // Create alert if status changed from offline to online
+                if (previousStatus === 'offline') {
+                    await alertService.createStatusChangeAlert(
+                        id,
+                        router.name,
+                        previousStatus,
+                        'online',
+                        undefined,
+                        tx
+                    );
                 }
-
-                // 5. Propagate Interface Traffic
-                await routerNetwatchService.propagateTraffic(id, router.name, conn);
-
-                // 6. Sync Netwatch Status to ONUs (Bridging)
-                await routerNetwatchService.syncToOnus(id);
-            }
-
-            const latency = await measureLatency(router.host);
-
-            // Update router info
-            const [updatedRouter] = await db
-                .update(routers)
-                .set({
-                    status: 'online',
-                    lastSeen: new Date(),
-                    latency: latency >= 0 ? latency : null,
-                    routerOsVersion: info.version,
-                    model: info.model,
-                    serialNumber: info.serialNumber,
-                    identity: info.identity,
-                    boardName: info.boardName,
-                    architecture: info.architecture,
-                    lastErrorMessage: null, // Clear stale error messages on success
-                    updatedAt: new Date(),
-                    ...(isFullSync ? { lastFullSync: new Date() } : {}),
-                })
-                .where(eq(routers.id, id))
-                .returning();
-
-            // Create alert if status changed from status to online
-            if (previousStatus === 'offline') {
-                await alertService.createStatusChangeAlert(
-                    id,
-                    router.name,
-                    previousStatus,
-                    'online'
-                );
-            }
-
-            // Save metrics only if resources are available (Full Sync)
-            if (resources) {
-                await routerMetricsService.saveMetrics(id, router.name, resources);
-            }
-
-            // Update interfaces
-            if (interfaces) {
-                await routerInterfaceService.syncInterfaces(id, interfaces);
-            }
-
-            return updatedRouter;
+ 
+                // Save metrics only if resources are available (Full Sync)
+                if (resources) {
+                    await routerMetricsService.saveMetrics(id, router.name, resources, tx);
+                }
+ 
+                // Update interfaces
+                if (interfaces) {
+                    await routerInterfaceService.syncInterfaces(id, interfaces, tx);
+                }
+            });
+ 
+            return finalUpdatedRouter;
         } catch (error: any) {
             if (isRouterosQuirk(error)) {
                 logger.debug({ err: error?.message, router: router.host }, 'Ignoring RouterOS quirk during refresh');

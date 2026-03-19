@@ -11,17 +11,33 @@ build
 dist
 
 # Logs
+logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-git_*.log
+api_v5.log
+web_v5.log
+web_persistent.log*
+web_status.log
+web_startup*.log
+web_diag.log
+build*.log
+db-fix-log.txt
+diag_results*.txt
+output.txt
+sync_output.txt
 
 # Debug and Diagnostic files
-git_*.txt
-test.txt
-*.bat.log
-temp/
+**/diag-*.ts
+**/fix-*.ts
+**/emergency-*.ts
+**/check-*.ts
+**/test-*.ts
+largefile.bin
+tmp/
+apps/api/temp/
+apps/api/backups/
 debug/
 
 # IDEs

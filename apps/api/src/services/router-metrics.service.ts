@@ -31,11 +31,11 @@ export class RouterMetricsService {
     /**
      * Save current resources as metrics and check for threshold alerts
      */
-    async saveMetrics(routerId: string, routerName: string, resources: any): Promise<void> {
+    async saveMetrics(routerId: string, routerName: string, resources: any, tx: any = db): Promise<void> {
         if (!resources) return;
 
         try {
-            await db.insert(routerMetrics).values({
+            await tx.insert(routerMetrics).values({
                 routerId,
                 cpuLoad: resources.cpuLoad,
                 totalMemory: resources.totalMemory,
@@ -54,7 +54,8 @@ export class RouterMetricsService {
                 routerName,
                 resources.cpuLoad,
                 resources.totalMemory,
-                resources.usedMemory
+                resources.usedMemory,
+                tx
             );
         } catch (err) {
             logger.error({ err, router: routerName }, 'Failed to save metrics');
@@ -65,7 +66,7 @@ export class RouterMetricsService {
      * Get real-time traffic using SNMP (faster/lighter than API)
      * Updates database counters and calculates current rates (bps)
      */
-    async getSnmpTraffic(router: any): Promise<Record<string, { tx: number; rx: number }>> {
+    async getSnmpTraffic(router: any, tx: any = db): Promise<Record<string, { tx: number; rx: number }>> {
         const community = router.snmpCommunity || 'public';
         const port = router.snmpPort || 161;
 
@@ -123,7 +124,7 @@ export class RouterMetricsService {
             // 4. Calculate rates and update DB
             const calculatedRates: Record<string, { tx: number; rx: number }> = {};
             for (const [name, data] of Object.entries(trafficData)) {
-                const [existing] = await db.select().from(routerInterfaces).where(and(
+                const [existing] = await tx.select().from(routerInterfaces).where(and(
                     eq(routerInterfaces.routerId, router.id),
                     eq(routerInterfaces.name, name)
                 ));
@@ -145,8 +146,8 @@ export class RouterMetricsService {
                         if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
                         if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
                     }
-
-                    await db.update(routerInterfaces).set({
+ 
+                    await tx.update(routerInterfaces).set({
                         txBytes: data.tx,
                         rxBytes: data.rx,
                         txRate,
@@ -155,7 +156,7 @@ export class RouterMetricsService {
                     }).where(eq(routerInterfaces.id, existing.id));
 
                     // Store history with rate-limiting (min 5s between points)
-                    const [lastMetric] = await db
+                    const [lastMetric] = await tx
                         .select({ recordedAt: routerInterfaceMetrics.recordedAt })
                         .from(routerInterfaceMetrics)
                         .where(eq(routerInterfaceMetrics.interfaceId, existing.id))
@@ -163,7 +164,7 @@ export class RouterMetricsService {
                         .limit(1);
 
                     if (!lastMetric || (new Date().getTime() - lastMetric.recordedAt.getTime() > 5000)) {
-                        await db.insert(routerInterfaceMetrics).values({
+                        await tx.insert(routerInterfaceMetrics).values({
                             interfaceId: existing.id,
                             txRate,
                             rxRate,
@@ -176,7 +177,7 @@ export class RouterMetricsService {
 
                     // Propagate rates to Netwatch entries linked to this interface
                     try {
-                        await db.update(routerNetwatch).set({
+                        await tx.update(routerNetwatch).set({
                             txRate,
                             rxRate,
                             updatedAt: new Date()

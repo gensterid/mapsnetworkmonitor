@@ -1,5 +1,0 @@
-8d171e4 fix: resolved webhook indicator persistence delay by reordering sync logic
-747700b fix: implemented identical smart-append for up/down netwatch scripts and restored dual-field compatibility
-3977bcb fix: implemented truncation-aware webhook detection and refined script sync to stop configuration loop
-5340436 fix: implemented netwatch webhook flap-protection and improved case-insensitive onu linkage
-7757068 fix: resolve redundant Netwatch updates by fixing proplist syntax and improving script detection

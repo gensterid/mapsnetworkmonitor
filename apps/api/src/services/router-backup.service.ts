@@ -254,7 +254,41 @@ export class RouterBackupService {
 
             const bufferSize = fileBuffer instanceof Buffer ? fileBuffer.length : (fileBuffer?.length || 0);
             logger.info({ routerId, filename, type, bufferSize, expectedSize }, 'Starting backup upload processing');
-            
+ 
+            // 0. Strict Validation: Size and Type Consistency
+            if (bufferSize > 50 * 1024 * 1024) {
+                throw ApiError.badRequest('File too large (max 50MB)');
+            }
+ 
+            const ext = path.extname(filename).toLowerCase();
+            if (type === 'backup' && ext !== '.backup') {
+                throw ApiError.badRequest('Extension mismatch: Expected .backup for type backup');
+            }
+            if (type === 'rsc' && ext !== '.rsc') {
+                throw ApiError.badRequest('Extension mismatch: Expected .rsc for type rsc');
+            }
+ 
+            // 0.1 Deep Content Inspection
+            if (type === 'rsc' && fileBuffer instanceof Buffer) {
+                const head = fileBuffer.slice(0, 100).toString('utf8');
+                // MikroTik exports usually start with # (date/time/version) or / (command)
+                // We permit some whitespace/line breaks at start
+                if (!head.trim().startsWith('#') && !head.trim().startsWith('/')) {
+                    logger.warn({ head: head.substring(0, 50) }, 'Invalid .rsc content detected');
+                    throw ApiError.badRequest('Invalid .rsc file: Content does not appear to be a MikroTik script');
+                }
+            }
+ 
+            if (expectedSize && bufferSize !== expectedSize) {
+                logger.warn({ bufferSize, expectedSize }, 'Size mismatch between header and body');
+                // We allow a small tolerance if needed, but for raw bodies it should be exact.
+                // However, RouterOS tools might sometimes have slight discrepancies.
+                // Let's be strict for now and see.
+                if (Math.abs(bufferSize - expectedSize) > 1024) { 
+                    throw ApiError.badRequest(`Size mismatch: Expected ${expectedSize} bytes but received ${bufferSize}`);
+                }
+            }
+ 
             const router = await db.query.routers.findFirst({
                 where: eq(routers.id, routerId)
             });

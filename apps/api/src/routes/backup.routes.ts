@@ -18,6 +18,7 @@ const upload = multer({
     },
     fileFilter: (_req, file, cb) => {
         const ext = path.extname(file.originalname).toLowerCase();
+        // Permissive mimetype but strict extension
         if (ext !== '.sql') {
             return cb(new Error('Only .sql files are allowed'));
         }
@@ -54,6 +55,23 @@ router.post('/import', requireRole('superadmin'), upload.single('backup'), async
     }
 
     try {
+        // Deep Content Inspection for SQL
+        const buffer = fs.readFileSync(file.path, { encoding: 'utf8', flag: 'r' });
+        const trimmed = buffer.trim().substring(0, 1000).toUpperCase();
+        
+        const isSql = 
+            trimmed.startsWith('--') || 
+            trimmed.includes('CREATE TABLE') || 
+            trimmed.includes('INSERT INTO') || 
+            trimmed.includes('PRAGMA') || 
+            trimmed.includes('SET ') || 
+            trimmed.includes('BEGIN TRANSACTION');
+
+        if (!isSql) {
+            fs.unlinkSync(file.path);
+            return res.status(400).json({ error: 'Invalid SQL file content detected' });
+        }
+
         await backupService.importDatabase(file.path);
 
         // Cleanup uploaded file

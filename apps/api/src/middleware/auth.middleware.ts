@@ -15,7 +15,6 @@ declare global {
                 primaryTenantId?: string | null;
                 image?: string | null;
                 aiEnabled: boolean;
-                aiApiKey?: string | null;
             };
             session?: {
                 id: string;
@@ -80,7 +79,6 @@ export async function authMiddleware(
             primaryTenantId: primaryTenantId,
             image: session.user.image,
             aiEnabled: (session.user as { aiEnabled?: boolean }).aiEnabled || false,
-            aiApiKey: (session.user as { aiApiKey?: string }).aiApiKey,
         };
 
         req.session = {
@@ -135,7 +133,6 @@ export async function optionalAuthMiddleware(
                 primaryTenantId: primaryTenantId,
                 image: session.user.image,
                 aiEnabled: (session.user as { aiEnabled?: boolean }).aiEnabled || false,
-                aiApiKey: (session.user as { aiApiKey?: string }).aiApiKey,
             };
 
             req.session = {

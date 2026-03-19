@@ -1,3 +1,0 @@
-Connected to database.
-Migration command executed.
-Verification result: [{"column_name":"disabled"}]

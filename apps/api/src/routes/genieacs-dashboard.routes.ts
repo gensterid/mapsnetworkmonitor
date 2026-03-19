@@ -3,7 +3,6 @@ import { genieacsService } from '../services/genieacs.service.js';
 import { logger } from '../lib/logger.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
-import { cacheService } from '../lib/cache.js';
 
 const router = Router();
 

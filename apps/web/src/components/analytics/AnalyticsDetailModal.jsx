@@ -3,7 +3,7 @@ import { X, RefreshCw, AlertTriangle, Wifi, WifiOff, Clock, CheckCircle, Filter 
 import { Button } from '@/components/ui/Button';
 import { formatDateWithTimezone } from '@/lib/timezone';
 import clsx from 'clsx';
-import { useAlerts, useResolveAlert, useResolveAllAlerts, useCurrentUser, useSettings, useAppTimezone } from '@/hooks';
+import { useAlerts, useResolveAlert, useResolveAllAlerts, useAppTimezone } from '@/hooks';
 import { toast } from 'react-hot-toast';
 
 // Helper to get formatted time
@@ -12,15 +12,12 @@ const formatAlertTime = (dateStr, timezone) => {
 };
 
 export default function AnalyticsDetailModal({ open, type, target, onClose }) {
-    if (!open) return null;
-
-    const [filterResolved, setFilterResolved] = useState(type === 'unresolved-alerts' ? false : undefined);
-    const { data: settings } = useSettings();
-    const { data: currentUser } = useCurrentUser();
     const timezone = useAppTimezone();
 
     const resolveAlertMutation = useResolveAlert();
     const resolveAllMutation = useResolveAllAlerts();
+
+    const [filterResolved, setFilterResolved] = useState(type === 'unresolved-alerts' ? false : undefined);
 
     // Construct query params based on type and target
     const queryParams = useMemo(() => {
@@ -61,7 +58,9 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
     }, [type, target, filterResolved]);
 
     // Fetch alerts
-    const { data: alerts, isLoading, refetch } = useAlerts(queryParams, { enabled: !!target });
+    const { data: alerts, isLoading, refetch } = useAlerts(queryParams, { enabled: !!target && open });
+
+    if (!open) return null;
 
     // Handle array vs paginated response
     const alertList = Array.isArray(alerts) ? alerts : (alerts?.data || []);
@@ -71,7 +70,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             await resolveAlertMutation.mutateAsync(id);
             toast.success('Alert resolved');
             refetch();
-        } catch (error) {
+        } catch {
             toast.error('Failed to resolve alert');
         }
     };

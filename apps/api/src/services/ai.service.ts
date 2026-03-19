@@ -5,19 +5,27 @@ import { eq, and, desc, lt, gte, inArray } from 'drizzle-orm';
 import { routerService } from './router.service.js';
 import { logger } from '../lib/logger.js';
 
-const systemApiKey = process.env.GEMINI_API_KEY || '';
-
 export class AIService {
     private static instance: AIService;
     private defaultModel: any;
 
     private constructor() {
-        const genAI = new GoogleGenerativeAI(systemApiKey.trim());
-        this.defaultModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+        // Lazy initialization: don't create the model in constructor
     }
 
-    private getModel(apiKey?: string | null) {
-        if (!apiKey || apiKey === systemApiKey || apiKey.trim() === '') {
+    private get systemApiKey(): string {
+        return process.env.GEMINI_API_KEY || '';
+    }
+
+    private getModel(apiKey?: string | null): any {
+        const sysKey = this.systemApiKey;
+        
+        if (!apiKey || apiKey === sysKey || apiKey.trim() === '') {
+            if (!this.defaultModel) {
+                logger.debug('AIService: Initializing default model (lazy)');
+                const genAI = new GoogleGenerativeAI(sysKey.trim());
+                this.defaultModel = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+            }
             logger.debug('AIService: Using system-wide API key');
             return this.defaultModel;
         }
@@ -26,11 +34,10 @@ export class AIService {
         logger.debug({ keyPrefix: trimmedKey.substring(0, 8) }, 'AIService: Using per-user API key');
         try {
             const genAI = new GoogleGenerativeAI(trimmedKey);
-            // Dynamic switch to 2.5 Flash which has quota available
             return genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
         } catch (err) {
             logger.error({ err }, 'AIService: Invalid per-user API key, falling back to system key');
-            return this.defaultModel;
+            return this.getModel(); // Recursive call will hit the !apiKey block
         }
     }
 
@@ -62,7 +69,7 @@ export class AIService {
             if (errorMsg.includes('404') || errorMsg.includes('not found') || errorMsg.includes('429') || errorMsg.includes('quota')) {
                 logger.warn({ err: errorMsg }, 'AIService: Primary model failed or quota exceeded, attempting fallback to gemini-2.5-flash-lite');
                 try {
-                    const fallbackAI = new GoogleGenerativeAI((apiKey || systemApiKey).trim());
+                    const fallbackAI = new GoogleGenerativeAI((apiKey || this.systemApiKey).trim());
                     const fallbackModel = fallbackAI.getGenerativeModel({ model: 'gemini-2.5-flash-lite' });
                     const fallbackResult = await fallbackModel.generateContent(prompt);
                     return fallbackResult.response.text();
@@ -76,10 +83,36 @@ export class AIService {
     }
 
     /**
+     * Internal helper to fetch user API key if enabled
+     */
+    private async fetchUserApiKey(userId: string): Promise<string | null> {
+        try {
+            const { users } = await import('../db/schema/index.js');
+            const [user] = await db.select({ aiApiKey: users.aiApiKey, aiEnabled: users.aiEnabled })
+                .from(users)
+                .where(eq(users.id, userId));
+            
+            if (user?.aiEnabled && user?.aiApiKey) {
+                return user.aiApiKey;
+            }
+            return null;
+        } catch (err) {
+            logger.error({ err, userId }, 'AIService: Failed to fetch user API key');
+            return null;
+        }
+    }
+
+    /**
      * Analyze a specific alert and provide insights/fixes
      */
     async analyzeAlert(alertId: string, tenantId: string, apiKey?: string | null, userId?: string, userRole?: string): Promise<string> {
         try {
+            // Lazy-load API key if not provided but userId is present
+            let effectiveApiKey = apiKey;
+            if (!effectiveApiKey && userId) {
+                effectiveApiKey = await this.fetchUserApiKey(userId);
+            }
+
             const [alert] = await db.select().from(alerts).where(and(eq(alerts.id, alertId), eq(alerts.tenantId, tenantId)));
             if (!alert) throw new Error('Alert not found');
 
@@ -111,7 +144,7 @@ export class AIService {
                 Keep it professional and technical yet easy to follow. Use Indonesian if possible, as the primary users are in Indonesia.
             `;
 
-            return await this.safeGenerateContent(apiKey, prompt);
+            return await this.safeGenerateContent(effectiveApiKey, prompt);
         } catch (error: any) {
             logger.error({
                 err: error?.message || error,
@@ -127,6 +160,12 @@ export class AIService {
      */
     async generateDailySummary(tenantId: string, apiKey?: string | null, userId?: string, userRole?: string): Promise<string> {
         try {
+            // Lazy-load API key
+            let effectiveApiKey = apiKey;
+            if (!effectiveApiKey && userId) {
+                effectiveApiKey = await this.fetchUserApiKey(userId);
+            }
+
             const yesterday = new Date();
             yesterday.setDate(yesterday.getDate() - 1);
 
@@ -169,7 +208,7 @@ export class AIService {
                 Gunakan bahasa Indonesia yang ramah teknisi.
             `;
 
-            return await this.safeGenerateContent(apiKey, prompt);
+            return await this.safeGenerateContent(effectiveApiKey, prompt);
         } catch (error: any) {
             const errorMsg = error?.message || String(error);
             logger.error({
@@ -186,6 +225,12 @@ export class AIService {
      */
     async getDiagnosticsInsights(routerId: string, tenantId: string, apiKey?: string | null, userId?: string, userRole?: string): Promise<string> {
         try {
+            // Lazy-load API key
+            let effectiveApiKey = apiKey;
+            if (!effectiveApiKey && userId) {
+                effectiveApiKey = await this.fetchUserApiKey(userId);
+            }
+
             // RBAC Check
             if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
                 const hasAccess = await routerService.hasAccess(userId, userRole, routerId, tenantId);
@@ -212,7 +257,7 @@ export class AIService {
                 Bahasa Indonesia.
             `;
 
-            return await this.safeGenerateContent(apiKey, prompt);
+            return await this.safeGenerateContent(effectiveApiKey, prompt);
         } catch (error: any) {
             logger.error({ err: error, routerId }, 'AIService: Failed to get diagnostics insights');
             return 'Gagal melakukan diagnosis router.';

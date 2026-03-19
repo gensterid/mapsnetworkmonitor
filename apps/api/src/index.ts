@@ -4,7 +4,7 @@ import compression from 'compression';
 import routes from './routes/index.js';
 import backupRoutes from './routes/backup.routes.js';
 import { stopScheduler } from './lib/scheduler.js';
-import { errorMiddleware, notFoundMiddleware } from './middleware/index.js';
+import { errorMiddleware, notFoundMiddleware, sanitizeMiddleware } from './middleware/index.js';
 import { logger } from './lib/logger.js';
 import { socketService } from './services/socket.service.js';
 import { corsMiddleware, allowedOrigins } from './config/cors.js';
@@ -112,6 +112,11 @@ app.set('trust proxy', 1);
 app.use(corsMiddleware);
 app.use(securityMiddleware);
 
+// Early sanitization for Query and Params (to protect routes that bypass global body parser)
+app.use((req, _res, next) => {
+    sanitizeMiddleware(req, _res, next);
+});
+
 // Rate limiting
 app.use('/api/auth', authLimiter);
 app.use('/api', apiLimiter);
@@ -123,6 +128,8 @@ app.use('/api/router-backups', routerBackupRoutes);
 // Body parsing
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+// Global sanitization after body parsing (to catch JSON/URL-encoded bodies)
+app.use(sanitizeMiddleware);
 
 // Health check endpoint (no auth required)
 app.get('/api/health', (_req, res) => {

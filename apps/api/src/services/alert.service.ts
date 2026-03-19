@@ -35,8 +35,8 @@ export class AlertService {
     /**
      * Get tenant ID from router
      */
-    private async getTenantIdFromRouter(routerId: string): Promise<string | null> {
-        const [router] = await db
+    private async getTenantIdFromRouter(routerId: string, tx: any = db): Promise<string | null> {
+        const [router] = await tx
             .select({ tenantId: routers.tenantId })
             .from(routers)
             .where(eq(routers.id, routerId));
@@ -49,11 +49,12 @@ export class AlertService {
      */
     private async findRecentUnresolvedAlert(
         routerId: string,
-        type: 'status_change' | 'high_cpu' | 'high_memory' | 'high_disk' | 'interface_down' | 'netwatch_down' | 'threshold' | 'reboot' | 'pppoe_connect' | 'pppoe_disconnect' | 'system' | 'high_latency' | 'packet_loss'
+        type: 'status_change' | 'high_cpu' | 'high_memory' | 'high_disk' | 'interface_down' | 'netwatch_down' | 'threshold' | 'reboot' | 'pppoe_connect' | 'pppoe_disconnect' | 'system' | 'high_latency' | 'packet_loss',
+        tx: any = db
     ): Promise<Alert | null> {
         const cooldownTime = new Date(Date.now() - ALERT_COOLDOWN_MINUTES * 60 * 1000);
 
-        const [existing] = await db
+        const [existing] = await tx
             .select()
             .from(alerts)
             .where(and(
@@ -74,7 +75,7 @@ export class AlertService {
     /**
      * Get alert thresholds from settings
      */
-    private async getThresholds(): Promise<{
+    private async getThresholds(tx: any = db): Promise<{
         cpuWarning: number;
         cpuCritical: number;
         memoryWarning: number;
@@ -84,9 +85,9 @@ export class AlertService {
         highCpuAlerts: boolean;
         highMemoryAlerts: boolean;
     }> {
-        const settings = await db.select().from(appSettings);
+        const settings = await tx.select().from(appSettings);
         const settingsMap: Record<string, unknown> = {};
-        settings.forEach((s) => {
+        settings.forEach((s: any) => {
             settingsMap[s.key] = s.value;
         });
 
@@ -393,8 +394,8 @@ export class AlertService {
     /**
      * Create a new alert
      */
-    async create(data: NewAlert): Promise<Alert> {
-        const [alert] = await db.insert(alerts).values(data).returning();
+    async create(data: NewAlert, tx: any = db): Promise<Alert> {
+        const [alert] = await tx.insert(alerts).values(data).returning();
 
         // Trigger notification
         if (data.routerId) {
@@ -807,9 +808,10 @@ export class AlertService {
         routerId: string,
         deviceName: string,
         host: string,
-        status: 'up' | 'down'
+        status: 'up' | 'down',
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check if alerts are enabled
         if (!thresholds.alertsEnabled) {
@@ -832,7 +834,7 @@ export class AlertService {
         // If status is UP, resolve any existing DOWN alerts for this host
         if (status === 'up') {
             // Find all unresolved netwatch_down alerts for this router that contain this host
-            const unresolvedAlerts = await db
+            const unresolvedAlerts = await tx
                 .select()
                 .from(alerts)
                 .where(and(
@@ -845,7 +847,7 @@ export class AlertService {
             // Resolve alerts that match this host
             for (const alert of unresolvedAlerts) {
                 if (alert.message.includes(host)) {
-                    await db
+                    await tx
                         .update(alerts)
                         .set({
                             resolved: true,
@@ -860,7 +862,7 @@ export class AlertService {
             // Deduplicate: Don't send another "UP" notification if we sent one recently for this host
             // Status change alerts are auto-resolved so we check by creation time
             const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-            const recentUp = await db
+            const recentUp = await tx
                 .select()
                 .from(alerts)
                 .where(and(
@@ -876,7 +878,7 @@ export class AlertService {
                 return null;
             }
 
-            const tenantId = await this.getTenantIdFromRouter(routerId);
+            const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
             if (resolvedCount > 0) {
                 return this.create({
@@ -886,7 +888,7 @@ export class AlertService {
                     severity: 'info',
                     title: `Device ${deviceName || host} is back UP`,
                     message: `Netwatch host ${host} (${deviceName}) is now reachable. Resolved ${resolvedCount} downtime alert(s).`,
-                });
+                }, tx);
             } else {
                 // Only notify UP if it was previously DOWN (implied by resolvedCount == 0 and we want visibility)
                 // However, to prevent flooding, if no DOWN was resolved, we should be even stricter.
@@ -898,20 +900,20 @@ export class AlertService {
                     severity: 'info',
                     title: `Device ${deviceName || host} is back UP`,
                     message: `Netwatch host ${host} (${deviceName}) is now reachable.`,
-                });
+                }, tx);
             }
         }
 
         // Deduplicate DOWN alerts: 
         // 1. Check for unresolved (standard deduplication)
-        const existingUnresolved = await this.findRecentUnresolvedAlert(routerId, 'netwatch_down');
+        const existingUnresolved = await this.findRecentUnresolvedAlert(routerId, 'netwatch_down', tx);
         if (existingUnresolved && existingUnresolved.message.includes(host)) {
             return null;
         }
 
         // 2. Check for ANY recent DOWN alert for this host (flapping protection)
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const recentAlert = await db
+        const recentAlert = await tx
             .select()
             .from(alerts)
             .where(and(
@@ -927,7 +929,7 @@ export class AlertService {
             return null;
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         return this.create({
             routerId,
@@ -936,7 +938,7 @@ export class AlertService {
             severity: 'warning',
             title: `Device ${deviceName || host} is down`,
             message: `Netwatch host ${host} (${deviceName}) is now down`,
-        });
+        }, tx);
     }
 
     /**
@@ -947,9 +949,10 @@ export class AlertService {
         routerName: string,
         oldStatus: string,
         newStatus: string,
-        reason?: string
+        reason?: string,
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check if alerts enabled
         if (!thresholds.alertsEnabled || !thresholds.statusChangeAlerts) {
@@ -958,7 +961,7 @@ export class AlertService {
 
         // Deduplicate: Don't send duplicate router status change alerts within 5 mins
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const recentStatusChange = await db
+        const recentStatusChange = await tx
             .select()
             .from(alerts)
             .where(and(
@@ -986,7 +989,7 @@ export class AlertService {
             message += ` (Alasan: ${reason})`;
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         return this.create({
             routerId,
@@ -997,7 +1000,7 @@ export class AlertService {
             message,
             resolved: true, // Event is a log, auto-resolve
             resolvedAt: new Date(),
-        });
+        }, tx);
     }
 
     /**
@@ -1006,9 +1009,10 @@ export class AlertService {
     async createHighCpuAlert(
         routerId: string,
         routerName: string,
-        cpuLoad: number
+        cpuLoad: number,
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check if alerts are enabled
         if (!thresholds.alertsEnabled || !thresholds.highCpuAlerts) {
@@ -1021,12 +1025,12 @@ export class AlertService {
         }
 
         // Check for existing unresolved alert (deduplication)
-        const existingAlert = await this.findRecentUnresolvedAlert(routerId, 'high_cpu');
+        const existingAlert = await this.findRecentUnresolvedAlert(routerId, 'high_cpu', tx);
         if (existingAlert) {
             return null; // Skip duplicate alert
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         const severity = cpuLoad >= thresholds.cpuCritical ? 'critical' : 'warning';
 
@@ -1037,7 +1041,7 @@ export class AlertService {
             severity,
             title: `High CPU usage on ${routerName}`,
             message: `CPU load is at ${cpuLoad}% (threshold: ${severity === 'critical' ? thresholds.cpuCritical : thresholds.cpuWarning}%)`,
-        });
+        }, tx);
     }
 
     /**
@@ -1046,9 +1050,10 @@ export class AlertService {
     async createHighMemoryAlert(
         routerId: string,
         routerName: string,
-        memoryPercent: number
+        memoryPercent: number,
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check if alerts are enabled
         if (!thresholds.alertsEnabled || !thresholds.highMemoryAlerts) {
@@ -1061,12 +1066,12 @@ export class AlertService {
         }
 
         // Check for existing unresolved alert (deduplication)
-        const existingAlert = await this.findRecentUnresolvedAlert(routerId, 'high_memory');
+        const existingAlert = await this.findRecentUnresolvedAlert(routerId, 'high_memory', tx);
         if (existingAlert) {
             return null; // Skip duplicate alert
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         const severity = memoryPercent >= thresholds.memoryCritical ? 'critical' : 'warning';
 
@@ -1077,7 +1082,7 @@ export class AlertService {
             severity,
             title: `High memory usage on ${routerName}`,
             message: `Memory usage is at ${memoryPercent}% (threshold: ${severity === 'critical' ? thresholds.memoryCritical : thresholds.memoryWarning}%)`,
-        });
+        }, tx);
     }
 
     /**
@@ -1088,20 +1093,21 @@ export class AlertService {
         routerName: string,
         cpuLoad?: number,
         totalMemory?: number,
-        usedMemory?: number
+        usedMemory?: number,
+        tx: any = db
     ): Promise<{ cpuAlert: Alert | null; memoryAlert: Alert | null }> {
         let cpuAlert: Alert | null = null;
         let memoryAlert: Alert | null = null;
 
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check CPU
         if (cpuLoad !== undefined && cpuLoad !== null) {
             if (cpuLoad >= thresholds.cpuWarning) {
-                cpuAlert = await this.createHighCpuAlert(routerId, routerName, cpuLoad);
+                cpuAlert = await this.createHighCpuAlert(routerId, routerName, cpuLoad, tx);
             } else {
                 // Auto-resolve if usage is back to normal
-                await this.resolveActiveMetricAlerts(routerId, 'high_cpu');
+                await this.resolveActiveMetricAlerts(routerId, 'high_cpu', undefined, tx);
             }
         }
 
@@ -1109,10 +1115,10 @@ export class AlertService {
         if (totalMemory && usedMemory) {
             const memoryPercent = Math.round((usedMemory / totalMemory) * 100);
             if (memoryPercent >= thresholds.memoryWarning) {
-                memoryAlert = await this.createHighMemoryAlert(routerId, routerName, memoryPercent);
+                memoryAlert = await this.createHighMemoryAlert(routerId, routerName, memoryPercent, tx);
             } else {
                 // Auto-resolve if usage is back to normal
-                await this.resolveActiveMetricAlerts(routerId, 'high_memory');
+                await this.resolveActiveMetricAlerts(routerId, 'high_memory', undefined, tx);
             }
         }
 
@@ -1122,7 +1128,7 @@ export class AlertService {
     /**
      * Resolve active metric alerts (CPU/Memory)
      */
-    async resolveActiveMetricAlerts(routerId: string, type: 'high_cpu' | 'high_memory', tenantId?: string): Promise<void> {
+    async resolveActiveMetricAlerts(routerId: string, type: 'high_cpu' | 'high_memory', tenantId?: string, tx: any = db): Promise<void> {
         const filters = [
             eq(alerts.routerId, routerId),
             eq(alerts.type, type),
@@ -1133,7 +1139,7 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        await db
+        await tx
             .update(alerts)
             .set({
                 resolved: true,
@@ -1168,16 +1174,17 @@ export class AlertService {
         routerId: string,
         routerName: string,
         username: string,
-        ipAddress: string
+        ipAddress: string,
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check if alerts are enabled
         if (!thresholds.alertsEnabled) {
             return null;
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         return this.create({
             routerId,
@@ -1188,7 +1195,7 @@ export class AlertService {
             message: `User ${username} connected to ${routerName}. IP: ${ipAddress}`,
             resolved: true, // Event is a log
             resolvedAt: new Date(),
-        });
+        }, tx);
     }
 
     /**
@@ -1199,16 +1206,17 @@ export class AlertService {
         routerName: string,
         username: string,
         ipAddress: string,
-        sessionDurationSeconds: number
+        sessionDurationSeconds: number,
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         // Check if alerts are enabled
         if (!thresholds.alertsEnabled) {
             return null;
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         const duration = this.formatDuration(sessionDurationSeconds);
 
@@ -1221,7 +1229,7 @@ export class AlertService {
             message: `User ${username} disconnected from ${routerName}. IP: ${ipAddress}. Session duration: ${duration}`,
             resolved: true, // Event is a log
             resolvedAt: new Date(),
-        });
+        }, tx);
     }
 
     /**
@@ -1234,9 +1242,10 @@ export class AlertService {
         deviceName: string,
         latency: number,
         packetLoss: number,
-        status?: string
+        status?: string,
+        tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await this.getThresholds();
+        const thresholds = await this.getThresholds(tx);
 
         if (!thresholds.alertsEnabled) return null;
 
@@ -1252,7 +1261,7 @@ export class AlertService {
         // Fix: Prioritize 'high_latency' so it appears in Issues list as High Latency
         // (Packet loss info will still be in the message)
         const type = isHighLatency ? 'high_latency' : 'packet_loss';
-        const existing = await this.findRecentUnresolvedAlert(routerId, type);
+        const existing = await this.findRecentUnresolvedAlert(routerId, type, tx);
         if (existing && existing.message.includes(host)) {
             return null;
         }
@@ -1285,7 +1294,7 @@ export class AlertService {
             message += ` Latency: ${latency}ms.`;
         }
 
-        const tenantId = await this.getTenantIdFromRouter(routerId);
+        const tenantId = await this.getTenantIdFromRouter(routerId, tx);
 
         return this.create({
             routerId,
@@ -1294,7 +1303,7 @@ export class AlertService {
             severity: 'warning',
             title,
             message,
-        });
+        }, tx);
     }
 
     /**
@@ -1304,7 +1313,8 @@ export class AlertService {
     async resolvePerformanceAlert(
         routerId: string,
         host: string,
-        tenantId?: string
+        tenantId?: string,
+        tx: any = db
     ): Promise<number> {
         // Find unresolved threshold alerts for this router that mention the host
         const filters = [
@@ -1317,7 +1327,7 @@ export class AlertService {
             filters.push(eq(alerts.tenantId, tenantId));
         }
 
-        const existingAlerts = await db
+        const existingAlerts = await tx
             .select()
             .from(alerts)
             .where(and(...filters));
@@ -1325,13 +1335,13 @@ export class AlertService {
         // Filter in memory for message (since we put host in message/title usually)
         // Ideally we should have a reliable way to link alert to host (maybe via title or new metadata column)
         // For now, check if message contains host IP
-        const alertsToResolve = existingAlerts.filter(a => a.message.includes(host));
+        const alertsToResolve = existingAlerts.filter((a: any) => a.message.includes(host));
 
         if (alertsToResolve.length === 0) return 0;
 
-        const idsToResolve = alertsToResolve.map(a => a.id);
+        const idsToResolve = alertsToResolve.map((a: any) => a.id);
 
-        await db
+        await tx
             .update(alerts)
             .set({
                 resolved: true,

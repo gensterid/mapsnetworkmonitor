@@ -26,10 +26,12 @@ function collectTrustedOrigins(baseURL: string): string[] {
     const origins = new Set<string>();
 
     // Always trust localhost for development
-    origins.add('http://localhost:3001');
-    origins.add('http://localhost:3002');
-    origins.add('http://localhost:5173');
-    origins.add('http://127.0.0.1:5173');
+    if (process.env.NODE_ENV !== 'production') {
+        origins.add('http://localhost:3001');
+        origins.add('http://localhost:3002');
+        origins.add('http://localhost:5173');
+        origins.add('http://127.0.0.1:5173');
+    }
 
     // Extract origin from the resolved baseURL (e.g., https://example.com from https://example.com/api/auth)
     try {
@@ -47,14 +49,35 @@ function collectTrustedOrigins(baseURL: string): string[] {
         process.env.CORS_ORIGIN.split(',').map(s => s.trim()).filter(Boolean).forEach(o => origins.add(o));
     }
 
-    // Log the configuration for easier debugging in production
     const finalOrigins = Array.from(origins);
+
+    // Security check for production
+    if (process.env.NODE_ENV === 'production') {
+        if (finalOrigins.length === 0) {
+            logger.warn('⚠️ CRITICAL: No trusted origins configured for Better Auth in production! Login might fail.');
+        }
+        
+        // Remove localhost if it's there but we are in production
+        // Unless baseURL is localhost (which it shouldn't be in prod)
+        if (!baseURL.includes('localhost') && !baseURL.includes('127.0.0.1')) {
+            const sizeBefore = origins.size;
+            origins.delete('http://localhost:3001');
+            origins.delete('http://localhost:3002');
+            origins.delete('http://localhost:5173');
+            origins.delete('http://127.0.0.1:5173');
+            if (origins.size < sizeBefore) {
+                logger.debug('Production hardening: Removed localhost from trusted origins');
+            }
+        }
+    }
+
+    // Log the configuration for easier debugging in production
     logger.info({
         baseURL,
-        trustedOrigins: finalOrigins
+        trustedOrigins: Array.from(origins)
     }, 'Better Auth origin configuration initialized');
 
-    return finalOrigins;
+    return Array.from(origins);
 }
 
 const resolvedBaseURL = resolveBaseURL();
@@ -107,27 +130,15 @@ export const auth = betterAuth({
                 required: false,
                 input: false, // Set by admin/superadmin
             },
-            aiEnabled: {
-                type: 'boolean',
-                required: false,
-                defaultValue: false,
-                input: true,
-            },
-            aiApiKey: {
-                type: 'string',
-                required: false,
-                input: true,
-            },
         },
     },
     advanced: {
         database: {
             generateId: () => crypto.randomUUID(),
         },
-        // We disable useSecureCookies enforcement so that login works on both 
-        // the local IP (http://10.10.70.53) and the Cloudflare tunnel (https).
-        // The tunnel already provides HTTPS security at the edge.
-        useSecureCookies: false,
+        // We enable useSecureCookies in production for security.
+        // In development (local IP), it remains false to allow HTTP access.
+        useSecureCookies: process.env.NODE_ENV === 'production',
     },
     trustedOrigins: resolvedTrustedOrigins,
 });

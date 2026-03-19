@@ -213,7 +213,7 @@ export class TopologyService {
                     routerId,
                     customData.host,
                     customData.name || 'Unmapped Node',
-                    nodeType,
+                    nodeType as any,
                     tenantId,
                     null // No existing ID yet
                 );
@@ -322,7 +322,7 @@ export class TopologyService {
                             targetRouterId,
                             hostToUse,
                             data.customName || existing.customName || 'Updated Node',
-                            data.nodeType || existing.nodeType,
+                            (data.nodeType || existing.nodeType) as any,
                             existing.tenantId || undefined,
                             existing.nodeId // Pass existing ID to update in-place!
                         );

@@ -440,30 +440,29 @@ export class OltService {
                             updateData.lastSeen = new Date();
                         }
 
-                        // Run update in background to not slow down the read request too much
-                        db.update(onus)
-                            .set({
-                                ...updateData,
-                                routerId: olt.parentId || dbOnu.routerId
-                            })
-                            .where(eq(onus.id, dbOnu.id))
-                            .execute()
-                            .then(async () => {
-                                // 📈 Log to Performance History for Charts
-                                if (device.signal && dbOnu) {
-                                    const parsedSignal = this.parseSignal(device.signal);
-                                    if (parsedSignal !== null) {
-                                        await db.insert(devicePerformanceHistory).values({
-                                            tenantId: olt.tenantId || '',
-                                            routerId: olt.parentId || '',
-                                            onuId: dbOnu.id,
-                                            signal: parsedSignal,
-                                            recordedAt: new Date()
-                                        }).execute();
-                                    }
+                        // Run update and history log in a transaction
+                        db.transaction(async (tx) => {
+                            await tx.update(onus)
+                                .set({
+                                    ...updateData,
+                                    routerId: olt.parentId || dbOnu!.routerId
+                                })
+                                .where(eq(onus.id, dbOnu!.id));
+
+                            // 📈 Log to Performance History for Charts
+                            if (device.signal) {
+                                const parsedSignal = this.parseSignal(device.signal);
+                                if (parsedSignal !== null) {
+                                    await tx.insert(devicePerformanceHistory).values({
+                                        tenantId: olt.tenantId || '',
+                                        routerId: olt.parentId || '',
+                                        onuId: dbOnu!.id,
+                                        signal: parsedSignal,
+                                        recordedAt: new Date()
+                                    });
                                 }
-                            })
-                            .catch(err => logger.error({ err, sn: device.sn }, 'Failed to background sync ONU'));
+                            }
+                        }).catch(err => logger.error({ err, sn: device.sn }, 'Failed to background sync ONU in transaction'));
 
                         // Update local object for the return value immediately
                         dbOnu.status = updateData.status;
@@ -574,65 +573,65 @@ export class OltService {
             });
         }
 
-        // 4. BATCH UPSERT Operation
+        // 4. BATCH UPSERT Operation (Atomic Transaction)
         if (valuesToUpsert.length > 0) {
             try {
-                // Perform batch upsert using Drizzle's onConflictDoUpdate
-                await db.insert(onus)
-                    .values(valuesToUpsert as any)
-                    .onConflictDoUpdate({
-                        target: onus.sn,
-                        set: {
-                            oltId: sql`excluded.olt_id`,
-                            routerId: sql`COALESCE(excluded.router_id, onus.router_id)`,
-                            ponPort: sql`excluded.pon_port`,
-                            onuIndex: sql`excluded.onu_index`,
-                            description: sql`COALESCE(onus.description, excluded.description)`,
-                            host: sql`COALESCE(onus.host, excluded.host)`, // Save host if not already set
-                            lastRxPower: sql`excluded.last_rx_power`,
-                            status: sql`excluded.status`,
-                            // Keep existing name if present, otherwise use OLT discovered name
-                            name: sql`COALESCE(onus.name, excluded.name)`,
-                            // Only update lastSeen if the new status is online
-                            lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
-                            lastDownReason: sql`excluded.last_down_reason`,
-                            macAddress: sql`COALESCE(onus.mac_address, excluded.mac_address)`,
-                            tenantId: sql`COALESCE(onus.tenant_id, excluded.tenant_id)`,
-                            updatedAt: sql`excluded.updated_at`,
-                        } as any
-                    });
+                await db.transaction(async (tx) => {
+                    // Perform batch upsert using Drizzle's onConflictDoUpdate
+                    await tx.insert(onus)
+                        .values(valuesToUpsert as any)
+                        .onConflictDoUpdate({
+                            target: onus.sn,
+                            set: {
+                                oltId: sql`excluded.olt_id`,
+                                routerId: sql`COALESCE(excluded.router_id, onus.router_id)`,
+                                ponPort: sql`excluded.pon_port`,
+                                onuIndex: sql`excluded.onu_index`,
+                                description: sql`COALESCE(onus.description, excluded.description)`,
+                                host: sql`COALESCE(onus.host, excluded.host)`,
+                                lastRxPower: sql`excluded.last_rx_power`,
+                                status: sql`excluded.status`,
+                                name: sql`COALESCE(onus.name, excluded.name)`,
+                                lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
+                                lastDownReason: sql`excluded.last_down_reason`,
+                                macAddress: sql`COALESCE(onus.mac_address, excluded.mac_address)`,
+                                tenantId: sql`COALESCE(onus.tenant_id, excluded.tenant_id)`,
+                                updatedAt: sql`excluded.updated_at`,
+                            } as any
+                        });
 
-                // 📈 Log to Performance History for Charts
-                const syncedOnus = await db.select({ id: onus.id, sn: onus.sn })
-                    .from(onus)
-                    .where(eq(onus.oltId, oltId));
+                    // 📈 Log to Performance History for Charts
+                    const syncedOnus = await tx.select({ id: onus.id, sn: onus.sn })
+                        .from(onus)
+                        .where(eq(onus.oltId, oltId));
 
-                const snToIdMap = new Map(syncedOnus.map(o => [o.sn, o.id]));
-                const historyValues = valuesToUpsert
-                    .filter(v => v.lastRxPower !== null)
-                    .map(v => {
-                        const parsedSignal = this.parseSignal(v.lastRxPower);
-                        if (parsedSignal === null) return null;
-                        const onuId = snToIdMap.get(v.sn);
-                        if (!onuId) return null;
-                        return {
-                            tenantId: tenantId || '',
-                            routerId: olt.parentId || '',
-                            onuId: onuId,
-                            signal: parsedSignal,
-                            recordedAt: now
-                        };
-                    })
-                    .filter((v): v is NonNullable<typeof v> => v !== null);
+                    const snToIdMap = new Map(syncedOnus.map(o => [o.sn, o.id]));
+                    const historyValues = valuesToUpsert
+                        .filter(v => v.lastRxPower !== null)
+                        .map(v => {
+                            const parsedSignal = this.parseSignal(v.lastRxPower);
+                            if (parsedSignal === null) return null;
+                            const onuId = snToIdMap.get(v.sn);
+                            if (!onuId) return null;
+                            return {
+                                tenantId: tenantId || '',
+                                routerId: olt.parentId || '',
+                                onuId: onuId,
+                                signal: parsedSignal,
+                                recordedAt: now
+                            };
+                        })
+                        .filter((v): v is NonNullable<typeof v> => v !== null);
 
-                if (historyValues.length > 0) {
-                    await db.insert(devicePerformanceHistory).values(historyValues as any).execute();
-                }
+                    if (historyValues.length > 0) {
+                        await tx.insert(devicePerformanceHistory).values(historyValues as any).execute();
+                    }
+                });
 
-                added = valuesToUpsert.length; // Approximate simplified report
-                logger.info({ count: valuesToUpsert.length, olt: olt.name }, '✅ Batch Upserted ONUs');
+                added = valuesToUpsert.length;
+                logger.info({ count: valuesToUpsert.length, olt: olt.name }, '✅ Batch Upserted ONUs and History in Transaction');
             } catch (err: any) {
-                logger.error({ err, olt: olt.name }, 'Batch upsert failed for OLT');
+                logger.error({ err, olt: olt.name }, 'Batch upsert transaction failed for OLT');
                 throw err;
             }
         }

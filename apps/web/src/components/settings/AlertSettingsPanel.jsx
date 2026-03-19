@@ -28,6 +28,7 @@ export default function AlertSettingsPanel() {
     // Load settings into form
     useEffect(() => {
         if (settings) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setThresholds({
                 cpuWarning: settings.alertThresholdCpuWarning ?? DEFAULT_THRESHOLDS.cpuWarning,
                 cpuCritical: settings.alertThresholdCpuCritical ?? DEFAULT_THRESHOLDS.cpuCritical,

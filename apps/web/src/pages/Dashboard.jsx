@@ -24,6 +24,7 @@ import {
     Monitor
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { Skeleton, CardSkeleton, ListSkeleton } from '@/components/ui/Skeleton';
 import clsx from 'clsx';
 
 // Stats Card Component
@@ -36,13 +37,20 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
     };
     const colors = colorClasses[color] || colorClasses.primary;
 
+    const handleKeyDown = (e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            onClick();
+        }
+    };
+
     const cardContent = (
         <>
-            <div className={clsx("absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity", colors.text)}>
+            <div className={clsx("absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity", colors.text)} aria-hidden="true">
                 <Icon className="w-16 h-16" />
             </div>
             <div className="flex items-center gap-3 z-10">
-                <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colors.bg)}>
+                <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colors.bg)} aria-hidden="true">
                     <Icon className={clsx("w-5 h-5", colors.icon)} />
                 </div>
                 <span className="text-slate-400 text-sm font-medium">{label}</span>
@@ -59,18 +67,18 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
                 )}
             </div>
             {progress !== undefined && (
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-surface-dark">
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-surface-dark" aria-hidden="true">
                     <div className={clsx("h-full", colors.bg.replace('/20', ''))} style={{ width: `${progress}%` }} />
                 </div>
             )}
         </>
     );
 
-    const cardClassName = "glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer";
+    const cardClassName = "glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer outline-none focus:ring-2 focus:ring-primary/50";
 
     if (href) {
         return (
-            <Link to={href} className={cardClassName}>
+            <Link to={href} className={cardClassName} aria-label={`${label}: ${value}. Klik untuk buka ${label}`}>
                 {cardContent}
             </Link>
         );
@@ -78,14 +86,19 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
 
     if (onClick) {
         return (
-            <button onClick={onClick} className={clsx(cardClassName, "text-left w-full")}>
+            <button 
+                onClick={onClick} 
+                onKeyDown={handleKeyDown}
+                className={clsx(cardClassName, "text-left w-full")}
+                aria-label={`${label}: ${value}. Klik untuk filter ${label}`}
+            >
                 {cardContent}
             </button>
         );
     }
 
     return (
-        <div className={cardClassName}>
+        <div className={cardClassName} role="region" aria-label={label}>
             {cardContent}
         </div>
     );
@@ -300,7 +313,7 @@ function RecentAlerts({ alerts, settings, currentUser }) {
 
 export default function Dashboard() {
     const { data: routers = [], isLoading: routersLoading } = useRouters();
-    const { data: alertsResponse = [] } = useAlerts();
+    const { data: alertsResponse = [], isLoading: alertsLoading } = useAlerts();
     const alerts = Array.isArray(alertsResponse) ? alertsResponse : (alertsResponse?.data || []);
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
@@ -332,7 +345,7 @@ export default function Dashboard() {
     const uptime = routers.length > 0 ? ((onlineCount / routers.length) * 100).toFixed(1) : 0;
 
     return (
-        <div className="flex flex-col h-full bg-background-dark overflow-hidden">
+        <main className="flex flex-col h-full bg-background-dark overflow-hidden" aria-label="Dashboard Monitoring Jaringan">
             {/* Scrollable Content Area */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
                 <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
@@ -402,41 +415,53 @@ export default function Dashboard() {
                     </div>
 
                     {/* Stats Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <StatsCard
-                            icon={RouterIcon}
-                            label="Online Routers"
-                            value={onlineCount}
-                            trend={onlineCount > 0 ? `+${onlineCount}` : undefined}
-                            color="success"
-                            onClick={() => setStatusFilter('online')}
-                        />
-                        <StatsCard
-                            icon={WifiOff}
-                            label="Offline Devices"
-                            value={offlineCount}
-                            trendLabel={offlineCount > 0 ? "Critical" : "All Good"}
-                            color="danger"
-                            onClick={() => setStatusFilter('offline')}
-                        />
-                        <StatsCard
-                            icon={AlertTriangle}
-                            label="Warnings"
-                            value={warningCount}
-                            trendLabel={warningCount > 0 ? "Needs Attention" : "Clear"}
-                            color="warning"
-                            href="/alerts"
-                        />
-                        <StatsCard
-                            icon={Activity}
-                            label="Network Uptime"
-                            value={`${uptime}%`}
-                            trendLabel={uptime >= 90 ? "Optimal" : "Low"}
-                            color="primary"
-                            progress={parseFloat(uptime)}
-                            onClick={() => setStatusFilter('all')}
-                        />
-                    </div>
+                    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-labelledby="stats-heading">
+                        <h2 id="stats-heading" className="sr-only">Statistik Real-time</h2>
+                        {routersLoading ? (
+                            <>
+                                <CardSkeleton />
+                                <CardSkeleton />
+                                <CardSkeleton />
+                                <CardSkeleton />
+                            </>
+                        ) : (
+                            <>
+                                <StatsCard
+                                    icon={RouterIcon}
+                                    label="Online Routers"
+                                    value={onlineCount}
+                                    trend={onlineCount > 0 ? `+${onlineCount}` : undefined}
+                                    color="success"
+                                    onClick={() => setStatusFilter('online')}
+                                />
+                                <StatsCard
+                                    icon={WifiOff}
+                                    label="Offline Devices"
+                                    value={offlineCount}
+                                    trendLabel={offlineCount > 0 ? "Critical" : "All Good"}
+                                    color="danger"
+                                    onClick={() => setStatusFilter('offline')}
+                                />
+                                <StatsCard
+                                    icon={AlertTriangle}
+                                    label="Warnings"
+                                    value={warningCount}
+                                    trendLabel={warningCount > 0 ? "Needs Attention" : "Clear"}
+                                    color="warning"
+                                    href="/alerts"
+                                />
+                                <StatsCard
+                                    icon={Activity}
+                                    label="Network Uptime"
+                                    value={`${uptime}%`}
+                                    trendLabel={uptime >= 90 ? "Optimal" : "Low"}
+                                    color="primary"
+                                    progress={parseFloat(uptime)}
+                                    onClick={() => setStatusFilter('all')}
+                                />
+                            </>
+                        )}
+                    </section>
 
                     {/* Main Layout Grid */}
                     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 min-h-[500px]">
@@ -467,17 +492,29 @@ export default function Dashboard() {
                                     <NetworkMap showRoutersOnly={true} disableScaling={true} />
                                 </div>
                             </div>
-                            <ActiveConnectionsTable routers={filteredRouters} />
+                            {routersLoading ? (
+                                <div className="glass-panel p-6 rounded-xl h-64">
+                                    <ListSkeleton rows={5} />
+                                </div>
+                            ) : (
+                                <ActiveConnectionsTable routers={filteredRouters} />
+                            )}
                         </div>
 
                         {/* Right Column: Health & Alerts Panel */}
                         <div className="xl:col-span-1 flex flex-col gap-6">
                             <NetworkHealthCard />
-                            <RecentAlerts alerts={alerts} settings={settings} currentUser={currentUser} />
+                            {alertsLoading ? (
+                                <div className="glass-panel p-6 rounded-xl flex-1 min-h-[400px]">
+                                    <ListSkeleton rows={8} />
+                                </div>
+                            ) : (
+                                <RecentAlerts alerts={alerts} settings={settings} currentUser={currentUser} />
+                            )}
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </main>
     );
 }

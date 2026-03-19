@@ -5,7 +5,7 @@ import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
 import { count, eq, lt, and } from 'drizzle-orm';
 import { logger } from './logger.js';
-import { cacheService } from './cache.js';
+import { partitionService } from '../services/db/partition.service.js';
 
 // Default polling interval in milliseconds (2 minutes)
 const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
@@ -400,6 +400,9 @@ async function cleanupOldMetrics(): Promise<void> {
             // Cleanup finished for tenant
             logger.info({ tenantId: tenant.id }, '✅ Tenant database maintenance complete');
         }
+
+        // 5. Ensure future partitions exist
+        await partitionService.ensurePartitionsExist();
     } catch (error) {
         logger.error({ err: error }, 'Database maintenance cleanup error');
     }

@@ -17,9 +17,8 @@ router.post(
     asyncHandler(async (req: Request, res: Response) => {
         const alertId = req.params.id as string;
         const tenantId = req.user!.tenantId!;
-        const apiKey = req.user!.aiEnabled ? req.user!.aiApiKey : null;
 
-        const analysis = await aiService.analyzeAlert(alertId, tenantId, apiKey, req.user!.id, req.user!.role);
+        const analysis = await aiService.analyzeAlert(alertId, tenantId, null, req.user!.id, req.user!.role);
         res.json({ data: { analysis } });
     })
 );
@@ -32,9 +31,8 @@ router.get(
     '/network-summary',
     asyncHandler(async (req: Request, res: Response) => {
         const tenantId = req.user!.tenantId!;
-        const apiKey = req.user!.aiEnabled ? req.user!.aiApiKey : null;
 
-        const summary = await aiService.generateDailySummary(tenantId, apiKey, req.user!.id, req.user!.role);
+        const summary = await aiService.generateDailySummary(tenantId, null, req.user!.id, req.user!.role);
         res.json({ data: { summary } });
     })
 );
@@ -48,9 +46,8 @@ router.post(
     asyncHandler(async (req: Request, res: Response) => {
         const routerId = req.params.id as string;
         const tenantId = req.user!.tenantId!;
-        const apiKey = req.user!.aiEnabled ? req.user!.aiApiKey : null;
 
-        const insights = await aiService.getDiagnosticsInsights(routerId, tenantId, apiKey, req.user!.id, req.user!.role);
+        const insights = await aiService.getDiagnosticsInsights(routerId, tenantId, null, req.user!.id, req.user!.role);
         res.json({ data: { insights } });
     })
 );

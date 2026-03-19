@@ -36,9 +36,6 @@ router.get(
     '/netwatch',
     webhookLimiter,
     asyncHandler(async (req, res) => {
-        // Security: Prevent caching of webhook URLs (tokens in query params)
-        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-        res.set('Pragma', 'no-cache');
         const query = webhookSchema.safeParse(req.query);
 
         if (!query.success) {
@@ -46,7 +43,14 @@ router.get(
             throw new ApiError(400, 'Invalid webhook payload');
         }
 
-        const { host, status, token } = query.data;
+        const { host, status, token: queryToken } = query.data;
+        const authHeader = req.headers.authorization;
+        const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+        const token = bearerToken || queryToken;
+
+        if (!token) {
+            throw new ApiError(401, 'Unauthorized: Webhook token required in Authorization header or query');
+        }
 
         // 1. Verify router by the secure token
         const routerRecord = await db.query.routers.findFirst({
@@ -156,10 +160,13 @@ router.get(
     '/backup-report',
     webhookLimiter,
     asyncHandler(async (req, res) => {
-        const { routerId, type, status, token } = req.query;
+        const { routerId, type, status, token: queryToken } = req.query;
+        const authHeader = req.headers.authorization;
+        const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+        const token = (bearerToken || queryToken) as string;
 
         if (!routerId || !token) {
-            logger.warn({ query: req.query }, 'Backup report missing routerId or token');
+            logger.warn({ query: req.query, hasAuthHeader: !!authHeader }, 'Backup report missing routerId or token');
             throw new ApiError(400, 'Missing routerId or token');
         }
 

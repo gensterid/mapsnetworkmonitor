@@ -622,7 +622,7 @@ export async function runMigrations() {
                     ];
                     for (const table of tablesToBackfill) {
                         try {
-                            await db.execute(sql.raw(`UPDATE ${table} SET tenant_id = '${tenantId}' WHERE tenant_id IS NULL`));
+                            await db.execute(sql`UPDATE ${sql.identifier(table)} SET tenant_id = ${tenantId} WHERE tenant_id IS NULL`);
                         } catch (err) {
                             logger.warn({ table, err }, 'Failed to backfill table');
                         }
