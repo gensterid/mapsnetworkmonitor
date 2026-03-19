@@ -9,8 +9,23 @@ import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 import { db } from '../db/index.js';
 import { onus } from '../db/schema/index.js';
 import { eq, sql } from 'drizzle-orm';
+import { logger } from '../lib/logger.js';
 
 const router = Router();
+
+/**
+ * Handle GenieACS errors and throw appropriate ApiError
+ */
+function handleGenieAcsError(error: any) {
+    if (error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH') {
+        throw new ApiError(503, 'GenieACS Server is unreachable. Please check your network configuration in Proxmox.', { code: error.code });
+    }
+    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        throw new ApiError(504, 'GenieACS request timed out. The server is responding too slowly or is unreachable.', { code: error.code });
+    }
+    // For other unexpected errors, throw as 500
+    throw ApiError.internal(error.message || 'An unexpected error occurred while communicating with GenieACS');
+}
 
 // Validation schemas
 const getDevicesSchema = z.object({
@@ -93,8 +108,12 @@ router.get(
             }
         }
 
-        const devices = await genieacsService.getDevices(routerId, getEffectiveTenantId(req), query);
-        res.json({ data: devices });
+        try {
+            const devices = await genieacsService.getDevices(routerId, getEffectiveTenantId(req), query);
+            res.json({ data: devices });
+        } catch (error: any) {
+            handleGenieAcsError(error);
+        }
     })
 );
 
@@ -116,11 +135,16 @@ router.get(
             if (!hasAccess) throw ApiError.forbidden('Access denied');
         }
 
-        const device = await genieacsService.getDevice(id, routerId, getEffectiveTenantId(req));
-        if (!device) {
-            throw ApiError.notFound('Device not found');
+        try {
+            const device = await genieacsService.getDevice(id, routerId, getEffectiveTenantId(req));
+            if (!device) {
+                throw ApiError.notFound('Device not found');
+            }
+            res.json({ data: device });
+        } catch (error: any) {
+            if (error instanceof ApiError) throw error;
+            handleGenieAcsError(error);
         }
-        res.json({ data: device });
     })
 );
 

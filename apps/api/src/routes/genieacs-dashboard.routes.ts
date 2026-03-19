@@ -20,8 +20,16 @@ router.get('/stats', authMiddleware, async (req, res) => {
             success: true,
             data: stats
         });
-    } catch (error) {
+    } catch (error: any) {
         logger.error({ err: error }, 'ACS Stats Error');
+        if (error.code === 'ECONNREFUSED' || error.code === 'EHOSTUNREACH') {
+            res.status(503).json({ success: false, message: 'GenieACS Server is unreachable. Please check your network configuration in Proxmox.' });
+            return;
+        }
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+            res.status(504).json({ success: false, message: 'GenieACS request timed out.' });
+            return;
+        }
         res.status(500).json({ success: false, message: 'Failed to fetch ACS statistics' });
     }
 });

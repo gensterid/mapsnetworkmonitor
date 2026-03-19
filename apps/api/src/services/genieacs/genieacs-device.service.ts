@@ -92,9 +92,17 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
         const result = response.data.map((dev: any) => transformGenieACSDevice(dev));
         await cacheService.set(cacheKey, result, cacheService.TTL.GENIEACS_DEVICES);
         return result;
-    } catch (error) {
-        logger.error({ err: error }, 'GenieACS: Failed to fetch devices');
-        return [];
+    } catch (error: any) {
+        // Log the error for internal diagnostics
+        logger.error({ 
+            err: error?.message || String(error),
+            code: error?.code,
+            routerId, 
+            tenantId 
+        }, 'GenieACS: Failed to fetch devices');
+        
+        // Re-throw the error so the controller can handle HTTP status codes (503/504)
+        throw error;
     }
 }
 
@@ -350,9 +358,16 @@ export async function getDevice(deviceId: string, routerId?: string, tenantId?: 
             return device;
         }
         return null;
-    } catch (error) {
-        logger.error({ deviceId, err: error }, 'GenieACS: Failed to fetch device');
-        return null;
+    } catch (error: any) {
+        // Log the error for internal diagnostics
+        logger.error({ 
+            deviceId, 
+            err: error?.message || String(error),
+            code: error?.code
+        }, 'GenieACS: Failed to fetch device');
+        
+        // Re-throw the error so the controller can handle HTTP status codes (404 vs 503/504)
+        throw error;
     }
 }
 

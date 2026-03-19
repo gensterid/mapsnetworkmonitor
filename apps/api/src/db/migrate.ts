@@ -329,7 +329,7 @@ export async function runMigrations() {
             },
             {
                 name: 'onus.discovery_sources',
-                sql: sql`ALTER TABLE onus ADD COLUMN discovery_sources JSON DEFAULT '[]'`
+                sql: sql`ALTER TABLE onus ADD COLUMN discovery_sources JSONB DEFAULT '[]'`
             },
             {
                 name: 'onus.pppoe_user',
