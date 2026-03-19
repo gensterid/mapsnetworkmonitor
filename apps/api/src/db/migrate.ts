@@ -328,6 +328,46 @@ export async function runMigrations() {
                 sql: sql`ALTER TABLE onus ADD COLUMN firmware_version TEXT`
             },
             {
+                name: 'onus.discovery_sources',
+                sql: sql`ALTER TABLE onus ADD COLUMN discovery_sources JSON DEFAULT '[]'`
+            },
+            {
+                name: 'onus.pppoe_user',
+                sql: sql`ALTER TABLE onus ADD COLUMN pppoe_user TEXT`
+            },
+            {
+                name: 'onus.pppoe_pass',
+                sql: sql`ALTER TABLE onus ADD COLUMN pppoe_pass TEXT`
+            },
+            {
+                name: 'onus.vlan_id',
+                sql: sql`ALTER TABLE onus ADD COLUMN vlan_id INTEGER`
+            },
+            {
+                name: 'onus.latitude',
+                sql: sql`ALTER TABLE onus ADD COLUMN latitude NUMERIC(10, 7)`
+            },
+            {
+                name: 'onus.longitude',
+                sql: sql`ALTER TABLE onus ADD COLUMN longitude NUMERIC(10, 7)`
+            },
+            {
+                name: 'onus.location',
+                sql: sql`ALTER TABLE onus ADD COLUMN location TEXT`
+            },
+            {
+                name: 'onus.name',
+                sql: sql`ALTER TABLE onus ADD COLUMN name TEXT`
+            },
+            {
+                name: 'onus.description',
+                sql: sql`ALTER TABLE onus ADD COLUMN description TEXT`
+            },
+            {
+                name: 'onus.host',
+                sql: sql`ALTER TABLE onus ADD COLUMN host TEXT`
+            },
+            {
                 name: 'onus.last_down_reason',
                 sql: sql`ALTER TABLE onus ADD COLUMN last_down_reason TEXT`
             },
