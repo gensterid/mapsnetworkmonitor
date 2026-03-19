@@ -194,4 +194,9 @@ CREATE INDEX IF NOT EXISTS "pppoe_sessions_tenant_id_idx" ON "pppoe_sessions" US
 DO $$ BEGIN
     ALTER TABLE "app_settings" ADD CONSTRAINT "app_settings_tenant_key_unique" UNIQUE("tenant_id","key");
 EXCEPTION WHEN duplicate_object THEN null;
+    WHEN duplicate_table THEN null;
+    WHEN OTHERS THEN
+        IF SQLSTATE = '42P07' OR SQLSTATE = '42710' THEN null;
+        ELSE RAISE;
+        END IF;
 END $$;
