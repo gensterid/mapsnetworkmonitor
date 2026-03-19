@@ -1,9 +1,12 @@
 import 'dotenv/config';
 import { defineConfig } from 'drizzle-kit';
 
+const schemaPath = process.env.DRIZZLE_BOOTSTRAP === 'dist' 
+    ? './dist/db/schema/index.js' 
+    : './src/db/schema/index.ts';
 
 export default defineConfig({
-    schema: './src/db/schema/*.ts',
+    schema: schemaPath,
     out: './src/db/migrations',
     dialect: 'postgresql',
     dbCredentials: {

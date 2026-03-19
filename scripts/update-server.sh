@@ -38,28 +38,7 @@ fi
 # We use --legacy-peer-deps to handle monorepo dependency conflicts and --force for Rollup locks
 npm install --legacy-peer-deps --force
 
-# 4. Database Backup & Schema Sync
-echo "🗄️ Preparing database..."
-
-# 4.1 Automatic Backup (Safety First)
-if [ ! -d "backups" ]; then mkdir backups; fi
-BACKUP_FILE="backups/pre_update_$(date +%Y%m%d_%H%M%S).sql"
-echo "💾 Creating database backup to $BACKUP_FILE..."
-# We try to extract DB name and credentials from .env if possible
-if [ -f .env ]; then
-    # Simple extraction of DATABASE_URL to use with pg_dump if needed, 
-    # but here we'll just use the application to run the sync
-    echo "   (Backup will be handled by the system if pg_dump is available)"
-fi
-
-echo "🗄️ Syncing database schema with drizzle-kit push..."
-# Using 'push' is SAFE because:
-# 1. It compares the current code schema with the live DB structure.
-# 2. It only adds what's missing (tables, columns, indexes).
-# 3. It will only drop items if they are NOT in the current code (which they are).
-cd apps/api && npm run db:push && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
-
-# 5. Build Process
+# 4. Build Process (MUST happen before DB sync to provide compiled schema)
 echo "🏗️ Building applications..."
 export NODE_OPTIONS="--max-old-space-size=2048"
 
@@ -72,6 +51,22 @@ if ! npm run build; then
     echo "🏗️ Retrying build..."
     npm run build
 fi
+
+# 5. Database Backup & Schema Sync
+echo "🗄️ Preparing database..."
+
+# 5.1 Automatic Backup (Safety First)
+if [ ! -d "backups" ]; then mkdir backups; fi
+BACKUP_FILE="backups/pre_update_$(date +%Y%m%d_%H%M%S).sql"
+echo "💾 Creating database backup to $BACKUP_FILE..."
+# We try to extract DB name and credentials from .env if possible
+if [ -f .env ]; then
+    echo "   (Backup will be handled by the system if pg_dump is available)"
+fi
+
+echo "🗄️ Syncing database schema with drizzle-kit push..."
+# We use the compiled dist files to avoid ESM extension issues in .ts source
+cd apps/api && DRIZZLE_BOOTSTRAP=dist npm run db:push && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
 # 6. PM2 Restart (if applicable)
 if command -v pm2 &> /dev/null; then
