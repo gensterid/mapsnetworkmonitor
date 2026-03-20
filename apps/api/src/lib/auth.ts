@@ -85,7 +85,10 @@ const resolvedTrustedOrigins = collectTrustedOrigins(resolvedBaseURL);
 
 logger.info({ baseURL: resolvedBaseURL, trustedOrigins: resolvedTrustedOrigins }, 'Better Auth config resolved');
 
+import { env } from '../config/env.js';
+
 export const auth = betterAuth({
+    secret: env.BETTER_AUTH_SECRET,
     baseURL: resolvedBaseURL,
     database: drizzleAdapter(db, {
         provider: 'pg',

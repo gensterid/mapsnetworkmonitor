@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { validateEnv } from './config/env.js';
+validateEnv(); // Early validation
 import express from 'express';
 import compression from 'compression';
 import routes from './routes/index.js';
@@ -132,17 +134,14 @@ app.use('/api/router-backups', routerBackupRoutes);
 
 // Body parsing
 app.use(express.json({ limit: '1mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 // Global sanitization after body parsing (to catch JSON/URL-encoded bodies)
 app.use(sanitizeMiddleware);
 
 // Health check endpoint (no auth required)
 app.get('/api/health', (_req, res) => {
-    const isProd = process.env.NODE_ENV === 'production';
     res.json({
         status: 'ok',
-        uptime: process.uptime(),
-        ...(isProd ? {} : { environment: process.env.NODE_ENV || 'development' }),
         timestamp: new Date().toISOString(),
     });
 });
