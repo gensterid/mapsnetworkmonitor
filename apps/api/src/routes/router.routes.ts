@@ -212,7 +212,8 @@ router.delete(
  * Operations
  */
 router.post('/:id/test-connection', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
-    const result = await routerService.testConnection(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const result = await routerService.testConnection(id, getEffectiveTenantId(req));
     res.json({ data: result });
 }));
 
@@ -223,17 +224,19 @@ router.post('/test-connection', strictLimiter, requireOperator, asyncHandler(asy
 }));
 
 router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
-    const router = await routerService.refreshRouterStatus(req.params.id, false, true, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const router = await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req));
     if (!router) throw ApiError.notFound('Router not found');
     const { passwordEncrypted, ...sanitized } = router;
     res.json({ data: sanitized });
 }));
 
 router.post('/:id/reboot', strictLimiter, requireAdmin, asyncHandler(async (req, res) => {
-    const router = await routerService.findById(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const router = await routerService.findById(id, getEffectiveTenantId(req));
     if (!router) throw ApiError.notFound('Router not found');
-    const result = await routerService.reboot(req.params.id, getEffectiveTenantId(req));
-    await settingsService.logAction('reboot', 'router', req.params.id, req.user!.id, req.user!.tenantId!, { name: router.name, success: result.success }, req);
+    const result = await routerService.reboot(id, getEffectiveTenantId(req));
+    await settingsService.logAction('reboot', 'router', id, req.user!.id, req.user!.tenantId!, { name: router.name, success: result.success }, req);
     res.json({ data: result });
 }));
 
@@ -241,12 +244,13 @@ router.post('/:id/reboot', strictLimiter, requireAdmin, asyncHandler(async (req,
  * Metrics, Interfaces, etc.
  */
 router.get('/:id/interfaces', asyncHandler(async (req, res) => {
-    const interfaces = await routerService.getInterfaces(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const interfaces = await routerService.getInterfaces(id, getEffectiveTenantId(req));
     res.json({ data: interfaces });
 }));
 
 router.get('/:id/interfaces/:interfaceId/history', asyncHandler(async (req, res) => {
-    const { id, interfaceId } = req.params;
+    const { id, interfaceId } = req.params as { id: string; interfaceId: string };
     const tenantId = getEffectiveTenantId(req);
     const routerData = await routerService.findById(id, tenantId);
     if (!routerData) throw new ApiError(404, 'Router not found or access denied');
@@ -256,48 +260,57 @@ router.get('/:id/interfaces/:interfaceId/history', asyncHandler(async (req, res)
 }));
 
 router.get('/:id/metrics', asyncHandler(async (req, res) => {
-    const metrics = await routerService.getLatestMetrics(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const metrics = await routerService.getLatestMetrics(id, getEffectiveTenantId(req));
     res.json({ data: metrics });
 }));
 
 router.get('/:id/metrics/history', asyncHandler(async (req, res) => {
+    const id = req.params.id as string;
     const limit = parseInt(req.query.limit as string) || 100;
-    const metrics = await routerService.getMetricsHistory(req.params.id, limit, getEffectiveTenantId(req));
+    const metrics = await routerService.getMetricsHistory(id, limit, getEffectiveTenantId(req));
     res.json({ data: metrics });
 }));
 
 router.get('/:id/ping-latencies', asyncHandler(async (req, res) => {
-    const latencies = await routerService.measurePingTargets(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const latencies = await routerService.measurePingTargets(id, getEffectiveTenantId(req));
     res.json({ data: latencies });
 }));
 
 router.get('/:id/neighbors', asyncHandler(async (req, res) => {
-    const neighbors = await routerService.getNeighbors(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const neighbors = await routerService.getNeighbors(id, getEffectiveTenantId(req));
     res.json({ data: neighbors });
 }));
 
 router.get('/:id/romon-neighbors', asyncHandler(async (req, res) => {
-    const neighbors = await routerService.getRomonNeighbors(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const neighbors = await routerService.getRomonNeighbors(id, getEffectiveTenantId(req));
     res.json({ data: neighbors });
 }));
 
 router.get('/:id/hotspot/active', asyncHandler(async (req, res) => {
-    const count = await routerService.getHotspotActive(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const count = await routerService.getHotspotActive(id, getEffectiveTenantId(req));
     res.json({ data: { count } });
 }));
 
 router.get('/:id/ppp/active', asyncHandler(async (req, res) => {
-    const count = await routerService.getPppActive(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const count = await routerService.getPppActive(id, getEffectiveTenantId(req));
     res.json({ data: { count } });
 }));
 
 router.get('/:id/ppp/sessions', asyncHandler(async (req, res) => {
-    const sessions = await routerService.getPppSessions(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const sessions = await routerService.getPppSessions(id, getEffectiveTenantId(req));
     res.json({ data: sessions });
 }));
 
 router.post('/:id/traffic/snmp', requireOperator, asyncHandler(async (req, res) => {
-    const traffic = await routerService.getSnmpTraffic(req.params.id, getEffectiveTenantId(req));
+    const id = req.params.id as string;
+    const traffic = await routerService.getSnmpTraffic(id, getEffectiveTenantId(req));
     res.json({ data: traffic });
 }));
 

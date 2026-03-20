@@ -132,7 +132,7 @@ router.put(
     '/:netwatchId',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id, netwatchId } = req.params;
+        const { id, netwatchId } = req.params as { id: string; netwatchId: string };
 
         if (!req.body) {
             throw new ApiError(400, 'Request body is missing');
@@ -157,7 +157,7 @@ router.delete(
     '/:netwatchId',
     requireOperator,
     asyncHandler(async (req, res) => {
-        const { id, netwatchId } = req.params;
+        const { id, netwatchId } = req.params as { id: string; netwatchId: string };
         const deleteFromMikrotik = req.query.deleteFromMikrotik !== 'false';
         const deleted = await routerService.deleteNetwatch(id, netwatchId, getEffectiveTenantId(req), deleteFromMikrotik);
 

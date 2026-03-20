@@ -2,38 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { db } from '../../db/index.js';
 import { partitionService } from '../../services/db/partition.service.js';
 
-// We need to mock the dependencies of scheduler.ts
-vi.mock('../../db/index.js', () => ({
-    db: {
-        select: vi.fn().mockReturnThis(),
-        from: vi.fn(),
-        delete: vi.fn().mockReturnThis(),
-        where: vi.fn(),
-        execute: vi.fn(),
-    },
-}));
-
-vi.mock('../../services/db/partition.service.js', () => ({
-    partitionService: {
-        ensurePartitionsExist: vi.fn(),
-    },
-}));
-
-vi.mock('../../lib/logger.js', () => ({
-    logger: {
-        info: vi.fn(),
-        error: vi.fn(),
-        warn: vi.fn(),
-        debug: vi.fn(),
-    },
-}));
-
-// Mock other services imported by scheduler
-vi.mock('../../services/settings.service.js', () => ({
-    settingsService: {
-        getSettingValue: vi.fn(),
-    },
-}));
+// Mock scheduler-specific internal behavior if needed, 
+// otherwise rely on global setup for services.
 
 // Now import scheduler after mocks
 import { startScheduler } from '../../lib/scheduler.js';
@@ -45,13 +15,12 @@ describe('Scheduler Integration Tests', () => {
     });
 
     it('should trigger partition maintenance during cleanupOldMetrics', async () => {
-        // Mock tenants list - cast to any to access vi.fn() properties
-        const mockSelect = db.select as any;
-        mockSelect.mockReturnValue({
+        // Mock tenants list
+        vi.mocked(db.select).mockReturnValue({
             from: vi.fn().mockReturnValue({
                 where: vi.fn().mockResolvedValue([{ id: 'tenant-1' }])
             })
-        });
+        } as any);
         
         // We'll manually trigger the internal cleanup function if possible, 
         // or verify it's called via interval.
