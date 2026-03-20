@@ -9,6 +9,7 @@ const envSchema = z.object({
     
     // Security
     BETTER_AUTH_SECRET: z.string().min(16, "Secret should be at least 16 characters"),
+    BETTER_AUTH_URL: z.string().url().optional(),
     ENCRYPTION_KEY: z.string().refine((val: string) => val.length === 32 || val.length === 64, {
         message: "Encryption key must be either 32 characters (plain) or 64 characters (hex)"
     }),

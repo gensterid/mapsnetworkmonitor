@@ -6,7 +6,8 @@ import {
     type PerformanceData,
     getDefaultDateRange,
     getAllowedRouterIds,
-    normalizeDateRange
+    normalizeDateRange,
+    formatAnalyticsTimestamp
 } from './analytics-utils.js';
 import { cacheService } from '../../lib/cache.js';
 import { logger } from '../../lib/logger.js';
@@ -66,25 +67,11 @@ export class PerformanceAnalyticsService {
 
         const results = await query;
 
-        const data = results.map(r => {
-            let formatTs = r.timestamp;
-            if (formatTs instanceof Date) {
-                formatTs = formatTs.toISOString();
-            } else if (typeof formatTs === 'string') {
-                if (!formatTs.endsWith('Z')) {
-                    formatTs = formatTs.replace(' ', 'T');
-                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
-                        formatTs += 'Z';
-                    }
-                }
-            }
-            
-            return {
-                timestamp: formatTs,
-                avgCpu: Math.round((Number(r.avgCpu) || 0) * 10) / 10,
-                avgMemory: Math.round((Number(r.avgMemory) || 0) * 10) / 10,
-            };
-        });
+        const data = results.map(r => ({
+            timestamp: formatAnalyticsTimestamp(r.timestamp),
+            avgCpu: Math.round((Number(r.avgCpu) || 0) * 10) / 10,
+            avgMemory: Math.round((Number(r.avgMemory) || 0) * 10) / 10,
+        }));
 
         // Cache for 5 minutes
         await cacheService.set(cacheKey, data, 300);
@@ -426,26 +413,12 @@ export class PerformanceAnalyticsService {
             .groupBy(timeSelect)
             .orderBy(timeSelect);
 
-        return results.map(r => {
-            let formatTs = r.timestamp;
-            if (formatTs instanceof Date) {
-                formatTs = formatTs.toISOString();
-            } else if (typeof formatTs === 'string') {
-                if (!formatTs.endsWith('Z')) {
-                    formatTs = formatTs.replace(' ', 'T');
-                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
-                        formatTs += 'Z';
-                    }
-                }
-            }
-
-            return {
-                timestamp: formatTs,
-                latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
-                signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
-                error: r.error || null
-            };
-        });
+        return results.map(r => ({
+            timestamp: formatAnalyticsTimestamp(r.timestamp),
+            latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
+            signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
+            error: r.error || null
+        }));
     }
 
     /**
@@ -497,25 +470,11 @@ export class PerformanceAnalyticsService {
             .groupBy(timeSelect)
             .orderBy(timeSelect);
 
-        return results.map(r => {
-            let formatTs = r.timestamp;
-            if (formatTs instanceof Date) {
-                formatTs = formatTs.toISOString();
-            } else if (typeof formatTs === 'string') {
-                if (!formatTs.endsWith('Z')) {
-                    formatTs = formatTs.replace(' ', 'T');
-                    if (!formatTs.includes('+') && !formatTs.match(/-\d{2}:\d{2}$/)) {
-                        formatTs += 'Z';
-                    }
-                }
-            }
-
-            return {
-                timestamp: formatTs,
-                txRate: r.avgTx !== null ? Math.round(Number(r.avgTx)) : 0,
-                rxRate: r.avgRx !== null ? Math.round(Number(r.avgRx)) : 0,
-            };
-        });
+        return results.map(r => ({
+            timestamp: formatAnalyticsTimestamp(r.timestamp),
+            txRate: r.avgTx !== null ? Math.round(Number(r.avgTx)) : 0,
+            rxRate: r.avgRx !== null ? Math.round(Number(r.avgRx)) : 0,
+        }));
     }
 }
 

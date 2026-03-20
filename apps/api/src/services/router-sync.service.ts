@@ -134,7 +134,7 @@ export class RouterSyncService {
  
                 // Save metrics only if resources are available (Full Sync)
                 if (resources) {
-                    await routerMetricsService.saveMetrics(id, router.name, resources, tx);
+                    await routerMetricsService.saveMetrics(id, router.name, router.tenantId!, resources, tx);
                 }
  
                 // Update interfaces

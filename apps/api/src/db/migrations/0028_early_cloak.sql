@@ -19,9 +19,9 @@ CREATE TABLE IF NOT EXISTS "genieacs_backups" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "router_metrics" ALTER COLUMN "id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "device_performance_history" ALTER COLUMN "id" DROP NOT NULL;--> statement-breakpoint
-ALTER TABLE "router_interface_metrics" ALTER COLUMN "id" DROP NOT NULL;--> statement-breakpoint
+-- ALTER TABLE "router_metrics" ALTER COLUMN "id" DROP NOT NULL;
+-- ALTER TABLE "device_performance_history" ALTER COLUMN "id" DROP NOT NULL;
+-- ALTER TABLE "router_interface_metrics" ALTER COLUMN "id" DROP NOT NULL;
 DO $$ BEGIN
     ALTER TABLE "router_metrics" ADD CONSTRAINT "router_metrics_id_recorded_at_pk" PRIMARY KEY("id","recorded_at");
 EXCEPTION WHEN duplicate_object THEN null;

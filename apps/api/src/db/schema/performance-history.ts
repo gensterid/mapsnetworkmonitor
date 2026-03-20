@@ -17,7 +17,7 @@ import { onus } from './onus.js';
  * for both MikroTik Netwatch hosts and ONUs.
  */
 export const devicePerformanceHistory = pgTable('device_performance_history', {
-    id: uuid('id').defaultRandom(),
+    id: uuid('id').defaultRandom().notNull(),
     tenantId: uuid('tenant_id')
         .notNull()
         .references(() => tenants.id, { onDelete: 'cascade' }),

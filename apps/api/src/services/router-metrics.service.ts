@@ -31,12 +31,13 @@ export class RouterMetricsService {
     /**
      * Save current resources as metrics and check for threshold alerts
      */
-    async saveMetrics(routerId: string, routerName: string, resources: any, tx: any = db): Promise<void> {
+    async saveMetrics(routerId: string, routerName: string, tenantId: string, resources: any, tx: any = db): Promise<void> {
         if (!resources) return;
 
         try {
             await tx.insert(routerMetrics).values({
                 routerId,
+                tenantId,
                 cpuLoad: resources.cpuLoad,
                 totalMemory: resources.totalMemory,
                 freeMemory: resources.freeMemory,

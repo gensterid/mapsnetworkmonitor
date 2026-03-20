@@ -14,7 +14,7 @@ import { tenants } from './tenants.js';
  * Tracks time-series data for interface TX/RX rates.
  */
 export const routerInterfaceMetrics = pgTable('router_interface_metrics', {
-    id: uuid('id').defaultRandom(),
+    id: uuid('id').defaultRandom().notNull(),
     interfaceId: uuid('interface_id')
         .notNull()
         .references(() => routerInterfaces.id, { onDelete: 'cascade' }),

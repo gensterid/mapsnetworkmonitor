@@ -142,7 +142,7 @@ export const routerInterfaces = pgTable('router_interfaces', {
 
 // Router metrics table (time-series data)
 export const routerMetrics = pgTable('router_metrics', {
-    id: uuid('id').defaultRandom(),
+    id: uuid('id').defaultRandom().notNull(),
     routerId: uuid('router_id')
         .notNull()
         .references(() => routers.id, { onDelete: 'cascade' }),
