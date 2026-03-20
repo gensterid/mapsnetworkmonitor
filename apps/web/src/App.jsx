@@ -6,7 +6,7 @@ import AppLayout from './components/layout/AppLayout';
 // Lazy load pages
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const Login = lazy(() => import('./pages/Login'));
-const Routers = lazy(() => import('./pages/Routers'));
+const Routers = lazy(() => import('./pages/routers/index'));
 const RouterDetails = lazy(() => import('./pages/RouterDetails'));
 const Olts = lazy(() => import('./pages/Olts'));
 const OltDetails = lazy(() => import('./pages/OltDetails'));

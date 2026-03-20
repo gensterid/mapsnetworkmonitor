@@ -322,49 +322,51 @@ export class RouterService {
      * Create a new router
      */
     async create(data: CreateRouterInput, tenantId: string): Promise<Router> {
-        const encryptedPassword = encrypt(data.password);
+        return await db.transaction(async (tx) => {
+            const encryptedPassword = encrypt(data.password);
 
-        const [router] = await db
-            .insert(routers)
-            .values({
-                tenantId: tenantId,
-                name: data.name,
-                host: data.host,
-                port: data.port || 8728,
-                username: data.username,
-                passwordEncrypted: encryptedPassword,
-                latitude: data.latitude,
-                longitude: data.longitude,
-                location: data.location,
-                locationImage: data.locationImage,
-                groupId: data.groupId,
-                notificationGroupId: data.notificationGroupId,
-                notes: data.notes,
-                snmpCommunity: data.snmpCommunity,
-                snmpPort: data.snmpPort,
-                useGenieAcs: data.useGenieAcs || false,
-                genieacsUrl: data.genieacsUrl,
-                genieacsUsername: data.genieacsUsername,
-                genieacsPasswordEncrypted: data.genieacsPassword ? encrypt(data.genieacsPassword) : null,
-                useWebhook: data.useWebhook || false,
-                webhookSecret: randomBytes(16).toString('hex'),
-                pollingIntervalMetrics: data.pollingIntervalMetrics || 300,
-                status: 'unknown',
-            })
-            .returning();
+            const [router] = await tx
+                .insert(routers)
+                .values({
+                    tenantId: tenantId,
+                    name: data.name,
+                    host: data.host,
+                    port: data.port || 8728,
+                    username: data.username,
+                    passwordEncrypted: encryptedPassword,
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    location: data.location,
+                    locationImage: data.locationImage,
+                    groupId: data.groupId,
+                    notificationGroupId: data.notificationGroupId,
+                    notes: data.notes,
+                    snmpCommunity: data.snmpCommunity,
+                    snmpPort: data.snmpPort,
+                    useGenieAcs: data.useGenieAcs || false,
+                    genieacsUrl: data.genieacsUrl,
+                    genieacsUsername: data.genieacsUsername,
+                    genieacsPasswordEncrypted: data.genieacsPassword ? encrypt(data.genieacsPassword) : null,
+                    useWebhook: data.useWebhook || false,
+                    webhookSecret: randomBytes(16).toString('hex'),
+                    pollingIntervalMetrics: data.pollingIntervalMetrics || 300,
+                    status: 'unknown',
+                })
+                .returning();
 
-        if (router) {
-            // Invalidate router lists
-            await cacheService.deletePattern('routers:list:*');
+            if (router) {
+                // Invalidate router lists
+                await cacheService.deletePattern('routers:list:*');
 
-            eventEmitter.broadcast('map_update', {
-                type: 'router',
-                id: router.id,
-                action: 'create',
-            });
-        }
+                eventEmitter.broadcast('map_update', {
+                    type: 'router',
+                    id: router.id,
+                    action: 'create',
+                });
+            }
 
-        return router;
+            return router;
+        });
     }
 
     /**
@@ -449,25 +451,27 @@ export class RouterService {
      * Delete router
      */
     async delete(id: string, tenantId?: string): Promise<boolean> {
-        const filters = [eq(routers.id, id)];
-        if (tenantId) {
-            filters.push(eq(routers.tenantId, tenantId));
-        }
+        return await db.transaction(async (tx) => {
+            const filters = [eq(routers.id, id)];
+            if (tenantId) {
+                filters.push(eq(routers.tenantId, tenantId));
+            }
 
-        const result = await db.delete(routers).where(and(...filters)).returning();
-        if (result.length > 0) {
-            // Invalidate cache
-            await cacheService.delete(`routers:detail:${id}`);
-            await cacheService.deletePattern('routers:list:*');
+            const result = await tx.delete(routers).where(and(...filters)).returning();
+            if (result.length > 0) {
+                // Invalidate cache
+                await cacheService.delete(`routers:detail:${id}`);
+                await cacheService.deletePattern('routers:list:*');
 
-            eventEmitter.broadcast('map_update', {
-                type: 'router',
-                id: id,
-                action: 'delete',
-            });
-            return true;
-        }
-        return false;
+                eventEmitter.broadcast('map_update', {
+                    type: 'router',
+                    id: id,
+                    action: 'delete',
+                });
+                return true;
+            }
+            return false;
+        });
     }
 
     /**

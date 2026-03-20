@@ -144,7 +144,7 @@ export class OltService {
                     let status = 'unknown';
                     const rawStatus = String(device.status || '').toLowerCase();
                     if (rawStatus === 'online' || rawStatus === 'active' || rawStatus === '1') status = 'online';
-                    else if (device.lastDownReason?.toLowerCase().includes('power')) status = 'power_down';
+                    else if (device.lastDownReason?.toLowerCase()?.includes('power')) status = 'power_down';
                     else status = 'offline';
 
                     if (!dbOnu) {

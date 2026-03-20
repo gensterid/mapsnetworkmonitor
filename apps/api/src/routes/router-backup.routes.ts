@@ -27,13 +27,13 @@ const uploadHandler = asyncHandler(async (req, res) => {
     res.json(result);
 });
 
-router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', uploadLimiter, express.raw({ type: () => true, limit: '50mb' }), uploadHandler);
-router.put('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', uploadLimiter, express.raw({ type: () => true, limit: '50mb' }), uploadHandler);
+router.post('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', uploadLimiter, express.raw({ type: () => true, limit: '10mb' }), uploadHandler);
+router.put('/upload/push/:routerId/:token/:filename/:type/:expectedSize?', uploadLimiter, express.raw({ type: () => true, limit: '10mb' }), uploadHandler);
 /**
  * Backward-compatible endpoint for query-string based uploads
  * Used by existing scripts or manual triggers using the old format
  */
-router.post('/upload', uploadLimiter, express.raw({ type: () => true, limit: '50mb' }), asyncHandler(async (req, res) => {
+router.post('/upload', uploadLimiter, express.raw({ type: () => true, limit: '10mb' }), asyncHandler(async (req, res) => {
     const { routerId, token, filename, type, size } = req.query;
     
     if (!routerId || !token || !filename || !type) {

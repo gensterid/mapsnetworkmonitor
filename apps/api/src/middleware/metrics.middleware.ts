@@ -13,7 +13,15 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
         const durationInSeconds = duration[0] + duration[1] / 1e9;
 
         // Path normalization (grouping dynamic routes like /api/routers/:id)
-        const path = req.route ? req.baseUrl + req.route.path : req.path;
+        let path = req.route ? req.baseUrl + req.route.path : req.path;
+        
+        // If no route was matched (e.g. 404 or middleware), 
+        // strip potential UUIDs/IDs to prevent high cardinality in Prometheus
+        if (!req.route) {
+            path = path.replace(/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/ig, '/:uuid');
+            path = path.replace(/\/\d+/g, '/:id');
+        }
+
         const labels = {
             method: req.method,
             route: path,
