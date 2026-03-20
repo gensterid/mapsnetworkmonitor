@@ -40,25 +40,71 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('ErrorBoundary caught:', error, errorInfo);
-    this.setState({ errorInfo });
+    
+    // Auto-reload on chunk load errors (common after new deployments)
+    const isChunkError = error?.message?.includes('loading dynamically imported module') || 
+                        error?.message?.includes('Failed to fetch dynamically imported module');
+    
+    if (isChunkError) {
+      console.warn('Chunk load error detected. Attempting to fix by reloading...');
+      // To avoid infinite reload loops, we check session storage
+      const lastReload = sessionStorage.getItem('last-chunk-reload');
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload) > 30000) {
+        sessionStorage.setItem('last-chunk-reload', now.toString());
+        window.location.reload();
+        return;
+      }
+    }
+    
+    this.setState({ errorInfo, isChunkError });
   }
 
   render() {
     if (this.state.hasError) {
+      const isChunkError = this.state.isChunkError;
+      
       return (
         <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white p-8">
           <div className="max-w-2xl text-center">
-            <h1 className="text-2xl font-bold text-red-400 mb-4">Something went wrong</h1>
-            <pre className="text-left text-sm bg-slate-900 p-4 rounded-lg overflow-auto max-h-64 text-red-300">
+            <div className="mb-6 inline-flex p-4 bg-red-500/10 rounded-full text-red-400">
+              <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {isChunkError ? 'Update Aplikasi Tersedia' : 'Terjadi Kesalahan'}
+            </h1>
+            
+            <p className="text-slate-400 mb-8 max-w-md mx-auto">
+              {isChunkError 
+                ? 'Versi baru aplikasi telah diinstal. Silakan muat ulang halaman untuk melanjutkan.' 
+                : 'Kami mohon maaf atas ketidaknyamanan ini. Silakan coba muat ulang halaman atau hubungi administrator.'}
+            </p>
+
+            <div className="bg-slate-900 p-4 rounded-lg overflow-auto max-h-48 text-left text-xs text-red-300 font-mono mb-6 border border-red-500/20">
+              <div className="font-bold mb-1">Error Trace:</div>
               {this.state.error?.toString()}
-              {this.state.errorInfo?.componentStack}
-            </pre>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-primary rounded-lg"
-            >
-              Reload Page
-            </button>
+              <div className="mt-2 opacity-50">
+                {this.state.errorInfo?.componentStack}
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={() => window.location.reload(true)}
+                className="w-full sm:w-auto px-6 py-3 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                Muat Ulang Halaman
+              </button>
+              
+              <button
+                onClick={() => window.location.href = '/'}
+                className="w-full sm:w-auto px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl transition-all"
+              >
+                Kembali ke Beranda
+              </button>
+            </div>
           </div>
         </div>
       );
