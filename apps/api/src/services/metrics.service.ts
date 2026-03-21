@@ -12,12 +12,20 @@ export class MetricsService {
     public readonly httpRequestDuration: Histogram;
 
     // Device Status Metrics
-    public readonly routerStatusGauge: Gauge;
-    public readonly oltStatusGauge: Gauge;
-    public readonly onuStatusGauge: Gauge;
+    public readonly deviceRouterStatusCount: Gauge;
+    public readonly deviceOltStatusCount: Gauge;
+    public readonly deviceOnuStatusCount: Gauge;
 
     // Queue Metrics (BullMQ)
     public readonly queueSizeGauge: Gauge;
+
+    // Expanded Application Metrics
+    public readonly alertCount: Gauge;
+    public readonly pppoeSessionsActiveCount: Gauge;
+    public readonly routerBackupsTotal: Gauge;
+    public readonly netwatchHostsStatusCount: Gauge;
+    public readonly systemUserCount: Gauge;
+    public readonly systemTenantCount: Gauge;
 
     private constructor() {
         this.registry = new Registry();
@@ -44,21 +52,21 @@ export class MetricsService {
             registers: [this.registry]
         });
 
-        this.routerStatusGauge = new Gauge({
+        this.deviceRouterStatusCount = new Gauge({
             name: 'device_router_status_count',
             help: 'Number of routers by status',
             labelNames: ['status', 'tenant_id'],
             registers: [this.registry]
         });
 
-        this.oltStatusGauge = new Gauge({
+        this.deviceOltStatusCount = new Gauge({
             name: 'device_olt_status_count',
             help: 'Number of OLTs by status',
             labelNames: ['status', 'tenant_id'],
             registers: [this.registry]
         });
 
-        this.onuStatusGauge = new Gauge({
+        this.deviceOnuStatusCount = new Gauge({
             name: 'device_onu_status_count',
             help: 'Number of ONUs by status',
             labelNames: ['status', 'tenant_id'],
@@ -71,6 +79,54 @@ export class MetricsService {
             labelNames: ['queue_name', 'status'],
             registers: [this.registry]
         });
+
+        this.alertCount = new Gauge({
+            name: 'app_alert_count',
+            help: 'Number of unresolved alerts by severity and type',
+            labelNames: ['severity', 'type', 'tenant_id'],
+            registers: [this.registry]
+        });
+
+        this.pppoeSessionsActiveCount = new Gauge({
+            name: 'app_pppoe_sessions_active_count',
+            help: 'Number of active PPPoE sessions by tenant',
+            labelNames: ['tenant_id'],
+            registers: [this.registry]
+        });
+
+        this.routerBackupsTotal = new Gauge({
+            name: 'app_router_backups_total',
+            help: 'Total number of router backups by type and tenant',
+            labelNames: ['type', 'tenant_id'],
+            registers: [this.registry]
+        });
+
+        this.netwatchHostsStatusCount = new Gauge({
+            name: 'app_netwatch_hosts_status_count',
+            help: 'Number of netwatch hosts by status and tenant',
+            labelNames: ['status', 'tenant_id'],
+            registers: [this.registry]
+        });
+
+        this.systemUserCount = new Gauge({
+            name: 'app_system_user_count',
+            help: 'Total number of users in the system',
+            registers: [this.registry]
+        });
+
+        this.systemTenantCount = new Gauge({
+            name: 'app_system_tenant_count',
+            help: 'Total number of tenants in the system',
+            registers: [this.registry]
+        });
+
+        // Start periodic updates
+        this.updateSystemGauges();
+        this.updateQueueGauges();
+        setInterval(() => {
+            this.updateSystemGauges();
+            this.updateQueueGauges();
+        }, 30000); // Every 30 seconds
     }
 
     public static getInstance(): MetricsService {
@@ -105,9 +161,9 @@ export class MetricsService {
                 count: count()
             }).from(routers).groupBy(routers.tenantId, routers.status);
 
-            this.routerStatusGauge.reset();
+            this.deviceRouterStatusCount.reset();
             for (const stat of routerStats) {
-                this.routerStatusGauge.set(
+                this.deviceRouterStatusCount.set(
                     { tenant_id: stat.tenantId || 'none', status: stat.status || 'unknown' },
                     stat.count
                 );
@@ -120,9 +176,9 @@ export class MetricsService {
                 count: count()
             }).from(olts).groupBy(olts.tenantId, olts.status);
 
-            this.oltStatusGauge.reset();
+            this.deviceOltStatusCount.reset();
             for (const stat of oltStats) {
-                this.oltStatusGauge.set(
+                this.deviceOltStatusCount.set(
                     { tenant_id: stat.tenantId || 'none', status: stat.status || 'unknown' },
                     stat.count
                 );
@@ -135,13 +191,91 @@ export class MetricsService {
                 count: count()
             }).from(onus).groupBy(onus.tenantId, onus.status);
 
-            this.onuStatusGauge.reset();
+            this.deviceOnuStatusCount.reset();
             for (const stat of onuStats) {
-                this.onuStatusGauge.set(
+                this.deviceOnuStatusCount.set(
                     { tenant_id: stat.tenantId || 'none', status: stat.status || 'unknown' },
                     stat.count
                 );
             }
+
+            // 4. Alerts (Unresolved)
+            const { alerts } = await import('../db/schema/index.js');
+            const alertStats = await db.select({
+                tenantId: alerts.tenantId,
+                severity: alerts.severity,
+                type: alerts.type,
+                count: count()
+            }).from(alerts)
+                .where(eq(alerts.resolved, false))
+                .groupBy(alerts.tenantId, alerts.severity, alerts.type);
+
+            this.alertCount.reset();
+            for (const stat of alertStats) {
+                this.alertCount.set(
+                    { tenant_id: stat.tenantId || 'none', severity: stat.severity, type: stat.type },
+                    stat.count
+                );
+            }
+
+            // 5. PPPoE Sessions (Active)
+            const { pppoeSessions } = await import('../db/schema/index.js');
+            const pppoeStats = await db.select({
+                tenantId: pppoeSessions.tenantId,
+                count: count()
+            }).from(pppoeSessions)
+                .where(eq(pppoeSessions.status, 'active'))
+                .groupBy(pppoeSessions.tenantId);
+
+            this.pppoeSessionsActiveCount.reset();
+            for (const stat of pppoeStats) {
+                this.pppoeSessionsActiveCount.set(
+                    { tenant_id: stat.tenantId || 'none' },
+                    stat.count
+                );
+            }
+
+            // 6. Router Backups
+            const { routerBackups } = await import('../db/schema/index.js');
+            const backupStats = await db.select({
+                tenantId: routerBackups.tenantId,
+                type: routerBackups.type,
+                count: count()
+            }).from(routerBackups)
+                .groupBy(routerBackups.tenantId, routerBackups.type);
+
+            this.routerBackupsTotal.reset();
+            for (const stat of backupStats) {
+                this.routerBackupsTotal.set(
+                    { tenant_id: stat.tenantId || 'none', type: stat.type },
+                    stat.count
+                );
+            }
+
+            // 7. Netwatch Hosts
+            const { netwatchHosts } = await import('../db/schema/index.js');
+            const netwatchStats = await db.select({
+                tenantId: netwatchHosts.tenantId,
+                status: netwatchHosts.status,
+                count: count()
+            }).from(netwatchHosts)
+                .groupBy(netwatchHosts.tenantId, netwatchHosts.status);
+
+            this.netwatchHostsStatusCount.reset();
+            for (const stat of netwatchStats) {
+                this.netwatchHostsStatusCount.set(
+                    { tenant_id: stat.tenantId || 'none', status: stat.status || 'unknown' },
+                    stat.count
+                );
+            }
+
+            // 8. System Totals (Users & Tenants)
+            const { users, tenants } = await import('../db/schema/index.js');
+            const [uCount] = await db.select({ count: count() }).from(users);
+            const [tCount] = await db.select({ count: count() }).from(tenants);
+
+            this.systemUserCount.set(uCount.count);
+            this.systemTenantCount.set(tCount.count);
 
         } catch (err) {
             logger.error({ err }, 'Failed to update system metrics Gauges');
