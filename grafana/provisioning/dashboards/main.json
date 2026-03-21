@@ -286,8 +286,8 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "MikroTik Monitor - Full Stack Overview",
-  "uid": "mikrotik-monitor",
-  "version": 5,
+  "title": "Router Specific Monitoring",
+  "uid": "router-specific-new",
+  "version": 1,
   "weekStart": ""
 }
