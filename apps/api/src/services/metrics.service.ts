@@ -27,6 +27,10 @@ export class MetricsService {
     public readonly systemUserCount: Gauge;
     public readonly systemTenantCount: Gauge;
 
+    // Interface Traffic Metrics
+    public readonly interfaceTrafficTxBps: Gauge;
+    public readonly interfaceTrafficRxBps: Gauge;
+
     private constructor() {
         this.registry = new Registry();
         this.registry.setDefaultLabels({
@@ -120,6 +124,20 @@ export class MetricsService {
             registers: [this.registry]
         });
 
+        this.interfaceTrafficTxBps = new Gauge({
+            name: 'app_interface_traffic_tx_bps',
+            help: 'Interface TX rate in bits per second',
+            labelNames: ['router_id', 'router_name', 'interface_name', 'tenant_id'],
+            registers: [this.registry]
+        });
+
+        this.interfaceTrafficRxBps = new Gauge({
+            name: 'app_interface_traffic_rx_bps',
+            help: 'Interface RX rate in bits per second',
+            labelNames: ['router_id', 'router_name', 'interface_name', 'tenant_id'],
+            registers: [this.registry]
+        });
+
         // Start periodic updates
         this.updateSystemGauges();
         this.updateQueueGauges();
@@ -150,7 +168,7 @@ export class MetricsService {
     public async updateSystemGauges() {
         try {
             const { db } = await import('../db/index.js');
-            const { routers, olts, onus, alerts, pppoeSessions, routerBackups, netwatchHosts, users, tenants } = await import('../db/schema/index.js');
+            const { routers, olts, onus, alerts, pppoeSessions, routerBackups, netwatchHosts, users, tenants, routerInterfaces } = await import('../db/schema/index.js');
             const { sql, count, eq } = await import('drizzle-orm');
 
             // 1. Router Statuses
@@ -302,7 +320,31 @@ export class MetricsService {
                 );
             }
 
-            // 8. System Totals (Users & Tenants)
+            // 8. Interface Traffic (Real-time Rates)
+            const ifStats = await db.select({
+                routerId: routerInterfaces.routerId,
+                routerName: routers.name,
+                interfaceName: routerInterfaces.name,
+                txRate: routerInterfaces.txRate,
+                rxRate: routerInterfaces.rxRate,
+                tenantId: routers.tenantId
+            }).from(routerInterfaces)
+              .leftJoin(routers, eq(routerInterfaces.routerId, routers.id));
+
+            this.interfaceTrafficTxBps.reset();
+            this.interfaceTrafficRxBps.reset();
+            for (const stat of ifStats) {
+                const labels = {
+                    router_id: stat.routerId,
+                    router_name: stat.routerName || 'unknown',
+                    interface_name: stat.interfaceName,
+                    tenant_id: stat.tenantId || 'none'
+                };
+                this.interfaceTrafficTxBps.set(labels, stat.txRate || 0);
+                this.interfaceTrafficRxBps.set(labels, stat.rxRate || 0);
+            }
+
+            // 9. System Totals (Users & Tenants)
             const [uCount] = await db.select({ count: count() }).from(users);
             const [tCount] = await db.select({ count: count() }).from(tenants);
 

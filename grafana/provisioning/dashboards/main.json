@@ -29,12 +29,12 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "expr": "device_router_status_count{router_id=~\"$router\"}",
-          "legendFormat": "Router {{status}} - {{router_name}}",
+          "expr": "device_router_status_count{router_name=~\"$router\"}",
+          "legendFormat": "Status {{status}} - {{router_name}}",
           "refId": "A"
         }
       ],
-      "title": "Routers",
+      "title": "Router Status",
       "type": "state-timeline"
     },
     {
@@ -59,7 +59,7 @@
           "refId": "A"
         }
       ],
-      "title": "OLTs (Global By Tenant)",
+      "title": "OLTs (Global)",
       "type": "state-timeline"
     },
     {
@@ -84,11 +84,56 @@
           "refId": "A"
         }
       ],
-      "title": "ONUs (Global By Tenant)",
+      "title": "ONUs (Global)",
       "type": "state-timeline"
     },
     {
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 200,
+      "title": "INTERFACE TRAFFIC (REAL-TIME)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "Prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "unit": "bps"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "TX Rate" },
+            "properties": [{ "id": "color", "options": { "fixedColor": "green", "mode": "fixed" } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "RX Rate" },
+            "properties": [{ "id": "color", "options": { "fixedColor": "blue", "mode": "fixed" } }]
+          }
+        ]
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 201,
+      "options": {
+        "footer": { "fields": "", "reducer": ["sum"], "show": false },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "expr": "app_interface_traffic_tx_bps{router_name=~\"$router\"}",
+          "legendFormat": "{{interface_name}} - TX",
+          "refId": "TX"
+        },
+        {
+          "expr": "app_interface_traffic_rx_bps{router_name=~\"$router\"}",
+          "legendFormat": "{{interface_name}} - RX",
+          "refId": "RX"
+        }
+      ],
+      "title": "Interface Traffic (bps)",
+      "type": "bargauge"
+    },
+    {
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
       "id": 101,
       "title": "ALERTS & INCIDENTS",
       "type": "row"
@@ -99,7 +144,7 @@
         "defaults": { "color": { "mode": "palette-classic" } },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 6, "x": 0, "y": 17 },
       "id": 5,
       "options": {
         "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
@@ -109,7 +154,7 @@
       },
       "targets": [
         {
-          "expr": "sum(app_alert_count{router_id=~\"$router\"}) by (severity)",
+          "expr": "sum(app_alert_count{router_name=~\"$router\"}) by (severity)",
           "legendFormat": "{{severity}}",
           "refId": "A"
         }
@@ -119,7 +164,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 8 },
+      "gridPos": { "h": 8, "w": 18, "x": 6, "y": 17 },
       "id": 6,
       "options": {
         "orientation": "horizontal",
@@ -127,7 +172,7 @@
       },
       "targets": [
         {
-          "expr": "sum(app_alert_count{router_id=~\"$router\"}) by (type)",
+          "expr": "sum(app_alert_count{router_name=~\"$router\"}) by (type)",
           "legendFormat": "{{type}}",
           "refId": "A"
         }
@@ -136,7 +181,7 @@
       "type": "bargauge"
     },
     {
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 25 },
       "id": 102,
       "title": "NETWORK & TRAFFIC",
       "type": "row"
@@ -147,7 +192,7 @@
         "defaults": { "color": { "mode": "continuous-GrYlRd" }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 80 }] }, "unit": "none" },
         "overrides": []
       },
-      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 17 },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 26 },
       "id": 7,
       "options": {
         "orientation": "auto",
@@ -158,7 +203,7 @@
       },
       "targets": [
         {
-          "expr": "sum(app_pppoe_sessions_active_count{router_id=~\"$router\"})",
+          "expr": "sum(app_pppoe_sessions_active_count{router_name=~\"$router\"})",
           "refId": "A"
         }
       ],
@@ -167,7 +212,7 @@
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 17 },
+      "gridPos": { "h": 6, "w": 18, "x": 6, "y": 26 },
       "id": 8,
       "options": {
         "orientation": "auto",
@@ -175,85 +220,13 @@
       },
       "targets": [
         {
-          "expr": "app_netwatch_hosts_status_count{router_id=~\"$router\"}",
+          "expr": "app_netwatch_hosts_status_count{router_name=~\"$router\"}",
           "legendFormat": "{{status}} - {{router_name}}",
           "refId": "A"
         }
       ],
       "title": "Netwatch Host Availability",
       "type": "state-timeline"
-    },
-    {
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
-      "id": 103,
-      "title": "ADMINISTRATION & BACKUPS",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 24 },
-      "id": 110,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "text": {},
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "sum(app_router_backups_total{router_id=~\"$router\"})",
-          "refId": "A"
-        }
-      ],
-      "title": "Total Router Backups",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 24 },
-      "id": 10,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "text": {},
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "app_system_user_count",
-          "refId": "A"
-        }
-      ],
-      "title": "Total Global Users",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 24 },
-      "id": 11,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "text": {},
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "app_system_tenant_count",
-          "refId": "A"
-        }
-      ],
-      "title": "Total Global Tenants",
-      "type": "stat"
     }
   ],
   "refresh": "10s",
@@ -265,15 +238,15 @@
       {
         "current": { "selected": false, "text": "All", "value": "$__all" },
         "datasource": { "type": "prometheus", "uid": "Prometheus" },
-        "definition": "label_values(device_router_status_count, router_id)",
+        "definition": "label_values(device_router_status_count, router_name)",
         "hide": 0,
         "includeAll": true,
-        "label": "Router ID",
+        "label": "Router Name",
         "multi": false,
         "name": "router",
         "options": [],
         "query": {
-          "query": "label_values(device_router_status_count, router_id)",
+          "query": "label_values(device_router_status_count, router_name)",
           "refId": "Prometheus-Router-Variable-Query"
         },
         "refresh": 1,
@@ -288,6 +261,6 @@
   "timezone": "",
   "title": "Router Specific Monitoring",
   "uid": "router-specific-new",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
