@@ -73,8 +73,7 @@
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showThresholdLabels": false,
-        "showThresholdMarkers": true
+        "showThresholdLabels": false, "showThresholdMarkers": true
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -90,7 +89,7 @@
     {
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
       "id": 200,
-      "title": "INTERFACE TRAFFIC (REAL-TIME)",
+      "title": "INTERFACE TRAFFIC HISTORY",
       "type": "row"
     },
     {
@@ -98,15 +97,35 @@
       "fieldConfig": {
         "defaults": {
           "color": { "mode": "palette-classic" },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 15,
+            "gradientMode": "opacity",
+            "hideFrom": { "legend": false, "tooltip": false, "viz": false },
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": { "type": "linear" },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": { "group": "A", "mode": "none" },
+            "thresholdsStyle": { "mode": "off" }
+          },
           "unit": "bps"
         },
         "overrides": [
           {
-            "matcher": { "id": "byName", "options": "TX Rate" },
+            "matcher": { "id": "byRegexp", "options": "/.*TX/" },
             "properties": [{ "id": "color", "options": { "fixedColor": "green", "mode": "fixed" } }]
           },
           {
-            "matcher": { "id": "byName", "options": "RX Rate" },
+            "matcher": { "id": "byRegexp", "options": "/.*RX/" },
             "properties": [{ "id": "color", "options": { "fixedColor": "blue", "mode": "fixed" } }]
           }
         ]
@@ -114,23 +133,25 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
       "id": 201,
       "options": {
-        "footer": { "fields": "", "reducer": ["sum"], "show": false },
-        "showHeader": true
+        "legend": { "calcs": ["lastNotNull", "max"], "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
       },
+      "repeat": "interface",
+      "repeatDirection": "v",
       "targets": [
         {
-          "expr": "app_interface_traffic_tx_bps{router_name=~\"$router\"}",
+          "expr": "app_interface_traffic_tx_bps{router_name=~\"$router\", interface_name=~\"$interface\"}",
           "legendFormat": "{{interface_name}} - TX",
           "refId": "TX"
         },
         {
-          "expr": "app_interface_traffic_rx_bps{router_name=~\"$router\"}",
+          "expr": "app_interface_traffic_rx_bps{router_name=~\"$router\", interface_name=~\"$interface\"}",
           "legendFormat": "{{interface_name}} - RX",
           "refId": "RX"
         }
       ],
-      "title": "Interface Traffic (bps)",
-      "type": "bargauge"
+      "title": "Traffic: $interface",
+      "type": "timeseries"
     },
     {
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
@@ -253,6 +274,25 @@
         "regex": "",
         "sort": 1,
         "type": "query"
+      },
+      {
+        "current": { "selected": false, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "definition": "label_values(app_interface_traffic_tx_bps{router_name=~\"$router\"}, interface_name)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Interface",
+        "multi": true,
+        "name": "interface",
+        "options": [],
+        "query": {
+          "query": "label_values(app_interface_traffic_tx_bps{router_name=~\"$router\"}, interface_name)",
+          "refId": "Prometheus-Interface-Variable-Query"
+        },
+        "refresh": 1,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
       }
     ]
   },
@@ -261,6 +301,6 @@
   "timezone": "",
   "title": "Router Specific Monitoring",
   "uid": "router-specific-new",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
