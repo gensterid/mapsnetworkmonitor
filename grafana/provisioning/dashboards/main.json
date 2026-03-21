@@ -97,7 +97,7 @@
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
       "fieldConfig": {
         "defaults": {
-          "color": { "mode": "palette-classic" },
+          "color": { "fixedColor": "green", "mode": "fixed" },
           "custom": {
             "axisBorderShow": false,
             "axisCenteredZero": false,
@@ -122,17 +122,16 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byFrameRefID", "options": "TX" },
-            "properties": [
-              { "id": "color", "options": { "fixedColor": "green", "mode": "fixed" } },
-              { "id": "displayName", "options": "TX Rate" }
-            ]
-          },
-          {
-            "matcher": { "id": "byFrameRefID", "options": "RX" },
+            "matcher": { "id": "byRegexp", "options": "/.*RX/" },
             "properties": [
               { "id": "color", "options": { "fixedColor": "blue", "mode": "fixed" } },
               { "id": "displayName", "options": "RX Rate" }
+            ]
+          },
+          {
+            "matcher": { "id": "byRegexp", "options": "/.*TX/" },
+            "properties": [
+              { "id": "displayName", "options": "TX Rate" }
             ]
           }
         ]
@@ -308,6 +307,6 @@
   "timezone": "",
   "title": "Router Specific Monitoring",
   "uid": "router-specific-new",
-  "version": 5,
+  "version": 10,
   "weekStart": ""
 }
