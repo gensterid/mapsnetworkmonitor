@@ -273,11 +273,11 @@
         "name": "router",
         "options": [],
         "query": {
-          "query": "query_result(device_router_status_count)",
+          "query": "label_values(device_router_status_count, router_id)",
           "refId": "Prometheus-Router-Variable-Query"
         },
         "refresh": 1,
-        "regex": "/router_id=\"([^\"]+)\"/",
+        "regex": "",
         "sort": 1,
         "type": "query"
       }
@@ -286,8 +286,8 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "MikroTik Monitor - Router Filtering",
-  "uid": "mikrotik-monitor-filtered",
-  "version": 3,
+  "title": "MikroTik Monitor - Full Stack Overview",
+  "uid": "mikrotik-monitor",
+  "version": 5,
   "weekStart": ""
 }
