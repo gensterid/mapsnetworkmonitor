@@ -29,8 +29,8 @@
       "pluginVersion": "10.0.0",
       "targets": [
         {
-          "expr": "device_router_status_count",
-          "legendFormat": "Router {{status}}",
+          "expr": "device_router_status_count{router_id=~\"$router\"}",
+          "legendFormat": "Router {{status}} - {{router_name}}",
           "refId": "A"
         }
       ],
@@ -59,7 +59,7 @@
           "refId": "A"
         }
       ],
-      "title": "OLTs",
+      "title": "OLTs (Global By Tenant)",
       "type": "state-timeline"
     },
     {
@@ -84,7 +84,7 @@
           "refId": "A"
         }
       ],
-      "title": "ONUs",
+      "title": "ONUs (Global By Tenant)",
       "type": "state-timeline"
     },
     {
@@ -109,7 +109,7 @@
       },
       "targets": [
         {
-          "expr": "sum(app_alert_count) by (severity)",
+          "expr": "sum(app_alert_count{router_id=~\"$router\"}) by (severity)",
           "legendFormat": "{{severity}}",
           "refId": "A"
         }
@@ -127,7 +127,7 @@
       },
       "targets": [
         {
-          "expr": "sum(app_alert_count) by (type)",
+          "expr": "sum(app_alert_count{router_id=~\"$router\"}) by (type)",
           "legendFormat": "{{type}}",
           "refId": "A"
         }
@@ -158,7 +158,7 @@
       },
       "targets": [
         {
-          "expr": "sum(app_pppoe_sessions_active_count)",
+          "expr": "sum(app_pppoe_sessions_active_count{router_id=~\"$router\"})",
           "refId": "A"
         }
       ],
@@ -175,8 +175,8 @@
       },
       "targets": [
         {
-          "expr": "app_netwatch_hosts_status_count",
-          "legendFormat": "{{status}}",
+          "expr": "app_netwatch_hosts_status_count{router_id=~\"$router\"}",
+          "legendFormat": "{{status}} - {{router_name}}",
           "refId": "A"
         }
       ],
@@ -186,44 +186,34 @@
     {
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
       "id": 103,
-      "title": "SYSTEM PERFORMANCE",
+      "title": "ADMINISTRATION & BACKUPS",
       "type": "row"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
-      "id": 2,
+      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 24 },
+      "id": 110,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "text": {},
+        "textMode": "auto"
+      },
       "targets": [
         {
-          "expr": "process_cpu_seconds_total",
+          "expr": "sum(app_router_backups_total{router_id=~\"$router\"})",
           "refId": "A"
         }
       ],
-      "title": "API CPU Usage",
-      "type": "timeseries"
+      "title": "Total Router Backups",
+      "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
-      "id": 9,
-      "targets": [
-        {
-          "expr": "process_resident_memory_bytes",
-          "refId": "A"
-        }
-      ],
-      "title": "API Memory Usage (RSS)",
-      "type": "timeseries"
-    },
-    {
-      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
-      "id": 104,
-      "title": "ADMINISTRATION",
-      "type": "row"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 0, "y": 33 },
+      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 24 },
       "id": 10,
       "options": {
         "colorMode": "value",
@@ -240,12 +230,12 @@
           "refId": "A"
         }
       ],
-      "title": "Total Users",
+      "title": "Total Global Users",
       "type": "stat"
     },
     {
       "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 8, "y": 33 },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 24 },
       "id": 11,
       "options": {
         "colorMode": "value",
@@ -262,29 +252,7 @@
           "refId": "A"
         }
       ],
-      "title": "Total Tenants",
-      "type": "stat"
-    },
-    {
-      "datasource": { "type": "prometheus", "uid": "Prometheus" },
-      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 33 },
-      "id": 12,
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "text": {},
-        "textMode": "auto"
-      },
-      "targets": [
-        {
-          "expr": "sum(app_router_backups_total)",
-          "refId": "A"
-        }
-      ],
-      "title": "Total Router Backups",
+      "title": "Total Global Tenants",
       "type": "stat"
     }
   ],
@@ -292,12 +260,34 @@
   "schemaVersion": 38,
   "style": "dark",
   "tags": ["mikrotik", "monitor"],
-  "templating": { "list": [] },
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": false, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "Prometheus" },
+        "definition": "label_values(device_router_status_count, router_id)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Router ID",
+        "multi": false,
+        "name": "router",
+        "options": [],
+        "query": {
+          "query": "query_result(device_router_status_count)",
+          "refId": "Prometheus-Router-Variable-Query"
+        },
+        "refresh": 1,
+        "regex": "/router_id=\"([^\"]+)\"/",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "",
-  "title": "MikroTik Monitor - Full Stack Overview",
-  "uid": "mikrotik-monitor-full",
-  "version": 2,
+  "title": "MikroTik Monitor - Router Filtering",
+  "uid": "mikrotik-monitor-filtered",
+  "version": 3,
   "weekStart": ""
 }

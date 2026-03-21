@@ -55,7 +55,7 @@ export class MetricsService {
         this.deviceRouterStatusCount = new Gauge({
             name: 'device_router_status_count',
             help: 'Number of routers by status',
-            labelNames: ['status', 'tenant_id'],
+            labelNames: ['status', 'tenant_id', 'router_id', 'router_name'],
             registers: [this.registry]
         });
 
@@ -83,28 +83,28 @@ export class MetricsService {
         this.alertCount = new Gauge({
             name: 'app_alert_count',
             help: 'Number of unresolved alerts by severity and type',
-            labelNames: ['severity', 'type', 'tenant_id'],
+            labelNames: ['severity', 'type', 'tenant_id', 'router_id', 'router_name'],
             registers: [this.registry]
         });
 
         this.pppoeSessionsActiveCount = new Gauge({
             name: 'app_pppoe_sessions_active_count',
-            help: 'Number of active PPPoE sessions by tenant',
-            labelNames: ['tenant_id'],
+            help: 'Number of active PPPoE sessions by tenant and router',
+            labelNames: ['tenant_id', 'router_id', 'router_name'],
             registers: [this.registry]
         });
 
         this.routerBackupsTotal = new Gauge({
             name: 'app_router_backups_total',
             help: 'Total number of router backups by type and tenant',
-            labelNames: ['type', 'tenant_id'],
+            labelNames: ['type', 'tenant_id', 'router_id', 'router_name'],
             registers: [this.registry]
         });
 
         this.netwatchHostsStatusCount = new Gauge({
             name: 'app_netwatch_hosts_status_count',
             help: 'Number of netwatch hosts by status and tenant',
-            labelNames: ['status', 'tenant_id'],
+            labelNames: ['status', 'tenant_id', 'router_id', 'router_name'],
             registers: [this.registry]
         });
 
@@ -146,30 +146,35 @@ export class MetricsService {
 
     /**
      * Update system-wide Gauges from Database state
-     * This should be called periodically by the scheduler
      */
     public async updateSystemGauges() {
         try {
             const { db } = await import('../db/index.js');
-            const { routers, olts, onus } = await import('../db/schema/index.js');
+            const { routers, olts, onus, alerts, pppoeSessions, routerBackups, netwatchHosts, users, tenants } = await import('../db/schema/index.js');
             const { sql, count, eq } = await import('drizzle-orm');
 
             // 1. Router Statuses
             const routerStats = await db.select({
                 tenantId: routers.tenantId,
+                routerId: routers.id,
+                routerName: routers.name,
                 status: routers.status,
-                count: count()
-            }).from(routers).groupBy(routers.tenantId, routers.status);
+            }).from(routers);
 
             this.deviceRouterStatusCount.reset();
             for (const stat of routerStats) {
                 this.deviceRouterStatusCount.set(
-                    { tenant_id: stat.tenantId || 'none', status: stat.status || 'unknown' },
-                    stat.count
+                    { 
+                        tenant_id: stat.tenantId || 'none', 
+                        router_id: stat.routerId, 
+                        router_name: stat.routerName || 'unknown', 
+                        status: stat.status || 'unknown' 
+                    },
+                    1
                 );
             }
 
-            // 2. OLT Statuses
+            // 2. OLT Statuses (Grouped by tenant)
             const oltStats = await db.select({
                 tenantId: olts.tenantId,
                 status: olts.status,
@@ -184,7 +189,7 @@ export class MetricsService {
                 );
             }
 
-            // 3. ONU Statuses
+            // 3. ONU Statuses (Grouped by tenant)
             const onuStats = await db.select({
                 tenantId: onus.tenantId,
                 status: onus.status,
@@ -199,78 +204,105 @@ export class MetricsService {
                 );
             }
 
-            // 4. Alerts (Unresolved)
-            const { alerts } = await import('../db/schema/index.js');
+            // 4. Alerts (Unresolved, Per Router)
             const alertStats = await db.select({
                 tenantId: alerts.tenantId,
+                routerId: alerts.routerId,
+                routerName: routers.name,
                 severity: alerts.severity,
                 type: alerts.type,
                 count: count()
             }).from(alerts)
+                .leftJoin(routers, eq(alerts.routerId, routers.id))
                 .where(eq(alerts.resolved, false))
-                .groupBy(alerts.tenantId, alerts.severity, alerts.type);
+                .groupBy(alerts.tenantId, alerts.routerId, routers.name, alerts.severity, alerts.type);
 
             this.alertCount.reset();
             for (const stat of alertStats) {
                 this.alertCount.set(
-                    { tenant_id: stat.tenantId || 'none', severity: stat.severity, type: stat.type },
+                    { 
+                        tenant_id: stat.tenantId || 'none', 
+                        router_id: stat.routerId || 'none', 
+                        router_name: stat.routerName || 'system',
+                        severity: stat.severity, 
+                        type: stat.type 
+                    },
                     stat.count
                 );
             }
 
-            // 5. PPPoE Sessions (Active)
-            const { pppoeSessions } = await import('../db/schema/index.js');
+            // 5. PPPoE Sessions (Active, Per Router)
             const pppoeStats = await db.select({
                 tenantId: pppoeSessions.tenantId,
+                routerId: pppoeSessions.routerId,
+                routerName: routers.name,
                 count: count()
             }).from(pppoeSessions)
+                .leftJoin(routers, eq(pppoeSessions.routerId, routers.id))
                 .where(eq(pppoeSessions.status, 'active'))
-                .groupBy(pppoeSessions.tenantId);
+                .groupBy(pppoeSessions.tenantId, pppoeSessions.routerId, routers.name);
 
             this.pppoeSessionsActiveCount.reset();
             for (const stat of pppoeStats) {
                 this.pppoeSessionsActiveCount.set(
-                    { tenant_id: stat.tenantId || 'none' },
+                    { 
+                        tenant_id: stat.tenantId || 'none', 
+                        router_id: stat.routerId || 'none',
+                        router_name: stat.routerName || 'unknown'
+                    },
                     stat.count
                 );
             }
 
-            // 6. Router Backups
-            const { routerBackups } = await import('../db/schema/index.js');
+            // 6. Router Backups (Per Router)
             const backupStats = await db.select({
                 tenantId: routerBackups.tenantId,
+                routerId: routerBackups.routerId,
+                routerName: routers.name,
                 type: routerBackups.type,
                 count: count()
             }).from(routerBackups)
-                .groupBy(routerBackups.tenantId, routerBackups.type);
+                .leftJoin(routers, eq(routerBackups.routerId, routers.id))
+                .groupBy(routerBackups.tenantId, routerBackups.routerId, routers.name, routerBackups.type);
 
             this.routerBackupsTotal.reset();
             for (const stat of backupStats) {
                 this.routerBackupsTotal.set(
-                    { tenant_id: stat.tenantId || 'none', type: stat.type },
+                    { 
+                        tenant_id: stat.tenantId || 'none', 
+                        router_id: stat.routerId || 'none',
+                        router_name: stat.routerName || 'unknown',
+                        type: stat.type 
+                    },
                     stat.count
                 );
             }
 
-            // 7. Netwatch Hosts
-            const { netwatchHosts } = await import('../db/schema/index.js');
+            // 7. Netwatch Hosts (Per Router)
             const netwatchStats = await db.select({
                 tenantId: netwatchHosts.tenantId,
+                routerId: netwatchHosts.routerId,
+                routerName: routers.name,
                 status: netwatchHosts.status,
                 count: count()
             }).from(netwatchHosts)
-                .groupBy(netwatchHosts.tenantId, netwatchHosts.status);
+                .leftJoin(routers, eq(netwatchHosts.routerId, routers.id))
+                .groupBy(netwatchHosts.tenantId, netwatchHosts.routerId, routers.name, netwatchHosts.status);
 
             this.netwatchHostsStatusCount.reset();
             for (const stat of netwatchStats) {
                 this.netwatchHostsStatusCount.set(
-                    { tenant_id: stat.tenantId || 'none', status: stat.status || 'unknown' },
+                    { 
+                        tenant_id: stat.tenantId || 'none', 
+                        router_id: stat.routerId || 'none',
+                        router_name: stat.routerName || 'unknown',
+                        status: stat.status || 'unknown' 
+                    },
                     stat.count
                 );
             }
 
             // 8. System Totals (Users & Tenants)
-            const { users, tenants } = await import('../db/schema/index.js');
             const [uCount] = await db.select({ count: count() }).from(users);
             const [tCount] = await db.select({ count: count() }).from(tenants);
 
