@@ -1,4 +1,22 @@
 import 'dotenv/config';
+import * as Sentry from "@sentry/node";
+import { nodeProfilingIntegration } from "@sentry/profiling-node";
+
+// ─── Sentry Initialization ──────────────────────────────────────────────
+if (process.env.SENTRY_DSN) {
+    Sentry.init({
+        dsn: process.env.SENTRY_DSN,
+        integrations: [
+            nodeProfilingIntegration(),
+        ],
+        // Performance Monitoring
+        tracesSampleRate: 1.0, //  Capture 100% of the transactions
+        // Set sampling rate for profiling - this is relative to tracesSampleRate
+        profilesSampleRate: 1.0,
+    });
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 import { validateEnv } from './config/env.js';
 validateEnv(); // Early validation
 import express from 'express';
@@ -175,6 +193,11 @@ metricsService.updateQueueGauges();
 // API routes
 app.use('/api', routes);
 app.use('/api/backup', backupRoutes);
+
+// Sentry Error Handler (must be before other error middlewares)
+if (process.env.SENTRY_DSN) {
+    Sentry.setupExpressErrorHandler(app);
+}
 
 // Error handling
 app.use(notFoundMiddleware);

@@ -25,6 +25,7 @@ const envSchema = z.object({
     // External APIs
     GEMINI_API_KEY: z.string().optional(),
     GOOGLE_MAPS_API_KEY: z.string().optional(),
+    SENTRY_DSN: z.string().url().optional(),
     
     // Infrastructure
     PG_DUMP_PATH: z.string().default('pg_dump'),

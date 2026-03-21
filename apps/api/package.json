@@ -22,6 +22,8 @@
         "@better-auth/core": "^1.4.9",
         "@better-auth/drizzle-adapter": "^1.4.9",
         "@google/generative-ai": "^0.24.1",
+        "@sentry/node": "^8.55.0",
+        "@sentry/profiling-node": "^8.55.0",
         "axios": "^1.13.2",
         "basic-ftp": "^5.2.0",
         "bcrypt": "^6.0.0",
