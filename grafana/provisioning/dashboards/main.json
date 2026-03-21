@@ -122,14 +122,14 @@
         },
         "overrides": [
           {
-            "matcher": { "id": "byRegexp", "options": "/.*RX/" },
+            "matcher": { "id": "byRegexp", "options": ".*RX$" },
             "properties": [
               { "id": "color", "options": { "fixedColor": "blue", "mode": "fixed" } },
               { "id": "displayName", "options": "RX Rate" }
             ]
           },
           {
-            "matcher": { "id": "byRegexp", "options": "/.*TX/" },
+            "matcher": { "id": "byRegexp", "options": ".*TX$" },
             "properties": [
               { "id": "displayName", "options": "TX Rate" }
             ]
@@ -307,6 +307,6 @@
   "timezone": "",
   "title": "Router Specific Monitoring",
   "uid": "router-specific-new",
-  "version": 10,
+  "version": 11,
   "weekStart": ""
 }
