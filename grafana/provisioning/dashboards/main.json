@@ -73,7 +73,8 @@
       "options": {
         "orientation": "auto",
         "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
-        "showThresholdLabels": false, "showThresholdMarkers": true
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
       },
       "pluginVersion": "10.0.0",
       "targets": [
@@ -122,11 +123,17 @@
         "overrides": [
           {
             "matcher": { "id": "byRegexp", "options": "/.*TX/" },
-            "properties": [{ "id": "color", "options": { "fixedColor": "green", "mode": "fixed" } }]
+            "properties": [
+              { "id": "color", "options": { "fixedColor": "green", "mode": "fixed" } },
+              { "id": "displayName", "options": "TX Rate" }
+            ]
           },
           {
             "matcher": { "id": "byRegexp", "options": "/.*RX/" },
-            "properties": [{ "id": "color", "options": { "fixedColor": "blue", "mode": "fixed" } }]
+            "properties": [
+              { "id": "color", "options": { "fixedColor": "blue", "mode": "fixed" } },
+              { "id": "displayName", "options": "RX Rate" }
+            ]
           }
         ]
       },
@@ -301,6 +308,6 @@
   "timezone": "",
   "title": "Router Specific Monitoring",
   "uid": "router-specific-new",
-  "version": 3,
+  "version": 4,
   "weekStart": ""
 }
