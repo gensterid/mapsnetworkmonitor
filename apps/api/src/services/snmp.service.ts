@@ -122,7 +122,12 @@ export class SnmpService {
                     }
                 }
             }, (error) => {
-                session.close();
+                try {
+                    session.close();
+                } catch (e) {
+                    // Ignore already closed socket errors
+                }
+                
                 if (error) {
                     reject(error);
                 } else {
