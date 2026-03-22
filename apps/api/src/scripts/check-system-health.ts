@@ -12,6 +12,9 @@ async function checkHealth() {
     console.log('--- 1. Redis Connection ---');
     try {
         const redis = getRedisConnection();
+        if (!redis) {
+            throw new Error('Redis connection not initialized (check configuration)');
+        }
         const ping = await redis.ping();
         console.log(`✅ Redis Status: ${ping}`);
     } catch (err: any) {
