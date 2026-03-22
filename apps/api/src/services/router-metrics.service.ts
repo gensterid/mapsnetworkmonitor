@@ -104,21 +104,35 @@ export class RouterMetricsService {
             }
 
             const trafficData: Record<string, { tx: number; rx: number }> = {};
+            
+            // Helper to parse SNMP values (handles Counter64 Buffers)
+            const parseSnmpValue = (val: any): number => {
+                if (Buffer.isBuffer(val)) {
+                    // Counter64 is 8 bytes big-endian
+                    try {
+                        return Number(val.readBigUInt64BE());
+                    } catch (e) {
+                        return 0;
+                    }
+                }
+                const num = Number(val);
+                return isNaN(num) ? 0 : num;
+            };
+
             for (const chunk of chunks) {
                 const results = await snmpService.getMultiple({ host: router.host, port, community }, chunk);
                 for (const result of results) {
                     const oidParts = result.oid.split('.');
                     const index = oidParts[oidParts.length - 1];
-                    const parent = oidParts.slice(0, -1).join('.');
                     const name = indexToNameMap.get(index);
                     if (!name) continue;
 
                     if (!trafficData[name]) trafficData[name] = { rx: 0, tx: 0 };
 
-                    if (parent === '1.3.6.1.2.1.31.1.1.1.6') {
-                        trafficData[name].rx = Number(result.value);
-                    } else if (parent === '1.3.6.1.2.1.31.1.1.1.10') {
-                        trafficData[name].tx = Number(result.value);
+                    if (result.oid.startsWith('1.3.6.1.2.1.31.1.1.1.6.')) { // ifHCInOctets (RX)
+                        trafficData[name].rx = parseSnmpValue(result.value);
+                    } else if (result.oid.startsWith('1.3.6.1.2.1.31.1.1.1.10.')) { // ifHCOutOctets (TX)
+                        trafficData[name].tx = parseSnmpValue(result.value);
                     }
                 }
             }
@@ -126,6 +140,9 @@ export class RouterMetricsService {
             // 4. Calculate rates and update DB
             const calculatedRates: Record<string, { tx: number; rx: number }> = {};
             for (const [name, data] of Object.entries(trafficData)) {
+                // Ensure we don't proceed with NaN
+                if (isNaN(data.tx) || isNaN(data.rx)) continue;
+
                 const [existing] = await tx.select().from(routerInterfaces).where(and(
                     eq(routerInterfaces.routerId, router.id),
                     eq(routerInterfaces.name, name)
@@ -147,11 +164,15 @@ export class RouterMetricsService {
                         // Basic wrap-around / reset protection
                         if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
                         if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
+                        
+                        // Ensure rates are also valid numbers
+                        if (isNaN(txRate)) txRate = 0;
+                        if (isNaN(rxRate)) rxRate = 0;
                     }
  
                     await tx.update(routerInterfaces).set({
-                        txBytes: data.tx,
-                        rxBytes: data.rx,
+                        txBytes: String(data.tx),
+                        rxBytes: String(data.rx),
                         txRate,
                         rxRate,
                         lastUpdated: new Date()
