@@ -97,7 +97,7 @@ export class RouterMetricsService {
             }
 
             // 3. Fetch current counters in chunks to avoid packet size issues
-            const chunkSize = 40;
+            const chunkSize = 20;
             const chunks = [];
             for (let i = 0; i < oids.length; i += chunkSize) {
                 chunks.push(oids.slice(i, i + chunkSize));

@@ -33,8 +33,8 @@ export class SnmpService {
         return snmp.createSession(config.host, config.community || 'public', {
             port: config.port || 161,
             version: config.version || snmp.Version2c,
-            timeout: 5000,
-            retries: 1
+            timeout: 10000,
+            retries: 3
         });
     }
 
