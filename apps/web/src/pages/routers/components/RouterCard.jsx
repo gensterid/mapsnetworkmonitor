@@ -38,9 +38,30 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     )} />
                                     {router.host}:{router.port}
                                 </div>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    <div className={clsx(
+                                        "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border",
+                                        router.snmpStatus === 'online' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
+                                        router.snmpStatus === 'error' ? "bg-red-500/10 text-red-500 border-red-500/20" :
+                                        "bg-slate-500/10 text-slate-500 border-slate-500/20"
+                                    )}>
+                                        SNMP: {router.snmpStatus === 'online' ? 'OK' : (router.snmpStatus === 'error' ? 'FAIL' : 'OFF')}
+                                    </div>
+                                    
+                                    {router.useGenieAcs && (
+                                        <div className="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                            ACS
+                                        </div>
+                                    )}
+                                </div>
+                                {router.snmpStatus === 'error' && router.lastSnmpError && (
+                                    <p className="text-[10px] text-red-400 mt-1 line-clamp-1 italic">
+                                        SNMP Error: {router.lastSnmpError}
+                                    </p>
+                                )}
                                 {router.status !== 'online' && router.lastErrorMessage && (
                                     <p className="text-[10px] text-red-400 mt-1 line-clamp-1 italic">
-                                        {router.lastErrorMessage}
+                                        API Error: {router.lastErrorMessage}
                                     </p>
                                 )}
                             </div>

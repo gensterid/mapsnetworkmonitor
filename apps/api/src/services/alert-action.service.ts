@@ -541,6 +541,59 @@ export class AlertActionService {
         eventEmitter.broadcast('alerts_updated', { type: 'resolve_batch', ids: idsToResolve, timestamp: new Date().toISOString() });
         return idsToResolve.length;
     }
+
+    /**
+     * Create/Update SNMP error alert
+     */
+    async createSnmpErrorAlert(routerId: string, routerName: string, error: string, tx: any = db) {
+        // Find existing unresolved SNMP alert
+        const existing = await this.findRecentUnresolvedAlert(routerId, 'snmp_error' as any, tx);
+        
+        if (existing) {
+            // Update message if error changed
+            if (existing.message !== `SNMP Error: ${error}`) {
+                await tx.update(alerts).set({
+                    message: `SNMP Error: ${error}`,
+                    updatedAt: new Date(),
+                }).where(eq(alerts.id, existing.id));
+            }
+            return existing;
+        }
+
+        const tenantId = await getTenantIdFromRouter(routerId);
+        if (!tenantId) {
+             logger.error({ routerId }, 'Could not find tenantId for router, skipping SNMP alert');
+             return;
+        }
+        
+        return this.create({
+            routerId,
+            tenantId,
+            type: 'snmp_error' as any,
+            severity: 'warning',
+            title: `SNMP Failure: ${routerName}`,
+            message: `SNMP Error: ${error}`,
+            acknowledged: false,
+            createdAt: new Date(),
+        }, tx);
+    }
+
+    /**
+     * Resolve SNMP error alert
+     */
+    async resolveSnmpErrorAlert(routerId: string, tx: any = db) {
+        await tx.update(alerts)
+            .set({ 
+                resolvedAt: new Date(),
+                updatedAt: new Date(),
+                resolved: true
+            })
+            .where(and(
+                eq(alerts.routerId, routerId),
+                eq(alerts.type, 'snmp_error' as any),
+                isNull(alerts.resolvedAt)
+            ));
+    }
 }
 
 export const alertActionService = new AlertActionService();

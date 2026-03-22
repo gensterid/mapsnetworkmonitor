@@ -28,6 +28,7 @@ export const alertTypeEnum = pgEnum('alert_type', [
     'system',
     'high_latency',
     'packet_loss',
+    'snmp_error',
 ]);
 
 // Alert severity enum

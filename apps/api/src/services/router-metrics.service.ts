@@ -1,6 +1,7 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
+    routers,
     routerMetrics,
     routerInterfaces,
     routerInterfaceMetrics,
@@ -192,9 +193,62 @@ export class RouterMetricsService {
                 }
             }
 
+            // Update SNMP status on success
+            await tx.update(routers).set({
+                snmpStatus: 'online',
+                lastSnmpError: null,
+                updatedAt: new Date()
+            }).where(eq(routers.id, router.id));
+
+            // Resolve any active SNMP error alerts
+            try {
+                await alertService.resolveSnmpErrorAlert(router.id, tx);
+            } catch (alertErr) {
+                logger.error({ err: alertErr, routerId: router.id }, 'Failed to resolve SNMP alert');
+            }
+
+            // Emit real-time event for success
+            try {
+                const { eventEmitter } = await import('./event-emitter.service.js');
+                eventEmitter.broadcast('router:updated', {
+                    id: router.id,
+                    snmpStatus: 'online',
+                    lastSnmpError: null,
+                    tenantId: router.tenantId
+                });
+            } catch (evErr) {}
+
             return calculatedRates;
-        } catch (error) {
-            logger.error({ err: error, host: router.host }, 'SNMP traffic failed');
+        } catch (error: any) {
+            logger.error({ err: error.message, host: router.host }, 'SNMP traffic failed');
+            
+            // Update SNMP status on failure
+            try {
+                await tx.update(routers).set({
+                    snmpStatus: 'error',
+                    lastSnmpError: error.message,
+                    updatedAt: new Date()
+                }).where(eq(routers.id, router.id));
+
+                // Create/Update SNMP error alert
+                try {
+                    await alertService.createSnmpErrorAlert(router.id, router.name, error.message, tx);
+                } catch (alertErr) {
+                    logger.error({ err: alertErr, routerId: router.id }, 'Failed to create SNMP alert');
+                }
+
+                // Emit real-time event for failure
+                const { eventEmitter } = await import('./event-emitter.service.js');
+                eventEmitter.broadcast('router:updated', {
+                    id: router.id,
+                    snmpStatus: 'error',
+                    lastSnmpError: error.message,
+                    tenantId: router.tenantId
+                });
+            } catch (dbErr) {
+                // Ignore DB error here if transaction failed
+            }
+            
             return {};
         }
     }

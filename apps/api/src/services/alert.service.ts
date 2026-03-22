@@ -101,6 +101,14 @@ export class AlertService {
         return alertActionService.createPerformanceAlert(routerId, routerName, host, deviceName, latency, packetLoss, status, tx);
     }
 
+    async createSnmpErrorAlert(routerId: string, routerName: string, error: string, tx?: any) {
+        return alertActionService.createSnmpErrorAlert(routerId, routerName, error, tx);
+    }
+
+    async resolveSnmpErrorAlert(routerId: string, tx?: any) {
+        return alertActionService.resolveSnmpErrorAlert(routerId, tx);
+    }
+
     async resolvePerformanceAlert(routerId: string, host: string, tenantId?: string, tx?: any) {
         return alertActionService.resolvePerformanceAlert(routerId, host, tenantId, tx);
     }

@@ -55,6 +55,11 @@ export const routers = pgTable('routers', {
     // Status
     status: routerStatusEnum('status').notNull().default('unknown'),
     latency: integer('latency'), // Latency in ms
+    
+    // SNMP Status Indication
+    snmpStatus: text('snmp_status').default('unknown'),
+    lastSnmpError: text('last_snmp_error'),
+
     groupId: uuid('group_id').references(() => routerGroups.id, {
         onDelete: 'set null',
     }),

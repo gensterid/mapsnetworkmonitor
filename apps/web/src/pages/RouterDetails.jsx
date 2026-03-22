@@ -219,6 +219,16 @@ export default function RouterDetails() {
                                 )}>
                                     {router?.status === 'online' ? 'Online' : 'Offline'}
                                 </span>
+                                <span className={clsx(
+                                    "px-2 py-0.5 rounded-full text-xs font-medium border",
+                                    router?.snmpStatus === 'online'
+                                        ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                                        : router?.snmpStatus === 'error'
+                                            ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                            : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                                )}>
+                                    SNMP: {router?.snmpStatus === 'online' ? 'OK' : (router?.snmpStatus === 'error' ? 'FAIL' : 'OFF')}
+                                </span>
                             </div>
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-sm text-slate-400">
                                 <div className="flex items-center gap-1.5">
