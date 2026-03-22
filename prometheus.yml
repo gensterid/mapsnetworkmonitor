@@ -6,4 +6,4 @@ scrape_configs:
   - job_name: 'mikrotik-monitor-api'
     metrics_path: '/api/metrics'
     static_configs:
-      - targets: ['api:3000']
+      - targets: ['127.0.0.1:3001']
