@@ -44,7 +44,9 @@ let routerSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
+let isPollingSnmp = false;
 let pollingStartTime: number | null = null;
+let snmpPollingStartTime: number | null = null;
 let currentScalingConfig: ScalingConfig = SCALING_TIERS[0].config;
 let lastNetwatchCount = 0;
 
@@ -182,6 +184,7 @@ async function pollAllRouters(): Promise<void> {
 
     isPolling = true;
     pollingStartTime = Date.now();
+    logger.info('💓 [Heartbeat] Starting global polling cycle...');
 
     try {
         const allTenants = await db.select().from(tenants);
@@ -311,6 +314,21 @@ async function updatePrometheusMetrics(): Promise<void> {
 async function pollRoutersSnmp(): Promise<void> {
     if (process.env.SYNC_ENABLED === 'false') return;
 
+    if (isPollingSnmp) {
+        const elapsed = (Date.now() - (snmpPollingStartTime || 0)) / 1000;
+        if (elapsed > 300) { // 5 min safety timeout
+            logger.warn({ elapsed }, '⚠️ SNMP polling stuck, force resetting...');
+            isPollingSnmp = false;
+        } else {
+            logger.debug('⏳ Previous SNMP polling still in progress, skipping...');
+            return;
+        }
+    }
+
+    isPollingSnmp = true;
+    snmpPollingStartTime = Date.now();
+    logger.info('💓 [Heartbeat] Starting high-frequency SNMP polling cycle...');
+
     try {
         const allTenants = await db.select().from(tenants);
         for (const tenant of allTenants) {
@@ -341,6 +359,9 @@ async function pollRoutersSnmp(): Promise<void> {
         }
     } catch (e: any) {
         logger.error({ err: e.message }, 'Error in global Router SNMP polling task');
+    } finally {
+        isPollingSnmp = false;
+        snmpPollingStartTime = null;
     }
 }
 
