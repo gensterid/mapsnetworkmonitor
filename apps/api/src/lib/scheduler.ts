@@ -528,6 +528,7 @@ export async function startScheduler(): Promise<void> {
 
     // Initial Runs (Spread out to avoid peak load)
     setTimeout(() => pollAllRouters(), 10000);
+    setTimeout(() => pollRoutersSnmp(), 5000); // Start SNMP sooner for immediate heartbeat
     setTimeout(() => checkAlertEscalation(), 25000);
     setTimeout(() => pollOltsSnmp(), 40000);
     setTimeout(() => warmAcsDashboard(), 55000);

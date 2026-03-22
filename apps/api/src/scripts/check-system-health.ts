@@ -49,6 +49,21 @@ async function checkHealth() {
         if (!redis) {
             throw new Error('Redis connection not initialized (check configuration)');
         }
+        
+        // Wait for connection to be ready (up to 5s)
+        await new Promise((resolve, reject) => {
+            if (redis.status === 'ready') return resolve(true);
+            const timeout = setTimeout(() => reject(new Error('Redis connection timed out')), 5000);
+            redis.once('ready', () => {
+                clearTimeout(timeout);
+                resolve(true);
+            });
+            redis.once('error', (err) => {
+                clearTimeout(timeout);
+                reject(err);
+            });
+        });
+
         const ping = await redis.ping();
         console.log(`✅ Redis Status: ${ping}`);
     } catch (err: any) {
