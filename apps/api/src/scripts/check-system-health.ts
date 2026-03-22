@@ -1,4 +1,24 @@
-import 'dotenv/config';
+import path from 'path';
+import fs from 'fs';
+import * as dotenv from 'dotenv';
+
+// Manually load .env from multiple possible locations
+const possibleEnvs = [
+    path.resolve(process.cwd(), '.env'),
+    path.resolve(process.cwd(), 'apps/api/.env'),
+    path.resolve(__dirname, '../../../.env'),
+    path.resolve(__dirname, '../../.env')
+];
+
+let envPath = '';
+for (const p of possibleEnvs) {
+    if (fs.existsSync(p)) {
+        dotenv.config({ path: p });
+        envPath = p;
+        break;
+    }
+}
+
 import { db } from '../db/index.js';
 import { sql, count, eq, desc } from 'drizzle-orm';
 import { alerts, routerMetrics, routerInterfaceMetrics, devicePerformanceHistory, tenants } from '../db/schema/index.js';
@@ -6,7 +26,17 @@ import { getRedisConnection } from '../lib/redis-client.js';
 import { routerSyncQueue } from '../services/queue.service.js';
 
 async function checkHealth() {
-    console.log('🔍 Starting System Health Check...\n');
+    console.log('🔍 Starting System Health Check...');
+    if (envPath) {
+        console.log(`📝 Loaded configuration from: ${envPath}\n`);
+    } else {
+        console.warn('⚠️ No .env file found! Using system environment variables.\n');
+    }
+
+    if (!process.env.DATABASE_URL) {
+        console.error('❌ DATABASE_URL is not defined! Check your .env file.');
+        process.exit(1);
+    }
 
     // 1. Check Redis
     console.log('--- 1. Redis Connection ---');
@@ -51,7 +81,11 @@ async function checkHealth() {
                 partitions.forEach((p: any) => console.log(`   - ${p.partition_name} (${p.partition_expression})`));
             }
         } catch (err: any) {
-            console.error(`❌ Failed to check partitions for ${table}: ${err.message}`);
+            console.error(`❌ Failed to check partitions for ${table}:`);
+            console.error(`   Message: ${err.message}`);
+            if (err.detail) console.error(`   Detail: ${err.detail}`);
+            if (err.hint) console.error(`   Hint: ${err.hint}`);
+            console.error(`   Full: ${JSON.stringify(err)}`);
         }
     }
     console.log('');
@@ -72,6 +106,7 @@ async function checkHealth() {
         console.log(`📈 Last Interface Metric: ${lastIfaceMetric ? lastIfaceMetric.recordedAt.toISOString() : 'Never'}`);
     } catch (err: any) {
         console.error(`❌ Data Freshness Check Failed: ${err.message}`);
+        console.error(`   Full: ${JSON.stringify(err)}`);
     }
     console.log('');
 
