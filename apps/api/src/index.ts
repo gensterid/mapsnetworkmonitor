@@ -264,12 +264,14 @@ function startSchedulerWorker() {
 httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
 
-    // Run migrations (Drizzle versioned)
-    await runDrizzleMigrations();
+    // Run migrations (Drizzle versioned) - Non-blocking to prevent scheduler stall
+    runDrizzleMigrations().catch(err => {
+        logger.error({ err: err?.message || String(err) }, '⚠️ Drizzle Migration failed at startup. Monitoring will attempt to continue if schema was manualy repaired.');
+    });
 
     // Start background scheduler in separate thread
     startSchedulerWorker();
-});
+ });
 
 // Graceful Shutdown
 const gracefulShutdown = async (signal: string) => {
