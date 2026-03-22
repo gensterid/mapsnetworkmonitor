@@ -20,6 +20,19 @@ async function migrate() {
         `);
         logger.info('✅ Column "last_snmp_error" added.');
 
+        // 3. Add snmp_error to alert_type enum
+        try {
+            await db.execute(sql`ALTER TYPE alert_type ADD VALUE 'snmp_error';`);
+            logger.info('✅ Enum "alert_type" updated with "snmp_error".');
+        } catch (e: any) {
+            // Ignore if already exists (error code 42710)
+            if (e.message.includes('42710') || e.message.includes('already exists')) {
+                logger.debug('ℹ️ Enum "snmp_error" already exists in "alert_type".');
+            } else {
+                logger.warn({ err: e.message }, '⚠️ Could not update alert_type enum (could be a non-enum type or permission issue)');
+            }
+        }
+
         logger.info('✨ Migration completed successfully!');
         process.exit(0);
     } catch (error: any) {
