@@ -11,7 +11,8 @@ const __dirname = path.dirname(__filename);
 async function catchup() {
     const connectionString = process.env.DATABASE_URL!;
     const sql = postgres(connectionString);
-    const migrationsDir = path.join(__dirname, 'migrations');
+    const migrationsDir = path.resolve(__dirname, 'migrations');
+    console.log(`🔍 Using migrations directory: ${migrationsDir}`);
     
     console.log('🏁 Starting Drizzle Catch-up...');
 
