@@ -4,7 +4,7 @@
     "type": "module",
     "scripts": {
         "dev": "tsx watch src/index.ts",
-        "build": "tsc",
+        "build": "tsc && node scripts/copy-migrations.mjs",
         "start": "node dist/index.js",
         "db:generate": "tsx node_modules/drizzle-kit/bin.cjs generate",
         "db:migrate": "tsx src/db/migrate-drizzle.ts",

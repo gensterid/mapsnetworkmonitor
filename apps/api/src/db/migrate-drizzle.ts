@@ -21,9 +21,12 @@ export async function runDrizzleMigrations() {
     const migrationClient = postgres(connectionString, { max: 1 });
     const db = drizzle(migrationClient);
 
+    const migrationsFolder = path.resolve(__dirname, 'migrations');
+    logger.info({ migrationsFolder }, '🔍 Drizzle Migrations folder path');
+
     try {
         await migrate(db, {
-            migrationsFolder: path.join(__dirname, 'migrations'),
+            migrationsFolder,
         });
         console.log('✅ Drizzle Migrations completed successfully!');
     } catch (error: any) {
