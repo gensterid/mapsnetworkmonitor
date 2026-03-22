@@ -1,5 +1,5 @@
 // Polling scheduler for MikroTik devices and other services
-import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, oltSyncQueue, startQueueWorker, stopQueueWorker, metricsService } from '../services/index.js';
+import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, oltSyncQueue, startQueueWorker, stopQueueWorker, metricsService, routerMetricsService } from '../services/index.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
@@ -40,6 +40,7 @@ let oltWebInterval: ReturnType<typeof setInterval> | null = null;
 let acsInterval: ReturnType<typeof setInterval> | null = null;
 let acsWarmerInterval: ReturnType<typeof setInterval> | null = null;
 let metricsInterval: ReturnType<typeof setInterval> | null = null;
+let routerSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
@@ -304,6 +305,45 @@ async function updatePrometheusMetrics(): Promise<void> {
     }
 }
 
+/**
+ * Poll all routers for real-time traffic using SNMP (60s frequency)
+ */
+async function pollRoutersSnmp(): Promise<void> {
+    if (process.env.SYNC_ENABLED === 'false') return;
+
+    try {
+        const allTenants = await db.select().from(tenants);
+        for (const tenant of allTenants) {
+            const enabled = await settingsService.getSettingValue('router_snmp_poll_enabled', tenant.id, true);
+            if (!enabled) continue;
+
+            // Find all online routers with SNMP host configured
+            const routersList = await routerService.findAll(tenant.id);
+            const onlineRouters = routersList.filter(r => r.status === 'online' && r.host);
+
+            if (onlineRouters.length === 0) continue;
+
+            logger.debug({ count: onlineRouters.length, tenantId: tenant.id }, '📡 Running high-frequency SNMP traffic poll for routers');
+
+            // Process in parallel with concurrency limit (e.g. 10 at a time)
+            const BATCH_SIZE = 10;
+            for (let i = 0; i < onlineRouters.length; i += BATCH_SIZE) {
+                const batch = onlineRouters.slice(i, i + BATCH_SIZE);
+                await Promise.all(batch.map(async (router) => {
+                    try {
+                        // Directly call metrics service to fetch and update DB traffic counters
+                        await routerMetricsService.getSnmpTraffic(router);
+                    } catch (snmpErr: any) {
+                        logger.warn({ router: router.name, err: snmpErr.message }, 'SNMP background poll failed for individual router');
+                    }
+                }));
+            }
+        }
+    } catch (e: any) {
+        logger.error({ err: e.message }, 'Error in global Router SNMP polling task');
+    }
+}
+
 const lastGlobalAcsSync = new Map<string, number>();
 const lastDedicatedAcsSync = new Map<string, number>();
 
@@ -494,6 +534,9 @@ export async function startScheduler(): Promise<void> {
     // Prometheus Metrics (every 1 minute)
     metricsInterval = setInterval(updatePrometheusMetrics, 60 * 1000);
 
+    // Router SNMP Traffic (every 60 seconds)
+    routerSnmpInterval = setInterval(pollRoutersSnmp, 60 * 1000);
+
     // Run immediately on start
     updatePrometheusMetrics();
     acsWarmerInterval = setInterval(warmAcsDashboard, 60000); // Warm dashboard every minute
@@ -512,6 +555,7 @@ export function stopScheduler(): void {
     if (acsInterval) { clearInterval(acsInterval); acsInterval = null; }
     if (acsWarmerInterval) { clearInterval(acsWarmerInterval); acsWarmerInterval = null; }
     if (metricsInterval) { clearInterval(metricsInterval); metricsInterval = null; }
+    if (routerSnmpInterval) { clearInterval(routerSnmpInterval); routerSnmpInterval = null; }
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
     
