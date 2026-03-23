@@ -39,7 +39,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     {router.host}:{router.port}
                                 </div>
                                 <div className="flex flex-wrap gap-2 mt-2">
-                                    {router.useSnmp && (
+                                    {(router.useSnmp ?? true) && (
                                         <div className={clsx(
                                             "px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border",
                                             router.snmpStatus === 'online' ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
@@ -56,7 +56,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                         </div>
                                     )}
                                 </div>
-                                {router.useSnmp && router.snmpStatus === 'error' && router.lastSnmpError && (
+                                {(router.useSnmp ?? true) && router.snmpStatus === 'error' && router.lastSnmpError && (
                                     <p className="text-[10px] text-red-400 mt-1 line-clamp-1 italic">
                                         SNMP Error: {router.lastSnmpError}
                                     </p>

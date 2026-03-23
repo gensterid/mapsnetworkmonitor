@@ -37,7 +37,7 @@ export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId 
                                                 {router.status === 'online' ? "Online" : "Offline"}
                                             </span>
                                         </div>
-                                        {router.useSnmp && (
+                                        {(router.useSnmp ?? true) && (
                                             <>
                                                 <div className="flex items-center gap-2 mt-1">
                                                     <span className={clsx("w-1.5 h-1.5 rounded-full",

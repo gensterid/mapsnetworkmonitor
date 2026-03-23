@@ -219,7 +219,7 @@ export default function RouterDetails() {
                                 )}>
                                     {router?.status === 'online' ? 'Online' : 'Offline'}
                                 </span>
-                                {router?.useSnmp && (
+                                {(router?.useSnmp ?? true) && (
                                     <span className={clsx(
                                         "px-2 py-0.5 rounded-full text-xs font-medium border",
                                         router?.snmpStatus === 'online'
@@ -248,7 +248,7 @@ export default function RouterDetails() {
 
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         {/* Live Mode Toggle */}
-                        {router?.useSnmp && (
+                        {(router?.useSnmp ?? true) && (
                             <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
                                 <div className={clsx(
                                     "w-2 h-2 rounded-full animate-pulse",
