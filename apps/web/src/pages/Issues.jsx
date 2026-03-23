@@ -50,40 +50,8 @@ export default function Issues() {
 
     const timezone = useAppTimezone();
 
-    // Issue types (Performance/System)
-    const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
-
-    // Filter alerts: Issues only
-    const filteredAlerts = alerts.filter(alert => {
-        // 1. Must be an issue type
-        // 1. Must be an issue type (Strict backend matching)
-        // isIssue = issueTypes.includes(type) OR type === 'threshold' OR (warning AND !excludes)
-        if (issueTypes.includes(alert.type)) return true;
-        if (alert.type === 'threshold') return true;
-
-        // Warnings that are NOT connectivity related are issues
-        if (alert.severity === 'warning' &&
-            !alert.type?.includes('status_change') &&
-            !alert.type?.includes('down') &&
-            !alert.type?.includes('offline') &&
-            !alert.type?.includes('pppoe') &&
-            !alert.type?.includes('interface') &&
-            !alert.type?.includes('netwatch')) {
-            return true;
-        }
-
-        return false;
-
-        // 2. Search query
-        if (!searchQuery.trim()) return true;
-        const query = searchQuery.toLowerCase();
-        return (
-            alert.title?.toLowerCase().includes(query) ||
-            alert.message?.toLowerCase().includes(query) ||
-            alert.type?.toLowerCase().includes(query) ||
-            alert.severity?.toLowerCase().includes(query)
-        );
-    });
+    // The API already filters by category and search
+    const filteredAlerts = alerts;
 
     const formatAlertTime = (dateStr) => {
         return formatShortDateTime(dateStr, timezone);

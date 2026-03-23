@@ -1,4 +1,4 @@
-import { eq, and, ilike, isNull, gte, sql, inArray, desc } from 'drizzle-orm';
+import { eq, and, or, ilike, isNull, gte, sql, inArray, notInArray, desc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     alerts,
@@ -15,7 +15,8 @@ import {
     getTenantIdFromRouter, 
     ALERT_COOLDOWN_MINUTES,
     ISSUE_TYPES,
-    CONNECTIVITY_TYPES
+    CONNECTIVITY_TYPES,
+    isIssue 
 } from './alert-core.service.js';
 import { alertQueryService } from './alert-query.service.js';
 
@@ -159,7 +160,14 @@ export class AlertActionService {
 
         if (category) {
             if (category === 'issues') {
-                filters.push(inArray(alerts.type, ISSUE_TYPES as any));
+                // Same logic as isIssue but in SQL
+                filters.push(or(
+                    inArray(alerts.type, ISSUE_TYPES as any),
+                    and(
+                        eq(alerts.severity, 'warning'),
+                        notInArray(alerts.type, CONNECTIVITY_TYPES as any)
+                    )
+                ) as any);
             } else if (category === 'alerts') {
                 filters.push(inArray(alerts.type, CONNECTIVITY_TYPES as any));
             }

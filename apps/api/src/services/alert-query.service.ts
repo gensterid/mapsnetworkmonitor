@@ -1,4 +1,4 @@
-import { eq, desc, asc, and, or, ilike, isNull, getTableColumns, gte, lte, sql, inArray } from 'drizzle-orm';
+import { eq, desc, asc, and, or, ilike, isNull, getTableColumns, gte, lte, sql, inArray, notInArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     alerts,
@@ -7,7 +7,7 @@ import {
     routers,
     type Alert,
 } from '../db/schema/index.js';
-import { getThresholds, ISSUE_TYPES, CONNECTIVITY_TYPES } from './alert-core.service.js';
+import { getThresholds, ISSUE_TYPES, CONNECTIVITY_TYPES, isIssue } from './alert-core.service.js';
 
 export class AlertQueryService {
     /**
@@ -16,29 +16,6 @@ export class AlertQueryService {
     async areAlertsEnabled(): Promise<boolean> {
         const thresholds = await getThresholds();
         return thresholds.alertsEnabled;
-    }
-
-    /**
-     * Check if alert is an "issue" (System/Performance) vs "alert" (Connectivity/Status)
-     */
-    isIssue(alert: Alert): boolean {
-        const issueTypes = ISSUE_TYPES;
-
-        if (issueTypes.includes(alert.type)) return true;
-        if (alert.type === 'threshold') return true;
-
-        // Warnings that are NOT connectivity related are issues
-        if (alert.severity === 'warning' &&
-            !alert.type?.includes('status_change') &&
-            !alert.type?.includes('down') &&
-            !alert.type?.includes('offline') &&
-            !alert.type?.includes('pppoe') &&
-            !alert.type?.includes('interface') &&
-            !alert.type?.includes('netwatch')) {
-            return true;
-        }
-
-        return false;
     }
 
     /**
@@ -149,7 +126,13 @@ export class AlertQueryService {
         // Category filtering
         if (options.category) {
             if (options.category === 'issues') {
-                filters.push(inArray(alerts.type, ISSUE_TYPES as any));
+                filters.push(or(
+                    inArray(alerts.type, ISSUE_TYPES as any),
+                    and(
+                        eq(alerts.severity, 'warning'),
+                        notInArray(alerts.type, CONNECTIVITY_TYPES as any)
+                    )
+                ) as any);
             } else if (options.category === 'alerts') {
                 filters.push(inArray(alerts.type, CONNECTIVITY_TYPES as any));
             }
@@ -427,7 +410,7 @@ export class AlertQueryService {
             .where(and(...filters));
 
         // Categorize
-        const issuesCount = allAlerts.filter(a => this.isIssue(a as Alert)).length;
+        const issuesCount = allAlerts.filter(a => isIssue(a.type, a.severity)).length;
         const connectivityCount = allAlerts.length - issuesCount;
 
         return {

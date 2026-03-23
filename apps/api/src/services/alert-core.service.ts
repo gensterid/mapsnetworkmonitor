@@ -11,8 +11,23 @@ export const DEFAULT_THRESHOLDS = {
 
 export const ALERT_COOLDOWN_MINUTES = 30;
 
-export const ISSUE_TYPES = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+export const ISSUE_TYPES = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss', 'snmp_error'];
 export const CONNECTIVITY_TYPES = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
+
+/**
+ * Check if alert is an "issue" (System/Performance) vs "alert" (Connectivity/Status)
+ */
+export function isIssue(type: string, severity: string): boolean {
+    if (ISSUE_TYPES.includes(type)) return true;
+    if (type === 'threshold') return true;
+
+    // Warnings that are NOT connectivity related are issues
+    if (severity === 'warning' && !CONNECTIVITY_TYPES.includes(type)) {
+        return true;
+    }
+
+    return false;
+}
 
 export async function getTenantIdFromRouter(routerId: string, tx: any = db): Promise<string | null> {
     const [router] = await tx

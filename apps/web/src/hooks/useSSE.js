@@ -61,8 +61,8 @@ export function useSSE() {
             console.log('Alerts updated (sync event):', data);
             
             // Shared invalidation for any alert state change
+            // This will refetch both the alert list and the unread counts
             queryClient.invalidateQueries({ queryKey: ['alerts'] });
-            queryClient.invalidateQueries({ queryKey: ['unread-alert-count'] });
         });
 
         // Handle new alert events
@@ -77,9 +77,8 @@ export function useSSE() {
                 position: 'top-right',
             });
 
-            // Invalidate alert queries to refresh data
+            // Invalidate alert queries to refresh both list and badge
             queryClient.invalidateQueries({ queryKey: ['alerts'] });
-            queryClient.invalidateQueries({ queryKey: ['unread-alert-count'] });
         });
 
         // Handle map update events (manual edits, deletions, additions)

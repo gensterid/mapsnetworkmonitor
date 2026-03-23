@@ -62,40 +62,8 @@ export default function Alerts() {
         'pppoe_disconnect'
     ];
 
-    // Filter alerts: Connectivity only
-    const filteredAlerts = alerts.filter(alert => {
-        // 1. Must be a connectivity type
-        // Basic connectivity types + fallback for any other types NOT in the "issues" category
-        // Helper to determine if it IS an issue (Logic must match Issues.jsx and Backend)
-        const isIssue = (alert) => {
-            const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system'];
-            if (issueTypes.includes(alert.type)) return true;
-            if (alert.type === 'threshold') return true;
-
-            // Warnings that are NOT connectivity related are issues
-            if (alert.severity === 'warning' &&
-                !alert.type?.includes('status_change') &&
-                !alert.type?.includes('down') &&
-                !alert.type?.includes('offline') &&
-                !alert.type?.includes('pppoe') &&
-                !alert.type?.includes('interface') &&
-                !alert.type?.includes('netwatch')) {
-                return true;
-            }
-            return false;
-        };
-
-        if (isIssue(alert)) return false;
-
-        if (!searchQuery.trim()) return true;
-        const query = searchQuery.toLowerCase();
-        return (
-            alert.title?.toLowerCase().includes(query) ||
-            alert.message?.toLowerCase().includes(query) ||
-            alert.type?.toLowerCase().includes(query) ||
-            alert.severity?.toLowerCase().includes(query)
-        );
-    });
+    // The API already filters by category and search
+    const filteredAlerts = alerts;
 
     const formatAlertTime = (dateStr) => {
         return formatShortDateTime(dateStr, timezone);
