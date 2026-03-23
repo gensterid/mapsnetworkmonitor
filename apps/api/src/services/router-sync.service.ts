@@ -96,8 +96,8 @@ export class RouterSyncService {
                     // 6. Sync Netwatch Status to ONUs (Bridging)
                     await routerNetwatchService.syncToOnus(id, tx);
                 }
- 
- 
+
+
                 // Update router info
                 const [updatedRouter] = await tx
                     .update(routers)
@@ -131,18 +131,18 @@ export class RouterSyncService {
                         tx
                     );
                 }
- 
+
                 // Save metrics only if resources are available (Full Sync)
                 if (resources) {
                     await routerMetricsService.saveMetrics(id, router.name, router.tenantId!, resources, tx);
                 }
- 
+
                 // Update interfaces
                 if (interfaces) {
-                    await routerInterfaceService.syncInterfaces(id, interfaces, tx);
+                    await routerInterfaceService.syncInterfaces(id, interfaces, tx, router.snmpStatus || undefined);
                 }
             });
- 
+
             return finalUpdatedRouter;
         } catch (error: any) {
             if (isRouterosQuirk(error)) {
@@ -222,7 +222,7 @@ export class RouterSyncService {
         if (customConn) {
             const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
             const entries = await routerNetwatchService.getNetwatch(routerId);
-            const targets = entries.filter(e => e.status !== 'unknown');
+            const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
             return routerNetwatchService.measureLatency(routerId, router?.name || 'Unknown', customConn, targets);
         }
 
@@ -233,7 +233,7 @@ export class RouterSyncService {
         try {
             conn = await routerActionService.getRouterConnection(routerId);
             const entries = await routerNetwatchService.getNetwatch(routerId);
-            const targets = entries.filter(e => e.status !== 'unknown');
+            const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
             await routerNetwatchService.measureLatency(routerId, router.name, conn, targets);
         } catch (err) {
             logger.error({ err, router: router.name }, 'Failed to measure netwatch latency');
