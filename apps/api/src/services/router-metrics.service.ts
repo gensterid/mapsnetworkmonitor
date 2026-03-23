@@ -79,6 +79,7 @@ export class RouterMetricsService {
         try {
             // 1. Get interface names and their OID indexes
             const ifNameOid = '1.3.6.1.2.1.31.1.1.1.1';
+            logger.info({ router: router.name, host: router.host, port, community }, '[SNMP Debug] Attempting walk');
             const names = await snmpService.walk({ host: router.host, port, community }, ifNameOid);
 
             const indexToNameMap = new Map<string, string>();
