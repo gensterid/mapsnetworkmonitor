@@ -248,8 +248,7 @@ export default function RouterDetails() {
 
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         {/* Live Mode Toggle */}
-                        {(router?.useSnmp ?? true) && (
-                            <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
+                        <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
                                 <div className={clsx(
                                     "w-2 h-2 rounded-full animate-pulse",
                                     isLiveMode ? "bg-red-500" : "bg-slate-500"
@@ -268,7 +267,6 @@ export default function RouterDetails() {
                                     )} />
                                 </button>
                             </div>
-                        )}
 
                         <Button
                             variant="outline"
