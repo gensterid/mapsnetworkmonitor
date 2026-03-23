@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { alertQueryService } from '../alert-query.service.js';
 import { alertActionService } from '../alert-action.service.js';
+import { isIssue } from '../alert-core.service.js';
 
 // Mock drizzle-orm and db
 vi.mock('drizzle-orm', async () => {
@@ -43,8 +44,8 @@ describe('Alert Services Refactoring Tests', () => {
             const issueAlert = { type: 'high_cpu', severity: 'critical' } as any;
             const connectivityAlert = { type: 'status_change', severity: 'info' } as any;
             
-            expect(alertQueryService.isIssue(issueAlert)).toBe(true);
-            expect(alertQueryService.isIssue(connectivityAlert)).toBe(false);
+            expect(isIssue(issueAlert.type, issueAlert.severity)).toBe(true);
+            expect(isIssue(connectivityAlert.type, connectivityAlert.severity)).toBe(false);
         });
     });
 
