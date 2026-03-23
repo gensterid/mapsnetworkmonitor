@@ -37,6 +37,17 @@ export async function getTenantIdFromRouter(routerId: string, tx: any = db): Pro
     return router?.tenantId || null;
 }
 
+export async function getRouterSnmpConfig(routerId: string, tx: any = db): Promise<{ tenantId: string | null; useSnmp: boolean }> {
+    const [router] = await tx
+        .select({ tenantId: routers.tenantId, useSnmp: routers.useSnmp })
+        .from(routers)
+        .where(eq(routers.id, routerId));
+    return {
+        tenantId: router?.tenantId || null,
+        useSnmp: router?.useSnmp ?? true
+    };
+}
+
 /**
  * Get alert thresholds from settings
  */

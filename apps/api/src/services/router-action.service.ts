@@ -13,6 +13,7 @@ import {
     getHotspotActive,
     getPppActive,
     getPppSessions,
+    getInterfaceTraffic,
     testConnection,
     getRouterInfo,
     type RouterConnection,
@@ -293,6 +294,22 @@ export class RouterActionService {
         } catch (error: any) {
             logger.error({ err: error?.message || String(error), routerId, ip }, 'Failed to execute arbitrary ping');
             return { latency: null, packetLoss: 100 };
+        } finally {
+            if (api) api.release();
+        }
+    }
+
+    /**
+     * Get real-time traffic for specific interfaces
+     */
+    async getInterfaceTraffic(routerId: string, interfaces: string[], tenantId?: string): Promise<Map<string, { tx: number; rx: number }>> {
+        let api: any;
+        try {
+            api = await this.getRouterConnection(routerId, tenantId);
+            return await getInterfaceTraffic(api, interfaces);
+        } catch (error: any) {
+            logger.error({ err: error?.message || String(error), routerId }, 'Failed to get interface traffic');
+            return new Map();
         } finally {
             if (api) api.release();
         }

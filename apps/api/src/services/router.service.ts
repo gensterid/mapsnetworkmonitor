@@ -73,6 +73,7 @@ export interface CreateRouterInput {
     notes?: string;
     snmpCommunity?: string;
     snmpPort?: number;
+    useSnmp?: boolean;
     useGenieAcs?: boolean;
     genieacsUrl?: string | null;
     genieacsUsername?: string | null;
@@ -98,6 +99,7 @@ export interface UpdateRouterInput {
     notes?: string;
     snmpCommunity?: string;
     snmpPort?: number;
+    useSnmp?: boolean;
     useGenieAcs?: boolean;
     genieacsUrl?: string | null;
     genieacsUsername?: string | null;
@@ -343,6 +345,7 @@ export class RouterService {
                     notes: data.notes,
                     snmpCommunity: data.snmpCommunity,
                     snmpPort: data.snmpPort,
+                    useSnmp: data.useSnmp !== undefined ? data.useSnmp : true,
                     useGenieAcs: data.useGenieAcs || false,
                     genieacsUrl: data.genieacsUrl,
                     genieacsUsername: data.genieacsUsername,
@@ -401,6 +404,7 @@ export class RouterService {
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.snmpCommunity !== undefined) updateData.snmpCommunity = data.snmpCommunity;
         if (data.snmpPort !== undefined) updateData.snmpPort = data.snmpPort;
+        if (data.useSnmp !== undefined) updateData.useSnmp = data.useSnmp;
         if (data.useGenieAcs !== undefined) updateData.useGenieAcs = data.useGenieAcs;
         if (data.genieacsUrl !== undefined) updateData.genieacsUrl = data.genieacsUrl;
         if (data.genieacsUsername !== undefined) updateData.genieacsUsername = data.genieacsUsername;
@@ -423,6 +427,14 @@ export class RouterService {
             .set(updateData)
             .where(eq(routers.id, id))
             .returning();
+
+        // If SNMP toggle changed to false, resolve any active SNMP error alerts
+        if (router && data.useSnmp === false) {
+            logger.info({ routerId: id }, 'SNMP monitoring disabled, resolving any active SNMP alerts');
+            alertService.resolveSnmpErrorAlert(id).catch(err => {
+                logger.error({ err, routerId: id }, 'Failed to resolve SNMP alerts after disabling SNMP');
+            });
+        }
 
         // If webhook toggle changed, trigger a background refresh to push/pull scripts
         if (router && data.useWebhook !== undefined) {

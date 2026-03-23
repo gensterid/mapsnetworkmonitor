@@ -359,6 +359,25 @@ export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
                                 })() : '-'}
                             </span>
                         </div>
+
+                        {node.useSnmp !== false && (
+                            <div className="col-span-2 bg-slate-900/50 p-1.5 rounded border border-slate-700/30 flex items-center justify-between">
+                                <span className="text-slate-400 text-[10px] uppercase tracking-wider">SNMP Status</span>
+                                <div className="flex items-center gap-1.5">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${node.snmpStatus === 'online' ? 'bg-emerald-400 animate-pulse' : node.snmpStatus === 'error' ? 'bg-red-500' : 'bg-slate-500'}`}></div>
+                                    <span className={`font-mono font-medium ${node.snmpStatus === 'online' ? 'text-emerald-400' : node.snmpStatus === 'error' ? 'text-red-400' : 'text-slate-400'}`}>
+                                        {node.snmpStatus === 'online' ? 'Online' : node.snmpStatus === 'error' ? 'Error' : 'Unknown'}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                        
+                        {node.useSnmp !== false && node.snmpStatus === 'error' && node.lastSnmpError && (
+                            <div className="col-span-2 bg-red-900/20 p-2 rounded border border-red-500/30">
+                                <span className="text-red-400 block text-[9px] uppercase tracking-tight mb-1 font-bold">SNMP Error</span>
+                                <span className="text-red-200 text-[10px] leading-tight block">{node.lastSnmpError}</span>
+                            </div>
+                        )}
                     </div>
                 )}
 

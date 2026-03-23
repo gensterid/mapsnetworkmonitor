@@ -66,7 +66,7 @@ fi
 
 echo "🗄️ Syncing database schema with focused fix script..."
 # Using focused fix instead of drizzle-kit push to avoid TimescaleDB hypertable issues
-cd apps/api && npm run db:fix-genieacs && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
+cd apps/api && npm run db:fix-genieacs && npm run db:repair && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
 # 6. PM2 Restart (if applicable)
 if command -v pm2 &> /dev/null; then

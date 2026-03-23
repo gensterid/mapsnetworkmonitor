@@ -69,6 +69,10 @@ export class RouterMetricsService {
      * Updates database counters and calculates current rates (bps)
      */
     async getSnmpTraffic(router: any, tx: any = db): Promise<Record<string, { tx: number; rx: number }>> {
+        if (router.useSnmp === false) {
+            return {};
+        }
+
         const community = router.snmpCommunity || 'public';
         const port = router.snmpPort || 161;
 

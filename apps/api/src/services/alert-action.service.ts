@@ -13,6 +13,7 @@ import { logger } from '../lib/logger.js';
 import { 
     getThresholds, 
     getTenantIdFromRouter, 
+    getRouterSnmpConfig,
     ALERT_COOLDOWN_MINUTES,
     ISSUE_TYPES,
     CONNECTIVITY_TYPES,
@@ -568,7 +569,13 @@ export class AlertActionService {
             return existing;
         }
 
-        const tenantId = await getTenantIdFromRouter(routerId);
+        const { tenantId, useSnmp } = await getRouterSnmpConfig(routerId, tx);
+        
+        if (!useSnmp) {
+            logger.debug({ routerId }, 'SNMP disabled for router, skipping SNMP alert creation');
+            return;
+        }
+
         if (!tenantId) {
              logger.error({ routerId }, 'Could not find tenantId for router, skipping SNMP alert');
              return;

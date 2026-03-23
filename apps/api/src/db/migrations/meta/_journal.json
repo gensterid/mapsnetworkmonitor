@@ -204,6 +204,13 @@
       "when": 1773953416414,
       "tag": "0028_early_cloak",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1774358400000,
+      "tag": "0029_add_router_use_snmp",
+      "breakpoints": true
     }
   ]
 }

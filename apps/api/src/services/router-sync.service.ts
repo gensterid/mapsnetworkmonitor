@@ -139,7 +139,20 @@ export class RouterSyncService {
 
                 // Update interfaces
                 if (interfaces) {
-                    await routerInterfaceService.syncInterfaces(id, interfaces, tx, router.snmpStatus || undefined);
+                    let trafficMap: Map<string, { tx: number, rx: number }> | undefined;
+                    
+                    // FETCH REAL-TIME TRAFFIC: If SNMP is not primary (or disabled), fetch rates via API monitor-traffic
+                    // to ensure accurate history and prevent spikes from counter resets.
+                    if ((router.snmpStatus !== 'online' || !router.useSnmp) && isFullSync && interfaces.length > 0) {
+                        try {
+                            const interfaceNames = interfaces.map((i: any) => i.name);
+                            trafficMap = await routerActionService.getInterfaceTraffic(id, interfaceNames, tenantId);
+                        } catch (err) {
+                            logger.warn({ err: String(err), router: router.name }, 'Failed to fetch real-time traffic during sync');
+                        }
+                    }
+
+                    await routerInterfaceService.syncInterfaces(id, interfaces, tx, router.snmpStatus || undefined, trafficMap, router.useSnmp);
                 }
             });
 

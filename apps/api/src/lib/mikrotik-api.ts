@@ -124,10 +124,23 @@ export async function connectToRouter(
     }
 
 
+    // Sanitize host and extract port if accidentally included in hostname
+    let targetHost = config.host.trim();
+    let targetPort = config.port;
+
+    if (targetHost.includes(':')) {
+        const parts = targetHost.split(':');
+        targetHost = parts[0].trim();
+        const parsedPort = parseInt(parts[1], 10);
+        if (!isNaN(parsedPort)) {
+            targetPort = parsedPort;
+        }
+    }
+
     // Return any to avoid complex TS types with the CJS import
     const api = new RouterOSAPI({
-        host: config.host,
-        port: config.port,
+        host: targetHost,
+        port: targetPort,
         user: config.username,
         password: config.password,
         timeout: config.timeout || 60, // Increased to 60s for slow routers (CPU 100% etc)

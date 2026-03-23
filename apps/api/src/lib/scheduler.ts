@@ -337,7 +337,7 @@ async function pollRoutersSnmp(): Promise<void> {
 
             // Find all online routers with SNMP host configured
             const routersList = await routerService.findAll(tenant.id);
-            const onlineRouters = routersList.filter(r => r.status === 'online' && r.host);
+            const onlineRouters = routersList.filter(r => r.status === 'online' && r.host && r.useSnmp !== false);
 
             if (onlineRouters.length === 0) continue;
 

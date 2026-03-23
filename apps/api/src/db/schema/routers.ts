@@ -35,6 +35,7 @@ export const routers = pgTable('routers', {
     passwordEncrypted: text('password_encrypted').notNull(),
 
     // SNMP Configuration
+    useSnmp: boolean('use_snmp').default(true).notNull(),
     snmpCommunity: text('snmp_community').default('public'),
     snmpPort: integer('snmp_port').default(161),
 

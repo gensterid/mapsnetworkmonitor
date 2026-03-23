@@ -40,6 +40,22 @@ const runRepair = async () => {
         // 0. List all tables
         const tables = await db.execute(sql`SELECT table_name FROM information_schema.tables WHERE table_schema='public';`);
         console.log('📚 Tables in public schema:', (tables as any[]).map(t => t.table_name).join(', '));
+ 
+        // 0.1 Fix: use_snmp column in routers
+        console.log('🔍 Checking routers table for SNMP toggle...');
+        const checkSnmpCol = await db.execute(sql.raw(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='routers' AND column_name='use_snmp';
+        `));
+ 
+        if (checkSnmpCol.length === 0) {
+            console.log('⚠️ Column use_snmp missing in routers. Adding it now...');
+            await db.execute(sql`ALTER TABLE routers ADD COLUMN use_snmp boolean DEFAULT true;`);
+            console.log('✅ Column use_snmp added successfully.');
+        } else {
+            console.log('✅ Column use_snmp already exists.');
+        }
 
         // 1. Fix: last_known_latency column in router_netwatch
         console.log('🔍 Checking router_netwatch table...');

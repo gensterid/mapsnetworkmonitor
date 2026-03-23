@@ -27,11 +27,35 @@ export class SnmpService {
     }
 
     /**
+     * Sanitize target host and extract port if present
+     */
+    private sanitizeTarget(host: string, defaultPort: number = 161): { host: string; port: number } {
+        if (!host) return { host: '', port: defaultPort };
+        
+        let targetHost = host.trim();
+        let targetPort = defaultPort;
+
+        // Handle case where host contains port (e.g. "id.genster.net:3030")
+        if (targetHost.includes(':')) {
+            const parts = targetHost.split(':');
+            targetHost = parts[0].trim();
+            const parsedPort = parseInt(parts[1], 10);
+            if (!isNaN(parsedPort)) {
+                targetPort = parsedPort;
+            }
+        }
+
+        return { host: targetHost, port: targetPort };
+    }
+
+    /**
      * Create a new SNMP session
      */
     private createSession(config: SnmpConfig) {
-        return snmp.createSession(config.host, config.community || 'public', {
-            port: config.port || 161,
+        const { host, port } = this.sanitizeTarget(config.host, config.port || 161);
+        
+        return snmp.createSession(host, config.community || 'public', {
+            port: port,
             version: config.version || snmp.Version2c,
             timeout: 10000,
             retries: 3

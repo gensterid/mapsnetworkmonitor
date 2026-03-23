@@ -22,10 +22,17 @@ export class RouterInterfaceService {
     /**
      * Sync and update interface status and traffic rates from MikroTik data
      */
-    async syncInterfaces(routerId: string, interfaces: any[], tx: any = db, snmpStatus?: string): Promise<void> {
+    async syncInterfaces(
+        routerId: string, 
+        interfaces: any[], 
+        tx: any = db, 
+        snmpStatus?: string,
+        trafficMap?: Map<string, { tx: number, rx: number }>,
+        useSnmp: boolean = true
+    ): Promise<void> {
         if (!interfaces) return;
 
-        const isSnmpPrimary = snmpStatus === 'online';
+        const isSnmpPrimary = snmpStatus === 'online' && useSnmp;
 
         for (const iface of interfaces) {
             // Check if interface exists in our database
@@ -47,24 +54,40 @@ export class RouterInterfaceService {
 
                 // SMART FALLBACK: Only update traffic if SNMP is NOT online
                 if (!isSnmpPrimary) {
-                    // Calculate rates (bits per second) based on byte counter differences
-                    const now = new Date();
-                    const lastUpdate = existingInterface.lastUpdated || new Date();
-                    const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
-
                     let txRate = 0;
                     let rxRate = 0;
 
-                    if (seconds > 0 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
-                        const txDiff = Number(iface.txBytes) - Number(existingInterface.txBytes || 0);
-                        const rxDiff = Number(iface.rxBytes) - Number(existingInterface.rxBytes || 0);
+                    // A: Use direct traffic map if provided (from /interface/monitor-traffic)
+                    if (trafficMap && trafficMap.has(iface.name)) {
+                        const stats = trafficMap.get(iface.name)!;
+                        txRate = stats.tx;
+                        rxRate = stats.rx;
+                    } 
+                    // B: Calculate rates (bits per second) based on byte counter differences
+                    else {
+                        const now = new Date();
+                        const lastUpdate = existingInterface.lastUpdated || new Date();
+                        const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
-                        // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
-                        if (txDiff >= 0) {
-                            txRate = Math.round((txDiff * 8) / seconds);
-                        }
-                        if (rxDiff >= 0) {
-                            rxRate = Math.round((rxDiff * 8) / seconds);
+                        if (seconds > 0 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
+                            const currentTx = Number(iface.txBytes);
+                            const currentRx = Number(iface.rxBytes);
+                            const prevTx = Number(existingInterface.txBytes || 0);
+                            const prevRx = Number(existingInterface.rxBytes || 0);
+
+                            const txDiff = currentTx - prevTx;
+                            const rxDiff = currentRx - prevRx;
+
+                            // SPIKE GUARD: If previous value was 0 (first sync) and direct rate not available,
+                            // assume rate is 0 to avoid huge jumps from byte counter resets.
+                            if (prevTx === 0 || prevRx === 0) {
+                                txRate = 0;
+                                rxRate = 0;
+                            } else if (txDiff >= 0 && rxDiff >= 0) {
+                                // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
+                                txRate = Math.round((txDiff * 8) / seconds);
+                                rxRate = Math.round((rxDiff * 8) / seconds);
+                            }
                         }
                     }
 

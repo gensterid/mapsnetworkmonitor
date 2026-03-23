@@ -37,19 +37,23 @@ export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId 
                                                 {router.status === 'online' ? "Online" : "Offline"}
                                             </span>
                                         </div>
-                                        <div className="flex items-center gap-2 mt-1">
-                                            <span className={clsx("w-1.5 h-1.5 rounded-full",
-                                                router.snmpStatus === 'online' ? "bg-emerald-400" : 
-                                                router.snmpStatus === 'error' ? "bg-red-400" : "bg-slate-500"
-                                            )}></span>
-                                            <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">
-                                                SNMP: {router.snmpStatus === 'online' ? "OK" : (router.snmpStatus === 'error' ? "FAIL" : "OFF")}
-                                            </span>
-                                        </div>
-                                        {router.snmpStatus === 'error' && router.lastSnmpError && (
-                                            <div className="text-[9px] text-red-400/80 italic max-w-[150px] truncate" title={router.lastSnmpError}>
-                                                SNMP: {router.lastSnmpError}
-                                            </div>
+                                        {router.useSnmp && (
+                                            <>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className={clsx("w-1.5 h-1.5 rounded-full",
+                                                        router.snmpStatus === 'online' ? "bg-emerald-400" : 
+                                                        router.snmpStatus === 'error' ? "bg-red-400" : "bg-slate-500"
+                                                    )}></span>
+                                                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-tight">
+                                                        SNMP: {router.snmpStatus === 'online' ? "OK" : (router.snmpStatus === 'error' ? "FAIL" : "OFF")}
+                                                    </span>
+                                                </div>
+                                                {router.snmpStatus === 'error' && router.lastSnmpError && (
+                                                    <div className="text-[9px] text-red-400/80 italic max-w-[150px] truncate" title={router.lastSnmpError}>
+                                                        SNMP: {router.lastSnmpError}
+                                                    </div>
+                                                )}
+                                            </>
                                         )}
                                         {router.status !== 'online' && router.lastErrorMessage && (
                                             <div className="text-[9px] text-red-500/80 italic max-w-[150px] truncate" title={router.lastErrorMessage}>

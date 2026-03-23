@@ -39,6 +39,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
         notificationGroupId: router?.notificationGroupId || '',
         snmpCommunity: router?.snmpCommunity || 'public',
         snmpPort: String(router?.snmpPort || 161),
+        useSnmp: router?.useSnmp !== undefined ? router.useSnmp : true,
         useGenieAcs: router?.useGenieAcs || false,
         genieacsUrl: router?.genieacsUrl || '',
         genieacsUsername: router?.genieacsUsername || '',
@@ -88,6 +89,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: router.notificationGroupId || '',
                 snmpCommunity: router.snmpCommunity || 'public',
                 snmpPort: String(router.snmpPort || 161),
+                useSnmp: router.useSnmp !== undefined ? router.useSnmp : true,
                 useGenieAcs: router.useGenieAcs || false,
                 genieacsUrl: router.genieacsUrl || '',
                 genieacsUsername: router.genieacsUsername || '',
@@ -108,6 +110,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: '',
                 snmpCommunity: 'public',
                 snmpPort: '161',
+                useSnmp: true,
                 useGenieAcs: false,
                 genieacsUrl: '',
                 genieacsUsername: '',
@@ -166,6 +169,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: formData.notificationGroupId || null,
                 snmpCommunity: formData.snmpCommunity || 'public',
                 snmpPort: parseInt(formData.snmpPort, 10) || 161,
+                useSnmp: formData.useSnmp,
                 useGenieAcs: formData.useGenieAcs,
                 genieacsUrl: formData.genieacsUrl || undefined,
                 genieacsUsername: formData.genieacsUsername || undefined,
@@ -425,28 +429,43 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
 
                 {/* SNMP Section */}
                 <div className="pt-2 border-t border-slate-700/50">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">SNMP Configuration (Live Traffic)</div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">SNMP Community</label>
-                            <Input
-                                name="snmpCommunity"
-                                value={formData.snmpCommunity}
-                                onChange={handleChange}
-                                placeholder="public"
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">SNMP Configuration (Live Traffic)</div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="useSnmp"
+                                checked={formData.useSnmp}
+                                onChange={(e) => setFormData(prev => ({ ...prev, useSnmp: e.target.checked }))}
+                                className="sr-only peer"
                             />
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-slate-300">SNMP Port</label>
-                            <Input
-                                type="number"
-                                name="snmpPort"
-                                value={formData.snmpPort}
-                                onChange={handleChange}
-                                placeholder="161"
-                            />
-                        </div>
+                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
                     </div>
+
+                    {formData.useSnmp && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">SNMP Community</label>
+                                <Input
+                                    name="snmpCommunity"
+                                    value={formData.snmpCommunity}
+                                    onChange={handleChange}
+                                    placeholder="public"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">SNMP Port</label>
+                                <Input
+                                    type="number"
+                                    name="snmpPort"
+                                    value={formData.snmpPort}
+                                    onChange={handleChange}
+                                    placeholder="161"
+                                />
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="pt-4 flex justify-end gap-2">
