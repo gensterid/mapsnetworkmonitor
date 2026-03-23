@@ -244,6 +244,7 @@ export class RouterMetricsService {
                 });
             } catch (evErr) {}
 
+            logger.info({ router: router.name }, '✅ [SNMP Success] Background traffic poll completed');
             return calculatedRates;
         } catch (error: any) {
             logger.error({ err: error.message, host: router.host }, 'SNMP traffic failed');
