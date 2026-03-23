@@ -54,6 +54,20 @@ async function repair() {
             END $$;
         `;
         console.log('✅ "olts" table repaired!');
+        
+        // 3. Repair 'routers' table
+        console.log('📝 Checking "routers" table...');
+        await sql`
+            DO $$ 
+            BEGIN 
+                -- Add use_snmp
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='routers' AND column_name='use_snmp') THEN
+                    ALTER TABLE routers ADD COLUMN use_snmp BOOLEAN DEFAULT TRUE NOT NULL;
+                    RAISE NOTICE 'Added use_snmp to routers';
+                END IF;
+            END $$;
+        `;
+        console.log('✅ "routers" table repaired!');
 
         console.log('\n✨ Database repair completed successfully!');
     } catch (err: any) {
