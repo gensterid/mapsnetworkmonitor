@@ -38,6 +38,8 @@ export const routers = pgTable('routers', {
     useSnmp: boolean('use_snmp').default(true).notNull(),
     snmpCommunity: text('snmp_community').default('public'),
     snmpPort: integer('snmp_port').default(161),
+    snmpHost: text('snmp_host'), // Optional custom host for SNMP polling
+
 
     // Router info (fetched from RouterOS)
     routerOsVersion: text('router_os_version'),

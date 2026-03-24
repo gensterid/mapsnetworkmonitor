@@ -39,6 +39,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
         notificationGroupId: router?.notificationGroupId || '',
         snmpCommunity: router?.snmpCommunity || 'public',
         snmpPort: String(router?.snmpPort || 161),
+        snmpHost: router?.snmpHost || '',
         useSnmp: router?.useSnmp !== undefined ? router.useSnmp : true,
         useGenieAcs: router?.useGenieAcs || false,
         genieacsUrl: router?.genieacsUrl || '',
@@ -89,6 +90,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: router.notificationGroupId || '',
                 snmpCommunity: router.snmpCommunity || 'public',
                 snmpPort: String(router.snmpPort || 161),
+                snmpHost: router.snmpHost || '',
                 useSnmp: router.useSnmp !== undefined ? router.useSnmp : true,
                 useGenieAcs: router.useGenieAcs || false,
                 genieacsUrl: router.genieacsUrl || '',
@@ -110,6 +112,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: '',
                 snmpCommunity: 'public',
                 snmpPort: '161',
+                snmpHost: '',
                 useSnmp: true,
                 useGenieAcs: false,
                 genieacsUrl: '',
@@ -169,6 +172,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 notificationGroupId: formData.notificationGroupId || null,
                 snmpCommunity: formData.snmpCommunity || 'public',
                 snmpPort: parseInt(formData.snmpPort, 10) || 161,
+                snmpHost: formData.snmpHost || undefined,
                 useSnmp: formData.useSnmp,
                 useGenieAcs: formData.useGenieAcs,
                 genieacsUrl: formData.genieacsUrl || undefined,
@@ -444,25 +448,39 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     </div>
 
                     {formData.useSnmp && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">SNMP Community</label>
-                                <Input
-                                    name="snmpCommunity"
-                                    value={formData.snmpCommunity}
-                                    onChange={handleChange}
-                                    placeholder="public"
-                                />
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">SNMP Community</label>
+                                    <Input
+                                        name="snmpCommunity"
+                                        value={formData.snmpCommunity}
+                                        onChange={handleChange}
+                                        placeholder="public"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-slate-300">SNMP Port</label>
+                                    <Input
+                                        type="number"
+                                        name="snmpPort"
+                                        value={formData.snmpPort}
+                                        onChange={handleChange}
+                                        placeholder="161"
+                                    />
+                                </div>
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-slate-300">SNMP Port</label>
+                                <label className="text-sm font-medium text-slate-300">SNMP Host (Optional)</label>
                                 <Input
-                                    type="number"
-                                    name="snmpPort"
-                                    value={formData.snmpPort}
+                                    name="snmpHost"
+                                    value={formData.snmpHost}
                                     onChange={handleChange}
-                                    placeholder="161"
+                                    placeholder="Leave blank to use main IP"
                                 />
+                                <p className="text-[10px] text-slate-500">
+                                    Use this if SNMP needs to connect via a different IP/VPN than the main management IP.
+                                </p>
                             </div>
                         </div>
                     )}

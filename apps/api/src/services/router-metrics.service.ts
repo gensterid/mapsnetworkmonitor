@@ -73,14 +73,15 @@ export class RouterMetricsService {
             return {};
         }
 
+        const snmpHost = router.snmpHost || router.host;
         const community = router.snmpCommunity || 'public';
         const port = router.snmpPort || 161;
 
         try {
             // 1. Get interface names and their OID indexes
             const ifNameOid = '1.3.6.1.2.1.31.1.1.1.1';
-            logger.info({ router: router.name, host: router.host, port, community }, '[SNMP Debug] Attempting walk');
-            const names = await snmpService.walk({ host: router.host, port, community }, ifNameOid);
+            logger.info({ router: router.name, host: snmpHost, port, community }, '[SNMP Debug] Attempting walk');
+            const names = await snmpService.walk({ host: snmpHost, port, community }, ifNameOid);
 
             const indexToNameMap = new Map<string, string>();
             for (const result of names) {
