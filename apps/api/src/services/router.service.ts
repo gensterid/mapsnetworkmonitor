@@ -73,6 +73,7 @@ export interface CreateRouterInput {
     notes?: string;
     snmpCommunity?: string;
     snmpPort?: number;
+    snmpHost?: string | null;
     useSnmp?: boolean;
     useGenieAcs?: boolean;
     genieacsUrl?: string | null;
@@ -99,6 +100,7 @@ export interface UpdateRouterInput {
     notes?: string;
     snmpCommunity?: string;
     snmpPort?: number;
+    snmpHost?: string | null;
     useSnmp?: boolean;
     useGenieAcs?: boolean;
     genieacsUrl?: string | null;
@@ -345,6 +347,7 @@ export class RouterService {
                     notes: data.notes,
                     snmpCommunity: data.snmpCommunity,
                     snmpPort: data.snmpPort,
+                    snmpHost: data.snmpHost,
                     useSnmp: data.useSnmp !== undefined ? data.useSnmp : true,
                     useGenieAcs: data.useGenieAcs || false,
                     genieacsUrl: data.genieacsUrl,
@@ -404,6 +407,7 @@ export class RouterService {
         if (data.notes !== undefined) updateData.notes = data.notes;
         if (data.snmpCommunity !== undefined) updateData.snmpCommunity = data.snmpCommunity;
         if (data.snmpPort !== undefined) updateData.snmpPort = data.snmpPort;
+        if (data.snmpHost !== undefined) updateData.snmpHost = data.snmpHost;
         if (data.useSnmp !== undefined) updateData.useSnmp = data.useSnmp;
         if (data.useGenieAcs !== undefined) updateData.useGenieAcs = data.useGenieAcs;
         if (data.genieacsUrl !== undefined) updateData.genieacsUrl = data.genieacsUrl;

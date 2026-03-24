@@ -47,6 +47,9 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                             "bg-slate-500/10 text-slate-500 border-slate-500/20"
                                         )}>
                                             SNMP: {router.snmpStatus === 'online' ? 'OK' : (router.snmpStatus === 'error' ? 'FAIL' : 'OFF')}
+                                            {router.snmpHost && router.snmpHost !== router.host && (
+                                                <span className="ml-1 opacity-60">({router.snmpHost})</span>
+                                            )}
                                         </div>
                                     )}
                                     

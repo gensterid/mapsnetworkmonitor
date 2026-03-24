@@ -48,6 +48,11 @@ export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId 
                                                         SNMP: {router.snmpStatus === 'online' ? "OK" : (router.snmpStatus === 'error' ? "FAIL" : "OFF")}
                                                     </span>
                                                 </div>
+                                                {router.snmpHost && router.snmpHost !== router.host && (
+                                                    <div className="text-[8px] text-slate-500 font-mono mt-0.5">
+                                                        IP: {router.snmpHost}
+                                                    </div>
+                                                )}
                                                 {router.snmpStatus === 'error' && router.lastSnmpError && (
                                                     <div className="text-[9px] text-red-400/80 italic max-w-[150px] truncate" title={router.lastSnmpError}>
                                                         SNMP: {router.lastSnmpError}
