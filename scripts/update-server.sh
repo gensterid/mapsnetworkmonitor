@@ -55,6 +55,12 @@ fi
 # 5. Database Backup & Schema Sync
 echo "🗄️ Preparing database..."
 
+# 5.0 Stop Services to avoid DB locks
+if command -v pm2 &> /dev/null; then
+    echo "🛑 Stopping services to avoid database locks..."
+    pm2 stop all || echo "⚠️ PM2 stop failed - continuing anyway"
+fi
+
 # 5.1 Automatic Backup (Safety First)
 if [ ! -d "backups" ]; then mkdir backups; fi
 BACKUP_FILE="backups/pre_update_$(date +%Y%m%d_%H%M%S).sql"
