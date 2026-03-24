@@ -57,6 +57,22 @@ const runRepair = async () => {
             console.log('✅ Column use_snmp already exists.');
         }
 
+        // 0.2 Fix: snmp_host column in routers
+        console.log('🔍 Checking routers table for snmp_host...');
+        const checkSnmpHostCol = await db.execute(sql.raw(`
+            SELECT column_name 
+            FROM information_schema.columns 
+            WHERE table_name='routers' AND column_name='snmp_host';
+        `));
+
+        if (checkSnmpHostCol.length === 0) {
+            console.log('⚠️ Column snmp_host missing in routers. Adding it now...');
+            await db.execute(sql`ALTER TABLE routers ADD COLUMN snmp_host text;`);
+            console.log('✅ Column snmp_host added successfully.');
+        } else {
+            console.log('✅ Column snmp_host already exists.');
+        }
+
         // 1. Fix: last_known_latency column in router_netwatch
         console.log('🔍 Checking router_netwatch table...');
         const checkColumn = await db.execute(sql.raw(`
