@@ -11,6 +11,7 @@ import {
 } from '../db/schema/index.js';
 import { alertService } from './alert.service.js';
 import { snmpService } from './snmp.service.js';
+import { interfaceRepository } from '../repositories/interface.repository.js';
 import { parseUptimeToSeconds, parseSnmpValue } from '../lib/mikrotik-api.js';
 import { logger } from '../lib/logger.js';
 
@@ -127,10 +128,7 @@ export class RouterMetricsService {
             }
 
             // 4. Pre-fetch all interfaces for this router to avoid N+1 queries
-            const existingInterfaces = await tx
-                .select()
-                .from(routerInterfaces)
-                .where(eq(routerInterfaces.routerId, router.id));
+            const existingInterfaces = await interfaceRepository.findByRouterId(router.id, tx);
             
             const interfaceMap = new Map<string, RouterInterface>(
                 existingInterfaces.map((i: RouterInterface) => [i.name, i])

@@ -7,16 +7,14 @@ import {
     type RouterInterface,
 } from '../db/schema/index.js';
 
+import { interfaceRepository } from '../repositories/interface.repository.js';
+
 export class RouterInterfaceService {
     /**
      * Get all interfaces for a router from the database
      */
     async getInterfaces(routerId: string): Promise<RouterInterface[]> {
-        return db
-            .select()
-            .from(routerInterfaces)
-            .where(eq(routerInterfaces.routerId, routerId))
-            .orderBy(routerInterfaces.name);
+        return interfaceRepository.findByRouterId(routerId);
     }
 
     /**
@@ -35,10 +33,7 @@ export class RouterInterfaceService {
         const isSnmpPrimary = snmpStatus === 'online' && useSnmp;
 
         // Pre-fetch all interfaces for this router once to avoid N+1 queries
-        const existingInterfaces = await tx
-            .select()
-            .from(routerInterfaces)
-            .where(eq(routerInterfaces.routerId, routerId));
+        const existingInterfaces = await interfaceRepository.findByRouterId(routerId, tx);
         
         const interfaceMap = new Map<string, RouterInterface>(
             existingInterfaces.map((i: RouterInterface) => [i.name, i])
