@@ -165,19 +165,27 @@ export class RouterMetricsService {
                     let txRate = 0;
                     let rxRate = 0;
 
-                    if (seconds > 0) {
+                    if (seconds > 5) { // Guard 1: Ignore updates if less than 5s passed (prevents spikes from double polling)
                         const currentTx = data.tx;
                         const currentRx = data.rx;
                         const prevTx = Number(existing.txBytes || 0);
                         const prevRx = Number(existing.rxBytes || 0);
 
-                        // Basic wrap-around / reset protection
-                        if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
-                        if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
-                        
-                        // Ensure rates are also valid numbers
-                        if (isNaN(txRate)) txRate = 0;
-                        if (isNaN(rxRate)) rxRate = 0;
+                        // Guard 2: If previous bytes were 0, this is likely our first successful poll after an error or restart.
+                        // We shouldn't calculate a rate against 0 as it would cause a massive spike.
+                        if (prevTx > 0 && prevRx > 0) {
+                            // Basic wrap-around / reset protection
+                            if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
+                            if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
+                            
+                            // Ensure rates are also valid numbers
+                            if (isNaN(txRate)) txRate = 0;
+                            if (isNaN(rxRate)) rxRate = 0;
+                            
+                            // Cap rates at a reasonable physical limit (e.g. 10Gbps per interface) to avoid glitches
+                            if (txRate > 10000000000) txRate = 0;
+                            if (rxRate > 10000000000) rxRate = 0;
+                        }
                     }
  
                     await tx.update(routerInterfaces).set({
