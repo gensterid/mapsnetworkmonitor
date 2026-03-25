@@ -69,7 +69,7 @@ export class RouterInterfaceService {
                         const lastUpdate = existingInterface.lastUpdated || new Date();
                         const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
-                        if (seconds > 0 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
+                        if (seconds > 5 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
                             const currentTx = Number(iface.txBytes);
                             const currentRx = Number(iface.rxBytes);
                             const prevTx = Number(existingInterface.txBytes || 0);
@@ -87,6 +87,10 @@ export class RouterInterfaceService {
                                 // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
                                 txRate = Math.round((txDiff * 8) / seconds);
                                 rxRate = Math.round((rxDiff * 8) / seconds);
+
+                                // Sanity check: Cap at 100Gbps
+                                if (txRate > 100000000000) txRate = 0;
+                                if (rxRate > 100000000000) rxRate = 0;
                             }
                         }
                     }

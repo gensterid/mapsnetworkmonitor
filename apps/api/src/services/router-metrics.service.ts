@@ -182,9 +182,9 @@ export class RouterMetricsService {
                             if (isNaN(txRate)) txRate = 0;
                             if (isNaN(rxRate)) rxRate = 0;
                             
-                            // Cap rates at a reasonable physical limit (e.g. 10Gbps per interface) to avoid glitches
-                            if (txRate > 10000000000) txRate = 0;
-                            if (rxRate > 10000000000) rxRate = 0;
+                            // Cap rates at a reasonable physical limit (e.g. 100Gbps per interface) to avoid glitches
+                            if (txRate > 100000000000) txRate = 0;
+                            if (rxRate > 100000000000) rxRate = 0;
                         }
                     }
  
