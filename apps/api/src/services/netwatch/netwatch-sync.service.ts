@@ -59,8 +59,8 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 const detectedWebhook = (hasUpWebhook && hasDownWebhook) || false;
                 const isPartiallyMissing = (hasUpWebhook || hasDownWebhook) && !detectedWebhook;
 
-                const isOurUpWebhook = nw.upScript?.toLowerCase().includes(cleanBaseUrl) && (router.webhookSecret && nw.upScript?.includes(router.webhookSecret));
-                const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl) && (router.webhookSecret && nw.downScript?.includes(router.webhookSecret));
+                const isOurUpWebhook = nw.upScript?.toLowerCase().includes(cleanBaseUrl) && (router.webhookSecret && nw.upScript?.includes(`Bearer ${router.webhookSecret}`));
+                const isOurDownWebhook = nw.downScript?.toLowerCase().includes(cleanBaseUrl) && (router.webhookSecret && nw.downScript?.includes(`Bearer ${router.webhookSecret}`));
                 const isOurWebhook = isOurUpWebhook || isOurDownWebhook;
 
                 let finalHasWebhook = detectedWebhook && isOurWebhook;
@@ -69,7 +69,7 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                     let forceReconfig = false;
                     if (finalHasWebhook) {
                         const combo = (nw.upScript || '') + (nw.downScript || '');
-                        const tokenMatch = combo.match(/token=([a-f0-9]+)/i);
+                        const tokenMatch = combo.match(/Bearer ([a-f0-9]+)/i);
                         const currentToken = tokenMatch ? tokenMatch[1] : null;
 
                         if (currentToken && currentToken !== router.webhookSecret) {
@@ -81,8 +81,8 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
 
                     if (!finalHasWebhook || isPartiallyMissing || forceReconfig) {
                         if (detectedWebhook && !isOurWebhook) {
-                            const upMatch = nw.upScript?.match(/token=([a-zA-Z0-9_-]+)/);
-                             const downMatch = nw.downScript?.match(/token=([a-zA-Z0-9_-]+)/);
+                            const upMatch = nw.upScript?.match(/Bearer ([a-zA-Z0-9_-]+)/);
+                             const downMatch = nw.downScript?.match(/Bearer ([a-zA-Z0-9_-]+)/);
                              const existingToken = upMatch?.[1] || downMatch?.[1];
  
                              if (existingToken) {
@@ -92,7 +92,7 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                         }
 
                         try {
-                            await configureNetwatchWebhook(conn, nw.host, webhookUrl, nw, forceReconfig);
+                            await configureNetwatchWebhook(conn, nw.host, webhookUrl, router.webhookSecret!, nw, forceReconfig);
                             if (!detectedWebhook || isOurWebhook || forceReconfig) finalHasWebhook = true;
                         } catch (err) { logger.warn({ err: String(err), host: nw.host }, 'Failed to configure webhook'); }
                     }

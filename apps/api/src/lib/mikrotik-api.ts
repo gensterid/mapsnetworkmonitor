@@ -704,10 +704,14 @@ export async function configureNetwatchWebhook(
     api: any,
     host: string,
     webhookUrl: string,
+    webhookToken: string,
     existingEntry?: { _id?: string, upScript?: string, downScript?: string },
     forceOverwrite: boolean = false
 ): Promise<void> {
     let id = '';
+
+    // Remove token from URL if present to avoid dual-token exposure
+    const cleanUrl = webhookUrl.split('?token=')[0];
 
     // WIDE-FETCH: No proplist to ensure all fields are returned.
     let entries: any[];
@@ -726,18 +730,13 @@ export async function configureNetwatchWebhook(
     const entry = entries[0];
     id = entry['.id'];
 
-    // Log ALL keys for debugging
-    const allKeys = Object.keys(entry);
-    logger.debug({ host, id, allKeys: allKeys.filter(k => k !== '.id') }, 'Webhook inject: raw entry keys');
-
     // === INDEPENDENT PER-FIELD HANDLING ===
     // We handle UP and DOWN scripts 100% independently.
-    // If we can't read a field, we DON'T write to it.
 
-    // Cloudflare Anti-Bot Bypass: Add standard User-Agent so Cloudflare doesn't block the request
-    const userAgent = 'http-header-field="User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"';
-    const upCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=up" ${userAgent} keep-result=no;`;
-    const downCommand = `:delay 1s; /tool fetch url="${webhookUrl}&host=${host}&status=down" ${userAgent} keep-result=no;`;
+    // SECURE HEADERS: Add Authorization Bearer and User-Agent
+    const headers = `Authorization: Bearer ${webhookToken},User-Agent: Mozilla/5.0 (Mikrotik Monitor)`;
+    const upCommand = `:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=up" http-header-field="${headers}" keep-result=no;`;
+    const downCommand = `:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=down" http-header-field="${headers}" keep-result=no;`;
 
     // Read each script field. MikroTik may use hyphen or underscore variants.
     const readField = (obj: any, type: string): { value: string, fieldPresent: boolean } => {

@@ -45,7 +45,7 @@ import {
     type RouterNeighbor,
     type RomonNeighbor,
 } from '../lib/mikrotik-api.js';
-import { measureLatency } from '../lib/network-utils.js';
+import { measureLatency, isPrivateIP } from '../lib/network-utils.js';
 import { alertService } from './alert.service.js';
 import { pppoeService } from './pppoe.service.js';
 import { settingsService } from './settings.service.js';
@@ -117,6 +117,25 @@ export interface UpdateRouterInput {
  * Router Service - handles router CRUD and monitoring operations
  */
 export class RouterService {
+    /**
+     * Validate host to prevent SSRF
+     */
+    private validateHost(host?: string | null) {
+        if (!host) return;
+        
+        // Always block localhost/loopback in production to prevent SSRF
+        const lowerHost = host.toLowerCase().trim();
+        if (lowerHost === 'localhost' || lowerHost === '127.0.0.1' || lowerHost === '::1') {
+             throw new ApiError(400, `SSRF Protection: Localhost/Loopback is not allowed as a router host.`);
+        }
+
+        // Allow private networks by default for ISP management, but provide an override
+        const allowPrivate = process.env.ALLOW_PRIVATE_NETWORKS !== 'false';
+        if (!allowPrivate && isPrivateIP(host)) {
+            throw new ApiError(400, `SSRF Protection: Host ${host} is in a private network range.`);
+        }
+    }
+
     /**
      * Get all routers with their latest metrics and fastest interface speed
      */
@@ -326,6 +345,9 @@ export class RouterService {
      * Create a new router
      */
     async create(data: CreateRouterInput, tenantId: string): Promise<Router> {
+        this.validateHost(data.host);
+        this.validateHost(data.snmpHost);
+        
         return await db.transaction(async (tx) => {
             const encryptedPassword = encrypt(data.password);
 
@@ -384,6 +406,9 @@ export class RouterService {
             const current = await this.findById(id, tenantId);
             if (!current) throw ApiError.notFound('Router not found or access denied');
         }
+
+        if (data.host) this.validateHost(data.host);
+        if (data.snmpHost) this.validateHost(data.snmpHost);
 
         const updateData: Partial<typeof routers.$inferInsert> & { updatedAt: Date } = {
             updatedAt: new Date(),

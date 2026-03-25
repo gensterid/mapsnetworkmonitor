@@ -23,14 +23,15 @@ const webhookLimiter = rateLimit({
 const webhookSchema = z.object({
     host: z.string().min(1),
     status: z.enum(['up', 'down']),
-    token: z.string().min(1)
+    token: z.string().optional() // Make optional for transition to Bearer
 });
 
 /**
  * GET /api/webhook/netwatch
  * Dedicated high-performance endpoint for MikroTik netwatch push notifications.
- * Uses query parameters for easy fetch execution from RouterOS.
- * Example: /api/webhook/netwatch?host=1.1.1.1&status=down&token=xyz
+ * Supports both query parameters and Authorization: Bearer <token> header.
+ * Example legacy: /api/webhook/netwatch?host=1.1.1.1&status=down&token=xyz
+ * Example secure: /api/webhook/netwatch?host=1.1.1.1&status=down (with header)
  */
 router.get(
     '/netwatch',

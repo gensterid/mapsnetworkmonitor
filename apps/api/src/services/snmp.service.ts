@@ -49,6 +49,9 @@ export class SnmpService {
         aes256r: 5
     };
 
+    private walkCache: Map<string, { results: SnmpOidResult[]; timestamp: number }> = new Map();
+    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
     private constructor() { }
 
     public static getInstance(): SnmpService {
@@ -56,6 +59,13 @@ export class SnmpService {
             SnmpService.instance = new SnmpService();
         }
         return SnmpService.instance;
+    }
+
+    /**
+     * Clear the SNMP walk cache
+     */
+    public clearCache(): void {
+        this.walkCache.clear();
     }
 
     /**
@@ -186,6 +196,13 @@ export class SnmpService {
      * Walk a subtree
      */
     public async walk(config: SnmpConfig, oid: string): Promise<SnmpOidResult[]> {
+        const cacheKey = `${config.host}:${config.port || 161}:${config.community || 'public'}:${oid}`;
+        const cached = this.walkCache.get(cacheKey);
+        
+        if (cached && (Date.now() - cached.timestamp < this.CACHE_TTL)) {
+            return cached.results;
+        }
+
         return new Promise((resolve, reject) => {
             let session: any;
             try {
@@ -213,6 +230,8 @@ export class SnmpService {
                     if (error) {
                         reject(error);
                     } else {
+                        // Cache successful results
+                        this.walkCache.set(cacheKey, { results, timestamp: Date.now() });
                         resolve(results);
                     }
                 });
