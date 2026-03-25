@@ -52,10 +52,13 @@ async function debugGensterCounters() {
                     let type = typeof val;
                     if (Buffer.isBuffer(val)) {
                         try {
-                            const bigIntVal = val.readBigUInt64BE();
-                            val = `${bigIntVal} (64-bit Buffer)`;
-                        } catch (e) {
-                            val = `Buffer(${val.length} bytes)`;
+                            let result = 0n;
+                            for (const byte of val) {
+                                result = (result << 8n) + BigInt(byte);
+                            }
+                            val = `${result} (64-bit Parsed from ${val.length} bytes)`;
+                        } catch (err: any) {
+                            val = `Buffer(${val.length} bytes) Error: ${err?.message}`;
                         }
                     }
                     console.log(`✅ ${vb.oid}: [${type}] ${val}`);

@@ -114,9 +114,13 @@ export class RouterMetricsService {
             // Helper to parse SNMP values (handles Counter64 Buffers)
             const parseSnmpValue = (val: any): number => {
                 if (Buffer.isBuffer(val)) {
-                    // Counter64 is 8 bytes big-endian
+                    // Counter64 can be variable length up to 8 bytes (BER encoded)
                     try {
-                        return Number(val.readBigUInt64BE());
+                        let result = 0n;
+                        for (const byte of val) {
+                            result = (result << 8n) + BigInt(byte);
+                        }
+                        return Number(result);
                     } catch (e) {
                         return 0;
                     }
