@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql, inArray } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     routers,
@@ -11,7 +11,7 @@ import {
 } from '../db/schema/index.js';
 import { alertService } from './alert.service.js';
 import { snmpService } from './snmp.service.js';
-import { parseUptimeToSeconds } from '../lib/mikrotik-api.js';
+import { parseUptimeToSeconds, parseSnmpValue } from '../lib/mikrotik-api.js';
 import { logger } from '../lib/logger.js';
 
 export class RouterMetricsService {
@@ -81,7 +81,6 @@ export class RouterMetricsService {
         try {
             // 1. Get interface names and their OID indexes
             const ifNameOid = '1.3.6.1.2.1.31.1.1.1.1';
-            logger.info({ router: router.name, host: snmpHost, port, community }, '[SNMP Debug] Attempting walk');
             const names = await snmpService.walk({ host: snmpHost, port, community }, ifNameOid);
 
             const indexToNameMap = new Map<string, string>();
@@ -103,35 +102,14 @@ export class RouterMetricsService {
                 oids.push(`1.3.6.1.2.1.31.1.1.1.10.${index}`); // ifHCOutOctets (TX)
             }
 
-            // 3. Fetch current counters in chunks to avoid packet size issues
-            const chunkSize = 20;
-            const chunks = [];
-            for (let i = 0; i < oids.length; i += chunkSize) {
-                chunks.push(oids.slice(i, i + chunkSize));
-            }
-
-            const trafficData: Record<string, { tx: number; rx: number }> = {};
+            // 3. Fetch all counters in chunked requests to avoid SNMP packet size limits
+            const chunkSize = 20; // 10 interfaces per request (2 OIDs each)
+            const trafficData: Record<string, { rx: number; tx: number }> = {};
             
-            // Helper to parse SNMP values (handles Counter64 Buffers)
-            const parseSnmpValue = (val: any): number => {
-                if (Buffer.isBuffer(val)) {
-                    // Counter64 can be variable length up to 8 bytes (BER encoded)
-                    try {
-                        let result = 0n;
-                        for (const byte of val) {
-                            result = (result << 8n) + BigInt(byte);
-                        }
-                        return Number(result);
-                    } catch (e) {
-                        return 0;
-                    }
-                }
-                const num = Number(val);
-                return isNaN(num) ? 0 : num;
-            };
+            for (let i = 0; i < oids.length; i += chunkSize) {
+                const chunk = oids.slice(i, i + chunkSize);
+                const results = await snmpService.get({ host: snmpHost, port, community }, chunk);
 
-            for (const chunk of chunks) {
-                const results = await snmpService.getMultiple({ host: snmpHost, port, community }, chunk);
                 for (const result of results) {
                     const oidParts = result.oid.split('.');
                     const index = oidParts[oidParts.length - 1];
@@ -148,7 +126,7 @@ export class RouterMetricsService {
                 }
             }
 
-            // 4. Pre-fetch all interfaces for this router to avoid N+1 queries in the loop
+            // 4. Pre-fetch all interfaces for this router to avoid N+1 queries
             const existingInterfaces = await tx
                 .select()
                 .from(routerInterfaces)
@@ -158,10 +136,25 @@ export class RouterMetricsService {
                 existingInterfaces.map((i: RouterInterface) => [i.name, i])
             );
 
-            // 5. Calculate rates and update DB
+            // 5. Pre-fetch latest metric timestamps to avoid N+1 queries for history
+            const interfaceIds = existingInterfaces.map(i => i.id);
+            const lastMetrics = interfaceIds.length > 0 ? await tx
+                .select({ 
+                    interfaceId: routerInterfaceMetrics.interfaceId, 
+                    recordedAt: sql<Date>`max(${routerInterfaceMetrics.recordedAt})` 
+                })
+                .from(routerInterfaceMetrics)
+                .where(inArray(routerInterfaceMetrics.interfaceId, interfaceIds))
+                .groupBy(routerInterfaceMetrics.interfaceId) 
+                : [];
+            
+            const lastMetricMap = new Map<string, Date>(
+                lastMetrics.map((m: any) => [m.interfaceId, m.recordedAt])
+            );
+
+            // 6. Calculate rates and update DB
             const calculatedRates: Record<string, { tx: number; rx: number }> = {};
             for (const [name, data] of Object.entries(trafficData)) {
-                // Ensure we don't proceed with NaN
                 if (isNaN(data.tx) || isNaN(data.rx)) continue;
 
                 const existing = interfaceMap.get(name);
@@ -172,7 +165,7 @@ export class RouterMetricsService {
                     let txRate = 0;
                     let rxRate = 0;
 
-                    if (seconds > 5) { // Guard 1: Ignore updates if less than 5s passed
+                    if (seconds > 5) {
                         const currentTx = data.tx;
                         const currentRx = data.rx;
                         const prevTx = Number(existing.txBytes || 0);
@@ -184,7 +177,6 @@ export class RouterMetricsService {
                             
                             if (isNaN(txRate)) txRate = 0;
                             if (isNaN(rxRate)) rxRate = 0;
-                            
                             if (txRate > 100000000000) txRate = 0;
                             if (rxRate > 100000000000) rxRate = 0;
                         }
@@ -199,14 +191,9 @@ export class RouterMetricsService {
                     }).where(eq(routerInterfaces.id, existing.id));
 
                     // Store history with rate-limiting (min 5s between points)
-                    const [lastMetric] = await tx
-                        .select({ recordedAt: routerInterfaceMetrics.recordedAt })
-                        .from(routerInterfaceMetrics)
-                        .where(eq(routerInterfaceMetrics.interfaceId, existing.id))
-                        .orderBy(desc(routerInterfaceMetrics.recordedAt))
-                        .limit(1);
+                    const lastRecordedAt = lastMetricMap.get(existing.id);
 
-                    if (!lastMetric || (new Date().getTime() - lastMetric.recordedAt.getTime() > 5000)) {
+                    if (!lastRecordedAt || (now.getTime() - lastRecordedAt.getTime() > 5000)) {
                         await tx.insert(routerInterfaceMetrics).values({
                             interfaceId: existing.id,
                             txRate,
@@ -259,7 +246,6 @@ export class RouterMetricsService {
                 });
             } catch (evErr) {}
 
-            logger.info({ router: router.name }, '✅ [SNMP Success] Background traffic poll completed');
             return calculatedRates;
         } catch (error: any) {
             logger.error({ err: error.message, host: snmpHost }, 'SNMP traffic failed');

@@ -34,15 +34,18 @@ export class RouterInterfaceService {
 
         const isSnmpPrimary = snmpStatus === 'online' && useSnmp;
 
+        // Pre-fetch all interfaces for this router once to avoid N+1 queries
+        const existingInterfaces = await tx
+            .select()
+            .from(routerInterfaces)
+            .where(eq(routerInterfaces.routerId, routerId));
+        
+        const interfaceMap = new Map<string, RouterInterface>(
+            existingInterfaces.map((i: RouterInterface) => [i.name, i])
+        );
+
         for (const iface of interfaces) {
-            // Check if interface exists in our database
-            const [existingInterface] = await tx
-                .select()
-                .from(routerInterfaces)
-                .where(and(
-                    eq(routerInterfaces.routerId, routerId),
-                    eq(routerInterfaces.name, iface.name)
-                ));
+            const existingInterface = interfaceMap.get(iface.name);
 
             if (existingInterface) {
                 // Update basic metadata (status, etc)
