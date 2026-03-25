@@ -389,7 +389,7 @@ export class PerformanceAnalyticsService {
         conditions.push(or(...idConditions));
 
         // Determine grouping interval based on range
-        const diffMs = endDate.getTime() - startDate.getTime();
+        const diffMs = new Date(endDate).getTime() - new Date(startDate).getTime();
         const diffDays = diffMs / (1000 * 60 * 60 * 24);
         
         let timeSelect: any;
@@ -444,7 +444,7 @@ export class PerformanceAnalyticsService {
         if (tenantId) conditions.push(eq(routerInterfaceMetrics.tenantId, tenantId));
 
         // Determine grouping interval based on range
-        const diffMs = endDate.getTime() - startDate.getTime();
+        const diffMs = new Date(endDate).getTime() - new Date(startDate).getTime();
         const diffDays = diffMs / (1000 * 60 * 60 * 24);
         
         let timeSelect: any;

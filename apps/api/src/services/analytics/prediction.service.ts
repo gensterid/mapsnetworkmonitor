@@ -96,7 +96,7 @@ export class PredictionService {
 
             const latencyData = rHistory
                 .filter(h => h.latency !== null)
-                .map(h => ({ x: h.recordedAt.getTime(), y: h.latency! }));
+                .map(h => ({ x: new Date(h.recordedAt).getTime(), y: h.latency! }));
 
             if (latencyData.length < 10) continue;
 
@@ -126,11 +126,11 @@ export class PredictionService {
 
             const latencyData = oHistory
                 .filter(h => h.latency !== null)
-                .map(h => ({ x: h.recordedAt.getTime(), y: h.latency! }));
+                .map(h => ({ x: new Date(h.recordedAt).getTime(), y: h.latency! }));
 
             const signalData = oHistory
                 .filter(h => h.signal !== null)
-                .map(h => ({ x: h.recordedAt.getTime(), y: h.signal! }));
+                .map(h => ({ x: new Date(h.recordedAt).getTime(), y: h.signal! }));
 
             const lSlope = latencyData.length >= 10 ? this.calculateSlope(latencyData) : 0;
             const sSlope = signalData.length >= 10 ? this.calculateSlope(signalData) : 0;

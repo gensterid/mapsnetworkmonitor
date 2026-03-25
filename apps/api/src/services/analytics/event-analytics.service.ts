@@ -448,7 +448,7 @@ export class EventAnalyticsService {
         for (const alert of resolvedAlerts) {
             const start = alert.createdAt;
             const end = alert.resolvedAt || new Date();
-            const durationMinutes = Math.max(0, (end.getTime() - start.getTime()) / (1000 * 60));
+            const durationMinutes = Math.max(0, (new Date(end).getTime() - new Date(start).getTime()) / (1000 * 60));
 
             totalTimeMinutes += durationMinutes;
             if (durationMinutes < fastest) fastest = durationMinutes;

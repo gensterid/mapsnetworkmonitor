@@ -101,7 +101,7 @@ export class AvailabilityAnalyticsService {
                 // If end is after range end, cap it
                 if (end > range.endDate) end = range.endDate;
 
-                const durationMs = end.getTime() - start.getTime();
+                const durationMs = new Date(end).getTime() - new Date(start).getTime();
                 const durationMinutes = Math.max(0, durationMs / (1000 * 60));
 
                 totalDowntimeMinutes += durationMinutes;
@@ -126,7 +126,7 @@ export class AvailabilityAnalyticsService {
             }
 
             // Calculate uptime percentage
-            const totalMinutes = (range.endDate.getTime() - range.startDate.getTime()) / (1000 * 60);
+            const totalMinutes = (new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000 * 60);
             const uptimePercentage = totalMinutes > 0
                 ? Math.round(((totalMinutes - totalDowntimeMinutes) / totalMinutes) * 100 * 10) / 10
                 : 100;
@@ -498,9 +498,9 @@ export class AvailabilityAnalyticsService {
             const host = hostMatch[1];
             let duration = 0;
             if (alert.resolved && alert.resolvedAt) {
-                duration = (alert.resolvedAt.getTime() - alert.createdAt.getTime()) / (1000 * 60);
+                duration = (new Date(alert.resolvedAt).getTime() - new Date(alert.createdAt).getTime()) / (1000 * 60);
             } else {
-                duration = (Date.now() - alert.createdAt.getTime()) / (1000 * 60);
+                duration = (Date.now() - new Date(alert.createdAt).getTime()) / (1000 * 60);
             }
 
             const current = hostIncidents.get(host) || { count: 0, durationMinutes: 0 };
@@ -518,7 +518,7 @@ export class AvailabilityAnalyticsService {
 
             if (entry.status === 'down' && entry.lastDown) {
                 if (historyData.count === 0) {
-                    const currentDuration = (Date.now() - entry.lastDown.getTime()) / (1000 * 60);
+                    const currentDuration = (Date.now() - new Date(entry.lastDown).getTime()) / (1000 * 60);
                     totalDowntime += currentDuration;
                 }
             }
