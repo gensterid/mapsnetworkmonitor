@@ -189,6 +189,31 @@ const runRepair = async () => {
             await db.execute(sql`ALTER TABLE device_performance_history ADD COLUMN error_message text;`);
         }
 
+        // 7. Fix: Missing Indexes for Performance
+        console.log('🔍 Checking for missing performance indexes...');
+        
+        // router_interfaces(router_id, name)
+        const checkInterfaceIdx = await db.execute(sql`
+            SELECT indexname FROM pg_indexes 
+            WHERE tablename = 'router_interfaces' AND indexname = 'router_interfaces_combined_idx';
+        `);
+        if (checkInterfaceIdx.length === 0) {
+            console.log('⚠️ Index router_interfaces_combined_idx missing. Creating it...');
+            await db.execute(sql`CREATE INDEX IF NOT EXISTS router_interfaces_combined_idx ON router_interfaces (router_id, name);`);
+            console.log('✅ Index router_interfaces_combined_idx created.');
+        }
+
+        // router_metrics(router_id, recorded_at)
+        const checkMetricsIdx = await db.execute(sql`
+            SELECT indexname FROM pg_indexes 
+            WHERE tablename = 'router_metrics' AND indexname = 'router_metrics_combined_idx';
+        `);
+        if (checkMetricsIdx.length === 0) {
+            console.log('⚠️ Index router_metrics_combined_idx missing. Creating it...');
+            await db.execute(sql`CREATE INDEX IF NOT EXISTS router_metrics_combined_idx ON router_metrics (router_id, recorded_at);`);
+            console.log('✅ Index router_metrics_combined_idx created.');
+        }
+
         console.log('🎉 Database repair completed successfully!');
         process.exit(0);
     } catch (err) {
