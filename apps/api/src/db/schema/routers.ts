@@ -146,6 +146,7 @@ export const routerInterfaces = pgTable('router_interfaces', {
     lastUpdated: timestamp('last_updated').defaultNow(),
 }, (table) => ({
     routerIdIdx: index('router_interfaces_router_id_idx').on(table.routerId),
+    combinedIdx: index('router_interfaces_combined_idx').on(table.routerId, table.name),
 }));
 
 // Router metrics table (time-series data)
@@ -175,7 +176,8 @@ export const routerMetrics = pgTable('router_metrics', {
     routerIdIdx: index('router_metrics_router_id_idx').on(table.routerId),
     tenantIdIdx: index('router_metrics_tenant_id_idx').on(table.tenantId),
     recordedAtIdx: index('router_metrics_recorded_at_idx').on(table.recordedAt),
-    combinedIdx: index('router_metrics_combined_idx').on(table.routerId, table.recordedAt.desc()),
+    combinedIdx: index('router_metrics_combined_idx').on(table.routerId, table.recordedAt),
+    recordedAtDescIdx: index('router_metrics_recorded_at_desc_idx').on(table.recordedAt.desc()),
     pk: primaryKey({ columns: [table.id, table.recordedAt] }),
 }));
 

@@ -7,6 +7,7 @@ import {
     routerInterfaceMetrics,
     routerNetwatch,
     type RouterMetric,
+    type RouterInterface,
 } from '../db/schema/index.js';
 import { alertService } from './alert.service.js';
 import { snmpService } from './snmp.service.js';
@@ -147,17 +148,23 @@ export class RouterMetricsService {
                 }
             }
 
-            // 4. Calculate rates and update DB
+            // 4. Pre-fetch all interfaces for this router to avoid N+1 queries in the loop
+            const existingInterfaces = await tx
+                .select()
+                .from(routerInterfaces)
+                .where(eq(routerInterfaces.routerId, router.id));
+            
+            const interfaceMap = new Map<string, RouterInterface>(
+                existingInterfaces.map((i: RouterInterface) => [i.name, i])
+            );
+
+            // 5. Calculate rates and update DB
             const calculatedRates: Record<string, { tx: number; rx: number }> = {};
             for (const [name, data] of Object.entries(trafficData)) {
                 // Ensure we don't proceed with NaN
                 if (isNaN(data.tx) || isNaN(data.rx)) continue;
 
-                const [existing] = await tx.select().from(routerInterfaces).where(and(
-                    eq(routerInterfaces.routerId, router.id),
-                    eq(routerInterfaces.name, name)
-                ));
-
+                const existing = interfaceMap.get(name);
                 if (existing) {
                     const now = new Date();
                     const lastUpdate = existing.lastUpdated || new Date();
@@ -165,24 +172,19 @@ export class RouterMetricsService {
                     let txRate = 0;
                     let rxRate = 0;
 
-                    if (seconds > 5) { // Guard 1: Ignore updates if less than 5s passed (prevents spikes from double polling)
+                    if (seconds > 5) { // Guard 1: Ignore updates if less than 5s passed
                         const currentTx = data.tx;
                         const currentRx = data.rx;
                         const prevTx = Number(existing.txBytes || 0);
                         const prevRx = Number(existing.rxBytes || 0);
 
-                        // Guard 2: If previous bytes were 0, this is likely our first successful poll after an error or restart.
-                        // We shouldn't calculate a rate against 0 as it would cause a massive spike.
                         if (prevTx > 0 && prevRx > 0) {
-                            // Basic wrap-around / reset protection
                             if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
                             if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
                             
-                            // Ensure rates are also valid numbers
                             if (isNaN(txRate)) txRate = 0;
                             if (isNaN(rxRate)) rxRate = 0;
                             
-                            // Cap rates at a reasonable physical limit (e.g. 100Gbps per interface) to avoid glitches
                             if (txRate > 100000000000) txRate = 0;
                             if (rxRate > 100000000000) rxRate = 0;
                         }
