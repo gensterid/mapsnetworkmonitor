@@ -126,7 +126,7 @@ export class RouterMetricsService {
             };
 
             for (const chunk of chunks) {
-                const results = await snmpService.getMultiple({ host: router.host, port, community }, chunk);
+                const results = await snmpService.getMultiple({ host: snmpHost, port, community }, chunk);
                 for (const result of results) {
                     const oidParts = result.oid.split('.');
                     const index = oidParts[oidParts.length - 1];
@@ -248,7 +248,7 @@ export class RouterMetricsService {
             logger.info({ router: router.name }, '✅ [SNMP Success] Background traffic poll completed');
             return calculatedRates;
         } catch (error: any) {
-            logger.error({ err: error.message, host: router.host }, 'SNMP traffic failed');
+            logger.error({ err: error.message, host: snmpHost }, 'SNMP traffic failed');
             
             // Update SNMP status on failure
             try {
