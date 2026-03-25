@@ -108,7 +108,7 @@ export class RouterMetricsService {
             
             for (let i = 0; i < oids.length; i += chunkSize) {
                 const chunk = oids.slice(i, i + chunkSize);
-                const results = await snmpService.get({ host: snmpHost, port, community }, chunk);
+                const results = await snmpService.getMultiple({ host: snmpHost, port, community }, chunk);
 
                 for (const result of results) {
                     const oidParts = result.oid.split('.');
@@ -137,7 +137,7 @@ export class RouterMetricsService {
             );
 
             // 5. Pre-fetch latest metric timestamps to avoid N+1 queries for history
-            const interfaceIds = existingInterfaces.map(i => i.id);
+            const interfaceIds = existingInterfaces.map((i: RouterInterface) => i.id);
             const lastMetrics = interfaceIds.length > 0 ? await tx
                 .select({ 
                     interfaceId: routerInterfaceMetrics.interfaceId, 

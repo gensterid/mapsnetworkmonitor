@@ -953,6 +953,31 @@ export async function testConnection(
     }
 }
 
+/**
+ * Parse SNMP value (handles Buffer for Counter64)
+ */
+export function parseSnmpValue(value: any): number {
+    if (value === null || value === undefined) return 0;
+    
+    // Handle Counter64 (represented as 8-byte Buffer in some libraries)
+    if (Buffer.isBuffer(value)) {
+        if (value.length === 8) {
+            return Number(value.readBigUInt64BE());
+        }
+        
+        // Handle variable length BER-encoded buffer (net-snmp)
+        // This is a common pattern for large counters in networking
+        let result = 0n;
+        for (let i = 0; i < value.length; i++) {
+            result = (result << 8n) + BigInt(value[i]);
+        }
+        return Number(result);
+    }
+    
+    const parsed = Number(value);
+    return isNaN(parsed) ? 0 : parsed;
+}
+
 export function parseUptimeToSeconds(uptime: string): number {
     const regex = /(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/;
     const match = uptime.match(regex);
