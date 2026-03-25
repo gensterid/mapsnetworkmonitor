@@ -64,7 +64,7 @@ export class RouterInterfaceService {
                     // B: Calculate rates (bits per second) based on byte counter differences
                     else {
                         const now = new Date();
-                        const lastUpdate = existingInterface.lastUpdated || new Date();
+                        const lastUpdate = existingInterface.lastUpdated ? new Date(existingInterface.lastUpdated) : new Date();
                         const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
                         if (seconds > 5 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
@@ -127,7 +127,7 @@ export class RouterInterfaceService {
                         .orderBy(desc(routerInterfaceMetrics.recordedAt))
                         .limit(1);
 
-                    if (!lastMetric || (new Date().getTime() - lastMetric.recordedAt.getTime() > 5000)) {
+                    if (!lastMetric || (new Date().getTime() - new Date(lastMetric.recordedAt).getTime() > 5000)) {
                         // Fetch tenantId from router
                         const [router] = await tx.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId)).limit(1);
     
