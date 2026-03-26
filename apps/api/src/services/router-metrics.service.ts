@@ -158,7 +158,8 @@ export class RouterMetricsService {
                 const existing = interfaceMap.get(name);
                 if (existing) {
                     const now = new Date();
-                    const lastUpdate = existing.lastUpdated ? new Date(existing.lastUpdated) : new Date();
+                    // Use dedicated traffic timestamp, fallback to lastUpdated, then now
+                    const lastUpdate = existing.lastTrafficAt ? new Date(existing.lastTrafficAt) : (existing.lastUpdated ? new Date(existing.lastUpdated) : now);
                     const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
                     let txRate = 0;
                     let rxRate = 0;
@@ -210,9 +211,10 @@ export class RouterMetricsService {
                     await tx.update(routerInterfaces).set({
                         txBytes: String(data.tx),
                         rxBytes: String(data.rx),
-                        txRate,
-                        rxRate,
-                        lastUpdated: new Date()
+                        txRate: Math.round(txRate),
+                        rxRate: Math.round(rxRate),
+                        lastTrafficAt: now,
+                        lastUpdated: now
                     }).where(eq(routerInterfaces.id, existing.id));
 
                     // Store history with rate-limiting (min 5s between points)

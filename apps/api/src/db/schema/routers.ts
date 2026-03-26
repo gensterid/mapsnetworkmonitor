@@ -143,6 +143,7 @@ export const routerInterfaces = pgTable('router_interfaces', {
     running: boolean('running').default(false),
     disabled: boolean('disabled').default(false),
     comment: text('comment'),
+    lastTrafficAt: timestamp('last_traffic_at'), // Dedicated timebase for rate calculation
     lastUpdated: timestamp('last_updated').defaultNow(),
 }, (table) => ({
     routerIdIdx: index('router_interfaces_router_id_idx').on(table.routerId),

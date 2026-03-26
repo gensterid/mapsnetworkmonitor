@@ -122,7 +122,7 @@ const runRepair = async () => {
         const interfaceColumns = [
             'tx_bytes', 'rx_bytes', 'tx_packets', 'rx_packets',
             'tx_drops', 'rx_drops', 'tx_errors', 'rx_errors',
-            'tx_rate', 'rx_rate'
+            'tx_rate', 'rx_rate', 'last_traffic_at'
         ];
         for (const col of interfaceColumns) {
             const checkCol = await db.execute(sql.raw(`
@@ -131,7 +131,8 @@ const runRepair = async () => {
             `));
             if (checkCol.length === 0) {
                 console.log(`⚠️ Column ${col} missing in router_interfaces. Adding it...`);
-                await db.execute(sql.raw(`ALTER TABLE router_interfaces ADD COLUMN ${col} bigint DEFAULT 0;`));
+                const type = col === 'last_traffic_at' ? 'timestamp' : 'bigint DEFAULT 0';
+                await db.execute(sql.raw(`ALTER TABLE router_interfaces ADD COLUMN ${col} ${type};`));
             }
         }
 

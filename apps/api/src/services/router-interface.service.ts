@@ -44,11 +44,12 @@ export class RouterInterfaceService {
             const existingInterface = interfaceMap.get(iface.name);
 
             if (existingInterface) {
+                const now = new Date();
                 // Update basic metadata (status, etc)
                 const updateData: any = {
                     ...iface,
                     status: iface.running ? 'up' : 'down',
-                    lastUpdated: new Date()
+                    lastUpdated: now
                 };
 
                 // SMART FALLBACK: Only update traffic if SNMP is NOT online
@@ -64,8 +65,7 @@ export class RouterInterfaceService {
                     } 
                     // B: Calculate rates (bits per second) based on byte counter differences
                     else {
-                        const now = new Date();
-                        const lastUpdate = existingInterface.lastUpdated ? new Date(existingInterface.lastUpdated) : new Date();
+                        const lastUpdate = existingInterface.lastTrafficAt ? new Date(existingInterface.lastTrafficAt) : (existingInterface.lastUpdated ? new Date(existingInterface.lastUpdated) : now);
                         const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
                         if (seconds > 5 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
@@ -119,6 +119,7 @@ export class RouterInterfaceService {
 
                     updateData.txRate = txRate;
                     updateData.rxRate = rxRate;
+                    updateData.lastTrafficAt = now;
                 } else {
                     // Keep existing rates if SNMP is primary to prevent "flashing" or zeroing
                     // unless we want to show 0 if SNMP fails, but here we just leave it alone

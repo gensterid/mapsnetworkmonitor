@@ -50,7 +50,7 @@ export class SnmpService {
     };
 
     private walkCache: Map<string, { results: SnmpOidResult[]; timestamp: number }> = new Map();
-    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+    private readonly CACHE_TTL = 5 * 1000; // 5 seconds (Reduced from 5 mins to prevent stale counters)
 
     private constructor() { }
 
