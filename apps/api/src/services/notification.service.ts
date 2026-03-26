@@ -4,6 +4,9 @@ import { notificationGroups, routers, routerNetwatch, type Alert } from '../db/s
 import { eq, and } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 
+// System timezone: reads from env TZ, falls back to user schema default
+const SYSTEM_TIMEZONE = process.env.TZ || 'Asia/Makassar';
+
 export class NotificationService {
     /**
      * Send Telegram Message
@@ -192,7 +195,7 @@ export class NotificationService {
 
             // Format time
             const timeStr = new Date().toLocaleString('id-ID', {
-                timeZone: 'Asia/Jakarta',
+                timeZone: SYSTEM_TIMEZONE,
                 dateStyle: 'medium',
                 timeStyle: 'medium'
             });
@@ -316,7 +319,7 @@ export class NotificationService {
 
             // Format time
             const timeStr = new Date().toLocaleString('id-ID', {
-                timeZone: 'Asia/Jakarta',
+                timeZone: SYSTEM_TIMEZONE,
                 dateStyle: 'medium',
                 timeStyle: 'medium'
             });

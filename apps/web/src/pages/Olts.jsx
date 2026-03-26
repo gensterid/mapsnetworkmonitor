@@ -11,6 +11,7 @@ import {
     useOltOnus,
 } from '@/hooks';
 import { Plus, Server, CheckCircle, XCircle, RefreshCw, Trash2, Edit, Search, Layers, Clock } from 'lucide-react';
+import { formatShortDateTime } from '@/lib/timezone';
 
 // ONU List Modal
 function OnuListModal({ isOpen, onClose, olt }) {
@@ -404,7 +405,7 @@ function formatLastSync(date) {
     if (diffMin < 1) return 'Just now';
     if (diffMin < 60) return `${diffMin}m ago`;
     if (diffHour < 24) return `${diffHour}h ago`;
-    return d.toLocaleDateString();
+    return formatShortDateTime(date);
 }
 
 export default function Olts() {

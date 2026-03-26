@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useAppTimezone } from '@/hooks';
+import { formatDateOnly } from '@/lib/timezone';
 import {
     useTenants,
     useCreateTenant,
@@ -22,6 +24,7 @@ import clsx from 'clsx';
 
 const Tenants = () => {
     const { data: tenants = [], isLoading, isError, error } = useTenants();
+    const timezone = useAppTimezone();
     const createMutation = useCreateTenant();
     const updateMutation = useUpdateTenant();
     const deleteMutation = useDeleteTenant();
@@ -160,11 +163,7 @@ const Tenants = () => {
                                         </code>
                                     </td>
                                     <td className="px-6 py-5 text-sm text-slate-400">
-                                        {new Date(tenant.createdAt).toLocaleDateString('id-ID', {
-                                            day: 'numeric',
-                                            month: 'short',
-                                            year: 'numeric'
-                                        })}
+                                        {formatDateOnly(tenant.createdAt, timezone)}
                                     </td>
                                     <td className="px-6 py-5 text-right">
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

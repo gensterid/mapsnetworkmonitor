@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Monitor, Activity, Globe, Clock } from 'lucide-react';
+import { formatShortDateTime } from '@/lib/timezone';
 import clsx from 'clsx';
 
 export default function SummaryTab({ fullDevice }) {
@@ -117,7 +118,7 @@ export default function SummaryTab({ fullDevice }) {
           <div className="flex items-center gap-4 text-xs text-slate-400">
             <div className="w-24 font-mono">Last Inform</div>
             <div className="flex-1 bg-slate-800/50 h-0.5" />
-            <div className="text-white font-medium">{fullDevice?._lastInform ? new Date(fullDevice._lastInform).toLocaleString() : 'N/A'}</div>
+            <div className="text-white font-medium">{fullDevice?._lastInform ? formatShortDateTime(fullDevice._lastInform) : 'N/A'}</div>
           </div>
           <div className="flex items-center gap-4 text-xs text-slate-400">
             <div className="w-24 font-mono">Last Boot</div>

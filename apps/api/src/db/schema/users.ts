@@ -14,7 +14,7 @@ export const users = pgTable('users', {
     emailVerified: boolean('email_verified').default(false).notNull(),
     role: text('role').notNull().default('user'),
     tenantId: uuid('tenant_id').references(() => tenants.id),
-    timezone: text('timezone').default('Asia/Jakarta').notNull(),
+    timezone: text('timezone').default('Asia/Makassar').notNull(),
     animationStyle: text('animation_style').default('default'), // Map line animation style preference
     aiEnabled: boolean('ai_enabled').default(false).notNull(),
     aiApiKey: text('ai_api_key'),

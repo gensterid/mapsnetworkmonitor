@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/lib/api/client';
-import { useRouters } from '@/hooks';
+import { useRouters, useAppTimezone } from '@/hooks';
+import { formatDateOnly } from '@/lib/timezone';
 import { Button } from '@/components/ui/Button';
 import {
     BarChart3,
@@ -28,6 +29,7 @@ import AnalyticsStatModals from '@/components/analytics/AnalyticsStatModals';
 export default function Analytics() {
     // Get routers list (respects user role permissions via the hook)
     const { data: routers = [] } = useRouters();
+    const timezone = useAppTimezone();
 
     // Selected router filter
     const [selectedRouterId, setSelectedRouterId] = useState(null);
@@ -282,7 +284,7 @@ export default function Analytics() {
             setDateRange({
                 startDate: clickedDate,
                 endDate: clickedDate,
-                label: new Date(clickedDate).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                label: formatDateOnly(clickedDate, timezone)
             });
         }
     };

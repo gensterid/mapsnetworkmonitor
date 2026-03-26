@@ -6,8 +6,10 @@ import {
     useRefreshOlt,
     useUpdateOnu,
     useRouterNetwatch,
-    useRebootOnu
+    useRebootOnu,
+    useAppTimezone
 } from '@/hooks';
+import { formatRelativeTime, formatShortDateTime } from '@/lib/timezone';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatsCard } from '@/components/ui/StatsCard';
@@ -48,12 +50,13 @@ function formatLastSync(date) {
     if (diffMin < 1) return 'Just now';
     if (diffMin < 60) return `${diffMin}m ago`;
     if (diffHour < 24) return `${diffHour}h ago`;
-    return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return formatShortDateTime(date);
 }
 
 export default function OltDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const timezone = useAppTimezone();
     const { data: olt, isLoading: isLoadingOlt, error: oltError } = useOlt(id);
     const { data: onus = [], isLoading: isLoadingOnus, error: onusError, refetch: refetchOnus } = useOltOnus(id);
     const { data: netwatchEntries = [] } = useRouterNetwatch(olt?.parentId, { enabled: !!olt?.parentId });
@@ -268,7 +271,7 @@ export default function OltDetails() {
                                 { label: 'Host Identifier', value: olt.host, mono: true },
                                 { label: 'Chassis Type', value: olt.type, capitalize: true },
                                 { label: 'Hardware Uptime', value: olt.uptime ? `${Math.floor(olt.uptime / 3600)}h ${Math.floor((olt.uptime % 3600) / 60)}m` : '--' },
-                                { label: 'Cloud Sync Time', value: olt.updatedAt ? new Date(olt.updatedAt).toLocaleTimeString() : 'Never' }
+                                { label: 'Cloud Sync Time', value: olt.updatedAt ? formatShortDateTime(olt.updatedAt, timezone) : 'Never' }
                             ].map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center px-6 py-4 hover:bg-slate-800/10 transition-colors">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{item.label}</span>

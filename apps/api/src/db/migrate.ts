@@ -59,7 +59,7 @@ export async function runMigrations() {
                         image TEXT,
                         email_verified BOOLEAN NOT NULL DEFAULT false,
                         role TEXT NOT NULL DEFAULT 'user',
-                        timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+                        timezone TEXT NOT NULL DEFAULT 'Asia/Makassar',
                         animation_style TEXT DEFAULT 'default',
                         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
                         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
