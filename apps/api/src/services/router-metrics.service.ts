@@ -164,19 +164,46 @@ export class RouterMetricsService {
                     let rxRate = 0;
 
                     if (seconds > 5) {
-                        const currentTx = data.tx;
-                        const currentRx = data.rx;
-                        const prevTx = Number(existing.txBytes || 0);
-                        const prevRx = Number(existing.rxBytes || 0);
+                        try {
+                            const currentTx = BigInt(data.tx);
+                            const currentRx = BigInt(data.rx);
+                            const prevTx = BigInt(existing.txBytes || '0');
+                            const prevRx = BigInt(existing.rxBytes || '0');
 
-                        if (prevTx > 0 && prevRx > 0) {
-                            if (currentTx >= prevTx) txRate = Math.round(((currentTx - prevTx) * 8) / seconds);
-                            if (currentRx >= prevRx) rxRate = Math.round(((currentRx - prevRx) * 8) / seconds);
-                            
-                            if (isNaN(txRate)) txRate = 0;
-                            if (isNaN(rxRate)) rxRate = 0;
-                            if (txRate > 100000000000) txRate = 0;
-                            if (rxRate > 100000000000) rxRate = 0;
+                            if (prevTx > 0n && prevRx > 0n) {
+                                if (currentTx >= prevTx) {
+                                    const diffTx = currentTx - prevTx;
+                                    txRate = Number((diffTx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
+                                }
+                                if (currentRx >= prevRx) {
+                                    const diffRx = currentRx - prevRx;
+                                    rxRate = Number((diffRx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
+                                }
+                                
+                                if (isNaN(txRate)) txRate = 0;
+                                if (isNaN(rxRate)) rxRate = 0;
+
+                                // SPIKE GUARD: Cap at 100Gbps and log the event for investigation
+                                const MAX_EXPECTED_BPS = 100_000_000_000; // 100 Gbps
+                                if (txRate > MAX_EXPECTED_BPS || rxRate > MAX_EXPECTED_BPS) {
+                                    logger.warn({
+                                        router: router.name,
+                                        interface: name,
+                                        txRate,
+                                        rxRate,
+                                        currentTx: currentTx.toString(),
+                                        prevTx: prevTx.toString(),
+                                        currentRx: currentRx.toString(),
+                                        prevRx: prevRx.toString(),
+                                        seconds
+                                    }, '⚠️ Detected suspicious SNMP traffic spike, capping to 0 bps');
+                                    
+                                    if (txRate > MAX_EXPECTED_BPS) txRate = 0;
+                                    if (rxRate > MAX_EXPECTED_BPS) rxRate = 0;
+                                }
+                            }
+                        } catch (calcErr) {
+                            logger.error({ err: calcErr, router: router.name, interface: name }, 'Failed to calculate BigInt traffic rates');
                         }
                     }
  

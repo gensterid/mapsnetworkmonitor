@@ -273,9 +273,18 @@ export class SocketService {
             const trafficMap = await getInterfaceTraffic(state.api, state.interfaceNames);
             const currentRates: Record<string, TrafficStats> = {};
             const timestamp = Date.now();
+            const MAX_EXPECTED_BPS = 100_000_000_000; // 100 Gbps
 
             trafficMap.forEach((stats, name) => {
-                currentRates[name] = stats;
+                // Spike Guard: Cap to 0 if rate is impossibly high (MikroTik API sometimes spikes)
+                if (stats.tx > MAX_EXPECTED_BPS || stats.rx > MAX_EXPECTED_BPS) {
+                    currentRates[name] = {
+                        tx: stats.tx > MAX_EXPECTED_BPS ? 0 : stats.tx,
+                        rx: stats.rx > MAX_EXPECTED_BPS ? 0 : stats.rx
+                    };
+                } else {
+                    currentRates[name] = stats;
+                }
             });
 
             // 4. Broadcast

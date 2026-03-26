@@ -8,6 +8,7 @@ import {
 } from '../db/schema/index.js';
 
 import { interfaceRepository } from '../repositories/interface.repository.js';
+import { logger } from '../lib/logger.js';
 
 export class RouterInterfaceService {
     /**
@@ -68,27 +69,50 @@ export class RouterInterfaceService {
                         const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
 
                         if (seconds > 5 && iface.txBytes !== undefined && iface.rxBytes !== undefined) {
-                            const currentTx = Number(iface.txBytes);
-                            const currentRx = Number(iface.rxBytes);
-                            const prevTx = Number(existingInterface.txBytes || 0);
-                            const prevRx = Number(existingInterface.rxBytes || 0);
+                            try {
+                                const currentTx = BigInt(iface.txBytes);
+                                const currentRx = BigInt(iface.rxBytes);
+                                const prevTx = BigInt(existingInterface.txBytes || '0');
+                                const prevRx = BigInt(existingInterface.rxBytes || '0');
 
-                            const txDiff = currentTx - prevTx;
-                            const rxDiff = currentRx - prevRx;
+                                // SPIKE GUARD: If previous value was 0 (first sync) and direct rate not available,
+                                // assume rate is 0 to avoid huge jumps from byte counter resets.
+                                if (prevTx === 0n || prevRx === 0n) {
+                                    txRate = 0;
+                                    rxRate = 0;
+                                } else {
+                                    if (currentTx >= prevTx) {
+                                        const diffTx = currentTx - prevTx;
+                                        txRate = Number((diffTx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
+                                    }
+                                    if (currentRx >= prevRx) {
+                                        const diffRx = currentRx - prevRx;
+                                        rxRate = Number((diffRx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
+                                    }
 
-                            // SPIKE GUARD: If previous value was 0 (first sync) and direct rate not available,
-                            // assume rate is 0 to avoid huge jumps from byte counter resets.
-                            if (prevTx === 0 || prevRx === 0) {
+                                    if (isNaN(txRate)) txRate = 0;
+                                    if (isNaN(rxRate)) rxRate = 0;
+
+                                    // Sanity check: Cap at 100Gbps and log spikes
+                                    const MAX_EXPECTED_BPS = 100_000_000_000; // 100 Gbps
+                                    if (txRate > MAX_EXPECTED_BPS || rxRate > MAX_EXPECTED_BPS) {
+                                        // We log this as info/debug because API stats are sometimes volatile during ROS sync
+                                        logger.info({
+                                            routerId,
+                                            interface: iface.name,
+                                            txRate,
+                                            rxRate,
+                                            seconds
+                                        }, '📡 Capping volatile API traffic rate to 0 bps');
+                                        
+                                        if (txRate > MAX_EXPECTED_BPS) txRate = 0;
+                                        if (rxRate > MAX_EXPECTED_BPS) rxRate = 0;
+                                    }
+                                }
+                            } catch (calcErr) {
+                                logger.error({ err: calcErr, routerId, interface: iface.name }, 'Failed to calculate BigInt API traffic rates');
                                 txRate = 0;
                                 rxRate = 0;
-                            } else if (txDiff >= 0 && rxDiff >= 0) {
-                                // Handle counter wrap or reset: if diff is negative, assume rate is 0 or ignore
-                                txRate = Math.round((txDiff * 8) / seconds);
-                                rxRate = Math.round((rxDiff * 8) / seconds);
-
-                                // Sanity check: Cap at 100Gbps
-                                if (txRate > 100000000000) txRate = 0;
-                                if (rxRate > 100000000000) rxRate = 0;
                             }
                         }
                     }
