@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { useUpdateGenieACSWifiConfig, useCreatePreset, useGenieACSDevice } from '@/hooks';
 import { Wifi, Router, Lock, Eye, EyeOff, Signal, AlertTriangle, RefreshCw } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { formatTimeOnly } from '@/lib/timezone';
 import clsx from 'clsx';
 
 export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
@@ -169,7 +170,7 @@ export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
                     {updateWifiConfig.isPending && <RefreshCw className="w-4 h-4 animate-spin text-primary" />}
                 </h2>
                 <p className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mt-0.5">
-                    Last device sync: {new Date(lastSyncTime).toLocaleTimeString()}
+                    Last device sync: {formatTimeOnly(lastSyncTime)}
                 </p>
             </div>
         }>

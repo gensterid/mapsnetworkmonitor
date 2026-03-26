@@ -11,6 +11,7 @@ import {
 } from '../../hooks/useGenieACS';
 import { toast } from 'react-hot-toast';
 import { ChevronDown, ChevronUp, Globe, Network, Cpu, Wifi, Info, ShieldCheck, Trash2 } from 'lucide-react';
+import { formatShortDateTime } from '@/lib/timezone';
 
 const RestoreModal = ({ isOpen, onClose, device, routerId }) => {
     const [activeTab, setActiveTab] = useState('auto');
@@ -200,7 +201,7 @@ const RestoreModal = ({ isOpen, onClose, device, routerId }) => {
                                                 {isExpanded ? <ChevronUp className="w-3 h-3 text-slate-500" /> : <ChevronDown className="w-3 h-3 text-slate-500" />}
                                             </div>
                                             <div className="text-[10px] text-gray-400 flex items-center gap-2">
-                                                <span>{new Date(backup.createdAt).toLocaleString()}</span>
+                                                <span>{formatShortDateTime(backup.createdAt)}</span>
                                                 <span className="bg-gray-700 px-1 rounded text-[9px] uppercase">{backup.model}</span>
                                                 {backup.sn !== device?._serialNumber && (
                                                     <span className="text-blue-400 font-bold border border-blue-500/30 px-1 rounded bg-blue-500/5 text-[8px]">TEMPLATE</span>

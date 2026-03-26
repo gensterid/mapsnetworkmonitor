@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { WifiOff, Wifi, AlertTriangle, CheckCircle, PhoneOff } from 'lucide-react';
 import { ListSkeleton, Skeleton } from '@/components/ui/Skeleton';
+import { formatTimeOnly } from '@/lib/timezone';
 import clsx from 'clsx';
 
 function AnalyticsDetails({ 
@@ -125,7 +126,7 @@ function AnalyticsDetails({
                                                 <p className="text-sm text-white font-medium truncate group-hover:text-primary transition-colors" title={issue.title}>{issue.title}</p>
                                             </div>
                                             <p className="text-xs text-slate-500 font-mono truncate pl-3.5">
-                                                {issue.routerName} • {new Date(issue.lastOccurred).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                                {issue.routerName} • {formatTimeOnly(issue.lastOccurred)}
                                             </p>
                                         </div>
                                         <span className={clsx(

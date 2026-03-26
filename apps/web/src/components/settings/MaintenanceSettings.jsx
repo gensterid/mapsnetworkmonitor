@@ -1,4 +1,5 @@
 import React from 'react';
+import { formatShortDateTime } from '@/lib/timezone';
 import { History, AlertTriangle, Save, Database, Download, Upload, RefreshCw, Info, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
@@ -233,7 +234,7 @@ export default function MaintenanceSettings({
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-slate-400 text-xs">
-                                                {new Date(backup.createdAt).toLocaleString()}
+                                                {formatShortDateTime(backup.createdAt)}
                                             </td>
                                             <td className="px-4 py-3 text-right text-slate-400 text-xs">
                                                 {(backup.size / 1024 / 1024).toFixed(2)} MB

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Area } from 'recharts';
 import CustomTooltip from './CustomTooltip';
+import { formatShortDateTime } from '@/lib/timezone';
 
 function MetricHistoryChart({ data, dataKey, name, unit, color = '#3b82f6', height = 250, placeholder = "Pilih perangkat untuk melihat data" }) {
     const chartData = useMemo(() => {
@@ -9,13 +10,7 @@ function MetricHistoryChart({ data, dataKey, name, unit, color = '#3b82f6', heig
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
             .map(item => ({
                 ...item,
-                time: new Date(item.timestamp).toLocaleString('id-ID', { 
-                    day: '2-digit', 
-                    month: 'short', 
-                    year: 'numeric',
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                }),
+                time: formatShortDateTime(item.timestamp),
                 value: Number(item[dataKey] || 0)
             }));
     }, [data, dataKey]);

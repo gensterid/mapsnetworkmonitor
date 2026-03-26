@@ -48,12 +48,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         return (
             <div className="bg-slate-900/95 border border-slate-800 p-2.5 rounded-lg shadow-2xl text-[10px] min-w-[140px] backdrop-blur-md">
                 <p className="text-slate-400 font-bold mb-2 pb-1 border-b border-slate-800/50">
-                    {new Date(label).toLocaleString('id-ID', { 
-                        hour: '2-digit', 
-                        minute: '2-digit',
-                        day: '2-digit',
-                        month: 'short'
-                    })}
+                    {formatShortDateTime(label)}
                 </p>
                 <div className="space-y-1.5">
                     {payload.map((entry, index) => (
@@ -174,7 +169,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
         if (!alertTrends) return [];
         return alertTrends.map(item => ({
             ...item,
-            displayDate: new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }),
+            displayDate: formatShortDateTime(item.date, timezone),
             total: Number(item.total || 0)
         }));
     }, [alertTrends]);

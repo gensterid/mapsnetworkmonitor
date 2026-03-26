@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/Button';
 import { X, AlertTriangle, Wifi, WifiOff } from 'lucide-react';
 import clsx from 'clsx';
+import { formatTimeOnly } from '@/lib/timezone';
 
 function AnalyticsStatModals({ detailModal, setDetailModal }) {
     if (!detailModal.open) return null;
@@ -177,7 +178,7 @@ function AnalyticsStatModals({ detailModal, setDetailModal }) {
                                                 <div className="text-right">
                                                     <span className="text-xs text-red-400 font-medium">Down</span>
                                                     <p className="text-[10px] text-slate-600">
-                                                        {client.downSince ? new Date(client.downSince).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '--'}
+                                                        {client.downSince ? formatTimeOnly(client.downSince) : '--'}
                                                     </p>
                                                 </div>
                                             </div>

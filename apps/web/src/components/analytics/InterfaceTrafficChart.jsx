@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Area } from 'recharts';
+import { formatShortDateTime } from '@/lib/timezone';
 
 function InterfaceTrafficChart({ data, height = 250 }) {
     const chartData = useMemo(() => {
@@ -8,13 +9,7 @@ function InterfaceTrafficChart({ data, height = 250 }) {
             .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
             .map(item => ({
                 ...item,
-                time: new Date(item.timestamp).toLocaleString('id-ID', { 
-                    day: '2-digit', 
-                    month: 'short', 
-                    year: 'numeric',
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                }),
+                time: formatShortDateTime(item.timestamp),
                 tx: Number(item.txRate || 0),
                 rx: Number(item.rxRate || 0)
             }));

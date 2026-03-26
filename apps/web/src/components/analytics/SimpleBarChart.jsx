@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar } from 'recharts';
 import CustomTooltip from './CustomTooltip';
+import { formatDateWithTimezone, DATE_FORMATS } from '@/lib/timezone';
 
 function SimpleBarChart({ data, dataKey = 'total', color = '#3b82f6', height = 200, onClick }) {
     // Transform and sort data for display
@@ -10,7 +11,7 @@ function SimpleBarChart({ data, dataKey = 'total', color = '#3b82f6', height = 2
             .sort((a, b) => new Date(a.date || a.timestamp).getTime() - new Date(b.date || b.timestamp).getTime())
             .map(item => ({
                 ...item,
-                displayDate: item.date ? new Date(item.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : item.label,
+                displayDate: item.date ? formatDateWithTimezone(item.date, null, DATE_FORMATS.DATE_ONLY) : item.label,
                 [dataKey]: Number(item[dataKey] || 0)
             }));
     }, [data, dataKey]);

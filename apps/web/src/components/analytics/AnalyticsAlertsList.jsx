@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { AlertTriangle } from 'lucide-react';
 import { ListSkeleton } from '@/components/ui/Skeleton';
+import { formatTimeOnly } from '@/lib/timezone';
 import clsx from 'clsx';
 
 function AnalyticsAlertsList({ 
@@ -49,7 +50,7 @@ function AnalyticsAlertsList({
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-4">
                                     <p className="text-xs text-slate-400 font-mono">
-                                        {new Date(alert.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                                        {formatTimeOnly(alert.createdAt)}
                                     </p>
                                     <p className="text-[10px] text-slate-500">{alert.routerName}</p>
                                 </div>

@@ -181,7 +181,7 @@ export default function GenieACS() {
         if (!selectedDeviceIds.length) return;
         if (confirm(`Create backups for ${selectedDeviceIds.length} devices?`)) {
             selectedDeviceIds.forEach(id => {
-                createBackupMutation.mutate({ id, name: `Bulk Backup ${new Date().toLocaleDateString()}`, routerId: selectedRouterId });
+                createBackupMutation.mutate({ id, name: `Bulk Backup ${new Date().toLocaleDateString('id-ID')}`, routerId: selectedRouterId });
             });
             setSelectedDeviceIds([]);
         }
@@ -322,7 +322,7 @@ export default function GenieACS() {
                                     onRefresh={(id) => refreshMutation.mutate({ id, routerId: selectedRouterId })}
                                     onOpenWifi={(dev) => setWifiDevice({ ...dev, routerId: selectedRouterId })}
                                     onOpenWan={(dev) => setWanDevice({ ...dev, routerId: selectedRouterId })}
-                                    onBackup={(id) => createBackupMutation.mutate({ id, name: `Manual Backup ${new Date().toLocaleDateString()}`, routerId: selectedRouterId })}
+                                    onBackup={(id) => createBackupMutation.mutate({ id, name: `Manual Backup ${new Date().toLocaleDateString('id-ID')}`, routerId: selectedRouterId })}
                                     onRestore={(dev) => setRestoreDevice({ ...dev, routerId: selectedRouterId })}
                                     onReboot={(dev) => setRebootDevice({ ...dev, routerId: selectedRouterId })}
                                     refreshPendingId={refreshMutation.isPending && refreshMutation.variables?.id}
@@ -341,7 +341,7 @@ export default function GenieACS() {
                                     onRefresh={(id) => refreshMutation.mutate({ id, routerId: selectedRouterId })}
                                     onOpenWifi={(dev) => setWifiDevice({ ...dev, routerId: selectedRouterId })}
                                     onOpenWan={(dev) => setWanDevice({ ...dev, routerId: selectedRouterId })}
-                                    onBackup={(id) => createBackupMutation.mutate({ id, name: `Manual Backup ${new Date().toLocaleDateString()}`, routerId: selectedRouterId })}
+                                    onBackup={(id) => createBackupMutation.mutate({ id, name: `Manual Backup ${new Date().toLocaleDateString('id-ID')}`, routerId: selectedRouterId })}
                                     onRestore={(dev) => setRestoreDevice({ ...dev, routerId: selectedRouterId })}
                                     onReboot={(dev) => setRebootDevice({ ...dev, routerId: selectedRouterId })}
                                     refreshPendingId={refreshMutation.isPending && refreshMutation.variables?.id}
