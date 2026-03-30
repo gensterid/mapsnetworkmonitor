@@ -552,6 +552,44 @@ export class AlertActionService {
     }
 
     /**
+     * Systematically resolve all unresolved alerts for a specific host (Netwatch/Performance)
+     */
+    async resolveAlertsByHost(routerId: string, host: string, tenantId?: string, tx: any = db): Promise<number> {
+        const filters = [
+            eq(alerts.routerId, routerId),
+            eq(alerts.resolved, false),
+            or(
+                eq(alerts.type, 'netwatch_down'),
+                eq(alerts.type, 'status_change'),
+                eq(alerts.type, 'high_latency'),
+                eq(alerts.type, 'packet_loss'),
+                eq(alerts.type, 'threshold')
+            )
+        ];
+        if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
+        
+        const existingAlerts = await tx.select().from(alerts).where(and(...filters));
+        const alertsToResolve = existingAlerts.filter((a: any) => a.message && a.message.includes(host));
+        
+        if (alertsToResolve.length === 0) return 0;
+        
+        const idsToResolve = alertsToResolve.map((a: any) => a.id);
+        await tx.update(alerts).set({ 
+            resolved: true, 
+            resolvedAt: new Date(),
+            updatedAt: new Date() 
+        }).where(inArray(alerts.id, idsToResolve));
+        
+        eventEmitter.broadcast('alerts_updated', { 
+            type: 'resolve_batch', 
+            ids: idsToResolve, 
+            timestamp: new Date().toISOString() 
+        });
+        
+        return idsToResolve.length;
+    }
+
+    /**
      * Create/Update SNMP error alert
      */
     async createSnmpErrorAlert(routerId: string, routerName: string, error: string, tx: any = db) {

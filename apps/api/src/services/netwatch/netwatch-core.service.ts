@@ -1,4 +1,4 @@
-import { eq, and, sql, desc, getTableColumns, inArray } from 'drizzle-orm';
+import { eq, and, or, sql, desc, getTableColumns, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { db } from '../../db/index.js';
 import {
@@ -9,6 +9,8 @@ import {
     alerts,
 } from '../../db/schema/index.js';
 import { decrypt } from '../../lib/encryption.js';
+import { alertService } from '../alert.service.js';
+import { settingsService } from '../settings.service.js';
 
 /**
  * Internal helper to find a router and decrypt its password.
@@ -190,6 +192,69 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
     const filters = [eq(routerNetwatch.id, id), eq(routerNetwatch.routerId, routerId)];
     if (tenantId) filters.push(eq(routerNetwatch.tenantId, tenantId));
 
+    // 1. Fetch current entry to check for IP changes
+    const [entry] = await tx.select().from(routerNetwatch).where(and(...filters));
+    if (!entry) return null;
+
+    const oldHost = entry.host;
+    const newHost = data.host;
+    const ipChanged = newHost && oldHost && newHost !== oldHost;
+
+    // 2. If IP changed, perform system-wide alignment (Alerts/MikroTik/Webhooks)
+    if (ipChanged) {
+        // A. Resolve any existing alerts for the old host (system-wide alignment)
+        try {
+            await alertService.resolveAlertsByHost(routerId, oldHost, entry.tenantId || tenantId, tx);
+        } catch (err: any) {
+            console.error('[Netwatch Update] Failed to resolve old alerts:', err.message);
+        }
+
+        // B. Update on MikroTik (if not app-only)
+        if (!entry.isAppOnly) {
+            try {
+                const router = await findRouterWithPassword(routerId, tenantId, tx);
+                if (router) {
+                    const { connectToRouter, updateNetwatchEntry, configureNetwatchWebhook } = await import('../../lib/mikrotik-api.js');
+                    const conn = await connectToRouter(router);
+                    
+                    // Update host in /tool netwatch
+                    await updateNetwatchEntry(conn, oldHost, { host: newHost });
+                    
+                    // Re-configure webhook to update hardcoded host in up/down scripts
+                    if (router.useWebhook && router.webhookSecret && router.tenantId) {
+                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId);
+                        await configureNetwatchWebhook(conn, newHost, webhookUrl, router.webhookSecret);
+                    }
+
+                    if (conn.release) conn.release();
+                    else await conn.close();
+                }
+            } catch (err: any) {
+                console.error('[Netwatch Update] Failed to update MikroTik/Webhook:', err.message);
+            }
+        }
+    }
+
+    // 3. If IP changed, cascade change to ONUs to preserve Map coordinates link
+    if (ipChanged) {
+        try {
+            // Find ONUs linked to this host or SN
+            await tx
+                .update(onus)
+                .set({ host: newHost, updatedAt: new Date() })
+                .where(and(
+                    eq(onus.routerId, routerId),
+                    or(
+                        eq(onus.host, oldHost),
+                        eq(onus.id, entry.linkedOnuId || '')
+                    )
+                ));
+        } catch (err: any) {
+            console.error('[Netwatch Update] Failed to cascade IP change to ONUs:', err.message);
+        }
+    }
+
+    // 4. Update the Netwatch record
     const [updated] = await tx
         .update(routerNetwatch)
         .set({
@@ -198,6 +263,7 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
         })
         .where(and(...filters))
         .returning();
+
     return updated;
 }
 

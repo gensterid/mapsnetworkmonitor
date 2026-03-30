@@ -1,3 +1,4 @@
+import { db } from '../db/index.js';
 import { alertQueryService } from './alert-query.service.js';
 import { alertActionService } from './alert-action.service.js';
 import { type Alert, type NewAlert } from '../db/schema/index.js';
@@ -109,8 +110,12 @@ export class AlertService {
         return alertActionService.resolveSnmpErrorAlert(routerId, tx);
     }
 
-    async resolvePerformanceAlert(routerId: string, host: string, tenantId?: string, tx?: any) {
+    async resolvePerformanceAlert(routerId: string, host: string, tenantId?: string, tx: any = db) {
         return alertActionService.resolvePerformanceAlert(routerId, host, tenantId, tx);
+    }
+
+    async resolveAlertsByHost(routerId: string, host: string, tenantId?: string, tx: any = db) {
+        return alertActionService.resolveAlertsByHost(routerId, host, tenantId, tx);
     }
 }
 
