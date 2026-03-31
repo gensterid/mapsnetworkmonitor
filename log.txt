@@ -1,0 +1,66 @@
+commit 0f0c251e19ac66d9c3806d81b7066d57b0c39a8c
+Author: MikroTik Admin <admin@mikrotik.local>
+Date:   Tue Mar 31 04:40:59 2026 +0800
+
+    fix(netwatch): implement systematic alignment for Netwatch IP updates including alert resolution and webhook re-configuration
+
+commit 679a39d6686f1e6aa714771df88ee1f6bec5d483
+Author: MikroTik Admin <admin@mikrotik.local>
+Date:   Fri Mar 27 01:02:14 2026 +0800
+
+    fix(timezone): deep audit - fix 9 additional components with raw date formatting
+    
+    Fixes found during cross-system verification:
+    - MaintenanceSettings.jsx: backup date display
+    - WifiConfigModal.jsx: device sync time
+    - RestoreModal.jsx: backup creation date
+    - AnalyticsAlertsList.jsx: alert timestamps
+    - AnalyticsDetails.jsx: issue timestamps
+    - SimpleBarChart.jsx: chart date labels
+    - MetricHistoryChart.jsx: chart time labels
+    - InterfaceTrafficChart.jsx: chart time labels
+    - AnalyticsStatModals.jsx: PPPoE down timestamps
+    - HistoryTab.jsx: tooltip and trend chart labels
+    - GenieACS.jsx: backup name locale consistency
+    
+    Also fixed scoping bug where CustomTooltip used timezone
+    variable outside component scope.
+
+commit c0b354d8ccc88c175d157b67c8d4c172a599bb8b
+Author: MikroTik Admin <admin@mikrotik.local>
+Date:   Fri Mar 27 00:51:44 2026 +0800
+
+    fix(timezone): synchronize all date/time formatting with user timezone setting
+    
+    - notification.service.ts: Replace hardcoded Asia/Jakarta with dynamic SYSTEM_TIMEZONE
+    - users schema: Update default timezone to Asia/Makassar (WITA UTC+8)
+    - Tenants.jsx: Use formatDateOnly with useAppTimezone
+    - OltDetails.jsx: Use formatShortDateTime with useAppTimezone
+    - Analytics.jsx: Use formatDateOnly with useAppTimezone
+    - SummaryTab.jsx: Use formatShortDateTime for Last Inform
+    - Olts.jsx: Use formatShortDateTime for Last Sync fallback
+
+commit b8e29c1b87864ed4751ed3ce06aa8caf5a2f14dc
+Author: MikroTik Admin <admin@mikrotik.local>
+Date:   Thu Mar 26 22:32:43 2026 +0800
+
+    fix(traffic): resolve 2.25x multiplier via lastTrafficAt timebase and reduce SNMP cache
+    
+    This commit:
+    - Adds 'last_traffic_at' dedicated column to router_interfaces.
+    - Refactors SNMP and API rate calculations to use the new precise timebase.
+    - Reduces SNMP CACHE_TTL from 5 minutes to 5 seconds to prevent stale counter plateaus.
+    - Implements strict source isolation to prevent polling conflict.
+    - Updates repair-db script for automatic migration.
+
+commit e933b5b4d70c6ec303e1a943e6454335a2dc1c21
+Author: MikroTik Admin <admin@mikrotik.local>
+Date:   Thu Mar 26 21:52:35 2026 +0800
+
+    fix(snmp): resolve traffic spikes using BigInt and 100Gbps spike guards
+    
+    This commit includes:
+    - BigInt-based traffic calculation for improved precision with 64-bit counters.
+    - 100 Gbps safety cap (spike guard) on all traffic sync paths (SNMP, API, WebSocket).
+    - Defensive logging for anomalous traffic values.
+    - Comprehensive unit tests to verify calculation logic.

@@ -2,6 +2,7 @@ import { eq, inArray, sql, and } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { routers, routerNetwatch, onus, olts } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
+import { alertService } from '../alert.service.js';
 
 /**
  * Sync netwatch status to ONUs table
@@ -47,9 +48,20 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
                 const status = entry.status === 'up' ? 'online' : (entry.status === 'down' ? 'offline' : targetOnu.status);
                 const onuUpdateData: any = { status, lastSeen: status === 'online' ? new Date() : targetOnu.lastSeen, updatedAt: new Date() };
 
-                if (!targetOnu.host && host) {
+                if (host && targetOnu.host !== host) {
+                    const oldHost = targetOnu.host;
                     onuUpdateData.host = host;
-                    logger.info({ onu: targetOnu.name, sn: targetOnu.sn, host }, '[Linkage] Auto-populated host from Netwatch match');
+                    logger.info({ onu: targetOnu.name, sn: targetOnu.sn, oldHost, newHost: host }, '[Linkage] Updating host IP from Netwatch match');
+                    
+                    // System Alignment: Resolve all alerts for the OLD IP since it's no longer assigned here
+                    if (oldHost && oldHost !== '0.0.0.0') {
+                        alertService.resolveAlertsByHost(routerId, oldHost, targetOnu.tenantId, tx).catch(e => 
+                            logger.warn({ err: e.message || String(e), host: oldHost }, 'Failed to resolve alerts for old host during linkage shift')
+                        );
+                    }
+
+                    // Safety: Clear this IP from any OTHER ONU record to maintain 1-to-1 mapping
+                    await tx.update(onus).set({ host: null }).where(and(eq(onus.host, host), sql`id != ${targetOnu.id}::uuid`));
                 }
  
                 const sources = (targetOnu.discoverySources as string[]) || [];

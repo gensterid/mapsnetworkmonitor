@@ -110,6 +110,7 @@ export default function OnuTable({
                                 <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">PON / ID</th>
                                 <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">SN / Alias</th>
                                 <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">MAC Address</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Note</th>
                                 <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Status / Reason</th>
                                 <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Last Activity</th>
                                 <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Signal</th>
@@ -137,6 +138,11 @@ export default function OnuTable({
                                         ) : (
                                             <span className="text-[10px] text-slate-700 font-mono">-</span>
                                         )}
+                                    </td>
+                                    <td className="px-4 py-4 whitespace-nowrap">
+                                        <span className="text-[10px] text-slate-500 font-medium italic truncate max-w-[150px] block" title={onu.description || ''}>
+                                            {onu.description || '--'}
+                                        </span>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="flex items-center gap-2">
