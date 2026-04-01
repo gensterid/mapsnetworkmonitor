@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import NetworkMap from '@/components/NetworkMap';
 import AiNetworkSummary from '@/components/AiNetworkSummary';
 import NetworkHealthCard from '@/components/NetworkHealthCard';
-import { useRouters, useAlerts, useSettings, useCurrentUser, useAppTimezone } from '@/hooks';
+import { useRouters, useAlerts, useUnreadAlertCount, useSettings, useCurrentUser, useAppTimezone } from '@/hooks';
 import { formatRelativeTime, formatDateOnly, formatTimeOnly } from '@/lib/timezone';
 import {
     Router as RouterIcon,
@@ -313,6 +313,7 @@ function RecentAlerts({ alerts, settings, currentUser }) {
 
 export default function Dashboard() {
     const { data: routers = [], isLoading: routersLoading } = useRouters();
+    const { data: alertCountData, isLoading: countLoading } = useUnreadAlertCount();
     const { data: alertsResponse = [], isLoading: alertsLoading } = useAlerts();
     const alerts = Array.isArray(alertsResponse) ? alertsResponse : (alertsResponse?.data || []);
     const { data: settings } = useSettings();
@@ -340,8 +341,12 @@ export default function Dashboard() {
     });
 
     const onlineCount = routers.filter(r => r.status === 'online').length;
-    const offlineCount = routers.filter(r => r.status !== 'online').length;
-    const warningCount = routers.filter(r => r.latency > 100).length;
+    
+    // Use alert counts if available to include more comprehensive monitoring data (Netwatch, Packet Loss, etc.)
+    // alertCountData.connectivity matches the "Alerts" badge in the sidebar
+    // alertCountData.issues matches the "Issues" badge in the sidebar
+    const offlineCount = alertCountData ? alertCountData.connectivity : routers.filter(r => r.status !== 'online').length;
+    const warningCount = alertCountData ? alertCountData.issues : routers.filter(r => r.latency > 100).length;
     const uptime = routers.length > 0 ? ((onlineCount / routers.length) * 100).toFixed(1) : 0;
 
     return (
@@ -440,7 +445,7 @@ export default function Dashboard() {
                                     value={offlineCount}
                                     trendLabel={offlineCount > 0 ? "Critical" : "All Good"}
                                     color="danger"
-                                    onClick={() => setStatusFilter('offline')}
+                                    href="/alerts"
                                 />
                                 <StatsCard
                                     icon={AlertTriangle}
@@ -448,7 +453,7 @@ export default function Dashboard() {
                                     value={warningCount}
                                     trendLabel={warningCount > 0 ? "Needs Attention" : "Clear"}
                                     color="warning"
-                                    href="/alerts"
+                                    href="/issues"
                                 />
                                 <StatsCard
                                     icon={Activity}
