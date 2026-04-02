@@ -330,8 +330,8 @@ export class AlertActionService {
                 tenantId: tenantId!,
                 type: 'status_change',
                 severity: 'info',
-                title: `Device ${deviceName || host} is back UP`,
-                message: `Netwatch host ${host} (${deviceName}) is now reachable.${resolvedCount > 0 ? ` Resolved ${resolvedCount} downtime alert(s).` : ''}`,
+                title: `Device ${deviceName || host} is UP`,
+                message: `Host ${host} is UP.${resolvedCount > 0 ? ` (${resolvedCount} resolved)` : ''}`,
             }, tx);
         }
 
@@ -354,8 +354,8 @@ export class AlertActionService {
             tenantId: tenantId!,
             type: 'netwatch_down',
             severity: 'warning',
-            title: `Device ${deviceName || host} is down`,
-            message: `Netwatch host ${host} (${deviceName}) is now down`,
+            title: `Device ${deviceName || host} is DOWN`,
+            message: `Host ${host} is DOWN`,
         }, tx);
     }
 
@@ -391,8 +391,8 @@ export class AlertActionService {
             tenantId: tenantId!,
             type: 'status_change',
             severity,
-            title: `Router ${routerName} is now ${newStatus}`,
-            message: `Status changed from ${oldStatus} to ${newStatus}${reason ? ` (Alasan: ${reason})` : ''}`,
+            title: `Router ${routerName} is ${newStatus.toUpperCase()}`,
+            message: `Status: ${oldStatus} -> ${newStatus}${reason ? ` (${reason})` : ''}`,
             resolved: true,
             resolvedAt: new Date(),
         }, tx);
@@ -417,7 +417,7 @@ export class AlertActionService {
             type: 'high_cpu',
             severity,
             title: `High CPU usage on ${routerName}`,
-            message: `CPU load is at ${cpuLoad}% (threshold: ${severity === 'critical' ? thresholds.cpuCritical : thresholds.cpuWarning}%)`,
+            message: `Load: ${cpuLoad}% (Limit: ${severity === 'critical' ? thresholds.cpuCritical : thresholds.cpuWarning}%)`,
         }, tx);
     }
 
@@ -440,7 +440,7 @@ export class AlertActionService {
             type: 'high_memory',
             severity,
             title: `High memory usage on ${routerName}`,
-            message: `Memory usage is at ${memoryPercent}% (threshold: ${severity === 'critical' ? thresholds.memoryCritical : thresholds.memoryWarning}%)`,
+            message: `Usage: ${memoryPercent}% (Limit: ${severity === 'critical' ? thresholds.memoryCritical : thresholds.memoryWarning}%)`,
         }, tx);
     }
 
@@ -501,7 +501,7 @@ export class AlertActionService {
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({
             routerId, tenantId: tenantId!, type: 'pppoe_connect', severity: 'info', title: `PPPoE: ${username} connected`,
-            message: `User ${username} connected to ${routerName}. IP: ${ipAddress}`, resolved: true, resolvedAt: new Date(),
+            message: `IP: ${ipAddress}`, resolved: true, resolvedAt: new Date(),
         }, tx);
     }
 
@@ -511,7 +511,7 @@ export class AlertActionService {
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({
             routerId, tenantId: tenantId!, type: 'pppoe_disconnect', severity: 'warning', title: `PPPoE: ${username} disconnected`,
-            message: `User ${username} disconnected from ${routerName}. IP: ${ipAddress}. Session duration: ${this.formatDuration(sessionDurationSeconds)}`,
+            message: `IP: ${ipAddress}. Durasi: ${this.formatDuration(sessionDurationSeconds)}`,
             resolved: true, resolvedAt: new Date(),
         }, tx);
     }
@@ -534,8 +534,8 @@ export class AlertActionService {
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({
             routerId, tenantId: tenantId!, type, severity: 'warning',
-            title: isHighLatency && isPacketLoss ? `Performance Issue: ${deviceName}` : isHighLatency ? `High Latency: ${deviceName}` : `Packet Loss: ${deviceName}`,
-            message: `Host ${host} (${deviceName}) has issues:${isHighLatency ? ` High Latency (${latency}ms > 100ms).` : ` Latency: ${latency}ms.`}${isPacketLoss ? ` Packet Loss (${packetLoss}%).` : ''}`,
+            title: isHighLatency && isPacketLoss ? `Performance: ${deviceName}` : isHighLatency ? `High Latency: ${deviceName}` : `Packet Loss: ${deviceName}`,
+            message: `${isHighLatency ? `Latency: ${latency}ms (> 100ms)` : ''}${isHighLatency && isPacketLoss ? ', ' : ''}${isPacketLoss ? `Loss: ${packetLoss}%` : ''}`,
         }, tx);
     }
 
