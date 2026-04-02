@@ -3,6 +3,7 @@ import { db } from '../../db/index.js';
 import { routers, routerNetwatch, devicePerformanceHistory, onus } from '../../db/schema/index.js';
 import { measurePing, getInterfaceTraffic } from '../../lib/mikrotik-api.js';
 import { alertService } from '../alert.service.js';
+import { dashboardService } from '../dashboard.service.js';
 import { logger } from '../../lib/logger.js';
 
 /**
@@ -78,6 +79,9 @@ export async function measureLatency(routerId: string, routerName: string, conn:
             } catch (e: any) { logger.warn({ err: e?.message || String(e), host: target.host }, 'Latency measure error'); }
         }));
     }
+    
+    // Invalidate dashboard stats cache because statuses may have changed
+    dashboardService.invalidateCache();
 }
 
 /**

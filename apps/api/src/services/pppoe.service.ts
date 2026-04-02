@@ -7,6 +7,7 @@ import {
     type NewPppoeSession,
 } from '../db/schema/index.js';
 import { alertService } from './alert.service.js';
+import { dashboardService } from './dashboard.service.js';
 import type { PppSession, SimpleQueueData } from '../lib/mikrotik-api.js';
 import { logger } from '../lib/logger.js';
 
@@ -207,6 +208,7 @@ class PppoeService {
 
             if (connected.length > 0 || disconnected.length > 0) {
                 logger.info({ routerName, connected: connected.length, disconnected: disconnected.length }, '[PPPoE] Session sync summary');
+                dashboardService.invalidateCache();
             }
 
             return { connected, disconnected };

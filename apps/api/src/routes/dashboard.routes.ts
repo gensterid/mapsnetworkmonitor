@@ -46,4 +46,20 @@ router.get(
     })
 );
 
+/**
+ * GET /api/dashboard/down-items
+ * Get list of down/disconnected items
+ */
+router.get(
+    '/down-items',
+    asyncHandler(async (req, res) => {
+        const type = req.query.type as 'netwatch' | 'pppoe';
+        if (!type || !['netwatch', 'pppoe'].includes(type)) {
+            return res.status(400).json({ error: 'Invalid type parameter' });
+        }
+        const items = await dashboardService.getDownItems(type, getEffectiveTenantId(req), req.user?.id, req.user?.role);
+        res.json({ data: items });
+    })
+);
+
 export default router;

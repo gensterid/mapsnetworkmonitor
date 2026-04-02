@@ -1,6 +1,10 @@
 import { routerService } from './router.service.js';
 import { alertService } from './alert.service.js';
 import { logger } from '../lib/logger.js';
+import { db } from '../db/index.js';
+import { routerNetwatch, pppoeSessions, routers } from '../db/schema/index.js';
+import { eq, sql, count, and, inArray, desc } from 'drizzle-orm';
+import { userRouters } from '../db/schema/user-routers.js';
 
 interface DashboardStats {
     routers: {
@@ -14,6 +18,16 @@ interface DashboardStats {
         critical: number;
         warning: number;
         info: number;
+    };
+    netwatch: {
+        total: number;
+        up: number;
+        down: number;
+    };
+    pppoe: {
+        total: number;
+        up: number;
+        down: number;
     };
 }
 
@@ -82,6 +96,60 @@ export class DashboardService {
         const routerStats = await routerService.countByStatus(tenantId);
         const alertStats = await alertService.countBySeverity(userId, userRole, tenantId);
 
+        // Fetch Netwatch statistics
+        const netwatchFilters = [];
+        if (tenantId) netwatchFilters.push(eq(routerNetwatch.tenantId, tenantId));
+        
+        // If user is restricted, only count for their assigned routers
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+            const assignedIds = assigned.map(a => a.routerId);
+            if (assignedIds.length > 0) {
+                netwatchFilters.push(inArray(routerNetwatch.routerId, assignedIds));
+            } else {
+                // No routers assigned
+                netwatchFilters.push(eq(sql`1`, 0));
+            }
+        }
+
+        const [netwatchStatsRaw] = await db
+            .select({
+                total: count(),
+                up: sql<number>`count(*) filter (where status = 'up')`,
+                down: sql<number>`count(*) filter (where status = 'down')`,
+            })
+            .from(routerNetwatch)
+            .where(and(...netwatchFilters));
+
+        // Fetch PPPoE statistics
+        const pppoeFilters = [];
+        if (tenantId) pppoeFilters.push(eq(pppoeSessions.tenantId, tenantId));
+        
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+            const assigned = await db
+                .select({ routerId: userRouters.routerId })
+                .from(userRouters)
+                .where(eq(userRouters.userId, userId));
+            const assignedIds = assigned.map(a => a.routerId);
+            if (assignedIds.length > 0) {
+                pppoeFilters.push(inArray(pppoeSessions.routerId, assignedIds));
+            } else {
+                pppoeFilters.push(eq(sql`1`, 0));
+            }
+        }
+
+        const [pppoeStatsRaw] = await db
+            .select({
+                total: count(),
+                up: sql<number>`count(*) filter (where status = 'active')`,
+                down: sql<number>`count(*) filter (where status = 'disconnected')`,
+            })
+            .from(pppoeSessions)
+            .where(and(...pppoeFilters));
+
         const stats: DashboardStats = {
             routers: {
                 total: routerStats.total,
@@ -94,6 +162,16 @@ export class DashboardService {
                 critical: alertStats.critical,
                 warning: alertStats.warning,
                 info: alertStats.info,
+            },
+            netwatch: {
+                total: Number(netwatchStatsRaw?.total || 0),
+                up: Number(netwatchStatsRaw?.up || 0),
+                down: Number(netwatchStatsRaw?.down || 0),
+            },
+            pppoe: {
+                total: Number(pppoeStatsRaw?.total || 0),
+                up: Number(pppoeStatsRaw?.up || 0),
+                down: Number(pppoeStatsRaw?.down || 0),
             },
         };
 
@@ -125,6 +203,75 @@ export class DashboardService {
 
         this.cache.set(cacheKey, markers, CACHE_TTL);
         return markers;
+    }
+
+    /**
+     * Get list of items that are currently down/disconnected
+     */
+    async getDownItems(type: 'netwatch' | 'pppoe', tenantId?: string, userId?: string, userRole?: string) {
+        if (type === 'netwatch') {
+            const filters = [eq(routerNetwatch.status, 'down')];
+            if (tenantId) filters.push(eq(routerNetwatch.tenantId, tenantId));
+
+            if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+                const assigned = await db
+                    .select({ routerId: userRouters.routerId })
+                    .from(userRouters)
+                    .where(eq(userRouters.userId, userId));
+                const assignedIds = assigned.map(a => a.routerId);
+                if (assignedIds.length > 0) {
+                    filters.push(inArray(routerNetwatch.routerId, assignedIds));
+                } else {
+                    return [];
+                }
+            }
+
+            return await db
+                .select({
+                    id: routerNetwatch.id,
+                    name: routerNetwatch.name,
+                    host: routerNetwatch.host,
+                    status: routerNetwatch.status,
+                    lastDown: routerNetwatch.lastDown,
+                    routerName: routers.name,
+                    routerId: routerNetwatch.routerId,
+                })
+                .from(routerNetwatch)
+                .leftJoin(routers, eq(routerNetwatch.routerId, routers.id))
+                .where(and(...filters))
+                .orderBy(desc(routerNetwatch.lastDown));
+        } else {
+            const filters = [eq(pppoeSessions.status, 'disconnected')];
+            if (tenantId) filters.push(eq(pppoeSessions.tenantId, tenantId));
+
+            if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+                const assigned = await db
+                    .select({ routerId: userRouters.routerId })
+                    .from(userRouters)
+                    .where(eq(userRouters.userId, userId));
+                const assignedIds = assigned.map(a => a.routerId);
+                if (assignedIds.length > 0) {
+                    filters.push(inArray(pppoeSessions.routerId, assignedIds));
+                } else {
+                    return [];
+                }
+            }
+
+            return await db
+                .select({
+                    id: pppoeSessions.id,
+                    name: pppoeSessions.name,
+                    host: pppoeSessions.address,
+                    status: pppoeSessions.status,
+                    lastDown: pppoeSessions.lastDown,
+                    routerName: routers.name,
+                    routerId: pppoeSessions.routerId,
+                })
+                .from(pppoeSessions)
+                .leftJoin(routers, eq(pppoeSessions.routerId, routers.id))
+                .where(and(...filters))
+                .orderBy(desc(pppoeSessions.lastDown));
+        }
     }
 
     /**

@@ -3,12 +3,20 @@ import { Link } from 'react-router-dom';
 import NetworkMap from '@/components/NetworkMap';
 import AiNetworkSummary from '@/components/AiNetworkSummary';
 import NetworkHealthCard from '@/components/NetworkHealthCard';
-import { useRouters, useAlerts, useUnreadAlertCount, useSettings, useCurrentUser, useAppTimezone } from '@/hooks';
+import { 
+    useRouters, 
+    useAlerts, 
+    useUnreadAlertCount, 
+    useSettings, 
+    useCurrentUser, 
+    useAppTimezone,
+    useDashboardStats,
+    useDownItems
+} from '@/hooks';
 import { formatRelativeTime, formatDateOnly, formatTimeOnly } from '@/lib/timezone';
 import {
     Router as RouterIcon,
     Wifi,
-    WifiOff,
     AlertTriangle,
     Activity,
     RefreshCw,
@@ -21,10 +29,14 @@ import {
     Settings,
     Maximize,
     Minimize,
-    Monitor
+    Monitor,
+    ShieldAlert,
+    Users,
+    ArrowRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Skeleton, CardSkeleton, ListSkeleton } from '@/components/ui/Skeleton';
+import { Modal } from '@/components/ui/Modal';
 import clsx from 'clsx';
 
 // Stats Card Component
@@ -101,6 +113,119 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
         <div className={cardClassName} role="region" aria-label={label}>
             {cardContent}
         </div>
+    );
+}
+
+// Enhanced Status Card with Total/Up/Down breakdown
+function MultiStatsCard({ icon: Icon, label, total, up, down, color, onClickDown }) {
+    const isClickable = down > 0 && onClickDown;
+    
+    return (
+        <div className="glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-4 opacity-5" aria-hidden="true">
+                <Icon className="w-16 h-16" />
+            </div>
+            
+            <div className="flex items-center gap-3">
+                <div className={clsx(
+                    "w-8 h-8 rounded flex items-center justify-center bg-slate-800/80 text-slate-400"
+                )}>
+                    <Icon className="w-4 h-4" />
+                </div>
+                <span className="text-slate-400 text-xs font-semibold tracking-wide uppercase">{label}</span>
+            </div>
+
+            <div className="flex items-end justify-between z-10 mt-2">
+                <div className="flex flex-col">
+                    <span className="text-2xl font-bold text-white">{total}</span>
+                    <span className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">Total Entries</span>
+                </div>
+                
+                <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end">
+                        <span className="text-emerald-400 text-lg font-bold">{up}</span>
+                        <span className="text-[9px] text-slate-500 uppercase font-black">Online</span>
+                    </div>
+                    
+                    <button 
+                        onClick={() => isClickable && onClickDown()}
+                        disabled={!isClickable}
+                        className={clsx(
+                            "flex flex-col items-end transition-all outline-none",
+                            isClickable ? "hover:scale-110 cursor-pointer" : "opacity-50 cursor-default"
+                        )}
+                    >
+                        <span className={clsx(
+                            "text-lg font-bold",
+                            down > 0 ? "text-red-400 animate-pulse" : "text-slate-500"
+                        )}>{down}</span>
+                        <span className="text-[9px] text-slate-500 uppercase font-black">Down</span>
+                    </button>
+                </div>
+            </div>
+            
+            {/* Progress bar based on health */}
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800" aria-hidden="true">
+                <div 
+                    className={clsx("h-full transition-all duration-1000", down === 0 ? "bg-emerald-500" : "bg-red-500")} 
+                    style={{ width: `${total > 0 ? (up / total) * 100 : 100}%` }} 
+                />
+            </div>
+        </div>
+    );
+}
+
+// Component to show list of down items
+function StatusDetailsModal({ type, isOpen, onClose }) {
+    const { data: items = [], isLoading } = useDownItems(type, { enabled: isOpen });
+    const timezone = useAppTimezone();
+
+    return (
+        <Modal 
+            isOpen={isOpen} 
+            onClose={onClose} 
+            title={type === 'netwatch' ? 'Netwatch Down List' : 'PPPoE Disconnected List'}
+            maxWidth="max-w-2xl"
+        >
+            <div className="flex flex-col gap-4">
+                {isLoading ? (
+                    <ListSkeleton rows={5} />
+                ) : items.length > 0 ? (
+                    <div className="divide-y divide-slate-800">
+                        {items.map((item) => (
+                            <div key={item.id} className="py-3 flex items-center justify-between group">
+                                <div className="flex flex-col">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-bold text-white tracking-tight">{item.name || 'Unnamed'}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 font-mono">
+                                            {item.host || 'No IP'}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                                        <RouterIcon className="w-3 h-3" />
+                                        <span>{item.routerName}</span>
+                                        <span>•</span>
+                                        <span>Down since: {item.lastDown ? formatRelativeTime(item.lastDown, timezone) : 'N/A'}</span>
+                                    </div>
+                                </div>
+                                <Link 
+                                    to={`/routers/${item.routerId}`} 
+                                    className="p-2 rounded-lg bg-slate-800 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-700 hover:text-white"
+                                >
+                                    <ArrowRight className="w-4 h-4" />
+                                </Link>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="py-12 flex flex-col items-center text-center">
+                        <CheckCircle className="w-12 h-12 text-emerald-500/20 mb-3" />
+                        <p className="text-slate-300 font-medium tracking-tight">No items are currently down</p>
+                        <p className="text-slate-500 text-xs mt-1 italic">Everything looking healthy!</p>
+                    </div>
+                )}
+            </div>
+        </Modal>
     );
 }
 
@@ -228,100 +353,18 @@ function ActiveConnectionsTable({ routers }) {
     );
 }
 
-// Recent Alerts Component
-function RecentAlerts({ alerts, settings, currentUser }) {
-    const timezone = useAppTimezone();
-
-    const getSeverityColor = (severity) => {
-        switch (severity) {
-            case 'critical': return { dot: 'bg-red-500', badge: 'bg-red-500/10 text-red-500 border-red-500/20' };
-            case 'warning': return { dot: 'bg-yellow-500', badge: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' };
-            case 'info': return { dot: 'bg-blue-500', badge: 'bg-blue-500/10 text-blue-500 border-blue-500/20' };
-            case 'success': return { dot: 'bg-emerald-500', badge: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' };
-            default: return { dot: 'bg-slate-500', badge: 'bg-slate-500/10 text-slate-400 border-slate-500/20' };
-        }
-    };
-
-    const formatTime = (date) => formatRelativeTime(date, timezone);
-
-    // Limit to 5 most recent alerts for dashboard
-    const recentAlerts = alerts.slice(0, 5);
-
-    // Remove mock alerts and just use the actual recent alerts
-    const displayAlerts = recentAlerts;
-
-    return (
-        <div className="glass-panel rounded-xl h-full flex flex-col">
-            <div className="p-4 border-b border-slate-700/30 flex items-center justify-between">
-                <h3 className="text-base font-semibold text-white">Recent Alerts</h3>
-                <Link to="/alerts" className="text-slate-400 hover:text-white">
-                    <Filter className="w-5 h-5" />
-                </Link>
-            </div>
-            <div className="p-4 flex-1 overflow-y-auto custom-scrollbar">
-                <div className="relative pl-2">
-                    {/* Timeline line */}
-                    <div className="absolute left-[9px] top-2 bottom-0 w-px bg-slate-800" />
-
-                    {displayAlerts.length > 0 ? (
-                        displayAlerts.map((alert, idx) => {
-                            const colors = getSeverityColor(alert.severity);
-                            return (
-                                <div key={alert.id} className="relative pl-8 pb-8 group">
-                                    <div className={clsx(
-                                        "absolute left-0 top-1 w-[19px] h-[19px] rounded-full border-[3px] border-background-dark z-10",
-                                        colors.dot,
-                                        alert.severity === 'critical' && "shadow-[0_0_0_4px_rgba(239,68,68,0.2)]"
-                                    )} />
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm font-semibold text-white">{alert.title}</span>
-                                            <span className="text-[10px] text-slate-500 font-mono">{formatTime(alert.createdAt)}</span>
-                                        </div>
-                                        <p className="text-xs text-slate-400 leading-relaxed">{alert.message || alert.description}</p>
-                                        <div className="mt-2">
-                                            <span className={clsx(
-                                                "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium border capitalize",
-                                                colors.badge
-                                            )}>
-                                                {alert.severity}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })
-                    ) : (
-                        <div className="py-8 flex flex-col items-center justify-center text-center px-4">
-                            <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center mb-3">
-                                <CheckCircle className="w-6 h-6 text-emerald-500/50" />
-                            </div>
-                            <p className="text-sm font-medium text-slate-300">All Clear</p>
-                            <p className="text-xs text-slate-500 mt-1">No recent alerts in the system.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
-            <div className="p-4 border-t border-slate-700/30">
-                <Link to="/alerts" className="block w-full py-2 px-4 bg-slate-800 hover:bg-slate-700 rounded-lg text-sm font-medium text-white text-center transition-colors">
-                    View All History
-                </Link>
-            </div>
-        </div>
-    );
-}
-
 export default function Dashboard() {
     const { data: routers = [], isLoading: routersLoading } = useRouters();
-    const { data: alertCountData, isLoading: countLoading } = useUnreadAlertCount();
-    const { data: alertsResponse = [], isLoading: alertsLoading } = useAlerts();
-    const alerts = Array.isArray(alertsResponse) ? alertsResponse : (alertsResponse?.data || []);
+    const { data: alertCountData } = useUnreadAlertCount();
     const { data: settings } = useSettings();
     const { data: currentUser } = useCurrentUser();
     const [statusFilter, setStatusFilter] = useState('all');
     const [filterOpen, setFilterOpen] = useState(false);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [downListModal, setDownListModal] = useState({ open: false, type: null });
+
+    const { data: stats, isLoading: statsLoading } = useDashboardStats();
 
     const userTimezone = useAppTimezone();
 
@@ -422,7 +465,7 @@ export default function Dashboard() {
                     {/* Stats Row */}
                     <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-labelledby="stats-heading">
                         <h2 id="stats-heading" className="sr-only">Statistik Real-time</h2>
-                        {routersLoading ? (
+                        {routersLoading || statsLoading ? (
                             <>
                                 <CardSkeleton />
                                 <CardSkeleton />
@@ -434,32 +477,31 @@ export default function Dashboard() {
                                 <StatsCard
                                     icon={RouterIcon}
                                     label="Online Routers"
-                                    value={onlineCount}
+                                    value={stats?.routers?.online || onlineCount}
                                     trend={onlineCount > 0 ? `+${onlineCount}` : undefined}
                                     color="success"
                                     onClick={() => setStatusFilter('online')}
                                 />
-                                <StatsCard
-                                    icon={WifiOff}
-                                    label="Offline Devices"
-                                    value={offlineCount}
-                                    trendLabel={offlineCount > 0 ? "Critical" : "All Good"}
-                                    color="danger"
-                                    href="/alerts"
+                                <MultiStatsCard
+                                    icon={ShieldAlert}
+                                    label="Netwatch Status"
+                                    total={stats?.netwatch?.total || 0}
+                                    up={stats?.netwatch?.up || 0}
+                                    down={stats?.netwatch?.down || 0}
+                                    onClickDown={() => setDownListModal({ open: true, type: 'netwatch' })}
                                 />
-                                <StatsCard
-                                    icon={AlertTriangle}
-                                    label="Warnings"
-                                    value={warningCount}
-                                    trendLabel={warningCount > 0 ? "Needs Attention" : "Clear"}
-                                    color="warning"
-                                    href="/issues"
+                                <MultiStatsCard
+                                    icon={Users}
+                                    label="PPPoE Sessions"
+                                    total={stats?.pppoe?.total || 0}
+                                    up={stats?.pppoe?.up || 0}
+                                    down={stats?.pppoe?.down || 0}
+                                    onClickDown={() => setDownListModal({ open: true, type: 'pppoe' })}
                                 />
                                 <StatsCard
                                     icon={Activity}
                                     label="Network Uptime"
                                     value={`${uptime}%`}
-                                    trendLabel={uptime >= 90 ? "Optimal" : "Low"}
                                     color="primary"
                                     progress={parseFloat(uptime)}
                                     onClick={() => setStatusFilter('all')}
@@ -509,17 +551,17 @@ export default function Dashboard() {
                         {/* Right Column: Health & Alerts Panel */}
                         <div className="xl:col-span-1 flex flex-col gap-6">
                             <NetworkHealthCard />
-                            {alertsLoading ? (
-                                <div className="glass-panel p-6 rounded-xl flex-1 min-h-[400px]">
-                                    <ListSkeleton rows={8} />
-                                </div>
-                            ) : (
-                                <RecentAlerts alerts={alerts} settings={settings} currentUser={currentUser} />
-                            )}
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Modal for Down List */}
+            <StatusDetailsModal 
+                isOpen={downListModal.open} 
+                type={downListModal.type} 
+                onClose={() => setDownListModal({ ...downListModal, open: false })} 
+            />
         </main>
     );
 }
