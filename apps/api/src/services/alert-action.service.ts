@@ -331,7 +331,7 @@ export class AlertActionService {
                 type: 'status_change',
                 severity: 'info',
                 title: `Device ${deviceName || host} is UP`,
-                message: `Host ${host} is UP.${resolvedCount > 0 ? ` (${resolvedCount} resolved)` : ''}`,
+                message: `Host: ${host} is UP.${resolvedCount > 0 ? ` (${resolvedCount} resolved)` : ''}`,
             }, tx);
         }
 
@@ -355,7 +355,7 @@ export class AlertActionService {
             type: 'netwatch_down',
             severity: 'warning',
             title: `Device ${deviceName || host} is DOWN`,
-            message: `Host ${host} is DOWN`,
+            message: `Host: ${host} is DOWN`,
         }, tx);
     }
 
@@ -535,7 +535,7 @@ export class AlertActionService {
         return this.create({
             routerId, tenantId: tenantId!, type, severity: 'warning',
             title: isHighLatency && isPacketLoss ? `Performance: ${deviceName}` : isHighLatency ? `High Latency: ${deviceName}` : `Packet Loss: ${deviceName}`,
-            message: `${isHighLatency ? `Latency: ${latency}ms (> 100ms)` : ''}${isHighLatency && isPacketLoss ? ', ' : ''}${isPacketLoss ? `Loss: ${packetLoss}%` : ''}`,
+            message: `Host: ${host}. ${isHighLatency ? `Latency: ${latency}ms (> 100ms)` : ''}${isHighLatency && isPacketLoss ? ', ' : ''}${isPacketLoss ? `Loss: ${packetLoss}%` : ''}`,
         }, tx);
     }
 
