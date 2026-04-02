@@ -110,21 +110,38 @@ export class BackupService {
         const dir = path.join(process.cwd(), 'backups');
         if (!fs.existsSync(dir)) return;
 
-        const files = fs.readdirSync(dir);
-        const now = Date.now();
-        const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+        try {
+            const files = fs.readdirSync(dir);
+            const now = Date.now();
+            const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+            let deletedCount = 0;
 
-        for (const file of files) {
-            if (!file.startsWith('auto-bkp-')) continue;
+            for (const file of files) {
+                // ONLY target automated backups to avoid accidental loss of manual backups
+                if (!file.startsWith('auto-bkp-')) continue;
 
-            const filePath = path.join(dir, file);
-            const stats = fs.statSync(filePath);
-            const age = now - stats.birthtime.getTime();
+                try {
+                    const filePath = path.join(dir, file);
+                    const stats = fs.statSync(filePath);
+                    
+                    // ON LINUX/LXC: mtime is always more reliable for last modified tracking
+                    const age = now - stats.mtime.getTime();
 
-            if (age > MAX_AGE) {
-                fs.unlinkSync(filePath);
-                logger.info({ file }, 'Cleaned up old automated backup');
+                    if (age > MAX_AGE) {
+                        fs.unlinkSync(filePath);
+                        logger.info({ file, ageDays: Math.floor(age / (1000 * 60 * 60 * 24)) }, '🧹 Cleaned up old automated backup');
+                        deletedCount++;
+                    }
+                } catch (err: any) {
+                    logger.warn({ file, error: err.message }, 'Failed to process individual backup for cleanup');
+                }
             }
+
+            if (deletedCount > 0) {
+                logger.info({ deletedCount }, `✅ Automated backup cleanup complete. Deleted ${deletedCount} old files.`);
+            }
+        } catch (error: any) {
+            logger.error({ error: error.message }, 'Failed to run backup cleanup');
         }
     }
 
