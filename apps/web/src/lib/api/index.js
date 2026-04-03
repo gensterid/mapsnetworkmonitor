@@ -11,4 +11,5 @@ export {
     aiService,
     tenantService,
     pppoeService,
+    dashboardService,
 } from './services/index';
