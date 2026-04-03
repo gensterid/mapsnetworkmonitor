@@ -1,21 +1,16 @@
-import api from '../api';
+import { get } from '../client';
 
 export const dashboardService = {
     /**
      * Get dashboard statistics
      */
-    getStats: async () => {
-        const response = await api.get('/dashboard/stats');
-        return response.data.data;
-    },
+    getStats: () => get<any>('/dashboard/stats'),
 
     /**
      * Get down items for the interactive cards
      */
-    getDownItems: async (type: 'netwatch' | 'pppoe') => {
-        const response = await api.get('/dashboard/down-items', {
+    getDownItems: (type: 'netwatch' | 'pppoe') => 
+        get<any>('/dashboard/down-items', {
             params: { type }
-        });
-        return response.data.data;
-    }
+        })
 };
