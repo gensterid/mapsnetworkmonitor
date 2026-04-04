@@ -1026,6 +1026,7 @@ const NetworkMap = ({
         }, {
             onSuccess: () => {
                 setIsModalOpen(false);
+                setSelectedDevice(null);
             }
         });
     };

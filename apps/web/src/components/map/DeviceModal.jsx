@@ -53,19 +53,28 @@ const DeviceModal = ({
     // Sync form data with device prop
     useEffect(() => {
         if (device) {
+            const isNew = device.isNew || !device.id;
+            
             setFormData(prev => ({
-                // Keep existing user input for name/notes/type if we're just updating coords
-                ...prev,
-                name: (prev.name && device.id === (prev.id || device.id)) ? prev.name : (device.name || ''),
-                type: device.deviceType || device.type || 'router',
-                host: device.host || prev.host || '',
-                notes: device.notes || prev.notes || '',
-                latitude: device.latitude?.toString() || device.lat?.toString() || prev.latitude || '',
-                longitude: device.longitude?.toString() || device.lng?.toString() || prev.longitude || '',
-                connectionType: device.connectionType || prev.connectionType || 'router',
-                connectedToId: device.connectedToId || device.routerId || prev.connectedToId || '',
-                targetInterface: device.targetInterface || prev.targetInterface || '',
-                linkedOnuId: device.linkedOnuId || prev.linkedOnuId || '',
+                // Only keep previous state if we're in the middle of editing the SAME device
+                // or if we're picking coordinates from the map for a new one
+                ...( (prev.id === device.id && !isNew) ? prev : {} ),
+                
+                // Fields mapping with clear initialization for new devices
+                id: device.id || null,
+                name: (isNew ? '' : (prev.name && device.id === prev.id ? prev.name : (device.name || ''))),
+                type: device.deviceType || device.type || (isNew ? 'router' : prev.type),
+                host: (isNew ? '' : (device.host || prev.host || '')),
+                notes: (isNew ? '' : (device.notes || prev.notes || '')),
+                
+                // Coordinates always sync from incoming prop (they are the source of truth from map)
+                latitude: device.latitude?.toString() || device.lat?.toString() || (isNew ? '' : prev.latitude) || '',
+                longitude: device.longitude?.toString() || device.lng?.toString() || (isNew ? '' : prev.longitude) || '',
+                
+                connectionType: device.connectionType || (isNew ? 'router' : prev.connectionType) || 'router',
+                connectedToId: device.connectedToId || device.routerId || (isNew ? '' : prev.connectedToId) || '',
+                targetInterface: device.targetInterface || (isNew ? '' : prev.targetInterface) || '',
+                linkedOnuId: device.linkedOnuId || (isNew ? '' : prev.linkedOnuId) || '',
             }));
         }
     }, [device?.id, device?.isNew, device?.latitude, device?.longitude, device?.lat, device?.lng]);
