@@ -683,6 +683,13 @@ svg.leaflet-zoom-animated {
     justify-content: center;
     z-index: 2000;
     backdrop-filter: blur(4px);
+    transition: background 0.3s ease, backdrop-filter 0.3s ease;
+}
+
+.device-modal-overlay--picking {
+    background: transparent !important;
+    backdrop-filter: none !important;
+    pointer-events: none !important;
 }
 
 .device-modal {
@@ -690,17 +697,19 @@ svg.leaflet-zoom-animated {
     border: 1px solid rgba(71, 85, 105, 0.5);
     border-radius: 12px;
     width: 400px;
-    border: 1px solid rgba(71, 85, 105, 0.5);
-    border-radius: 12px;
-    width: 400px;
     max-height: 90vh;
-    /* Fallback */
     max-height: 90dvh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
     overflow: hidden;
-    /* Ensure content is contained */
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.device-modal--picking {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: scale(0.95) translateY(10px) !important;
 }
 
 .device-modal-overlay {

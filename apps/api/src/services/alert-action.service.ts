@@ -308,7 +308,7 @@ export class AlertActionService {
 
             let resolvedCount = 0;
             for (const alert of unresolvedAlerts) {
-                if (alert.message.includes(host)) {
+                if (host && alert.message && alert.message.includes(host)) {
                     await tx.update(alerts).set({ resolved: true, resolvedAt: new Date() }).where(eq(alerts.id, alert.id));
                     resolvedCount++;
                 }
@@ -335,16 +335,16 @@ export class AlertActionService {
             }, tx);
         }
 
-        const existingUnresolved = await this.findRecentUnresolvedAlert(routerId, 'netwatch_down', tx);
-        if (existingUnresolved && existingUnresolved.message.includes(host)) return null;
+        const existingUnresolved = host ? await this.findRecentUnresolvedAlert(routerId, 'netwatch_down', tx) : null;
+        if (existingUnresolved && host && existingUnresolved.message.includes(host)) return null;
 
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-        const recentAlert = await tx.select().from(alerts).where(and(
+        const recentAlert = host ? await tx.select().from(alerts).where(and(
             eq(alerts.routerId, routerId),
             eq(alerts.type, 'netwatch_down'),
             ilike(alerts.message, `%${host}%`),
             gte(alerts.createdAt, fiveMinutesAgo)
-        )).limit(1);
+        )).limit(1) : [];
 
         if (recentAlert.length > 0) return null;
 
@@ -528,8 +528,8 @@ export class AlertActionService {
         if (packetLoss === 100 && status === 'down') return null;
 
         const type = isHighLatency ? 'high_latency' : 'packet_loss';
-        const existing = await this.findRecentUnresolvedAlert(routerId, type, tx);
-        if (existing && existing.message.includes(host)) return null;
+        const existing = host ? await this.findRecentUnresolvedAlert(routerId, type, tx) : null;
+        if (existing && host && existing.message.includes(host)) return null;
 
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({
@@ -543,7 +543,7 @@ export class AlertActionService {
         const filters = [eq(alerts.routerId, routerId), inArray(alerts.type, ['threshold', 'high_latency', 'packet_loss']), eq(alerts.resolved, false)];
         if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
         const existingAlerts = await tx.select().from(alerts).where(and(...filters));
-        const alertsToResolve = existingAlerts.filter((a: any) => a.message.includes(host));
+        const alertsToResolve = host ? existingAlerts.filter((a: any) => a.message && a.message.includes(host)) : [];
         if (alertsToResolve.length === 0) return 0;
         const idsToResolve = alertsToResolve.map((a: any) => a.id);
         await tx.update(alerts).set({ resolved: true, resolvedAt: new Date() }).where(inArray(alerts.id, idsToResolve));
@@ -569,7 +569,7 @@ export class AlertActionService {
         if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
         
         const existingAlerts = await tx.select().from(alerts).where(and(...filters));
-        const alertsToResolve = existingAlerts.filter((a: any) => a.message && a.message.includes(host));
+        const alertsToResolve = host ? existingAlerts.filter((a: any) => a.message && a.message.includes(host)) : [];
         
         if (alertsToResolve.length === 0) return 0;
         

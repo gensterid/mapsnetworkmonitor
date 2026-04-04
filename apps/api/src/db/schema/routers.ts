@@ -204,7 +204,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     routerId: uuid('router_id')
         .notNull()
         .references(() => routers.id, { onDelete: 'cascade' }),
-    host: text('host').notNull(),
+    host: text('host'),
     name: text('name'),
     deviceType: deviceTypeEnum('device_type').default('client'), // Type: client, olt, odp
     interval: integer('interval').default(30), // check interval in seconds

@@ -176,10 +176,19 @@ export async function create(routerId: string, data: any, tenantId?: string, tx:
             tenantId,
             host: data.host,
             name: data.name,
+            deviceType: data.deviceType || 'client',
             interval: data.interval || 30,
             timeout: data.timeout || 1000,
             status: 'unknown',
             isAppOnly: true,
+            latitude: data.latitude,
+            longitude: data.longitude,
+            location: data.location,
+            connectionType: data.connectionType || 'router',
+            connectedToId: data.connectedToId,
+            targetInterface: data.targetInterface,
+            linkedOnuId: data.linkedOnuId,
+            waypoints: data.waypoints,
         } as any)
         .returning();
     return inserted;

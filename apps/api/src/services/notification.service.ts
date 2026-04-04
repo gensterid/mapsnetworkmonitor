@@ -138,7 +138,7 @@ export class NotificationService {
             // 3. For netwatch alerts, try to get netwatch data
             let netwatchData: {
                 name: string;
-                host: string;
+                host: string | null;
                 latitude: string | null;
                 longitude: string | null;
                 location: string | null;
@@ -224,7 +224,10 @@ export class NotificationService {
                 : '-';
 
             // Escape all dynamic values for HTML
-            const e = (val: any) => this.escapeHtml(String(val || ''));
+            const e = (val: any) => {
+                if (val === null || val === undefined || val === '') return '-';
+                return this.escapeHtml(String(val));
+            };
 
             const message = rawTemplate
                 .replace(/{{icon}}/g, icon)

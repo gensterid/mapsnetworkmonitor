@@ -178,14 +178,12 @@ const DeviceModal = ({
 
     return (
         <div 
-            className="device-modal-overlay" 
+            className={`device-modal-overlay ${isPicking ? 'device-modal-overlay--picking' : ''}`} 
             onClick={() => !isPicking && onClose()}
-            style={{ pointerEvents: isPicking ? 'none' : 'auto' }}
         >
             <div 
-                className="device-modal" 
+                className={`device-modal ${isPicking ? 'device-modal--picking' : ''}`}
                 onClick={e => e.stopPropagation()}
-                style={{ pointerEvents: 'auto' }}
             >
                 {/* Header */}
                 <div className="device-modal__header">
