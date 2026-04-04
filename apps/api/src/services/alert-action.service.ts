@@ -519,7 +519,7 @@ export class AlertActionService {
     /**
      * Performance alerts
      */
-    async createPerformanceAlert(routerId: string, routerName: string, host: string, deviceName: string, latency: number, packetLoss: number, status?: string, tx: any = db): Promise<Alert | null> {
+    async createPerformanceAlert(routerId: string, routerName: string, host: string | null, deviceName: string, latency: number, packetLoss: number, status?: string, tx: any = db): Promise<Alert | null> {
         const thresholds = await getThresholds(tx);
         if (!thresholds.alertsEnabled || deviceName?.includes('[DISABLED]')) return null;
         const isHighLatency = latency > 100;
@@ -539,7 +539,7 @@ export class AlertActionService {
         }, tx);
     }
 
-    async resolvePerformanceAlert(routerId: string, host: string, tenantId?: string, tx: any = db): Promise<number> {
+    async resolvePerformanceAlert(routerId: string, host: string | null, tenantId?: string, tx: any = db): Promise<number> {
         const filters = [eq(alerts.routerId, routerId), inArray(alerts.type, ['threshold', 'high_latency', 'packet_loss']), eq(alerts.resolved, false)];
         if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
         const existingAlerts = await tx.select().from(alerts).where(and(...filters));
@@ -554,7 +554,7 @@ export class AlertActionService {
     /**
      * Systematically resolve all unresolved alerts for a specific host (Netwatch/Performance)
      */
-    async resolveAlertsByHost(routerId: string, host: string, tenantId?: string, tx: any = db): Promise<number> {
+    async resolveAlertsByHost(routerId: string, host: string | null, tenantId?: string, tx: any = db): Promise<number> {
         const filters = [
             eq(alerts.routerId, routerId),
             eq(alerts.resolved, false),
