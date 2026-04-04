@@ -47,6 +47,7 @@ const DeviceModal = ({
     useEffect(() => {
         if (isOpen) {
             setActiveTab(initialTab);
+            setIsDeleteConfirmOpen(false); // Reset delete state when modal opens
         }
     }, [isOpen, initialTab]);
 
