@@ -1114,16 +1114,16 @@ const NetworkMap = ({
 
     const handleAddDevice = (type) => {
         // Logic to add device (open modal with empty state)
-        // For now, assume adding Netwatch
-        if (mapData.routers.length === 0) {
-            alert("No routers available to add device to.");
+        // Use raw routersData to ensure we can add devices even if routers aren't placed on map yet
+        if (!routersData || routersData.length === 0) {
+            alert("No routers available to add device to. Please add a MikroTik Router first.");
             return;
         }
 
         setSelectedDevice({
             isNew: true,
             type: type, // 'olt', 'odp', 'client'
-            routerId: mapData.routers[0].id // Default to first router
+            routerId: filteredRouterId || routersData[0].id // Use filtered router if present, else first available
         });
         setIsModalOpen(true);
     };
