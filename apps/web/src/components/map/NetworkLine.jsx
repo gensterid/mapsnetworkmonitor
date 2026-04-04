@@ -138,7 +138,9 @@ const NetworkLineOriginal = ({
         const thresholdNormal = (Number(mapColors.trafficThresholdNormal) || 20) * 1000000;
         const thresholdHigh = (Number(mapColors.trafficThresholdHigh) || 50) * 1000000;
 
-        if (line.status && !['up', 'online', 'active'].includes(line.status.toLowerCase())) {
+        if (line.deviceType === 'odp') {
+            railColor = mapColors.odp;
+        } else if (line.status && !['up', 'online', 'active'].includes(line.status.toLowerCase())) {
             railColor = mapColors.offline;
         } else if (isHeatmapActive) {
             if (maxRate < thresholdIdle) railColor = mapColors.trafficyIdle;
@@ -147,8 +149,6 @@ const NetworkLineOriginal = ({
             else railColor = mapColors.trafficPeak;
         } else if (line.deviceType === 'pppoe') {
             railColor = mapColors.pppoe;
-        } else if (line.deviceType === 'odp') {
-            railColor = mapColors.odp;
         } else if (isAlert) {
             railColor = mapColors.warning;
         } else if (line.status === 'up' || line.status === 'online') {

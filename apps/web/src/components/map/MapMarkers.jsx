@@ -152,6 +152,7 @@ export const getTooltipColor = (node) => {
     const isOffline = ['down', 'offline', 'lost', 'power_down', 'dying_gasp', 'disable', 'disconnected', 'unknown'].includes(status) || !node.status;
 
     if (node.disabled) return '#64748b';
+    if (type === 'odp') return 'var(--map-color-odp, #F97316)';
     if (isOffline) return 'var(--map-color-offline, #EF4444)';
 
     // Performance/Warning checks (Consistent with DeviceIcon Smart Warning)
@@ -160,12 +161,10 @@ export const getTooltipColor = (node) => {
         (node.packetLoss !== null && node.packetLoss > 0) ||
         (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
-    // Smart Warning: ODP only shows yellow if it has an IP host (monitored)
     if (hasPerformanceIssue && (type !== 'odp' || node.host)) {
         return 'var(--map-color-warning, #FACC15)';
     }
 
-    if (type === 'odp') return 'var(--map-color-odp, #F97316)';
     if (type === 'pppoe') return 'var(--map-color-pppoe, #A855F7)';
 
     return 'var(--map-color-online, #10B981)';

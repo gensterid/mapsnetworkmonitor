@@ -86,14 +86,14 @@ export const createDeviceIcon = ({
 
     if (disabled) {
         normalizedStatus = 'disabled';
+    } else if (type === 'odp') {
+        normalizedStatus = 'odp';
     } else if (isOffline) {
         normalizedStatus = 'offline';
     }
     // Smart Warning: ODP only shows warning if it has an IP host (monitored)
-    else if (hasPerformanceIssue && (type !== 'odp' || host)) {
+    else if (hasPerformanceIssue && host) {
         normalizedStatus = 'warning';
-    } else if (type === 'odp') {
-        normalizedStatus = 'odp';
     } else if (type === 'pppoe') {
         normalizedStatus = 'pppoe';
     } else {
