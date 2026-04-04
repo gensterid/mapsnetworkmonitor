@@ -710,6 +710,7 @@ export class AvailabilityAnalyticsService {
             routerId: routerNetwatch.routerId,
             routerName: routers.name,
             portCapacity: routerNetwatch.portCapacity,
+            splitterRatio: routerNetwatch.splitterRatio,
         })
         .from(routerNetwatch)
         .leftJoin(routers, eq(routerNetwatch.routerId, routers.id))
@@ -732,7 +733,12 @@ export class AvailabilityAnalyticsService {
             count: count()
         })
         .from(routerNetwatch)
-        .where(isNotNull(routerNetwatch.connectedToId))
+        .where(
+            and(
+                isNotNull(routerNetwatch.connectedToId),
+                sql`${routerNetwatch.deviceType} != 'odp'`
+            ) as any
+        )
         .groupBy(routerNetwatch.connectedToId);
 
         // 3. Aggregate child counts (PPPoE)
@@ -768,6 +774,7 @@ export class AvailabilityAnalyticsService {
                 routerName: odp.routerName || 'Unknown Router',
                 usedPorts: used,
                 portCapacity: capacity,
+                splitterRatio: odp.splitterRatio || null,
                 utilizationPercent: capacity > 0 ? Math.round((used / capacity) * 100) : 0
             };
         });

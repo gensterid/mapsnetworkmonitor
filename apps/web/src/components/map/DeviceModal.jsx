@@ -98,6 +98,7 @@ const DeviceModal = ({
                     targetInterface: device.targetInterface || (shouldResetFields ? '' : prev.targetInterface) || '',
                     linkedOnuId: device.linkedOnuId || (shouldResetFields ? '' : prev.linkedOnuId) || '',
                     portCapacity: device.portCapacity || (shouldResetFields ? 8 : prev.portCapacity) || 8,
+                    splitterRatio: device.splitterRatio || (shouldResetFields ? '' : prev.splitterRatio) || '',
                 };
             });
         }
@@ -175,6 +176,7 @@ const DeviceModal = ({
                 targetInterface: formData.targetInterface || null,
                 linkedOnuId: formData.linkedOnuId || null,
                 portCapacity: parseInt(formData.portCapacity) || 8,
+                splitterRatio: formData.splitterRatio || null,
             };
 
             onSave(payload);
@@ -332,6 +334,26 @@ const DeviceModal = ({
                                         onChange={handleChange}
                                         min="1"
                                         max="128"
+                                    />
+                                </div>
+                            )}
+
+                            {/* ODP Splitter Ratio */}
+                            {formData.type === 'odp' && (
+                                <div className="device-modal__field">
+                                    <label className="device-modal__label">
+                                        Splitter Ratio
+                                        <span style={{ marginLeft: 6, fontSize: 10, color: '#64748b', fontWeight: 400 }}>
+                                            e.g. 1:8, 5:95, 10:90
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        name="splitterRatio"
+                                        className="device-modal__input"
+                                        value={formData.splitterRatio}
+                                        onChange={handleChange}
+                                        placeholder="5:95"
                                         disabled={isSaving}
                                     />
                                 </div>

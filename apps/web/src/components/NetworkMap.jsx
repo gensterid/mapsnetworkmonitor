@@ -738,7 +738,8 @@ const NetworkMap = ({
         // 2.9 pass: Pre-calculate child counts for port capacity tracking
         const childCounts = new Map();
         [...nodes, ...pppoeNodesList].forEach(n => {
-            if (n.connectedToId) {
+            const nodeType = n.deviceType || n.type;
+            if (n.connectedToId && nodeType !== 'odp') {
                 childCounts.set(n.connectedToId, (childCounts.get(n.connectedToId) || 0) + 1);
             }
         });
@@ -1259,6 +1260,9 @@ const NetworkMap = ({
                     packetLoss={node.packetLoss}
                     hasWebhook={node.hasWebhook}
                     lastRxPower={node.lastRxPower}
+                    usedPorts={node.usedPorts}
+                    portCapacity={node.portCapacity}
+                    splitterRatio={node.splitterRatio}
                     draggable={isEditMode}
                     onDragEnd={(pos) => {
                         const payload = { latitude: String(pos[0]), longitude: String(pos[1]) };

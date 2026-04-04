@@ -26,6 +26,8 @@ const createNetwatchSchema = z.object({
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
     isAppOnly: z.boolean().optional(),
+    portCapacity: z.number().int().min(1).max(128).optional(),
+    splitterRatio: z.string().optional().nullable(),
 });
 
 const updateNetwatchSchema = z.object({
@@ -43,6 +45,8 @@ const updateNetwatchSchema = z.object({
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
     isAppOnly: z.boolean().optional(),
+    portCapacity: z.number().int().min(1).max(128).optional(),
+    splitterRatio: z.string().optional().nullable(),
 });
 
 // All routes require authentication

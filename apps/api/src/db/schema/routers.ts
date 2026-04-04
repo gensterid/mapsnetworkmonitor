@@ -245,6 +245,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     isAppOnly: boolean('is_app_only').default(false).notNull(),
     disabled: boolean('disabled').default(false).notNull(),
     portCapacity: integer('port_capacity').default(8),
+    splitterRatio: text('splitter_ratio'),
     tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'cascade' }),
 }, (table) => ({
     routerIdIdx: index('router_netwatch_router_id_idx').on(table.routerId),

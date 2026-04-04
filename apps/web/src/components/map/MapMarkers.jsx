@@ -812,6 +812,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         </span>
                     </div>
                 )}
+                {node.deviceType === 'odp' && node.splitterRatio && (
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-400">Splitter Ratio</span>
+                        <span className="text-slate-200 font-bold">{node.splitterRatio}</span>
+                    </div>
+                )}
                 {showReasonSection && (
                     <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
                         <div className="flex flex-col gap-1">
@@ -885,6 +891,7 @@ export const SmartMarker = ({
     id,
     usedPorts,
     portCapacity,
+    splitterRatio,
     disabled = false,
     children,
     ...props
@@ -907,9 +914,10 @@ export const SmartMarker = ({
         disabled,
         usedPorts,
         portCapacity,
+        splitterRatio,
         lastRxPower: props.lastRxPower || props.last_rx_power || null,
         host: props.host || null
-    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, disabled, usedPorts, portCapacity, props.lastRxPower, props.last_rx_power, props.host]);
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, disabled, usedPorts, portCapacity, splitterRatio, props.lastRxPower, props.last_rx_power, props.host]);
 
     return (
         <DraggableMarker

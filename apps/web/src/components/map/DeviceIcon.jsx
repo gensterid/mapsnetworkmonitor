@@ -70,6 +70,7 @@ export const createDeviceIcon = ({
     disabled = false,
     usedPorts = 0,
     portCapacity = null,
+    splitterRatio = null,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
@@ -88,20 +89,21 @@ export const createDeviceIcon = ({
 
     if (disabled) {
         normalizedStatus = 'disabled';
-    } else if (type === 'odp') {
-        const isFull = portCapacity && usedPorts >= portCapacity;
-        normalizedStatus = isFull ? 'full' : 'odp';
     } else if (isOffline) {
         normalizedStatus = 'offline';
     }
     // Smart Warning: ODP only shows warning if it has an IP host (monitored)
     else if (hasPerformanceIssue && host) {
         normalizedStatus = 'warning';
+    } else if (type === 'odp') {
+        normalizedStatus = 'odp';
     } else if (type === 'pppoe') {
         normalizedStatus = 'pppoe';
     } else {
         normalizedStatus = 'online';
     }
+
+    const isFull = type === 'odp' && portCapacity && usedPorts >= portCapacity;
 
     // API Error Detection (specific for Routers)
     let apiErrorIcon = null;
@@ -142,7 +144,8 @@ export const createDeviceIcon = ({
                 </div>` : ''}
             </div>
             ${type === 'odp' && portCapacity ? `
-            <div class="device-icon__ports" title="Ports: ${usedPorts} used of ${portCapacity}">
+            <div class="device-icon__ports ${isFull ? 'device-icon--full' : ''}" title="Ports: ${usedPorts} used of ${portCapacity}${splitterRatio ? ` | Ratio: ${splitterRatio}` : ''}">
+                ${splitterRatio ? `<span class="device-icon__ratio">${splitterRatio}</span> ` : ''}
                 ${usedPorts}/${portCapacity}
             </div>` : ''}
             ${showLabel && name ? `<span class="device-icon__label">${escapeHtml(name)}</span>` : ''}
