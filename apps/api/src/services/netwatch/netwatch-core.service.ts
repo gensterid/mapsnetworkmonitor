@@ -169,11 +169,24 @@ export async function getNetwatchAll(routerIds: string[]): Promise<any[]> {
  * Create a new manual netwatch entry
  */
 export async function create(routerId: string, data: any, tenantId?: string, tx: any = db): Promise<any> {
+    // 0. Ensure tenantId is available (inherit from router if missing)
+    let effectiveTenantId = tenantId;
+    if (!effectiveTenantId) {
+        const [router] = await tx
+            .select({ tenantId: routers.tenantId })
+            .from(routers)
+            .where(eq(routers.id, routerId))
+            .limit(1);
+        if (router) {
+            effectiveTenantId = router.tenantId || undefined;
+        }
+    }
+
     const [inserted] = await tx
         .insert(routerNetwatch)
         .values({
             routerId,
-            tenantId,
+            tenantId: effectiveTenantId,
             host: data.host,
             name: data.name,
             deviceType: data.deviceType || 'client',

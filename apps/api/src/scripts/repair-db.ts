@@ -140,9 +140,10 @@ const runRepair = async () => {
         console.log('🔍 Checking router_netwatch table...');
         
         // Ensure host and name are nullable (for passive devices)
-        console.log('🔓 Making host and name nullable in router_netwatch...');
+        console.log('🔓 Making host, name and tenant_id nullable in router_netwatch...');
         await db.execute(sql`ALTER TABLE router_netwatch ALTER COLUMN host DROP NOT NULL;`);
         await db.execute(sql`ALTER TABLE router_netwatch ALTER COLUMN name DROP NOT NULL;`);
+        await db.execute(sql`ALTER TABLE router_netwatch ALTER COLUMN tenant_id DROP NOT NULL;`);
 
         const netwatchCols = [
             { name: 'tx_rate', type: 'bigint DEFAULT 0' },

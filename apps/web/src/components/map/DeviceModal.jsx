@@ -66,7 +66,7 @@ const DeviceModal = ({
                 linkedOnuId: device.linkedOnuId || '',
             });
         }
-    }, [device]);
+    }, [device?.id, device?.isNew]);
 
     // Fetch available ONUs for the selected router
     useEffect(() => {
@@ -257,7 +257,6 @@ const DeviceModal = ({
                                     value={formData.name}
                                     onChange={handleChange}
                                     placeholder="Enter device name"
-                                    required
                                     disabled={isSaving}
                                 />
                             </div>
