@@ -152,7 +152,8 @@ const runRepair = async () => {
             { name: 'linked_onu_id', type: 'uuid' },
             { name: 'has_webhook', type: 'boolean DEFAULT false' },
             { name: 'is_app_only', type: 'boolean DEFAULT false' },
-            { name: 'disabled', type: 'boolean DEFAULT false' }
+            { name: 'disabled', type: 'boolean DEFAULT false' },
+            { name: 'port_capacity', type: 'integer DEFAULT 8' }
         ];
         for (const col of netwatchCols) {
             const checkCol = await db.execute(sql.raw(`

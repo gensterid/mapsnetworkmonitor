@@ -253,6 +253,51 @@ svg.leaflet-zoom-animated {
     left: -2px;
 }
 
+/* ODP Port Badge */
+.device-icon__ports {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    background: rgba(15, 23, 42, 0.9);
+    color: #94a3b8; /* Slate-400 */
+    font-size: 9px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(4px);
+    z-index: 30;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.device-icon--full .device-icon__ports {
+    background: #ef4444; /* Red-500 */
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+    animation: pulse-red 2s infinite;
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 6px rgba(239, 68, 68, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
+}
+
+.device-icon--small .device-icon__ports {
+    font-size: 7px;
+    padding: 0px 2px;
+    bottom: -1px;
+    right: -1px;
+}
+
 .device-icon--small .device-icon__api-error .material-symbols-outlined {
     font-size: 9px !important;
 }

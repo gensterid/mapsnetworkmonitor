@@ -38,6 +38,7 @@ const DeviceModal = ({
         connectedToId: '', // ID of the router or client connected to
         targetInterface: '', // Heatmap traffic mapping
         linkedOnuId: '', // Manual link to ONU inventory
+        portCapacity: 8, // ODP Port Capacity
     });
 
     const [availableOnus, setAvailableOnus] = useState([]);
@@ -96,6 +97,7 @@ const DeviceModal = ({
                     connectedToId: device.connectedToId || device.routerId || (shouldResetFields ? (isNew ? (device.routerId || '') : '') : prev.connectedToId) || '',
                     targetInterface: device.targetInterface || (shouldResetFields ? '' : prev.targetInterface) || '',
                     linkedOnuId: device.linkedOnuId || (shouldResetFields ? '' : prev.linkedOnuId) || '',
+                    portCapacity: device.portCapacity || (shouldResetFields ? 8 : prev.portCapacity) || 8,
                 };
             });
         }
@@ -172,6 +174,7 @@ const DeviceModal = ({
                 connectedToId: formData.connectedToId || null,
                 targetInterface: formData.targetInterface || null,
                 linkedOnuId: formData.linkedOnuId || null,
+                portCapacity: parseInt(formData.portCapacity) || 8,
             };
 
             onSave(payload);
@@ -311,6 +314,28 @@ const DeviceModal = ({
                                     <option value="pppoe">PPPoE Client</option>
                                 </select>
                             </div>
+
+                            {/* ODP Port Capacity */}
+                            {formData.type === 'odp' && (
+                                <div className="device-modal__field">
+                                    <label className="device-modal__label">
+                                        Port Capacity
+                                        <span style={{ marginLeft: 6, fontSize: 10, color: '#64748b', fontWeight: 400 }}>
+                                            Total ports in this ODP
+                                        </span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        name="portCapacity"
+                                        className="device-modal__input"
+                                        value={formData.portCapacity}
+                                        onChange={handleChange}
+                                        min="1"
+                                        max="128"
+                                        disabled={isSaving}
+                                    />
+                                </div>
+                            )}
 
                             {/* Host/IP */}
                             <div className="device-modal__field">

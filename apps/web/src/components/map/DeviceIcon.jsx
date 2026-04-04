@@ -68,6 +68,8 @@ export const createDeviceIcon = ({
     hasWebhook = false,
     lastErrorMessage = null,
     disabled = false,
+    usedPorts = 0,
+    portCapacity = null,
 }) => {
     const config = deviceConfig[type] || deviceConfig.router;
 
@@ -87,7 +89,8 @@ export const createDeviceIcon = ({
     if (disabled) {
         normalizedStatus = 'disabled';
     } else if (type === 'odp') {
-        normalizedStatus = 'odp';
+        const isFull = portCapacity && usedPorts >= portCapacity;
+        normalizedStatus = isFull ? 'full' : 'odp';
     } else if (isOffline) {
         normalizedStatus = 'offline';
     }
@@ -138,6 +141,10 @@ export const createDeviceIcon = ({
                     <span class="material-symbols-outlined">${apiErrorIcon}</span>
                 </div>` : ''}
             </div>
+            ${type === 'odp' && portCapacity ? `
+            <div class="device-icon__ports" title="Ports: ${usedPorts} used of ${portCapacity}">
+                ${usedPorts}/${portCapacity}
+            </div>` : ''}
             ${showLabel && name ? `<span class="device-icon__label">${escapeHtml(name)}</span>` : ''}
         </div>
     `;

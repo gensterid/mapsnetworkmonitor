@@ -735,9 +735,22 @@ const NetworkMap = ({
             }
         });
 
-        // 3.0 pass: Create lines for ALL indexed devices
+        // 2.9 pass: Pre-calculate child counts for port capacity tracking
+        const childCounts = new Map();
+        [...nodes, ...pppoeNodesList].forEach(n => {
+            if (n.connectedToId) {
+                childCounts.set(n.connectedToId, (childCounts.get(n.connectedToId) || 0) + 1);
+            }
+        });
+
+        // 3.0 pass: Create lines for ALL indexed devices and enrich with port info
         const allDevices = [...nodes, ...pppoeNodesList];
         allDevices.forEach(node => {
+            // Enrich with port info
+            node.usedPorts = childCounts.get(node.id) || 0;
+            // Default portCapacity is 8 if not specified (legacy or default)
+            node.portCapacity = node.portCapacity || 8;
+
             let fromPos = null;
             let sourceName = 'Unknown';
 

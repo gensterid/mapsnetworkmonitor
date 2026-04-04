@@ -201,6 +201,7 @@ export async function create(routerId: string, data: any, tenantId?: string, tx:
             connectedToId: data.connectedToId,
             targetInterface: data.targetInterface,
             linkedOnuId: data.linkedOnuId,
+            portCapacity: data.portCapacity,
             waypoints: data.waypoints,
         } as any)
         .returning();

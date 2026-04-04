@@ -803,6 +803,15 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                         <span className="text-emerald-400 font-bold">{node.latency} ms</span>
                     </div>
                 )}
+                {node.deviceType === 'odp' && node.portCapacity && (
+                    <div className="flex items-center justify-between text-xs mt-1 pt-1 border-t border-slate-700/30">
+                        <span className="text-slate-400">Port Usage</span>
+                        <span className={`font-bold ${node.usedPorts >= node.portCapacity ? 'text-red-400' : 'text-blue-400'}`}>
+                            {node.usedPorts} / {node.portCapacity}
+                            {node.usedPorts >= node.portCapacity && ' (FULL)'}
+                        </span>
+                    </div>
+                )}
                 {showReasonSection && (
                     <div className="space-y-3 border-t border-slate-700/50 pt-3 mt-1">
                         <div className="flex flex-col gap-1">
@@ -874,6 +883,8 @@ export const SmartMarker = ({
     onClick,
     eventHandlers,
     id,
+    usedPorts,
+    portCapacity,
     disabled = false,
     children,
     ...props
@@ -894,9 +905,11 @@ export const SmartMarker = ({
         hasWebhook,
         lastErrorMessage,
         disabled,
+        usedPorts,
+        portCapacity,
         lastRxPower: props.lastRxPower || props.last_rx_power || null,
         host: props.host || null
-    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, disabled, props.lastRxPower, props.last_rx_power, props.host]);
+    }), [type, status, name, showLabel, small, safeLatency, safePacketLoss, hasWebhook, lastErrorMessage, disabled, usedPorts, portCapacity, props.lastRxPower, props.last_rx_power, props.host]);
 
     return (
         <DraggableMarker
@@ -953,6 +966,8 @@ export const arePropsEqual = (prev, next) => {
         prev.icon === next.icon &&
         prev.isHeatmapMode === next.isHeatmapMode &&
         prev.disabled === next.disabled &&
+        prev.usedPorts === next.usedPorts &&
+        prev.portCapacity === next.portCapacity &&
         prev.id === next.id
     );
 };
