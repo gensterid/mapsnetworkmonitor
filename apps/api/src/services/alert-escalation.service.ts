@@ -176,7 +176,7 @@ export class AlertEscalationService {
             // Try to get netwatch data for netwatch alerts
             let netwatchData: {
                 name: string;
-                host: string;
+                host: string | null;
                 latitude: string | null;
                 longitude: string | null;
                 location: string | null;

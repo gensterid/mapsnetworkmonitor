@@ -420,8 +420,8 @@ export class AvailabilityAnalyticsService {
         userRole?: string,
         tenantId?: string
     ): Promise<{
-        host: string;
-        name: string;
+        host: string | null;
+        name: string | null;
         totalDowntimeMinutes: number;
         incidentCount: number;
         routerName: string;
@@ -510,10 +510,11 @@ export class AvailabilityAnalyticsService {
             });
         }
 
-        const results: { host: string; name: string; totalDowntimeMinutes: number; incidentCount: number; routerId: string }[] = [];
+        const results: { host: string | null; name: string | null; totalDowntimeMinutes: number; incidentCount: number; routerId: string }[] = [];
 
         for (const entry of netwatchEntries) {
-            const historyData = hostIncidents.get(entry.host) || { count: 0, durationMinutes: 0 };
+            const host = entry.host;
+            const historyData = host ? (hostIncidents.get(host) || { count: 0, durationMinutes: 0 }) : { count: 0, durationMinutes: 0 };
             let totalDowntime = historyData.durationMinutes;
 
             if (entry.status === 'down' && entry.lastDown) {
@@ -638,7 +639,8 @@ export class AvailabilityAnalyticsService {
         const heatmapData: Map<string, { lat: number; lng: number; incidentCount: number; deviceNames: string[]; routerId: string }> = new Map();
 
         for (const entry of netwatchEntries) {
-            const incidents = incidentMap.get(entry.host) || 0;
+            const host = entry.host;
+            const incidents = host ? (incidentMap.get(host) || 0) : 0;
             if (incidents === 0 || !entry.latitude || !entry.longitude) continue;
 
             const lat = parseFloat(entry.latitude as string);
@@ -650,13 +652,13 @@ export class AvailabilityAnalyticsService {
             if (heatmapData.has(key)) {
                 const existing = heatmapData.get(key)!;
                 existing.incidentCount += incidents;
-                existing.deviceNames.push(entry.name || entry.host);
+                existing.deviceNames.push(entry.name || entry.host || 'Unknown');
             } else {
                 heatmapData.set(key, {
                     lat,
                     lng,
                     incidentCount: incidents,
-                    deviceNames: [entry.name || entry.host],
+                    deviceNames: [entry.name || entry.host || 'Unknown'],
                     routerId: entry.routerId,
                 });
             }

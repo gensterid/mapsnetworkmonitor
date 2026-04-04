@@ -299,7 +299,7 @@ export class NotificationService {
         downtimeDuration: string,
         netwatchData?: {
             name: string;
-            host: string;
+            host: string | null;
             latitude: string | null;
             longitude: string | null;
             location: string | null;
