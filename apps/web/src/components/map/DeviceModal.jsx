@@ -53,20 +53,22 @@ const DeviceModal = ({
     // Sync form data with device prop
     useEffect(() => {
         if (device) {
-            setFormData({
-                name: device.name || '',
+            setFormData(prev => ({
+                // Keep existing user input for name/notes/type if we're just updating coords
+                ...prev,
+                name: (prev.name && device.id === (prev.id || device.id)) ? prev.name : (device.name || ''),
                 type: device.deviceType || device.type || 'router',
-                host: device.host || '',
-                notes: device.notes || '',
-                latitude: device.latitude?.toString() || device.lat?.toString() || '',
-                longitude: device.longitude?.toString() || device.lng?.toString() || '',
-                connectionType: device.connectionType || 'router',
-                connectedToId: device.connectedToId || device.routerId || '',
-                targetInterface: device.targetInterface || '',
-                linkedOnuId: device.linkedOnuId || '',
-            });
+                host: device.host || prev.host || '',
+                notes: device.notes || prev.notes || '',
+                latitude: device.latitude?.toString() || device.lat?.toString() || prev.latitude || '',
+                longitude: device.longitude?.toString() || device.lng?.toString() || prev.longitude || '',
+                connectionType: device.connectionType || prev.connectionType || 'router',
+                connectedToId: device.connectedToId || device.routerId || prev.connectedToId || '',
+                targetInterface: device.targetInterface || prev.targetInterface || '',
+                linkedOnuId: device.linkedOnuId || prev.linkedOnuId || '',
+            }));
         }
-    }, [device?.id, device?.isNew]);
+    }, [device?.id, device?.isNew, device?.latitude, device?.longitude, device?.lat, device?.lng]);
 
     // Fetch available ONUs for the selected router
     useEffect(() => {
