@@ -164,11 +164,22 @@ app.get('/api/health', (_req, res) => {
     });
 });
 
-// Prometheus Metrics endpoint (no auth required)
-app.get('/api/metrics', async (_req, res) => {
+// Prometheus Metrics endpoint (requires localhost or Bearer token)
+app.get('/api/metrics', async (req, res) => {
     try {
-        // Optional: Trigger a refresh on scrape if needed, 
-        // but we rely on the 1-min periodic update for performance.
+        // Allow Prometheus scraping via Bearer token
+        const authHeader = req.headers.authorization;
+        const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+        const isTokenAuth = bearerToken && bearerToken === process.env.BETTER_AUTH_SECRET;
+
+        // Allow localhost/internal network without auth (Prometheus on same host)
+        const isLocalhost = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';
+
+        if (!isTokenAuth && !isLocalhost) {
+            res.status(401).json({ error: 'Unauthorized', message: 'Metrics endpoint requires authentication' });
+            return;
+        }
+
         res.set('Content-Type', metricsService.getContentType());
         res.end(await metricsService.getMetrics());
     } catch (err) {

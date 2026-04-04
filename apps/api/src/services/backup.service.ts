@@ -93,15 +93,35 @@ export class BackupService {
     }
 
     async deleteBackup(filename: string): Promise<void> {
-        const filePath = path.join(process.cwd(), 'backups', filename);
+        // Security: Strip path traversal sequences (e.g. ../../.env)
+        const sanitized = path.basename(filename);
+        const backupsDir = path.resolve(process.cwd(), 'backups');
+        const filePath = path.resolve(backupsDir, sanitized);
+
+        // Verify resolved path is still within backups directory
+        if (!filePath.startsWith(backupsDir)) {
+            logger.warn({ filename, resolved: filePath }, '🚨 Path traversal attempt blocked on backup delete');
+            throw new Error('Invalid backup filename');
+        }
+
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
-            logger.info({ filename }, 'Backup file deleted');
+            logger.info({ filename: sanitized }, 'Backup file deleted');
         }
     }
 
     async restoreFromHistory(filename: string): Promise<void> {
-        const filePath = path.join(process.cwd(), 'backups', filename);
+        // Security: Strip path traversal sequences
+        const sanitized = path.basename(filename);
+        const backupsDir = path.resolve(process.cwd(), 'backups');
+        const filePath = path.resolve(backupsDir, sanitized);
+
+        // Verify resolved path is still within backups directory
+        if (!filePath.startsWith(backupsDir)) {
+            logger.warn({ filename, resolved: filePath }, '🚨 Path traversal attempt blocked on backup restore');
+            throw new Error('Invalid backup filename');
+        }
+
         if (!fs.existsSync(filePath)) {
             throw new Error('Backup file not found');
         }
@@ -161,7 +181,16 @@ export class BackupService {
         }
 
         // JavaScript fallback: read and execute SQL statements
+        // Security: Limit JS fallback to files under 50MB to prevent OOM
+        const MAX_JS_RESTORE_SIZE = 50 * 1024 * 1024; // 50MB
         try {
+            const stats = fs.statSync(filePath);
+            if (stats.size > MAX_JS_RESTORE_SIZE) {
+                throw new Error(
+                    `Backup file too large for JavaScript restore (${Math.round(stats.size / 1024 / 1024)}MB). ` +
+                    `Please install PostgreSQL client tools (psql) on the server, or use the CLI restore script: ./scripts/restore-db.sh`
+                );
+            }
             const sqlContent = fs.readFileSync(filePath, 'utf-8');
             await this.executeSqlStatements(sqlContent);
         } catch (error: any) {
