@@ -30,7 +30,7 @@ export class BackupService {
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = isAuto ? `auto-bkp-${timestamp}.sql` : `backup-${timestamp}.sql`;
+        const filename = isAuto ? `auto-bkp-${timestamp}.sql.gz` : `backup-${timestamp}.sql.gz`;
         const dir = isAuto ? path.join(process.cwd(), 'backups') : path.join(process.cwd(), 'temp');
         const outputPath = path.join(dir, filename);
 
@@ -46,6 +46,8 @@ export class BackupService {
             '--if-exists',
             '--no-owner',
             '--no-acl',
+            '--format=plain', // Plain format but we compress it
+            '--compress=gzi:9', // Max GZIP compression
             '-f',
             outputPath
         ];
@@ -75,7 +77,7 @@ export class BackupService {
 
         const files = fs.readdirSync(dir);
         const backups = files
-            .filter(f => f.endsWith('.sql'))
+            .filter(f => f.endsWith('.sql') || f.endsWith('.sql.gz'))
             .map(f => {
                 const filePath = path.join(dir, f);
                 const stats = fs.statSync(filePath);
