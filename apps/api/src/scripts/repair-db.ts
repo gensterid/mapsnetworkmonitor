@@ -138,12 +138,20 @@ const runRepair = async () => {
 
         // 4. Fix: router_netwatch columns
         console.log('🔍 Checking router_netwatch table...');
+        
+        // Ensure host and name are nullable (for passive devices)
+        console.log('🔓 Making host and name nullable in router_netwatch...');
+        await db.execute(sql`ALTER TABLE router_netwatch ALTER COLUMN host DROP NOT NULL;`);
+        await db.execute(sql`ALTER TABLE router_netwatch ALTER COLUMN name DROP NOT NULL;`);
+
         const netwatchCols = [
             { name: 'tx_rate', type: 'bigint DEFAULT 0' },
             { name: 'rx_rate', type: 'bigint DEFAULT 0' },
             { name: 'target_interface', type: 'text' },
             { name: 'linked_onu_id', type: 'uuid' },
-            { name: 'has_webhook', type: 'boolean DEFAULT false' }
+            { name: 'has_webhook', type: 'boolean DEFAULT false' },
+            { name: 'is_app_only', type: 'boolean DEFAULT false' },
+            { name: 'disabled', type: 'boolean DEFAULT false' }
         ];
         for (const col of netwatchCols) {
             const checkCol = await db.execute(sql.raw(`
