@@ -55,27 +55,48 @@ const DeviceModal = ({
         if (device) {
             const isNew = device.isNew || !device.id;
             
-            setFormData(prev => ({
-                // Only keep previous state if we're in the middle of editing the SAME device
-                // or if we're picking coordinates from the map for a new one
-                ...( (prev.id === device.id && !isNew) ? prev : {} ),
-                
-                // Fields mapping with clear initialization for new devices
-                id: device.id || null,
-                name: (isNew ? '' : (prev.name && device.id === prev.id ? prev.name : (device.name || ''))),
-                type: device.deviceType || device.type || (isNew ? 'router' : prev.type),
-                host: (isNew ? '' : (device.host || prev.host || '')),
-                notes: (isNew ? '' : (device.notes || prev.notes || '')),
-                
-                // Coordinates always sync from incoming prop (they are the source of truth from map)
-                latitude: device.latitude?.toString() || device.lat?.toString() || (isNew ? '' : prev.latitude) || '',
-                longitude: device.longitude?.toString() || device.lng?.toString() || (isNew ? '' : prev.longitude) || '',
-                
-                connectionType: device.connectionType || (isNew ? 'router' : prev.connectionType) || 'router',
-                connectedToId: device.connectedToId || device.routerId || (isNew ? '' : prev.connectedToId) || '',
-                targetInterface: device.targetInterface || (isNew ? '' : prev.targetInterface) || '',
-                linkedOnuId: device.linkedOnuId || (isNew ? '' : prev.linkedOnuId) || '',
-            }));
+            setFormData(prev => {
+                // Determine if we should reset the form fields (Name/Host/Notes)
+                // We reset if:
+                // 1. We just switched from a real device to a NEW device (Addition mode)
+                // 2. We just switched from one real device to a DIFFERENT real device
+                const isDifferentDevice = prev.id !== (device.id || null);
+                const isFreshAddition = isNew && prev.id !== null;
+                const shouldResetFields = isDifferentDevice || isFreshAddition;
+
+                const base = shouldResetFields ? {} : prev;
+
+                return {
+                    ...base,
+                    id: device.id || null,
+                    
+                    // Preserve or initialize Name
+                    name: shouldResetFields 
+                        ? (isNew ? '' : (device.name || '')) 
+                        : (prev.name || device.name || ''),
+                        
+                    // Preserve or initialize Type
+                    type: device.deviceType || device.type || (shouldResetFields ? (isNew ? 'router' : 'router') : prev.type),
+                    
+                    // Preserve or initialize Host/Notes
+                    host: shouldResetFields 
+                        ? (isNew ? '' : (device.host || '')) 
+                        : (prev.host || device.host || ''),
+                    notes: shouldResetFields 
+                        ? (isNew ? '' : (device.notes || '')) 
+                        : (prev.notes || device.notes || ''),
+                    
+                    // Coordinates ALWAYS sync from props (source of truth from map/picking)
+                    latitude: device.latitude?.toString() || device.lat?.toString() || (shouldResetFields ? '' : prev.latitude) || '',
+                    longitude: device.longitude?.toString() || device.lng?.toString() || (shouldResetFields ? '' : prev.longitude) || '',
+                    
+                    // Connection handles
+                    connectionType: device.connectionType || (shouldResetFields ? 'router' : prev.connectionType) || 'router',
+                    connectedToId: device.connectedToId || device.routerId || (shouldResetFields ? (isNew ? (device.routerId || '') : '') : prev.connectedToId) || '',
+                    targetInterface: device.targetInterface || (shouldResetFields ? '' : prev.targetInterface) || '',
+                    linkedOnuId: device.linkedOnuId || (shouldResetFields ? '' : prev.linkedOnuId) || '',
+                };
+            });
         }
     }, [device?.id, device?.isNew, device?.latitude, device?.longitude, device?.lat, device?.lng]);
 
