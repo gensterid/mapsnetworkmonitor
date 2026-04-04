@@ -288,6 +288,18 @@ class AnalyticsService {
     }
 
     /**
+     * Get ODP port capacity statistics
+     */
+    async getOdpCapacityStats(
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<any> {
+        return availabilityAnalyticsService.getOdpCapacityStats(routerId, userId, userRole, tenantId);
+    }
+
+    /**
      * Get overall network health score for a tenant
      */
     async getNetworkHealth(tenantId?: string) {

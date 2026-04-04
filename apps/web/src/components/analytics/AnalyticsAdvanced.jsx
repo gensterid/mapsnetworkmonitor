@@ -11,6 +11,8 @@ function AnalyticsAdvanced({
     downtimeAnalysis,
     capacityLoading,
     capacityAnalysis,
+    odpCapacityLoading,
+    odpCapacity,
     incidentHeatmap,
     heatmapLoading = false,
     setHistoryModal
@@ -21,7 +23,69 @@ function AnalyticsAdvanced({
                 <TrendingUp className="w-5 h-5 text-primary" />
                 Analisis Lanjutan
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                {/* ODP Port Efficiency */}
+                <Card className="glass-panel">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base font-semibold flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-primary" />
+                            ODP Port Efficiency
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {odpCapacityLoading ? (
+                            <ListSkeleton rows={5} />
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[10px] text-slate-400 uppercase font-bold">Network Usage</span>
+                                        <span className="text-sm font-bold text-primary">{odpCapacity?.utilizationPercent}%</span>
+                                    </div>
+                                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden mb-2">
+                                        <div 
+                                            className="h-full bg-primary rounded-full"
+                                            style={{ width: `${odpCapacity?.utilizationPercent || 0}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between text-[10px] text-slate-500">
+                                        <span>{odpCapacity?.usedPorts} / {odpCapacity?.totalPorts} Ports</span>
+                                        <span>{odpCapacity?.totalOdp} ODPs</span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold px-1">Top Full ODPs</p>
+                                    {odpCapacity?.topFullOdp?.length > 0 ? (
+                                        odpCapacity.topFullOdp.map((item, i) => (
+                                            <div
+                                                key={i}
+                                                className="flex items-center justify-between p-2 rounded-lg bg-slate-800/50 hover:bg-slate-800 cursor-pointer transition-colors group"
+                                                onClick={() => setHistoryModal({ open: true, type: 'odp-details', target: item })}
+                                            >
+                                                <div className="flex-1 min-w-0 mr-2">
+                                                    <p className="text-sm text-white font-medium truncate">{item.name}</p>
+                                                    <p className="text-xs text-slate-500 truncate">{item.usedPorts}/{item.portCapacity} Ports</p>
+                                                </div>
+                                                <div className={clsx(
+                                                    "text-[10px] font-bold px-1.5 py-0.5 rounded",
+                                                    item.utilizationPercent >= 100 ? 'bg-red-500/20 text-red-400' :
+                                                    item.utilizationPercent > 80 ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-blue-500/20 text-blue-400'
+                                                )}>
+                                                    {item.utilizationPercent}%
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-center text-slate-500 py-2 text-[10px]">No ODP data available</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
                 {/* CPU Peak Analysis */}
                 <Card className="glass-panel">
                     <CardHeader className="pb-2">

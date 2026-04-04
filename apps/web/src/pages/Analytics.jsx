@@ -170,11 +170,18 @@ export default function Analytics() {
             return res.data.data;
         },
     });
-
     const { data: capacityAnalysis, isLoading: capacityLoading } = useQuery({
         queryKey: ['analytics-capacity', queryParams],
         queryFn: async () => {
             const res = await apiClient.get('/analytics/capacity', { params: queryParams });
+            return res.data.data;
+        },
+    });
+
+    const { data: odpCapacity, isLoading: odpCapacityLoading } = useQuery({
+        queryKey: ['analytics-odp-capacity', queryParams],
+        queryFn: async () => {
+            const res = await apiClient.get('/analytics/odp-capacity', { params: queryParams });
             return res.data.data;
         },
     });
@@ -401,6 +408,8 @@ export default function Analytics() {
                         downtimeAnalysis={downtimeAnalysis}
                         capacityLoading={capacityLoading}
                         capacityAnalysis={capacityAnalysis}
+                        odpCapacityLoading={odpCapacityLoading}
+                        odpCapacity={odpCapacity}
                         incidentHeatmap={incidentHeatmap}
                         heatmapLoading={heatmapLoading}
                         setHistoryModal={setHistoryModal}

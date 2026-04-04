@@ -1,4 +1,4 @@
-import { sql, eq, and, gte, lte, desc, count, inArray, or, ilike } from 'drizzle-orm';
+import { sql, eq, and, gte, lte, desc, count, inArray, or, ilike, isNotNull } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { alerts, routers, routerNetwatch, pppoeSessions } from '../../db/schema/index.js';
 import {
@@ -684,6 +684,106 @@ export class AvailabilityAnalyticsService {
         );
 
         return results.sort((a, b) => b.incidentCount - a.incidentCount).slice(0, 50);
+    }
+
+    /**
+     * Get ODP port capacity statistics
+     */
+    async getOdpCapacityStats(
+        routerId?: string,
+        userId?: string,
+        userRole?: string,
+        tenantId?: string
+    ): Promise<any> {
+        let allowedIds: string[] = [];
+        if (userId && userRole) {
+            allowedIds = await getAllowedRouterIds(userId, userRole, tenantId);
+            if (allowedIds.length === 0 && userRole !== 'superadmin') {
+                return { totalOdp: 0, totalPorts: 0, usedPorts: 0, topFullOdp: [] };
+            }
+        }
+
+        // 1. Get all ODPs
+        const odpQuery = db.select({
+            id: routerNetwatch.id,
+            name: routerNetwatch.name,
+            routerId: routerNetwatch.routerId,
+            routerName: routers.name,
+            portCapacity: routerNetwatch.portCapacity,
+        })
+        .from(routerNetwatch)
+        .leftJoin(routers, eq(routerNetwatch.routerId, routers.id))
+        .where(
+            and(
+                eq(routerNetwatch.deviceType, 'odp'),
+                tenantId ? eq(routerNetwatch.tenantId, tenantId) : undefined,
+                routerId ? eq(routerNetwatch.routerId, routerId) : (userRole !== 'admin' && userRole !== 'superadmin' ? inArray(routerNetwatch.routerId, allowedIds) : undefined)
+            ) as any
+        );
+
+        const allOdps = await odpQuery;
+        if (allOdps.length === 0) {
+            return { totalOdp: 0, totalPorts: 0, usedPorts: 0, topFullOdp: [] };
+        }
+
+        // 2. Aggregate child counts (Netwatch)
+        const netwatchConnections = await db.select({
+            parentId: routerNetwatch.connectedToId,
+            count: count()
+        })
+        .from(routerNetwatch)
+        .where(isNotNull(routerNetwatch.connectedToId))
+        .groupBy(routerNetwatch.connectedToId);
+
+        // 3. Aggregate child counts (PPPoE)
+        const pppoeConnections = await db.select({
+            parentId: pppoeSessions.connectedToId,
+            count: count()
+        })
+        .from(pppoeSessions)
+        .where(and(isNotNull(pppoeSessions.connectedToId), eq(pppoeSessions.status, 'active')))
+        .groupBy(pppoeSessions.connectedToId);
+
+        // 4. Map them
+        const connectionMap = new Map<string, number>();
+        netwatchConnections.forEach(c => {
+            if (c.parentId) connectionMap.set(c.parentId, (connectionMap.get(c.parentId) || 0) + Number(c.count));
+        });
+        pppoeConnections.forEach(c => {
+            if (c.parentId) connectionMap.set(c.parentId, (connectionMap.get(c.parentId) || 0) + Number(c.count));
+        });
+
+        // 5. Build final list and stats
+        let totalPorts = 0;
+        let usedPorts = 0;
+        const odpList = allOdps.map(odp => {
+            const used = connectionMap.get(odp.id) || 0;
+            const capacity = odp.portCapacity || 8;
+            totalPorts += capacity;
+            usedPorts += used;
+
+            return {
+                id: odp.id,
+                name: odp.name || 'Unknown ODP',
+                routerName: odp.routerName || 'Unknown Router',
+                usedPorts: used,
+                portCapacity: capacity,
+                utilizationPercent: capacity > 0 ? Math.round((used / capacity) * 100) : 0
+            };
+        });
+
+        // Sort by utilization to get top full ones
+        const topFullOdp = odpList
+            .sort((a, b) => b.utilizationPercent - a.utilizationPercent)
+            .slice(0, 5);
+
+        return {
+            totalOdp: allOdps.length,
+            totalPorts,
+            usedPorts,
+            utilizationPercent: totalPorts > 0 ? Math.round((usedPorts / totalPorts) * 100) : 0,
+            topFullOdp
+        };
     }
 }
 

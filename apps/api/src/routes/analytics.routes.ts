@@ -322,6 +322,20 @@ router.get(
 );
 
 /**
+ * GET /api/analytics/odp-capacity
+ * Get ODP port capacity statistics
+ */
+router.get(
+    '/odp-capacity',
+    asyncHandler(async (req, res) => {
+        const routerId = req.query.routerId as string | undefined;
+        // @ts-ignore
+        const stats = await analyticsService.getOdpCapacityStats(routerId, req.user?.id, req.user?.role, getEffectiveTenantId(req));
+        res.json({ data: stats });
+    })
+);
+
+/**
  * GET /api/analytics/resolution
  * Get resolution statistics
  */

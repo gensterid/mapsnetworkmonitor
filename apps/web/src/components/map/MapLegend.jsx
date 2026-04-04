@@ -67,6 +67,10 @@ const MapLegend = ({
                             <span className="w-2 h-2 rounded-full bg-yellow-400 shadow-[0_0_4px_rgba(250,204,21,0.4)] border border-white/10"></span>
                             <span className="text-white text-[10px]">Warning / Alert</span>
                         </div>
+                        <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] border border-white/10 animate-pulse"></span>
+                            <span className="text-white text-[10px]">Full ODP (Capacity)</span>
+                        </div>
 
                         {!isHeatmapMode ? (
                             <div className="space-y-1 mt-0.5">

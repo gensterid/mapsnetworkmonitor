@@ -49,6 +49,8 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
                 return { ...baseParams, routerId: target.routerId, search: target.interfaceName };
             case 'heatmap-details':
                 return { ...baseParams, search: target.deviceNames?.[0] || '' };
+            case 'odp-details':
+                return { ...baseParams, search: target.name || target.id };
             case 'unresolved-alerts':
             case 'all-alerts':
                 return { ...baseParams };
@@ -98,6 +100,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
             case 'downtime-details': return `Detail Downtime: ${target?.name}`;
             case 'capacity-details': return `Riwayat Interface: ${target?.interfaceName}`;
             case 'heatmap-details': return `Insiden Area: ${target?.deviceNames?.[0] || 'Unknown'} ...`;
+            case 'odp-details': return `Detail ODP: ${target?.name}`;
             case 'unresolved-alerts': return `Unresolved Alerts (${target?.unresolved || 0})`;
             case 'all-alerts': return `Semua Alert (History)`;
             default: return 'Detail';
