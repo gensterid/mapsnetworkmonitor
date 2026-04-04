@@ -439,9 +439,13 @@ async function cleanupOldMetrics(): Promise<void> {
             await db.delete(routerMetrics)
                 .where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, mCutoff)));
 
-            // 1b. Device Latency history
+            // 1b. Device Latency & Signal history (Performance)
+            const perfRetention = await settingsService.getSettingValue('performance_retention_days', tenant.id, 30);
+            const pCutoff = new Date();
+            pCutoff.setDate(pCutoff.getDate() - perfRetention);
+
             await db.delete(devicePerformanceHistory)
-                .where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, mCutoff)));
+                .where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, pCutoff)));
 
             // 2. Interface traffic metrics
             const ifMetricsRetention = await settingsService.getSettingValue('interface_metrics_retention_days', tenant.id, 30);
