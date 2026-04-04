@@ -75,6 +75,9 @@ router.post(
         if (rawData.latitude === '') rawData.latitude = undefined;
         if (rawData.longitude === '') rawData.longitude = undefined;
         if (rawData.host === '') rawData.host = undefined;
+        if (rawData.connectedToId === '') rawData.connectedToId = undefined;
+        if (rawData.targetInterface === '') rawData.targetInterface = undefined;
+        if (rawData.linkedOnuId === '') rawData.linkedOnuId = undefined;
 
         const data = createNetwatchSchema.parse(rawData);
         const netwatch = await routerService.createNetwatch(id, data, getEffectiveTenantId(req));
