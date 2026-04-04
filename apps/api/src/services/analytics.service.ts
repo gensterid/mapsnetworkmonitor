@@ -202,8 +202,8 @@ class AnalyticsService {
         userRole?: string,
         tenantId?: string
     ): Promise<{
-        host: string;
-        name: string;
+        host: string | null;
+        name: string | null;
         totalDowntimeMinutes: number;
         incidentCount: number;
         routerName: string;
