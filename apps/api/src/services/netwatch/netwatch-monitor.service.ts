@@ -18,7 +18,7 @@ export async function measureLatency(routerId: string, routerName: string, conn:
         await Promise.all(chunk.map(async (target) => {
             try {
                 if (target.name?.includes('[DISABLED]')) return;
-                const isPingable = target.host && target.host !== '' && target.host !== '0.0.0.0';
+                const isPingable = target.host && target.host !== '' && target.host !== '0.0.0.0' && target.deviceType !== 'odp';
                 
                 if (!isPingable) {
                     await tx.update(routerNetwatch).set({ status: 'up', latency: null, packetLoss: 0, updatedAt: new Date() }).where(eq(routerNetwatch.id, target.id));
