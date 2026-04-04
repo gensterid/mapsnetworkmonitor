@@ -192,7 +192,7 @@ export async function create(routerId: string, data: any, tenantId?: string, tx:
             deviceType: data.deviceType || 'client',
             interval: data.interval || 30,
             timeout: data.timeout || 1000,
-            status: 'unknown',
+            status: data.deviceType === 'odp' ? 'up' : 'unknown',
             isAppOnly: true,
             latitude: data.latitude,
             longitude: data.longitude,
