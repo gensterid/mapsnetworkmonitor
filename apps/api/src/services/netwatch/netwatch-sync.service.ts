@@ -1,16 +1,19 @@
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { routers, routerNetwatch } from '../../db/schema/index.js';
+import { routerNetwatch, type NewRouterNetwatch } from '../../db/schema/index.js';
 import {
     getNetwatchHosts,
     getRouterClock,
     configureNetwatchWebhook,
     removeNetwatchWebhook,
+    connectToRouter,
 } from '../../lib/mikrotik-api.js';
 import { decrypt } from '../../lib/encryption.js';
 import { alertService } from '../alert.service.js';
 import { settingsService } from '../settings.service.js';
 import { logger } from '../../lib/logger.js';
+import { routerRepository } from '../../repositories/router.repository.js';
+import { netwatchRepository } from '../../repositories/netwatch.repository.js';
 import os from 'os';
 
 /**
@@ -18,7 +21,7 @@ import os from 'os';
  */
 export async function syncHosts(routerId: string, routerName: string, conn: any, availableInterfaces?: Set<string>, tx: any = db): Promise<void> {
     try {
-        const [router] = await tx.select().from(routers).where(eq(routers.id, routerId));
+        const router = await routerRepository.findById(routerId, tx);
         if (!router) return;
 
         const shouldInjectWebhook = router.useWebhook && !!router.webhookSecret && !!router.tenantId;
@@ -32,9 +35,11 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
 
         const routerClock = await getRouterClock(conn).catch(() => undefined);
         const mikrotikNetwatch = await getNetwatchHosts(conn, routerClock);
-        const existingEntries = await tx.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
+        const existingEntries = await netwatchRepository.findWithDetails(routerId, tx);
         const existingMap = new Map<string, any>(existingEntries.map((e: any) => [e.host, e]));
         const processedHosts = new Set<string>();
+
+        const upsertData: NewRouterNetwatch[] = [];
 
         const executeSync = async (transaction: any) => {
             for (const nw of mikrotikNetwatch) {
@@ -73,24 +78,13 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                         const currentToken = tokenMatch ? tokenMatch[1] : null;
 
                         if (currentToken && currentToken !== router.webhookSecret) {
-                            const [owner] = await transaction.select({ id: routers.id, useWebhook: routers.useWebhook }).from(routers).where(eq(routers.webhookSecret, currentToken));
-                            if (!owner || !owner.useWebhook) forceReconfig = true;
+                            const [owner] = await transaction.select({ id: routerNetwatch.id }).from(routerNetwatch).where(eq(routerNetwatch.id, currentToken));
+                            if (!owner) forceReconfig = true;
                         }
                         if (!isOurWebhook && detectedWebhook) forceReconfig = true;
                     }
 
                     if (!finalHasWebhook || isPartiallyMissing || forceReconfig) {
-                        if (detectedWebhook && !isOurWebhook) {
-                            const upMatch = nw.upScript?.match(/Bearer ([a-zA-Z0-9_-]+)/);
-                             const downMatch = nw.downScript?.match(/Bearer ([a-zA-Z0-9_-]+)/);
-                             const existingToken = upMatch?.[1] || downMatch?.[1];
- 
-                             if (existingToken) {
-                                 const [owner] = await transaction.select({ id: routers.id, useWebhook: routers.useWebhook }).from(routers).where(eq(routers.webhookSecret, existingToken));
-                                 if (!owner || !owner.useWebhook) forceReconfig = true;
-                             } else forceReconfig = true;
-                        }
-
                         try {
                             await configureNetwatchWebhook(conn, nw.host, webhookUrl, router.webhookSecret!, nw, forceReconfig);
                             if (!detectedWebhook || isOurWebhook || forceReconfig) finalHasWebhook = true;
@@ -103,21 +97,35 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                     } catch (err) { logger.warn({ err: String(err), host: nw.host }, 'Failed cleanup webhook'); }
                 }
 
-                 if (existing) {
-                     const updateData: any = { name: finalName, interval: nw.interval || existing.interval, status, disabled: isDisabled, lastCheck: new Date(), lastUp: nw.sinceUp || existing.lastUp, lastDown: nw.sinceDown || existing.lastDown, updatedAt: new Date(), hasWebhook: finalHasWebhook };
-                     if (!existing.targetInterface && nw.comment && availableInterfaces?.has(nw.comment)) updateData.targetInterface = nw.comment;
-                     await transaction.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, existing.id));
-                 } else {
-                     const insertData: any = { routerId, host: nw.host, name: finalName, interval: nw.interval || 30, status, disabled: isDisabled, lastCheck: new Date(), lastUp: nw.sinceUp, lastDown: nw.sinceDown, hasWebhook: finalHasWebhook, tenantId: router.tenantId };
-                     if (nw.comment && availableInterfaces?.has(nw.comment)) insertData.targetInterface = nw.comment;
-                     await transaction.insert(routerNetwatch).values(insertData);
-                 }
-             }
- 
-             const toDelete = existingEntries.filter((e: any) => e.deviceType === 'client' && !e.isAppOnly && e.host && e.host !== '0.0.0.0' && !processedHosts.has(e.host));
-             if (toDelete.length > 0) await transaction.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map((e: any) => e.id)));
-             await transaction.update(routerNetwatch).set({ lastCheck: new Date() }).where(eq(routerNetwatch.routerId, routerId));
-         };
+                const baseData: any = { 
+                    routerId, 
+                    host: nw.host, 
+                    name: finalName, 
+                    interval: nw.interval || 30, 
+                    status, 
+                    disabled: isDisabled, 
+                    lastCheck: new Date(), 
+                    lastUp: nw.sinceUp, 
+                    lastDown: nw.sinceDown, 
+                    hasWebhook: finalHasWebhook, 
+                    tenantId: router.tenantId,
+                    updatedAt: new Date()
+                };
+
+                if (nw.comment && availableInterfaces?.has(nw.comment)) baseData.targetInterface = nw.comment;
+                upsertData.push(baseData);
+            }
+
+            if (upsertData.length > 0) {
+                await netwatchRepository.upsertBatch(upsertData, transaction);
+            }
+
+            const toDelete = existingEntries.filter((e: any) => e.deviceType === 'client' && !e.isAppOnly && e.host && e.host !== '0.0.0.0' && !processedHosts.has(e.host));
+            if (toDelete.length > 0) {
+                await transaction.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map((e: any) => e.id)));
+                logger.info({ routerId, deletedCount: toDelete.length }, 'Cleaned up stale netwatch hosts');
+            }
+        };
 
         if (tx !== db) {
             await executeSync(tx);
@@ -132,11 +140,9 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
 /**
  * Perform a full sync from MikroTik (handles its own connection)
  */
-import { connectToRouter } from '../../lib/mikrotik-api.js';
-
 export async function fullSync(routerId: string): Promise<{ synced: number; errors: string[] }> {
     const errors: string[] = [];
-    const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+    const router = await routerRepository.findById(routerId);
     if (!router) throw new Error('Router not found');
 
     let api: any;

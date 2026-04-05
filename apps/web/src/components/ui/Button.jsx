@@ -14,11 +14,11 @@ export const Button = React.forwardRef(({
     ...props
 }, ref) => {
     const variants = {
-        primary: 'bg-primary hover:bg-primary-600 text-white shadow-lg shadow-blue-500/20',
-        secondary: 'bg-slate-700 hover:bg-slate-600 text-white',
-        destructive: 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/20',
-        ghost: 'hover:bg-slate-700/50 text-slate-300 hover:text-white',
-        outline: 'border border-slate-700 bg-transparent hover:bg-slate-800 text-slate-300 hover:text-white'
+        primary: 'gradient-indigo text-white shadow-lg shadow-blue-500/20 hover:scale-[1.02] border-blue-400/30',
+        secondary: 'bg-white/5 hover:bg-white/10 text-white border border-white/10 glass-premium-light',
+        destructive: 'bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/30',
+        ghost: 'hover:bg-white/5 text-slate-400 hover:text-white',
+        outline: 'border border-white/10 bg-transparent hover:bg-white/5 text-slate-300 hover:text-white glass-premium-light'
     };
 
     const sizes = {
@@ -33,7 +33,7 @@ export const Button = React.forwardRef(({
             ref={ref}
             type={type}
             className={clsx(
-                'inline-flex items-center justify-center rounded-lg font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-50',
+                'inline-flex items-center justify-center rounded-xl font-bold tracking-tight transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-30 border transition-all',
                 variants[variant],
                 sizes[size],
                 className

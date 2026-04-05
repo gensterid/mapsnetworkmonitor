@@ -1,5 +1,6 @@
 import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
 import { logger } from '../lib/logger.js';
+import { isRedisAvailable } from '../lib/redis-client.js';
 
 export class MetricsService {
     private static instance: MetricsService;
@@ -360,6 +361,11 @@ export class MetricsService {
      * Update Queue Gauges from BullMQ state
      */
     public async updateQueueGauges() {
+        if (!isRedisAvailable()) {
+            // logger.debug('Skipping queue metrics: Redis not available');
+            return;
+        }
+
         try {
             const { routerSyncQueue, oltSyncQueue } = await import('./queue.service.js');
             

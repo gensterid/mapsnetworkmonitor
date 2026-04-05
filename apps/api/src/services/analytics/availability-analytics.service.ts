@@ -161,6 +161,11 @@ export class AvailabilityAnalyticsService {
         tenantId?: string
     ): Promise<{ name: string; host: string; incidents: number }[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
+
+        const cacheKey = `analytics:top_down:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}:${limit}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
 
         let allowedIds: string[] = [];
         if (userId && userRole) {
@@ -217,7 +222,12 @@ export class AvailabilityAnalyticsService {
             })
         );
 
-        return devicesWithNames.filter((d): d is NonNullable<typeof d> => d !== null);
+        const finalResults = devicesWithNames.filter((d): d is NonNullable<typeof d> => d !== null);
+
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, finalResults, 300);
+
+        return finalResults;
     }
 
     /**
@@ -232,6 +242,11 @@ export class AvailabilityAnalyticsService {
         tenantId?: string
     ): Promise<{ name: string; disconnectCount: number; lastDisconnect: Date; routerName: string }[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
+
+        const cacheKey = `analytics:top_pppoe_discon:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}:${limit}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
 
         let allowedIds: string[] = [];
         if (userId && userRole) {
@@ -294,6 +309,9 @@ export class AvailabilityAnalyticsService {
             })
         );
 
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, withRouterNames, 300);
+
         return withRouterNames;
     }
 
@@ -306,6 +324,10 @@ export class AvailabilityAnalyticsService {
         userRole?: string,
         tenantId?: string
     ): Promise<{ name: string; address: string; downSince: Date; routerName: string }[]> {
+        const cacheKey = `analytics:current_pppoe_down:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
+
         let allowedIds: string[] = [];
         if (userId && userRole) {
             allowedIds = await getAllowedRouterIds(userId, userRole, tenantId);
@@ -406,7 +428,12 @@ export class AvailabilityAnalyticsService {
             })
         );
 
-        return withRouterNames.slice(0, 10);
+        const finalResults = withRouterNames.slice(0, 10);
+
+        // Cache for 1 minute (status changes frequently)
+        await cacheService.set(cacheKey, finalResults, 60);
+
+        return finalResults;
     }
 
     /**
@@ -427,6 +454,11 @@ export class AvailabilityAnalyticsService {
         routerName: string;
     }[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
+
+        const cacheKey = `analytics:downtime_analysis:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}:${minDowntimeMinutes}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
 
         let allowedIds: string[] = [];
         if (userId && userRole) {
@@ -553,7 +585,12 @@ export class AvailabilityAnalyticsService {
             })
         );
 
-        return withRouterNames.sort((a, b) => b.totalDowntimeMinutes - a.totalDowntimeMinutes).slice(0, 20);
+        const finalResults = withRouterNames.sort((a, b) => b.totalDowntimeMinutes - a.totalDowntimeMinutes).slice(0, 20);
+
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, finalResults, 300);
+
+        return finalResults;
     }
 
     /**
@@ -574,6 +611,11 @@ export class AvailabilityAnalyticsService {
         routerId: string;
     }[]> {
         const range = dateRange || getDefaultDateRange();
+        const normalized = normalizeDateRange(range);
+
+        const cacheKey = `analytics:incident_heatmap:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}:${normalized.start}-${normalized.end}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
 
         let allowedIds: string[] = [];
         if (userId && userRole) {
@@ -683,7 +725,12 @@ export class AvailabilityAnalyticsService {
             })
         );
 
-        return results.sort((a, b) => b.incidentCount - a.incidentCount).slice(0, 50);
+        const finalResults = results.sort((a, b) => b.incidentCount - a.incidentCount).slice(0, 50);
+
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, finalResults, 300);
+
+        return finalResults;
     }
 
     /**
@@ -695,6 +742,10 @@ export class AvailabilityAnalyticsService {
         userRole?: string,
         tenantId?: string
     ): Promise<any> {
+        const cacheKey = `analytics:odp_capacity:${tenantId || 'global'}:${userId || 'none'}:${routerId || 'all'}`;
+        const cached = await cacheService.get<any>(cacheKey);
+        if (cached) return cached;
+
         let allowedIds: string[] = [];
         if (userId && userRole) {
             allowedIds = await getAllowedRouterIds(userId, userRole, tenantId);
@@ -784,13 +835,18 @@ export class AvailabilityAnalyticsService {
             .sort((a, b) => b.utilizationPercent - a.utilizationPercent)
             .slice(0, 5);
 
-        return {
+        const finalResults = {
             totalOdp: allOdps.length,
             totalPorts,
             usedPorts,
             utilizationPercent: totalPorts > 0 ? Math.round((usedPorts / totalPorts) * 100) : 0,
             topFullOdp
         };
+
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, finalResults, 300);
+
+        return finalResults;
     }
 }
 

@@ -49,6 +49,10 @@ router.get(
         const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
         const token = bearerToken || queryToken;
 
+        if (queryToken && !bearerToken) {
+            logger.warn({ host, route: '/netwatch' }, '⚠️ Legacy Webhook Auth: Token provided in URL query. Support for URL tokens will be REMOVED in a future update. Please update your MikroTik script to use "Header: Authorization=Bearer <token>" instead.');
+        }
+
         if (!token) {
             throw new ApiError(401, 'Unauthorized: Webhook token required in Authorization header or query');
         }
@@ -165,6 +169,10 @@ router.get(
         const authHeader = req.headers.authorization;
         const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
         const token = (bearerToken || queryToken) as string;
+
+        if (queryToken && !bearerToken) {
+            logger.warn({ routerId, route: '/backup-report' }, '⚠️ Legacy Webhook Auth: Token provided in URL query. Support for URL tokens will be REMOVED in a future update. Please update your MikroTik script to use "Header: Authorization=Bearer <token>" instead.');
+        }
 
         if (!routerId || !token) {
             logger.warn({ query: req.query, hasAuthHeader: !!authHeader }, 'Backup report missing routerId or token');

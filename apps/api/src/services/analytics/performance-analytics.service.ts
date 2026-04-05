@@ -304,6 +304,11 @@ export class PerformanceAnalyticsService {
         }
     ): Promise<any[]> {
         const { routerId, host: paramHost, onuId: paramOnuId, startDate, endDate, tenantId } = params;
+        
+        const cacheKey = `analytics:device_perf:${tenantId || 'global'}:${routerId || 'all'}:${paramHost || 'no_host'}:${paramOnuId || 'no_onu'}:${startDate.getTime()}-${endDate.getTime()}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
+
         let host = paramHost;
         let onuId = paramOnuId;
 
@@ -413,12 +418,17 @@ export class PerformanceAnalyticsService {
             .groupBy(timeSelect)
             .orderBy(timeSelect);
 
-        return results.map(r => ({
+        const data = results.map(r => ({
             timestamp: formatAnalyticsTimestamp(r.timestamp),
             latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
             signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
             error: r.error || null
         }));
+
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, data, 300);
+
+        return data;
     }
 
     /**
@@ -433,6 +443,11 @@ export class PerformanceAnalyticsService {
         }
     ): Promise<any[]> {
         const { interfaceId, startDate, endDate, tenantId } = params;
+        
+        const cacheKey = `analytics:if_perf:${tenantId || 'global'}:${interfaceId}:${startDate.getTime()}-${endDate.getTime()}`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) return cached;
+
         const { routerInterfaceMetrics } = await import('../../db/schema/index.js');
 
         const conditions: any[] = [
@@ -470,11 +485,16 @@ export class PerformanceAnalyticsService {
             .groupBy(timeSelect)
             .orderBy(timeSelect);
 
-        return results.map(r => ({
+        const data = results.map(r => ({
             timestamp: formatAnalyticsTimestamp(r.timestamp),
             txRate: r.avgTx !== null ? Math.round(Number(r.avgTx)) : 0,
             rxRate: r.avgRx !== null ? Math.round(Number(r.avgRx)) : 0,
         }));
+
+        // Cache for 5 minutes
+        await cacheService.set(cacheKey, data, 300);
+
+        return data;
     }
 }
 

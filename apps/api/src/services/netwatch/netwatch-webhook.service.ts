@@ -22,25 +22,41 @@ export async function handleWebhook(routerId: string, host: string, status: stri
 
 async function processQueue(routerId: string, host: string, status: string) {
     try {
-        const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-        if (!router) return;
+        await db.transaction(async (tx) => {
+            const [router] = await tx.select().from(routers).where(eq(routers.id, routerId));
+            if (!router) return;
 
-        const [entry] = await db.select().from(routerNetwatch).where(and(eq(routerNetwatch.routerId, routerId), eq(routerNetwatch.host, host)));
-        if (!entry) return;
+            const [entry] = await tx.select().from(routerNetwatch).where(and(eq(routerNetwatch.routerId, routerId), eq(routerNetwatch.host, host)));
+            if (!entry) return;
 
-        const newStatus = status.toLowerCase() === 'up' ? 'up' : 'down';
-        if (entry.status === newStatus) return;
+            const newStatus = status.toLowerCase() === 'up' ? 'up' : 'down';
+            if (entry.status === newStatus) return;
 
-        const finalName = entry.name || host;
-        await alertService.createNetwatchAlert(routerId, `[${router.name}] ${finalName}`, host, newStatus);
-        
-        const updateData: any = { status: newStatus, lastCheck: new Date(), updatedAt: new Date() };
-        if (newStatus === 'up') updateData.lastUp = new Date(); else updateData.lastDown = new Date();
-        
-        await db.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, entry.id));
-        eventEmitter.broadcast('netwatch_status_change', { routerId, host, status: newStatus });
-        logger.info({ routerId, host, status: newStatus }, 'Webhook status updated');
-    } catch (err: any) { logger.error({ err: err?.message || String(err), routerId, host }, 'Webhook process error'); }
+            const finalName = entry.name || host;
+            // Create alert within the same transaction
+            await alertService.createNetwatchAlert(routerId, `[${router.name}] ${finalName}`, host, newStatus, tx);
+            
+            const updateData: any = { 
+                status: newStatus, 
+                lastCheck: new Date(), 
+                updatedAt: new Date() 
+            };
+            
+            if (newStatus === 'up') {
+                updateData.lastUp = new Date();
+            } else {
+                updateData.lastDown = new Date();
+            }
+            
+            await tx.update(routerNetwatch).set(updateData).where(eq(routerNetwatch.id, entry.id));
+            
+            // Broadcast after successful transaction
+            eventEmitter.broadcast('netwatch_status_change', { routerId, host, status: newStatus });
+            logger.info({ routerId, host, status: newStatus }, 'Webhook status updated with alert');
+        });
+    } catch (err: any) { 
+        logger.error({ err: err?.message || String(err), routerId, host }, 'Webhook process error'); 
+    }
 }
 
 export function getInterfaceName(comment?: string): string | null {

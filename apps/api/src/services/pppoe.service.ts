@@ -1,8 +1,6 @@
-import { eq, and, notInArray, inArray } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
-    pppoeSessions,
-    userRouters,
     type PppoeSession,
     type NewPppoeSession,
 } from '../db/schema/index.js';
@@ -10,17 +8,15 @@ import { alertService } from './alert.service.js';
 import { dashboardService } from './dashboard.service.js';
 import type { PppSession, SimpleQueueData } from '../lib/mikrotik-api.js';
 import { logger } from '../lib/logger.js';
+import { pppoeRepository } from '../repositories/pppoe.repository.js';
+import { routerRepository } from '../repositories/router.repository.js';
+import { type Result, ok, err } from '../lib/result.js';
 
 /**
- * PPPoE Service - handles PPPoE session tracking and alerts
+ * PPPoE Service - handles PPPoE session tracking and alerts.
+ * Optimized with Repository pattern and Result objects for reliability.
  */
 class PppoeService {
-    /**
-     * Track PPPoE sessions and create alerts for connect/disconnect events
-     * @param routerId Router ID
-     * @param routerName Router name (for alert messages)
-     * @param currentSessions Current active PPPoE sessions from MikroTik
-     */
     /**
      * Store coordinates for users who disconnect (to preserve when they reconnect)
      * Key: "routerId:username", Value: { latitude, longitude, waypoints, connectionType, connectedToId }
@@ -33,49 +29,46 @@ class PppoeService {
         connectedToId: string | null;
     }> = new Map();
 
+    /**
+     * Track PPPoE sessions and create alerts for connect/disconnect events
+     */
     async trackSessions(
-        routerId: string,
-        routerName: string,
+        router: any,
         currentSessions: PppSession[],
         tx?: any
-    ): Promise<{
+    ): Promise<Result<{
         connected: string[];
         disconnected: string[];
-    }> {
+    }>> {
+        const routerId = router.id;
+        const routerName = router.name;
         const connected: string[] = [];
         const disconnected: string[] = [];
 
         logger.debug({ routerName, sessionCount: currentSessions.length }, '[PPPoE] Tracking sessions');
 
         try {
-            // Get previously tracked sessions for this router and its tenant
-            const { routers } = await import('../db/schema/routers.js');
-            const [router] = await db.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId));
             const tenantId = router?.tenantId;
-
             if (!tenantId) {
                 logger.error({ routerId }, '[PPPoE] Skipping sync: Router tenant not found');
-                return { connected, disconnected };
+                return err(new Error('Router tenant not found'));
             }
 
-            const previousSessions = await this.findSessionsByRouter(routerId);
+            const previousSessions = await this.findSessionsByRouter(routerId, tx);
             const previousSessionNames = new Set(previousSessions.map(s => s.name));
             const currentSessionNames = new Set(currentSessions.map(s => s.name));
 
             logger.debug({ previous: previousSessions.length, current: currentSessions.length }, '[PPPoE] Session sync counts');
 
             const executeTracking = async (transaction: any) => {
-                // Detect disconnections FIRST (so we can cache coordinates before creating new sessions)
+                // Detect disconnections FIRST
                 for (const session of previousSessions) {
-                    // Skip if already disconnected
                     if (session.status === 'disconnected') continue;
 
                     if (!currentSessionNames.has(session.name)) {
-                        // Disconnection detected
                         disconnected.push(session.name);
                         logger.info({ routerName, session: session.name }, '[PPPoE] Disconnection detected');
 
-                        // Cache coordinates before deleting (to preserve for reconnection)
                         if (session.latitude || session.longitude || session.waypoints) {
                             const cacheKey = `${routerId}:${session.name}`;
                             this.coordinatesCache.set(cacheKey, {
@@ -85,17 +78,12 @@ class PppoeService {
                                 connectionType: session.connectionType,
                                 connectedToId: session.connectedToId,
                             });
-                            logger.debug({ session: session.name }, '[PPPoE] Cached coordinates');
                         }
 
-                        // Calculate session duration
-                        const duration = Math.floor(
-                            (Date.now() - new Date(session.connectedAt).getTime()) / 1000
-                        );
+                        const duration = Math.floor((Date.now() - new Date(session.connectedAt).getTime()) / 1000);
 
-                        // Create disconnect alert
                         try {
-                            const alert = await alertService.createPppoeDisconnectAlert(
+                            await alertService.createPppoeDisconnectAlert(
                                 routerId,
                                 routerName,
                                 session.name,
@@ -103,13 +91,10 @@ class PppoeService {
                                 duration,
                                 transaction
                             );
-                            logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Disconnect alert created');
                         } catch (alertErr) {
                             logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create disconnect alert');
                         }
 
-                        // Remove session from tracking
-                        // Update session status to disconnected instead of deleting
                         await this.updateSession(session.id, {
                             lastSeen: new Date(),
                             lastDown: new Date(),
@@ -118,18 +103,15 @@ class PppoeService {
                     }
                 }
 
-                // Detect new connections (in current but not in previous)
+                // Detect new connections
                 for (const session of currentSessions) {
                     if (!previousSessionNames.has(session.name)) {
-                        // New connection detected
                         connected.push(session.name);
                         logger.info({ routerName, session: session.name, ip: session.address }, '[PPPoE] New connection detected');
 
-                        // Check if we have cached coordinates for this user
                         const cacheKey = `${routerId}:${session.name}`;
                         const cachedCoords = this.coordinatesCache.get(cacheKey);
 
-                        // Create new session record (with cached coordinates if available)
                         const newSessionData: NewPppoeSession = {
                             routerId,
                             name: session.name,
@@ -138,51 +120,43 @@ class PppoeService {
                             address: session.address,
                             service: session.service,
                             uptime: session.uptime,
-                            status: 'active', // Explicitly set status to active
+                            status: 'active',
                             tenantId: tenantId,
                         };
 
-                        // Transfer cached coordinates to new session
                         if (cachedCoords) {
                             if (cachedCoords.latitude) newSessionData.latitude = cachedCoords.latitude;
                             if (cachedCoords.longitude) newSessionData.longitude = cachedCoords.longitude;
                             if (cachedCoords.waypoints) newSessionData.waypoints = cachedCoords.waypoints;
                             if (cachedCoords.connectionType) newSessionData.connectionType = cachedCoords.connectionType;
                             if (cachedCoords.connectedToId) newSessionData.connectedToId = cachedCoords.connectedToId;
-                            logger.debug({ session: session.name }, '[PPPoE] Restored coordinates from cache');
-                            // Remove from cache after use
                             this.coordinatesCache.delete(cacheKey);
                         }
 
                         await this.createSession(newSessionData, transaction);
 
-                        // Create connect alert
                         try {
-                            const alert = await alertService.createPppoeConnectAlert(
+                            await alertService.createPppoeConnectAlert(
                                 routerId,
                                 routerName,
                                 session.name,
                                 session.address || 'N/A',
                                 transaction
                             );
-                            logger.debug({ alertId: alert?.id, session: session.name }, '[PPPoE] Connect alert created');
                         } catch (alertErr) {
                             logger.error({ err: alertErr, session: session.name }, '[PPPoE] Failed to create connect alert');
                         }
 
-                        // UNIFIED LINKAGE: Link to ONU
                         if (session.address) {
-                            this.linkSessionToOnu(session.name, session.address, transaction).catch(err =>
+                            await this.linkSessionToOnu(session.name, session.address, transaction).catch(err =>
                                 logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed')
                             );
                         }
                     } else {
-                        // Session exists, update last seen and uptime
                         const existingSession = previousSessions.find(s => s.name === session.name);
                         if (existingSession) {
-                            // Check if address changed
                             if (existingSession.address !== session.address && session.address) {
-                                this.linkSessionToOnu(session.name, session.address, transaction).catch(err =>
+                                await this.linkSessionToOnu(session.name, session.address, transaction).catch(err =>
                                     logger.error({ err, session: session.name }, '[PPPoE] Link to ONU failed (IP Change)')
                                 );
                             }
@@ -195,7 +169,7 @@ class PppoeService {
                             }, transaction);
                         }
                     }
-                } // End of currentSessions loop
+                }
             };
 
             if (tx) {
@@ -211,239 +185,86 @@ class PppoeService {
                 dashboardService.invalidateCache();
             }
 
-            return { connected, disconnected };
+            return ok({ connected, disconnected });
         } catch (error) {
             logger.error({ routerId, err: error }, '[PPPoE] Failed to track sessions');
-            return { connected, disconnected };
+            return err(error as Error);
         }
     }
 
-    /**
-     * Get all tracked sessions for a router
-     */
-    async findSessionsByRouter(routerId: string): Promise<PppoeSession[]> {
-        return db
-            .select()
-            .from(pppoeSessions)
-            .where(eq(pppoeSessions.routerId, routerId));
+    async findSessionsByRouter(routerId: string, tx: any = db): Promise<PppoeSession[]> {
+        return pppoeRepository.findByRouter(routerId, tx);
     }
 
-    /**
-     * Create a new session record
-     */
     async createSession(data: NewPppoeSession, tx: any = db): Promise<PppoeSession> {
-        const [session] = await tx
-            .insert(pppoeSessions)
-            .values(data)
-            .returning();
-        return session;
+        return pppoeRepository.create(data, tx);
     }
 
-    /**
-     * Update session
-     */
-    async updateSession(
-        id: string,
-        data: Partial<Pick<PppoeSession, 'lastSeen' | 'uptime' | 'address' | 'status' | 'lastDown'>>,
-        tx: any = db
-    ): Promise<void> {
-        await tx
-            .update(pppoeSessions)
-            .set(data)
-            .where(eq(pppoeSessions.id, id));
+    async updateSession(id: string, data: Partial<PppoeSession>, tx: any = db): Promise<PppoeSession | undefined> {
+        return pppoeRepository.update(id, data, tx);
     }
-
+    
     /**
-     * Delete a session
-     */
-    async deleteSession(id: string, tx: any = db): Promise<void> {
-        await tx.delete(pppoeSessions).where(eq(pppoeSessions.id, id));
-    }
-
-    /**
-     * Clean up all sessions for a router (used when router goes offline)
-     */
-    async cleanupRouterSessions(routerId: string): Promise<void> {
-        await db.delete(pppoeSessions).where(eq(pppoeSessions.routerId, routerId));
-    }
-
-    /**
-     * Update coordinates, waypoints and connection info for a PPPoE session
+     * Specialized method to update session coordinates and return the session
+     * Used by HTTP routes.
      */
     async updateCoordinates(
         id: string,
         latitude?: string | null,
         longitude?: string | null,
         waypoints?: string | null,
-        connectionType?: string | null,
-        connectedToId?: string | null,
+        connectionType?: string,
+        connectedToId?: string,
         tenantId?: string
     ): Promise<PppoeSession | undefined> {
-        const filters = [eq(pppoeSessions.id, id)];
+        // Verify tenant access if provided
         if (tenantId) {
-            filters.push(eq(pppoeSessions.tenantId, tenantId));
+            const session = await this.findById(id, tenantId);
+            if (!session) return undefined;
         }
 
-        const updateData: any = {};
-
-        if (latitude !== undefined) updateData.latitude = latitude;
-        if (longitude !== undefined) updateData.longitude = longitude;
-        if (waypoints !== undefined) updateData.waypoints = waypoints;
-        if (connectionType !== undefined) updateData.connectionType = connectionType;
-        if (connectedToId !== undefined) updateData.connectedToId = connectedToId;
-
-        // Only update if there's something to update
-        if (Object.keys(updateData).length === 0) {
-            return this.findById(id, tenantId);
-        }
-
-        const [session] = await db
-            .update(pppoeSessions)
-            .set(updateData)
-            .where(and(...filters))
-            .returning();
-        return session;
+        return this.updateSession(id, {
+            latitude,
+            longitude,
+            waypoints,
+            connectionType,
+            connectedToId
+        });
     }
 
-    /**
-     * Find all PPPoE sessions (with optional router filter)
-     */
-    /**
-     * Find all PPPoE sessions (with optional router filter)
-     */
-    async findAll(
-        routerId?: string,
-        userId?: string,
-        userRole?: string,
-        tenantId?: string
-    ): Promise<PppoeSession[]> {
-        if (!pppoeSessions || !userRouters) {
-            logger.error({
-                pppoeSessions: !!pppoeSessions,
-                userRouters: !!userRouters
-            }, '[PPPoE] CRITICAL: Schema undefined. Circular dependency suspected.');
-            return [];
-        }
-
-        try {
-            const filters = [];
-
-            if (routerId) {
-                filters.push(eq(pppoeSessions.routerId, routerId));
-            }
-
-            if (tenantId) {
-                filters.push(eq(pppoeSessions.tenantId, tenantId));
-            }
-
-            // If user is not admin or superadmin, filter by assigned routers
-            if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
-                const assigned = await db
-                    .select({ routerId: userRouters.routerId })
-                    .from(userRouters)
-                    .where(eq(userRouters.userId, userId));
-
-                const assignedIds = assigned.map((a) => a.routerId);
-
-                if (assignedIds.length === 0) {
-                    return []; // No routers assigned
-                }
-
-                filters.push(inArray(pppoeSessions.routerId, assignedIds));
-            }
-
-            if (filters.length > 0) {
-                return await db
-                    .select()
-                    .from(pppoeSessions)
-                    .where(and(...filters))
-                    .orderBy(pppoeSessions.name);
-            }
-
-            return await db
-                .select()
-                .from(pppoeSessions)
-                .orderBy(pppoeSessions.name);
-        } catch (error) {
-            logger.error({ err: error }, '[PPPoE] findAll failed');
-            return []; // Return empty array instead of throwing to prevent 500
-        }
+    async deleteSession(id: string, tx: any = db): Promise<void> {
+        await pppoeRepository.delete(id, tx);
     }
 
-    /**
-     * Find PPPoE session by ID
-     */
+    async cleanupRouterSessions(routerId: string): Promise<void> {
+        await pppoeRepository.deleteByRouter(routerId);
+    }
+
     async findById(id: string, tenantId?: string): Promise<PppoeSession | undefined> {
-        const filters = [eq(pppoeSessions.id, id)];
-        if (tenantId) {
-            filters.push(eq(pppoeSessions.tenantId, tenantId));
-        }
-        const [session] = await db
-            .select()
-            .from(pppoeSessions)
-            .where(and(...filters));
-        return session;
+        return pppoeRepository.findById(id, tenantId);
     }
 
-    /**
-     * Find all sessions with coordinates for map display
-     */
-    /**
-     * Find all sessions with coordinates for map display
-     */
-    async findAllWithCoordinates(
-        routerId?: string,
-        userId?: string,
-        userRole?: string,
-        tenantId?: string
-    ): Promise<PppoeSession[]> {
-        // Get all sessions using the robust findAll method
-        const sessions = await this.findAll(routerId, userId, userRole, tenantId);
-
-        // Filter in memory for valid coordinates
-        // This avoids Drizzle operator issues (isNotNull, ne, sql) causing 500 errors
-        return sessions.filter(session =>
-            session.latitude &&
-            session.latitude !== '' &&
-            session.longitude &&
-            session.longitude !== ''
-        );
+    async findAll(routerId?: string, userId?: string, userRole?: string, tenantId?: string, tx: any = db): Promise<PppoeSession[]> {
+        return pppoeRepository.findAll({ routerId, userId, userRole, tenantId }, tx);
     }
-    /**
-     * Update traffic stats for PPPoE sessions from Simple Queues
-     */
+
+    async findAllWithCoordinates(routerId?: string, userId?: string, userRole?: string, tenantId?: string): Promise<PppoeSession[]> {
+        return pppoeRepository.findAll({ routerId, userId, userRole, tenantId, onlyWithCoordinates: true });
+    }
+
     async updateTraffic(routerId: string, queues: SimpleQueueData[], tx: any = db): Promise<void> {
-        // Get active sessions
-        const sessions = await tx
-            .select()
-            .from(pppoeSessions)
-            .where(and(
-                eq(pppoeSessions.routerId, routerId),
-                eq(pppoeSessions.status, 'active')
-            ));
+        const sessions = await pppoeRepository.findAll({ routerId }, tx);
+        const activeSessions = sessions.filter(s => s.status === 'active');
+        if (activeSessions.length === 0) return;
 
-        if (sessions.length === 0) return;
-
-        // Map queues by name for O(1) lookup
-        // Note: Simple Queue name usually matches PPPoE username
         const queueMap = new Map<string, SimpleQueueData>();
         queues.forEach(q => queueMap.set(q.name, q));
 
         const now = new Date();
+        const batchUpdates: any[] = [];
 
-        for (const session of sessions) {
-            // Try different naming variations for the queue
-            // 1. Exact match (<username>)
-            // 2. Just username (username)
-            // 3. User with pppoe- prefix
-            // 4. Common MikroTik variant: <pppoe-username>
-            const possibleNames = [
-                `<${session.name}>`,
-                session.name,
-                `pppoe-${session.name}`,
-                `<pppoe-${session.name}>`
-            ];
-
+        for (const session of activeSessions) {
+            const possibleNames = [`<${session.name}>`, session.name, `pppoe-${session.name}`, `<pppoe-${session.name}>`];
             let queue: SimpleQueueData | undefined;
             for (const name of possibleNames) {
                 queue = queueMap.get(name);
@@ -451,82 +272,44 @@ class PppoeService {
             }
 
             if (queue) {
-                // simple queue 'bytes' is "upload/download" (e.g. "1234/5678")
-                // In MikroTik Simple Queue: 
-                // 1st component = Target Upload (From Client to Router) = RX
-                // 2nd component = Target Download (From Router to Client) = TX
-
                 const parts = queue.bytes.split('/');
                 const rxBytes = parseInt(parts[0] || '0', 10);
                 const txBytes = parseInt(parts[1] || '0', 10);
 
-                // Calculate rates
-                let txRate = 0;
-                let rxRate = 0;
-
+                let txRate = 0, rxRate = 0;
                 if (session.lastTrafficUpdate) {
                     const seconds = (now.getTime() - new Date(session.lastTrafficUpdate).getTime()) / 1000;
                     if (seconds > 0) {
                         const prevTx = Number(session.txBytes) || 0;
                         const prevRx = Number(session.rxBytes) || 0;
-
                         const txDiff = txBytes - prevTx;
                         const rxDiff = rxBytes - prevRx;
-
                         if (txDiff >= 0) txRate = Math.round((txDiff * 8) / seconds);
                         if (rxDiff >= 0) rxRate = Math.round((rxDiff * 8) / seconds);
                     }
                 }
 
-                // Update DB
-                await tx
-                    .update(pppoeSessions)
-                    .set({
-                        txBytes: txBytes,
-                        rxBytes: rxBytes,
-                        txRate: txRate,
-                        rxRate: rxRate,
-                        lastTrafficUpdate: now
-                    })
-                    .where(eq(pppoeSessions.id, session.id));
+                batchUpdates.push({ id: session.id, txBytes, rxBytes, txRate, rxRate, lastTrafficUpdate: now });
             }
         }
+
+        if (batchUpdates.length > 0) await pppoeRepository.updateTrafficBatch(batchUpdates, tx);
     }
 
-    /**
-     * Link PPPoE Session to ONU
-     * If username matches an SN in 'onus', update the IP and status
-     */
     private async linkSessionToOnu(username: string, ip: string, tx: any = db): Promise<void> {
         try {
-            // Lazy import to avoid circular dependency issues if any
             const { onus } = await import('../db/schema/index.js');
-
-            // Normalize inputs
             const sn = username.trim();
             const host = ip.trim();
-
             if (!sn || !host) return;
 
-            // Check if matches SN
-            const [onu] = await tx
-                .select()
-                .from(onus)
-                .where(eq(onus.sn, sn));
-
+            const [onu] = await tx.select().from(onus).where(eq(onus.sn, sn));
             if (onu) {
-                // Determine new sources
                 const sources = (onu.discoverySources as string[]) || [];
-                if (!sources.includes('netwatch')) sources.push('netwatch'); // Using netwatch tag as it implies connectivity source
+                if (!sources.includes('netwatch')) sources.push('netwatch');
 
                 await tx.update(onus)
-                    .set({
-                        host: host,
-                        status: 'online', // PPPoE active implies online
-                        lastSeen: new Date(),
-                        discoverySources: sources,
-                        updatedAt: new Date()
-                    })
+                    .set({ host, status: 'online', lastSeen: new Date(), discoverySources: sources, updatedAt: new Date() })
                     .where(eq(onus.id, onu.id));
 
                 logger.debug({ username, ip, onuId: onu.id }, '[PPPoE] Linked session to ONU');
@@ -537,7 +320,4 @@ class PppoeService {
     }
 }
 
-
-// Export singleton instance
 export const pppoeService = new PppoeService();
-

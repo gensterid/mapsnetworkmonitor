@@ -129,26 +129,35 @@ export const createDeviceIcon = ({
     const iconFontSize = small ? 18 : 28;
 
     const html = `
-        <div class="device-icon ${config.colorClass} ${statusClass} ${sizeClass}">
-            <div class="device-icon__badge">
+        <div class="device-icon ${config.colorClass} ${statusClass} ${sizeClass} ${isFull ? 'device-icon--full-pulse' : ''}">
+            ${(normalizedStatus === 'offline' || isFull) ? '<div class="device-icon__pulse"></div>' : ''}
+            <div class="device-icon__badge shadow-xl">
                 <span class="material-symbols-outlined" style="font-size: ${iconFontSize}px; display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;">
                     ${config.icon}
                 </span>
-                ${hasWebhook ? `
-                <div class="device-icon__webhook" title="Real-time Webhook Active">
-                    <span class="material-symbols-outlined">bolt</span>
-                </div>` : ''}
-                ${apiErrorIcon ? `
-                <div class="device-icon__api-error" title="${apiErrorTitle}: ${lastErrorMessage}">
-                    <span class="material-symbols-outlined">${apiErrorIcon}</span>
-                </div>` : ''}
+                
+                <div class="device-icon__indicators">
+                    ${hasWebhook ? `
+                    <div class="device-icon__indicator device-icon__indicator--webhook" title="Real-time Webhook Active">
+                        <span class="material-symbols-outlined">bolt</span>
+                    </div>` : ''}
+                    ${apiErrorIcon ? `
+                    <div class="device-icon__indicator device-icon__indicator--error" title="${apiErrorTitle}: ${lastErrorMessage}">
+                        <span class="material-symbols-outlined">${apiErrorIcon}</span>
+                    </div>` : ''}
+                </div>
             </div>
+            
             ${type === 'odp' && portCapacity ? `
-            <div class="device-icon__ports ${isFull ? 'device-icon--full' : ''}" title="Ports: ${usedPorts} used of ${portCapacity}${splitterRatio ? ` | Ratio: ${splitterRatio}` : ''}">
-                ${splitterRatio ? `<span class="device-icon__ratio">${splitterRatio}</span> ` : ''}
-                ${usedPorts}/${portCapacity}
+            <div class="device-icon__ports-premium ${isFull ? 'device-icon--full' : ''}" title="Ports: ${usedPorts} used of ${portCapacity}">
+                <div class="device-icon__ports-bg"></div>
+                <span class="device-icon__ports-text">${usedPorts}/${portCapacity}</span>
             </div>` : ''}
-            ${showLabel && name ? `<span class="device-icon__label">${escapeHtml(name)}</span>` : ''}
+            
+            ${showLabel && name ? `
+            <div class="device-icon__label-premium">
+                <span class="device-icon__label-text">${escapeHtml(name)}</span>
+            </div>` : ''}
         </div>
     `;
 

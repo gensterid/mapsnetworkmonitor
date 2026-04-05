@@ -79,12 +79,14 @@ export function errorMiddleware(
     // Handle Zod validation errors
     if (err instanceof ZodError) {
         res.status(400).json({
-            error: 'Validation Error',
-            message: 'Invalid request data',
-            details: err.errors.map((e) => ({
-                path: e.path.join('.'),
-                message: e.message,
-            })),
+            error: {
+                name: 'ValidationError',
+                message: 'Invalid request data',
+                details: err.errors.map((e) => ({
+                    path: e.path.join('.'),
+                    message: e.message,
+                })),
+            }
         });
         return;
     }
@@ -92,9 +94,11 @@ export function errorMiddleware(
     // Handle custom API errors
     if (err instanceof ApiError) {
         res.status(err.statusCode).json({
-            error: err.name,
-            message: err.message,
-            details: err.details,
+            error: {
+                name: err.name,
+                message: err.message,
+                details: err.details,
+            }
         });
         return;
     }
@@ -102,8 +106,10 @@ export function errorMiddleware(
     // Handle database errors
     if (err.message?.includes('duplicate key')) {
         res.status(409).json({
-            error: 'Conflict',
-            message: 'Resource already exists',
+            error: {
+                name: 'Conflict',
+                message: 'Resource already exists',
+            }
         });
         return;
     }
@@ -123,8 +129,10 @@ export function errorMiddleware(
     }, 'Generic 500 Error Caught');
 
     res.status(statusCode).json({
-        error: 'Error',
-        message,
+        error: {
+            name: 'Error',
+            message,
+        }
     });
 }
 
@@ -133,8 +141,10 @@ export function errorMiddleware(
  */
 export function notFoundMiddleware(req: Request, res: Response): void {
     res.status(404).json({
-        error: 'Not Found',
-        message: `Route ${req.method} ${req.path} not found`,
+        error: {
+            name: 'NotFound',
+            message: `Route ${req.method} ${req.path} not found`,
+        }
     });
 }
 

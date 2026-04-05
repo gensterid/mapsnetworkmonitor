@@ -61,99 +61,95 @@ export class RouterSyncService {
  
             const latency = await measureLatency(router.host);
 
-            await db.transaction(async (tx) => {
-                // Fetch and sync netwatch in the same connection if requested
+            // 1. PRIMARY UPDATE: Always mark as online if we've successfully connected and fetched info
+            const [updatedRouter] = await db
+                .update(routers)
+                .set({
+                    status: 'online',
+                    lastSeen: new Date(),
+                    latency: latency >= 0 ? latency : null,
+                    routerOsVersion: info.version,
+                    model: info.model,
+                    serialNumber: info.serialNumber,
+                    identity: info.identity,
+                    boardName: info.boardName,
+                    architecture: info.architecture,
+                    lastErrorMessage: null, // Clear stale error messages
+                    updatedAt: new Date(),
+                })
+                .where(eq(routers.id, id))
+                .returning();
+
+            finalUpdatedRouter = updatedRouter;
+
+            // 2. STATUS CHANGE ALERT: Handle transition from offline to online
+            if (previousStatus === 'offline') {
+                await alertService.createStatusChangeAlert(id, router.name, previousStatus, 'online', undefined);
+            }
+
+            // 3. SECONDARY SYNC: Fetch and sync heavier resources (Netwatch, PPPoE, etc.)
+            // We run these separately or with localized transactions to prevent long-lived row locks on the routers table.
+            if (includeNetwatch || isFullSync) {
+                // A. Netwatch Sync
                 if (includeNetwatch) {
-                    // 1. Sync hosts (Netwatch list)
-                    const availableInterfaces = interfaces ? new Set(interfaces.map((i: any) => i.name)) : new Set<string>();
-                    await routerNetwatchService.syncHosts(id, router.name, conn, availableInterfaces, tx);
- 
-                    // 2. Measure latency for synced hosts
-                    const syncedEntries = await routerNetwatchService.getNetwatch(id, tx);
-                    // Filter targets for ping
-                    const targets = syncedEntries.filter((e: any) => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
-                    await routerNetwatchService.measureLatency(id, router.name, conn, targets, tx);
- 
-                    // 3. Track PPPoE sessions
                     try {
+                        const availableInterfaces = interfaces ? new Set(interfaces.map((i: any) => i.name)) : new Set<string>();
+                        await routerNetwatchService.syncHosts(id, finalUpdatedRouter!.name, conn, availableInterfaces);
+                        const syncedEntries = await routerNetwatchService.getNetwatch(id);
+                        const targets = syncedEntries.filter((e: any) => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
+                        await routerNetwatchService.measureLatency(id, finalUpdatedRouter!.name, conn, targets);
+                        
+                        // Propagate to ONUs
+                        await routerNetwatchService.propagateTraffic(id, finalUpdatedRouter!.name, conn);
+                        await routerNetwatchService.syncToOnus(id);
+                    } catch (netwatchErr) {
+                        logger.error({ err: netwatchErr, router: finalUpdatedRouter!.name }, 'Degraded Mode: Netwatch/ONU synchronization failed');
+                    }
+                }
+
+                // B. PPPoE & Queues Sync
+                if (isFullSync) {
+                    try {
+                        // Track Sessions
                         const currentPppSessions = await getPppSessions(conn);
-                        await pppoeService.trackSessions(id, router.name, currentPppSessions, tx);
-                    } catch (pppoeError) {
-                        logger.error({ err: pppoeError, router: router.name }, 'Failed to track PPPoE sessions');
-                    }
- 
-                    // 4. Fetch Simple Queues for Heatmap Traffic
-                    try {
+                        await pppoeService.trackSessions(finalUpdatedRouter, currentPppSessions);
+                        
+                        // Simple Queues
                         const queues = await getSimpleQueues(conn);
-                        await pppoeService.updateTraffic(id, queues, tx);
-                    } catch (qErr) {
-                        logger.error({ err: qErr, router: router.name }, 'Failed to sync queues');
-                    }
- 
-                    // 5. Propagate Interface Traffic
-                    await routerNetwatchService.propagateTraffic(id, router.name, conn, tx);
- 
-                    // 6. Sync Netwatch Status to ONUs (Bridging)
-                    await routerNetwatchService.syncToOnus(id, tx);
-                }
+                        await pppoeService.updateTraffic(id, queues);
 
-
-                // Update router info
-                const [updatedRouter] = await tx
-                    .update(routers)
-                    .set({
-                        status: 'online',
-                        lastSeen: new Date(),
-                        latency: latency >= 0 ? latency : null,
-                        routerOsVersion: info.version,
-                        model: info.model,
-                        serialNumber: info.serialNumber,
-                        identity: info.identity,
-                        boardName: info.boardName,
-                        architecture: info.architecture,
-                        lastErrorMessage: null, // Clear stale error messages on success
-                        updatedAt: new Date(),
-                        ...(isFullSync ? { lastFullSync: new Date() } : {}),
-                    })
-                    .where(eq(routers.id, id))
-                    .returning();
- 
-                finalUpdatedRouter = updatedRouter;
- 
-                // Create alert if status changed from offline to online
-                if (previousStatus === 'offline') {
-                    await alertService.createStatusChangeAlert(
-                        id,
-                        router.name,
-                        previousStatus,
-                        'online',
-                        undefined,
-                        tx
-                    );
-                }
-
-                // Save metrics only if resources are available (Full Sync)
-                if (resources) {
-                    await routerMetricsService.saveMetrics(id, router.name, router.tenantId!, resources, tx);
-                }
-
-                // Update interfaces
-                if (interfaces) {
-                    let trafficMap: Map<string, { tx: number, rx: number }> | undefined;
-                    
-                    // FETCH REAL-TIME TRAFFIC: If SNMP is not primary (or disabled), fetch rates via API monitor-traffic
-                    // to ensure accurate history and prevent spikes from counter resets.
-                    if ((router.snmpStatus !== 'online' || !router.useSnmp) && isFullSync && interfaces.length > 0) {
-                        try {
-                            const interfaceNames = interfaces.map((i: any) => i.name);
-                            trafficMap = await routerActionService.getInterfaceTraffic(id, interfaceNames, tenantId);
-                        } catch (err) {
-                            logger.warn({ err: String(err), router: router.name }, 'Failed to fetch real-time traffic during sync');
+                        // Metrics
+                        if (resources) {
+                            await routerMetricsService.saveMetrics(id, finalUpdatedRouter!.name, finalUpdatedRouter!.tenantId!, resources);
                         }
-                    }
 
-                    await routerInterfaceService.syncInterfaces(id, interfaces, tx, router.snmpStatus || undefined, trafficMap, router.useSnmp);
+                        // Update lastFullSync timestamp ONLY on success
+                        await db.update(routers).set({ lastFullSync: new Date() }).where(eq(routers.id, id));
+                    } catch (pppoeErr) {
+                        logger.error({ err: pppoeErr, router: finalUpdatedRouter!.name }, 'Degraded Mode: PPPoE/Metrics synchronization failed');
+                    }
                 }
+            }
+
+            // 4. INTERFACE SYNC: Update interfaces if they were fetched
+            if (interfaces) {
+                try {
+                    let trafficMap: Map<string, { tx: number; rx: number }> | undefined;
+                    if ((router.snmpStatus !== 'online' || !router.useSnmp) && isFullSync && interfaces.length > 0) {
+                        const interfaceNames = interfaces.map((i: any) => i.name);
+                        trafficMap = await routerActionService.getInterfaceTraffic(id, interfaceNames, tenantId);
+                    }
+                    await routerInterfaceService.syncInterfaces(id, interfaces, undefined, router.snmpStatus || undefined, trafficMap, router.useSnmp);
+                } catch (intfErr) {
+                    logger.error({ err: intfErr, router: router.name }, 'Degraded Mode: Interface synchronization failed');
+                }
+            }
+
+            // Broadcast update to frontend (map and list)
+            eventEmitter.broadcast('map_update', {
+                type: 'router',
+                id: id,
+                action: 'update',
             });
 
             return finalUpdatedRouter;
@@ -165,6 +161,18 @@ export class RouterSyncService {
 
             const errMsg = error?.message || String(error);
             
+            // DIAGNOSTIC: Log the full raw error for every sync failure
+            logger.warn({
+                err: errMsg,
+                errCode: error?.code || error?.errno,
+                router: router.name,
+                host: router.host,
+                port: router.port,
+                username: router.username,
+                passwordPresent: !!router.passwordEncrypted,
+                previousStatus,
+            }, '🔍 [DIAG] Router sync failure - raw error details');
+
             // Reduced logging for persistent offline routers
             if (previousStatus === 'offline') {
                 logger.debug({ err: errMsg, router: router.name, host: router.host }, 'Router still offline');
@@ -176,18 +184,27 @@ export class RouterSyncService {
             let friendlyError = 'API Error';
             const lowErrMsg = errMsg.toLowerCase();
 
-            if (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password')) {
+            // Prevent false positives: if the error is a database query failure, 
+            // the raw SQL might contain the column name "password_encrypted", but it's not a MikroTik login failure.
+            const isDbError = lowErrMsg.includes('failed query:');
+
+            if (!isDbError && (lowErrMsg.includes('login failure') || lowErrMsg.includes('invalid') || lowErrMsg.includes('password'))) {
+                logger.error({ rawError: errMsg }, '🚨 [DIAG] Error classified as Salah Password');
                 friendlyError = 'Salah Password / Username';
-            } else if (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout') || lowErrMsg.includes('timed out after')) {
+            } else if (!isDbError && (lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout') || lowErrMsg.includes('timed out after'))) {
                 friendlyError = 'Connection Timeout / Busy';
-            } else if (lowErrMsg.includes('econnrefused')) {
+            } else if (!isDbError && lowErrMsg.includes('econnrefused')) {
                 friendlyError = 'Connection Refused (API Service Off?)';
-            } else if (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect') || lowErrMsg.includes('enotfound') || lowErrMsg.includes('eai_again')) {
+            } else if (!isDbError && (lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('cannot connect') || lowErrMsg.includes('enotfound') || lowErrMsg.includes('eai_again'))) {
                 friendlyError = 'Mikrotik Mati / DNS Error / Unreachable';
-            } else if (lowErrMsg.includes('econnreset') || lowErrMsg.includes('epipe') || lowErrMsg.includes('socket hang up')) {
+            } else if (!isDbError && (lowErrMsg.includes('econnreset') || lowErrMsg.includes('epipe') || lowErrMsg.includes('socket hang up'))) {
                 friendlyError = 'API Terputus (Connection Reset)';
-            } else if (lowErrMsg.includes('network') || lowErrMsg.includes('unreachable')) {
+            } else if (!isDbError && (lowErrMsg.includes('network') || lowErrMsg.includes('unreachable'))) {
                 friendlyError = 'Network Issue / Unreachable';
+            } else if (isDbError) {
+                // Include specific Postgres detail in the database error message for better diagnostics.
+                const pgDetail = errMsg.split('\n')[0].replace('Failed query:', '').trim();
+                friendlyError = `Database Update Error${pgDetail ? ': ' + pgDetail.substring(0, 30) : ' during Sync'}`;
             } else {
                 friendlyError = `API Error: ${errMsg.substring(0, 50)}${errMsg.length > 50 ? '...' : ''}`;
             }
@@ -231,23 +248,23 @@ export class RouterSyncService {
     /**
      * Measure latency for all netwatch hosts on a router
      */
-    async measureNetwatchLatency(routerId: string, customConn?: any): Promise<void> {
+    async measureNetwatchLatency(id: string, customConn?: any): Promise<void> {
         if (customConn) {
-            const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
-            const entries = await routerNetwatchService.getNetwatch(routerId);
+            const [router] = await db.select().from(routers).where(eq(routers.id, id));
+            const entries = await routerNetwatchService.getNetwatch(id);
             const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
-            return routerNetwatchService.measureLatency(routerId, router?.name || 'Unknown', customConn, targets);
+            return routerNetwatchService.measureLatency(id, router?.name || 'Unknown', customConn, targets);
         }
 
-        const [router] = await db.select().from(routers).where(eq(routers.id, routerId));
+        const [router] = await db.select().from(routers).where(eq(routers.id, id));
         if (!router) return;
 
         let conn;
         try {
-            conn = await routerActionService.getRouterConnection(routerId);
-            const entries = await routerNetwatchService.getNetwatch(routerId);
+            conn = await routerActionService.getRouterConnection(id);
+            const entries = await routerNetwatchService.getNetwatch(id);
             const targets = entries.filter(e => e.host && e.host.length > 5 && e.host !== '0.0.0.0');
-            await routerNetwatchService.measureLatency(routerId, router.name, conn, targets);
+            await routerNetwatchService.measureLatency(id, router.name, conn, targets);
         } catch (err) {
             logger.error({ err, router: router.name }, 'Failed to measure netwatch latency');
         } finally {
@@ -258,15 +275,15 @@ export class RouterSyncService {
     /**
      * Sync netwatch entries from MikroTik router to database
      */
-    async syncNetwatchFromRouter(routerId: string): Promise<{ synced: number; errors: string[] }> {
-        return routerNetwatchService.fullSync(routerId);
+    async syncNetwatchFromRouter(id: string): Promise<{ synced: number; errors: string[] }> {
+        return routerNetwatchService.fullSync(id);
     }
 
     /**
      * UNIFIED LINKAGE: Sync Netwatch bridging to ONUS table
      */
-    async syncToOnus(routerId: string): Promise<void> {
-        return routerNetwatchService.syncToOnus(routerId);
+    async syncToOnus(id: string): Promise<void> {
+        return routerNetwatchService.syncToOnus(id);
     }
 }
 

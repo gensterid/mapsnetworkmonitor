@@ -187,6 +187,13 @@ router.put(
         const router = await routerService.update(id, updateData, getEffectiveTenantId(req));
         if (!router) throw ApiError.notFound('Router not found');
 
+        // Immediately trigger status refresh after update to clear errors and update UI
+        try {
+            await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req));
+        } catch (err: any) {
+            logger.warn({ routerId: id, err }, 'Refresh after update failed');
+        }
+
         await settingsService.logAction('update', 'router', router.id, req.user!.id, req.user!.tenantId!, { changes: Object.keys(data) }, req);
 
         const { passwordEncrypted, ...sanitized } = router;

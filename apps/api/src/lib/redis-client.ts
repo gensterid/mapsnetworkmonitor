@@ -20,6 +20,8 @@ export const bullmqRedisOptions: RedisOptions = {
     maxRetriesPerRequest: null, // Required by BullMQ for blocking commands
 };
 
+let redisReady = false;
+
 // Shared Redis connection
 let redisConnection: Redis | null = null;
 
@@ -29,17 +31,38 @@ export function getRedisConnection() {
             redisConnection = new Redis(REDIS_URL, redisOptions);
 
             redisConnection.on('error', (err: Error) => {
+                redisReady = false;
                 logger.error({ err: err.message }, 'Redis connection error (Shared)');
             });
 
             redisConnection.on('connect', () => {
                 logger.info('Connected to Redis (Shared)');
             });
+
+            redisConnection.on('ready', () => {
+                redisReady = true;
+                logger.info('Redis connection is ready');
+            });
+
+            redisConnection.on('close', () => {
+                redisReady = false;
+            });
         } catch (err: any) {
+            redisReady = false;
             logger.error({ err: err.message }, 'Failed to initialize shared Redis connection');
         }
     }
     return redisConnection;
+}
+
+/**
+ * Check if Redis is currently available and ready
+ */
+export function isRedisAvailable(): boolean {
+    if (!redisConnection) {
+        getRedisConnection();
+    }
+    return redisReady && redisConnection?.status === 'ready';
 }
 
 /**

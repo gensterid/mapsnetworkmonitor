@@ -91,7 +91,13 @@ router.put(
             throw ApiError.badRequest('Tenant context is required to update settings');
         }
 
-        const setting = await settingsService.setSetting(key, value, tenantId as string, description);
+        const result = await settingsService.setSetting(key, value, tenantId as string, description);
+
+        if (!result.ok) {
+            throw ApiError.internal(result.error.message || 'Failed to update setting');
+        }
+
+        const setting = result.value;
 
         // Check if scheduler restart is needed
         if (key.includes('interval')) {

@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'crypto';
+import { logger } from './logger.js';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16;
@@ -46,9 +47,10 @@ export function encrypt(plainText: string): string {
 /**
  * Decrypt an encrypted string (Supports legacy and V2)
  * @param encryptedText - The encrypted text
+ * @param context - Optional context (e.g. router name) for logging
  * @returns Decrypted plain text
  */
-export function decrypt(encryptedText: string): string {
+export function decrypt(encryptedText: string, context?: string): string {
     if (!encryptedText) return '';
     
     try {
@@ -90,10 +92,11 @@ export function decrypt(encryptedText: string): string {
     } catch (error: any) {
         // Log the error but don't crash the entire request
         // This usually happens when ENCRYPTION_KEY has changed
-        console.error('Decryption failed. This usually indicates an ENCRYPTION_KEY mismatch or corrupted data.', {
-            error: error.message,
+        logger.error({
+            err: error.message,
+            context: context || 'unknown',
             format: encryptedText.split(':')[0]
-        });
+        }, '🚨 Decryption failed. This usually indicates an ENCRYPTION_KEY mismatch or corrupted data.');
         
         // Return empty string. Downstream services will fail with "Auth Failed" 
         // instead of "500 Internal Server Error", which is much better.

@@ -28,8 +28,11 @@ const createClusterCustomIcon = (cluster) => {
                 (packetLoss !== null && packetLoss > 0) ||
                 (signalPower !== null && signalPower < -24);
 
-            // Smart Warning: ODP only shows warning if it has an IP host (monitored via latency/loss)
-            const isWarning = hasPerformanceIssue && (marker.options.type !== 'odp' || (marker.options.host));
+            // Is it a full ODP? (New Consistency Logic)
+            const isFullOdp = marker.options.type === 'odp' && marker.options.portCapacity && marker.options.usedPorts >= marker.options.portCapacity;
+
+            // Smart Warning: ODP only shows warning if it has an IP host (monitored via latency/loss) OR if it is full
+            const isWarning = (hasPerformanceIssue && (marker.options.type !== 'odp' || (marker.options.host))) || isFullOdp;
 
             if (isWarning) {
                 hasIssue = true;
@@ -40,13 +43,16 @@ const createClusterCustomIcon = (cluster) => {
 
     const childCount = cluster.getChildCount();
 
-    // Color logic: Red > Yellow > Blue
+    // Color logic: Red (Offline) > Yellow (Warning/Full ODP) > Blue (Default)
     let bgColor = 'rgba(59, 130, 246, 0.9)'; // Blue (Default)
     if (hasDown) {
         bgColor = 'rgba(239, 68, 68, 0.9)'; // Red
     } else if (hasIssue) {
         bgColor = 'rgba(234, 179, 8, 0.9)'; // Yellow (Amber-500)
     }
+
+    // Pulse Logic Consistency: Pulse if there is an offline device OR an ODP at capacity
+    const shouldPulse = hasDown || hasIssue;
 
     return L.divIcon({
         html: `
@@ -64,7 +70,7 @@ const createClusterCustomIcon = (cluster) => {
                 font-size: 12px;
                 box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
                 position: relative;
-                ${hasDown ? 'animation: pulse-ring 2s infinite;' : ''}
+                ${shouldPulse ? 'animation: pulse-ring 2s infinite;' : ''}
             ">
                     <span>${childCount}</span>
                     ${hasDown ? `

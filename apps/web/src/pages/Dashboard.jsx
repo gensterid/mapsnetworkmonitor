@@ -42,10 +42,30 @@ import clsx from 'clsx';
 // Stats Card Component
 function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progress, href, onClick }) {
     const colorClasses = {
-        success: { bg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 border border-emerald-500/20', text: 'text-emerald-400', icon: 'text-emerald-400' },
-        danger: { bg: 'bg-gradient-to-br from-red-500/20 to-red-500/5 border border-red-500/20', text: 'text-red-400', icon: 'text-red-400' },
-        warning: { bg: 'bg-gradient-to-br from-amber-500/20 to-amber-500/5 border border-amber-500/20', text: 'text-amber-400', icon: 'text-amber-400' },
-        primary: { bg: 'bg-gradient-to-br from-blue-500/20 to-blue-500/5 border border-blue-500/20', text: 'text-blue-400', icon: 'text-blue-400' },
+        success: { 
+            bg: 'gradient-emerald opacity-20', 
+            border: 'border-emerald-500/30', 
+            text: 'text-emerald-400', 
+            glow: 'shadow-[0_0_20px_rgba(16,185,129,0.3)]' 
+        },
+        danger: { 
+            bg: 'gradient-rose opacity-20', 
+            border: 'border-red-500/30', 
+            text: 'text-red-400', 
+            glow: 'shadow-[0_0_20px_rgba(239,68,68,0.3)]' 
+        },
+        warning: { 
+            bg: 'gradient-amber opacity-20', 
+            border: 'border-amber-500/30', 
+            text: 'text-amber-400', 
+            glow: 'shadow-[0_0_20px_rgba(245,158,11,0.3)]' 
+        },
+        primary: { 
+            bg: 'gradient-indigo opacity-20', 
+            border: 'border-blue-500/30', 
+            text: 'text-blue-400', 
+            glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]' 
+        },
     };
     const colors = colorClasses[color] || colorClasses.primary;
 
@@ -58,35 +78,41 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
 
     const cardContent = (
         <>
-            <div className={clsx("absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity", colors.text)} aria-hidden="true">
-                <Icon className="w-16 h-16" />
+            <div className={clsx("absolute inset-0 z-0 transition-opacity duration-500", colors.bg)} aria-hidden="true" />
+            <div className={clsx("absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-30 transition-all duration-500 group-hover:scale-110", colors.text)} aria-hidden="true">
+                <Icon className="w-20 h-20" />
             </div>
             <div className="flex items-center gap-3 z-10">
-                <div className={clsx("w-10 h-10 rounded-lg flex items-center justify-center", colors.bg)} aria-hidden="true">
-                    <Icon className={clsx("w-5 h-5", colors.icon)} />
+                <div className={clsx("w-10 h-10 rounded-xl flex items-center justify-center bg-white/5 border backdrop-blur-md", colors.border)} aria-hidden="true">
+                    <Icon className={clsx("w-5 h-5", colors.text)} />
                 </div>
-                <span className="text-slate-400 text-sm font-medium">{label}</span>
+                <span className="text-slate-300 text-sm font-semibold tracking-tight">{label}</span>
             </div>
             <div className="flex items-end gap-2 z-10">
-                <span className="text-3xl font-bold text-white">{value}</span>
+                <span className={clsx("text-4xl font-bold text-white tracking-tight drop-shadow-lg", colors.text === 'text-emerald-400' && "text-shadow-glow-emerald")}>
+                    {value}
+                </span>
                 {trend && (
-                    <span className={clsx("text-xs font-medium mb-1.5 flex items-center", colors.text)}>
+                    <span className={clsx("text-xs font-bold mb-2 flex items-center px-1.5 py-0.5 rounded-lg bg-white/5", colors.text)}>
                         {trend}
                     </span>
                 )}
                 {trendLabel && (
-                    <span className="text-xs font-medium text-slate-500 mb-1.5">{trendLabel}</span>
+                    <span className="text-[10px] font-bold text-slate-500 mb-2 uppercase tracking-widest">{trendLabel}</span>
                 )}
             </div>
             {progress !== undefined && (
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-surface-dark" aria-hidden="true">
-                    <div className={clsx("h-full", colors.bg.replace('/20', ''))} style={{ width: `${progress}%` }} />
+                <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/20" aria-hidden="true">
+                    <div className={clsx("h-full transition-all duration-1000", colors.bg.replace(' opacity-20', ''))} style={{ width: `${progress}%` }} />
                 </div>
             )}
         </>
     );
 
-    const cardClassName = "glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group hover:-translate-y-1 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5 cursor-pointer outline-none focus:ring-2 focus:ring-primary/50";
+    const cardClassName = clsx(
+        "glass-premium rounded-2xl p-6 flex flex-col justify-between h-40 relative overflow-hidden group card-hover-premium cursor-pointer outline-none focus:ring-2 focus:ring-primary/50",
+        colors.border
+    );
 
     if (href) {
         return (
@@ -121,55 +147,65 @@ function MultiStatsCard({ icon: Icon, label, total, up, down, color, onClickDown
     const isClickable = down > 0 && onClickDown;
     
     return (
-        <div className="glass-panel rounded-xl p-5 flex flex-col justify-between h-32 relative overflow-hidden group">
-            <div className="absolute right-0 top-0 p-4 opacity-5" aria-hidden="true">
-                <Icon className="w-16 h-16" />
+        <div className="glass-premium rounded-2xl p-6 flex flex-col justify-between h-40 relative overflow-hidden group card-hover-premium border-white/5">
+            <div className="absolute inset-0 z-0 gradient-indigo opacity-5" aria-hidden="true" />
+            <div className="absolute right-0 top-0 p-4 opacity-5 group-hover:opacity-10 transition-all duration-500" aria-hidden="true">
+                <Icon className="w-20 h-20" />
             </div>
             
-            <div className="flex items-center gap-3">
-                <div className={clsx(
-                    "w-8 h-8 rounded flex items-center justify-center bg-slate-800/80 text-slate-400"
-                )}>
-                    <Icon className="w-4 h-4" />
+            <div className="flex items-center gap-3 relative z-10">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/5 border border-white/10 text-slate-400">
+                    <Icon className="w-5 h-5" />
                 </div>
-                <span className="text-slate-400 text-xs font-semibold tracking-wide uppercase">{label}</span>
+                <span className="text-slate-400 text-xs font-bold tracking-widest uppercase">{label}</span>
             </div>
 
-            <div className="flex items-end justify-between z-10 mt-2">
+            <div className="flex items-end justify-between z-10 mt-2 relative">
                 <div className="flex flex-col">
-                    <span className="text-2xl font-bold text-white">{total}</span>
-                    <span className="text-[10px] text-slate-500 font-medium uppercase tracking-tighter">Total Entries</span>
+                    <span className="text-4xl font-black text-white tracking-tighter drop-shadow-lg">{total}</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-80">Total Nodes</span>
                 </div>
                 
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-5">
                     <div className="flex flex-col items-end">
-                        <span className="text-emerald-400 text-lg font-bold">{up}</span>
-                        <span className="text-[9px] text-slate-500 uppercase font-black">Online</span>
+                        <span className="text-emerald-400 text-xl font-black">{up}</span>
+                        <span className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">Active</span>
                     </div>
                     
                     <button 
                         onClick={() => isClickable && onClickDown()}
                         disabled={!isClickable}
                         className={clsx(
-                            "flex flex-col items-end transition-all outline-none",
-                            isClickable ? "hover:scale-110 cursor-pointer" : "opacity-50 cursor-default"
+                            "flex flex-col items-end transition-all outline-none relative",
+                            isClickable ? "hover:scale-110 cursor-pointer" : "opacity-30 cursor-default"
                         )}
                     >
+                        {down > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-2 w-2">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                            </span>
+                        )}
                         <span className={clsx(
-                            "text-lg font-bold",
-                            down > 0 ? "text-red-400 animate-pulse" : "text-slate-500"
+                            "text-xl font-black transition-colors duration-300",
+                            down > 0 ? "text-red-400" : "text-slate-600"
                         )}>{down}</span>
-                        <span className="text-[9px] text-slate-500 uppercase font-black">Down</span>
+                        <span className="text-[9px] text-slate-500 uppercase font-black tracking-tighter">Critical</span>
                     </button>
                 </div>
             </div>
             
-            {/* Progress bar based on health */}
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-800" aria-hidden="true">
+            {/* Health Bar (Premium) */}
+            <div className="absolute bottom-0 left-0 w-full h-1.5 bg-black/20" aria-hidden="true">
                 <div 
-                    className={clsx("h-full transition-all duration-1000", down === 0 ? "bg-emerald-500" : "bg-red-500")} 
+                    className={clsx(
+                        "h-full transition-all duration-1000 relative",
+                        down === 0 ? "bg-emerald-500 shadow-[0_0_10px_#10b981]" : "bg-red-500 shadow-[0_0_10px_#ef4444]"
+                    )} 
                     style={{ width: `${total > 0 ? (up / total) * 100 : 100}%` }} 
-                />
+                >
+                    <div className="absolute inset-0 bg-white/20 animate-pulse" />
+                </div>
             </div>
         </div>
     );

@@ -1,11 +1,7 @@
-import { eq, and, or, ilike, isNull, gte, sql, inArray, notInArray, desc } from 'drizzle-orm';
+import { eq, and, or, ilike, gte, inArray, notInArray, desc, isNull, type SQL } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import {
-    alerts,
-    userRouters,
-    type Alert,
-    type NewAlert,
-} from '../db/schema/index.js';
+import { alerts, userRouters, type Alert, type NewAlert } from '../db/schema/index.js';
+import { alertRepository } from '../repositories/alert.repository.js';
 import { aiService } from './ai.service.js';
 import { notificationService } from './notification.service.js';
 import { eventEmitter } from './event-emitter.service.js';
@@ -16,10 +12,8 @@ import {
     getRouterSnmpConfig,
     ALERT_COOLDOWN_MINUTES,
     ISSUE_TYPES,
-    CONNECTIVITY_TYPES,
-    isIssue 
+    CONNECTIVITY_TYPES 
 } from './alert-core.service.js';
-import { alertQueryService } from './alert-query.service.js';
 
 export class AlertActionService {
     /**
@@ -31,19 +25,16 @@ export class AlertActionService {
         tx: any = db
     ): Promise<Alert | null> {
         const cooldownTime = new Date(Date.now() - ALERT_COOLDOWN_MINUTES * 60 * 1000);
+        const alerts = await alertRepository.findAll({
+            routerId,
+            type,
+            resolved: false,
+            sortOrder: 'desc',
+            limit: 1
+        }, tx);
 
-        const [existing] = await tx
-            .select()
-            .from(alerts)
-            .where(and(
-                eq(alerts.routerId, routerId),
-                eq(alerts.type, type),
-                isNull(alerts.resolvedAt)
-            ))
-            .orderBy(desc(alerts.createdAt))
-            .limit(1);
-
-        if (existing && existing.createdAt > cooldownTime) {
+        const existing = alerts.data[0];
+        if (existing && new Date(existing.createdAt) > cooldownTime) {
             return existing as Alert;
         }
         return null;
@@ -53,21 +44,20 @@ export class AlertActionService {
      * Create a new alert
      */
     async create(data: NewAlert, tx: any = db): Promise<Alert> {
-        const [alert] = await tx.insert(alerts).values(data).returning();
+        const alert = await alertRepository.create(data, tx);
 
         // Trigger notification
         if (data.routerId) {
-            notificationService.notifyAlert(alert as Alert, data.routerId).catch(err =>
+            notificationService.notifyAlert(alert, data.routerId).catch(err =>
                 logger.error({ err: err?.message || String(err) }, 'Failed to trigger notification')
             );
 
-            const assignedUsers = await db
+            const assignedUsers = await tx
                 .select({ userId: userRouters.userId })
                 .from(userRouters)
                 .where(eq(userRouters.routerId, data.routerId));
 
-            const userIds = assignedUsers.map(u => u.userId);
-
+            const userIds = assignedUsers.map((u: any) => u.userId);
             eventEmitter.broadcastToUsers('new_alert', {
                 alert,
                 message: `New alert: ${alert.title}`,
@@ -83,50 +73,24 @@ export class AlertActionService {
 
         // High-priority AI Diagnosis (Async)
         if (alert.severity === 'critical') {
-            aiService.analyzeAlert(alert.id, alert.tenantId).then(analysis => {
+            aiService.analyzeAlert(alert.id, alert.tenantId).then(async analysis => {
                 if (analysis) {
-                    db.update(alerts)
+                    await tx.update(alerts)
                         .set({ aiAnalysis: analysis })
-                        .where(eq(alerts.id, alert.id))
-                        .execute()
-                        .catch(err => logger.error({ err, alertId: alert.id }, 'Failed to save AI analysis'));
+                        .where(eq(alerts.id, alert.id));
                 }
             }).catch(err => logger.error({ err, alertId: alert.id }, 'AI analysis background task failed'));
         }
 
-        return alert as Alert;
+        return alert;
     }
 
     /**
      * Acknowledge an alert
      */
     async acknowledge(id: string, userId: string, userRole?: string, tenantId?: string): Promise<Alert | undefined> {
-        const filters = [eq(alerts.id, id)];
-        if (tenantId) {
-            filters.push(eq(alerts.tenantId, tenantId));
-        }
-
-        if (userRole === 'user') {
-            const assigned = await db
-                .select({ routerId: userRouters.routerId })
-                .from(userRouters)
-                .where(eq(userRouters.userId, userId));
-
-            const routerIds = assigned.map(a => a.routerId);
-            if (routerIds.length === 0) return undefined;
-            filters.push(inArray(alerts.routerId, routerIds));
-        }
-
-        const [alert] = await db
-            .update(alerts)
-            .set({
-                acknowledged: true,
-                acknowledgedBy: userId,
-                acknowledgedAt: new Date(),
-            })
-            .where(and(...filters))
-            .returning();
-
+        const alert = await alertRepository.acknowledge(id, userId);
+        
         if (alert) {
             eventEmitter.broadcast('alerts_updated', {
                 type: 'acknowledge',
@@ -136,32 +100,30 @@ export class AlertActionService {
             });
         }
 
-        return alert as Alert;
+        return alert;
     }
 
     /**
      * Acknowledge all alerts
      */
     async acknowledgeAll(userId: string, userRole?: string, category?: 'issues' | 'alerts', tenantId?: string): Promise<boolean> {
-        const filters = [eq(alerts.acknowledged, false)];
-        if (tenantId) {
-            filters.push(eq(alerts.tenantId, tenantId));
-        }
+        const filters: SQL[] = [eq(alerts.acknowledged, false)];
+        if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
 
         if (userRole === 'user') {
+            const { userRouters } = await import('../db/schema/index.js');
             const assigned = await db
                 .select({ routerId: userRouters.routerId })
                 .from(userRouters)
                 .where(eq(userRouters.userId, userId));
 
-            const routerIds = assigned.map(a => a.routerId);
+            const routerIds = assigned.map((a: any) => a.routerId);
             if (routerIds.length === 0) return true;
             filters.push(inArray(alerts.routerId, routerIds));
         }
 
         if (category) {
             if (category === 'issues') {
-                // Same logic as isIssue but in SQL
                 filters.push(or(
                     inArray(alerts.type, ISSUE_TYPES as any),
                     and(
@@ -181,7 +143,7 @@ export class AlertActionService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(and(...filters as any[]));
+            .where(and(...filters));
 
         eventEmitter.broadcast('alerts_updated', {
             type: 'acknowledge_all',
@@ -197,10 +159,8 @@ export class AlertActionService {
      * Resolve all alerts
      */
     async resolveAll(userId: string, userRole?: string, category?: 'issues' | 'alerts', tenantId?: string): Promise<boolean> {
-        const filters = [eq(alerts.resolved, false)];
-        if (tenantId) {
-            filters.push(eq(alerts.tenantId, tenantId));
-        }
+        const filters: SQL[] = [eq(alerts.resolved, false)];
+        if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
 
         if (userRole === 'user') {
             const assigned = await db
@@ -208,7 +168,7 @@ export class AlertActionService {
                 .from(userRouters)
                 .where(eq(userRouters.userId, userId));
 
-            const routerIds = assigned.map(a => a.routerId);
+            const routerIds = assigned.map((a: any) => a.routerId);
             if (routerIds.length === 0) return true;
             filters.push(inArray(alerts.routerId, routerIds));
         }
@@ -230,7 +190,7 @@ export class AlertActionService {
                 acknowledgedBy: userId,
                 acknowledgedAt: new Date(),
             })
-            .where(and(...filters as any[]));
+            .where(and(...filters));
 
         eventEmitter.broadcast('alerts_updated', {
             type: 'resolve_all',
@@ -246,19 +206,7 @@ export class AlertActionService {
      * Resolve an alert
      */
     async resolve(id: string, tenantId?: string): Promise<Alert | undefined> {
-        const filters = [eq(alerts.id, id)];
-        if (tenantId) {
-            filters.push(eq(alerts.tenantId, tenantId));
-        }
-        const [alert] = await db
-            .update(alerts)
-            .set({
-                resolved: true,
-                resolvedAt: new Date(),
-            })
-            .where(and(...filters))
-            .returning();
-
+        const alert = await alertRepository.resolve(id);
         if (alert) {
             eventEmitter.broadcast('alerts_updated', {
                 type: 'resolve',
@@ -266,20 +214,14 @@ export class AlertActionService {
                 timestamp: new Date().toISOString()
             });
         }
-
-        return alert as Alert;
+        return alert;
     }
 
     /**
      * Delete an alert
      */
     async delete(id: string, tenantId?: string): Promise<boolean> {
-        const filters = [eq(alerts.id, id)];
-        if (tenantId) {
-            filters.push(eq(alerts.tenantId, tenantId));
-        }
-        const result = await db.delete(alerts).where(and(...filters)).returning();
-        return result.length > 0;
+        return alertRepository.delete(id, { tenantId });
     }
 
     /**
@@ -307,11 +249,16 @@ export class AlertActionService {
                 ));
 
             let resolvedCount = 0;
+            const idsToResolve = [];
             for (const alert of unresolvedAlerts) {
                 if (host && alert.message && alert.message.includes(host)) {
-                    await tx.update(alerts).set({ resolved: true, resolvedAt: new Date() }).where(eq(alerts.id, alert.id));
+                    idsToResolve.push(alert.id);
                     resolvedCount++;
                 }
+            }
+            
+            if (idsToResolve.length > 0) {
+                await alertRepository.resolveBatch(idsToResolve, tx);
             }
 
             const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -477,9 +424,18 @@ export class AlertActionService {
      * Resolve active metric alerts
      */
     async resolveActiveMetricAlerts(routerId: string, type: 'high_cpu' | 'high_memory', tenantId?: string, tx: any = db): Promise<void> {
-        const filters = [eq(alerts.routerId, routerId), eq(alerts.type, type), eq(alerts.resolved, false)];
-        if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
-        await tx.update(alerts).set({ resolved: true, resolvedAt: new Date() }).where(and(...filters));
+        const unresolved = await tx
+            .select({ id: alerts.id })
+            .from(alerts)
+            .where(and(
+                eq(alerts.routerId, routerId), 
+                eq(alerts.type, type), 
+                eq(alerts.resolved, false)
+            ));
+        
+        if (unresolved.length > 0) {
+            await alertRepository.resolveBatch(unresolved.map((a: any) => a.id), tx);
+        }
     }
 
     private formatDuration(seconds: number): string {
@@ -542,13 +498,13 @@ export class AlertActionService {
     async resolvePerformanceAlert(routerId: string, host: string | null, tenantId?: string, tx: any = db): Promise<number> {
         const filters = [eq(alerts.routerId, routerId), inArray(alerts.type, ['threshold', 'high_latency', 'packet_loss']), eq(alerts.resolved, false)];
         if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
+        
         const existingAlerts = await tx.select().from(alerts).where(and(...filters));
         const alertsToResolve = host ? existingAlerts.filter((a: any) => a.message && a.message.includes(host)) : [];
         if (alertsToResolve.length === 0) return 0;
+        
         const idsToResolve = alertsToResolve.map((a: any) => a.id);
-        await tx.update(alerts).set({ resolved: true, resolvedAt: new Date() }).where(inArray(alerts.id, idsToResolve));
-        eventEmitter.broadcast('alerts_updated', { type: 'resolve_batch', ids: idsToResolve, timestamp: new Date().toISOString() });
-        return idsToResolve.length;
+        return alertRepository.resolveBatch(idsToResolve, tx);
     }
 
     /**
@@ -559,34 +515,21 @@ export class AlertActionService {
             eq(alerts.routerId, routerId),
             eq(alerts.resolved, false),
             or(
-                eq(alerts.type, 'netwatch_down'),
-                eq(alerts.type, 'status_change'),
-                eq(alerts.type, 'high_latency'),
-                eq(alerts.type, 'packet_loss'),
-                eq(alerts.type, 'threshold')
+                eq(alerts.type, 'netwatch_down' as any),
+                eq(alerts.type, 'status_change' as any),
+                eq(alerts.type, 'high_latency' as any),
+                eq(alerts.type, 'packet_loss' as any),
+                eq(alerts.type, 'threshold' as any)
             )
         ];
         if (tenantId) filters.push(eq(alerts.tenantId, tenantId));
         
         const existingAlerts = await tx.select().from(alerts).where(and(...filters));
         const alertsToResolve = host ? existingAlerts.filter((a: any) => a.message && a.message.includes(host)) : [];
-        
         if (alertsToResolve.length === 0) return 0;
         
         const idsToResolve = alertsToResolve.map((a: any) => a.id);
-        await tx.update(alerts).set({ 
-            resolved: true, 
-            resolvedAt: new Date(),
-            updatedAt: new Date() 
-        }).where(inArray(alerts.id, idsToResolve));
-        
-        eventEmitter.broadcast('alerts_updated', { 
-            type: 'resolve_batch', 
-            ids: idsToResolve, 
-            timestamp: new Date().toISOString() 
-        });
-        
-        return idsToResolve.length;
+        return alertRepository.resolveBatch(idsToResolve, tx);
     }
 
     /**
@@ -594,7 +537,7 @@ export class AlertActionService {
      */
     async createSnmpErrorAlert(routerId: string, routerName: string, error: string, tx: any = db) {
         // Find existing unresolved SNMP alert
-        const existing = await this.findRecentUnresolvedAlert(routerId, 'snmp_error' as any, tx);
+        const existing = await this.findRecentUnresolvedAlert(routerId, 'snmp_error', tx);
         
         if (existing) {
             // Update message if error changed
@@ -608,16 +551,7 @@ export class AlertActionService {
         }
 
         const { tenantId, useSnmp } = await getRouterSnmpConfig(routerId, tx);
-        
-        if (!useSnmp) {
-            logger.debug({ routerId }, 'SNMP disabled for router, skipping SNMP alert creation');
-            return;
-        }
-
-        if (!tenantId) {
-             logger.error({ routerId }, 'Could not find tenantId for router, skipping SNMP alert');
-             return;
-        }
+        if (!useSnmp || !tenantId) return;
         
         return this.create({
             routerId,
@@ -635,17 +569,18 @@ export class AlertActionService {
      * Resolve SNMP error alert
      */
     async resolveSnmpErrorAlert(routerId: string, tx: any = db) {
-        await tx.update(alerts)
-            .set({ 
-                resolvedAt: new Date(),
-                updatedAt: new Date(),
-                resolved: true
-            })
+        const unresolved = await tx
+            .select({ id: alerts.id })
+            .from(alerts)
             .where(and(
                 eq(alerts.routerId, routerId),
                 eq(alerts.type, 'snmp_error' as any),
-                isNull(alerts.resolvedAt)
+                eq(alerts.resolved, false)
             ));
+        
+        if (unresolved.length > 0) {
+            await alertRepository.resolveBatch(unresolved.map((a: any) => a.id), tx);
+        }
     }
 }
 

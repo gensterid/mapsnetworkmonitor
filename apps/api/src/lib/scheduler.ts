@@ -147,16 +147,32 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
         } catch (queueError: any) {
             logger.warn({ tenantId, err: queueError.message }, '⚠️ Redis Queue failed, falling back to direct polling (Sequentially)...');
             
-            // Sequential fallback to avoid overwhelming the system/router without Redis concurrency control
-            for (const router of activeRouters) {
-                try {
-                    const isFullSync = (Date.now() - (router.lastFullSync ? new Date(router.lastFullSync).getTime() : 0)) >= (router.pollingIntervalMetrics || 300) * 1000;
-                    await routerService.refreshRouterStatus(router.id, true, isFullSync, tenantId);
-                    successCount++;
-                } catch (syncErr: any) {
-                    logger.error({ routerId: router.id, err: syncErr.message }, '❌ Direct polling failed for router');
-                    failCount++;
-                }
+            // Fallback: limited concurrency polling when Redis is down
+            // This prevents overwhelming the DB while still being faster than pure sequential.
+            const CONCURRENCY_LIMIT = 5;
+            const chunks = [];
+            for (let i = 0; i < activeRouters.length; i += CONCURRENCY_LIMIT) {
+                chunks.push(activeRouters.slice(i, i + CONCURRENCY_LIMIT));
+            }
+
+            for (const chunk of chunks) {
+                await Promise.all(
+                    chunk.map(async (router) => {
+                        try {
+                            const isFullSync = (Date.now() - (router.lastFullSync ? new Date(router.lastFullSync).getTime() : 0)) >= (router.pollingIntervalMetrics || 300) * 1000;
+                            // Add a per-router timeout to prevent connection pool exhaustion
+                            await withTimeout(
+                                routerService.refreshRouterStatus(router.id, true, isFullSync, tenantId),
+                                30000, 
+                                `Polling timeout for ${router.name}`
+                            );
+                            successCount++;
+                        } catch (syncErr: any) {
+                            logger.error({ routerId: router.id, err: syncErr.message }, `❌ Polling failed: ${syncErr.message}`);
+                            failCount++;
+                        }
+                    })
+                );
             }
         }
     } catch (error: any) {

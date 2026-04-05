@@ -30,26 +30,30 @@ const NavItem = ({ path, icon: Icon, label, badge, badgeColor, isActive, onClose
         aria-current={isActive ? 'page' : undefined}
         aria-label={label}
         className={clsx(
-            "flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group relative overflow-hidden",
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden mb-0.5",
             isActive
-                ? "bg-primary/10 text-primary font-medium"
-                : "text-slate-400 hover:bg-slate-800/50 hover:text-slate-100"
+                ? "bg-primary/10 text-white font-semibold"
+                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
         )}
     >
         {isActive && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent animate-pulse opacity-50" />
+        )}
+        
+        {isActive && (
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-r-full shadow-[0_0_15px_rgba(59,130,246,0.8)] z-20" />
         )}
 
         <Icon
             className={clsx(
-                "w-5 h-5 transition-colors",
-                isActive ? "text-primary" : "group-hover:text-primary/80"
+                "w-5 h-5 transition-all duration-300 z-10",
+                isActive ? "text-primary scale-110" : "group-hover:text-primary group-hover:scale-110"
             )}
         />
-        <span className="text-sm">{label}</span>
+        <span className="text-sm z-10">{label}</span>
         {badge !== undefined && badge > 0 && (
             <span className={clsx(
-                "ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm",
+                "ml-auto text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10",
                 badgeColor || "bg-slate-800 text-slate-300"
             )}>
                 {badge}
@@ -86,15 +90,15 @@ const Sidebar = ({ isOpen, onClose }) => {
         <aside
             aria-label="Sidebar Navigation"
             className={clsx(
-                "fixed lg:static inset-y-0 left-0 z-40 w-72 bg-surface-dark border-r border-slate-800/60 flex flex-col justify-between transition-transform duration-300 ease-in-out shadow-2xl lg:shadow-none",
+                "fixed lg:static inset-y-0 left-0 z-40 w-72 flex flex-col justify-between transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none",
                 isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
             )}>
-            <div className="flex flex-col h-full bg-gradient-to-b from-surface-dark to-background-dark">
+            <div className="flex flex-col h-full glass-premium border-r border-white/5">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
                     <div className="flex gap-3 items-center">
                         <div
-                            className="bg-center bg-no-repeat bg-cover rounded-full size-10 ring-2 ring-slate-700/50 shadow-lg"
+                            className="bg-center bg-no-repeat bg-cover rounded-full size-11 ring-2 ring-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-scanner-pulse"
                             style={{ backgroundImage: `url("${currentUser?.image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1XHZMAnwPDnl7XWDZTj6Fo5vz7tTYbe25rFl6RD5z5dbMYjPsgmj5EZYVGlNUcrblJmUFusaH1lZNUdSs98aMvJZZ2d2NcHmmbIFilw69mwIv5nKCWhOMx92t1dhoxq5djsd0kT1EP29FXVBiiY4NR3ExJa9rIS2O6QKmCxq6f5nDyDdaSKWgiDbh7AIhd9xvJUAnIwme70MpVL9eGWFGZtJ3R2wd61KiqrJ2hMOff1lm1ZUFtw_fI7TTg8Nj7-acAhqr3IOSNOet'}")` }}
                         >
                         </div>

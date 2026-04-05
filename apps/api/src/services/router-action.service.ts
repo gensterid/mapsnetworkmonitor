@@ -37,7 +37,7 @@ export class RouterActionService {
 
         return {
             ...router,
-            password: router.passwordEncrypted ? decrypt(router.passwordEncrypted) : '',
+            password: router.passwordEncrypted ? decrypt(router.passwordEncrypted, router.name) : '',
         };
     }
 
@@ -53,6 +53,18 @@ export class RouterActionService {
             username: router.username,
             password: router.password || '',
         };
+
+        // DIAGNOSTIC: Log password state before connecting
+        if (!router.password || router.password.length === 0) {
+            logger.error({
+                routerId,
+                name: router.name,
+                host: router.host,
+                username: router.username,
+                passwordEncryptedPresent: !!router.passwordEncrypted,
+                passwordEncryptedPrefix: router.passwordEncrypted?.substring(0, 10),
+            }, '🚨 [DIAG] Router password is EMPTY after decryption! This will cause "Salah Password" error.');
+        }
 
         if (router.gatewayId && router.romonMac) {
             const gateway = await this.findRouterWithPassword(router.gatewayId, tenantId);

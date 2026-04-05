@@ -57,6 +57,9 @@ import { eventEmitter } from './event-emitter.service.js';
 import { routerActionService } from './router-action.service.js';
 import { routerSyncService } from './router-sync.service.js';
 import { cacheService } from '../lib/cache.js';
+import { routerRepository } from '../repositories/router.repository.js';
+import { metricRepository } from '../repositories/metric.repository.js';
+import { interfaceRepository } from '../repositories/interface.repository.js';
 
 export interface CreateRouterInput {
     name: string;
@@ -144,110 +147,64 @@ export class RouterService {
         userId?: string,
         userRole?: string
     ): Promise<(Router & { latestMetrics?: RouterMetric; maxInterfaceSpeed?: string })[]> {
-        let query = db.select().from(routers).orderBy(routers.name).$dynamic();
-
-        const filters = [];
-
-        // Tenant Isolation
-        if (tenantId) {
-            if (Array.isArray(tenantId)) {
-                if (tenantId.length > 0) {
-                    filters.push(inArray(routers.tenantId, tenantId));
-                }
-            } else {
-                filters.push(eq(routers.tenantId, tenantId));
-            }
-        }
-
-        // If user is not admin, filter by assigned routers
-        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
-            const assigned = await db
-                .select({ routerId: userRouters.routerId })
-                .from(userRouters)
-                .where(eq(userRouters.userId, userId));
-
-            const routerIds = assigned.map((a) => a.routerId);
-
-            if (routerIds.length === 0) {
-                return [];
-            }
-
-            filters.push(inArray(routers.id, routerIds));
-        }
-
-        if (filters.length > 0) {
-            query = db
-                .select()
-                .from(routers)
-                .where(and(...filters))
-                .orderBy(routers.name)
-                .$dynamic();
-        }
-
         const cacheKey = `routers:list:${tenantId || 'global'}:${userId || 'none'}`;
         const cached = await cacheService.get<any[]>(cacheKey);
         if (cached) return cached;
 
-        const allRouters = await query;
+        // Use repository for the base router list (handles RBAC and Tenant Isolation)
+        const allRouters = await routerRepository.findAll({ tenantId, userId, userRole });
         if (allRouters.length === 0) return [];
 
         const routerIds = allRouters.map(r => r.id);
-        const { inArray: inArr } = await import('drizzle-orm');
-
-        // Batch query 1: Latest metrics for all routers using DISTINCT ON
-        // Convert JS array to PostgreSQL array literal for proper binding
-        const routerIdsArrayLiteral = `{${routerIds.join(',')}}`;
-        const latestMetricsRows: RouterMetric[] = await db.execute(sql`
-            SELECT DISTINCT ON (router_id) *
-            FROM router_metrics
-            WHERE router_id = ANY(${routerIdsArrayLiteral}::uuid[])
-            ORDER BY router_id, recorded_at DESC
-        `);
-
         const metricsMap = new Map<string, RouterMetric>();
-        for (const raw of latestMetricsRows as any[]) {
-            metricsMap.set(raw.router_id, {
-                id: raw.id,
-                tenantId: raw.tenant_id,
-                routerId: raw.router_id,
-                cpuLoad: raw.cpu_load,
-                cpuCount: raw.cpu_count,
-                cpuFrequency: raw.cpu_frequency,
-                totalMemory: raw.total_memory,
-                freeMemory: raw.free_memory,
-                usedMemory: raw.used_memory,
-                totalDisk: raw.total_disk,
-                freeDisk: raw.free_disk,
-                usedDisk: raw.used_disk,
-                uptime: raw.uptime,
-                temperature: raw.temperature,
-                voltage: raw.voltage,
-                boardTemp: raw.board_temp,
-                currentFirmware: raw.current_firmware,
-                upgradeFirmware: raw.upgrade_firmware,
-                recordedAt: raw.recorded_at,
-            });
-        }
-
-        // Batch query 2: All running interfaces for all routers
-        const allInterfaces = await db
-            .select()
-            .from(routerInterfaces)
-            .where(
-                and(
-                    inArr(routerInterfaces.routerId, routerIds),
-                    eq(routerInterfaces.running, true)
-                )
-            );
-
         const speedMap = new Map<string, string>();
-        for (const iface of allInterfaces) {
-            if (iface.speed) {
-                const current = speedMap.get(iface.routerId);
-                if (!current || this.parseSpeed(iface.speed) > this.parseSpeed(current)) {
-                    speedMap.set(iface.routerId, iface.speed);
+
+        try {
+            // Batch query 1: Latest metrics for all routers via metricRepository
+            const latestMetricsRaw = await metricRepository.findLatestForRouters(routerIds);
+            
+            // Handle raw row results (SQL result set)
+            const rows = (latestMetricsRaw as any).rows || (Array.isArray(latestMetricsRaw) ? latestMetricsRaw : []);
+            for (const raw of rows) {
+                // Mapping pg_snake_case to camelCase
+                metricsMap.set(raw.router_id || raw.routerId, {
+                    id: raw.id,
+                    tenantId: raw.tenant_id || raw.tenantId,
+                    routerId: raw.router_id || raw.routerId,
+                    cpuLoad: raw.cpu_load || raw.cpuLoad,
+                    cpuCount: raw.cpu_count || raw.cpuCount,
+                    cpuFrequency: raw.cpu_frequency || raw.cpuFrequency,
+                    totalMemory: raw.total_memory || raw.totalMemory,
+                    freeMemory: raw.free_memory || raw.freeMemory,
+                    usedMemory: raw.used_memory || raw.usedMemory,
+                    totalDisk: raw.total_disk || raw.totalDisk,
+                    freeDisk: raw.free_disk || raw.freeDisk,
+                    usedDisk: raw.used_disk || raw.usedDisk,
+                    uptime: raw.uptime,
+                    temperature: raw.temperature,
+                    voltage: raw.voltage,
+                    boardTemp: raw.board_temp || raw.boardTemp,
+                    currentFirmware: raw.current_firmware || raw.currentFirmware,
+                    upgradeFirmware: raw.upgrade_firmware || raw.upgradeFirmware,
+                    recordedAt: raw.recorded_at || raw.recordedAt,
+                });
+            }
+
+            // Batch query 2: All running interfaces for all routers via interfaceRepository
+            const allInterfaces = await interfaceRepository.findByRouterIds(routerIds);
+            const activeInterfaces = allInterfaces.filter(i => i.running);
+
+            for (const iface of activeInterfaces) {
+                if (iface.speed) {
+                    const current = speedMap.get(iface.routerId);
+                    if (!current || this.parseSpeed(iface.speed) > this.parseSpeed(current)) {
+                        speedMap.set(iface.routerId, iface.speed);
+                    }
                 }
             }
+        } catch (err) {
+            // Log the error but don't fail the request - routers without metrics are better than no routers
+            logger.error({ routerIds, err }, 'Degraded Mode: Failed to fully enrich router list with metrics/speeds');
         }
 
         // Assemble results with O(1) lookups
@@ -261,6 +218,34 @@ export class RouterService {
         await cacheService.set(cacheKey, results, 30);
 
         return results;
+    }
+
+    /**
+     * Find router by ID with optional tenant and RBAC filtering
+     * Optimized with a 60-second cache.
+     */
+    async findById(
+        id: string,
+        tenantId?: string,
+        userId?: string,
+        userRole?: string
+    ): Promise<Router | undefined> {
+        const cacheKey = `routers:detail:${id}`;
+        const cached = await cacheService.get<Router>(cacheKey);
+        
+        // Cache hit (verify tenant access if provided)
+        if (cached && (!tenantId || cached.tenantId === tenantId)) {
+             return cached;
+        }
+
+        // Cache miss - use repository
+        const router = await routerRepository.findById(id, { tenantId, userId, userRole });
+        
+        if (router) {
+            await cacheService.set(cacheKey, router, 60);
+        }
+
+        return router;
     }
 
     /**
@@ -301,29 +286,7 @@ export class RouterService {
         return unit === 'G' ? value * 1000 : value;
     }
 
-    /**
-     * Get router by ID
-     */
-    async findById(id: string, tenantId?: string): Promise<Router | undefined> {
-        const filters = [eq(routers.id, id)];
-        if (tenantId) {
-            filters.push(eq(routers.tenantId, tenantId));
-        }
 
-        const cacheKey = `routers:detail:${id}`;
-        const cached = await cacheService.get<Router>(cacheKey);
-        if (cached && (!tenantId || cached.tenantId === tenantId)) return cached;
-
-        const [router] = await db
-            .select()
-            .from(routers)
-            .where(and(...filters));
-
-        if (router) {
-            await cacheService.set(cacheKey, router, 60); // Cache for 1 min
-        }
-        return router;
-    }
 
     /**
      * Get router by ID with decrypted password (for internal use)

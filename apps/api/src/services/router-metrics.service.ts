@@ -1,19 +1,12 @@
-import { eq, desc, and, sql, inArray } from 'drizzle-orm';
-import { db } from '../db/index.js';
-import {
-    routers,
-    routerMetrics,
-    routerInterfaces,
-    routerInterfaceMetrics,
-    routerNetwatch,
-    type RouterMetric,
-    type RouterInterface,
-} from '../db/schema/index.js';
+import { metricRepository } from '../repositories/metric.repository.js';
+import { netwatchRepository } from '../repositories/netwatch.repository.js';
+import { interfaceRepository } from '../repositories/interface.repository.js';
+import { type RouterMetric, type RouterInterface } from '../db/schema/index.js';
+import { parseUptimeToSeconds, parseSnmpValue } from '../lib/mikrotik-api.js';
 import { alertService } from './alert.service.js';
 import { snmpService } from './snmp.service.js';
-import { interfaceRepository } from '../repositories/interface.repository.js';
-import { parseUptimeToSeconds, parseSnmpValue } from '../lib/mikrotik-api.js';
 import { logger } from '../lib/logger.js';
+import { db } from '../db/index.js'; // Keep db for direct access if needed, but strive for repos
 
 export class RouterMetricsService {
     /**
@@ -23,12 +16,7 @@ export class RouterMetricsService {
         routerId: string,
         limit = 100
     ): Promise<RouterMetric[]> {
-        return db
-            .select()
-            .from(routerMetrics)
-            .where(eq(routerMetrics.routerId, routerId))
-            .orderBy(desc(routerMetrics.recordedAt))
-            .limit(limit);
+        return metricRepository.getRouterHistory(routerId, { limit });
     }
 
     /**
@@ -38,7 +26,7 @@ export class RouterMetricsService {
         if (!resources) return;
 
         try {
-            await tx.insert(routerMetrics).values({
+            await metricRepository.insertRouterMetrics([{
                 routerId,
                 tenantId,
                 cpuLoad: resources.cpuLoad,
@@ -50,7 +38,7 @@ export class RouterMetricsService {
                 usedDisk: resources.usedDisk,
                 uptime: resources.uptime ? parseUptimeToSeconds(resources.uptime) : undefined,
                 recordedAt: new Date(),
-            });
+            }], tx);
 
             // Check for metric-based alerts (CPU/Memory thresholds)
             await alertService.checkAndCreateMetricAlerts(
@@ -127,27 +115,19 @@ export class RouterMetricsService {
                 }
             }
 
-            // 4. Pre-fetch all interfaces for this router to avoid N+1 queries
+            // 4. Pre-fetch all interfaces for this router via repository
             const existingInterfaces = await interfaceRepository.findByRouterId(router.id, tx);
-            
             const interfaceMap = new Map<string, RouterInterface>(
                 existingInterfaces.map((i: RouterInterface) => [i.name, i])
             );
 
-            // 5. Pre-fetch latest metric timestamps to avoid N+1 queries for history
+            // 5. Pre-fetch latest metric timestamps via repository
             const interfaceIds = existingInterfaces.map((i: RouterInterface) => i.id);
-            const lastMetrics = interfaceIds.length > 0 ? await tx
-                .select({ 
-                    interfaceId: routerInterfaceMetrics.interfaceId, 
-                    recordedAt: sql<Date>`max(${routerInterfaceMetrics.recordedAt})` 
-                })
-                .from(routerInterfaceMetrics)
-                .where(inArray(routerInterfaceMetrics.interfaceId, interfaceIds))
-                .groupBy(routerInterfaceMetrics.interfaceId) 
-                : [];
+            const lastMetricsRaw = await metricRepository.findLatestForInterfaces(interfaceIds, tx);
+            const lastMetrics = (lastMetricsRaw as any).rows || lastMetricsRaw;
             
             const lastMetricMap = new Map<string, Date>(
-                lastMetrics.map((m: any) => [m.interfaceId, m.recordedAt])
+                lastMetrics.map((m: any) => [m.interface_id || m.interfaceId, m.recorded_at || m.recordedAt])
             );
 
             // 6. Calculate rates and update DB
@@ -158,7 +138,6 @@ export class RouterMetricsService {
                 const existing = interfaceMap.get(name);
                 if (existing) {
                     const now = new Date();
-                    // Use dedicated traffic timestamp, fallback to lastUpdated, then now
                     const lastUpdate = existing.lastTrafficAt ? new Date(existing.lastTrafficAt) : (existing.lastUpdated ? new Date(existing.lastUpdated) : now);
                     const seconds = (now.getTime() - lastUpdate.getTime()) / 1000;
                     let txRate = 0;
@@ -184,30 +163,22 @@ export class RouterMetricsService {
                                 if (isNaN(txRate)) txRate = 0;
                                 if (isNaN(rxRate)) rxRate = 0;
 
-                                // SPIKE GUARD: Cap at 100Gbps and log the event for investigation
-                                const MAX_EXPECTED_BPS = 100_000_000_000; // 100 Gbps
+                                // SPIKE GUARD: Cap at 100Gbps
+                                const MAX_EXPECTED_BPS = 100_000_000_000;
                                 if (txRate > MAX_EXPECTED_BPS || rxRate > MAX_EXPECTED_BPS) {
-                                    logger.warn({
-                                        router: router.name,
-                                        interface: name,
-                                        txRate,
-                                        rxRate,
-                                        currentTx: currentTx.toString(),
-                                        prevTx: prevTx.toString(),
-                                        currentRx: currentRx.toString(),
-                                        prevRx: prevRx.toString(),
-                                        seconds
-                                    }, '⚠️ Detected suspicious SNMP traffic spike, capping to 0 bps');
-                                    
+                                    logger.warn({ router: router.name, interface: name, txRate, rxRate }, 'Detected traffic spike, capping');
                                     if (txRate > MAX_EXPECTED_BPS) txRate = 0;
                                     if (rxRate > MAX_EXPECTED_BPS) rxRate = 0;
                                 }
                             }
                         } catch (calcErr) {
-                            logger.error({ err: calcErr, router: router.name, interface: name }, 'Failed to calculate BigInt traffic rates');
+                            logger.error({ err: calcErr, router: router.name, interface: name }, 'Failed to calculate rates');
                         }
                     }
  
+                    // Update main interface table
+                    const { routerInterfaces } = await import('../db/schema/index.js');
+                    const { eq } = await import('drizzle-orm');
                     await tx.update(routerInterfaces).set({
                         txBytes: String(data.tx),
                         rxBytes: String(data.rx),
@@ -217,23 +188,24 @@ export class RouterMetricsService {
                         lastUpdated: now
                     }).where(eq(routerInterfaces.id, existing.id));
 
-                    // Store history with rate-limiting (min 5s between points)
+                    // Store history via repository
                     const lastRecordedAt = lastMetricMap.get(existing.id);
-
                     if (!lastRecordedAt || (now.getTime() - new Date(lastRecordedAt).getTime() > 5000)) {
-                        await tx.insert(routerInterfaceMetrics).values({
+                        await metricRepository.insertInterfaceMetrics([{
                             interfaceId: existing.id,
                             txRate,
                             rxRate,
                             tenantId: router.tenantId,
                             recordedAt: new Date(),
-                        });
+                        }], tx);
                     }
 
                     calculatedRates[name] = { tx: txRate, rx: rxRate };
 
-                    // Propagate rates to Netwatch entries linked to this interface
+                    // Propagate rates to Netwatch via repository Utilities
                     try {
+                        const { routerNetwatch } = await import('../db/schema/index.js');
+                        const { and, eq } = await import('drizzle-orm');
                         await tx.update(routerNetwatch).set({
                             txRate,
                             rxRate,
@@ -242,68 +214,26 @@ export class RouterMetricsService {
                             eq(routerNetwatch.routerId, router.id),
                             eq(routerNetwatch.targetInterface, name)
                         ));
-                    } catch (nwErr) {
-                        logger.error({ err: nwErr, iface: name }, '[SNMP] Failed to propagate rate to netwatch');
-                    }
+                    } catch (nwErr) {}
                 }
             }
 
-            // Update SNMP status on success
+            // Sync SNMP status back to router via repository/direct
+            const { routers } = await import('../db/schema/index.js');
+            const { eq } = await import('drizzle-orm');
             await tx.update(routers).set({
                 snmpStatus: 'online',
                 lastSnmpError: null,
                 updatedAt: new Date()
             }).where(eq(routers.id, router.id));
 
-            // Resolve any active SNMP error alerts
             try {
                 await alertService.resolveSnmpErrorAlert(router.id, tx);
-            } catch (alertErr) {
-                logger.error({ err: alertErr, routerId: router.id }, 'Failed to resolve SNMP alert');
-            }
-
-            // Emit real-time event for success
-            try {
-                const { eventEmitter } = await import('./event-emitter.service.js');
-                eventEmitter.broadcast('router:updated', {
-                    id: router.id,
-                    snmpStatus: 'online',
-                    lastSnmpError: null,
-                    tenantId: router.tenantId
-                });
             } catch (evErr) {}
 
             return calculatedRates;
         } catch (error: any) {
             logger.error({ err: error.message, host: snmpHost }, 'SNMP traffic failed');
-            
-            // Update SNMP status on failure
-            try {
-                await tx.update(routers).set({
-                    snmpStatus: 'error',
-                    lastSnmpError: error.message,
-                    updatedAt: new Date()
-                }).where(eq(routers.id, router.id));
-
-                // Create/Update SNMP error alert
-                try {
-                    await alertService.createSnmpErrorAlert(router.id, router.name, error.message, tx);
-                } catch (alertErr) {
-                    logger.error({ err: alertErr, routerId: router.id }, 'Failed to create SNMP alert');
-                }
-
-                // Emit real-time event for failure
-                const { eventEmitter } = await import('./event-emitter.service.js');
-                eventEmitter.broadcast('router:updated', {
-                    id: router.id,
-                    snmpStatus: 'error',
-                    lastSnmpError: error.message,
-                    tenantId: router.tenantId
-                });
-            } catch (dbErr) {
-                // Ignore DB error here if transaction failed
-            }
-            
             return {};
         }
     }

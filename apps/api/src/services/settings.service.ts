@@ -1,21 +1,19 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
-    appSettings,
-    auditLogs,
     type AppSetting,
     type AuditLog,
     type NewAuditLog,
 } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
+import { settingRepository } from '../repositories/setting.repository.js';
+import { auditRepository } from '../repositories/audit.repository.js';
+import { type Result, ok, err } from '../lib/result.js';
 
 /**
  * Settings Service - handles app settings and audit logs
  */
 export class SettingsService {
-    private cache: Map<string, { data: AppSetting; timestamp: number }> = new Map();
-    private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
-
     // Global fallback settings for all tenants (Infrastructure level)
     private readonly GLOBAL_FALLBACKS: Record<string, any> = {
         googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || null,
@@ -31,11 +29,9 @@ export class SettingsService {
      * Get all settings
      */
     async findAllSettings(tenantId?: string): Promise<AppSetting[]> {
-        const query = db.select().from(appSettings);
-        if (tenantId) {
-            query.where(eq(appSettings.tenantId, tenantId));
-        }
-        const dbSettings = await query;
+        const dbSettings = tenantId 
+            ? await settingRepository.findAll(tenantId)
+            : await settingRepository.findAllGlobal();
 
         // If environment variable is set, it overrides ANY database value for webhook_base_url
         const hasEnvOverride = !!process.env.WEBHOOK_BASE_URL;
@@ -85,32 +81,10 @@ export class SettingsService {
             return undefined;
         }
 
-        // Check cache
-        const cacheKey = `${tenantId}:${key}`;
-        const cached = this.cache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-            return cached.data;
-        }
-
-        // Explicit Environment Overrides (Priority 1)
-        if (key === 'webhook_base_url' && process.env.WEBHOOK_BASE_URL) {
-            return {
-                id: '00000000-0000-0000-0000-000000000000' as any,
-                tenantId: tenantId as any,
-                key,
-                value: process.env.WEBHOOK_BASE_URL,
-                description: 'System Environment Override',
-                updatedAt: new Date()
-            };
-        }
-
-        const [setting] = await db
-            .select()
-            .from(appSettings)
-            .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)));
+        // Get from repository (which handles caching)
+        const setting = await settingRepository.findByKey(tenantId, key);
 
         if (setting) {
-            this.cache.set(cacheKey, { data: setting, timestamp: Date.now() });
             return setting;
         }
 
@@ -146,96 +120,51 @@ export class SettingsService {
         value: unknown,
         tenantId: string,
         description?: string
-    ): Promise<AppSetting> {
+    ): Promise<Result<AppSetting>> {
         if (!tenantId) {
-            throw new Error(`Cannot set setting "${key}": tenantId is required.`);
+            return err(new Error(`Cannot set setting "${key}": tenantId is required.`));
         }
 
-        // [FIX] Check database directly for existence to avoid virtual override collision
-        // We bypass getSetting() here because it returns virtual/fallbacks which confuse the INSERT/UPDATE logic
-        const [existing] = await db
-            .select()
-            .from(appSettings)
-            .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)));
-
-        let setting: AppSetting;
-
-        if (existing) {
-            // Update existing real setting
-            const [updated] = await db
-                .update(appSettings)
-                .set({ value, description: description || existing.description, updatedAt: new Date() })
-                .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)))
-                .returning();
-            setting = updated;
-        } else {
-            // Create new
-            const [created] = await db
-                .insert(appSettings)
-                .values({ key, value, description, tenantId })
-                .returning();
-            setting = created;
+        try {
+            const setting = await settingRepository.upsert({
+                key,
+                value,
+                tenantId,
+                description
+            });
+            return ok(setting);
+        } catch (error) {
+            logger.error({ key, tenantId, err: error }, '[Settings] Failed to set setting');
+            return err(error as Error);
         }
-
-        // Update cache
-        if (setting) {
-            this.cache.set(`${tenantId}:${key}`, { data: setting, timestamp: Date.now() });
-        }
-
-        return setting;
     }
 
     /**
      * Delete a setting
      */
     async deleteSetting(key: string, tenantId: string): Promise<boolean> {
-        const result = await db
-            .delete(appSettings)
-            .where(and(eq(appSettings.key, key), eq(appSettings.tenantId, tenantId)))
-            .returning();
-
-        if (result.length > 0) {
-            this.cache.delete(`${tenantId}:${key}`);
-        }
-
-        return result.length > 0;
+        return settingRepository.delete(tenantId, key);
     }
 
     /**
      * Create an audit log entry
      */
     async createAuditLog(data: NewAuditLog): Promise<AuditLog> {
-        const [log] = await db.insert(auditLogs).values(data).returning();
-        return log;
+        return auditRepository.create(data);
     }
 
     /**
      * Get audit logs
      */
     async getAuditLogs(tenantId?: string, limit = 100): Promise<AuditLog[]> {
-        const filters = [];
-        if (tenantId) {
-            filters.push(eq(auditLogs.tenantId, tenantId));
-        }
-
-        return db
-            .select()
-            .from(auditLogs)
-            .where(and(...filters))
-            .orderBy(desc(auditLogs.createdAt))
-            .limit(limit);
+        return auditRepository.findAll({ tenantId, limit });
     }
 
     /**
      * Get audit logs by user
      */
     async getAuditLogsByUser(userId: string, limit = 100): Promise<AuditLog[]> {
-        return db
-            .select()
-            .from(auditLogs)
-            .where(eq(auditLogs.userId, userId))
-            .orderBy(desc(auditLogs.createdAt))
-            .limit(limit);
+        return auditRepository.findAll({ userId, limit });
     }
 
     /**
@@ -247,17 +176,7 @@ export class SettingsService {
         tenantId?: string,
         limit = 100
     ): Promise<AuditLog[]> {
-        const filters = [eq(auditLogs.entity, entity), eq(auditLogs.entityId, entityId)];
-        if (tenantId) {
-            filters.push(eq(auditLogs.tenantId, tenantId));
-        }
-
-        return db
-            .select()
-            .from(auditLogs)
-            .where(and(...filters))
-            .orderBy(desc(auditLogs.createdAt))
-            .limit(limit);
+        return auditRepository.findAll({ entity, entityId, tenantId, limit });
     }
 
     /**

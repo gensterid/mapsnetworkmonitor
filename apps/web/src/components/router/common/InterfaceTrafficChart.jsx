@@ -48,7 +48,12 @@ function InterfaceTrafficChart({ routerId, interfaces }) {
         if (interfaces?.length > 0) {
             const current = interfaces.find(i => i.name === selectedInterface);
             if (!selectedInterface || !current) {
-                setSelectedInterface(interfaces[0].name);
+                // Default to interface with highest combined traffic (TX + RX)
+                const highest = [...interfaces].sort((a, b) => 
+                    (Number(b.txRate || 0) + Number(b.rxRate || 0)) - 
+                    (Number(a.txRate || 0) + Number(a.rxRate || 0))
+                )[0];
+                setSelectedInterface(highest?.name || interfaces[0].name);
             }
         }
     }, [interfaces, selectedInterface]);

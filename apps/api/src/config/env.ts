@@ -39,6 +39,7 @@ export function validateEnv(): Env {
     try {
         const parsed = envSchema.parse(process.env);
         
+        
         // Custom validation for security defaults in production
         if (parsed.NODE_ENV === 'production') {
             const INSECURE_DEFAULTS = [
@@ -56,6 +57,11 @@ export function validateEnv(): Env {
             }
         }
         
+        logger.info({ 
+            keyLength: parsed.ENCRYPTION_KEY.length, 
+            keyPrefix: parsed.ENCRYPTION_KEY.substring(0, 8) 
+        }, '🔑 Loaded ENCRYPTION_KEY');
+
         return parsed;
     } catch (err) {
         if (err instanceof z.ZodError) {

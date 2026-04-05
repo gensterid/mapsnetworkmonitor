@@ -22,11 +22,30 @@ apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
         const data = error.response?.data;
+        
+        // Extract message from multiple possible formats
+        let message = 'Something went wrong';
+        let details = data?.details;
+
+        if (data) {
+            // New standardized format: { error: { message, name, details } }
+            if (typeof data.error === 'object' && data.error !== null) {
+                message = data.error.message || message;
+                details = data.error.details || details;
+            } 
+            // Legacy/Standard formats: { message: "msg" } or { error: "msg" }
+            else {
+                message = data.message || data.error || message;
+            }
+        } else if (error.message) {
+            message = error.message;
+        }
+
         const apiError = {
-            message: data?.message || data?.error || error.message || 'Something went wrong',
+            message,
             status: error.response?.status,
             code: error.code,
-            details: data?.details
+            details
         };
         
         // Handle 401 unauthorized - redirect to login

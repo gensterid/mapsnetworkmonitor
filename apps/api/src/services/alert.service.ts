@@ -98,7 +98,7 @@ export class AlertService {
         return alertActionService.createPppoeDisconnectAlert(routerId, routerName, username, ipAddress, sessionDurationSeconds, tx);
     }
 
-    async createPerformanceAlert(routerId: string, routerName: string, host: string, deviceName: string, latency: number, packetLoss: number, status?: string, tx?: any) {
+    async createPerformanceAlert(routerId: string, routerName: string, host: string | null, deviceName: string, latency: number, packetLoss: number, status?: string, tx?: any) {
         return alertActionService.createPerformanceAlert(routerId, routerName, host, deviceName, latency, packetLoss, status, tx);
     }
 
@@ -110,11 +110,11 @@ export class AlertService {
         return alertActionService.resolveSnmpErrorAlert(routerId, tx);
     }
 
-    async resolvePerformanceAlert(routerId: string, host: string, tenantId?: string, tx: any = db) {
+    async resolvePerformanceAlert(routerId: string, host: string | null, tenantId?: string, tx: any = db) {
         return alertActionService.resolvePerformanceAlert(routerId, host, tenantId, tx);
     }
 
-    async resolveAlertsByHost(routerId: string, host: string, tenantId?: string, tx: any = db) {
+    async resolveAlertsByHost(routerId: string, host: string | null, tenantId?: string, tx: any = db) {
         return alertActionService.resolveAlertsByHost(routerId, host, tenantId, tx);
     }
 }

@@ -94,10 +94,12 @@ export const DraggableMarker = ({
                 latency: props.latency,
                 packetLoss: props.packetLoss,
                 lastRxPower: props.lastRxPower,
-                host: props.host
+                host: props.host,
+                usedPorts: props.usedPorts,
+                portCapacity: props.portCapacity
             });
         }
-    }, [props.status, props.type, props.latency, props.packetLoss, props.lastRxPower, props.host]);
+    }, [props.status, props.type, props.latency, props.packetLoss, props.lastRxPower, props.host, props.usedPorts, props.portCapacity]);
 
     const eventHandlers = useMemo(() => {
         const handlers = {

@@ -55,3 +55,10 @@ process.on('message', (msg) => {
         process.exit(0);
     }
 });
+
+// Auto-kill if parent process dies abruptly (Ghost Process Prevention)
+process.on('disconnect', () => {
+    logger.warn('⚠️ Parent process disconnected abruptly. Shutting down ghost worker.');
+    stopScheduler();
+    process.exit(1);
+});

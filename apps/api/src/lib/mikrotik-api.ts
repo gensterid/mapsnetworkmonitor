@@ -287,6 +287,12 @@ export function isRouterosQuirk(error: any): boolean {
     const errno = String(error.errno || '').toUpperCase();
     const stack = String(error.stack || '').toLowerCase();
 
+    // Do NOT swallow actual authentication errors as "quirks".
+    // node-routeros throws RosException for auth failures!
+    if (msg.includes('login failure') || msg.includes('username or password') || msg.includes('invalid password')) {
+        return false;
+    }
+
     return (
         msg.includes('!empty') ||
         msg.includes('unknown reply') ||

@@ -55,7 +55,7 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
                     
                     // System Alignment: Resolve all alerts for the OLD IP since it's no longer assigned here
                     if (oldHost && oldHost !== '0.0.0.0') {
-                        alertService.resolveAlertsByHost(routerId, oldHost, targetOnu.tenantId, tx).catch(e => 
+                        await alertService.resolveAlertsByHost(routerId, oldHost, targetOnu.tenantId, tx).catch(e => 
                             logger.warn({ err: e.message || String(e), host: oldHost }, 'Failed to resolve alerts for old host during linkage shift')
                         );
                     }

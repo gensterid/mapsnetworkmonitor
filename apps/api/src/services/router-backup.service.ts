@@ -247,20 +247,23 @@ export class RouterBackupService {
      */
     async handleBackupUpload(routerId: string, token: string, filename: string, type: 'backup' | 'rsc', fileBuffer: any, req?: any, expectedSize?: number) {
         try {
+            // Sanitize filename to prevent path traversal
+            const safeFilename = path.basename(filename);
+            
             // Debug logging for headers
             if (req && req.headers) {
-                logger.debug({ headers: req.headers, routerId, filename, expectedSize }, 'Backup upload request headers');
+                logger.debug({ headers: req.headers, routerId, filename: safeFilename, expectedSize }, 'Backup upload request headers');
             }
 
             const bufferSize = fileBuffer instanceof Buffer ? fileBuffer.length : (fileBuffer?.length || 0);
-            logger.info({ routerId, filename, type, bufferSize, expectedSize }, 'Starting backup upload processing');
+            logger.info({ routerId, filename: safeFilename, type, bufferSize, expectedSize }, 'Starting backup upload processing');
  
             // 0. Strict Validation: Size and Type Consistency
             if (bufferSize > 50 * 1024 * 1024) {
                 throw ApiError.badRequest('File too large (max 50MB)');
             }
  
-            const ext = path.extname(filename).toLowerCase();
+            const ext = path.extname(safeFilename).toLowerCase();
             if (type === 'backup' && ext !== '.backup') {
                 throw ApiError.badRequest('Extension mismatch: Expected .backup for type backup');
             }
@@ -311,7 +314,7 @@ export class RouterBackupService {
                 fs.mkdirSync(this.backupDir, { recursive: true });
             }
 
-            const localPath = path.join(this.backupDir, filename);
+            const localPath = path.join(this.backupDir, safeFilename);
             const absolutePath = path.resolve(localPath);
             
             logger.debug({ absolutePath }, 'Target backup file path');
@@ -334,7 +337,7 @@ export class RouterBackupService {
 
             try {
                 fs.writeFileSync(localPath, fileBuffer);
-                logger.info({ filename, size: fileBuffer.length }, 'File written to disk successfully');
+                logger.info({ filename: safeFilename, size: fileBuffer.length }, 'File written to disk successfully');
             } catch (fsErr: any) {
                 logger.error({ 
                     err: fsErr.message, 
@@ -383,7 +386,7 @@ export class RouterBackupService {
             const [backupRecord] = await db.insert(routerBackups).values({
                 routerId,
                 tenantId: finalTenantId,
-                filename,
+                filename: safeFilename,
                 type,
                 size: stats.size,
                 createdAt: new Date()
@@ -437,7 +440,8 @@ export class RouterBackupService {
         });
 
         if (!backup) throw new Error('Backup record not found');
-        const filePath = path.join(this.backupDir, backup.filename);
+        const safeFilename = path.basename(backup.filename);
+        const filePath = path.join(this.backupDir, safeFilename);
         if (!fs.existsSync(filePath)) throw new Error('Physical backup file missing');
 
         return {
@@ -569,7 +573,8 @@ export class RouterBackupService {
         });
 
         if (backup) {
-            const filePath = path.join(this.backupDir, backup.filename);
+            const safeFilename = path.basename(backup.filename);
+            const filePath = path.join(this.backupDir, safeFilename);
             if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
             await db.delete(routerBackups).where(eq(routerBackups.id, backupId));
         }

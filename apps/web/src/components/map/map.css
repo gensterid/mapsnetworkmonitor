@@ -67,6 +67,18 @@ svg.leaflet-zoom-animated {
     100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
+@keyframes device-pulse-wave {
+    0% { transform: scale(0.6); opacity: 0; }
+    50% { opacity: 0.5; }
+    100% { transform: scale(1.8); opacity: 0; }
+}
+
+@keyframes status-glow {
+    0% { opacity: 0.4; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.4; }
+}
+
 /* 
    FIX: Tile Gaps (Black Grid Lines) 
    Corrects sub-pixel rendering issues in Leaflet for Standard TileLayers.
@@ -118,17 +130,52 @@ svg.leaflet-zoom-animated {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    transition: transform 0.2s ease, width 0.3s ease, height 0.3s ease;
-    /* Apply scaling here - SAFER approach */
-    will-change: transform;
+    background: rgba(15, 23, 42, 0.4) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 12px;
+    position: relative;
+    z-index: 10;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
 }
 
 .device-icon:hover .device-icon__badge {
-    transform: scale(1.2);
-    z-index: 10;
+    transform: scale(1.15) translateY(-5px);
+    border-color: var(--primary) !important;
+    background: rgba(15, 23, 42, 0.7) !important;
+    box-shadow: 0 0 20px var(--primary);
+}
+
+.device-icon__pulse {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    background: currentColor;
+    border-radius: 50%;
+    pointer-events: none;
+    z-index: 1;
+    opacity: 0;
+}
+
+.device-icon--online .device-icon__pulse {
+    color: #10b981;
+    animation: device-pulse-wave 2.5s cubic-bezier(0.25, 0, 0.3, 1) infinite;
+}
+
+.device-icon--offline .device-icon__pulse {
+    color: #ef4444;
+    animation: device-pulse-wave 2s cubic-bezier(0.25, 0, 0.3, 1) infinite;
+}
+
+.device-icon--warning .device-icon__pulse,
+.device-icon--full-pulse .device-icon__pulse {
+    color: #f59e0b;
+    animation: device-pulse-wave 3s cubic-bezier(0.25, 0, 0.3, 1) infinite;
 }
 
 /* Device type colors - Removed gradients, now handled by text color in index.css */
@@ -185,133 +232,122 @@ svg.leaflet-zoom-animated {
     transition: opacity 0.3s ease;
 }
 
-/* Webhook Indicator Badge */
-.device-icon__webhook {
+/* Premium Indicator Badge Layout */
+.device-icon__indicators {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    width: 16px;
-    height: 16px;
-    background: #facc15;
-    /* Yellow-400 */
-    color: #1e293b;
-    /* Slate-800 */
-    border-radius: 50%;
+    top: -6px;
+    right: -6px;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 1.5px solid #1e293b;
-    box-shadow: 0 0 8px rgba(250, 204, 21, 0.6);
+    flex-direction: column;
+    gap: 2px;
     z-index: 20;
 }
 
-.device-icon__webhook .material-symbols-outlined {
-    font-size: 11px !important;
-    font-weight: bold;
-}
-
-/* API Error Indicator Badge */
-.device-icon__api-error {
-    position: absolute;
-    top: -4px;
-    left: -4px;
+.device-icon__indicator {
     width: 16px;
     height: 16px;
-    background: #ef4444;
-    /* Red-500 */
-    color: white;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1.5px solid #1e293b;
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-    z-index: 25;
+    border: 1.5px solid #0f172a;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
-.device-icon__api-error .material-symbols-outlined {
+.device-icon__indicator--webhook {
+    background: #facc15;
+    color: #1e293b;
+    box-shadow: 0 0 8px rgba(250, 204, 21, 0.4);
+}
+
+.device-icon__indicator--error {
+    background: #ef4444;
+    color: white;
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+}
+
+.device-icon__indicator .material-symbols-outlined {
     font-size: 11px !important;
     font-weight: bold;
 }
 
-/* Small icons adjustment */
-.device-icon--small .device-icon__webhook {
-    width: 12px;
-    height: 12px;
-    top: -2px;
-    right: -2px;
-}
-
-.device-icon--small .device-icon__webhook .material-symbols-outlined {
-    font-size: 9px !important;
-}
-
-.device-icon--small .device-icon__api-error {
-    width: 12px;
-    height: 12px;
-    top: -2px;
-    left: -2px;
-}
-
-/* ODP Port Badge */
-.device-icon__ports {
+/* Premium ODP Port Badge */
+.device-icon__ports-premium {
     position: absolute;
-    top: -18px; /* Position ABOVE the icon */
+    top: -24px;
     left: 50%;
     transform: translateX(-50%);
-    background: rgba(15, 23, 42, 0.98);
-    color: #f8fafc; /* Slate-50 */
-    font-size: 11px;
-    font-weight: 800;
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(4px);
     z-index: 30;
-    white-space: nowrap;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
 }
 
-.device-icon__ratio {
-    opacity: 0.9;
-    font-weight: 700;
-    margin-right: 6px;
-    border-right: 1px solid rgba(255, 255, 255, 0.3);
-    padding-right: 6px;
+.device-icon__ports-bg {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    z-index: -1;
 }
 
-.device-icon--small .device-icon__ratio {
-    font-size: 8px;
-}
-
-.device-icon__ports:not(.device-icon--small) .device-icon__ratio {
+.device-icon__ports-text {
+    color: #f8fafc;
     font-size: 10px;
+    font-weight: 800;
+    padding: 2px 10px;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+    display: block;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
-.device-icon--full .device-icon__ports {
-    background: #f59e0b; /* Amber-500 */
-    color: #0f172a; /* Slate-900 - dark text on bright background */
-    border-color: rgba(255, 255, 255, 0.6);
-    box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
-    animation: pulse-amber 2s infinite;
+.device-icon--full .device-icon__ports-bg {
+    background: rgba(245, 158, 11, 0.3);
+    border-color: rgba(245, 158, 11, 0.6);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.4);
 }
 
-@keyframes pulse-amber {
-    0% {
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
-    }
-    70% {
-        box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
-    }
-    100% {
-        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
-    }
+.device-icon--full .device-icon__ports-text {
+    color: #fbbf24;
+    animation: status-glow 1.5s infinite;
 }
 
-.device-icon--small .device-icon__ports {
-    font-size: 9px;
-    padding: 1px 4px;
-    top: -15px; /* Slightly lower for small icons */
+/* Premium Label */
+.device-icon__label-premium {
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    margin-top: 8px;
+    z-index: 1000;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.device-icon__label-text {
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.device-icon:hover .device-icon__label-text {
+    background: rgba(30, 41, 59, 0.8);
+    border-color: var(--primary);
+    transform: translateY(2px);
 }
 
 .device-icon--small .device-icon__api-error .material-symbols-outlined {

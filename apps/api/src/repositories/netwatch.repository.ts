@@ -1,0 +1,268 @@
+import { eq, and, desc, inArray, sql, or, getTableColumns, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { db } from '../db/index.js';
+import { logger } from '../lib/logger.js';
+import { 
+    routerNetwatch, 
+    onus, 
+    olts, 
+    alerts, 
+    type RouterNetwatch, 
+    type NewRouterNetwatch 
+} from '../db/schema/index.js';
+
+/**
+ * Netwatch Repository - handles IP monitoring and connectivity status
+ * Centralizes host tracking and latency metrics.
+ */
+export class NetwatchRepository {
+    private static instance: NetwatchRepository;
+
+    private constructor() {}
+
+    public static getInstance(): NetwatchRepository {
+        if (!NetwatchRepository.instance) {
+            NetwatchRepository.instance = new NetwatchRepository();
+        }
+        return NetwatchRepository.instance;
+    }
+
+    /**
+     * Find entries for a router with full details (ONUs, OLTs, Alerts)
+     */
+    async findWithDetails(routerId: string, tx: any = db): Promise<any[]> {
+        const directOlts = alias(olts, 'directOlts');
+
+        try {
+            return await tx
+                .select({
+                    ...getTableColumns(routerNetwatch),
+                    latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
+                    longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
+                    model: onus.model,
+                    ssid: onus.ssid,
+                    firmwareVersion: onus.firmwareVersion,
+                    sn: onus.sn,
+                    lastRxPower: onus.lastRxPower,
+                    physicalStatus: onus.status,
+                    discoverySources: onus.discoverySources,
+                    ponPort: onus.ponPort,
+                    onuIndex: onus.onuIndex,
+                    linkedOnuId: routerNetwatch.linkedOnuId,
+                    splitterRatio: routerNetwatch.splitterRatio,
+                    oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
+                    oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId'),
+                    hasWebhook: routerNetwatch.hasWebhook,
+                })
+                .from(routerNetwatch)
+                .leftJoin(onus, eq(onus.id, sql`(
+                    SELECT id FROM onus o
+                    WHERE 
+                        o.id = ${routerNetwatch.linkedOnuId} OR
+                        (
+                            o.router_id = ${routerNetwatch.routerId} AND 
+                            (
+                                (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                                (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
+                                (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
+                            )
+                        )
+                    ORDER BY (
+                        CASE 
+                            WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
+                            WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
+                            WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 3
+                            ELSE 4
+                        END
+                    ) ASC
+                    LIMIT 1
+                )`))
+                .leftJoin(olts, eq(onus.oltId, olts.id))
+                .leftJoin(directOlts, and(
+                    sql`TRIM(${routerNetwatch.name}) = TRIM(${directOlts.name})`,
+                    eq(directOlts.parentId, routerNetwatch.routerId)
+                ))
+                .where(eq(routerNetwatch.routerId, routerId))
+                .orderBy(routerNetwatch.host);
+        } catch (err) {
+            logger.error({ routerId, err }, 'Degraded Mode: Failed to fetch netwatch with complex details, falling back to basic list');
+            // Fallback: return basic netwatch data without complex joins
+            return tx
+                .select()
+                .from(routerNetwatch)
+                .where(eq(routerNetwatch.routerId, routerId))
+                .orderBy(routerNetwatch.host);
+        }
+    }
+
+    /**
+     * Find entries for multiple routers with full details
+     */
+    async findByRouterIdsWithDetails(routerIds: string[], tx: any = db): Promise<any[]> {
+        if (routerIds.length === 0) return [];
+        const directOlts = alias(olts, 'directOlts');
+
+        try {
+            return await tx
+                .select({
+                    ...getTableColumns(routerNetwatch),
+                    latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
+                    longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
+                    model: onus.model,
+                    ssid: onus.ssid,
+                    firmwareVersion: onus.firmwareVersion,
+                    sn: onus.sn,
+                    lastRxPower: onus.lastRxPower,
+                    lastDownReason: onus.lastDownReason,
+                    lastSeen: onus.lastSeen,
+                    physicalStatus: onus.status,
+                    discoverySources: onus.discoverySources,
+                    ponPort: onus.ponPort,
+                    onuIndex: onus.onuIndex,
+                    linkedOnuId: routerNetwatch.linkedOnuId,
+                    splitterRatio: routerNetwatch.splitterRatio,
+                    oltName: sql<string>`COALESCE(${olts.name}, ${directOlts.name})`.as('oltName'),
+                    oltId: sql<string>`COALESCE(${onus.oltId}, ${directOlts.id})`.as('oltId'),
+                    hasWebhook: routerNetwatch.hasWebhook,
+                })
+                .from(routerNetwatch)
+                .leftJoin(onus, eq(onus.id, sql`(
+                    SELECT id FROM onus o
+                    WHERE 
+                        o.id = ${routerNetwatch.linkedOnuId} OR
+                        (
+                            o.router_id = ${routerNetwatch.routerId} AND 
+                            (
+                                (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                                (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
+                                (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
+                            )
+                        )
+                    ORDER BY (
+                        CASE 
+                            WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
+                            WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
+                            WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 3
+                            ELSE 4
+                        END
+                    ) ASC
+                    LIMIT 1
+                )`))
+                .leftJoin(olts, eq(onus.oltId, olts.id))
+                .leftJoin(directOlts, and(
+                    sql`TRIM(${routerNetwatch.name}) = TRIM(${directOlts.name})`,
+                    eq(directOlts.parentId, routerNetwatch.routerId)
+                ))
+                .where(inArray(routerNetwatch.routerId, routerIds))
+                .orderBy(routerNetwatch.host);
+        } catch (err) {
+            logger.error({ routerIds, err }, 'Degraded Mode: Failed to fetch netwatch batch with details, falling back to basic list');
+            return tx
+                .select()
+                .from(routerNetwatch)
+                .where(inArray(routerNetwatch.routerId, routerIds))
+                .orderBy(routerNetwatch.host);
+        }
+    }
+
+
+    /**
+     * Find specific entry by host on a router
+     */
+    async findByHost(routerId: string, host: string, tx: any = db): Promise<RouterNetwatch | undefined> {
+        const [entry] = await tx
+            .select()
+            .from(routerNetwatch)
+            .where(and(eq(routerNetwatch.routerId, routerId), eq(routerNetwatch.host, host)));
+        return entry;
+    }
+
+    /**
+     * Find by ID
+     */
+    async findById(id: string, tx: any = db): Promise<RouterNetwatch | undefined> {
+        const [entry] = await tx
+            .select()
+            .from(routerNetwatch)
+            .where(eq(routerNetwatch.id, id));
+        return entry;
+    }
+
+    /**
+     * Create a new entry
+     */
+    async create(data: NewRouterNetwatch, tx: any = db): Promise<RouterNetwatch> {
+        const [inserted] = await tx.insert(routerNetwatch).values(data).returning();
+        return inserted;
+    }
+
+    /**
+     * Update an entry
+     */
+    async update(id: string, data: Partial<RouterNetwatch>, tx: any = db): Promise<RouterNetwatch | undefined> {
+        const [updated] = await tx
+            .update(routerNetwatch)
+            .set({ ...data, updatedAt: new Date() })
+            .where(eq(routerNetwatch.id, id))
+            .returning();
+        return updated;
+    }
+
+    /**
+     * Delete an entry
+     */
+    async delete(id: string, tx: any = db): Promise<boolean> {
+        const result = await tx.delete(routerNetwatch).where(eq(routerNetwatch.id, id)).returning();
+        return result.length > 0;
+    }
+
+    /**
+     * Get summary stats for a router
+     */
+    async getStatsSummary(routerId: string, tx: any = db): Promise<Record<string, number>> {
+        const result = await tx
+            .select({ 
+                status: routerNetwatch.status,
+                count: sql<number>`count(*)`
+            })
+            .from(routerNetwatch)
+            .where(eq(routerNetwatch.routerId, routerId))
+            .groupBy(routerNetwatch.status);
+
+        const stats: Record<string, number> = { up: 0, down: 0, unknown: 0 };
+        result.forEach((r: any) => {
+            if (r.status) stats[r.status] = Number(r.count);
+        });
+        return stats;
+    }
+    /**
+     * Batch upsert netwatch entries
+     */
+    async upsertBatch(data: NewRouterNetwatch[], tx: any = db): Promise<number> {
+        if (data.length === 0) return 0;
+        
+        const result = await tx
+            .insert(routerNetwatch)
+            .values(data)
+            .onConflictDoUpdate({
+                target: [routerNetwatch.routerId, routerNetwatch.host],
+                set: {
+                    status: sql`EXCLUDED.status`,
+                    latency: sql`EXCLUDED.latency`,
+                    disabled: sql`EXCLUDED.disabled`,
+                    lastCheck: sql`EXCLUDED.last_check`,
+                    lastUp: sql`EXCLUDED.last_up`,
+                    lastDown: sql`EXCLUDED.last_down`,
+                    updatedAt: new Date(),
+                    hasWebhook: sql`EXCLUDED.has_webhook`,
+                    name: sql`EXCLUDED.name`,
+                    interval: sql`EXCLUDED.interval`
+                }
+            })
+            .returning();
+            
+        return result.length;
+    }
+}
+
+export const netwatchRepository = NetwatchRepository.getInstance();

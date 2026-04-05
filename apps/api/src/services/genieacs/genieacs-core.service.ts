@@ -3,9 +3,7 @@ import { logger } from '../../lib/logger.js';
 import { settingsService } from '../settings.service.js';
 import { routerService } from '../router.service.js';
 import { decrypt } from '../../lib/encryption.js';
-import { db } from '../../db/index.js';
-import { appSettings } from '../../db/schema/index.js';
-import { eq } from 'drizzle-orm';
+import { settingRepository } from '../../repositories/setting.repository.js';
 
 export interface GenieACSDevice {
     _id: string;
@@ -97,10 +95,7 @@ export async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
 
         let effectiveTenantId = tenantId;
         if (!effectiveTenantId) {
-            const [firstWithAcs] = await db.select({ tenantId: appSettings.tenantId })
-                .from(appSettings)
-                .where(eq(appSettings.key as any, 'genieacs_url'))
-                .limit(1);
+            const firstWithAcs = await settingRepository.findFirstByKey('genieacs_url');
             effectiveTenantId = firstWithAcs?.tenantId as string;
         }
 
