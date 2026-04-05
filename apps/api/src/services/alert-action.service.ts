@@ -282,8 +282,15 @@ export class AlertActionService {
             }, tx);
         }
 
-        const existingUnresolved = host ? await this.findRecentUnresolvedAlert(routerId, 'netwatch_down', tx) : null;
-        if (existingUnresolved && host && existingUnresolved.message.includes(host)) return null;
+        // STRICT DEDUPLICATION: Do not create if ANY unresolved netwatch_down exists for this exact host
+        const existingUnresolved = host ? await tx.select({ id: alerts.id }).from(alerts).where(and(
+            eq(alerts.routerId, routerId),
+            eq(alerts.type, 'netwatch_down'),
+            eq(alerts.resolved, false),
+            ilike(alerts.message, `%${host}%`)
+        )).limit(1) : [];
+
+        if (existingUnresolved.length > 0) return null;
 
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
         const recentAlert = host ? await tx.select().from(alerts).where(and(
@@ -484,8 +491,26 @@ export class AlertActionService {
         if (packetLoss === 100 && status === 'down') return null;
 
         const type = isHighLatency ? 'high_latency' : 'packet_loss';
-        const existing = host ? await this.findRecentUnresolvedAlert(routerId, type, tx) : null;
-        if (existing && host && existing.message.includes(host)) return null;
+
+        // STRICT DEDUPLICATION: Do not create if ANY unresolved performance alert exists for this exact host
+        const existingUnresolved = host ? await tx.select({ id: alerts.id }).from(alerts).where(and(
+            eq(alerts.routerId, routerId),
+            eq(alerts.type, type),
+            eq(alerts.resolved, false),
+            ilike(alerts.message, `%${host}%`)
+        )).limit(1) : [];
+
+        if (existingUnresolved.length > 0) return null;
+
+        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const recentlyFlapping = host ? await tx.select({ id: alerts.id }).from(alerts).where(and(
+            eq(alerts.routerId, routerId),
+            eq(alerts.type, type),
+            ilike(alerts.message, `%${host}%`),
+            gte(alerts.createdAt, fiveMinutesAgo)
+        )).limit(1) : [];
+
+        if (recentlyFlapping.length > 0) return null;
 
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({

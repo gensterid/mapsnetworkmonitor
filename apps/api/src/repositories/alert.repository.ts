@@ -89,6 +89,8 @@ export class AlertRepository {
         const [{ count }] = await tx
             .select({ count: sql<number>`count(*)` })
             .from(alerts)
+            .leftJoin(users, eq(alerts.acknowledgedBy, users.id))
+            .leftJoin(routers, eq(alerts.routerId, routers.id))
             .where(filters.length > 0 ? and(...filters) : undefined);
 
         return { data, total: Number(count) };
