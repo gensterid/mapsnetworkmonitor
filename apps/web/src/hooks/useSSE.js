@@ -2,6 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 
+// Module-level variables to hold queued alerts and the timer for grouping
+let alertQueue = [];
+let alertTimer = null;
+
 /**
  * Custom hook for Server-Sent Events (SSE) connection
  * Provides real-time updates for alerts and other events
@@ -65,17 +69,37 @@ export function useSSE() {
             queryClient.invalidateQueries({ queryKey: ['alerts'] });
         });
 
-        // Handle new alert events
+        // Handle new alert events with grouping
         eventSource.addEventListener('new_alert', (event) => {
             const data = JSON.parse(event.data);
             console.log('New alert received:', data);
             setLastEvent(data);
 
-            // Show toast notification
-            toast.error(`🚨 ${data.alert?.title || 'New Alert'}`, {
-                duration: 5000,
-                position: 'top-right',
-            });
+            // Add the new alert to our queue
+            alertQueue.push(data.alert || { title: 'New Alert' });
+
+            // Clear any existing timer
+            if (alertTimer) clearTimeout(alertTimer);
+
+            // Set a new timer to process the queue after 1 second
+            alertTimer = setTimeout(() => {
+                if (alertQueue.length === 1) {
+                    // Single alert, show it normally
+                    toast.error(`🚨 ${alertQueue[0].title || 'New Alert'}`, {
+                        duration: 5000,
+                        position: 'top-right',
+                    });
+                } else if (alertQueue.length > 1) {
+                    // Multiple alerts, show a grouped summary
+                    toast.error(`🚨 Peringatan: ${alertQueue.length} perangkat/sistem mengalami gangguan hampir bersamaan!`, {
+                        duration: 8000,
+                        position: 'top-right',
+                    });
+                }
+                
+                // Clear the queue for the next batch
+                alertQueue = [];
+            }, 1000); // 1-second grouping window
 
             // Invalidate alert queries to refresh both list and badge
             queryClient.invalidateQueries({ queryKey: ['alerts'] });
