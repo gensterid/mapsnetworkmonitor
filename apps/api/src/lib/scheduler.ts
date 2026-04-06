@@ -499,11 +499,18 @@ async function cleanupOldMetrics(): Promise<void> {
             await db.execute(sql`DELETE FROM router_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff}`);
             await db.execute(sql`DELETE FROM genieacs_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff}`);
 
+            // 6. Disconnected PPPoE Sessions
+            const pppoeRetention = await settingsService.getSettingValue('pppoe_retention_days', tenant.id, 30);
+            const pppCutoff = new Date();
+            pppCutoff.setDate(pppCutoff.getDate() - pppoeRetention);
+            
+            await db.execute(sql`DELETE FROM pppoe_sessions WHERE tenant_id = ${tenant.id} AND status = 'disconnected' AND last_seen < ${pppCutoff}`);
+
             // Cleanup finished for tenant
             logger.info({ tenantId: tenant.id }, '✅ Tenant database maintenance complete');
         }
 
-        // 6. Ensure future partitions exist
+        // 7. Ensure future partitions exist
         await partitionService.ensurePartitionsExist();
     } catch (error) {
         logger.error({ err: error }, 'Database maintenance cleanup error');

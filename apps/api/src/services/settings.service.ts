@@ -23,7 +23,8 @@ export class SettingsService {
         genieacs_username: '',
         genieacs_password_encrypted: '',
         performance_retention_days: 30,
-        backups_retention_days: 90
+        backups_retention_days: 90,
+        pppoe_retention_days: 30
     };
 
     /**
@@ -224,7 +225,8 @@ export class SettingsService {
             { key: 'alerts_retention_days', value: 60, description: 'Retention period for resolved alerts (days)' },
             { key: 'audit_logs_retention_days', value: 365, description: 'Retention period for system audit logs (days)' },
             { key: 'performance_retention_days', value: 30, description: 'Retention period for latency and signal history (days)' },
-            { key: 'backups_retention_days', value: 90, description: 'Retention period for database backup records (days)' }
+            { key: 'backups_retention_days', value: 90, description: 'Retention period for database backup records (days)' },
+            { key: 'pppoe_retention_days', value: 30, description: 'Retention period for disconnected PPPoE sessions (days)' }
         ];
 
         for (const setting of defaults) {

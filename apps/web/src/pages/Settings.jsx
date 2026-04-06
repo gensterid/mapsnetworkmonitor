@@ -80,6 +80,7 @@ export default function Settings() {
         audit_logs_retention_days: '365',
         performance_retention_days: '30',
         backups_retention_days: '90',
+        pppoe_retention_days: '30',
     });
     const [saveStatus, setSaveStatus] = useState('');
     const [pingTargets, setPingTargets] = useState([
@@ -176,6 +177,7 @@ export default function Settings() {
                 audit_logs_retention_days: String(settings.audit_logs_retention_days || 365),
                 performance_retention_days: String(settings.performance_retention_days || 30),
                 backups_retention_days: String(settings.backups_retention_days || 90),
+                pppoe_retention_days: String(settings.pppoe_retention_days || 30),
             }));
             // Load map colors
             if (settings.mapColors) {
@@ -263,6 +265,7 @@ export default function Settings() {
                 await updateSettingMutation.mutateAsync({ key: 'audit_logs_retention_days', value: parseInt(formData.audit_logs_retention_days, 10) });
                 await updateSettingMutation.mutateAsync({ key: 'performance_retention_days', value: parseInt(formData.performance_retention_days, 10) });
                 await updateSettingMutation.mutateAsync({ key: 'backups_retention_days', value: parseInt(formData.backups_retention_days, 10) });
+                await updateSettingMutation.mutateAsync({ key: 'pppoe_retention_days', value: parseInt(formData.pppoe_retention_days, 10) });
             }
 
             // Update User Profile (Self)

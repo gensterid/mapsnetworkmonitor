@@ -122,6 +122,21 @@ export default function MaintenanceSettings({
                                 </div>
                                 <p className="text-[10px] text-slate-500 italic mt-1">*Hanya catatan histori, bukan file fisik.</p>
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Disconnected PPPoE Sessions</label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="number"
+                                        name="pppoe_retention_days"
+                                        value={formData.pppoe_retention_days}
+                                        onChange={handleChange}
+                                        min={1}
+                                        className="bg-slate-900/50"
+                                    />
+                                    <span className="text-xs text-slate-500 w-12">Days</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 italic mt-1">*Data sesi yang sudah terputus/off.</p>
+                            </div>
                         </div>
 
                         <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-start gap-3">

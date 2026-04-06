@@ -75,6 +75,19 @@ const runOptimization = async () => {
                     target: [settings.tenantId, settings.key],
                     set: { value: 90, updatedAt: new Date() }
                 });
+
+            // PPPoE retention default (30 days)
+            await db.insert(settings)
+                .values({
+                    tenantId: tenant.id,
+                    key: 'pppoe_retention_days',
+                    value: 30,
+                    updatedAt: new Date()
+                })
+                .onConflictDoUpdate({
+                    target: [settings.tenantId, settings.key],
+                    set: { value: 30, updatedAt: new Date() }
+                });
         }
         console.log('✅ Retention policies updated.');
 
@@ -104,6 +117,11 @@ const runOptimization = async () => {
         await db.execute(sql`DELETE FROM router_backups WHERE created_at < ${cutoffBackups};`);
         await db.execute(sql`DELETE FROM genieacs_backups WHERE created_at < ${cutoffBackups};`);
         console.log(`- Cleared old backup records (90+ days).`);
+
+        // Purge disconnected PPPoE sessions
+        const cutoffPppoe = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        await db.execute(sql`DELETE FROM pppoe_sessions WHERE status = 'disconnected' AND last_seen < ${cutoffPppoe};`);
+        console.log(`- Cleared old disconnected PPPoE sessions (30+ days).`);
 
         // 3. VACUUM ANALYZE (Reclaim disk space)
         console.log('⚡ Running VACUUM ANALYZE (this may take a few minutes)...');
