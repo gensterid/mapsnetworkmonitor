@@ -10,14 +10,17 @@ import {
     alerts, 
     appSettings as settings,
     tenants,
-    auditLogs
+    auditLogs,
+    routerBackups,
+    genieacsBackups,
+    pppoeSessions
 } from '../db/schema/index.js';
 
 /**
- * Database Optimization & Vacuum Script
+ * Database Optimization & Vacuum Script (Safe Mode)
  * This script:
- * 1. Updates retention settings to more conservative values.
- * 2. Purges old data according to new policies.
+ * 1. Fetches current dashboard settings per tenant.
+ * 2. Purges old data ONLY if it exceeds the configured retention.
  * 3. Runs VACUUM ANALYZE to reclaim disk space.
  */
 
@@ -26,7 +29,7 @@ config({ path: path.resolve(process.cwd(), '.env') });
 config({ path: path.resolve(process.cwd(), '../../.env') });
 
 const runOptimization = async () => {
-    console.log('🧹 Starting Database Optimization & Cleanup...');
+    console.log('🧹 Starting Database Optimization & Cleanup (Dashboard Focused)...');
     
     if (!process.env.DATABASE_URL) {
         console.error('❌ DATABASE_URL not found');
@@ -36,104 +39,77 @@ const runOptimization = async () => {
     const queryClient = postgres(process.env.DATABASE_URL);
     const db = drizzle(queryClient);
 
-    try {
-        // 1. UPDATE RETENTION SETTINGS
-        console.log('⚙️ Updating retention policies for all tenants...');
-        const allTenants = await db.select().from(tenants);
-        
-        for (const tenant of allTenants) {
-            const updates = [
-                { key: 'metrics_retention_days', value: 14 },
-                { key: 'interface_metrics_retention_days', value: 7 },
-                { key: 'performance_retention_days', value: 14 },
-                { key: 'alerts_retention_days', value: 30 }
-            ];
-
-            for (const item of updates) {
-                await db.insert(settings)
-                    .values({
-                        tenantId: tenant.id,
-                        key: item.key,
-                        value: item.value,
-                        updatedAt: new Date()
-                    })
-                    .onConflictDoUpdate({
-                        target: [settings.tenantId, settings.key],
-                        set: { value: item.value, updatedAt: new Date() }
-                    });
-            }
-            
-            // Backup retention default (90 days)
-            await db.insert(settings)
-                .values({
-                    tenantId: tenant.id,
-                    key: 'backups_retention_days',
-                    value: 90,
-                    updatedAt: new Date()
-                })
-                .onConflictDoUpdate({
-                    target: [settings.tenantId, settings.key],
-                    set: { value: 90, updatedAt: new Date() }
-                });
-
-            // PPPoE retention default (30 days)
-            await db.insert(settings)
-                .values({
-                    tenantId: tenant.id,
-                    key: 'pppoe_retention_days',
-                    value: 30,
-                    updatedAt: new Date()
-                })
-                .onConflictDoUpdate({
-                    target: [settings.tenantId, settings.key],
-                    set: { value: 30, updatedAt: new Date() }
-                });
+    const getRetentionValue = async (tenantId: string, key: string, defaultValue: number) => {
+        try {
+            const result = await db.select()
+                .from(settings)
+                .where(and(eq(settings.tenantId, tenantId), eq(settings.key, key)))
+                .limit(1);
+            return result.length > 0 ? Number(result[0].value) : defaultValue;
+        } catch {
+            return defaultValue;
         }
-        console.log('✅ Retention policies updated.');
+    };
 
-        // 2. IMMEDIATE PURGE based on new policies
-        console.log('🗑️ Purging excessive historical records...');
-        
-        const cutoffs = {
-            metrics: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
-            interfaces: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
-            alerts: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-        };
+    try {
+        const allTenants = await db.select().from(tenants);
+        console.log(`📡 Processing ${allTenants.length} tenants...`);
 
-        const resultMetrics = await db.delete(routerMetrics).where(lt(routerMetrics.recordedAt, cutoffs.metrics));
-        console.log(`- Cleared old router metrics.`);
+        for (const tenant of allTenants) {
+            console.log(`🔍 [Tenant: ${tenant.name || tenant.id}] Evaluating data age...`);
 
-        const resultIf = await db.delete(routerInterfaceMetrics).where(lt(routerInterfaceMetrics.recordedAt, cutoffs.interfaces));
-        console.log(`- Cleared old interface traffic.`);
+            // 1. Fetch current dashboard settings (Respecting User Choice)
+            const days = {
+                metrics: await getRetentionValue(tenant.id, 'metrics_retention_days', 90),
+                traffic: await getRetentionValue(tenant.id, 'interface_metrics_retention_days', 90),
+                performance: await getRetentionValue(tenant.id, 'performance_retention_days', 90),
+                alerts: await getRetentionValue(tenant.id, 'alerts_retention_days', 60),
+                backups: await getRetentionValue(tenant.id, 'backups_retention_days', 90),
+                pppoe: await getRetentionValue(tenant.id, 'pppoe_retention_days', 30)
+            };
 
-        const resultPerf = await db.delete(devicePerformanceHistory).where(lt(devicePerformanceHistory.recordedAt, cutoffs.metrics));
-        console.log(`- Cleared old performance history.`);
+            const tenantLabel = tenant.name || tenant.id;
+            console.log(`- Policy for ${tenantLabel}: Metrics ${days.metrics}d, Traffic ${days.traffic}d, Backups ${days.backups}d, PPPoE ${days.pppoe}d.`);
 
-        const resultAlerts = await db.delete(alerts).where(and(eq(alerts.resolved, true), lt(alerts.createdAt, cutoffs.alerts)));
-        console.log(`- Cleared old resolved alerts.`);
+            // 2. Calculate cutoffs
+            const cutoffs = {
+                metrics: new Date(Date.now() - days.metrics * 24 * 60 * 60 * 1000),
+                traffic: new Date(Date.now() - days.traffic * 24 * 60 * 60 * 1000),
+                performance: new Date(Date.now() - days.performance * 24 * 60 * 60 * 1000),
+                alerts: new Date(Date.now() - days.alerts * 24 * 60 * 60 * 1000),
+                backups: new Date(Date.now() - days.backups * 24 * 60 * 60 * 1000),
+                pppoe: new Date(Date.now() - days.pppoe * 24 * 60 * 60 * 1000)
+            };
 
-        // Purge backups (DB records only)
-        const cutoffBackups = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-        await db.execute(sql`DELETE FROM router_backups WHERE created_at < ${cutoffBackups};`);
-        await db.execute(sql`DELETE FROM genieacs_backups WHERE created_at < ${cutoffBackups};`);
-        console.log(`- Cleared old backup records (90+ days).`);
+            // 3. Selective Purge (only if older than dashboard setting)
+            // Using Type-Safe Drizzle Delete
+            const [delMet, delTra, delPer, delAle, delBac, delPpp] = await Promise.all([
+                db.delete(routerMetrics).where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, cutoffs.metrics))),
+                db.delete(routerInterfaceMetrics).where(and(eq(routerInterfaceMetrics.tenantId, tenant.id), lt(routerInterfaceMetrics.recordedAt, cutoffs.traffic))),
+                db.delete(devicePerformanceHistory).where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, cutoffs.performance))),
+                db.delete(alerts).where(and(eq(alerts.tenantId, tenant.id), eq(alerts.resolved, true), lt(alerts.createdAt, cutoffs.alerts))),
+                db.delete(routerBackups).where(and(eq(routerBackups.tenantId, tenant.id), lt(routerBackups.createdAt, cutoffs.backups))),
+                db.delete(pppoeSessions).where(and(eq(pppoeSessions.tenantId, tenant.id), eq(pppoeSessions.status, 'disconnected'), lt(pppoeSessions.lastSeen, cutoffs.pppoe)))
+            ]);
+            
+            console.log(`✅ [Tenant: ${tenantLabel}] Data older than threshold cleared.`);
+        }
 
-        // Purge disconnected PPPoE sessions
-        const cutoffPppoe = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        await db.execute(sql`DELETE FROM pppoe_sessions WHERE status = 'disconnected' AND last_seen < ${cutoffPppoe};`);
-        console.log(`- Cleared old disconnected PPPoE sessions (30+ days).`);
+        // Global GenieACS Backup Purge (Metadata snapshots)
+        const globalBackupsCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        await db.delete(genieacsBackups).where(lt(genieacsBackups.createdAt, globalBackupsCutoff));
+        console.log('- Cleared global GenieACS snapshots older than 90 days.');
 
-        // 3. VACUUM ANALYZE (Reclaim disk space)
-        console.log('⚡ Running VACUUM ANALYZE (this may take a few minutes)...');
+        // 4. VACUUM ANALYZE (Global reclamation)
+        console.log('⚡ Running VACUUM ANALYZE to reclaim disk space (Finalizing Safe Cleanup)...');
         await db.execute(sql`VACUUM ANALYZE;`);
         
-        // 4. Report Final Sizes
-        const dbSize = await db.execute(sql`SELECT pg_size_pretty(pg_database_size(current_database())) as size;`);
-        console.log(`🎉 Optimization complete! Current Database Size: ${dbSize[0]?.size}`);
+        const dbSizeQuery = await db.execute(sql`SELECT pg_size_pretty(pg_database_size(current_database())) as size;`);
+        console.log(`🎉 Optimization complete! Current Database Size: ${dbSizeQuery[0]?.size}`);
 
         process.exit(0);
     } catch (err: any) {
-        console.error('❌ Optimization failed:', err.message);
+        console.error('❌ Optimization failed safely:', err.message);
         process.exit(1);
     }
 };
