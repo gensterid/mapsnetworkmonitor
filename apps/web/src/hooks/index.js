@@ -83,6 +83,7 @@ export {
     useAuditLogs,
     useUpdateSetting,
     useDeleteSetting,
+    useDatabaseStats,
     settingsKeys,
 } from './useSettings';
 

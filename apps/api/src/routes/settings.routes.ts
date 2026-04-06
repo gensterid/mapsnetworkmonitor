@@ -152,8 +152,21 @@ router.get(
     asyncHandler(async (req, res) => {
         const limit = parseInt(req.query.limit as string) || 100;
         const logs = await settingsService.getAuditLogs(getEffectiveTenantId(req), limit);
-
         res.json({ data: logs });
+    })
+);
+
+/**
+ * GET /api/settings/maintenance/db-stats
+ * Get database usage statistics
+ * Requires: Admin
+ */
+router.get(
+    '/maintenance/db-stats',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const stats = await settingsService.getDatabaseStats();
+        res.json({ data: stats });
     })
 );
 

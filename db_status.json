@@ -1,0 +1,37 @@
+[
+  {
+    "name": "IDED",
+    "host": "id.genster.net",
+    "status": "offline",
+    "last_error_message": "Salah Password / Username",
+    "password_encrypted": "v2:QM59wkozcFdR3tdmPLP6N2qAyuCfMwiVhS3IrMzERu0=:D+neRZ4qMqJTEaqmqLn69w==:z/rDSJaC+XBsIPm4Q0FsYw==:1eHbGYiOGNY="
+  },
+  {
+    "name": "genster",
+    "host": "id.genster.net",
+    "status": "offline",
+    "last_error_message": "Salah Password / Username",
+    "password_encrypted": "v2:qDD/wJYuqN7nfd4l6G2mgos/Iwd6DNbsAvISQNopmkc=:1SBqlVvwDPTOWOKF5o+NJQ==:H8KziBiG5BrxH/2eFPG6TA==:K0lgfKb2/wU="
+  },
+  {
+    "name": "YANI",
+    "host": "id.genster.net",
+    "status": "offline",
+    "last_error_message": "Salah Password / Username",
+    "password_encrypted": "v2:jPjduxwL9FRpYDZ4N1Hsyj64Kff44QV6gnKOS9alH0g=:EV7DX1NN37YZJ4RAO6V5Hg==:v0pO3jUH0X8eDzNeQ3ndQw==:n9ZyHu80GGY="
+  },
+  {
+    "name": "PUNCAK",
+    "host": "id.genster.net",
+    "status": "offline",
+    "last_error_message": "Salah Password / Username",
+    "password_encrypted": "v2:XAL/LQE5ut0slWSP22w81Z0KtQi6R+B4cfnAGE5zdxM=:Au8xIghY+aPjaxkHohgEig==:34l6r+JxJEMS/4NJa3dT9Q==:T39GZ5nBKiI="
+  },
+  {
+    "name": "FZ Network",
+    "host": "id.genster.net",
+    "status": "offline",
+    "last_error_message": null,
+    "password_encrypted": "v2:mdtkseUEJ+0gCBMklWbTDcRcpoCEu0O2sCdBk7SFPOI=:o4nypPVC+vnJR/al8Q+T3w==:pekCg+SzO8j7fS7Pjpfzrw==:tJSTBHOwM28="
+  }
+]

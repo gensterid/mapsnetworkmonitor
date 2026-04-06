@@ -43,6 +43,11 @@ export const settingsService = {
      * Get audit logs (Admin only)
      */
     getAuditLogs: (limit = 100) => get<AuditLog[]>(`/settings/audit-logs?limit=${limit}`),
+
+    /**
+     * Get database usage statistics (Admin only)
+     */
+    getDatabaseStats: () => get<any[]>('/settings/maintenance/db-stats'),
 };
 
 export default settingsService;

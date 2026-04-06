@@ -70,6 +70,18 @@ export function useAuditLogs(limit = 100, options = {}) {
     });
 }
 
+/**
+ * Hook to fetch database usage stats
+ */
+export function useDatabaseStats(options = {}) {
+    return useQuery({
+        queryKey: ['settings', 'maintenance', 'db-stats'],
+        queryFn: () => settingsService.getDatabaseStats(),
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        ...options,
+    });
+}
+
 // ==================== Mutations ====================
 
 /**

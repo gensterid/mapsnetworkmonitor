@@ -90,8 +90,12 @@ export function useSSE() {
                         position: 'top-right',
                     });
                 } else if (alertQueue.length > 1) {
+                    // Extract unique router names
+                    const routerNames = [...new Set(alertQueue.map(a => a.routerName).filter(Boolean))];
+                    const routerStr = routerNames.length > 0 ? ` (Router: ${routerNames.join(', ')})` : '';
+                    
                     // Multiple alerts, show a grouped summary
-                    toast.error(`🚨 Peringatan: ${alertQueue.length} perangkat/sistem mengalami gangguan hampir bersamaan!`, {
+                    toast.error(`🚨 Peringatan: ${alertQueue.length} perangkat/sistem${routerStr} mengalami gangguan hampir bersamaan!`, {
                         duration: 8000,
                         position: 'top-right',
                     });

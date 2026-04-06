@@ -55,7 +55,8 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
 
                 if (!isDisabled && existing && existing.status !== status && existing.status !== 'unknown' && status !== 'unknown') {
                     if (status === 'down' || status === 'up') {
-                        await alertService.createNetwatchAlert(routerId, `[${routerName}] ${finalName}`, nw.host, status, transaction);
+                        // Independent call to ensure alert commits even if parent transaction rolls back
+                        await alertService.createNetwatchAlert(routerId, `[${routerName}] ${finalName}`, nw.host, status);
                     }
                 }
 

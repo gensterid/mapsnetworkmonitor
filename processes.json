@@ -1,0 +1,47 @@
+[
+  {
+    "Id": 6732,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\" --import tsx D:\\Antigrafity\\new-monitoring-mikrotik\\apps\\api\\src\\lib\\scheduler-worker.ts"
+  },
+  {
+    "Id": 6872,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\" --require D:\\Antigrafity\\new-monitoring-mikrotik\\node_modules\\tsx\\dist\\preflight.cjs --import file:///D:/Antigrafity/new-monitoring-mikrotik/node_modules/tsx/dist/loader.mjs src/index.ts"
+  },
+  {
+    "Id": 11592,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"node\"   \"D:\\Antigrafity\\new-monitoring-mikrotik\\node_modules\\.bin\\\\..\\tsx\\dist\\cli.mjs\" watch src/index.ts"
+  },
+  {
+    "Id": 24820,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\" \"C:\\Program Files\\nodejs/node_modules/npm/bin/npm-cli.js\" run dev -w apps/api"
+  },
+  {
+    "Id": 25732,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npm-cli.js\" run dev"
+  },
+  {
+    "Id": 31512,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"node\"   \"D:\\Antigrafity\\new-monitoring-mikrotik\\node_modules\\.bin\\\\..\\vite\\bin\\vite.js\" "
+  },
+  {
+    "Id": 32136,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\" --require D:\\Antigrafity\\new-monitoring-mikrotik\\node_modules\\tsx\\dist\\preflight.cjs --import file:///D:/Antigrafity/new-monitoring-mikrotik/node_modules/tsx/dist/loader.mjs src/index.ts"
+  },
+  {
+    "Id": 32676,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"node\"   \"D:\\Antigrafity\\new-monitoring-mikrotik\\node_modules\\.bin\\\\..\\tsx\\dist\\cli.mjs\" watch src/index.ts"
+  },
+  {
+    "Id": 34960,
+    "Path": "C:\\Program Files\\nodejs\\node.exe",
+    "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npm-cli.js\" run dev"
+  }
+]

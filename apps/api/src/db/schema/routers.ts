@@ -11,6 +11,7 @@ import {
     pgEnum,
     index,
     primaryKey,
+    uniqueIndex,
 } from 'drizzle-orm/pg-core';
 import { routerGroups } from './groups.js';
 import { notificationGroups } from './notifications.js';
@@ -255,6 +256,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     routerStatusIdx: index('router_netwatch_router_status_idx').on(table.routerId, table.status),
     lastUpIdx: index('router_netwatch_last_up_idx').on(table.lastUp),
     lastDownIdx: index('router_netwatch_last_down_idx').on(table.lastDown),
+    uniqueRouterHost: uniqueIndex('router_netwatch_router_host_unique_idx').on(table.routerId, table.host),
 }));
 
 // Types

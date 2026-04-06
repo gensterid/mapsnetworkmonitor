@@ -1,6 +1,7 @@
 import { eq, and, or, ilike, gte, inArray, notInArray, desc, isNull, type SQL } from 'drizzle-orm';
+import NodeCache from 'node-cache';
 import { db } from '../db/index.js';
-import { alerts, userRouters, type Alert, type NewAlert } from '../db/schema/index.js';
+import { alerts, userRouters, routers, type Alert, type NewAlert } from '../db/schema/index.js';
 import { alertRepository } from '../repositories/alert.repository.js';
 import { aiService } from './ai.service.js';
 import { notificationService } from './notification.service.js';
@@ -16,6 +17,10 @@ import {
 } from './alert-core.service.js';
 
 export class AlertActionService {
+    // Memory cache to prevent notification spam during database transaction failures/rollbacks
+    // stdTTL: 600s (10 minutes)
+    private static notificationCache = new NodeCache({ stdTTL: 600, checkperiod: 120 });
+
     /**
      * Find recent unresolved alert of the same type for deduplication
      */
@@ -46,6 +51,22 @@ export class AlertActionService {
     async create(data: NewAlert, tx: any = db): Promise<Alert> {
         const alert = await alertRepository.create(data, tx);
 
+        let routerName = 'Unknown Router';
+        if (data.routerId) {
+            const r = await tx.select({ name: routers.name }).from(routers).where(eq(routers.id, data.routerId)).limit(1);
+            if (r.length > 0) routerName = r[0].name;
+        }
+
+        // Memory-based deduplication to prevent UI spam if DB transactions are rolling back
+        const cacheKey = `${data.routerId}:${data.type}:${data.title}`;
+        if (AlertActionService.notificationCache.has(cacheKey)) {
+            logger.debug({ cacheKey }, 'Notification suppressed by memory cache debounce');
+            return alert;
+        }
+
+        // Set cache BEFORE broadcasting to prevent race conditions during mass outages
+        AlertActionService.notificationCache.set(cacheKey, true);
+
         // Trigger notification
         if (data.routerId) {
             notificationService.notifyAlert(alert, data.routerId).catch(err =>
@@ -59,13 +80,13 @@ export class AlertActionService {
 
             const userIds = assignedUsers.map((u: any) => u.userId);
             eventEmitter.broadcastToUsers('new_alert', {
-                alert,
+                alert: { ...alert, routerName },
                 message: `New alert: ${alert.title}`,
                 timestamp: new Date().toISOString(),
             }, userIds);
         } else {
             eventEmitter.broadcast('new_alert', {
-                alert,
+                alert: { ...alert, routerName },
                 message: `New alert: ${alert.title}`,
                 timestamp: new Date().toISOString(),
             });

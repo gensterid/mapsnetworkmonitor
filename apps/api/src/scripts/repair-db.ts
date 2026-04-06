@@ -226,7 +226,63 @@ const runRepair = async () => {
             console.log('✅ Index router_metrics_combined_idx created.');
         }
 
-        console.log('🎉 Database repair completed successfully!');
+        // 8. Fix: router_netwatch stabilization (Deduplication + Unique Index)
+        console.log('🔍 Stabilizing router_netwatch...');
+        // 8.1 Cleanup duplicates
+        await db.execute(sql`
+            DELETE FROM router_netwatch 
+            WHERE id IN (
+                SELECT id 
+                FROM (
+                    SELECT id, ROW_NUMBER() OVER(
+                        PARTITION BY router_id, host 
+                        ORDER BY updated_at DESC, id DESC
+                    ) as rn 
+                    FROM router_netwatch
+                ) t 
+                WHERE t.rn > 1
+            )
+        `);
+        // 8.2 Add unique index
+        const checkNetwatchIdx = await db.execute(sql`
+            SELECT indexname FROM pg_indexes 
+            WHERE tablename = 'router_netwatch' AND indexname = 'router_netwatch_router_host_unique_idx';
+        `);
+        if (checkNetwatchIdx.length === 0) {
+            console.log('⚠️ Unique index router_netwatch_router_host_unique_idx missing. Creating it...');
+            await db.execute(sql`CREATE UNIQUE INDEX router_netwatch_router_host_unique_idx ON router_netwatch (router_id, host);`);
+            console.log('✅ Unique index for router_netwatch created.');
+        }
+
+        // 9. Fix: pppoe_sessions stabilization (Deduplication + Unique Index)
+        console.log('🔍 Stabilizing pppoe_sessions...');
+        // 9.1 Cleanup duplicates
+        await db.execute(sql`
+            DELETE FROM pppoe_sessions 
+            WHERE id IN (
+                SELECT id 
+                FROM (
+                    SELECT id, ROW_NUMBER() OVER(
+                        PARTITION BY router_id, name 
+                        ORDER BY last_seen DESC, connected_at DESC, id DESC
+                    ) as rn 
+                    FROM pppoe_sessions
+                ) t 
+                WHERE t.rn > 1
+            )
+        `);
+        // 9.2 Add unique index
+        const checkPppoeIdx = await db.execute(sql`
+            SELECT indexname FROM pg_indexes 
+            WHERE tablename = 'pppoe_sessions' AND indexname = 'pppoe_sessions_router_name_unique_idx';
+        `);
+        if (checkPppoeIdx.length === 0) {
+            console.log('⚠️ Unique index pppoe_sessions_router_name_unique_idx missing. Creating it...');
+            await db.execute(sql`CREATE UNIQUE INDEX pppoe_sessions_router_name_unique_idx ON pppoe_sessions (router_id, name);`);
+            console.log('✅ Unique index for pppoe_sessions created.');
+        }
+
+        console.log('🎉 Database stabilization & repair completed successfully!');
         process.exit(0);
     } catch (err) {
         console.error('❌ Repair failed:', err);

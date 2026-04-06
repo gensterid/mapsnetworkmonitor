@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatShortDateTime } from '@/lib/timezone';
-import { History, AlertTriangle, Save, Database, Download, Upload, RefreshCw, Info, Plus, Trash2 } from 'lucide-react';
+import { History, AlertTriangle, Save, Database, Download, Upload, RefreshCw, Info, Plus, Trash2, PieChart } from 'lucide-react';
+import { useDatabaseStats } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -129,6 +130,11 @@ export default function MaintenanceSettings({
                         </div>
                     </CardContent>
                 </Card>
+            )}
+
+            {/* Database Usage Statistics (Admin Only) */}
+            {(currentUser?.role === 'admin' || currentUser?.role === 'superadmin') && (
+                <DatabaseUsageStats />
             )}
 
             <Card>
@@ -302,5 +308,96 @@ export default function MaintenanceSettings({
                 </CardContent>
             </Card>
         </div>
+    );
+}
+
+function DatabaseUsageStats() {
+    const { data: stats, isLoading, refetch } = useDatabaseStats();
+
+    // Mapping table names to human readable labels
+    const getTableLabel = (name) => {
+        const labels = {
+            'router_interface_metrics': 'Traffic History (Bandwidth)',
+            'router_metrics': 'Device Metrics (CPU/RAM)',
+            'device_performance_history': 'Latency & Signal History',
+            'audit_logs': 'System Audit Logs',
+            'alerts': 'Incident / Alert History',
+            'pppoe_sessions': 'PPPoE Session Data',
+            'router_netwatch': 'Netwatch Monitor Data'
+        };
+        return labels[name] || name;
+    };
+
+    if (isLoading) return (
+        <Card className="border-slate-800 bg-slate-950/50">
+            <CardContent className="h-32 flex items-center justify-center">
+                <RefreshCw className="w-5 h-5 animate-spin text-primary" />
+            </CardContent>
+        </Card>
+    );
+
+    return (
+        <Card className="border-slate-800 bg-slate-950/50 overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                    <PieChart className="w-4 h-4 text-primary" />
+                    Database Usage Statistics
+                </CardTitle>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 hover:bg-slate-800"
+                    onClick={() => refetch()}
+                >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                </Button>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] text-left">
+                        <thead className="bg-slate-900/50 text-slate-500 uppercase">
+                            <tr>
+                                <th className="px-4 py-2 font-medium">Data Category</th>
+                                <th className="px-4 py-2 font-medium text-right">Rows</th>
+                                <th className="px-4 py-2 font-medium text-right">Total Size</th>
+                                <th className="px-4 py-2 font-medium text-right">Indices</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/50">
+                            {stats?.data?.slice(0, 10).map((row, idx) => (
+                                <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
+                                    <td className="px-4 py-2 text-slate-300 font-medium">
+                                        <div className="flex flex-col">
+                                            <span>{getTableLabel(row.table_name)}</span>
+                                            <span className="text-[9px] text-slate-600 font-mono">{row.table_name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-4 py-2 text-right text-slate-400 font-mono">
+                                        {Number(row.row_count).toLocaleString()}
+                                    </td>
+                                    <td className="px-4 py-2 text-right">
+                                        <span className={clsx(
+                                            "font-semibold",
+                                            row.total_size.includes('GB') ? "text-red-400" :
+                                            row.total_size.includes('MB') && parseInt(row.total_size) > 100 ? "text-amber-400" :
+                                            "text-slate-400"
+                                        )}>
+                                            {row.total_size}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-2 text-right text-slate-500 text-[10px]">
+                                        {row.index_size}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                <div className="p-3 bg-slate-900/20 text-[10px] text-slate-500 italic flex items-center gap-2">
+                    <Info className="w-3 h-3 text-primary" />
+                    Statistik di atas membantu Anda menentukan masa retensi yang tepat agar disk server tidak cepat penuh.
+                </div>
+            </CardContent>
+        </Card>
     );
 }

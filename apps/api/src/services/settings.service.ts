@@ -1,4 +1,4 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
     type AppSetting,
@@ -244,6 +244,30 @@ export class SettingsService {
         // Remove trailing slash if exists
         const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
         return `${cleanBaseUrl}/api/webhook/netwatch?token=${secret}`;
+    }
+
+    /**
+     * Get Database Usage Statistics
+     * Returns table names, sizes, and row counts
+     */
+    async getDatabaseStats(): Promise<any[]> {
+        try {
+            const res = await db.execute(sql`
+                SELECT 
+                    relname AS table_name, 
+                    pg_size_pretty(pg_total_relation_size(relid)) AS total_size,
+                    pg_size_pretty(pg_relation_size(relid)) AS table_size,
+                    pg_size_pretty(pg_total_relation_size(relid) - pg_relation_size(relid)) AS index_size,
+                    n_live_tup AS row_count
+                FROM pg_catalog.pg_stat_user_tables 
+                WHERE schemaname = 'public'
+                ORDER BY pg_total_relation_size(relid) DESC;
+            `);
+            return res;
+        } catch (error) {
+            logger.error({ err: error }, '[Settings] Failed to get database stats');
+            return [];
+        }
     }
 }
 
