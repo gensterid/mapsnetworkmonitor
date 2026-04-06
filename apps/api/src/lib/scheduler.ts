@@ -3,7 +3,7 @@ import { routerService, settingsService, oltService, genieacsService, backupServ
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
-import { count, eq, lt, and } from 'drizzle-orm';
+import { count, eq, lt, and, sql } from 'drizzle-orm';
 import { logger } from './logger.js';
 import { partitionService } from '../services/db/partition.service.js';
 
@@ -491,11 +491,19 @@ async function cleanupOldMetrics(): Promise<void> {
             await db.delete(auditLogs)
                 .where(and(eq(auditLogs.tenantId, tenant.id), lt(auditLogs.createdAt, auCutoff)));
 
+            // 5. Backup Records
+            const backupRetention = await settingsService.getSettingValue('backups_retention_days', tenant.id, 90);
+            const bCutoff = new Date();
+            bCutoff.setDate(bCutoff.getDate() - backupRetention);
+
+            await db.execute(sql`DELETE FROM router_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff}`);
+            await db.execute(sql`DELETE FROM genieacs_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff}`);
+
             // Cleanup finished for tenant
             logger.info({ tenantId: tenant.id }, '✅ Tenant database maintenance complete');
         }
 
-        // 5. Ensure future partitions exist
+        // 6. Ensure future partitions exist
         await partitionService.ensurePartitionsExist();
     } catch (error) {
         logger.error({ err: error }, 'Database maintenance cleanup error');

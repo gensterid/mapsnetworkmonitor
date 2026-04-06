@@ -62,6 +62,19 @@ const runOptimization = async () => {
                         set: { value: item.value, updatedAt: new Date() }
                     });
             }
+            
+            // Backup retention default (90 days)
+            await db.insert(settings)
+                .values({
+                    tenantId: tenant.id,
+                    key: 'backups_retention_days',
+                    value: 90,
+                    updatedAt: new Date()
+                })
+                .onConflictDoUpdate({
+                    target: [settings.tenantId, settings.key],
+                    set: { value: 90, updatedAt: new Date() }
+                });
         }
         console.log('✅ Retention policies updated.');
 
@@ -85,6 +98,12 @@ const runOptimization = async () => {
 
         const resultAlerts = await db.delete(alerts).where(and(eq(alerts.resolved, true), lt(alerts.createdAt, cutoffs.alerts)));
         console.log(`- Cleared old resolved alerts.`);
+
+        // Purge backups (DB records only)
+        const cutoffBackups = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        await db.execute(sql`DELETE FROM router_backups WHERE created_at < ${cutoffBackups};`);
+        await db.execute(sql`DELETE FROM genieacs_backups WHERE created_at < ${cutoffBackups};`);
+        console.log(`- Cleared old backup records (90+ days).`);
 
         // 3. VACUUM ANALYZE (Reclaim disk space)
         console.log('⚡ Running VACUUM ANALYZE (this may take a few minutes)...');

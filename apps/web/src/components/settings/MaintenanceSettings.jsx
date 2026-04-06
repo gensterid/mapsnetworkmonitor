@@ -107,6 +107,21 @@ export default function MaintenanceSettings({
                                 </div>
                                 <p className="text-[10px] text-slate-500 italic mt-1">*Data paling berat. Disarankan 30-90 hari.</p>
                             </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-300">Backup Storage (DB Records)</label>
+                                <div className="flex items-center gap-2">
+                                    <Input
+                                        type="number"
+                                        name="backups_retention_days"
+                                        value={formData.backups_retention_days}
+                                        onChange={handleChange}
+                                        min={1}
+                                        className="bg-slate-900/50"
+                                    />
+                                    <span className="text-xs text-slate-500 w-12">Days</span>
+                                </div>
+                                <p className="text-[10px] text-slate-500 italic mt-1">*Hanya catatan histori, bukan file fisik.</p>
+                            </div>
                         </div>
 
                         <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-xl flex items-start gap-3">
@@ -323,7 +338,9 @@ function DatabaseUsageStats() {
             'audit_logs': 'System Audit Logs',
             'alerts': 'Incident / Alert History',
             'pppoe_sessions': 'PPPoE Session Data',
-            'router_netwatch': 'Netwatch Monitor Data'
+            'router_netwatch': 'Netwatch Monitor Data',
+            'router_backups': 'Router Backup History',
+            'genieacs_backups': 'GenieACS Backup History'
         };
         return labels[name] || name;
     };
@@ -364,7 +381,7 @@ function DatabaseUsageStats() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">
-                            {stats?.data?.slice(0, 10).map((row, idx) => (
+                            {stats?.slice(0, 10).map((row, idx) => (
                                 <tr key={idx} className="hover:bg-slate-900/30 transition-colors">
                                     <td className="px-4 py-2 text-slate-300 font-medium">
                                         <div className="flex flex-col">

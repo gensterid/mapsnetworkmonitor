@@ -22,7 +22,8 @@ export class SettingsService {
         genieacs_url: process.env.GENIEACS_URL || 'http://localhost:7557',
         genieacs_username: '',
         genieacs_password_encrypted: '',
-        performance_retention_days: 30
+        performance_retention_days: 30,
+        backups_retention_days: 90
     };
 
     /**
@@ -222,7 +223,8 @@ export class SettingsService {
             { key: 'interface_metrics_retention_days', value: 360, description: 'Retention period for interface traffic metrics (days)' },
             { key: 'alerts_retention_days', value: 60, description: 'Retention period for resolved alerts (days)' },
             { key: 'audit_logs_retention_days', value: 365, description: 'Retention period for system audit logs (days)' },
-            { key: 'performance_retention_days', value: 30, description: 'Retention period for latency and signal history (days)' }
+            { key: 'performance_retention_days', value: 30, description: 'Retention period for latency and signal history (days)' },
+            { key: 'backups_retention_days', value: 90, description: 'Retention period for database backup records (days)' }
         ];
 
         for (const setting of defaults) {
@@ -254,14 +256,18 @@ export class SettingsService {
         try {
             const res = await db.execute(sql`
                 SELECT 
-                    relname AS table_name, 
-                    pg_size_pretty(pg_total_relation_size(relid)) AS total_size,
-                    pg_size_pretty(pg_relation_size(relid)) AS table_size,
-                    pg_size_pretty(pg_total_relation_size(relid) - pg_relation_size(relid)) AS index_size,
-                    n_live_tup AS row_count
-                FROM pg_catalog.pg_stat_user_tables 
-                WHERE schemaname = 'public'
-                ORDER BY pg_total_relation_size(relid) DESC;
+                    C.relname AS table_name, 
+                    pg_size_pretty(pg_total_relation_size(C.oid)) AS total_size,
+                    pg_size_pretty(pg_relation_size(C.oid)) AS table_size,
+                    pg_size_pretty(pg_total_relation_size(C.oid) - pg_relation_size(C.oid)) AS index_size,
+                    C.reltuples::bigint AS row_count
+                FROM pg_class C
+                LEFT JOIN pg_namespace N ON (N.oid = C.relnamespace)
+                WHERE nspname = 'public' 
+                  AND relkind = 'r'
+                  AND C.relname NOT LIKE 'pg_%'
+                ORDER BY pg_total_relation_size(C.oid) DESC
+                LIMIT 20;
             `);
             return res;
         } catch (error) {
