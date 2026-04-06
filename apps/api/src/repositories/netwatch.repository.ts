@@ -189,10 +189,29 @@ export class NetwatchRepository {
     }
 
     /**
-     * Create a new entry
+     * Create a new entry (Safe Upsert)
      */
     async create(data: NewRouterNetwatch, tx: any = db): Promise<RouterNetwatch> {
-        const [inserted] = await tx.insert(routerNetwatch).values(data).returning();
+        const [inserted] = await tx
+            .insert(routerNetwatch)
+            .values(data)
+            .onConflictDoUpdate({
+                target: [routerNetwatch.routerId, routerNetwatch.host],
+                set: {
+                    name: data.name,
+                    deviceType: data.deviceType,
+                    latitude: data.latitude,
+                    longitude: data.longitude,
+                    location: data.location,
+                    connectionType: data.connectionType,
+                    connectedToId: data.connectedToId,
+                    targetInterface: data.targetInterface,
+                    linkedOnuId: data.linkedOnuId,
+                    portCapacity: data.portCapacity,
+                    updatedAt: new Date(),
+                }
+            })
+            .returning();
         return inserted;
     }
 

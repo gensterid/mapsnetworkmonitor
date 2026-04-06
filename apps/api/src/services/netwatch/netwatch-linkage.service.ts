@@ -112,6 +112,27 @@ export async function ensureNetwatchEntry(routerId: string, host: string, name?:
     else if (type === 'router') deviceType = 'router';
     else if (type === 'switch') deviceType = 'switch';
  
-    const [inserted] = await tx.insert(routerNetwatch).values({ routerId, host, name, deviceType, isAppOnly: true, tenantId, status: 'unknown', interval: 60 } as any).returning();
+    const [inserted] = await tx
+        .insert(routerNetwatch)
+        .values({ 
+            routerId, 
+            host, 
+            name, 
+            deviceType: type || 'client', 
+            isAppOnly: true, 
+            tenantId, 
+            status: 'unknown', 
+            interval: 60 
+        } as any)
+        .onConflictDoUpdate({
+            target: [routerNetwatch.routerId, routerNetwatch.host],
+            set: {
+                isAppOnly: true,
+                updatedAt: new Date(),
+                // Only update name if it was explicitly provided
+                ...(name ? { name } : {})
+            }
+        })
+        .returning();
     return inserted.id;
 }

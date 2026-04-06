@@ -87,10 +87,30 @@ export class PppoeRepository {
     }
 
     /**
-     * Create a new session
+     * Create a new session (Safe Upsert)
      */
     async create(data: NewPppoeSession, tx: any = db): Promise<PppoeSession> {
-        const [inserted] = await tx.insert(pppoeSessions).values(data).returning();
+        const [inserted] = await tx
+            .insert(pppoeSessions)
+            .values(data)
+            .onConflictDoUpdate({
+                target: [pppoeSessions.routerId, pppoeSessions.name],
+                set: {
+                    sessionId: data.sessionId,
+                    callerId: data.callerId,
+                    address: data.address,
+                    service: data.service,
+                    uptime: data.uptime,
+                    status: data.status || 'active',
+                    lastSeen: new Date(),
+                    txBytes: data.txBytes,
+                    rxBytes: data.rxBytes,
+                    txRate: data.txRate,
+                    rxRate: data.rxRate,
+                    lastTrafficUpdate: new Date(),
+                }
+            })
+            .returning();
         return inserted;
     }
 
