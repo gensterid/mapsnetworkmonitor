@@ -6,8 +6,8 @@ import {
     index,
     primaryKey,
 } from 'drizzle-orm/pg-core';
-import { routerInterfaces, routers } from './routers';
-import { tenants } from './tenants';
+import { routerInterfaces, routers } from './routers.js';
+import { tenants } from './tenants.js';
 
 /**
  * Router Interface Metrics History

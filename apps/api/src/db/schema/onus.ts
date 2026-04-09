@@ -10,9 +10,9 @@ import {
     integer,
     foreignKey,
 } from 'drizzle-orm/pg-core';
-import { tenants } from './tenants';
-import { olts } from './olts';
-import { routers } from './routers';
+import { tenants } from './tenants.js';
+import { olts } from './olts.js';
+import { routers } from './routers.js';
 
 export const onusStatusEnum = pgEnum('onu_status', [
     'online',

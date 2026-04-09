@@ -6,8 +6,8 @@ import {
     timestamp,
     index,
 } from 'drizzle-orm/pg-core';
-import { routers } from './routers';
-import { tenants } from './tenants';
+import { routers } from './routers.js';
+import { tenants } from './tenants.js';
 
 /**
  * Topology Nodes table
