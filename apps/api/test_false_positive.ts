@@ -14,7 +14,7 @@ async function testSync() {
     }
     
     console.log('[TEST] Refreshing status...');
-    const result = await routerSyncService.refreshRouterStatus(r[0].id, false, true, r[0].tenantId);
+    const result = await routerSyncService.refreshRouterStatus(r[0].id, false, true, r[0].tenantId ?? undefined);
     
     const r2 = await db.select().from(routers).where(eq(routers.name, 'YANI'));
     console.log('\n================================');

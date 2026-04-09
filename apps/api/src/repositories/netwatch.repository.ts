@@ -208,6 +208,9 @@ export class NetwatchRepository {
                     targetInterface: data.targetInterface,
                     linkedOnuId: data.linkedOnuId,
                     portCapacity: data.portCapacity,
+                    splitterRatio: data.splitterRatio,
+                    waypoints: data.waypoints,
+                    isAppOnly: data.isAppOnly,
                     updatedAt: new Date(),
                 }
             })

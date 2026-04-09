@@ -1,6 +1,6 @@
 import { pgTable, uuid, primaryKey } from 'drizzle-orm/pg-core';
-import { users } from './users.js';
-import { tenants } from './tenants.js';
+import { users } from './users';
+import { tenants } from './tenants';
 
 /**
  * User Tenants mapping table

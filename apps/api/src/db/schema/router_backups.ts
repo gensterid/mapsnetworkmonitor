@@ -7,8 +7,8 @@ import {
     pgEnum,
     index,
 } from 'drizzle-orm/pg-core';
-import { routers } from './routers.js';
-import { tenants } from './tenants.js';
+import { routers } from './routers';
+import { tenants } from './tenants';
 
 // Backup type enum
 export const backupTypeEnum = pgEnum('router_backup_type', [

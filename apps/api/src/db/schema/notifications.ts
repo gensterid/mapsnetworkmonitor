@@ -1,5 +1,5 @@
 import { pgTable, uuid, text, boolean, timestamp } from 'drizzle-orm/pg-core';
-import { tenants } from './tenants.js';
+import { tenants } from './tenants';
 
 export const notificationGroups = pgTable('notification_groups', {
     id: uuid('id').defaultRandom().primaryKey(),

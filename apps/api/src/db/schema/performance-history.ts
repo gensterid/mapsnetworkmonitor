@@ -7,9 +7,9 @@ import {
     index,
     primaryKey,
 } from 'drizzle-orm/pg-core';
-import { routers } from './routers.js';
-import { tenants } from './tenants.js';
-import { onus } from './onus.js';
+import { routers } from './routers';
+import { tenants } from './tenants';
+import { onus } from './onus';
 
 /**
  * Device Performance History

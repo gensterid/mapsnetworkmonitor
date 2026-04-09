@@ -72,10 +72,12 @@ export async function create(routerId: string, data: any, tenantId?: string, tx:
         }
     }
 
+    const sanitizedHost = (data.host === '' || data.host === undefined) ? null : data.host;
+
     return netwatchRepository.create({
         routerId,
         tenantId: effectiveTenantId,
-        host: data.host,
+        host: sanitizedHost,
         name: data.name,
         deviceType: data.deviceType || 'client',
         interval: data.interval || 30,
@@ -161,10 +163,18 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
     }
 
     // 4. Update the Netwatch record
-    return netwatchRepository.update(id, {
-        ...data,
-        updatedAt: new Date(),
-    }, tx);
+    try {
+        const sanitizedData = { ...data };
+        if (sanitizedData.host === '') sanitizedData.host = null;
+
+        return await netwatchRepository.update(id, {
+            ...sanitizedData,
+            updatedAt: new Date(),
+        }, tx);
+    } catch (err: any) {
+        console.error(`[Netwatch Core] Failed to update entry ${id}:`, err.message);
+        throw err;
+    }
 }
 
 /**

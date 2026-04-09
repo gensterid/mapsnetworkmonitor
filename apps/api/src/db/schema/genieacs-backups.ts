@@ -6,7 +6,7 @@ import {
     jsonb,
     pgEnum,
 } from 'drizzle-orm/pg-core';
-import { onus } from './onus.js';
+import { onus } from './onus';
 
 export const genieacsBackupTypeEnum = pgEnum('genieacs_backup_type', [
     'snapshot',
