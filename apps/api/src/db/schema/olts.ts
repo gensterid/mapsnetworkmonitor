@@ -9,7 +9,7 @@ import {
     boolean,
     index,
 } from 'drizzle-orm/pg-core';
-import { tenants } from './tenants';
+import { tenants } from './tenants.js';
 
 export const oltTypeEnum = pgEnum('olt_type', ['hsgq', 'cdata', 'generic']);
 export const oltStatusEnum = pgEnum('olt_status', ['online', 'offline', 'unknown']);
