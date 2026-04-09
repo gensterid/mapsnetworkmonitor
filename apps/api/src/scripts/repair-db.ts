@@ -228,7 +228,7 @@ const runRepair = async () => {
 
         // 8. Fix: router_netwatch stabilization (Deduplication + Unique Index)
         console.log('🔍 Stabilizing router_netwatch...');
-        // 8.1 Cleanup duplicates
+        // 8.1 Cleanup duplicates (ONLY for entries with Host to protect passive markers/ODPs)
         await db.execute(sql`
             DELETE FROM router_netwatch 
             WHERE id IN (
@@ -239,6 +239,7 @@ const runRepair = async () => {
                         ORDER BY updated_at DESC, id DESC
                     ) as rn 
                     FROM router_netwatch
+                    WHERE host IS NOT NULL AND host != ''
                 ) t 
                 WHERE t.rn > 1
             )
@@ -267,6 +268,7 @@ const runRepair = async () => {
                         ORDER BY last_seen DESC, connected_at DESC, id DESC
                     ) as rn 
                     FROM pppoe_sessions
+                    WHERE name IS NOT NULL AND name != ''
                 ) t 
                 WHERE t.rn > 1
             )
