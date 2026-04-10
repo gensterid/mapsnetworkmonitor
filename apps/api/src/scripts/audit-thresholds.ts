@@ -27,17 +27,30 @@ async function runCheck() {
     // 2. Check current alert counts in DB
     console.log('\n--- 2. Database Alert Counts ---');
     const totalResult = await db.select({ count: count() }).from(alerts);
-    const issueResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.resolved, false));
+    const unresolvedResult = await db.select({ count: count() }).from(alerts).where(eq(alerts.resolved, false));
     
     console.log(`Total Alerts: ${totalResult[0].count}`);
-    console.log(`Unresolved Alerts: ${issueResult[0].count}`);
+    console.log(`Unresolved Alerts: ${unresolvedResult[0].count}`);
 
-    // Break down by type
-    const statsResult = await db.execute('SELECT type, severity, count(*) FROM alerts WHERE resolved = false GROUP BY type, severity');
-    console.log('\nUnresolved Breakdown:');
-    (statsResult as any).rows.forEach((r: any) => {
-        const category = ISSUE_TYPES.includes(r.type) ? 'ISSUE' : (CONNECTIVITY_TYPES.includes(r.type) ? 'CONNECTIVITY' : 'OTHER');
-        console.log(`- [${category}] ${r.type} (${r.severity}): ${r.count}`);
+    // Break down by type using Drizzle select for better compatibility
+    console.log('\nUnresolved Breakdown (Top Categories):');
+    const alertsList = await db.select({
+        type: alerts.type,
+        severity: alerts.severity
+    })
+    .from(alerts)
+    .where(eq(alerts.resolved, false));
+
+    const breakdown: Record<string, number> = {};
+    alertsList.forEach(a => {
+        const key = `${a.type} (${a.severity})`;
+        breakdown[key] = (breakdown[key] || 0) + 1;
+    });
+
+    Object.entries(breakdown).forEach(([key, val]) => {
+        const typeOnly = key.split(' ')[0];
+        const category = ISSUE_TYPES.includes(typeOnly) ? 'ISSUE' : (CONNECTIVITY_TYPES.includes(typeOnly) ? 'CONNECTIVITY' : 'OTHER');
+        console.log(`- [${category}] ${key}: ${val}`);
     });
 
     // 3. Check Router Sync Status
