@@ -228,6 +228,11 @@ const runRepair = async () => {
 
         // 8. Fix: router_netwatch stabilization (Deduplication + Unique Index)
         console.log('🔍 Stabilizing router_netwatch...');
+        
+        // 8.0 Cleanup invalid empty strings that would block unique index
+        console.log('🧹 Normalizing empty hosts to NULL in router_netwatch...');
+        await db.execute(sql`UPDATE router_netwatch SET host = NULL WHERE host = '';`);
+
         // 8.1 Cleanup duplicates (ONLY for entries with Host to protect passive markers/ODPs)
         await db.execute(sql`
             DELETE FROM router_netwatch 
