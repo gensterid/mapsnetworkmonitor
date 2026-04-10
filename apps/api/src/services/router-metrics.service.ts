@@ -23,9 +23,14 @@ export class RouterMetricsService {
      * Save current resources as metrics and check for threshold alerts
      */
     async saveMetrics(routerId: string, routerName: string, tenantId: string, resources: any, tx: any = db): Promise<void> {
-        if (!resources) return;
+        if (!resources) {
+            logger.debug({ routerId, name: routerName }, '⏭️ No resources provided, skipping metrics save');
+            return;
+        }
 
         try {
+            logger.debug({ routerId, name: routerName, cpu: resources.cpuLoad }, '📊 Saving metrics and checking thresholds');
+            
             await metricRepository.insertRouterMetrics([{
                 routerId,
                 tenantId,
@@ -49,6 +54,8 @@ export class RouterMetricsService {
                 resources.usedMemory,
                 tx
             );
+            
+            logger.info({ routerId, name: routerName }, '✅ Metrics saved and thresholds checked');
         } catch (err) {
             logger.error({ err, router: routerName }, 'Failed to save metrics');
         }

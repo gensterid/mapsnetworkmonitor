@@ -129,9 +129,8 @@ export class AlertQueryService {
      * Count alerts by severity (filtered by user access)
      */
     async countBySeverity(userId?: string, userRole?: string, tenantId?: string) {
-        // For simplicity and to avoid too many repository methods, we can use findUnacknowledged or 
-        // specialized repository methods. Let's keep this bit more direct but via repository if possible.
-        const { data } = await this.findAll({ userId, userRole, tenantId, resolved: false });
+        // We use a high limit for counting to ensure we don't truncate stats
+        const { data } = await this.findAll({ userId, userRole, tenantId, resolved: false, limit: 10000 });
         
         return {
             info: data.filter((a) => a.severity === 'info').length,
@@ -144,7 +143,8 @@ export class AlertQueryService {
      * Get unread stats with breakdown by category
      */
     async getUnreadStats(userId?: string, userRole?: string, tenantId?: string) {
-        const { data } = await this.findAll({ userId, userRole, tenantId, acknowledged: false });
+        // High limit to ensure all unacknowledged alerts are counted in breakdown
+        const { data } = await this.findAll({ userId, userRole, tenantId, acknowledged: false, limit: 10000 });
 
         const issuesCount = data.filter(a => isIssue(a.type, a.severity)).length;
         const connectivityCount = data.length - issuesCount;
