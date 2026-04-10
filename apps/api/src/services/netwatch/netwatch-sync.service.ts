@@ -36,17 +36,43 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
         const routerClock = await getRouterClock(conn).catch(() => undefined);
         const mikrotikNetwatch = await getNetwatchHosts(conn, routerClock);
         const existingEntries = await netwatchRepository.findWithDetails(routerId, tx);
-        const existingMap = new Map<string, any>(existingEntries.map((e: any) => [e.host, e]));
-        const processedHosts = new Set<string>();
+        // Map 1: Primary lookup by Host (IP/Address)
+        const hostMap = new Map<string, any>(existingEntries.map((e: any) => [e.host, e]));
+        // Map 2: Secondary lookup by Name (Comment) to catch identity shifts
+        const commentMap = new Map<string, any>(
+            existingEntries
+                .filter((e: any) => e.name && e.name.trim() !== '')
+                .map((e: any) => [e.name.toLowerCase().trim(), e])
+        );
 
+        const processedHosts = new Set<string>();
         const upsertData: NewRouterNetwatch[] = [];
 
         const executeSync = async (transaction: any) => {
             for (const nw of mikrotikNetwatch) {
                 if (!nw.host) continue;
-                processedHosts.add(nw.host);
+                
+                let existing = hostMap.get(nw.host);
+                const nwComment = (nw.comment || nw.name || '').toLowerCase().trim();
 
-                const existing = existingMap.get(nw.host);
+                // SMART MATCHING: If Host doesn't match, try to match by Comment/Name
+                // This prevents duplication when a host is changed from DNS names to IPs (common during restores)
+                if (!existing && nwComment !== '') {
+                    const fallbackMatch = commentMap.get(nwComment);
+                    if (fallbackMatch && fallbackMatch.host !== nw.host) {
+                        logger.info({ routerId, oldHost: fallbackMatch.host, newHost: nw.host, comment: nwComment }, '🔄 Netwatch: Identity Migration detected. Syncing old name record to new IP address.');
+                        
+                        // Update the existing record's host string immediately so the subsequent UPSERT 
+                        // hits the unique (router_id, host) index correctly instead of creating a duplicate.
+                        await transaction.update(routerNetwatch).set({ host: nw.host }).where(eq(routerNetwatch.id, fallbackMatch.id));
+                        
+                        existing = fallbackMatch;
+                        // Important: mark the old host as processed so it doesn't get cleaned up as "stale"
+                        processedHosts.add(fallbackMatch.host!);
+                    }
+                }
+
+                processedHosts.add(nw.host);
                 const status: 'up' | 'down' | 'unknown' = (nw.status === 'up') ? 'up' : (nw.status === 'down' ? 'down' : 'unknown');
                 const isDisabled = nw.disabled === true;
 
