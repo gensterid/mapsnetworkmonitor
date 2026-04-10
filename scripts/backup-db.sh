@@ -18,7 +18,7 @@ echo "--------------------------------"
 
 # Run backup within container and pipe to host
 echo "1. Performing GZip dump (this may take a few minutes for $DB_NAME)..."
-docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" "$DB_NAME" | gzip > "$OUTPUT_FILE"
+docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" --no-owner --no-acl "$DB_NAME" | gzip > "$OUTPUT_FILE"
 
 if [ $? -eq 0 ]; then
     SIZE=$(du -h "$OUTPUT_FILE" | cut -f1)
