@@ -12,6 +12,7 @@ export default function Alerts() {
     const [page, setPage] = useState(1);
     const [sortOrder, setSortOrder] = useState('desc');
     const [dateFilter, setDateFilter] = useState('');
+    const [showResolved, setShowResolved] = useState(false);
     const debouncedSearch = useDebounce(searchQuery, 500);
 
     // Construct start and end dates based on filter
@@ -39,7 +40,8 @@ export default function Alerts() {
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined,
         search: debouncedSearch,
-        category: 'alerts' // Server-side filtering to fix pagination
+        category: 'alerts', // Server-side filtering to fix pagination
+        resolved: showResolved ? undefined : false
     });
 
     // Handle both new (paginated) and old (array) response formats for safety during transition
@@ -190,13 +192,13 @@ export default function Alerts() {
                 <div className="flex flex-col sm:flex-row gap-2">
                     <div className="flex gap-2 flex-1">
                         <Button
-                            variant="outline"
+                            variant={showResolved ? "primary" : "outline"}
                             size="sm"
-                            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                            className="flex-1 justify-center"
+                            onClick={() => setShowResolved(!showResolved)}
+                            className="flex-1 justify-center lg:flex-none"
                         >
-                            {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
-                            Sort
+                            <Clock className="w-4 h-4 mr-2" />
+                            {showResolved ? "Showing All" : "Active Only"}
                         </Button>
                         <Button onClick={() => refetch()} variant="outline" size="sm" className="flex-1 justify-center lg:flex-none">
                             <RefreshCw className="w-4 h-4 mr-2" />

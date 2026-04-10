@@ -12,6 +12,7 @@ export default function Issues() {
     const [page, setPage] = useState(1);
     const [sortOrder, setSortOrder] = useState('desc');
     const [dateFilter, setDateFilter] = useState('');
+    const [showResolved, setShowResolved] = useState(false);
     const debouncedSearch = useDebounce(searchQuery, 500);
 
     // Construct start and end dates based on filter
@@ -38,7 +39,8 @@ export default function Issues() {
         startDate: startDate ? startDate.toISOString() : undefined,
         endDate: endDate ? endDate.toISOString() : undefined,
         search: debouncedSearch,
-        category: 'issues'
+        category: 'issues',
+        resolved: showResolved ? undefined : false
     });
 
     const alerts = Array.isArray(result) ? result : (result?.data || []);
@@ -124,6 +126,15 @@ export default function Issues() {
                         >
                             {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
                             Sort
+                        </Button>
+                        <Button
+                            variant={showResolved ? "primary" : "outline"}
+                            size="sm"
+                            onClick={() => setShowResolved(!showResolved)}
+                            className="flex-1 justify-center lg:flex-none"
+                        >
+                            <Clock className="w-4 h-4 mr-2" />
+                            {showResolved ? "Showing All" : "Active Only"}
                         </Button>
                         <Button onClick={() => refetch()} variant="outline" size="sm" className="flex-1 justify-center lg:flex-none">
                             <RefreshCw className="w-4 h-4 mr-2" />
