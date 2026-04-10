@@ -148,10 +148,12 @@ export const createDeviceIcon = ({
                 </div>
             </div>
             
-            ${type === 'odp' && portCapacity ? `
-            <div class="device-icon__ports-premium ${isFull ? 'device-icon--full' : ''}" title="Ports: ${usedPorts} used of ${portCapacity}">
+            ${type === 'odp' && (portCapacity || splitterRatio) ? `
+            <div class="device-icon__ports-premium ${isFull ? 'device-icon--full' : ''}" title="Ports: ${usedPorts} used of ${portCapacity || '?'}${splitterRatio ? `, Ratio: ${splitterRatio}` : ''}">
                 <div class="device-icon__ports-bg"></div>
-                <span class="device-icon__ports-text">${usedPorts}/${portCapacity}</span>
+                <span class="device-icon__ports-text">
+                    ${usedPorts}/${portCapacity || '?'}${splitterRatio ? ` <small class="opacity-80 text-[10px]">(${splitterRatio})</small>` : ''}
+                </span>
             </div>` : ''}
             
             ${showLabel && name ? `

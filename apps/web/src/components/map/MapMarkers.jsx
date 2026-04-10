@@ -978,6 +978,7 @@ export const arePropsEqual = (prev, next) => {
         prev.disabled === next.disabled &&
         prev.usedPorts === next.usedPorts &&
         prev.portCapacity === next.portCapacity &&
+        prev.splitterRatio === next.splitterRatio &&
         prev.id === next.id
     );
 };
