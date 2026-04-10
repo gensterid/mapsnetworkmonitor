@@ -147,10 +147,29 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 await netwatchRepository.upsertBatch(upsertData, transaction);
             }
 
-            const toDelete = existingEntries.filter((e: any) => e.deviceType === 'client' && !e.isAppOnly && e.host && e.host !== '0.0.0.0' && !processedHosts.has(e.host));
+            const toDelete = existingEntries.filter((e: any) => {
+                // 1. Basic filter per existing logic: must be a client, not app-only, has a host, and not found in current scan
+                if (e.deviceType !== 'client' || e.isAppOnly || !e.host || e.host === '0.0.0.0' || processedHosts.has(e.host)) {
+                    return false;
+                }
+
+                // 2. SAFETY CHECK: Do not delete if the device has MANUAL MAPPING
+                // If connectedToId is NOT the routerId, it's mapped to an ODP or other device.
+                const isManuallyConnected = e.connectedToId && e.connectedToId !== routerId;
+                const hasWaypoints = e.waypoints && e.waypoints !== '[]' && e.waypoints !== '';
+                const isCustomType = e.connectionType && e.connectionType !== 'router';
+
+                if (isManuallyConnected || hasWaypoints || isCustomType) {
+                    logger.debug({ routerId, host: e.host, name: e.name }, '🛡️ Netwatch Cleanup: Skipping deletion of mapped device to protect network topology.');
+                    return false;
+                }
+
+                return true;
+            });
+
             if (toDelete.length > 0) {
                 await transaction.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map((e: any) => e.id)));
-                logger.info({ routerId, deletedCount: toDelete.length }, 'Cleaned up stale netwatch hosts');
+                logger.info({ routerId, deletedCount: toDelete.length }, 'Cleaned up stale netwatch hosts (unmapped only)');
             }
         };
 
