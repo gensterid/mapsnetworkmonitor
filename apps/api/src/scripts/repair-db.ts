@@ -365,14 +365,14 @@ const runRepair = async () => {
         }
 
         // 10. Metrics Restoration: Decompress hypertables to allow new data
-        console.log('🧊 Checking for compressed chunks in metrics tables...');
+        console.log('🧊 Checking for compressed chunks in metrics tables (Schema Qualified)...');
         const hyperTables = ['device_performance_history', 'router_interface_metrics', 'router_metrics'];
         
         for (const tableName of hyperTables) {
             try {
-                // Find compressed chunks for this table
+                // Find compressed chunks with their schema
                 const chunks = await db.execute(sql.raw(`
-                    SELECT i.chunk_name 
+                    SELECT i.chunk_schema, i.chunk_name 
                     FROM timescaledb_information.chunks i 
                     WHERE i.hypertable_name = '${tableName}' AND i.is_compressed = true
                     ORDER BY i.range_start DESC;
@@ -380,11 +380,18 @@ const runRepair = async () => {
 
                 if (chunks.length > 0) {
                     console.log(`⚠️ Found ${chunks.length} compressed chunks in "${tableName}". Restoring access...`);
+                    
+                    // Try to disable compression policy first (to prevent re-compression)
+                    try {
+                        await queryClient.unsafe(`SELECT remove_compression_policy('${tableName}', if_exists => true);`);
+                        console.log(`   - Suspended compression policy for ${tableName}`);
+                    } catch (e) {}
+
                     for (const chunk of chunks) {
                         try {
-                            console.log(`   - Decompressing ${chunk.chunk_name}...`);
-                            // Try decompressing one by one outside of main transaction
-                            await queryClient.unsafe(`SELECT decompress_chunk('${chunk.chunk_name}', if_compressed => true);`);
+                            const fullName = `${chunk.chunk_schema}.${chunk.chunk_name}`;
+                            console.log(`   - Decompressing ${fullName}...`);
+                            await queryClient.unsafe(`SELECT decompress_chunk('${fullName}', if_compressed => true);`);
                         } catch (e: any) {
                             console.log(`   - Skipping ${chunk.chunk_name}: ${e.message.split('\n')[0]}`);
                         }
