@@ -9,6 +9,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
+    
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SERVER_SSH_KEY: ${{ secrets.SERVER_SSH_KEY }}
 
     steps:
     - uses: actions/checkout@v4
@@ -16,9 +21,9 @@ jobs:
     - name: Deploy to Server via SSH
       uses: appleboy/ssh-action@v1.2.0
       with:
-        host: "${{ secrets.SERVER_HOST }}"
-        username: "${{ secrets.SERVER_USER }}"
-        key: "${{ secrets.SERVER_SSH_KEY }}"
+        host: ${{ env.SERVER_HOST }}
+        username: ${{ env.SERVER_USER }}
+        key: ${{ env.SERVER_SSH_KEY }}
         script: |
           cd /opt/app
           chmod +x scripts/update-server.sh
