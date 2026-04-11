@@ -91,16 +91,20 @@ export class RouterMetricsService {
             const indexes = Array.from(indexToNameMap.keys());
             if (indexes.length === 0) return {};
 
-            // 2. Prepare OIDs for High Capacity (64-bit) counters
+            // 2. Prepare OIDs for both Standard (32-bit) and High Capacity (64-bit) counters
             const oids: string[] = [];
             for (const index of indexes) {
+                // High Capacity (64-bit) - Preferred
                 oids.push(`1.3.6.1.2.1.31.1.1.1.6.${index}`);  // ifHCInOctets (RX)
                 oids.push(`1.3.6.1.2.1.31.1.1.1.10.${index}`); // ifHCOutOctets (TX)
+                // Standard (32-bit) - Fallback
+                oids.push(`1.3.6.1.2.1.2.2.1.10.${index}`);    // ifInOctets (RX)
+                oids.push(`1.3.6.1.2.1.2.2.1.16.${index}`);    // ifOutOctets (TX)
             }
 
-            // 3. Fetch all counters in chunked requests to avoid SNMP packet size limits
-            const chunkSize = 20; // 10 interfaces per request (2 OIDs each)
-            const trafficData: Record<string, { rx: number; tx: number }> = {};
+            // 3. Fetch all counters in chunked requests
+            const chunkSize = 20; // 5 interfaces per request (4 OIDs each)
+            const trafficData: Record<string, { rx: number; tx: number; rx32?: number; tx32?: number }> = {};
             
             for (let i = 0; i < oids.length; i += chunkSize) {
                 const chunk = oids.slice(i, i + chunkSize);
@@ -114,33 +118,36 @@ export class RouterMetricsService {
 
                     if (!trafficData[name]) trafficData[name] = { rx: 0, tx: 0 };
 
-                    if (result.oid.startsWith('1.3.6.1.2.1.31.1.1.1.6.')) { // ifHCInOctets (RX)
-                        trafficData[name].rx = parseSnmpValue(result.value);
-                    } else if (result.oid.startsWith('1.3.6.1.2.1.31.1.1.1.10.')) { // ifHCOutOctets (TX)
-                        trafficData[name].tx = parseSnmpValue(result.value);
-                    }
+                    const val = parseSnmpValue(result.value);
+                    if (result.oid.startsWith('1.3.6.1.2.1.31.1.1.1.6.')) trafficData[name].rx = val;
+                    else if (result.oid.startsWith('1.3.6.1.2.1.31.1.1.1.10.')) trafficData[name].tx = val;
+                    else if (result.oid.startsWith('1.3.6.1.2.1.2.2.1.10.')) trafficData[name].rx32 = val;
+                    else if (result.oid.startsWith('1.3.6.1.2.1.2.2.1.16.')) trafficData[name].tx32 = val;
                 }
             }
 
-            // 4. Pre-fetch all interfaces for this router via repository
+            // 4. Pre-fetch existing interfaces and metrics
             const existingInterfaces = await interfaceRepository.findByRouterId(router.id, tx);
             const interfaceMap = new Map<string, RouterInterface>(
                 existingInterfaces.map((i: RouterInterface) => [i.name, i])
             );
 
-            // 5. Pre-fetch latest metric timestamps via repository
             const interfaceIds = existingInterfaces.map((i: RouterInterface) => i.id);
             const lastMetricsRaw = await metricRepository.findLatestForInterfaces(interfaceIds, tx);
             const lastMetrics = (lastMetricsRaw as any).rows || lastMetricsRaw;
-            
             const lastMetricMap = new Map<string, Date>(
                 lastMetrics.map((m: any) => [m.interface_id || m.interfaceId, m.recorded_at || m.recordedAt])
             );
 
-            // 6. Calculate rates and update DB
+            // 5. Calculate rates with Fallback and Rollover support
             const calculatedRates: Record<string, { tx: number; rx: number }> = {};
-            for (const [name, data] of Object.entries(trafficData)) {
-                if (isNaN(data.tx) || isNaN(data.rx)) continue;
+            for (const [name, rawData] of Object.entries(trafficData)) {
+                // Choose best counter: HC (64-bit) preferred if > 0, otherwise fallback to 32-bit
+                const data = {
+                    tx: rawData.tx > 0 ? rawData.tx : (rawData.tx32 || 0),
+                    rx: rawData.rx > 0 ? rawData.rx : (rawData.rx32 || 0),
+                    isHc: rawData.tx > 0 || rawData.rx > 0
+                };
 
                 const existing = interfaceMap.get(name);
                 if (existing) {
@@ -150,7 +157,7 @@ export class RouterMetricsService {
                     let txRate = 0;
                     let rxRate = 0;
 
-                    if (seconds > 5) {
+                    if (seconds > 3) { // Polling every 60s, but allow for jitter
                         try {
                             const currentTx = BigInt(data.tx);
                             const currentRx = BigInt(data.rx);
@@ -158,14 +165,22 @@ export class RouterMetricsService {
                             const prevRx = BigInt(existing.rxBytes || '0');
 
                             if (prevTx > 0n && prevRx > 0n) {
-                                if (currentTx >= prevTx) {
-                                    const diffTx = currentTx - prevTx;
-                                    txRate = Number((diffTx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
-                                }
-                                if (currentRx >= prevRx) {
-                                    const diffRx = currentRx - prevRx;
-                                    rxRate = Number((diffRx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
-                                }
+                                const calculateDiff = (current: bigint, prev: bigint, isHc: boolean) => {
+                                    if (current >= prev) return current - prev;
+                                    // ROLLOVER LOGIC:
+                                    // 32-bit rollover occurs at 4,294,967,295 (2^32 - 1)
+                                    if (!isHc && prev <= 0xFFFFFFFFn) {
+                                        return (0x100000000n - prev) + current;
+                                    }
+                                    // 64-bit rollover or device reboot - reset to 0 to be safe
+                                    return 0n;
+                                };
+
+                                const diffTx = calculateDiff(currentTx, prevTx, data.isHc);
+                                const diffRx = calculateDiff(currentRx, prevRx, data.isHc);
+                                
+                                txRate = Number((diffTx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
+                                rxRate = Number((diffRx * 8n) / BigInt(Math.max(1, Math.round(seconds))));
                                 
                                 if (isNaN(txRate)) txRate = 0;
                                 if (isNaN(rxRate)) rxRate = 0;
