@@ -375,8 +375,7 @@ const runRepair = async () => {
                     SELECT i.chunk_name 
                     FROM timescaledb_information.chunks i 
                     WHERE i.hypertable_name = '${tableName}' AND i.is_compressed = true
-                    ORDER BY i.range_start DESC
-                    LIMIT 20;
+                    ORDER BY i.range_start DESC;
                 `)) as any[];
 
                 if (chunks.length > 0) {
@@ -384,16 +383,17 @@ const runRepair = async () => {
                     for (const chunk of chunks) {
                         try {
                             console.log(`   - Decompressing ${chunk.chunk_name}...`);
-                            await db.execute(sql.raw(`SELECT decompress_chunk('${chunk.chunk_name}', if_compressed => true);`));
+                            // Try decompressing one by one outside of main transaction
+                            await queryClient.unsafe(`SELECT decompress_chunk('${chunk.chunk_name}', if_compressed => true);`);
                         } catch (e: any) {
-                            console.log(`   - Skipping ${chunk.chunk_name}: ${e.message}`);
+                            console.log(`   - Skipping ${chunk.chunk_name}: ${e.message.split('\n')[0]}`);
                         }
                     }
                 } else {
                     console.log(`✅ Table "${tableName}" has no blocking compressed chunks.`);
                 }
             } catch (err: any) {
-                console.log(`ℹ️ Info: Hypertables check skipped for ${tableName} (${err.message})`);
+                console.log(`ℹ️ Info: Hypertables check skipped for ${tableName} (${err.message.split('\n')[0]})`);
             }
         }
 
