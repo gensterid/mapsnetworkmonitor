@@ -213,13 +213,17 @@ export class RouterMetricsService {
                     // Store history via repository
                     const lastRecordedAt = lastMetricMap.get(existing.id);
                     if (!lastRecordedAt || (now.getTime() - new Date(lastRecordedAt).getTime() > 5000)) {
-                        await metricRepository.insertInterfaceMetrics([{
-                            interfaceId: existing.id,
-                            txRate,
-                            rxRate,
-                            tenantId: router.tenantId,
-                            recordedAt: new Date(),
-                        }], tx);
+                        try {
+                            await metricRepository.insertInterfaceMetrics([{
+                                interfaceId: existing.id,
+                                txRate,
+                                rxRate,
+                                tenantId: router.tenantId,
+                                recordedAt: new Date(),
+                            }], tx);
+                        } catch (err) {
+                            logger.warn({ err, routerId: router.id, interface: name }, 'Failed to save interface metrics (ignoring)');
+                        }
                     }
 
                     calculatedRates[name] = { tx: txRate, rx: rxRate };

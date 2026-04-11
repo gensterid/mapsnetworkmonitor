@@ -364,7 +364,40 @@ const runRepair = async () => {
             console.log('✅ Unique index for pppoe_sessions created.');
         }
 
-        console.log('🎉 Database stabilization & repair completed successfully!');
+        // 10. Metrics Restoration: Decompress hypertables to allow new data
+        console.log('🧊 Checking for compressed chunks in metrics tables...');
+        const hyperTables = ['device_performance_history', 'router_interface_metrics', 'router_metrics'];
+        
+        for (const tableName of hyperTables) {
+            try {
+                // Find compressed chunks for this table
+                const chunks = await db.execute(sql.raw(`
+                    SELECT i.chunk_name 
+                    FROM timescaledb_information.chunks i 
+                    WHERE i.hypertable_name = '${tableName}' AND i.is_compressed = true
+                    ORDER BY i.range_start DESC
+                    LIMIT 20;
+                `)) as any[];
+
+                if (chunks.length > 0) {
+                    console.log(`⚠️ Found ${chunks.length} compressed chunks in "${tableName}". Restoring access...`);
+                    for (const chunk of chunks) {
+                        try {
+                            console.log(`   - Decompressing ${chunk.chunk_name}...`);
+                            await db.execute(sql.raw(`SELECT decompress_chunk('${chunk.chunk_name}', if_compressed => true);`));
+                        } catch (e: any) {
+                            console.log(`   - Skipping ${chunk.chunk_name}: ${e.message}`);
+                        }
+                    }
+                } else {
+                    console.log(`✅ Table "${tableName}" has no blocking compressed chunks.`);
+                }
+            } catch (err: any) {
+                console.log(`ℹ️ Info: Hypertables check skipped for ${tableName} (${err.message})`);
+            }
+        }
+
+        console.log('🎉 Database stabilization, repair & metrics restoration completed successfully!');
         process.exit(0);
     } catch (err) {
         console.error('❌ Repair failed:', err);
