@@ -193,13 +193,17 @@ export class OltService {
                             if (device.signal) {
                                 const parsedSignal = this.parseSignal(device.signal);
                                 if (parsedSignal !== null) {
-                                    await tx.insert(devicePerformanceHistory).values({
-                                        tenantId: olt.tenantId || '',
-                                        routerId: olt.parentId || '',
-                                        onuId: dbOnu.id,
-                                        signal: parsedSignal,
-                                        recordedAt: new Date()
-                                    });
+                                    try {
+                                        await tx.insert(devicePerformanceHistory).values({
+                                            tenantId: olt.tenantId || '',
+                                            routerId: olt.parentId || '',
+                                            onuId: dbOnu.id,
+                                            signal: parsedSignal,
+                                            recordedAt: new Date()
+                                        });
+                                    } catch (historyErr) {
+                                        logger.warn({ err: historyErr, onuId: dbOnu.id }, 'Failed to log ONU signal history (ignoring)');
+                                    }
                                 }
                             }
                             dbOnu.status = updateData.status;
@@ -346,7 +350,11 @@ export class OltService {
                 }).filter((v): v is any => v !== null);
 
                 if (historyValues.length > 0) {
-                    await tx.insert(devicePerformanceHistory).values(historyValues).execute();
+                    try {
+                        await tx.insert(devicePerformanceHistory).values(historyValues).execute();
+                    } catch (historyErr) {
+                        logger.warn({ err: historyErr, oltId }, 'Failed to bulk log ONU history (ignoring)');
+                    }
                 }
             });
             added = valuesToUpsert.length;
