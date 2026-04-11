@@ -192,11 +192,16 @@ const runRepair = async () => {
                     // Rename temp to original
                     await tx.execute(sql`ALTER TABLE onus_repair_temp RENAME TO onus;`);
                     
-                    // Restore key foreign keys (OLT and Router refs)
-                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_olt_id_olts_id_fk FOREIGN KEY (olt_id) REFERENCES olts(id) ON DELETE CASCADE;`);
+                    // Restore key foreign keys exactly as per schema/index.ts
+                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_olt_id_olts_id_fk FOREIGN KEY (olt_id) REFERENCES olts(id) ON DELETE SET NULL;`);
                     await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_router_id_routers_id_fk FOREIGN KEY (router_id) REFERENCES routers(id) ON DELETE SET NULL;`);
-                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_tenant_id_tenants_id_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;`);
+                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_tenant_id_tenants_id_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);`);
                     
+                    // Restore Indexes
+                    await tx.execute(sql`CREATE INDEX IF NOT EXISTS onus_olt_id_idx ON onus (olt_id);`);
+                    await tx.execute(sql`CREATE INDEX IF NOT EXISTS onus_router_id_idx ON onus (router_id);`);
+                    await tx.execute(sql`CREATE INDEX IF NOT EXISTS onus_status_idx ON onus (status);`);
+
                     // Restore router_netwatch reference if it was dropped
                     const checkNetwatchOnuCol = await tx.execute(sql`SELECT 1 FROM information_schema.columns WHERE table_name='router_netwatch' AND column_name='linked_onu_id';`);
                     if (checkNetwatchOnuCol.length > 0) {
@@ -210,7 +215,6 @@ const runRepair = async () => {
                 console.log('✅ Table "onus" converted back to regular table successfully.');
             } catch (err: any) {
                 console.error('❌ Failed to convert "onus" table:', err.message);
-                // We continue because the next checks might still add missing columns to onion_repair_temp if it failed mid-way
             }
         }
 
