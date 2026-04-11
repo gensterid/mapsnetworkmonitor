@@ -169,6 +169,51 @@ const runRepair = async () => {
 
         // 5. Fix: onus inventory missing columns
         console.log('🔍 Checking onus table...');
+        
+        // 5.0 EMERGENCY FIX: Convert onus back to regular table if it accidentally became a hypertable
+        // TimescaleDB hypertables do not support standard UPSERT (ON CONFLICT) for non-time columns, 
+        // which breaks OLT sync.
+        const checkOnuHyper = await db.execute(sql.raw(`
+            SELECT hypertable_name FROM _timescaledb_catalog.hypertable WHERE hypertable_name = 'onus';
+        `));
+
+        if (checkOnuHyper.length > 0) {
+            console.log('🚨 ALERT: Table "onus" is incorrectly configured as a hypertable. Converting to regular table...');
+            try {
+                // A safe migration that preserves data and foreign keys
+                await db.transaction(async (tx) => {
+                    // Create temp table with same structure but NOT as hypertable
+                    await tx.execute(sql`CREATE TABLE onus_repair_temp (LIKE onus INCLUDING ALL);`);
+                    await tx.execute(sql`INSERT INTO onus_repair_temp SELECT * FROM onus;`);
+                    
+                    // Drop the hypertable (this will drop FKs, we'll restore them)
+                    await tx.execute(sql`DROP TABLE onus CASCADE;`);
+                    
+                    // Rename temp to original
+                    await tx.execute(sql`ALTER TABLE onus_repair_temp RENAME TO onus;`);
+                    
+                    // Restore key foreign keys (OLT and Router refs)
+                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_olt_id_olts_id_fk FOREIGN KEY (olt_id) REFERENCES olts(id) ON DELETE CASCADE;`);
+                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_router_id_routers_id_fk FOREIGN KEY (router_id) REFERENCES routers(id) ON DELETE SET NULL;`);
+                    await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_tenant_id_tenants_id_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE CASCADE;`);
+                    
+                    // Restore router_netwatch reference if it was dropped
+                    const checkNetwatchOnuCol = await tx.execute(sql`SELECT 1 FROM information_schema.columns WHERE table_name='router_netwatch' AND column_name='linked_onu_id';`);
+                    if (checkNetwatchOnuCol.length > 0) {
+                        try {
+                            await tx.execute(sql`ALTER TABLE router_netwatch ADD CONSTRAINT router_netwatch_linked_onu_id_onus_id_fk FOREIGN KEY (linked_onu_id) REFERENCES onus(id) ON DELETE SET NULL;`);
+                        } catch (e) {
+                            console.log('   (Note: Netwatch FK already restored or failed - continuing)');
+                        }
+                    }
+                });
+                console.log('✅ Table "onus" converted back to regular table successfully.');
+            } catch (err: any) {
+                console.error('❌ Failed to convert "onus" table:', err.message);
+                // We continue because the next checks might still add missing columns to onion_repair_temp if it failed mid-way
+            }
+        }
+
         const onuCols = [
             { name: 'model', type: 'text' },
             { name: 'ssid', type: 'text' },

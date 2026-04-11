@@ -333,14 +333,20 @@ httpServer.listen(Number(PORT), '0.0.0.0', async () => {
 const gracefulShutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
     
-    // Stop accepting new connections
+    // Stop accepting new connections and actively close existing ones (SSE/Keep-alive)
+    if (typeof httpServer.closeAllConnections === 'function') {
+        logger.info('🔌 Forcefully closing all HTTP and SSE connections...');
+        httpServer.closeAllConnections();
+    }
+
     httpServer.close(async () => {
         try {
             // 1. Stop scheduler worker
             if (schedulerProcess) {
                 logger.info('🛑 Stopping scheduler worker...');
                 schedulerProcess.send('shutdown');
-                // Wait for worker to exit or force kill after 2s
+                
+                // Fast-wait for worker to exit or force ignore after 2s
                 const workerExitPromise = new Promise(resolve => schedulerProcess!.on('exit', resolve));
                 await Promise.race([workerExitPromise, new Promise(resolve => setTimeout(resolve, 2000))]);
             }
@@ -360,11 +366,11 @@ const gracefulShutdown = async (signal: string) => {
         }
     });
 
-    // Force exit if shutdown takes too long (10s)
+    // Force exit if shutdown takes too long (5s - faster than PM2 timeout)
     setTimeout(() => {
         logger.error('Forcefully shutting down');
         process.exit(1);
-    }, 10000);
+    }, 5000);
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
