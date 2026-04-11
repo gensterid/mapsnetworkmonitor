@@ -174,7 +174,7 @@ const runRepair = async () => {
         // TimescaleDB hypertables do not support standard UPSERT (ON CONFLICT) for non-time columns, 
         // which breaks OLT sync.
         const checkOnuHyper = await db.execute(sql.raw(`
-            SELECT hypertable_name FROM _timescaledb_catalog.hypertable WHERE hypertable_name = 'onus';
+            SELECT hypertable_name FROM timescaledb_information.hypertables WHERE hypertable_name = 'onus';
         `));
 
         if (checkOnuHyper.length > 0) {
