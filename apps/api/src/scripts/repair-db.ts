@@ -173,49 +173,75 @@ const runRepair = async () => {
         // 5.0 EMERGENCY FIX: Convert onus back to regular table if it accidentally became a hypertable
         // TimescaleDB hypertables do not support standard UPSERT (ON CONFLICT) for non-time columns, 
         // which breaks OLT sync.
-        const checkOnuHyper = await db.execute(sql.raw(`
-            SELECT hypertable_name FROM timescaledb_information.hypertables WHERE hypertable_name = 'onus';
-        `));
+        console.log('🔍 Checking if "onus" table is a hypertable...');
+        let isHyper = false;
+        try {
+            // Try public view first (Stable API)
+            const checkPublic = await db.execute(sql.raw(`
+                SELECT hypertable_name FROM timescaledb_information.hypertables WHERE hypertable_name = 'onus';
+            `));
+            if (checkPublic.length > 0) isHyper = true;
+        } catch (e) {
+            try {
+                // Fallback to internal catalog (Legacy/Internal)
+                const checkInternal = await db.execute(sql.raw(`
+                    SELECT table_name FROM _timescaledb_catalog.hypertable WHERE table_name = 'onus';
+                `));
+                if (checkInternal.length > 0) isHyper = true;
+            } catch (e2) {
+                // Probably not a hypertable or no TimescaleDB
+            }
+        }
 
-        if (checkOnuHyper.length > 0) {
-            console.log('🚨 ALERT: Table "onus" is incorrectly configured as a hypertable. Converting to regular table...');
+        if (isHyper) {
+            console.log('🚨 ALERT: Table "onus" IS detected as a hypertable. Starting conversion to regular table...');
             try {
                 // A safe migration that preserves data and foreign keys
                 await db.transaction(async (tx) => {
                     // Create temp table with same structure but NOT as hypertable
-                    await tx.execute(sql`CREATE TABLE onus_repair_temp (LIKE onus INCLUDING ALL);`);
+                    console.log('   (1/5) Creating temp table...');
+                    await tx.execute(sql`CREATE TABLE IF NOT EXISTS onus_repair_temp (LIKE onus INCLUDING ALL);`);
+                    await tx.execute(sql`TRUNCATE TABLE onus_repair_temp;`);
                     await tx.execute(sql`INSERT INTO onus_repair_temp SELECT * FROM onus;`);
                     
                     // Drop the hypertable (this will drop FKs, we'll restore them)
+                    console.log('   (2/5) Dropping hypertable...');
                     await tx.execute(sql`DROP TABLE onus CASCADE;`);
                     
                     // Rename temp to original
+                    console.log('   (3/5) Restoring table name...');
                     await tx.execute(sql`ALTER TABLE onus_repair_temp RENAME TO onus;`);
                     
                     // Restore key foreign keys exactly as per schema/index.ts
+                    console.log('   (4/5) Restoring foreign keys...');
                     await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_olt_id_olts_id_fk FOREIGN KEY (olt_id) REFERENCES olts(id) ON DELETE SET NULL;`);
                     await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_router_id_routers_id_fk FOREIGN KEY (router_id) REFERENCES routers(id) ON DELETE SET NULL;`);
                     await tx.execute(sql`ALTER TABLE onus ADD CONSTRAINT onus_tenant_id_tenants_id_fk FOREIGN KEY (tenant_id) REFERENCES tenants(id);`);
                     
                     // Restore Indexes
+                    console.log('   (5/5) Restoring indexes...');
                     await tx.execute(sql`CREATE INDEX IF NOT EXISTS onus_olt_id_idx ON onus (olt_id);`);
                     await tx.execute(sql`CREATE INDEX IF NOT EXISTS onus_router_id_idx ON onus (router_id);`);
                     await tx.execute(sql`CREATE INDEX IF NOT EXISTS onus_status_idx ON onus (status);`);
 
                     // Restore router_netwatch reference if it was dropped
+                    console.log('   (Bonus) Restoring netwatch references...');
                     const checkNetwatchOnuCol = await tx.execute(sql`SELECT 1 FROM information_schema.columns WHERE table_name='router_netwatch' AND column_name='linked_onu_id';`);
                     if (checkNetwatchOnuCol.length > 0) {
                         try {
                             await tx.execute(sql`ALTER TABLE router_netwatch ADD CONSTRAINT router_netwatch_linked_onu_id_onus_id_fk FOREIGN KEY (linked_onu_id) REFERENCES onus(id) ON DELETE SET NULL;`);
                         } catch (e) {
-                            console.log('   (Note: Netwatch FK already restored or failed - continuing)');
+                            console.log('   - Netwatch FK skip or handled');
                         }
                     }
                 });
                 console.log('✅ Table "onus" converted back to regular table successfully.');
             } catch (err: any) {
                 console.error('❌ Failed to convert "onus" table:', err.message);
+                console.error('   Diagnostic: Check if any other table has a hard Foreign Key to onus.');
             }
+        } else {
+            console.log('✅ Table "onus" is already a regular table (or hypertable check failed/skipped).');
         }
 
         const onuCols = [
