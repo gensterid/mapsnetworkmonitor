@@ -120,17 +120,32 @@ export class OltService {
                 olt.webProtocol || undefined
             );
 
-            await driver.connect();
             let driverOnus: any[] = [];
             try {
+                await driver.connect();
                 driverOnus = await driver.getOnuList();
+                await driver.disconnect();
             } catch (driverErr) {
-                logger.warn({ err: driverErr, oltId: id }, 'Driver failed');
+                logger.warn({ err: driverErr, oltId: id }, 'Driver connection or fetch failed - falling back to DB inventory');
             }
-            await driver.disconnect();
 
             const results: any[] = [];
             const dbOnus = await db.select().from(onus).where(eq(onus.oltId, id));
+            
+            // If driver failed but we have DB data, we should at least show that
+            if (driverOnus.length === 0 && dbOnus.length > 0) {
+                return dbOnus.map(o => ({
+                    ...o,
+                    id: o.id,
+                    sn: o.sn,
+                    status: o.status,
+                    name: o.name,
+                    signal: o.lastRxPower,
+                    lastDownReason: o.lastDownReason,
+                    lastSeen: o.lastSeen
+                }));
+            }
+
             const dbOnuMap = new Map(dbOnus.map(o => [o.sn, o]));
 
             await db.transaction(async (tx) => {
