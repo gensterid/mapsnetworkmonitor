@@ -205,22 +205,6 @@ export class OltService {
 
                             await tx.update(onus).set(updateData).where(eq(onus.id, dbOnu.id));
 
-                            if (device.signal) {
-                                const parsedSignal = this.parseSignal(device.signal);
-                                if (parsedSignal !== null) {
-                                    try {
-                                        await tx.insert(devicePerformanceHistory).values({
-                                            tenantId: olt.tenantId || '',
-                                            routerId: olt.parentId || '',
-                                            onuId: dbOnu.id,
-                                            signal: parsedSignal,
-                                            recordedAt: new Date()
-                                        });
-                                    } catch (historyErr) {
-                                        logger.warn({ err: historyErr, onuId: dbOnu.id }, 'Failed to log ONU signal history (ignoring)');
-                                    }
-                                }
-                            }
                             dbOnu.status = updateData.status;
                         } catch (e) {}
                     }
@@ -240,6 +224,29 @@ export class OltService {
                     });
                 }
             });
+
+            // 3. Log history OUTSIDE of the main inventory transaction
+            // This prevents a DB error in the history hypertable from rolling back the whole OLT sync
+            for (const device of driverOnus) {
+                if (!device.sn || !device.signal) continue;
+                const dbOnu = dbOnuMap.get(device.sn);
+                if (!dbOnu) continue;
+
+                const parsedSignal = this.parseSignal(device.signal);
+                if (parsedSignal !== null) {
+                    try {
+                        await db.insert(devicePerformanceHistory).values({
+                            tenantId: olt.tenantId || '',
+                            routerId: olt.parentId || '',
+                            onuId: dbOnu.id,
+                            signal: parsedSignal,
+                            recordedAt: new Date()
+                        });
+                    } catch (historyErr) {
+                        logger.warn({ err: historyErr, onuId: dbOnu.id }, 'Failed to log ONU signal history (ignoring)');
+                    }
+                }
+            }
 
             return results;
         } catch (error) {
@@ -336,6 +343,7 @@ export class OltService {
         }
 
         if (valuesToUpsert.length > 0) {
+            let historyValues: any[] = [];
             await db.transaction(async (tx) => {
                 await tx.insert(onus).values(valuesToUpsert as any).onConflictDoUpdate({
                     target: onus.sn,
@@ -350,7 +358,7 @@ export class OltService {
 
                 const syncedOnus = await tx.select({ id: onus.id, sn: onus.sn }).from(onus).where(eq(onus.oltId, oltId));
                 const snToIdMap = new Map(syncedOnus.map(o => [o.sn, o.id]));
-                const historyValues = valuesToUpsert.filter(v => v.lastRxPower !== null).map(v => {
+                historyValues = valuesToUpsert.filter(v => v.lastRxPower !== null).map(v => {
                     const parsedSignal = this.parseSignal(v.lastRxPower);
                     if (parsedSignal === null) return null;
                     const onuId = snToIdMap.get(v.sn);
@@ -363,15 +371,17 @@ export class OltService {
                         recordedAt: now
                     };
                 }).filter((v): v is any => v !== null);
-
-                if (historyValues.length > 0) {
-                    try {
-                        await tx.insert(devicePerformanceHistory).values(historyValues).execute();
-                    } catch (historyErr) {
-                        logger.warn({ err: historyErr, oltId }, 'Failed to bulk log ONU history (ignoring)');
-                    }
-                }
             });
+
+            // 3. Log bulk history OUTSIDE of transaction
+            if (historyValues.length > 0) {
+                try {
+                    await db.insert(devicePerformanceHistory).values(historyValues).execute();
+                } catch (historyErr) {
+                    logger.warn({ err: historyErr, oltId }, 'Failed to bulk log ONU history (ignoring)');
+                }
+            }
+
             added = valuesToUpsert.length;
         }
 
