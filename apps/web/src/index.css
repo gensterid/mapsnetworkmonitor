@@ -829,6 +829,8 @@ body {
 .theme-enterprise .rounded-lg,
 .theme-enterprise .rounded-xl {
     border-radius: 12px !important;
+}
+
 /* Shimmer Effect for Premium Skeletons */
 @keyframes shimmer {
     0% { transform: translateX(-100%); }
@@ -874,5 +876,4 @@ body {
 
 .pulse-success {
     animation: pulse-premium 2s infinite;
-}
 }

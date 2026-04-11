@@ -197,7 +197,12 @@ export async function removeNetwatchEntry(api: any, host: string): Promise<void>
  * Configure Netwatch Webhook (Smart Append)
  */
 export async function configureNetwatchWebhook(
-    api: any, host: string, webhookUrl: string, webhookToken: string, forceOverwrite: boolean = false
+    api: any, 
+    host: string, 
+    webhookUrl: string, 
+    webhookToken: string, 
+    nw?: any, 
+    forceOverwrite: boolean = false
 ): Promise<void> {
     const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
     if (entries.length === 0) return;
@@ -230,7 +235,10 @@ export async function configureNetwatchWebhook(
  * Remove Netwatch Webhook (Smart Cleanup)
  */
 export async function removeNetwatchWebhook(
-    api: any, host: string, secret: string
+    api: any, 
+    host: string, 
+    secret: string,
+    nw?: any
 ): Promise<void> {
     const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
     if (entries.length === 0) return;
@@ -299,10 +307,14 @@ export async function getRomonNeighbors(api: any): Promise<RomonNeighbor[]> {
  * Measure ping latency with auto-retries
  */
 export async function measurePing(
-    api: any, address: string, count: number = 3
+    api: any, 
+    address: string, 
+    count: number = 3,
+    interval: string = '100ms',
+    timeout: string = '1000ms'
 ): Promise<{ latency: number, packetLoss: number, error?: string }> {
     try {
-        const result = await safeWrite(api, ['/ping', `=address=${address}`, `=count=${count}`, '=interval=100ms']);
+        const result = await safeWrite(api, ['/ping', `=address=${address}`, `=count=${count}`, `=interval=${interval}`, `=timeout=${timeout}`]);
         if (result && result.length > 0) {
             let totalLatency = 0, receivedCount = 0, sentCount = count;
             for (const entry of result) {
