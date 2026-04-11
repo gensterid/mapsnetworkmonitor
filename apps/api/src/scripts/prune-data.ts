@@ -68,6 +68,10 @@ const batchDelete = async (db: any, tableName: string, cutoffDate: string) => {
     return totalDeleted;
 };
 
+const DAYS_TO_KEEP = 14;
+const CUTOFF_DATE = new Date();
+CUTOFF_DATE.setDate(CUTOFF_DATE.getDate() - DAYS_TO_KEEP);
+
 const runPrune = async () => {
     console.log('🧹 Starting Database Pruning (Maintenance)...');
     console.log(`📡 Connecting to database...`);
