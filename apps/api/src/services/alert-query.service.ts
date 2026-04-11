@@ -63,7 +63,17 @@ export class AlertQueryService {
                     )
                 ) as any);
             } else if (options.category === 'alerts') {
-                categoryFilters.push(inArray(alerts.type, CONNECTIVITY_TYPES as any));
+                // Connectivity category acts as a catch-all for everything that is NOT classified as an issue
+                categoryFilters.push(and(
+                    notInArray(alerts.type, ISSUE_TYPES as any),
+                    or(
+                        inArray(alerts.type, CONNECTIVITY_TYPES as any),
+                        and(
+                            notInArray(alerts.severity, ['warning'] as any),
+                            notInArray(alerts.type, ISSUE_TYPES as any)
+                        ) as any
+                    ) as any
+                ) as any);
             }
         }
 
@@ -144,7 +154,7 @@ export class AlertQueryService {
      */
     async getUnreadStats(userId?: string, userRole?: string, tenantId?: string) {
         // High limit to ensure all unacknowledged alerts are counted in breakdown
-        const { data } = await this.findAll({ userId, userRole, tenantId, acknowledged: false, limit: 10000 });
+        const { data } = await this.findAll({ userId, userRole, tenantId, acknowledged: false, resolved: false, limit: 10000 });
 
         const issuesCount = data.filter(a => isIssue(a.type, a.severity)).length;
         const connectivityCount = data.length - issuesCount;

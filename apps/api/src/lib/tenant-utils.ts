@@ -6,5 +6,11 @@ import { Request } from 'express';
  * All other roles get their actual tenantId (enforces tenant isolation).
  */
 export function getEffectiveTenantId(req: Request): string | undefined {
-    return req.user?.role === 'superadmin' ? undefined : req.user?.tenantId!;
+    // Superadmins get global access by default, but can filter by a specific tenant via header
+    if (req.user?.role === 'superadmin') {
+        return (req.headers['x-tenant-id'] as string) || undefined;
+    }
+    
+    // For all other roles, enforce their assigned tenantId
+    return req.user?.tenantId!;
 }
