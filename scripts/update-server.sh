@@ -67,13 +67,17 @@ fi
 
 # 5.1 Connection Safety Check
 echo "📡 Verifying database connection..."
-# Use built-in bash to check if port 5432 is responding
-if ! (timeout 3s bash -c 'cat < /dev/tcp/127.0.0.1/5432' &> /dev/null); then
+# Use built-in Node.js to check if port 5432 is responding (more compatible than shell /dev/tcp)
+if ! node -e "const net = require('net'); const client = net.createConnection({ port: 5432, host: '127.0.0.1' }, () => { process.exit(0); }); client.on('error', () => { process.exit(1); }); setTimeout(() => { process.exit(1); }, 3000);" &> /dev/null; then
     echo "❌ Error: Cannot connect to PostgreSQL on 127.0.0.1:5432!"
     echo "   Ensure PostgreSQL is running on the host."
     echo "   Try: systemctl start postgresql"
+    echo "   Or try: systemctl start postgresql@14-main"
     exit 1
 fi
+
+# 5.2 Grace Period to allow connections to stabilize
+sleep 2
 
 # 5.2 Automatic Backup (Safety First)
 if [ ! -d "backups" ]; then mkdir backups; fi
