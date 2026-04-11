@@ -278,9 +278,40 @@ function startSchedulerWorker() {
     });
 }
 
+// ─── Redis Health Check ────────────────────────────────────────────────
+import { getRedisConnection } from './lib/redis-client.js';
+
+async function validateRedis(): Promise<void> {
+    const redis = getRedisConnection();
+    if (!redis) {
+       logger.error('⚠️ CRITICAL: Redis initialization failed. Background polling and alerts will NOT function.');
+       return;
+    }
+
+    try {
+        // Simple ping with a short timeout
+        const pong = await Promise.race([
+            redis.ping(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ]);
+        
+        if (pong === 'PONG') {
+            logger.info('🍦 Redis connectivity verified');
+        } else {
+            logger.error('⚠️ CRITICAL: Redis did not respond with PONG. Background polling might be stalled.');
+        }
+    } catch (err: any) {
+        logger.error({ err: err.message }, '⚠️ CRITICAL: Redis is unreachable. Background polling and alerts will NOT function. Please check if Redis service is running.');
+    }
+}
+// ─────────────────────────────────────────────────────────────────────────
+
 // Start server
 httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
+
+    // Verify Redis before starting background tasks
+    await validateRedis();
 
     // Run migrations (Drizzle versioned) - Non-blocking to prevent scheduler stall
     runDrizzleMigrations().catch(err => {
