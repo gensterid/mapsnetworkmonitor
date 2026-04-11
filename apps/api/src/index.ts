@@ -10,9 +10,9 @@ if (process.env.SENTRY_DSN) {
             nodeProfilingIntegration(),
         ],
         // Performance Monitoring
-        tracesSampleRate: 1.0, //  Capture 100% of the transactions
+        tracesSampleRate: 0.1, // Reduce to 10% sampling in production
         // Set sampling rate for profiling - this is relative to tracesSampleRate
-        profilesSampleRate: 1.0,
+        profilesSampleRate: 0.1,
     });
 }
 // ─────────────────────────────────────────────────────────────────────────
@@ -170,7 +170,14 @@ app.get('/api/metrics', async (req, res) => {
         // Allow Prometheus scraping via Bearer token
         const authHeader = req.headers.authorization;
         const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-        const isTokenAuth = bearerToken && bearerToken === process.env.BETTER_AUTH_SECRET;
+        
+        // Use a dedicated metrics token if provided, otherwise fallback to main secret (deprecated)
+        const metricsToken = process.env.METRICS_BEARER_TOKEN || process.env.BETTER_AUTH_SECRET;
+        const isTokenAuth = bearerToken && bearerToken === metricsToken;
+        
+        if (bearerToken === process.env.BETTER_AUTH_SECRET && process.env.METRICS_BEARER_TOKEN) {
+            logger.warn('⚠️ Metrics access using BETTER_AUTH_SECRET detected. Please switch to the dedicated METRICS_BEARER_TOKEN.');
+        }
 
         // Allow localhost/internal network without auth (Prometheus on same host)
         const isLocalhost = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1';

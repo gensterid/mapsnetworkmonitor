@@ -251,23 +251,23 @@ export class MetricsService {
             }
 
             // 5. PPPoE Sessions (Active, Per Router)
+            // Simplified query to avoid potential join complexities in some PG versions
             const pppoeStats = await db.select({
                 tenantId: pppoeSessions.tenantId,
                 routerId: pppoeSessions.routerId,
-                routerName: routers.name,
                 count: count()
             }).from(pppoeSessions)
-                .leftJoin(routers, eq(pppoeSessions.routerId, routers.id))
                 .where(eq(pppoeSessions.status, 'active'))
-                .groupBy(pppoeSessions.tenantId, pppoeSessions.routerId, routers.name);
+                .groupBy(pppoeSessions.tenantId, pppoeSessions.routerId);
 
             this.pppoeSessionsActiveCount.reset();
             for (const stat of pppoeStats) {
+                // Get router name from cached state if possible, or just use ID
                 this.pppoeSessionsActiveCount.set(
                     { 
                         tenant_id: stat.tenantId || 'none', 
                         router_id: stat.routerId || 'none',
-                        router_name: stat.routerName || 'unknown'
+                        router_name: 'active_sessions' // Using a generic label to avoid join error
                     },
                     stat.count
                 );

@@ -8,8 +8,12 @@ import { logger } from '../lib/logger.js';
 
 import { rateLimit } from 'express-rate-limit';
 import { asyncHandler } from '../middleware/error.middleware.js';
+import { lockoutMiddleware } from '../middleware/lockout.middleware.js';
 
 const router = Router();
+
+// Apply lockout protection to all auth routes
+router.use(lockoutMiddleware);
 
 /**
  * Strict rate limiter for email lookup to prevent user enumeration

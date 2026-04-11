@@ -58,19 +58,40 @@ router.post('/import', uploadLimiter, requireRole('superadmin'), upload.single('
     try {
         // Deep Content Inspection for SQL
         const buffer = fs.readFileSync(file.path, { encoding: 'utf8', flag: 'r' });
-        const trimmed = buffer.trim().substring(0, 1000).toUpperCase();
+        const upperBuffer = buffer.toUpperCase();
         
-        const isSql = 
-            trimmed.startsWith('--') || 
-            trimmed.includes('CREATE TABLE') || 
-            trimmed.includes('INSERT INTO') || 
-            trimmed.includes('PRAGMA') || 
-            trimmed.includes('SET ') || 
-            trimmed.includes('BEGIN TRANSACTION');
+        // 1. Basic format check (must start with common SQL headers)
+        const isSqlFormat = 
+            upperBuffer.startsWith('--') || 
+            upperBuffer.includes('CREATE TABLE') || 
+            upperBuffer.includes('INSERT INTO') || 
+            upperBuffer.includes('SET ') || 
+            upperBuffer.includes('BEGIN;');
 
-        if (!isSql) {
+        if (!isSqlFormat) {
             fs.unlinkSync(file.path);
-            return res.status(400).json({ error: 'Invalid SQL file content detected' });
+            logger.warn({ filename: file.originalname }, 'Blocked invalid SQL file (format mismatch)');
+            return res.status(400).json({ error: 'Invalid SQL file format detected' });
+        }
+
+        // 2. Dangerous keyword check (Blacklist)
+        // We block commands that could compromise the entire database instance or OS
+        const dangerousKeywords = [
+            'DROP DATABASE',
+            'ALTER USER',
+            'GRANT ALL',
+            'CREATE ROLE',
+            'DROP ROLE',
+            'COPY FROM PROGRAM', // Critical vulnerability if enabled
+            'COPY TO PROGRAM'
+        ];
+
+        for (const word of dangerousKeywords) {
+            if (upperBuffer.includes(word)) {
+                fs.unlinkSync(file.path);
+                logger.error({ keyword: word, filename: file.originalname }, '🚫 SECURITY: Blocked SQL import containing dangerous keyword');
+                return res.status(400).json({ error: `Security Violation: File contains forbidden command: ${word}` });
+            }
         }
 
         await backupService.importDatabase(file.path);

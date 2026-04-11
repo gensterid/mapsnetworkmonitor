@@ -213,11 +213,15 @@ async function pollAllRouters(): Promise<void> {
         lastNetwatchCount = netwatchCount;
         currentScalingConfig = getScalingConfig(netwatchCount);
 
-        for (const tenant of allTenants) {
-            const results = await pollTenantRouters(tenant.id, currentScalingConfig);
-            totalSuccess += results.success;
-            totalFail += results.fail;
-            totalTimeout += results.timeout;
+        const TENANT_CONCURRENCY = 3;
+        for (let i = 0; i < allTenants.length; i += TENANT_CONCURRENCY) {
+            const batch = allTenants.slice(i, i + TENANT_CONCURRENCY);
+            await Promise.all(batch.map(async (tenant) => {
+                const results = await pollTenantRouters(tenant.id, currentScalingConfig);
+                totalSuccess += results.success;
+                totalFail += results.fail;
+                totalTimeout += results.timeout;
+            }));
         }
 
         const duration = ((Date.now() - pollingStartTime!) / 1000).toFixed(1);
@@ -441,37 +445,80 @@ async function syncGenieAcs(): Promise<void> {
 }
 
 /**
+ * Performs deletion in batches to avoid table locking and long transactions.
+ */
+async function batchDelete(tableName: string, whereClause: string, params: any[], batchSize: number = 5000): Promise<number> {
+    let totalDeleted = 0;
+    let deletedInBatch = batchSize;
+
+    logger.debug({ tableName, whereClause }, '🧹 Starting batch cleanup...');
+
+    while (deletedInBatch === batchSize) {
+        // We use a raw query because Drizzle doesn't natively support DELETE with LIMIT in all dialects
+        // and fetching IDs first for millions of rows would be memory-intensive.
+        const query = sql.raw(`
+            DELETE FROM ${tableName} 
+            WHERE id IN (
+                SELECT id FROM ${tableName} 
+                WHERE ${whereClause} 
+                LIMIT ${batchSize}
+            )
+        `);
+
+        try {
+            const result = await db.execute(query);
+            // Postgres rows affected is usually in the second element of the result for raw execute
+            // or directly on the result depending on the driver version.
+            // Using a safe estimation here.
+            deletedInBatch = (result as any).rowCount || 0;
+            totalDeleted += deletedInBatch;
+            
+            if (deletedInBatch > 0) {
+                logger.debug({ tableName, deletedInBatch, totalDeleted }, '🧹 Batch deleted');
+                // Brief pause to let other operations happen
+                await new Promise(resolve => setTimeout(resolve, 50));
+            }
+        } catch (err: any) {
+            logger.error({ err: err.message, tableName }, '❌ Batch delete failed');
+            break;
+        }
+    }
+
+    return totalDeleted;
+}
+
+/**
  * Cleanup old metrics data based on retention policy
  */
 async function cleanupOldMetrics(): Promise<void> {
     try {
         const allTenants = await db.select().from(tenants);
         for (const tenant of allTenants) {
-            // 1. Device metrics (CPU, RAM, etc.)
+            // 1. Device metrics (CPU, RAM, etc.) - HIGH VOLUME
             const metricsRetention = await settingsService.getSettingValue('metrics_retention_days', tenant.id, 30);
             const mCutoff = new Date();
             mCutoff.setDate(mCutoff.getDate() - metricsRetention);
+            const mCutoffStr = mCutoff.toISOString();
 
-            await db.delete(routerMetrics)
-                .where(and(eq(routerMetrics.tenantId, tenant.id), lt(routerMetrics.recordedAt, mCutoff)));
+            await batchDelete('router_metrics', `tenant_id = '${tenant.id}' AND recorded_at < '${mCutoffStr}'`, []);
 
-            // 1b. Device Latency & Signal history (Performance)
+            // 1b. Device Latency & Signal history (Performance) - HIGH VOLUME
             const perfRetention = await settingsService.getSettingValue('performance_retention_days', tenant.id, 30);
             const pCutoff = new Date();
             pCutoff.setDate(pCutoff.getDate() - perfRetention);
+            const pCutoffStr = pCutoff.toISOString();
 
-            await db.delete(devicePerformanceHistory)
-                .where(and(eq(devicePerformanceHistory.tenantId, tenant.id), lt(devicePerformanceHistory.recordedAt, pCutoff)));
+            await batchDelete('device_performance_history', `tenant_id = '${tenant.id}' AND recorded_at < '${pCutoffStr}'`, []);
 
-            // 2. Interface traffic metrics
+            // 2. Interface traffic metrics - HIGH VOLUME
             const ifMetricsRetention = await settingsService.getSettingValue('interface_metrics_retention_days', tenant.id, 30);
             const ifCutoff = new Date();
             ifCutoff.setDate(ifCutoff.getDate() - ifMetricsRetention);
+            const ifCutoffStr = ifCutoff.toISOString();
 
-            await db.delete(routerInterfaceMetrics)
-                .where(and(eq(routerInterfaceMetrics.tenantId, tenant.id), lt(routerInterfaceMetrics.recordedAt, ifCutoff)));
+            await batchDelete('router_interface_metrics', `tenant_id = '${tenant.id}' AND recorded_at < '${ifCutoffStr}'`, []);
 
-            // 3. Resolved Alerts
+            // 3. Resolved Alerts (Low volume, usually safe for direct delete)
             const alertsRetention = await settingsService.getSettingValue('alerts_retention_days', tenant.id, 60);
             const aCutoff = new Date();
             aCutoff.setDate(aCutoff.getDate() - alertsRetention);

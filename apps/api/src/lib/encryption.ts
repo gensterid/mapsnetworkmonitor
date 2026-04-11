@@ -72,34 +72,16 @@ export function decrypt(encryptedText: string, context?: string): string {
             return decrypted;
         }
 
-        // Legacy Format: salt:iv:authTag:encrypted (but uses static salt 'salt' for key derivation)
-        if (parts.length === 4) {
-            const [, ivBase64, authTagBase64, encrypted] = parts;
-            const iv = Buffer.from(ivBase64, 'base64');
-            const authTag = Buffer.from(authTagBase64, 'base64');
-
-            // Legacy key used static 'salt' string
-            const key = deriveKey('salt');
-            const decipher = createDecipheriv(ALGORITHM, key, iv);
-            decipher.setAuthTag(authTag);
-
-            let decrypted = decipher.update(encrypted, 'base64', 'utf8');
-            decrypted += decipher.final('utf8');
-            return decrypted;
-        }
-
-        throw new Error('Invalid or unsupported encrypted text format');
+        throw new Error('Invalid or unsupported encrypted text format (Required: v2)');
     } catch (error: any) {
         // Log the error but don't crash the entire request
-        // This usually happens when ENCRYPTION_KEY has changed
+        // This usually happens when ENCRYPTION_KEY has changed or format is legacy (now deprecated)
         logger.error({
             err: error.message,
             context: context || 'unknown',
             format: encryptedText.split(':')[0]
-        }, '🚨 Decryption failed. This usually indicates an ENCRYPTION_KEY mismatch or corrupted data.');
+        }, '🚨 Decryption failed. This usually indicates an ENCRYPTION_KEY mismatch or unsupported legacy format.');
         
-        // Return empty string. Downstream services will fail with "Auth Failed" 
-        // instead of "500 Internal Server Error", which is much better.
         return '';
     }
 }

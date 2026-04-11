@@ -96,8 +96,10 @@ const Sidebar = ({ isOpen, onClose }) => {
             <div className="flex flex-col h-full glass-premium border-r border-white/5">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
-                    <div className="flex gap-3 items-center">
+                    <div className="flex gap-3 items-center" role="group" aria-label="User Profile">
                         <div
+                            role="img"
+                            aria-label={`Profile picture of ${currentUser?.name || 'User'}`}
                             className="bg-center bg-no-repeat bg-cover rounded-full size-11 ring-2 ring-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-scanner-pulse"
                             style={{ backgroundImage: `url("${currentUser?.image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1XHZMAnwPDnl7XWDZTj6Fo5vz7tTYbe25rFl6RD5z5dbMYjPsgmj5EZYVGlNUcrblJmUFusaH1lZNUdSs98aMvJZZ2d2NcHmmbIFilw69mwIv5nKCWhOMx92t1dhoxq5djsd0kT1EP29FXVBiiY4NR3ExJa9rIS2O6QKmCxq6f5nDyDdaSKWgiDbh7AIhd9xvJUAnIwme70MpVL9eGWFGZtJ3R2wd61KiqrJ2hMOff1lm1ZUFtw_fI7TTg8Nj7-acAhqr3IOSNOet'}")` }}
                         >
@@ -116,26 +118,26 @@ const Sidebar = ({ isOpen, onClose }) => {
                         aria-label="Close sidebar"
                         className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
                     >
-                        <X className="w-5 h-5" />
+                        <X className="w-5 h-5" aria-hidden="true" />
                     </button>
                 </div>
 
                 {/* Navigation */}
-                <div className="flex flex-col gap-1.5 p-4 flex-1 overflow-y-auto custom-scrollbar">
+                <div className="flex flex-col gap-1.5 p-4 flex-1 overflow-y-auto custom-scrollbar" role="navigation" aria-label="Main Navigation">
                     <TenantSwitcher />
 
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2">Main Menu</div>
+                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2" aria-hidden="true">Main Menu</div>
 
                     <NavItem path="/" icon={LayoutDashboard} label="Dashboard" isActive={isActive("/")} onClose={onClose} />
                     <NavItem path="/map" icon={MapIcon} label="Network Map" isActive={isActive("/map")} onClose={onClose} />
                     <NavItem path="/routers" icon={RouterIcon} label="Devices" badge={routers.length} isActive={isActive("/routers")} onClose={onClose} />
                     <NavItem path="/olts" icon={Server} label="OLTs" isActive={isActive("/olts")} onClose={onClose} />
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2">ACS (TR-069)</div>
+                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2" aria-hidden="true">ACS (TR-069)</div>
                     <NavItem path="/genieacs" icon={Monitor} label="GenieACS" isActive={isActive("/genieacs")} onClose={onClose} />
                     <NavItem path="/alerts" icon={Bell} label="Alerts" badge={alertCount?.connectivity} badgeColor={alertCount?.connectivity > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : undefined} isActive={isActive("/alerts")} onClose={onClose} />
                     <NavItem path="/issues" icon={Activity} label="Issues" badge={alertCount?.issues} badgeColor={alertCount?.issues > 0 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : undefined} isActive={isActive("/issues")} onClose={onClose} />
 
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6">System</div>
+                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">System</div>
 
                     {isAdmin && <NavItem path="/netwatch" icon={Globe} label="Netwatch" isActive={isActive("/netwatch")} onClose={onClose} />}
                     {isSuperAdmin && <NavItem path="/tenants" icon={Building} label="ISPs / Tenants" isActive={isActive("/tenants")} onClose={onClose} />}
@@ -149,9 +151,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="p-4 border-t border-slate-800/60 bg-black/20">
                     <button
                         onClick={handleLogout}
+                        aria-label="Logout from application"
                         className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-all duration-200 group"
                     >
-                        <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
                         <span className="text-sm font-medium">Logout</span>
                     </button>
                 </div>

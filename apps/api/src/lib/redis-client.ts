@@ -7,10 +7,15 @@ export const redisOptions: RedisOptions = {
     maxRetriesPerRequest: 3, // Fail fast instead of hanging
     enableOfflineQueue: false, // Don't queue commands when disconnected
     retryStrategy: (times: number) => {
-        // Stop retrying after 5 attempts if we can't connect at all
-        if (times > 5) return null;
-        const delay = Math.min(times * 100, 15000);
-        return delay;
+        // Stop retrying after 3 attempts if we can't connect at all to prevent log spam
+        // In local development without Redis, we don't want to hang or flood logs
+        if (times > 3) {
+            if (times === 4) {
+                 logger.warn('Redis is unavailable after 3 attempts. Disabling Redis features for this session.');
+            }
+            return null; // Stop retrying
+        }
+        return Math.min(times * 500, 2000);
     },
 };
 

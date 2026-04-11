@@ -27,3 +27,14 @@ jobs:
       
     - name: CI Check (Build)
       run: npm run build
+
+  docker-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Test Build API Image
+      run: docker build -t mikrotik-monitor-api-test -f apps/api/Dockerfile .
+      
+    - name: Test Build Web Image
+      run: docker build -t mikrotik-monitor-web-test -f apps/web/Dockerfile .

@@ -15,6 +15,7 @@ const envSchema = z.object({
     }),
     CORS_ORIGIN: z.string().optional(),
     TRUSTED_ORIGINS: z.string().optional(),
+    METRICS_BEARER_TOKEN: z.string().optional(),
     
     // Services
     REDIS_URL: z.string().url().default('redis://localhost:6379'),
@@ -58,8 +59,7 @@ export function validateEnv(): Env {
         }
         
         logger.info({ 
-            keyLength: parsed.ENCRYPTION_KEY.length, 
-            keyPrefix: parsed.ENCRYPTION_KEY.substring(0, 8) 
+            keyLength: parsed.ENCRYPTION_KEY.length
         }, '🔑 Loaded ENCRYPTION_KEY');
 
         return parsed;

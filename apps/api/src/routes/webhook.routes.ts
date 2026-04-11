@@ -50,7 +50,9 @@ router.get(
         const token = bearerToken || queryToken;
 
         if (queryToken && !bearerToken) {
-            logger.warn({ host, route: '/netwatch' }, '⚠️ Legacy Webhook Auth: Token provided in URL query. Support for URL tokens will be REMOVED in a future update. Please update your MikroTik script to use "Header: Authorization=Bearer <token>" instead.');
+            const deprecationMsg = 'Legacy Webhook Auth: Token provided in URL query. Support for URL tokens will be REMOVED in a future update. Please update your MikroTik script to use "Header: Authorization=Bearer <token>" instead.';
+            res.set('X-Webhook-Deprecation-Warning', deprecationMsg);
+            logger.warn({ host, route: '/netwatch' }, `⚠️ DEPRECATION: ${deprecationMsg}`);
         }
 
         if (!token) {
@@ -171,7 +173,9 @@ router.get(
         const token = (bearerToken || queryToken) as string;
 
         if (queryToken && !bearerToken) {
-            logger.warn({ routerId, route: '/backup-report' }, '⚠️ Legacy Webhook Auth: Token provided in URL query. Support for URL tokens will be REMOVED in a future update. Please update your MikroTik script to use "Header: Authorization=Bearer <token>" instead.');
+            const deprecationMsg = 'Legacy Webhook Auth: Token provided in URL query. Support for URL tokens will be REMOVED in a future update. Please update your MikroTik script to use "Header: Authorization=Bearer <token>" instead.';
+            res.set('X-Webhook-Deprecation-Warning', deprecationMsg);
+            logger.warn({ routerId, route: '/backup-report' }, `⚠️ DEPRECATION: ${deprecationMsg}`);
         }
 
         if (!routerId || !token) {

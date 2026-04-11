@@ -49,34 +49,27 @@ export default function DashboardStats() {
             label: 'Total Routers',
             value: stats?.totalRouters || 0,
             icon: RouterIcon,
-            color: 'blue',
+            color: 'var(--primary)',
         },
         {
             label: 'Online',
             value: stats?.onlineRouters || 0,
             icon: Wifi,
-            color: 'green',
+            color: 'var(--success)',
         },
         {
             label: 'Offline',
             value: stats?.offlineRouters || 0,
             icon: WifiOff,
-            color: 'red',
+            color: 'var(--danger)',
         },
         {
             label: 'Active Alerts',
             value: stats?.activeAlerts || 0,
             icon: AlertTriangle,
-            color: 'yellow',
+            color: 'var(--warning)',
         },
     ];
-
-    const colorClasses = {
-        blue: 'bg-blue-500/10 text-blue-400',
-        green: 'bg-emerald-500/10 text-emerald-400',
-        red: 'bg-red-500/10 text-red-400',
-        yellow: 'bg-yellow-500/10 text-yellow-400',
-    };
 
     return (
         <div
@@ -85,11 +78,11 @@ export default function DashboardStats() {
             aria-label="Network Statistics Overview"
         >
             {statCards.map((stat) => (
-                <Card key={stat.label} className="hover:border-slate-600 transition-colors">
+                <Card key={stat.label} className="hover:border-slate-600 transition-all duration-300 group">
                     <CardContent className="p-5">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-xs text-slate-400 uppercase font-medium tracking-wide">
+                                <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">
                                     {stat.label}
                                 </p>
                                 <p
@@ -99,10 +92,11 @@ export default function DashboardStats() {
                                     {stat.value}
                                 </p>
                             </div>
-                            <div className={clsx(
-                                "p-3 rounded-lg",
-                                colorClasses[stat.color]
-                            )}>
+                            <div 
+                                className="p-3 rounded-xl transition-all duration-300 group-hover:scale-110"
+                                style={{ backgroundColor: `${stat.color}15`, color: stat.color }}
+                                aria-hidden="true"
+                            >
                                 <stat.icon className="w-6 h-6" />
                             </div>
                         </div>
