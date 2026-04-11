@@ -278,30 +278,37 @@ function startSchedulerWorker() {
     });
 }
 
-// ─── Redis Health Check ────────────────────────────────────────────────
+// ─── Startup Health Checks ──────────────────────────────────────────────
 import { getRedisConnection } from './lib/redis-client.js';
+import postgres from 'postgres';
 
-async function validateRedis(): Promise<void> {
+async function validateInfrastructure(): Promise<void> {
+    // 1. Redis Check
     const redis = getRedisConnection();
-    if (!redis) {
-       logger.error('⚠️ CRITICAL: Redis initialization failed. Background polling and alerts will NOT function.');
-       return;
+    if (redis) {
+        try {
+            const pong = await Promise.race([
+                redis.ping(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+            ]);
+            if (pong === 'PONG') logger.info('🍦 Redis connectivity verified');
+        } catch (err: any) {
+            logger.error({ err: err.message }, '⚠️ CRITICAL: Redis is unreachable. Background polling will NOT function.');
+        }
     }
 
+    // 2. PostgreSQL Check
     try {
-        // Simple ping with a short timeout
-        const pong = await Promise.race([
-            redis.ping(),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ]);
-        
-        if (pong === 'PONG') {
-            logger.info('🍦 Redis connectivity verified');
-        } else {
-            logger.error('⚠️ CRITICAL: Redis did not respond with PONG. Background polling might be stalled.');
-        }
+        const sql = postgres(process.env.DATABASE_URL!, { max: 1, connect_timeout: 5 });
+        await sql`SELECT 1`;
+        await sql.end();
+        logger.info('🐘 PostgreSQL connectivity verified');
     } catch (err: any) {
-        logger.error({ err: err.message }, '⚠️ CRITICAL: Redis is unreachable. Background polling and alerts will NOT function. Please check if Redis service is running.');
+        logger.error({ err: err.message }, '⚠️ CRITICAL: PostgreSQL is unreachable. Application might fail to start or operate correctly.');
+        if (process.env.NODE_ENV === 'production') {
+            logger.fatal('🚨 Database connection required for production. Exiting.');
+            process.exit(1);
+        }
     }
 }
 // ─────────────────────────────────────────────────────────────────────────
@@ -310,12 +317,12 @@ async function validateRedis(): Promise<void> {
 httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     logger.info(`🚀 Server running on http://0.0.0.0:${PORT}`);
 
-    // Verify Redis before starting background tasks
-    await validateRedis();
+    // Verify infrastructure before starting background tasks
+    await validateInfrastructure();
 
     // Run migrations (Drizzle versioned) - Non-blocking to prevent scheduler stall
     runDrizzleMigrations().catch(err => {
-        logger.error({ err: err?.message || String(err) }, '⚠️ Drizzle Migration failed at startup. Monitoring will attempt to continue if schema was manualy repaired.');
+        logger.error({ err: err?.message || String(err) }, '⚠️ Drizzle Migration failed at startup.');
     });
 
     // Start background scheduler in separate thread
@@ -325,13 +332,26 @@ httpServer.listen(Number(PORT), '0.0.0.0', async () => {
 // Graceful Shutdown
 const gracefulShutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
+    
+    // Stop accepting new connections
     httpServer.close(async () => {
         try {
+            // 1. Stop scheduler worker
             if (schedulerProcess) {
+                logger.info('🛑 Stopping scheduler worker...');
                 schedulerProcess.send('shutdown');
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                // Wait for worker to exit or force kill after 2s
+                const workerExitPromise = new Promise(resolve => schedulerProcess!.on('exit', resolve));
+                await Promise.race([workerExitPromise, new Promise(resolve => setTimeout(resolve, 2000))]);
             }
+
+            // 2. Stop Socket.io
             await socketService.stopAll();
+
+            // 3. Stop Redis
+            const { closeRedisConnection } = await import('./lib/redis-client.js');
+            await closeRedisConnection();
+
             logger.info('✅ Graceful shutdown complete');
             process.exit(0);
         } catch (err: any) {
@@ -340,6 +360,7 @@ const gracefulShutdown = async (signal: string) => {
         }
     });
 
+    // Force exit if shutdown takes too long (10s)
     setTimeout(() => {
         logger.error('Forcefully shutting down');
         process.exit(1);

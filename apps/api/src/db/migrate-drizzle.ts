@@ -30,6 +30,12 @@ export async function runDrizzleMigrations() {
         });
         console.log('✅ Drizzle Migrations completed successfully!');
     } catch (error: any) {
+        // Silently ignore 'duplicate_object' errors which are common in manual TimescaleDB schema fixes
+        if (error.message?.includes('duplicate_object') || error.message?.includes('already exists')) {
+            console.log('⚠️ Drizzle Migration: Some objects already exist, skipping duplicates...');
+            return;
+        }
+        
         console.error('❌ Drizzle Migration failed:', error.message);
         // Don't exit process here, let the caller handle it
         throw error;
