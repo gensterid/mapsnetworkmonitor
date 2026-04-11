@@ -32,46 +32,69 @@ if (!process.env.DATABASE_URL) {
     process.exit(1);
 }
 
-const DAYS_TO_KEEP = 14;
-const CUTOFF_DATE = new Date();
-CUTOFF_DATE.setDate(CUTOFF_DATE.getDate() - DAYS_TO_KEEP);
+const BATCH_SIZE = 5000;
+const SLEEP_MS = 500;
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+const batchDelete = async (db: any, tableName: string, cutoffDate: string) => {
+    let totalDeleted = 0;
+    let hasMore = true;
+
+    while (hasMore) {
+        // We use a subquery to select a chunk of IDs to avoid locking the entire table
+        // This is safe even with composite PKs because we filter by the partition key (recorded_at)
+        const result = await db.execute(sql`
+            WITH target_rows AS (
+                SELECT id, recorded_at
+                FROM ${sql.identifier(tableName)}
+                WHERE recorded_at < ${cutoffDate}
+                LIMIT ${BATCH_SIZE}
+            )
+            DELETE FROM ${sql.identifier(tableName)}
+            WHERE (id, recorded_at) IN (SELECT id, recorded_at FROM target_rows);
+        `);
+
+        const count = result.count || 0;
+        totalDeleted += count;
+        
+        if (count > 0) {
+            console.log(`   🔸 [${tableName}] Deleted ${count} rows... Total: ${totalDeleted}`);
+            await sleep(SLEEP_MS);
+        }
+        
+        hasMore = count === BATCH_SIZE;
+    }
+    return totalDeleted;
+};
 
 const runPrune = async () => {
     console.log('🧹 Starting Database Pruning (Maintenance)...');
     console.log(`📡 Connecting to database...`);
     console.log(`📅 Deleting metrics/history older than: ${CUTOFF_DATE.toISOString()} (${DAYS_TO_KEEP} days)`);
 
+    let queryClient;
     try {
-        const queryClient = postgres(process.env.DATABASE_URL!);
+        queryClient = postgres(process.env.DATABASE_URL!, { max: 1 });
         const db = drizzle(queryClient);
 
         // 1. Prune router_metrics
         console.log('📉 Pruning router_metrics...');
-        const metricsRes = await db.execute(sql`
-            DELETE FROM router_metrics 
-            WHERE recorded_at < ${CUTOFF_DATE.toISOString()};
-        `);
-        console.log(`✅ Deleted ${metricsRes.count || 0} rows from router_metrics.`);
+        const metricsCount = await batchDelete(db, 'router_metrics', CUTOFF_DATE.toISOString());
+        console.log(`✅ Finished: Deleted ${metricsCount} total rows from router_metrics.`);
 
         // 2. Prune device_performance_history
         console.log('📊 Pruning device_performance_history...');
-        const perfRes = await db.execute(sql`
-            DELETE FROM device_performance_history 
-            WHERE recorded_at < ${CUTOFF_DATE.toISOString()};
-        `);
-        console.log(`✅ Deleted ${perfRes.count || 0} rows from device_performance_history.`);
+        const perfCount = await batchDelete(db, 'device_performance_history', CUTOFF_DATE.toISOString());
+        console.log(`✅ Finished: Deleted ${perfCount} total rows from device_performance_history.`);
 
-        // 3. Prune router_interface_history (if exists)
-        // Note: router_interfaces table itself only keeps latest, but some systems might have a separate history table.
-        // If there's no history table, this is a no-op.
-        
-        console.log('✨ Cleanup complete! Your database size should reduce after VACUUM.');
-        console.log('💡 Tip: Run "VACUUM FULL;" in psql to physically reclaim disk space immediately.');
-        
+        console.log('✨ Cleanup complete!');
         process.exit(0);
     } catch (err) {
         console.error('❌ Pruning failed:', err);
         process.exit(1);
+    } finally {
+        if (queryClient) await queryClient.end();
     }
 };
 
