@@ -304,7 +304,7 @@ export async function getRomonNeighbors(api: any): Promise<RomonNeighbor[]> {
 }
 
 /**
- * Measure ping latency with auto-retries
+ * Measure ping latency with auto-retries and fallback for older firmware
  */
 export async function measurePing(
     api: any, 
@@ -313,8 +313,8 @@ export async function measurePing(
     interval: string = '100ms',
     timeout: string = '1000ms'
 ): Promise<{ latency: number, packetLoss: number, error?: string }> {
-    try {
-        const result = await safeWrite(api, ['/ping', `=address=${address}`, `=count=${count}`, `=interval=${interval}`, `=timeout=${timeout}`]);
+    const tryPing = async (params: string[]) => {
+        const result = await safeWrite(api, ['/ping', `=address=${address}`, ...params]);
         if (result && result.length > 0) {
             let totalLatency = 0, receivedCount = 0, sentCount = count;
             for (const entry of result) {
@@ -330,8 +330,28 @@ export async function measurePing(
                 packetLoss: Math.round(((sentCount - receivedCount) / sentCount) * 100)
             };
         }
+        return null;
+    };
+
+    try {
+        // First try: full parameters
+        const res = await tryPing([`=count=${count}`, `=interval=${interval}`, `=timeout=${timeout}`]);
+        if (res) return res;
         return { latency: -1, packetLoss: 100, error: 'Empty result' };
     } catch (e: any) {
+        const msg = String(e.message || '').toLowerCase();
+        
+        // Fallback: If "unknown parameter" error (common on older ROS for 'timeout' or 'interval')
+        if (msg.includes('unknown parameter') || msg.includes('no such parameter')) {
+            try {
+                logger.debug({ host: api.host, address }, '⚠️ Ping failed with unknown parameters. Retrying with basic command...');
+                const fallbackRes = await tryPing([`=count=${count}`]);
+                if (fallbackRes) return fallbackRes;
+            } catch (fallbackErr: any) {
+                return { latency: -1, packetLoss: 100, error: fallbackErr.message };
+            }
+        }
+        
         return { latency: -1, packetLoss: 100, error: e.message };
     }
 }

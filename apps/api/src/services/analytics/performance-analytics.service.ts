@@ -418,12 +418,15 @@ export class PerformanceAnalyticsService {
             .groupBy(timeSelect)
             .orderBy(timeSelect);
 
-        const data = results.map(r => ({
-            timestamp: formatAnalyticsTimestamp(r.timestamp),
-            latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
-            signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
-            error: r.error || null
-        }));
+        const data = results.map(r => {
+            const hasData = r.avgLatency !== null || r.avgSignal !== null;
+            return {
+                timestamp: formatAnalyticsTimestamp(r.timestamp),
+                latency: r.avgLatency !== null ? Math.round(Number(r.avgLatency) * 10) / 10 : null,
+                signal: r.avgSignal !== null ? Math.round(Number(r.avgSignal) * 100) / 100 : null,
+                error: !hasData ? (r.error || null) : null
+            };
+        });
 
         // Cache for 5 minutes
         await cacheService.set(cacheKey, data, 300);

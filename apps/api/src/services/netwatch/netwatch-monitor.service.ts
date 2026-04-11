@@ -26,7 +26,18 @@ export async function measureLatency(routerId: string, routerName: string, conn:
                     return;
                 }
 
-                const { latency, packetLoss, error: pingError } = await measurePing(conn, target.host, 2, '300ms', '5000ms');
+                let measurement = await measurePing(conn, target.host, 2, '300ms', '5000ms');
+
+                // Retry once if it was a connection-related failure
+                if (!measurement.latency || measurement.latency < 0) {
+                    const errorMsg = String(measurement.error || '').toLowerCase();
+                    if (errorMsg.includes('closed') || errorMsg.includes('check') || errorMsg.includes('reset')) {
+                        await new Promise(r => setTimeout(r, 500));
+                        measurement = await measurePing(conn, target.host, 2, '300ms', '5000ms');
+                    }
+                }
+
+                const { latency, packetLoss, error: pingError } = measurement;
 
                 if (latency >= 0) {
                     const updateData: any = { latency, lastKnownLatency: latency, packetLoss, updatedAt: new Date() };

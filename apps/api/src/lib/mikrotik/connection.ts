@@ -113,7 +113,16 @@ export async function safeWrite(api: any, command: string | string[], timeoutMs:
 
         return await Promise.race([writePromise, timeoutPromise]);
     } catch (error: any) {
-        if (poolKey && (error.message.includes('closed') || error.message.includes('timeout') || error.message.includes('crash'))) {
+        const msg = String(error.message || '').toLowerCase();
+        const isConnError = msg.includes('closed') || 
+                           msg.includes('timeout') || 
+                           msg.includes('crash') || 
+                           msg.includes('proactive check') ||
+                           msg.includes('socket hung up') ||
+                           msg.includes('reset by peer');
+
+        if (poolKey && isConnError) {
+            logger.warn({ host: api.host, msg: error.message }, '🧨 Purging dead MikroTik connection from pool');
             connectionPool.delete(poolKey);
         }
         if (isRouterosQuirk(error)) return [];
