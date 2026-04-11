@@ -55,13 +55,27 @@ fi
 # 5. Database Backup & Schema Sync
 echo "🗄️ Preparing database..."
 
-# 5.0 Stop Services to avoid DB locks
+# 5. Database Backup & Schema Sync
+echo "🗄️ Preparing database..."
+
+# 5.0 Stop only Application Services (to keep DB alive if managed by PM2)
 if command -v pm2 &> /dev/null; then
-    echo "🛑 Stopping services to avoid database locks..."
-    pm2 stop all || echo "⚠️ PM2 stop failed - continuing anyway"
+    echo "🛑 Stopping application services..."
+    # We stop specifically by name to avoid killing DB or other server tools
+    pm2 stop monitoring-api monitoring-web || echo "⚠️ Application stop failed - continuing"
 fi
 
-# 5.1 Automatic Backup (Safety First)
+# 5.1 Connection Safety Check
+echo "📡 Verifying database connection..."
+# Use built-in bash to check if port 5432 is responding
+if ! (timeout 3s bash -c 'cat < /dev/tcp/127.0.0.1/5432' &> /dev/null); then
+    echo "❌ Error: Cannot connect to PostgreSQL on 127.0.0.1:5432!"
+    echo "   Ensure PostgreSQL is running on the host."
+    echo "   Try: systemctl start postgresql"
+    exit 1
+fi
+
+# 5.2 Automatic Backup (Safety First)
 if [ ! -d "backups" ]; then mkdir backups; fi
 BACKUP_FILE="backups/pre_update_$(date +%Y%m%d_%H%M%S).sql"
 echo "💾 Creating database backup to $BACKUP_FILE..."
@@ -74,7 +88,7 @@ echo "🗄️ Syncing database schema with focused fix script..."
 # Using focused fix instead of drizzle-kit push to avoid TimescaleDB hypertable issues
 cd apps/api && npm run db:fix-genieacs && npm run db:repair && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
 
-# 6. PM2 Restart (if applicable)
+# 6. PM2 Restart
 if command -v pm2 &> /dev/null; then
     echo "🔄 Updating services with PM2..."
     pm2 startOrReload ecosystem.config.cjs --env production || echo "⚠️ PM2 update failed - please start manually"
