@@ -2,7 +2,7 @@ import axios from 'axios';
 import { logger } from '../../lib/logger.js';
 import { db } from '../../db/index.js';
 import { onus, olts, devicePerformanceHistory, routerNetwatch } from '../../db/schema/index.js';
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, sql } from 'drizzle-orm';
 import { cacheService } from '../../lib/cache.js';
 import { oltService } from '../olt.service.js';
 import { settingsService } from '../settings.service.js';
