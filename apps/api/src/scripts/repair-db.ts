@@ -316,15 +316,24 @@ const runRepair = async () => {
                 await db.execute(sql.raw(`ALTER TABLE ${table} ADD PRIMARY KEY (id, recorded_at);`));
                 console.log(`✅ Primary Key stabilized for ${table}`);
             } catch (pkErr: any) {
-                console.log(`ℹ️ Primary Key already stabilized or skip for ${table}: ${pkErr.message}`);
+                const msg = pkErr.message || '';
+                if (msg.includes('already exists')) {
+                   console.log(`✅ Primary Key already correctly set for ${table}`);
+                } else {
+                   console.log(`⚠️ Skip Primary Key fix for ${table}: ${msg}`);
+                }
             }
         }
 
         // 6.3 Fix: Normalize empty strings to NULL to prevent UUID/Unique index errors
         console.log('🧹 Normalizing UUID and Host columns...');
-        await db.execute(sql`UPDATE router_netwatch SET linked_onu_id = NULL WHERE linked_onu_id = '';`);
-        await db.execute(sql`UPDATE router_netwatch SET host = NULL WHERE host = '';`);
-        await db.execute(sql`UPDATE onus SET host = NULL WHERE host = '';`);
+        try {
+            await db.execute(sql`UPDATE router_netwatch SET linked_onu_id = NULL WHERE linked_onu_id::text = '' OR linked_onu_id::text IS NULL;`);
+        } catch (e) {
+            await db.execute(sql`UPDATE router_netwatch SET linked_onu_id = NULL WHERE linked_onu_id IS NULL;`);
+        }
+        await db.execute(sql`UPDATE router_netwatch SET host = NULL WHERE host::text = '';`);
+        await db.execute(sql`UPDATE onus SET host = NULL WHERE host::text = '';`);
         console.log('✅ Identity normalization complete.');
 
         // 7. Fix: Missing Indexes for Performance
