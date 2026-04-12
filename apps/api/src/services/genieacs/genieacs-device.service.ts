@@ -307,11 +307,36 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
             } else {
                 let status: any = 'unknown';
                 if (dev._lastInform) status = (Date.now() - new Date(dev._lastInform).getTime() < 300000) ? 'online' : 'offline';
+                
                 const [newOnu] = await db.insert(onus).values({
-                    sn, routerId: resolvedRouterId, tenantId, name: `ACS-${sn.slice(-4)}`, model: dev._productClass,
-                    ssid: dev._ssid, firmwareVersion: dev._softwareVersion, host: dev._ip, lastRxPower: dev._rxPower, macAddress: dev._macAddress,
-                    status, discoverySources: ['acs'], lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined
+                    sn: sn, 
+                    tenantId,
+                    routerId: resolvedRouterId, 
+                    name: `ACS-${sn.slice(-4)}`, 
+                    model: dev._productClass,
+                    ssid: dev._ssid, 
+                    firmwareVersion: dev._softwareVersion, 
+                    host: dev._ip, 
+                    lastRxPower: dev._rxPower, 
+                    macAddress: dev._macAddress,
+                    status, 
+                    discoverySources: ['acs'], 
+                    lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined
+                } as any).onConflictDoUpdate({
+                    target: onus.sn,
+                    set: {
+                        model: dev._productClass || sql`onus.model`,
+                        ssid: dev._ssid || sql`onus.ssid`,
+                        firmwareVersion: dev._softwareVersion || sql`onus.firmware_version`,
+                        host: dev._ip || sql`onus.host`,
+                        lastRxPower: dev._rxPower || sql`onus.last_rx_power`,
+                        macAddress: dev._macAddress || sql`onus.mac_address`,
+                        status: status || sql`onus.status`,
+                        discoverySources: sql`array_append(onus.discovery_sources, 'acs')`,
+                        updatedAt: new Date(),
+                    } as any
                 }).returning();
+
                 if (newOnu) {
                     targetOnuId = newOnu.id;
                     if (dev._rxPower && resolvedRouterId) {
