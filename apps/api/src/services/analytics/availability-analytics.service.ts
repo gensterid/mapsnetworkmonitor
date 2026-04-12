@@ -69,13 +69,11 @@ export class AvailabilityAnalyticsService {
         if (search) {
             const searchTerm = `%${search}%`;
             incidentConditions.push(
-                and(
-                    eq(alerts.type, 'netwatch_down'),
-                    or(
-                        ilike(alerts.message, searchTerm),
-                        ilike(alerts.title, searchTerm)
-                    ) as any
-                )
+                eq(alerts.type, 'netwatch_down'),
+                or(
+                    ilike(alerts.message, searchTerm),
+                    ilike(alerts.title, searchTerm)
+                ) as any
             );
         } else {
             incidentConditions.push(
