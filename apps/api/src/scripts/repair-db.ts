@@ -265,15 +265,36 @@ const runRepair = async () => {
             }
         }
 
-        // 6. Fix: device_performance_history missing error_message
+        // 6. Fix: device_performance_history missing columns
         console.log('🔍 Checking device_performance_history table...');
-        const checkPerfErr = await db.execute(sql.raw(`
-            SELECT column_name FROM information_schema.columns 
-            WHERE table_name='device_performance_history' AND column_name='error_message';
-        `));
-        if (checkPerfErr.length === 0) {
-            console.log('⚠️ Column error_message missing in device_performance_history. Adding it...');
-            await db.execute(sql`ALTER TABLE device_performance_history ADD COLUMN error_message text;`);
+        const perfCols = [
+            { name: 'error_message', type: 'text' },
+            { name: 'signal', type: 'real' },
+            { name: 'latency', type: 'real' },
+            { name: 'recorded_at', type: 'timestamp DEFAULT now() NOT NULL' }
+        ];
+        for (const col of perfCols) {
+            const checkCol = await db.execute(sql.raw(`
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name='device_performance_history' AND column_name='${col.name}';
+            `));
+            if (checkCol.length === 0) {
+                console.log(`⚠️ Column ${col.name} missing in device_performance_history. Adding it...`);
+                await db.execute(sql.raw(`ALTER TABLE device_performance_history ADD COLUMN ${col.name} ${col.type};`));
+            }
+        }
+
+        // 6.1 Fix: metrics tables recorded_at
+        const metricsTables = ['router_metrics', 'router_interface_metrics'];
+        for (const table of metricsTables) {
+            const checkAt = await db.execute(sql.raw(`
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name='${table}' AND column_name='recorded_at';
+            `));
+            if (checkAt.length === 0) {
+                console.log(`⚠️ Column recorded_at missing in ${table}. Adding it...`);
+                await db.execute(sql.raw(`ALTER TABLE ${table} ADD COLUMN recorded_at timestamp DEFAULT now() NOT NULL;`));
+            }
         }
 
         // 7. Fix: Missing Indexes for Performance

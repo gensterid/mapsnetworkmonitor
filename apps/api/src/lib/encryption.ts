@@ -79,7 +79,9 @@ export function decrypt(encryptedText: string, context?: string): string {
         logger.error({
             err: error.message,
             context: context || 'unknown',
-            format: encryptedText.split(':')[0]
+            format: encryptedText.split(':')[0],
+            keyLength: process.env.ENCRYPTION_KEY?.length || 0,
+            ivLength: encryptedText.split(':')[2]?.length || 0
         }, '🚨 Decryption failed. This usually indicates an ENCRYPTION_KEY mismatch or unsupported legacy format.');
         
         return '';
