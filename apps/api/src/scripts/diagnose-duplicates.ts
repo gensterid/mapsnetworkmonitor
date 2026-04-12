@@ -37,26 +37,40 @@ async function checkDuplicates() {
     try {
         console.log('🔍 Checking for Netwatch/Topology Duplicates...');
 
-        // 1. Find potential duplicates in router_netwatch (matching by host or case-insensitive name)
-        const netwatchDupes = await db.execute(sql.raw(`
-            SELECT lower(name) as low_name, host, router_id, count(*) 
+        // 1. Find potential duplicates in router_netwatch (matching by lower name ONLY, ignoring host)
+        const nameDupes = await db.execute(sql.raw(`
+            SELECT lower(name) as low_name, router_id, count(*) as count
             FROM router_netwatch 
-            GROUP BY low_name, host, router_id 
+            WHERE name IS NOT NULL AND name != ''
+            GROUP BY low_name, router_id 
             HAVING count(*) > 1;
         `));
-        console.log('\n--- Netwatch Duplicates (Casing/Host) ---');
-        console.table(netwatchDupes);
+        console.log('\n--- Netwatch Duplicates (By Name ONLY) ---');
+        console.table(nameDupes);
 
-        // 2. Sample of duplicated records
-        if (netwatchDupes.length > 0) {
-            const sample = await db.execute(sql.raw(`
-                SELECT id, name, host, is_app_only, router_id 
-                FROM router_netwatch 
-                WHERE lower(name) = '${netwatchDupes[0].low_name}' 
-                LIMIT 10;
-            `));
-            console.log('\n--- Sample of Duplicated Records ---');
-            console.table(sample);
+        // 2. Find duplicates by Coordinates
+        const coordDupes = await db.execute(sql.raw(`
+            SELECT latitude, longitude, router_id, count(*) as count
+            FROM router_netwatch 
+            WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+            GROUP BY latitude, longitude, router_id 
+            HAVING count(*) > 1;
+        `));
+        console.log('\n--- Netwatch Duplicates (By Coordinates) ---');
+        console.table(coordDupes);
+
+        // 3. Sample of potential collisions
+        if (nameDupes.length > 0) {
+            console.log('\n--- Investigation Sample ---');
+            for (const dupe of nameDupes.slice(0, 3)) {
+                console.log(`\nItems for name: "${dupe.low_name}"`);
+                const items = await db.execute(sql.raw(`
+                    SELECT id, name, host, is_app_only, latitude, longitude
+                    FROM router_netwatch 
+                    WHERE lower(name) = '${dupe.low_name}' AND router_id = '${dupe.router_id}';
+                `));
+                console.table(items);
+            }
         }
 
     } catch (err) {
