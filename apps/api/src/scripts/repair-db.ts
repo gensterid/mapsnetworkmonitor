@@ -315,7 +315,7 @@ const runRepair = async () => {
                 `));
                 await db.execute(sql.raw(`ALTER TABLE ${table} ADD PRIMARY KEY (id, recorded_at);`));
                 console.log(`✅ Primary Key stabilized for ${table}`);
-            } catch (pkErr) {
+            } catch (pkErr: any) {
                 console.log(`ℹ️ Primary Key already stabilized or skip for ${table}: ${pkErr.message}`);
             }
         }
