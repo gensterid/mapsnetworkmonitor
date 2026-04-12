@@ -297,8 +297,47 @@ const runRepair = async () => {
             }
         }
 
+        // 6.2 Fix: TimescaleDB Primary Keys (MUST include recorded_at)
+        console.log('🔍 Stabilizing Primary Keys for TimescaleDB...');
+        const tsTables = ['device_performance_history', 'router_metrics', 'router_interface_metrics'];
+        for (const table of tsTables) {
+            try {
+                // Drop existing PK and recreate as composite (id, recorded_at)
+                await db.execute(sql.raw(`
+                    DO $$ 
+                    DECLARE 
+                        r RECORD;
+                    BEGIN
+                        FOR r IN (SELECT conname FROM pg_constraint con JOIN pg_class rel ON rel.oid = con.conrelid WHERE rel.relname = '${table}' AND con.contype = 'p') LOOP
+                            EXECUTE 'ALTER TABLE ' || quote_ident('${table}') || ' DROP CONSTRAINT ' || quote_ident(r.conname);
+                        END LOOP;
+                    END $$;
+                `));
+                await db.execute(sql.raw(`ALTER TABLE ${table} ADD PRIMARY KEY (id, recorded_at);`));
+                console.log(`✅ Primary Key stabilized for ${table}`);
+            } catch (pkErr) {
+                console.log(`ℹ️ Primary Key already stabilized or skip for ${table}: ${pkErr.message}`);
+            }
+        }
+
+        // 6.3 Fix: Normalize empty strings to NULL to prevent UUID/Unique index errors
+        console.log('🧹 Normalizing UUID and Host columns...');
+        await db.execute(sql`UPDATE router_netwatch SET linked_onu_id = NULL WHERE linked_onu_id = '';`);
+        await db.execute(sql`UPDATE router_netwatch SET host = NULL WHERE host = '';`);
+        await db.execute(sql`UPDATE onus SET host = NULL WHERE host = '';`);
+        console.log('✅ Identity normalization complete.');
+
         // 7. Fix: Missing Indexes for Performance
         console.log('🔍 Checking for missing performance indexes...');
+        const indexes = [
+            { name: 'dev_perf_recorded_at_idx', table: 'device_performance_history', col: 'recorded_at' },
+            { name: 'router_metrics_recorded_at_idx', table: 'router_metrics', col: 'recorded_at' }
+        ];
+        for (const idx of indexes) {
+            try {
+                await db.execute(sql.raw(`CREATE INDEX IF NOT EXISTS ${idx.name} ON ${idx.table} (${idx.col} DESC);`));
+            } catch (e) {}
+        }
         
         // router_interfaces(router_id, name)
         const checkInterfaceIdx = await db.execute(sql`

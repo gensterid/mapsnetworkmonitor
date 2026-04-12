@@ -303,6 +303,9 @@ export async function getRomonNeighbors(api: any): Promise<RomonNeighbor[]> {
     return Array.from(neighbors.values());
 }
 
+// Simple cache for router compatibility (e.g. if it supports 'timeout' parameter in ping)
+const routerPingCapabilities: Map<string, { supportsAdvanced: boolean }> = new Map();
+
 /**
  * Measure ping latency with auto-retries and fallback for older firmware
  */
@@ -334,24 +337,40 @@ export async function measurePing(
     };
 
     try {
-        // First try: full parameters
-        const res = await tryPing([`=count=${count}`, `=interval=${interval}`, `=timeout=${timeout}`]);
-        if (res) return res;
-        return { latency: -1, packetLoss: 100, error: 'Empty result' };
-    } catch (e: any) {
-        const msg = String(e.message || '').toLowerCase();
-        
-        // Fallback: If "unknown parameter" error (common on older ROS for 'timeout' or 'interval')
-        if (msg.includes('unknown parameter') || msg.includes('no such parameter')) {
-            try {
-                logger.debug({ host: api.host, address }, '⚠️ Ping failed with unknown parameters. Retrying with basic command...');
-                const fallbackRes = await tryPing([`=count=${count}`]);
-                if (fallbackRes) return fallbackRes;
-            } catch (fallbackErr: any) {
-                return { latency: -1, packetLoss: 100, error: fallbackErr.message };
-            }
+        const capabilityKey = `${api.options.host || 'unknown'}`;
+        const capability = routerPingCapabilities.get(capabilityKey);
+
+        if (capability && !capability.supportsAdvanced) {
+            const fallbackRes = await tryPing([`=count=${count}`]);
+            if (fallbackRes) return fallbackRes;
+            return { latency: -1, packetLoss: 100, error: 'Basic ping failed' };
         }
-        
+
+        try {
+            // First try: full parameters
+            const res = await tryPing([`=count=${count}`, `=interval=${interval}`, `=timeout=${timeout}`]);
+            if (res) {
+                if (!capability) routerPingCapabilities.set(capabilityKey, { supportsAdvanced: true });
+                return res;
+            }
+            return { latency: -1, packetLoss: 100, error: 'Empty result' };
+        } catch (e: any) {
+            const msg = String(e.message || '').toLowerCase();
+            
+            // Fallback: If "unknown parameter" error (common on older ROS for 'timeout' or 'interval')
+            if (msg.includes('unknown parameter') || msg.includes('no such parameter')) {
+                routerPingCapabilities.set(capabilityKey, { supportsAdvanced: false });
+                try {
+                    logger.debug({ host: api.options.host, address }, '⚠️ Ping failed with unknown parameters. Persistent fallback enabled for this router.');
+                    const fallbackRes = await tryPing([`=count=${count}`]);
+                    if (fallbackRes) return fallbackRes;
+                } catch (fallbackErr: any) {
+                    return { latency: -1, packetLoss: 100, error: fallbackErr.message };
+                }
+            }
+            throw e;
+        }
+    } catch (e: any) {
         return { latency: -1, packetLoss: 100, error: e.message };
     }
 }

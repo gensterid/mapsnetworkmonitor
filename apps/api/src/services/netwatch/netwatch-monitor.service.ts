@@ -51,8 +51,10 @@ export async function measureLatency(routerId: string, routerName: string, conn:
                     }
 
                     await tx.insert(devicePerformanceHistory).values({
-                        tenantId: derivedTenantId || sql`NULL`, routerId: target.routerId, host: target.host,
-                        onuId: target.linkedOnuId || (await (async () => {
+                        tenantId: derivedTenantId || sql`NULL`,
+                        routerId: target.routerId,
+                        host: target.host,
+                        onuId: (target.linkedOnuId && target.linkedOnuId.trim() !== '') ? target.linkedOnuId : (await (async () => {
                             const match = await tx.query.onus.findFirst({
                                 where: (onus: any, { or, eq, and, ilike }: any) => or(eq(onus.host, target.host), and(eq(onus.routerId, target.routerId), ilike(onus.name, target.name || '')))
                             });
@@ -76,8 +78,10 @@ export async function measureLatency(routerId: string, routerName: string, conn:
                     }
 
                     await tx.insert(devicePerformanceHistory).values({
-                        tenantId: derivedTenantId || sql`NULL`, routerId: target.routerId, host: target.host,
-                        onuId: target.linkedOnuId || (await (async () => {
+                        tenantId: derivedTenantId || sql`NULL`,
+                        routerId: target.routerId,
+                        host: target.host,
+                        onuId: (target.linkedOnuId && target.linkedOnuId.trim() !== '') ? target.linkedOnuId : (await (async () => {
                              const match = await tx.query.onus.findFirst({
                                 where: (onus: any, { or, eq, and, ilike }: any) => or(eq(onus.host, target.host), and(eq(onus.routerId, target.routerId), ilike(onus.name, target.name || '')))
                             });
