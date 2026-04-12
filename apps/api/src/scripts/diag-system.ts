@@ -9,8 +9,21 @@ import { sql } from 'drizzle-orm';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
-dotenv.config({ path: path.join(__dirname, '..', '..', '..', 'apps', 'api', '.env'), override: true });
+// Robust env loading
+const searchPaths = [
+    path.join(process.cwd(), '.env'),
+    path.join(process.cwd(), 'apps', 'api', '.env'),
+    path.join(__dirname, '..', '..', '..', '.env'),
+    path.join(__dirname, '..', '..', '..', '..', '.env'),
+];
+
+for (const p of searchPaths) {
+    dotenv.config({ path: p });
+    if (process.env.DATABASE_URL) {
+        console.log(`✅ Loaded env from: ${p}`);
+        break;
+    }
+}
 
 async function runDiag() {
     const connectionString = process.env.DATABASE_URL;
