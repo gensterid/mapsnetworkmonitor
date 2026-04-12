@@ -55,80 +55,79 @@ export class AvailabilityAnalyticsService {
         }
 
         const routerList = await routerQuery;
+        const routerIdsArray = routerList.map(r => r.id);
+        
+        if (routerIdsArray.length === 0) return [];
 
-        const stats: UptimeStats[] = [];
+        // Batch fetch all relevant incidents for these routers
+        const incidentConditions = [
+            inArray(alerts.routerId, routerIdsArray),
+            gte(alerts.createdAt, range.startDate),
+            lte(alerts.createdAt, range.endDate)
+        ];
 
-        for (const router of routerList) {
-            const incidentConditions = [
-                eq(alerts.routerId, router.id),
-                gte(alerts.createdAt, range.startDate),
-                lte(alerts.createdAt, range.endDate)
-            ];
-
-            if (search) {
-                const searchTerm = `%${search}%`;
-                incidentConditions.push(
-                    eq(alerts.type, 'netwatch_down'), // For specific device, we use netwatch alerts
+        if (search) {
+            const searchTerm = `%${search}%`;
+            incidentConditions.push(
+                and(
+                    eq(alerts.type, 'netwatch_down'),
                     or(
                         ilike(alerts.message, searchTerm),
                         ilike(alerts.title, searchTerm)
                     ) as any
-                );
-            } else {
-                incidentConditions.push(
-                    eq(alerts.type, 'status_change'),
-                    eq(alerts.message, 'Router is DOWN')
-                );
-            }
+                )
+            );
+        } else {
+            incidentConditions.push(
+                eq(alerts.type, 'status_change'),
+                eq(alerts.message, 'Router is DOWN')
+            );
+        }
 
-            const incidents = await db
-                .select({
-                    createdAt: alerts.createdAt,
-                    resolvedAt: alerts.resolvedAt,
-                    resolved: alerts.resolved,
-                })
-                .from(alerts)
-                .where(and(...incidentConditions) as any);
+        const allIncidents = await db
+            .select({
+                routerId: alerts.routerId,
+                createdAt: alerts.createdAt,
+                resolvedAt: alerts.resolvedAt,
+                resolved: alerts.resolved,
+            })
+            .from(alerts)
+            .where(and(...incidentConditions) as any);
 
+        // Group incidents by routerId
+        const incidentsByRouter = new Map<string, typeof allIncidents>();
+        allIncidents.forEach(inc => {
+            const list = incidentsByRouter.get(inc.routerId) || [];
+            list.push(inc);
+            incidentsByRouter.set(inc.routerId, list);
+        });
+
+        const stats: UptimeStats[] = [];
+        const totalMinutesInRange = (new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000 * 60);
+
+        for (const router of routerList) {
+            const incidents = incidentsByRouter.get(router.id) || [];
             const incidentCount = incidents.length;
             let totalDowntimeMinutes = 0;
 
             for (const incident of incidents) {
                 const start = incident.createdAt;
-                // If resolved, use resolvedAt. If not resolved yet, use current time (if within range) or endDate
                 let end = incident.resolved && incident.resolvedAt ? incident.resolvedAt : new Date();
-
-                // If end is after range end, cap it
                 if (end > range.endDate) end = range.endDate;
 
                 const durationMs = new Date(end).getTime() - new Date(start).getTime();
-                const durationMinutes = Math.max(0, durationMs / (1000 * 60));
-
-                totalDowntimeMinutes += durationMinutes;
+                totalDowntimeMinutes += Math.max(0, durationMs / (1000 * 60));
             }
 
-            // Fallback: If no specific DOWN alerts found but we have general status_change alerts, 
-            // use a smaller estimate per incident to avoid exaggeration
-            if (incidentCount > 0 && totalDowntimeMinutes === 0) {
-                // Try counting all status_change if precise message matching failed
-                const allStatusChanges = await db
-                    .select({ count: count() })
-                    .from(alerts)
-                    .where(and(
-                        eq(alerts.routerId, router.id),
-                        eq(alerts.type, 'status_change'),
-                        gte(alerts.createdAt, range.startDate),
-                        lte(alerts.createdAt, range.endDate)
-                    ));
-                const countVal = Number(allStatusChanges[0]?.count) || 0;
-                // Assume 5 mins per status flip if we can't determine duration
-                totalDowntimeMinutes = countVal * 5;
+            // Fallback: If no specific DOWN alerts found but we had incidents
+            // and we're not in search mode (which uses specific netwatch_down alerts)
+            if (incidentCount > 0 && totalDowntimeMinutes === 0 && !search) {
+                totalDowntimeMinutes = incidentCount * 5; // Assume 5 mins per flip fallback
             }
 
             // Calculate uptime percentage
-            const totalMinutes = (new Date(range.endDate).getTime() - new Date(range.startDate).getTime()) / (1000 * 60);
-            const uptimePercentage = totalMinutes > 0
-                ? Math.round(((totalMinutes - totalDowntimeMinutes) / totalMinutes) * 100 * 10) / 10
+            const uptimePercentage = totalMinutesInRange > 0
+                ? Math.round(((totalMinutesInRange - totalDowntimeMinutes) / totalMinutesInRange) * 100 * 10) / 10
                 : 100;
 
             stats.push({
@@ -204,25 +203,28 @@ export class AvailabilityAnalyticsService {
             .orderBy(desc(count()))
             .limit(limit);
 
-        // Get device names
-        const devicesWithNames = await Promise.all(
-            results.map(async (r) => {
-                if (!r.host) return null;
-                const [device] = await db
-                    .select({ name: routerNetwatch.name })
-                    .from(routerNetwatch)
-                    .where(eq(routerNetwatch.host, r.host))
-                    .limit(1);
+        // Get device names in batch
+        const hosts = results.map(r => r.host).filter((h): h is string => !!h);
+        const deviceNamesMap = new Map<string, string>();
+        
+        if (hosts.length > 0) {
+            const devices = await db
+                .select({ host: routerNetwatch.host, name: routerNetwatch.name })
+                .from(routerNetwatch)
+                .where(inArray(routerNetwatch.host, hosts));
+            
+            devices.forEach(d => {
+                if (d.host) deviceNamesMap.set(d.host, d.name || d.host);
+            });
+        }
 
-                return {
-                    name: device?.name || r.host,
-                    host: r.host,
-                    incidents: Number(r.incidents) || 0,
-                };
-            })
-        );
-
-        const finalResults = devicesWithNames.filter((d): d is NonNullable<typeof d> => d !== null);
+        const finalResults = results
+            .filter(r => !!r.host)
+            .map(r => ({
+                name: deviceNamesMap.get(r.host!) || r.host!,
+                host: r.host!,
+                incidents: Number(r.incidents) || 0,
+            }));
 
         // Cache for 5 minutes
         await cacheService.set(cacheKey, finalResults, 300);
@@ -287,27 +289,31 @@ export class AvailabilityAnalyticsService {
             .orderBy(desc(count()))
             .limit(limit);
 
-        // Get router names
-        const withRouterNames = await Promise.all(
-            results.map(async (r) => {
-                const [router] = await db
-                    .select({ name: routers.name })
-                    .from(routers)
-                    .where(eq(routers.id, r.routerId))
-                    .limit(1);
+        // Get router names in batch
+        const routerIds = [...new Set(results.map(r => r.routerId))];
+        const routerNamesMap = new Map<string, string>();
+        
+        if (routerIds.length > 0) {
+            const routerList = await db
+                .select({ id: routers.id, name: routers.name })
+                .from(routers)
+                .where(inArray(routers.id, routerIds));
+            
+            routerList.forEach(r => routerNamesMap.set(r.id, r.name));
+        }
 
-                // Extract PPPoE name from title (format: "PPPoE: USERNAME disconnected")
-                const titleMatch = r.pppoeTitle?.match(/^PPPoE: (.+) disconnected$/);
-                const name = titleMatch?.[1] || r.pppoeTitle?.replace('PPPoE: ', '').replace(' disconnected', '') || 'Unknown';
+        const withRouterNames = results.map((r) => {
+            // Extract PPPoE name from title (format: "PPPoE: USERNAME disconnected")
+            const titleMatch = r.pppoeTitle?.match(/^PPPoE: (.+) disconnected$/);
+            const name = titleMatch?.[1] || r.pppoeTitle?.replace('PPPoE: ', '').replace(' disconnected', '') || 'Unknown';
 
-                return {
-                    name,
-                    disconnectCount: Number(r.disconnectCount) || 0,
-                    lastDisconnect: r.lastDisconnect,
-                    routerName: router?.name || 'Unknown',
-                };
-            })
-        );
+            return {
+                name,
+                disconnectCount: Number(r.disconnectCount) || 0,
+                lastDisconnect: r.lastDisconnect,
+                routerName: routerNamesMap.get(r.routerId) || 'Unknown',
+            };
+        });
 
         // Cache for 5 minutes
         await cacheService.set(cacheKey, withRouterNames, 300);
@@ -410,25 +416,27 @@ export class AvailabilityAnalyticsService {
             }
         }
 
-        // Get router names
-        const withRouterNames = await Promise.all(
-            downClients.map(async (client) => {
-                const [router] = await db
-                    .select({ name: routers.name })
-                    .from(routers)
-                    .where(eq(routers.id, client.routerId))
-                    .limit(1);
+        // Get router names in batch
+        const routerIdsArray = [...new Set(downClients.map(c => c.routerId))];
+        const routerMap = new Map<string, string>();
+        
+        if (routerIdsArray.length > 0) {
+            const routerList = await db
+                .select({ id: routers.id, name: routers.name })
+                .from(routers)
+                .where(inArray(routers.id, routerIdsArray));
+            
+            routerList.forEach(r => routerMap.set(r.id, r.name));
+        }
 
-                return {
-                    name: client.name,
-                    address: client.address,
-                    downSince: client.downSince,
-                    routerName: router?.name || 'Unknown',
-                };
-            })
-        );
-
-        const finalResults = withRouterNames.slice(0, 10);
+        const finalResults = downClients.map((client) => {
+            return {
+                name: client.name,
+                address: client.address,
+                downSince: client.downSince,
+                routerName: routerMap.get(client.routerId) || 'Unknown',
+            };
+        }).slice(0, 10);
 
         // Cache for 1 minute (status changes frequently)
         await cacheService.set(cacheKey, finalResults, 60);
@@ -567,23 +575,28 @@ export class AvailabilityAnalyticsService {
             }
         }
 
-        const withRouterNames = await Promise.all(
-            results.map(async (r) => {
-                const [router] = await db
-                    .select({ name: routers.name })
-                    .from(routers)
-                    .where(eq(routers.id, r.routerId))
-                    .limit(1);
+        // Get router names in batch
+        const routerIdsArray = [...new Set(results.map(r => r.routerId))];
+        const routerMap = new Map<string, string>();
+        
+        if (routerIdsArray.length > 0) {
+            const routerList = await db
+                .select({ id: routers.id, name: routers.name })
+                .from(routers)
+                .where(inArray(routers.id, routerIdsArray));
+            
+            routerList.forEach(r => routerMap.set(r.id, r.name));
+        }
 
-                return {
-                    host: r.host,
-                    name: r.name,
-                    totalDowntimeMinutes: r.totalDowntimeMinutes,
-                    incidentCount: r.incidentCount,
-                    routerName: router?.name || 'Unknown',
-                };
-            })
-        );
+        const withRouterNames = results.map((r) => {
+            return {
+                host: r.host,
+                name: r.name,
+                totalDowntimeMinutes: r.totalDowntimeMinutes,
+                incidentCount: r.incidentCount,
+                routerName: routerMap.get(r.routerId) || 'Unknown',
+            };
+        });
 
         const finalResults = withRouterNames.sort((a, b) => b.totalDowntimeMinutes - a.totalDowntimeMinutes).slice(0, 20);
 
@@ -706,24 +719,29 @@ export class AvailabilityAnalyticsService {
             }
         }
 
-        const results = await Promise.all(
-            Array.from(heatmapData.values()).map(async (data) => {
-                const [router] = await db
-                    .select({ name: routers.name })
-                    .from(routers)
-                    .where(eq(routers.id, data.routerId))
-                    .limit(1);
+        // Get router names in batch
+        const routerIds = [...new Set(Array.from(heatmapData.values()).map(d => d.routerId))];
+        const routerNamesMap = new Map<string, string>();
 
-                return {
-                    lat: data.lat,
-                    lng: data.lng,
-                    incidentCount: data.incidentCount,
-                    deviceNames: data.deviceNames.slice(0, 5),
-                    routerName: router?.name || 'Unknown',
-                    routerId: data.routerId,
-                };
-            })
-        );
+        if (routerIds.length > 0) {
+            const routerList = await db
+                .select({ id: routers.id, name: routers.name })
+                .from(routers)
+                .where(inArray(routers.id, routerIds));
+            
+            routerList.forEach(r => routerNamesMap.set(r.id, r.name));
+        }
+
+        const results = Array.from(heatmapData.values()).map((data) => {
+            return {
+                lat: data.lat,
+                lng: data.lng,
+                incidentCount: data.incidentCount,
+                deviceNames: data.deviceNames.slice(0, 5),
+                routerName: routerNamesMap.get(data.routerId) || 'Unknown',
+                routerId: data.routerId,
+            };
+        });
 
         const finalResults = results.sort((a, b) => b.incidentCount - a.incidentCount).slice(0, 50);
 
