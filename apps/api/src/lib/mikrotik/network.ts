@@ -337,7 +337,7 @@ export async function measurePing(
     };
 
     try {
-        const capabilityKey = `${api.options.host || 'unknown'}`;
+        const capabilityKey = `${api.host || 'unknown'}`;
         const capability = routerPingCapabilities.get(capabilityKey);
 
         if (capability && !capability.supportsAdvanced) {
@@ -361,7 +361,7 @@ export async function measurePing(
             if (msg.includes('unknown parameter') || msg.includes('no such parameter')) {
                 routerPingCapabilities.set(capabilityKey, { supportsAdvanced: false });
                 try {
-                    logger.debug({ host: api.options.host, address }, '⚠️ Ping failed with unknown parameters. Persistent fallback enabled for this router.');
+                    logger.debug({ host: api.host, address }, '⚠️ Ping failed with unknown parameters. Persistent fallback enabled for this router.');
                     const fallbackRes = await tryPing([`=count=${count}`]);
                     if (fallbackRes) return fallbackRes;
                 } catch (fallbackErr: any) {

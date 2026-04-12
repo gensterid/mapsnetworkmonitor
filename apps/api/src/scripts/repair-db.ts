@@ -297,11 +297,15 @@ const runRepair = async () => {
             }
         }
 
-        // 6.2 Fix: TimescaleDB Primary Keys (MUST include recorded_at)
+        // 6.2 Fix: TimescaleDB Primary Keys (MUST include recorded_at and MUST be NOT NULL)
         console.log('🔍 Stabilizing Primary Keys for TimescaleDB...');
         const tsTables = ['device_performance_history', 'router_metrics', 'router_interface_metrics'];
+        
         for (const table of tsTables) {
             try {
+                // Ensure recorded_at is NOT NULL (TimescaleDB requirement for PK)
+                await db.execute(sql.raw(`ALTER TABLE ${table} ALTER COLUMN recorded_at SET NOT NULL;`));
+                
                 // Drop existing PK and recreate as composite (id, recorded_at)
                 await db.execute(sql.raw(`
                     DO $$ 
