@@ -43,42 +43,69 @@ async function runDiag() {
         for (const table of tsTables) {
             console.log(`\n🔍 Table: ${table}`);
             
-            // 1.1 List existing Primary Keys
-            const pks = await db.execute(sql.raw(`
-                SELECT conname, pg_get_constraintdef(oid) 
-                FROM pg_constraint 
-                WHERE conrelid = '${table}'::regclass AND contype = 'p';
-            `));
-            console.log('   Primary Keys:', pks.length > 0 ? pks : 'None');
+            // 1.1 List all constraints
+            try {
+                const constraints = await db.execute(sql.raw(`
+                    SELECT conname as name, contype as type, pg_get_constraintdef(oid) as definition
+                    FROM pg_constraint 
+                    WHERE conrelid = '${table}'::regclass;
+                `));
+                console.log('   Constraints:');
+                console.table(constraints);
+            } catch (e) { console.log('   ⚠️ Could not list constraints'); }
 
-            // 1.2 Check for NULL values in PK columns
-            const nulls = await db.execute(sql.raw(`
-                SELECT 
-                    COUNT(*) FILTER (WHERE id IS NULL) as null_id,
-                    COUNT(*) FILTER (WHERE recorded_at IS NULL) as null_recorded_at
-                FROM ${table};
-            `));
-            console.table(nulls);
+            // 1.2 List all indices
+            try {
+                const indices = await db.execute(sql.raw(`
+                    SELECT indexname as name, indexdef as definition
+                    FROM pg_indexes 
+                    WHERE tablename = '${table}';
+                `));
+                console.log('   Indices:');
+                console.table(indices);
+            } catch (e) { console.log('   ⚠️ Could not list indices'); }
 
-            // 1.3 Check for Duplicates
-            const dups = await db.execute(sql.raw(`
-                SELECT id, recorded_at, COUNT(*) 
-                FROM ${table} 
-                GROUP BY id, recorded_at 
-                HAVING COUNT(*) > 1 
-                LIMIT 5;
-            `));
-            console.log('   Duplicates found (first 5):', dups.length > 0 ? dups : 'None');
+            // 1.3 Check for NULL values in PK columns
+            try {
+                const nulls = await db.execute(sql.raw(`
+                    SELECT 
+                        COUNT(*) as total_rows,
+                        COUNT(*) FILTER (WHERE id IS NULL) as null_id,
+                        COUNT(*) FILTER (WHERE recorded_at IS NULL) as null_recorded_at
+                    FROM ${table};
+                `));
+                console.table(nulls);
+            } catch (e) { console.log('   ⚠️ Could not check for NULLs'); }
 
-            // 1.4 Test Add PK (with full error capture)
+            // 1.4 Check for Duplicates
+            try {
+                const dups = await db.execute(sql.raw(`
+                    SELECT id, recorded_at, COUNT(*) 
+                    FROM ${table} 
+                    GROUP BY id, recorded_at 
+                    HAVING COUNT(*) > 1 
+                    LIMIT 5;
+                `));
+                console.log('   Duplicates found (first 5):', dups.length > 0 ? dups : 'None');
+            } catch (e) { console.log('   ⚠️ Could not check for duplicates'); }
+
+            // 1.5 Test Add PK (with full error capture, OUTSIDE main transaction)
             try {
                 console.log(`   Trying test PK establishment for ${table}...`);
-                // Use a temporary transaction to try adding PK
-                await db.execute(sql.raw(`BEGIN; ALTER TABLE ${table} ADD PRIMARY KEY (id, recorded_at); ROLLBACK;`));
-                console.log('   ✅ Test PK establishment succeeded (rolled back).');
+                const testClient = postgres(connectionString);
+                await testClient`BEGIN`;
+                try {
+                   await testClient`ALTER TABLE ${testClient.unsafe(table)} ADD PRIMARY KEY (id, recorded_at)`;
+                   console.log('   ✅ Test PK establishment succeeded.');
+                } finally {
+                   await testClient`ROLLBACK`;
+                   await testClient.end();
+                }
             } catch (err: any) {
                 console.log(`   ❌ Test PK establishment FAILED: ${err.message}`);
+                console.log(`      Code: ${err.code}`);
                 if (err.detail) console.log(`      Detail: ${err.detail}`);
+                if (err.hint) console.log(`      Hint: ${err.hint}`);
             }
         }
 

@@ -324,7 +324,7 @@ const runRepair = async () => {
                 if (msg.includes('already exists')) {
                    console.log(`✅ Primary Key already correctly set for ${table}`);
                 } else {
-                   console.log(`⚠️ Skip Primary Key fix for ${table}: ${msg}`);
+                   console.warn(`⚠️ Skip Primary Key fix for ${table}:`, pkErr);
                 }
             }
         }
