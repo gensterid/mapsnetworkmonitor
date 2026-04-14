@@ -142,7 +142,9 @@ export class OltService {
                     name: o.name,
                     signal: o.lastRxPower,
                     lastDownReason: o.lastDownReason,
-                    lastSeen: o.lastSeen
+                    lastSeen: o.lastSeen,
+                    ponId: o.ponPort,
+                    onuId: o.onuIndex
                 }));
             }
 
