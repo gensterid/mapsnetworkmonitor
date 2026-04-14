@@ -93,12 +93,16 @@ async function runDiag() {
             try {
                 console.log(`   Trying test PK establishment for ${table}...`);
                 const testClient = postgres(connectionString);
-                await testClient`BEGIN`;
                 try {
-                   await testClient`ALTER TABLE ${testClient.unsafe(table)} ADD PRIMARY KEY (id, recorded_at)`;
+                   await testClient.unsafe(`ALTER TABLE ${table} ADD PRIMARY KEY (id, recorded_at)`);
                    console.log('   ✅ Test PK establishment succeeded.');
+                } catch (addErr: any) {
+                    if (addErr.message.includes('already exists') || addErr.code === '42P16') {
+                        console.log('   ✅ PK already exists.');
+                    } else {
+                        throw addErr;
+                    }
                 } finally {
-                   await testClient`ROLLBACK`;
                    await testClient.end();
                 }
             } catch (err: any) {
@@ -111,18 +115,18 @@ async function runDiag() {
 
         console.log('\n--- [2] Checking Migration State ---');
         try {
-            const migrations = await db.execute(sql.raw('SELECT * FROM drizzle_migrations;'));
+            const migrations = await queryClient`SELECT * FROM drizzle_migrations;`;
             console.log('   Applied Migrations Count:', migrations.length);
-        } catch (err) {
-            console.log('   ⚠️ Could not read drizzle_migrations table.');
+        } catch (err: any) {
+            console.log(`   ⚠️ Could not read drizzle_migrations table. Error: ${err.message}`);
         }
 
         console.log('\n--- [3] Checking TimescaleDB Status ---');
         try {
-            const hypertables = await db.execute(sql.raw('SELECT hypertable_name FROM _timescaledb_catalog.hypertable;'));
-            console.log('   Hypertables:', hypertables.map(h => h.hypertable_name).join(', '));
-        } catch (err) {
-            console.log('   ⚠️ TimescaleDB metadata not accessible.');
+            const hypertables = await queryClient`SELECT hypertable_name FROM _timescaledb_catalog.hypertable;`;
+            console.log('   Hypertables:', hypertables.map((h: any) => h.hypertable_name).join(', '));
+        } catch (err: any) {
+            console.log(`   ⚠️ TimescaleDB metadata not accessible. Error: ${err.message}`);
         }
 
     } catch (err) {

@@ -177,17 +177,13 @@ export function useAcknowledgeAllAlerts() {
     const queryClient = useQueryClient();
 
     const isIssueAlert = (alert) => {
-        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss'];
+        const issueTypes = ['high_cpu', 'high_memory', 'high_disk', 'threshold', 'system', 'high_latency', 'packet_loss', 'snmp_error'];
+        const connectivityTypes = ['status_change', 'netwatch_down', 'interface_down', 'pppoe_connect', 'pppoe_disconnect', 'reboot'];
+
         if (issueTypes.includes(alert.type)) return true;
         if (alert.type === 'threshold') return true;
 
-        if (alert.severity === 'warning' &&
-            !alert.type?.includes('status_change') &&
-            !alert.type?.includes('down') &&
-            !alert.type?.includes('offline') &&
-            !alert.type?.includes('pppoe') &&
-            !alert.type?.includes('interface') &&
-            !alert.type?.includes('netwatch')) {
+        if (alert.severity === 'warning' && !connectivityTypes.includes(alert.type)) {
             return true;
         }
         return false;
