@@ -332,7 +332,10 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                         lastRxPower: dev._rxPower || sql`onus.last_rx_power`,
                         macAddress: dev._macAddress || sql`onus.mac_address`,
                         status: status || sql`onus.status`,
-                        discoverySources: sql`array_append(onus.discovery_sources, 'acs')`,
+                        discoverySources: sql`(
+                            SELECT COALESCE(json_agg(DISTINCT x), '[]'::json)
+                            FROM jsonb_array_elements_text(COALESCE(onus.discovery_sources::jsonb, '[]'::jsonb) || '["acs"]'::jsonb) t(x)
+                        )`,
                         updatedAt: new Date(),
                     } as any
                 }).returning();
