@@ -277,20 +277,41 @@ export class OltService {
                 olt.webProtocol || undefined
             );
 
-            await driver.connect();
-            // If connection succeeds, we consider it online
-            await db.update(olts).set({ 
-                status: 'online', 
-                updatedAt: new Date() 
-            }).where(eq(olts.id, id));
-            await driver.disconnect();
-            
-            return { ...olt, status: 'online' };
+            if (olt.useWeb) {
+                const result = await driver.testConnection();
+                if (result.success) {
+                    await db.update(olts).set({
+                        status: 'online',
+                        lastWebStatus: 'online',
+                        statusReason: null,
+                        updatedAt: new Date()
+                    }).where(eq(olts.id, id));
+                    return { ...olt, status: 'online', lastWebStatus: 'online', statusReason: null };
+                } else {
+                    const reason = result.error || 'OLT Web API Unreachable';
+                    await db.update(olts).set({
+                        status: 'offline',
+                        lastWebStatus: 'offline',
+                        statusReason: reason,
+                        updatedAt: new Date()
+                    }).where(eq(olts.id, id));
+                    return { ...olt, status: 'offline', lastWebStatus: 'offline', statusReason: reason };
+                }
+            } else {
+                await driver.connect();
+                await db.update(olts).set({
+                    status: 'online',
+                    statusReason: null,
+                    updatedAt: new Date()
+                }).where(eq(olts.id, id));
+                await driver.disconnect();
+                return { ...olt, status: 'online', statusReason: null };
+            }
         } catch (error) {
             logger.error({ err: error, olt: olt.name }, 'Refresh OLT status failed');
-            await db.update(olts).set({ 
+            await db.update(olts).set({
                 status: 'offline',
-                updatedAt: new Date() 
+                updatedAt: new Date()
             }).where(eq(olts.id, id));
             return { ...olt, status: 'offline' };
         }
