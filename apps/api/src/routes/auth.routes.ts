@@ -66,8 +66,8 @@ router.post('/auth-lookup', lookupLimiter, asyncHandler(async (req: Request, res
             .limit(1);
 
         if (user.length === 0) {
-            logger.debug({ identifier }, 'Auth lookup: Username not found');
-            return res.status(404).json({ error: 'User not found' });
+            logger.debug({ identifier }, 'Auth lookup: Username not found, passing through');
+            return res.status(200).json({ email: identifier });
         }
 
         return res.json({ email: user[0].email });

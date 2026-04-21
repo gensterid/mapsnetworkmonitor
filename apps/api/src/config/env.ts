@@ -74,5 +74,12 @@ export function validateEnv(): Env {
     }
 }
 
-// Singleton for easy access if needed, though most services use process.env directly
-export const env = validateEnv();
+// Lazy singleton — only validates once, on first access
+let _env: Env | null = null;
+export function getEnv(): Env {
+    if (!_env) _env = validateEnv();
+    return _env;
+}
+
+// Re-export for backwards compatibility (used by auth.ts)
+export const env = getEnv();

@@ -27,7 +27,8 @@ export const logger = pino({
             'BETTER_AUTH_SECRET',
             'ENCRYPTION_KEY',
             'DATABASE_URL',
-            'secret', '*.secret'
+            'secret', '*.secret',
+            'aiApiKey', '*.aiApiKey'
         ],
         remove: false,
         censor: '[REDACTED]'

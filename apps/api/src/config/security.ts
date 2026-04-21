@@ -9,7 +9,7 @@ import { allowedOrigins } from './cors.js';
  */
 export const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5000, // Increased for development and to support high-frequency polling
+    max: 1000, // ~66/min per IP; supports up to 6 concurrent dashboard users at 10 queries/30s polling
     standardHeaders: true,
     legacyHeaders: false,
     skipSuccessfulRequests: false, // Keep tracking all requests for now
@@ -50,6 +50,20 @@ export const strictLimiter = rateLimit({
     message: {
         error: 'Too Many Requests',
         message: 'Rate limit exceeded for configuration changes. Please wait.',
+    },
+});
+
+/**
+ * Limiter for AI/Gemini endpoints to protect API quota
+ */
+export const aiLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: {
+        error: 'Too Many Requests',
+        message: 'AI request limit exceeded. Please wait before making more AI requests.',
     },
 });
 

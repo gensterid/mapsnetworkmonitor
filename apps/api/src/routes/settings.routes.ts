@@ -41,6 +41,35 @@ router.get(
 );
 
 /**
+ * GET /api/settings/audit-logs
+ * Get audit logs — must be declared before /:key to avoid Express matching it as a key param
+ * Requires: Admin
+ */
+router.get(
+    '/audit-logs',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const limit = parseInt(req.query.limit as string) || 100;
+        const logs = await settingsService.getAuditLogs(getEffectiveTenantId(req), limit);
+        res.json({ data: logs });
+    })
+);
+
+/**
+ * GET /api/settings/maintenance/db-stats
+ * Get database usage statistics — must be declared before /:key
+ * Requires: Admin
+ */
+router.get(
+    '/maintenance/db-stats',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const stats = await settingsService.getDatabaseStats();
+        res.json({ data: stats });
+    })
+);
+
+/**
  * GET /api/settings/:key
  * Get setting by key
  * Requires: Authenticated
@@ -138,35 +167,6 @@ router.delete(
         }
 
         res.json({ data: { message: 'Setting deleted successfully' } });
-    })
-);
-
-/**
- * GET /api/audit-logs
- * Get audit logs
- * Requires: Admin
- */
-router.get(
-    '/audit-logs',
-    requireAdmin,
-    asyncHandler(async (req, res) => {
-        const limit = parseInt(req.query.limit as string) || 100;
-        const logs = await settingsService.getAuditLogs(getEffectiveTenantId(req), limit);
-        res.json({ data: logs });
-    })
-);
-
-/**
- * GET /api/settings/maintenance/db-stats
- * Get database usage statistics
- * Requires: Admin
- */
-router.get(
-    '/maintenance/db-stats',
-    requireAdmin,
-    asyncHandler(async (req, res) => {
-        const stats = await settingsService.getDatabaseStats();
-        res.json({ data: stats });
     })
 );
 

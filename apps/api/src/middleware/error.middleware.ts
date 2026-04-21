@@ -44,7 +44,11 @@ export class ApiError extends Error {
  */
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 import { logger } from '../lib/logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { allowedOrigins } from '../config/cors.js';
 
 export function errorMiddleware(
@@ -127,6 +131,20 @@ export function errorMiddleware(
         path: _req.path,
         method: _req.method
     }, 'Generic 500 Error Caught');
+
+    if (statusCode === 500 && process.env.NODE_ENV !== 'production') {
+        try {
+            const debugDir = path.resolve(__dirname, '..', '..', 'debug');
+            if (!fs.existsSync(debugDir)) fs.mkdirSync(debugDir, { recursive: true });
+            fs.writeFileSync(path.join(debugDir, 'latest-500.txt'), JSON.stringify({
+                message: err?.message || String(err),
+                stack: err?.stack,
+                path: _req.path,
+                method: _req.method,
+                time: new Date().toISOString()
+            }, null, 2));
+        } catch { /* ignore */ }
+    }
 
     res.status(statusCode).json({
         error: {

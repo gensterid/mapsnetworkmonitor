@@ -3,7 +3,7 @@ import { cacheService } from '../lib/cache.js';
 import { logger } from '../lib/logger.js';
 
 const LOCKOUT_PREFIX = 'lockout:fail:';
-const LOCKOUT_LIMIT = 5;
+const LOCKOUT_LIMIT = 3;
 const LOCKOUT_DURATION = 15 * 60; // 15 minutes in seconds
 
 /**

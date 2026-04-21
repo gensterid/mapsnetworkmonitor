@@ -327,6 +327,29 @@ export class BackupService {
             }
         }
 
+        // Block dangerous DDL/DCL statements that should never appear in a legitimate backup restore
+        const blockedPatterns = [
+            /^DROP\s+DATABASE\b/i,
+            /^DROP\s+SCHEMA\b/i,
+            /^TRUNCATE\b/i,
+            /^CREATE\s+ROLE\b/i,
+            /^ALTER\s+ROLE\b/i,
+            /^DROP\s+ROLE\b/i,
+            /^GRANT\b/i,
+            /^REVOKE\b/i,
+            /^ALTER\s+SYSTEM\b/i,
+            /^COPY\b.*\bFROM\s+PROGRAM\b/i,
+            /\bpg_read_file\b/i,
+            /\bpg_execute_server_program\b/i,
+        ];
+
+        for (const pattern of blockedPatterns) {
+            if (pattern.test(statement)) {
+                logger.warn({ statement: statement.substring(0, 100) }, 'Backup restore: Blocked dangerous SQL statement');
+                return true;
+            }
+        }
+
         return false;
     }
 }

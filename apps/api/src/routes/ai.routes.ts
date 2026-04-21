@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { aiService } from '../services/index.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { aiLimiter } from '../config/security.js';
 
 const router = Router();
 
@@ -14,6 +15,7 @@ router.use(authMiddleware);
  */
 router.post(
     '/analyze-alert/:id',
+    aiLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const alertId = req.params.id as string;
         const tenantId = req.user!.tenantId!;
@@ -29,6 +31,7 @@ router.post(
  */
 router.get(
     '/network-summary',
+    aiLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const tenantId = req.user!.tenantId!;
 
@@ -43,6 +46,7 @@ router.get(
  */
 router.post(
     '/diagnose-router/:id',
+    aiLimiter,
     asyncHandler(async (req: Request, res: Response) => {
         const routerId = req.params.id as string;
         const tenantId = req.user!.tenantId!;
