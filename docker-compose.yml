@@ -13,13 +13,28 @@ services:
       - postgres_data:/var/lib/postgresql/data
     networks:
       - monitor-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-mikrotik_monitor}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   redis:
     image: redis:7-alpine
     container_name: mikrotik-monitor-redis
     restart: always
+    # PENTING: Set REDIS_PASSWORD di .env sebelum apply perubahan ini
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - monitor-network
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a ${REDIS_PASSWORD} ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   api:
     build:
@@ -29,7 +44,7 @@ services:
     restart: always
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-mikrotik_monitor}
-      REDIS_URL: redis://redis:6379
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
       PORT: 3000
       NODE_ENV: production
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
@@ -37,10 +52,18 @@ services:
       ENCRYPTION_KEY: ${ENCRYPTION_KEY}
       CORS_ORIGIN: ${CORS_ORIGIN}
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     networks:
       - monitor-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
 
   web:
     build:
@@ -51,7 +74,8 @@ services:
     ports:
       - "80:80"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - monitor-network
 
@@ -62,8 +86,9 @@ services:
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - prometheus_data:/prometheus
+    # Hanya aksesibel dari host Proxmox — gunakan SSH tunnel untuk akses dari luar
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     networks:
       - monitor-network
 
@@ -77,8 +102,9 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
+    # Hanya aksesibel dari host Proxmox — gunakan SSH tunnel untuk akses dari luar
     ports:
-      - "3030:3000"
+      - "127.0.0.1:3030:3000"
     depends_on:
       - prometheus
       - loki
@@ -89,8 +115,9 @@ services:
     image: grafana/loki:latest
     container_name: mikrotik-monitor-loki
     restart: always
+    # Hanya aksesibel dari host Proxmox
     ports:
-      - "3100:3100"
+      - "127.0.0.1:3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
     networks:
       - monitor-network

@@ -446,30 +446,34 @@ async function syncGenieAcs(): Promise<void> {
 
 /**
  * Performs deletion in batches to avoid table locking and long transactions.
+ * Uses parameterized queries to prevent SQL injection.
  */
-async function batchDelete(tableName: string, whereClause: string, params: any[], batchSize: number = 5000): Promise<number> {
+async function batchDeleteSafe(
+    table: typeof routerMetrics | typeof devicePerformanceHistory | typeof routerInterfaceMetrics,
+    tenantId: string,
+    cutoffDate: Date,
+    batchSize: number = 5000
+): Promise<number> {
     let totalDeleted = 0;
     let deletedInBatch = batchSize;
+    const tableName = table === routerMetrics ? 'router_metrics'
+        : table === devicePerformanceHistory ? 'device_performance_history'
+        : 'router_interface_metrics';
 
-    logger.debug({ tableName, whereClause }, '🧹 Starting batch cleanup...');
+    logger.debug({ tableName, tenantId }, '🧹 Starting batch cleanup...');
 
     while (deletedInBatch === batchSize) {
-        // We use a raw query because Drizzle doesn't natively support DELETE with LIMIT in all dialects
-        // and fetching IDs first for millions of rows would be memory-intensive.
-        const query = sql.raw(`
-            DELETE FROM ${tableName} 
-            WHERE id IN (
-                SELECT id FROM ${tableName} 
-                WHERE ${whereClause} 
-                LIMIT ${batchSize}
-            )
-        `);
-
         try {
-            const result = await db.execute(query);
-            // Postgres rows affected is usually in the second element of the result for raw execute
-            // or directly on the result depending on the driver version.
-            // Using a safe estimation here.
+            // Safe: Uses Drizzle's parameterized sql template literal
+            // The tenant_id and recorded_at values are properly bound as parameters
+            const result = await db.execute(
+                sql`DELETE FROM ${table}
+                    WHERE id IN (
+                        SELECT id FROM ${table}
+                        WHERE tenant_id = ${tenantId} AND recorded_at < ${cutoffDate}
+                        LIMIT ${batchSize}
+                    )`
+            );
             deletedInBatch = (result as any).rowCount || 0;
             totalDeleted += deletedInBatch;
             
@@ -498,25 +502,22 @@ async function cleanupOldMetrics(): Promise<void> {
             const metricsRetention = await settingsService.getSettingValue('metrics_retention_days', tenant.id, 30);
             const mCutoff = new Date();
             mCutoff.setDate(mCutoff.getDate() - metricsRetention);
-            const mCutoffStr = mCutoff.toISOString();
 
-            await batchDelete('router_metrics', `tenant_id = '${tenant.id}' AND recorded_at < '${mCutoffStr}'`, []);
+            await batchDeleteSafe(routerMetrics, tenant.id, mCutoff);
 
             // 1b. Device Latency & Signal history (Performance) - HIGH VOLUME
             const perfRetention = await settingsService.getSettingValue('performance_retention_days', tenant.id, 30);
             const pCutoff = new Date();
             pCutoff.setDate(pCutoff.getDate() - perfRetention);
-            const pCutoffStr = pCutoff.toISOString();
 
-            await batchDelete('device_performance_history', `tenant_id = '${tenant.id}' AND recorded_at < '${pCutoffStr}'`, []);
+            await batchDeleteSafe(devicePerformanceHistory, tenant.id, pCutoff);
 
             // 2. Interface traffic metrics - HIGH VOLUME
             const ifMetricsRetention = await settingsService.getSettingValue('interface_metrics_retention_days', tenant.id, 30);
             const ifCutoff = new Date();
             ifCutoff.setDate(ifCutoff.getDate() - ifMetricsRetention);
-            const ifCutoffStr = ifCutoff.toISOString();
 
-            await batchDelete('router_interface_metrics', `tenant_id = '${tenant.id}' AND recorded_at < '${ifCutoffStr}'`, []);
+            await batchDeleteSafe(routerInterfaceMetrics, tenant.id, ifCutoff);
 
             // 3. Resolved Alerts (Low volume, usually safe for direct delete)
             const alertsRetention = await settingsService.getSettingValue('alerts_retention_days', tenant.id, 60);
