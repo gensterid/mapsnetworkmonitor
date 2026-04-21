@@ -55,9 +55,6 @@ fi
 # 5. Database Backup & Schema Sync
 echo "🗄️ Preparing database..."
 
-# 5. Database Backup & Schema Sync
-echo "🗄️ Preparing database..."
-
 # 5.0 Stop only Application Services (to keep DB alive if managed by PM2)
 if command -v pm2 &> /dev/null; then
     echo "🛑 Stopping application services..."
@@ -88,9 +85,11 @@ if [ -f .env ]; then
     echo "   (Backup will be handled by the system if pg_dump is available)"
 fi
 
-echo "🗄️ Syncing database schema with focused fix script..."
-# Using focused fix instead of drizzle-kit push to avoid TimescaleDB hypertable issues
-cd apps/api && npm run db:fix-genieacs && npm run db:repair && cd ../.. || { echo "❌ Database schema sync failed!"; exit 1; }
+echo "🗄️ Running database migrations..."
+cd apps/api && npm run db:migrate || { echo "❌ Migration failed!"; cd ../..; exit 1; }
+
+echo "🔧 Running database repair scripts..."
+npm run db:fix-genieacs && npm run db:repair && cd ../.. || { echo "❌ Database repair failed!"; exit 1; }
 
 # 6. PM2 Restart
 if command -v pm2 &> /dev/null; then
