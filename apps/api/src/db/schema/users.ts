@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, boolean, timestamp, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, boolean, timestamp, pgEnum, index } from 'drizzle-orm/pg-core';
 import { tenants } from './tenants.js';
 
 // User role enum
@@ -20,7 +20,9 @@ export const users = pgTable('users', {
     aiApiKey: text('ai_api_key'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    tenantIdIdx: index('users_tenant_id_idx').on(table.tenantId),
+}));
 
 // Sessions table (Better Auth)
 export const sessions = pgTable('sessions', {
@@ -34,7 +36,9 @@ export const sessions = pgTable('sessions', {
     userAgent: text('user_agent'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    userIdIdx: index('sessions_user_id_idx').on(table.userId),
+}));
 
 // Accounts table (Better Auth - for OAuth providers)
 export const accounts = pgTable('accounts', {

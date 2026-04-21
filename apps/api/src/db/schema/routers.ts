@@ -117,6 +117,7 @@ export const routers = pgTable('routers', {
     hostIdx: index('routers_host_idx').on(table.host),
     statusIdx: index('routers_status_idx').on(table.status),
     groupIdIdx: index('routers_group_id_idx').on(table.groupId),
+    tenantIdIdx: index('routers_tenant_id_idx').on(table.tenantId),
 }));
 
 // Router interfaces table

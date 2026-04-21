@@ -232,6 +232,13 @@
       "when": 1775585916565,
       "tag": "0032_slim_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1776622716565,
+      "tag": "0033_add_missing_indexes",
+      "breakpoints": true
     }
   ]
 }
