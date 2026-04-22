@@ -142,6 +142,9 @@ export const auth = betterAuth({
         // We enable useSecureCookies in production for security.
         // In development (local IP), it remains false to allow HTTP access.
         useSecureCookies: process.env.NODE_ENV === 'production',
+        ipAddress: {
+            ipAddressHeaders: ['x-forwarded-for', 'x-real-ip', 'cf-connecting-ip'],
+        },
     },
     trustedOrigins: resolvedTrustedOrigins,
 });
