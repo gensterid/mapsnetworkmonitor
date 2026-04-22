@@ -409,7 +409,49 @@ export class OltService {
             added = valuesToUpsert.length;
         }
 
-        return { added, updated: 0, total: driverOnus.length };
+        // 4. Orphan detection — mark ONUs that exist in DB for this OLT but are
+        // no longer returned by the driver (e.g. removed from OLT configuration).
+        // We only do this if the driver returned at least 1 ONU (partial-failure guard).
+        let orphaned = 0;
+        if (driverOnus.length > 0) {
+            const seenSns = new Set(driverOnus.map(d => d.sn).filter(Boolean));
+            const dbOnus = await db.select({ id: onus.id, sn: onus.sn })
+                .from(onus)
+                .where(and(eq(onus.oltId, oltId), isNull(onus.archivedAt)));
+
+            const orphanIds = dbOnus.filter(o => !seenSns.has(o.sn)).map(o => o.id);
+            if (orphanIds.length > 0) {
+                await db.update(onus).set({
+                    status: 'offline',
+                    lastDownReason: 'Removed from OLT',
+                    updatedAt: now,
+                }).where(inArray(onus.id, orphanIds));
+                orphaned = orphanIds.length;
+                logger.info({ oltId, oltName: olt.name, orphaned }, '🗑️ Marked orphan ONUs (not in OLT list anymore)');
+            }
+        }
+
+        return { added, updated: orphaned, total: driverOnus.length };
+    }
+
+    /**
+     * Manually archive an ONU (soft-delete). Admin can invoke this when an ONU
+     * has been removed from the OLT and should be hidden from the map immediately
+     * instead of waiting for ghost_onu_retention_days.
+     *
+     * If the same SN reappears in OLT polling later, syncOnuInventory's upsert
+     * will automatically restore archivedAt to NULL.
+     */
+    async archiveOnu(onuId: string, tenantId?: string): Promise<boolean> {
+        const filters = [eq(onus.id, onuId)];
+        if (tenantId) filters.push(eq(onus.tenantId, tenantId));
+        const result = await db.update(onus).set({
+            archivedAt: new Date(),
+            status: 'offline',
+            lastDownReason: 'Manually archived by admin',
+            updatedAt: new Date(),
+        }).where(and(...filters)).returning({ id: onus.id });
+        return result.length > 0;
     }
 
     async getAllOnusWithCoordinates(tenantId?: string, userId?: string, userRole?: string): Promise<any[]> {

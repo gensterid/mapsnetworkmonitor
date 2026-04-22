@@ -147,6 +147,20 @@ router.post('/:id/refresh', strictLimiter, requireOperator, asyncHandler(async (
     res.json({ data: olt });
 }));
 
+// Archive ONU (soft-delete) — hide from map immediately
+// Typical use: ONU was removed from OLT and admin doesn't want to wait
+// for the auto-cleanup retention period (default 30 days).
+// The record can still be auto-restored if the same SN reappears in OLT polling.
+// Requires: Operator or Admin
+router.post('/:id/onus/:onuId/archive', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
+    const { onuId } = req.params;
+    const success = await oltService.archiveOnu(onuId as string, getEffectiveTenantId(req));
+    if (!success) {
+        throw ApiError.notFound('ONU not found');
+    }
+    res.json({ data: { success: true } });
+}));
+
 // Reboot ONU
 // Requires: Operator or Admin
 router.post('/:id/onus/:onuId/reboot', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
