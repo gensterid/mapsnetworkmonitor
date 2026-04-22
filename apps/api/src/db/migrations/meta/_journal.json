@@ -239,6 +239,13 @@
       "when": 1776622716565,
       "tag": "0033_add_missing_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1776888000000,
+      "tag": "0034_add_onu_archived_at",
+      "breakpoints": true
     }
   ]
 }

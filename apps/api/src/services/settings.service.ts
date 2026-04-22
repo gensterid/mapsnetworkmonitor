@@ -228,7 +228,8 @@ export class SettingsService {
             { key: 'audit_logs_retention_days', value: 365, description: 'Retention period for system audit logs (days)' },
             { key: 'performance_retention_days', value: 30, description: 'Retention period for latency and signal history (days)' },
             { key: 'backups_retention_days', value: 90, description: 'Retention period for database backup records (days)' },
-            { key: 'pppoe_retention_days', value: 30, description: 'Retention period for disconnected PPPoE sessions (days)' }
+            { key: 'pppoe_retention_days', value: 30, description: 'Retention period for disconnected PPPoE sessions (days)' },
+            { key: 'ghost_onu_retention_days', value: 30, description: 'Days an ONU can be offline before it is archived from the map (hard-deleted after 2× this value)' }
         ];
 
         for (const setting of defaults) {

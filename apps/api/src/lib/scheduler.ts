@@ -551,8 +551,12 @@ async function cleanupOldMetrics(): Promise<void> {
             const pppoeRetention = await settingsService.getSettingValue('pppoe_retention_days', tenant.id, 30);
             const pppCutoff = new Date();
             pppCutoff.setDate(pppCutoff.getDate() - pppoeRetention);
-            
+
             await db.execute(sql`DELETE FROM pppoe_sessions WHERE tenant_id = ${tenant.id} AND status = 'disconnected' AND last_seen < ${pppCutoff}`);
+
+            // 7. Ghost ONUs — soft-archive offline devices, hard-delete after 2× retention
+            const ghostRetention = await settingsService.getSettingValue('ghost_onu_retention_days', tenant.id, 30);
+            await oltService.cleanupGhostOnus(tenant.id, ghostRetention);
 
             // Cleanup finished for tenant
             logger.info({ tenantId: tenant.id }, '✅ Tenant database maintenance complete');

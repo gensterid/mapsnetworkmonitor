@@ -1,6 +1,6 @@
 import { db } from '../db/index.js';
 import { olts, onus, devicePerformanceHistory } from '../db/schema/index.js';
-import { eq, and, sql, inArray, isNotNull } from 'drizzle-orm';
+import { eq, and, sql, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 import { ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 import { decrypt } from '../lib/encryption.js';
@@ -376,6 +376,7 @@ export class OltService {
                         lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
                         lastDownReason: sql`excluded.last_down_reason`,
                         updatedAt: sql`excluded.updated_at`,
+                        archivedAt: null,
                     } as any
                 });
 
@@ -414,7 +415,7 @@ export class OltService {
     async getAllOnusWithCoordinates(tenantId?: string, userId?: string, userRole?: string): Promise<any[]> {
         const { getTableColumns } = await import('drizzle-orm');
         const onusColumns = getTableColumns(onus);
-        const filters = [isNotNull(onus.latitude), isNotNull(onus.longitude)];
+        const filters = [isNotNull(onus.latitude), isNotNull(onus.longitude), isNull(onus.archivedAt)];
         if (tenantId) filters.push(eq(onus.tenantId, tenantId));
 
         if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
@@ -476,9 +477,54 @@ export class OltService {
     }
 
     async getOnusByRouter(routerId: string, tenantId?: string): Promise<Onu[]> {
-        const filters = [eq(onus.routerId, routerId)];
+        const filters = [eq(onus.routerId, routerId), isNull(onus.archivedAt)];
         if (tenantId) filters.push(eq(onus.tenantId, tenantId));
         return db.select().from(onus).where(and(...filters));
+    }
+
+    /**
+     * Auto-cleanup ghost ONUs — devices that went offline and never came back.
+     *
+     * Two-stage soft-delete:
+     *   1. Offline + lastSeen < (NOW - retentionDays)  → set archivedAt = NOW (hidden from map)
+     *   2. archivedAt < (NOW - retentionDays * 2)      → hard-delete from DB
+     *
+     * Auto-restore: when the same SN reappears in polling, syncOnuInventory()
+     * resets archivedAt to NULL via upsert, so the ONU returns to the map
+     * with its original coordinates and metadata intact.
+     */
+    async cleanupGhostOnus(tenantId: string, retentionDays: number): Promise<{ archived: number; deleted: number }> {
+        const archiveCutoff = new Date();
+        archiveCutoff.setDate(archiveCutoff.getDate() - retentionDays);
+
+        const archivedRows = await db.update(onus).set({
+            archivedAt: new Date(),
+        }).where(and(
+            eq(onus.tenantId, tenantId),
+            inArray(onus.status, ['offline', 'lost', 'power_down', 'dying_gasp', 'unknown']),
+            lt(onus.lastSeen, archiveCutoff),
+            isNull(onus.archivedAt),
+        )).returning({ id: onus.id });
+
+        const deleteCutoff = new Date();
+        deleteCutoff.setDate(deleteCutoff.getDate() - retentionDays * 2);
+
+        const deletedRows = await db.delete(onus).where(and(
+            eq(onus.tenantId, tenantId),
+            isNotNull(onus.archivedAt),
+            lt(onus.archivedAt, deleteCutoff),
+        )).returning({ id: onus.id });
+
+        if (archivedRows.length > 0 || deletedRows.length > 0) {
+            logger.info({
+                tenantId,
+                archived: archivedRows.length,
+                deleted: deletedRows.length,
+                retentionDays,
+            }, '🧹 Ghost ONU cleanup complete');
+        }
+
+        return { archived: archivedRows.length, deleted: deletedRows.length };
     }
 }
 

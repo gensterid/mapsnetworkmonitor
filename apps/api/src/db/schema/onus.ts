@@ -70,12 +70,19 @@ export const onus = pgTable('onus', {
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 
+    // Soft-delete for ghost ONU cleanup. NULL = active.
+    // Set when ONU has been offline past retention period.
+    // Hard-delete happens after 2x retention period.
+    // Auto-cleared when the same SN reappears in polling.
+    archivedAt: timestamp('archived_at'),
+
     // Data Sources Tracking
     discoverySources: json('discovery_sources').$type<string[]>().default([]),
 }, (table) => ({
     oltIdIdx: index('onus_olt_id_idx').on(table.oltId),
     routerIdIdx: index('onus_router_id_idx').on(table.routerId),
     statusIdx: index('onus_status_idx').on(table.status),
+    archivedAtIdx: index('onus_archived_at_idx').on(table.archivedAt),
 }));
 
 export type Onu = typeof onus.$inferSelect;
