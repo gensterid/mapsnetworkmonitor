@@ -469,7 +469,7 @@ export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
 });
 
 // 1. Content Component (Heavy Logic, only rendered when hovered or clicked)
-export const DeviceTooltipContent = ({ node, line, onEdit }) => {
+export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
     const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode } = React.useContext(TrafficContext);
 
     // If it's a router, use the router specialized view
@@ -629,6 +629,19 @@ export const DeviceTooltipContent = ({ node, line, onEdit }) => {
                             >
                                 <span className="material-symbols-outlined text-[16px]">edit</span>
                             </button>
+                            {onArchive && (node.oltId || node.linkedOnuId) && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        onArchive(node);
+                                    }}
+                                    className="w-6 h-6 flex items-center justify-center bg-orange-500/30 hover:bg-orange-500/60 rounded transition-colors text-white"
+                                    title="Hapus dari aplikasi (ONU yang sudah dihapus di OLT)"
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>
@@ -866,10 +879,10 @@ export const DeviceTooltip = React.memo(({ node, line }) => {
 });
 
 // 3. Popup Container (Rendered when clicked)
-export const DevicePopup = React.memo(({ node, line, onEdit }) => {
+export const DevicePopup = React.memo(({ node, line, onEdit, onArchive }) => {
     return (
         <Popup offset={[0, -10]} className="custom-map-popup">
-            <DeviceTooltipContent node={node} line={line} onEdit={onEdit} />
+            <DeviceTooltipContent node={node} line={line} onEdit={onEdit} onArchive={onArchive} />
         </Popup>
     );
 });

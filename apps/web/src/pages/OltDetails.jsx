@@ -7,6 +7,7 @@ import {
     useUpdateOnu,
     useRouterNetwatch,
     useRebootOnu,
+    useArchiveOnu,
     useAppTimezone
 } from '@/hooks';
 import { formatRelativeTime, formatShortDateTime } from '@/lib/timezone';
@@ -64,10 +65,21 @@ export default function OltDetails() {
     const refreshMutation = useRefreshOlt();
     const updateOnuMutation = useUpdateOnu();
     const rebootOnuMutation = useRebootOnu();
-    
+    const archiveOnuMutation = useArchiveOnu();
+
     const [searchTerm, setSearchTerm] = useState('');
     const [editingOnu, setEditingOnu] = useState(null);
     const [rebootingOnu, setRebootingOnu] = useState(null);
+
+    const handleArchiveOnu = (onu) => {
+        const confirmed = window.confirm(
+            `Hapus ONU "${onu.name || onu.sn}" dari aplikasi?\n\n` +
+            `ONU akan disembunyikan dari peta. Data koordinat tetap tersimpan dan akan otomatis kembali jika ONU muncul lagi di polling OLT. ` +
+            `Setelah 60 hari tidak muncul, data akan dihapus permanen.`
+        );
+        if (!confirmed) return;
+        archiveOnuMutation.mutate({ id, onuId: onu.id });
+    };
 
     // Create a lookup for netwatch by SN/Host to identify linked devices
     const netwatchLookup = useMemo(() => {
@@ -345,7 +357,7 @@ export default function OltDetails() {
 
                 {/* ONU List Table Area */}
                 <div className="xl:col-span-2">
-                    <OnuTable 
+                    <OnuTable
                         onus={onus}
                         isLoading={isLoadingOnus}
                         error={onusError}
@@ -354,6 +366,7 @@ export default function OltDetails() {
                         setSearchTerm={setSearchTerm}
                         onEdit={(onu) => setEditingOnu(onu)}
                         onReboot={(onu) => setRebootingOnu(onu)}
+                        onArchive={handleArchiveOnu}
                         netwatchLookup={netwatchLookup}
                         oltType={olt.type}
                     />

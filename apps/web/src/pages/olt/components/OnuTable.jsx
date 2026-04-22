@@ -1,10 +1,11 @@
 import React from 'react';
-import { 
-    Search, 
-    RefreshCw, 
-    AlertCircle, 
-    Activity, 
-    Layers 
+import {
+    Search,
+    RefreshCw,
+    AlertCircle,
+    Activity,
+    Layers,
+    Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -12,15 +13,16 @@ import clsx from 'clsx';
 
 import OnuTableSkeleton from './OnuTableSkeleton';
 
-export default function OnuTable({ 
-    onus, 
-    isLoading, 
-    error, 
+export default function OnuTable({
+    onus,
+    isLoading,
+    error,
     refetch,
-    searchTerm, 
+    searchTerm,
     setSearchTerm,
     onEdit,
     onReboot,
+    onArchive,
     netwatchLookup,
     oltType
 }) {
@@ -217,6 +219,17 @@ export default function OnuTable({
                                             >
                                                 Edit
                                             </Button>
+                                            {onArchive && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10"
+                                                    title="Hapus dari aplikasi (bisa dikembalikan jika ONU muncul kembali di polling)"
+                                                    onClick={() => onArchive(onu)}
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </Button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

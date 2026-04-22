@@ -27,4 +27,7 @@ export const oltService = {
 
     // Reboot ONU
     rebootOnu: (id: string, onuId: string, ponId: string) => post<any>(`/olts/${id}/onus/${onuId}/reboot`, { ponId }),
+
+    // Archive ONU (hide from map). Auto-restored if SN reappears in OLT polling.
+    archiveOnu: (id: string, onuId: string) => post<any>(`/olts/${id}/onus/${onuId}/archive`),
 };

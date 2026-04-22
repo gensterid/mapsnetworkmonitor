@@ -120,3 +120,19 @@ export function useRebootOnu() {
         },
     });
 }
+
+export function useArchiveOnu() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ id, onuId }) => oltService.archiveOnu(id, onuId),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['olts', variables.id, 'onus'] });
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+            toast.success('ONU dihapus dari aplikasi');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error || 'Gagal menghapus ONU');
+        },
+    });
+}

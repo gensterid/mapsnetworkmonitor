@@ -513,6 +513,37 @@ const NetworkMap = ({
         },
     });
 
+    // Mutation for archiving ONU (soft-delete). Auto-restored if SN reappears in OLT polling.
+    const archiveOnuMutation = useMutation({
+        mutationFn: async ({ oltId, onuId }) => {
+            const res = await apiClient.post(`/olts/${oltId}/onus/${onuId}/archive`);
+            return res.data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+            toast.success('ONU dihapus dari aplikasi');
+        },
+        onError: (err) => {
+            toast.error(err.response?.data?.error || 'Gagal menghapus ONU');
+        },
+    });
+
+    const handleArchiveOnu = useCallback((node) => {
+        const onuId = node.linkedOnuId || node.id;
+        const oltId = node.oltId;
+        if (!onuId || !oltId) {
+            toast.error('Node ini bukan ONU yang bisa dihapus');
+            return;
+        }
+        const confirmed = window.confirm(
+            `Hapus "${node.name || node.host || onuId}" dari aplikasi?\n\n` +
+            `ONU akan disembunyikan dari peta. Data koordinat tetap tersimpan dan akan otomatis kembali jika ONU muncul lagi di polling OLT. ` +
+            `Setelah 60 hari tidak muncul, data akan dihapus permanen.`
+        );
+        if (!confirmed) return;
+        archiveOnuMutation.mutate({ oltId, onuId });
+    }, [archiveOnuMutation]);
+
     // Mutation for updating ONU coordinates (Passive Nodes)
     const updateOnuMutation = useMutation({
         mutationFn: async ({ oltId, onuId, data }) => {
@@ -1308,6 +1339,7 @@ const NetworkMap = ({
                         node={node}
                         line={line}
                         onEdit={(n, tab) => handleDeviceClick(n, n.deviceType || 'netwatch', tab)}
+                        onArchive={handleArchiveOnu}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1376,7 +1408,8 @@ const NetworkMap = ({
         isHeatmapMode,
         linesByNetwatchId,
         linesByPppoeId,
-        handleMarkerHover // Added missing dependency
+        handleMarkerHover, // Added missing dependency
+        handleArchiveOnu
     ]);
 
     // --- Unplaced Devices Calculation ---
