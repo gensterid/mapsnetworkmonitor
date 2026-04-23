@@ -226,24 +226,45 @@ function getDeviceClientCount(dev: any): number {
         const n = parseInt(v);
         return isNaN(n) ? null : n;
     };
+    const boolVal = (v: any) => {
+        if (v === undefined || v === null) return undefined;
+        if (typeof v === 'boolean') return v;
+        const s = String(v).toLowerCase();
+        if (s === 'true' || s === '1') return true;
+        if (s === 'false' || s === '0') return false;
+        return undefined;
+    };
 
     // 1. Custom virtual parameter (explicit override set up by the operator)
     const vp = parse(dev.VirtualParameters?.ConnectedDevices?._value);
     if (vp !== null) return vp;
 
-    // 2. Top-level Hosts count (TR-098 root)
-    const tr098Top = parse(dev.InternetGatewayDevice?.Hosts?.HostNumberOfEntries?._value);
-    if (tr098Top !== null) return tr098Top;
+    // 2. PREFERRED: Count Host.X entries where Active=true — matches what
+    //    the user sees in the Connected Devices list, and excludes stale
+    //    DHCP lease entries that stay in the table after a device disconnects.
+    const hostContainer =
+        dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.Host ||
+        dev.Device?.Hosts?.Host;
+    if (hostContainer && typeof hostContainer === 'object') {
+        let activeCount = 0;
+        let anyActiveFlag = false;
+        let totalEntries = 0;
+        for (const key of Object.keys(hostContainer)) {
+            if (key.startsWith('_')) continue;
+            totalEntries++;
+            const active = boolVal(hostContainer[key]?.Active?._value);
+            if (active !== undefined) anyActiveFlag = true;
+            if (active === true) activeCount++;
+        }
+        // If at least one entry reports the Active flag, trust filtered count.
+        // If nothing reports Active (vendor doesn't populate it), fall through
+        // to HostNumberOfEntries below — counting Host.X directly would over-
+        // count stale entries.
+        if (anyActiveFlag) return activeCount;
+    }
 
-    // 3. Top-level Hosts count (TR-181 root)
-    const tr181Top = parse(dev.Device?.Hosts?.HostNumberOfEntries?._value);
-    if (tr181Top !== null) return tr181Top;
-
-    // 4. LAN-scoped Hosts (some vendors only expose here, not at root)
-    const lanHosts = parse(dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.HostNumberOfEntries?._value);
-    if (lanHosts !== null) return lanHosts;
-
-    // 5. WiFi associations (2.4G + 5G TotalAssociations)
+    // 3. WiFi associations (2.4G + 5G) — usually reflects actively connected
+    //    wireless clients in real time.
     const wlan = dev.InternetGatewayDevice?.LANDevice?.[1]?.WLANConfiguration;
     if (wlan && typeof wlan === 'object') {
         let wifiTotal = 0;
@@ -256,10 +277,21 @@ function getDeviceClientCount(dev: any): number {
         if (foundAny) return wifiTotal;
     }
 
-    // 6. Fall back to counting Host.X entries directly
-    const hostObj = dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.Host || dev.Device?.Hosts?.Host;
-    if (hostObj && typeof hostObj === 'object') {
-        const count = Object.keys(hostObj).filter(k => !k.startsWith('_')).length;
+    // 4. LAN-scoped Hosts count (may include stale DHCP entries)
+    const lanHosts = parse(dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.HostNumberOfEntries?._value);
+    if (lanHosts !== null) return lanHosts;
+
+    // 5. Top-level Hosts count (TR-098 root, may include stale entries)
+    const tr098Top = parse(dev.InternetGatewayDevice?.Hosts?.HostNumberOfEntries?._value);
+    if (tr098Top !== null) return tr098Top;
+
+    // 6. Top-level Hosts count (TR-181 root)
+    const tr181Top = parse(dev.Device?.Hosts?.HostNumberOfEntries?._value);
+    if (tr181Top !== null) return tr181Top;
+
+    // 7. Last resort: count all Host.X entries regardless of Active flag
+    if (hostContainer && typeof hostContainer === 'object') {
+        const count = Object.keys(hostContainer).filter(k => !k.startsWith('_')).length;
         if (count > 0) return count;
     }
 
