@@ -134,6 +134,7 @@ export function transformGenieACSDevice(dev: any) {
         _temperature: getDeviceTemperature(dev),
         _tags: dev._tags || [],
         _clientCount: getDeviceClientCount(dev),
+        _connectedHosts: getConnectedHosts(dev),
         _vlan: Array.from(new Set(getWanConnections(dev).map(c => String(c.vlanId)).filter(v => v && v !== 'undefined' && v !== 'null'))).join(', '),
         _pppoeUser: getWanConnections(dev).find(c => c.type === 'PPPoE' && c.username)?.username || '',
         _wifiEnabled: (() => {
@@ -265,6 +266,66 @@ function getDeviceClientCount(dev: any): number {
     return 0;
 }
 
+/**
+ * Extract the list of connected client hosts from a GenieACS device.
+ * Supports both TR-098 (InternetGatewayDevice.LANDevice.1.Hosts.Host)
+ * and TR-181 (Device.Hosts.Host). Returns only entries with at least
+ * one identifiable field (hostname, IP, or MAC).
+ */
+export function getConnectedHosts(dev: any): Array<{
+    hostname?: string;
+    ipAddress?: string;
+    macAddress?: string;
+    active?: boolean;
+    interfaceType?: string;
+    leaseTime?: string;
+}> {
+    const hostsContainer =
+        dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.Host ||
+        dev.Device?.Hosts?.Host;
+    if (!hostsContainer || typeof hostsContainer !== 'object') return [];
+
+    const strVal = (v: any) => {
+        if (v === undefined || v === null) return undefined;
+        const s = String(v).trim();
+        return s.length > 0 ? s : undefined;
+    };
+    const boolVal = (v: any) => {
+        if (v === undefined || v === null) return undefined;
+        if (typeof v === 'boolean') return v;
+        const s = String(v).toLowerCase();
+        if (s === 'true' || s === '1') return true;
+        if (s === 'false' || s === '0') return false;
+        return undefined;
+    };
+
+    const results: ReturnType<typeof getConnectedHosts> = [];
+    for (const key of Object.keys(hostsContainer)) {
+        if (key.startsWith('_')) continue;
+        const h = hostsContainer[key];
+        if (!h || typeof h !== 'object') continue;
+
+        const hostname = strVal(h.HostName?._value);
+        const ipAddress = strVal(h.IPAddress?._value);
+        const macAddress = strVal(h.PhysAddress?._value ?? h.MACAddress?._value);
+        const active = boolVal(h.Active?._value);
+        const interfaceType = strVal(h.InterfaceType?._value ?? h.Layer2Interface?._value);
+        const leaseTime = strVal(h.LeaseTimeRemaining?._value ?? h.X_LeaseTime?._value);
+
+        if (!hostname && !ipAddress && !macAddress) continue;
+
+        results.push({ hostname, ipAddress, macAddress, active, interfaceType, leaseTime });
+    }
+
+    // Put active entries first, then by IP for stable order
+    results.sort((a, b) => {
+        if (a.active !== b.active) return a.active === true ? -1 : b.active === true ? 1 : 0;
+        return (a.ipAddress || '').localeCompare(b.ipAddress || '');
+    });
+
+    return results;
+}
+
 export function getWanConnections(dev: any): any[] {
     const connections: any[] = [];
     const isTr181 = !!dev.Device;
@@ -338,6 +399,7 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                     macAddress: dev._macAddress || existing.macAddress, discoverySources: sources, updatedAt: new Date(),
                     lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen,
                     lastSeenAcs: new Date(),
+                    activeClients: typeof dev._clientCount === 'number' ? dev._clientCount : existing.activeClients,
                 }).where(eq(onus.id, existing.id));
                 if (dev._rxPower && resolvedRouterId) {
                     const sig = oltService.parseSignal(dev._rxPower);
@@ -363,6 +425,7 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                     discoverySources: ['acs'],
                     lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined,
                     lastSeenAcs: new Date(),
+                    activeClients: typeof dev._clientCount === 'number' ? dev._clientCount : undefined,
                 } as any).onConflictDoUpdate({
                     target: onus.sn,
                     set: {
@@ -379,6 +442,7 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                         )`,
                         updatedAt: new Date(),
                         lastSeenAcs: new Date(),
+                        activeClients: typeof dev._clientCount === 'number' ? dev._clientCount : sql`onus.active_clients`,
                     } as any
                 }).returning();
 

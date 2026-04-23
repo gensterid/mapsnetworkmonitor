@@ -758,14 +758,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                             </span>
                         </div>
                     )}
-                    {(node.lastDownTime || node.lastDown) && (
-                        <div className="flex items-center justify-between text-xs">
-                            <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
-                            <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]">
-                                {node.lastDownTime || formatShortDateTime(node.lastDown, timezone)}
-                            </span>
-                        </div>
-                    )}
+                    <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
+                        <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]">
+                            {node.lastDownTime || (node.lastDown ? formatShortDateTime(node.lastDown, timezone) : '—')}
+                        </span>
+                    </div>
                 </div>
                 {/* Show Down Reason only if UP but suspicious (e.g. low signal). If Offline, Outage Section handles it below. */}
                 {isUp && (node.lastDownReason || ['lost', 'power_down', 'dying_gasp'].includes(status) || (node.lastRxPower && parseFloat(node.lastRxPower) < -27)) && (
@@ -846,6 +844,22 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                             <span className={hasLive ? 'text-emerald-400 font-bold' : 'text-slate-400 font-bold'}
                                   title={hasLive ? undefined : 'Last known latency (belum ada ping terbaru)'}>
                                 {value} ms{hasLive ? '' : ' *'}
+                            </span>
+                        </div>
+                    );
+                })()}
+
+                {typeof node.activeClients === 'number' && (() => {
+                    const count = node.activeClients;
+                    const color = count === 0 ? 'text-slate-500'
+                        : count <= 3 ? 'text-emerald-400'
+                        : count <= 6 ? 'text-amber-400'
+                        : 'text-red-400';
+                    return (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Clients</span>
+                            <span className={`font-bold ${color}`} title="Jumlah device terhubung ke CPE via GenieACS">
+                                {count} device{count === 1 ? '' : 's'}
                             </span>
                         </div>
                     );

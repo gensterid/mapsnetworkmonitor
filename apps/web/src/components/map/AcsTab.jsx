@@ -140,6 +140,49 @@ export default function AcsTab({ device, timezone }) {
                 <Row label="Device ID" value={acsDevice._id} valueClass="text-slate-400 font-mono text-[10px]" />
             </div>
 
+            {/* Connected Hosts list */}
+            {Array.isArray(acsDevice._connectedHosts) && acsDevice._connectedHosts.length > 0 && (
+                <div className="mb-5">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                            <Laptop className="w-3.5 h-3.5" />
+                            Connected Devices
+                        </div>
+                        <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded', getClientStatusColor(acsDevice._clientCount))}>
+                            {acsDevice._connectedHosts.length} host{acsDevice._connectedHosts.length === 1 ? '' : 's'}
+                        </span>
+                    </div>
+                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/40 divide-y divide-slate-700/30 max-h-64 overflow-y-auto custom-scrollbar">
+                        {acsDevice._connectedHosts.map((host, idx) => {
+                            const isActive = host.active !== false; // treat undefined as active
+                            return (
+                                <div key={idx} className="p-2.5 hover:bg-slate-800/40 transition-colors">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={clsx(
+                                            'w-1.5 h-1.5 rounded-full',
+                                            isActive ? 'bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.6)]' : 'bg-slate-600'
+                                        )} />
+                                        <span className={clsx('text-xs font-bold truncate flex-1',
+                                            isActive ? 'text-slate-200' : 'text-slate-500 line-through')}>
+                                            {host.hostname || host.ipAddress || host.macAddress || 'Unknown'}
+                                        </span>
+                                        {host.interfaceType && (
+                                            <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded uppercase font-bold tracking-tight">
+                                                {host.interfaceType.includes('Wi') || host.interfaceType.includes('wifi') || host.interfaceType.includes('WLAN') ? 'WiFi' : 'LAN'}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono ml-3.5">
+                                        {host.ipAddress && <span>{host.ipAddress}</span>}
+                                        {host.macAddress && <span className="truncate">{host.macAddress}</span>}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
             {/* Actions */}
             <div className="space-y-2">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Aksi GenieACS</div>

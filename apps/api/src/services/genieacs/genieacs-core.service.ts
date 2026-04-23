@@ -32,6 +32,14 @@ export interface GenieACSDevice {
     Device?: any;
     _tags?: string[];
     _clientCount?: number;
+    _connectedHosts?: Array<{
+        hostname?: string;
+        ipAddress?: string;
+        macAddress?: string;
+        active?: boolean;
+        interfaceType?: string;
+        leaseTime?: string;
+    }>;
 }
 
 export interface WanConfigPayload {

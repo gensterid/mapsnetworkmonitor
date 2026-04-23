@@ -54,6 +54,10 @@ export const onus = pgTable('onus', {
     lastSeenOlt: timestamp('last_seen_olt'),
     lastSeenAcs: timestamp('last_seen_acs'),
 
+    // Number of client devices currently connected to the CPE, as reported
+    // by the last GenieACS sync (via Hosts.HostNumberOfEntries or equivalent).
+    activeClients: integer('active_clients'),
+
     // Map Location
     latitude: decimal('latitude', { precision: 10, scale: 7 }),
     longitude: decimal('longitude', { precision: 10, scale: 7 }),
