@@ -220,9 +220,48 @@ function getDeviceTemperature(dev: any): string {
 }
 
 function getDeviceClientCount(dev: any): number {
-    if (dev.VirtualParameters?.ConnectedDevices?._value !== undefined) return dev.VirtualParameters.ConnectedDevices._value;
-    const directCount = dev.InternetGatewayDevice?.Hosts?.HostNumberOfEntries?._value || dev.Device?.Hosts?.HostNumberOfEntries?._value;
-    if (directCount !== undefined) return parseInt(directCount);
+    const parse = (v: any) => {
+        if (v === undefined || v === null || v === '') return null;
+        const n = parseInt(v);
+        return isNaN(n) ? null : n;
+    };
+
+    // 1. Custom virtual parameter (explicit override set up by the operator)
+    const vp = parse(dev.VirtualParameters?.ConnectedDevices?._value);
+    if (vp !== null) return vp;
+
+    // 2. Top-level Hosts count (TR-098 root)
+    const tr098Top = parse(dev.InternetGatewayDevice?.Hosts?.HostNumberOfEntries?._value);
+    if (tr098Top !== null) return tr098Top;
+
+    // 3. Top-level Hosts count (TR-181 root)
+    const tr181Top = parse(dev.Device?.Hosts?.HostNumberOfEntries?._value);
+    if (tr181Top !== null) return tr181Top;
+
+    // 4. LAN-scoped Hosts (some vendors only expose here, not at root)
+    const lanHosts = parse(dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.HostNumberOfEntries?._value);
+    if (lanHosts !== null) return lanHosts;
+
+    // 5. WiFi associations (2.4G + 5G TotalAssociations)
+    const wlan = dev.InternetGatewayDevice?.LANDevice?.[1]?.WLANConfiguration;
+    if (wlan && typeof wlan === 'object') {
+        let wifiTotal = 0;
+        let foundAny = false;
+        for (const key of Object.keys(wlan)) {
+            if (key.startsWith('_')) continue;
+            const n = parse(wlan[key]?.TotalAssociations?._value);
+            if (n !== null) { wifiTotal += n; foundAny = true; }
+        }
+        if (foundAny) return wifiTotal;
+    }
+
+    // 6. Fall back to counting Host.X entries directly
+    const hostObj = dev.InternetGatewayDevice?.LANDevice?.[1]?.Hosts?.Host || dev.Device?.Hosts?.Host;
+    if (hostObj && typeof hostObj === 'object') {
+        const count = Object.keys(hostObj).filter(k => !k.startsWith('_')).length;
+        if (count > 0) return count;
+    }
+
     return 0;
 }
 

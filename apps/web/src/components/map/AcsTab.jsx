@@ -1,9 +1,17 @@
 import React, { useMemo, useState } from 'react';
-import { RefreshCw, Wifi, Power, Cpu, Router, Signal, AlertCircle } from 'lucide-react';
+import { RefreshCw, Wifi, Power, Cpu, Router, Signal, AlertCircle, Laptop } from 'lucide-react';
 import { useGenieACSDevices, useRebootGenieACSDevice } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
 import WifiConfigModal from '@/components/genieacs/WifiConfigModal';
 import clsx from 'clsx';
+
+function getClientStatusColor(count) {
+    const val = parseInt(count || 0);
+    if (val === 0) return 'text-slate-400';
+    if (val <= 3) return 'text-emerald-400';
+    if (val <= 6) return 'text-amber-400';
+    return 'text-red-400';
+}
 
 /**
  * ACS Tab — shows GenieACS (TR-069 CPE) info for a map device and exposes
@@ -108,8 +116,14 @@ export default function AcsTab({ device, timezone }) {
             <div className="grid grid-cols-2 gap-3 mb-4">
                 <InfoCard icon={<Wifi className="w-4 h-4 text-cyan-400" />} label="SSID WiFi" value={acsDevice._ssid || '—'} />
                 <InfoCard icon={<Router className="w-4 h-4 text-blue-400" />} label="IP Management" value={acsDevice._ip || '—'} mono />
-                <InfoCard icon={<Cpu className="w-4 h-4 text-purple-400" />} label="Model" value={acsDevice._productClass || '—'} />
+                <InfoCard
+                    icon={<Laptop className={clsx('w-4 h-4', getClientStatusColor(acsDevice._clientCount))} />}
+                    label="Active Clients"
+                    value={`${acsDevice._clientCount ?? 0} Device${(acsDevice._clientCount ?? 0) === 1 ? '' : 's'}`}
+                    valueClass={getClientStatusColor(acsDevice._clientCount)}
+                />
                 <InfoCard icon={<Signal className="w-4 h-4 text-amber-400" />} label="RX Power" value={acsDevice._rxPower ? `${acsDevice._rxPower} dBm` : '—'} mono />
+                <InfoCard icon={<Cpu className="w-4 h-4 text-purple-400" />} label="Model" value={acsDevice._productClass || '—'} />
             </div>
 
             {/* Secondary info */}
@@ -159,14 +173,14 @@ export default function AcsTab({ device, timezone }) {
     );
 }
 
-function InfoCard({ icon, label, value, mono = false }) {
+function InfoCard({ icon, label, value, mono = false, valueClass = 'text-slate-200' }) {
     return (
         <div className="bg-slate-800/60 border border-slate-700/50 rounded-lg p-3">
             <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
                 {icon}
                 {label}
             </div>
-            <div className={clsx('text-sm font-bold text-slate-200 truncate', mono && 'font-mono')} title={String(value)}>
+            <div className={clsx('text-sm font-bold truncate', valueClass, mono && 'font-mono')} title={String(value)}>
                 {value}
             </div>
         </div>
