@@ -81,8 +81,8 @@ export default function OnuTable({
     }
 
     return (
-        <div className="bg-slate-900/40 border-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/40">
+        <div className="bg-slate-900/40 border-slate-800/50 backdrop-blur-sm rounded-xl shadow-2xl">
+            <div className="sticky top-0 z-30 p-4 border-b border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/95 backdrop-blur-sm rounded-t-xl">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">
                         <Layers className="w-4 h-4 text-primary" />
@@ -108,17 +108,17 @@ export default function OnuTable({
             ) : (
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-slate-950/30 border-b border-slate-800">
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">PON / ID</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">SN / Alias</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">MAC Address</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Note</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Status / Reason</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Last Activity</th>
-                                <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Signal</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Location</th>
-                                <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap">Actions</th>
+                        <thead className="sticky top-[72px] z-20 shadow-[0_1px_0_rgba(148,163,184,0.12)]">
+                            <tr className="border-b border-slate-800">
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">PON / ID</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">SN / Alias</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">MAC Address</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">Note</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">Status / Reason</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">Last Activity</th>
+                                <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">Signal</th>
+                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">Location</th>
+                                <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-500 uppercase tracking-widest whitespace-nowrap bg-slate-900">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">

@@ -140,8 +140,8 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
 
     return (
         <div className="space-y-4">
-            {/* Header with Stats/Filters */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            {/* Header with Stats/Filters — sticky so filters + search stay visible while scrolling */}
+            <div className="sticky top-0 z-30 -mx-1 px-1 py-2 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800/40 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                     <Button
                         variant={filter === 'all' ? 'default' : 'ghost'}
@@ -240,18 +240,18 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
             <Card className="glass-panel border-slate-800/50 overflow-hidden bg-[#0a0c10]/80">
                 <div className="overflow-x-auto">
                     <table className="w-full text-[11px]">
-                        <thead>
-                            <tr className="border-b border-slate-800 bg-[#0f1218]">
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">HOST</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">NAME</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">STATUS</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">SINCE</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">LOCATION</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">LATENCY</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">TRAFFIC (IN/OUT)</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">COORDS</th>
-                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">LAST CHECK</th>
-                                <th className="text-right py-3 px-4 text-slate-500 uppercase font-bold tracking-wider">ACTIONS</th>
+                        <thead className="sticky top-[68px] z-20 bg-[#0f1218] shadow-[0_1px_0_rgba(148,163,184,0.12)]">
+                            <tr className="border-b border-slate-800">
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">HOST</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">NAME</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">STATUS</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">SINCE</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">LOCATION</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">LATENCY</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">TRAFFIC (IN/OUT)</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">COORDS</th>
+                                <th className="text-left py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">LAST CHECK</th>
+                                <th className="text-right py-3 px-4 text-slate-500 uppercase font-bold tracking-wider bg-[#0f1218]">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">

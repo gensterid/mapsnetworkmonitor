@@ -54,7 +54,7 @@ function NeighborsTab({ routerId }) {
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="sticky top-0 z-30 -mx-1 px-1 py-2 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-4">
                     <button
                         onClick={() => setSubTab('mndp')}
@@ -105,14 +105,14 @@ function NeighborsTab({ routerId }) {
                 <div className="overflow-x-auto">
                     {subTab === 'mndp' ? (
                         <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-800 bg-slate-800/50">
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Identity</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">IP Address</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">MAC Address</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Model / Version</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Interface</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Uptime</th>
+                            <thead className="sticky top-[68px] z-20 shadow-[0_1px_0_rgba(148,163,184,0.12)]">
+                                <tr className="border-b border-slate-800">
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Identity</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">IP Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">MAC Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Model / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Interface</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Uptime</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -141,13 +141,13 @@ function NeighborsTab({ routerId }) {
                         </table>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead>
-                                <tr className="border-b border-slate-800 bg-slate-800/50">
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Identity / RoMON ID</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Path</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Board / Version</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">MTU</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Action</th>
+                            <thead className="sticky top-[68px] z-20 shadow-[0_1px_0_rgba(148,163,184,0.12)]">
+                                <tr className="border-b border-slate-800">
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Identity / RoMON ID</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Path</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Board / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">MTU</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
