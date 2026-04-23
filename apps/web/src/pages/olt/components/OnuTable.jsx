@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import clsx from 'clsx';
+import { computeOnuSourceHealth, getSourceHealthLabel, getSourceHealthClasses } from '@/lib/onuSourceHealth';
 
 import OnuTableSkeleton from './OnuTableSkeleton';
 
@@ -147,7 +148,7 @@ export default function OnuTable({
                                         </span>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
-                                        <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
                                             <Badge variant={onu.status === 'online' ? 'success' : 'destructive'} size="xs" className="font-black">
                                                 {onu.status}
                                             </Badge>
@@ -161,6 +162,27 @@ export default function OnuTable({
                                                     {onu.lastDownReason}
                                                 </span>
                                             )}
+                                            {(() => {
+                                                const health = computeOnuSourceHealth(onu);
+                                                if (health.kind === 'na' || health.kind === 'healthy') return null;
+                                                return (
+                                                    <span
+                                                        className={clsx(
+                                                            "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight",
+                                                            getSourceHealthClasses(health.kind)
+                                                        )}
+                                                        title={
+                                                            health.kind === 'ghost'
+                                                                ? 'OLT dan ACS sudah tidak melaporkan ONU ini — kandidat untuk dihapus dari aplikasi'
+                                                                : health.kind === 'missing-olt'
+                                                                    ? 'OLT tidak melaporkan ONU ini dalam 2 jam terakhir'
+                                                                    : 'ACS tidak melaporkan ONU ini dalam 2 jam terakhir'
+                                                        }
+                                                    >
+                                                        {getSourceHealthLabel(health.kind)}
+                                                    </span>
+                                                );
+                                            })()}
                                         </div>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-xs">

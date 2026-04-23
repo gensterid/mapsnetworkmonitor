@@ -5,6 +5,7 @@ import { usePingLatencies, useRouterHotspotActive, useRouterPppActive } from '@/
 import { createDeviceIcon } from './DeviceIcon';
 import { TrafficContext, HoveredItemContext } from './MapStyles';
 import { formatShortDateTime } from '@/lib/timezone';
+import { computeOnuSourceHealth, getSourceHealthLabel, getSourceHealthClasses } from '@/lib/onuSourceHealth';
 
 // Helper to auto-fit bounds to markers (only on initial load)
 export const MapAutoFit = ({ markers, isEditing }) => {
@@ -660,6 +661,28 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                         {node.deviceType === 'pppoe' ? node.address : node.host}
                     </span>
                 </div>
+
+                {(() => {
+                    const health = computeOnuSourceHealth(node);
+                    if (health.kind === 'na' || health.kind === 'healthy') return null;
+                    return (
+                        <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-700/30">
+                            <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Sync</span>
+                            <span
+                                className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight ${getSourceHealthClasses(health.kind)}`}
+                                title={
+                                    health.kind === 'ghost'
+                                        ? 'OLT dan ACS sudah tidak melaporkan ONU ini — kandidat untuk dihapus'
+                                        : health.kind === 'missing-olt'
+                                            ? 'OLT tidak melaporkan ONU ini dalam 2 jam terakhir'
+                                            : 'ACS tidak melaporkan ONU ini dalam 2 jam terakhir'
+                                }
+                            >
+                                {getSourceHealthLabel(health.kind)}
+                            </span>
+                        </div>
+                    );
+                })()}
 
                 {/* Unified Linkage Metadata (Netwatch + ACS + OLT) */}
                 {(node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastRxPower) && (

@@ -297,7 +297,8 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                     firmwareVersion: dev._softwareVersion || existing.firmwareVersion, host: dev._ip || existing.host,
                     lastRxPower: sources.includes('olt') && existing.lastRxPower !== null ? existing.lastRxPower : (dev._rxPower || existing.lastRxPower),
                     macAddress: dev._macAddress || existing.macAddress, discoverySources: sources, updatedAt: new Date(),
-                    lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen
+                    lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen,
+                    lastSeenAcs: new Date(),
                 }).where(eq(onus.id, existing.id));
                 if (dev._rxPower && resolvedRouterId) {
                     const sig = oltService.parseSignal(dev._rxPower);
@@ -309,19 +310,20 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                 if (dev._lastInform) status = (Date.now() - new Date(dev._lastInform).getTime() < 300000) ? 'online' : 'offline';
                 
                 const [newOnu] = await db.insert(onus).values({
-                    sn: sn, 
+                    sn: sn,
                     tenantId,
-                    routerId: resolvedRouterId, 
-                    name: `ACS-${sn.slice(-4)}`, 
+                    routerId: resolvedRouterId,
+                    name: `ACS-${sn.slice(-4)}`,
                     model: dev._productClass,
-                    ssid: dev._ssid, 
-                    firmwareVersion: dev._softwareVersion, 
-                    host: dev._ip, 
-                    lastRxPower: dev._rxPower, 
+                    ssid: dev._ssid,
+                    firmwareVersion: dev._softwareVersion,
+                    host: dev._ip,
+                    lastRxPower: dev._rxPower,
                     macAddress: dev._macAddress,
-                    status, 
-                    discoverySources: ['acs'], 
-                    lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined
+                    status,
+                    discoverySources: ['acs'],
+                    lastSeen: dev._lastInform ? new Date(dev._lastInform) : undefined,
+                    lastSeenAcs: new Date(),
                 } as any).onConflictDoUpdate({
                     target: onus.sn,
                     set: {
@@ -337,6 +339,7 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                             FROM jsonb_array_elements_text(COALESCE(onus.discovery_sources::jsonb, '[]'::jsonb) || '["acs"]'::jsonb) t(x)
                         )`,
                         updatedAt: new Date(),
+                        lastSeenAcs: new Date(),
                     } as any
                 }).returning();
 

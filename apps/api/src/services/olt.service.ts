@@ -360,6 +360,7 @@ export class OltService {
                 discoverySources: ['olt'],
                 macAddress: device.macAddress,
                 lastSeen: status === 'online' ? now : null,
+                lastSeenOlt: now,
                 lastDownReason: device.lastDownReason,
                 updatedAt: now,
             });
@@ -374,6 +375,7 @@ export class OltService {
                         status: sql`excluded.status`,
                         lastRxPower: sql`excluded.last_rx_power`,
                         lastSeen: sql`CASE WHEN excluded.status = 'online' THEN excluded.updated_at ELSE onus.last_seen END`,
+                        lastSeenOlt: sql`excluded.last_seen_olt`,
                         lastDownReason: sql`excluded.last_down_reason`,
                         updatedAt: sql`excluded.updated_at`,
                         archivedAt: null,

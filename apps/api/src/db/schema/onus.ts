@@ -49,6 +49,11 @@ export const onus = pgTable('onus', {
     lastSeen: timestamp('last_seen'),
     lastDownReason: text('last_down_reason'),
 
+    // Per-source freshness timestamps. Updated only by the corresponding sync path.
+    // Used by the UI to show indicators when one source has stopped seeing the ONU.
+    lastSeenOlt: timestamp('last_seen_olt'),
+    lastSeenAcs: timestamp('last_seen_acs'),
+
     // Map Location
     latitude: decimal('latitude', { precision: 10, scale: 7 }),
     longitude: decimal('longitude', { precision: 10, scale: 7 }),
