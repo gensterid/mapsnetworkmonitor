@@ -62,7 +62,7 @@ function PppoeTab({ routerId }) {
 
     return (
         <div className="space-y-4">
-            <div className="sticky top-0 z-30 -mx-1 px-1 py-2 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                 <div className="flex items-center gap-2">
                     <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                         <PhoneCall className="w-5 h-5 text-primary" />
@@ -90,16 +90,16 @@ function PppoeTab({ routerId }) {
             </div>
 
             <Card className="glass-panel overflow-hidden">
-                <div className="overflow-x-auto">
+                <div className="max-h-[calc(100vh-280px)] min-h-[400px] overflow-auto custom-scrollbar">
                     <table className="w-full text-sm">
-                        <thead className="sticky top-[68px] z-20 shadow-[0_1px_0_rgba(148,163,184,0.12)]">
+                        <thead className="sticky top-0 z-10">
                             <tr className="border-b border-slate-800">
-                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">User</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Address</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Uptime</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Caller ID</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Coordinates</th>
-                                <th className="text-right py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900">Action</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">User</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Address</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Uptime</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Caller ID</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Coordinates</th>
+                                <th className="text-right py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">

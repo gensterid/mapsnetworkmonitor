@@ -45,11 +45,11 @@ export default function DeviceList({
 
   return (
     <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="max-h-[calc(100vh-320px)] min-h-[400px] overflow-auto custom-scrollbar">
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 z-20 text-slate-400 text-[10px] uppercase font-bold tracking-wider shadow-[0_1px_0_rgba(148,163,184,0.12)]">
+          <thead className="sticky top-0 z-10 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
             <tr>
-              <th className="px-4 py-3 w-8 bg-slate-800/95 backdrop-blur-sm">
+              <th className="px-4 py-3 w-8 bg-slate-800/98 backdrop-blur-sm">
                 <input
                   type="checkbox"
                   className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
@@ -57,15 +57,15 @@ export default function DeviceList({
                   onChange={onToggleSelectAll}
                 />
               </th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Status</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Device / SN</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">VLAN</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Model / Type</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">MAC / IP Address</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Signal / Clients</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Suhu</th>
-              <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Tags</th>
-              <th className="px-4 py-3 text-right bg-slate-800/95 backdrop-blur-sm">Actions</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Status</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Device / SN</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">VLAN</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Model / Type</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">MAC / IP Address</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Signal / Clients</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Suhu</th>
+              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Tags</th>
+              <th className="px-4 py-3 text-right bg-slate-800/98 backdrop-blur-sm">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">

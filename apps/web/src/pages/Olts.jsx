@@ -444,8 +444,8 @@ export default function Olts() {
 
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            {/* Header — sticky so search/add button stay visible if the page ever scrolls */}
-            <div className="sticky top-0 z-30 p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-background-dark/95 backdrop-blur-sm">
+            {/* Header */}
+            <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-white">OLT Devices</h1>
                     <p className="text-slate-400 text-sm">Manage your GPON/EPON OLTs</p>
