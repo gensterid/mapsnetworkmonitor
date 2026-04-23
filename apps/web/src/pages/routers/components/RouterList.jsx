@@ -6,8 +6,8 @@ import { formatUptime, formatLastSync } from './utils';
 
 export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId }) {
     return (
-        <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="max-h-[calc(100vh-320px)] min-h-[400px] overflow-auto custom-scrollbar">
+        <div className="h-full flex flex-col bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 z-10 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
                         <tr>

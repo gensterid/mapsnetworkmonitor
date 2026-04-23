@@ -106,7 +106,7 @@ export default function OnuTable({
                     {searchTerm ? `No matches found for "${searchTerm}"` : 'No ONUs discovered on this device.'}
                 </div>
             ) : (
-                <div className="max-h-[calc(100vh-320px)] min-h-[400px] overflow-auto custom-scrollbar">
+                <div className="max-h-[calc(100vh-420px)] min-h-[380px] overflow-auto custom-scrollbar">
                     <table className="w-full border-collapse">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-slate-800">
