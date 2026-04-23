@@ -2,8 +2,11 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './map.css';
 import SearchableSelect from '../ui/SearchableSelect';
 import { DeleteConfirmationModal } from '../ui/DeleteConfirmationModal';
-import { X, Trash2, Save, Map, Edit2, Link as LinkIcon, Info, Settings, History } from 'lucide-react';
+import { X, Trash2, Save, Map, Edit2, Link as LinkIcon, Info, Settings, History, Radio, Router } from 'lucide-react';
 import HistoryTab from '../router/tabs/HistoryTab';
+import OltTab from './OltTab';
+import AcsTab from './AcsTab';
+import { useAppTimezone } from '@/hooks';
 
 /**
  * DeviceModal - Modal for viewing and editing device properties
@@ -44,6 +47,12 @@ const DeviceModal = ({
     const [availableOnus, setAvailableOnus] = useState([]);
     const [isLoadingOnus, setIsLoadingOnus] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const timezone = useAppTimezone();
+
+    // Show OLT tab if device is linked to ONU inventory
+    const showOltTab = !!(device?.linkedOnuId || device?.oltId || device?.sn);
+    // Show ACS tab if device has SN + parent router (required for GenieACS lookup)
+    const showAcsTab = !!(device?.sn && device?.routerId);
 
     useEffect(() => {
         if (isOpen) {
@@ -269,6 +278,26 @@ const DeviceModal = ({
                             <History className="w-4 h-4" />
                             History
                         </div>
+                        {showOltTab && (
+                            <div
+                                className={`device-modal__tab ${activeTab === 'olt' ? 'device-modal__tab--active' : ''}`}
+                                onClick={() => setActiveTab('olt')}
+                                title="Info & aksi dari sisi OLT"
+                            >
+                                <Radio className="w-4 h-4" />
+                                OLT
+                            </div>
+                        )}
+                        {showAcsTab && (
+                            <div
+                                className={`device-modal__tab ${activeTab === 'acs' ? 'device-modal__tab--active' : ''}`}
+                                onClick={() => setActiveTab('acs')}
+                                title="Info & aksi dari sisi GenieACS"
+                            >
+                                <Router className="w-4 h-4" />
+                                ACS
+                            </div>
+                        )}
                     </div>
                 )}
 
@@ -282,6 +311,10 @@ const DeviceModal = ({
                             onuId={device?.linkedOnuId || ((device?.type === 'onu' || device?.deviceType === 'onu' || device?.device_type === 'onu') ? device?.id : null)}
                         />
                     </div>
+                ) : activeTab === 'olt' ? (
+                    <OltTab device={device} timezone={timezone} />
+                ) : activeTab === 'acs' ? (
+                    <AcsTab device={device} timezone={timezone} />
                 ) : (
                     <form onSubmit={handleSubmit} className="device-modal__form">
                         <div className="device-modal__content">
