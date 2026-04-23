@@ -384,7 +384,7 @@ export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
                 )}
 
                 {/* Netwatch Timestamp Status Block if available */}
-                {(!isUp || node.lastUpTime || node.lastDownTime) && (
+                {(!isUp || node.lastUpTime || node.lastDownTime || node.lastUp || node.lastDown) && (
                     <div className="space-y-1.5 border-t border-slate-700/50 pt-2">
                         <div className="flex items-center justify-between text-xs">
                             <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Status</span>
@@ -392,19 +392,19 @@ export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
                                 {displayStatus.replace(/_/g, ' ')}
                             </span>
                         </div>
-                        {isUp && (node.lastUpTime || node.lastUp) && (
+                        {(node.lastUpTime || node.lastUp) && (
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Up</span>
                                 <span className="text-emerald-400 font-mono text-[10px] truncate max-w-[120px]">
-                                    {node.lastUpTime || (node.lastUp ? formatShortDateTime(node.lastUp, timezone) : '-')}
+                                    {node.lastUpTime || formatShortDateTime(node.lastUp, timezone)}
                                 </span>
                             </div>
                         )}
-                        {(!isUp || node.lastDownTime || node.lastDown) && (
+                        {(node.lastDownTime || node.lastDown) && (
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
                                 <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]">
-                                    {node.lastDownTime || (node.lastDown ? formatShortDateTime(node.lastDown, timezone) : '-')}
+                                    {node.lastDownTime || formatShortDateTime(node.lastDown, timezone)}
                                 </span>
                             </div>
                         )}
@@ -758,11 +758,11 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                             </span>
                         </div>
                     )}
-                    {(!isUp || node.lastDownTime || node.lastDown) && (
+                    {(node.lastDownTime || node.lastDown) && (
                         <div className="flex items-center justify-between text-xs">
                             <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Last Down</span>
                             <span className="text-red-400 font-mono text-[10px] truncate max-w-[120px]">
-                                {node.lastDownTime || (node.lastDown ? formatShortDateTime(node.lastDown, timezone) : '-')}
+                                {node.lastDownTime || formatShortDateTime(node.lastDown, timezone)}
                             </span>
                         </div>
                     )}
@@ -835,12 +835,21 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                         <span className="text-slate-200">Linked to Client</span>
                     </div>
                 ) : null}
-                {isUp && (
-                    <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-400">Latency</span>
-                        <span className="text-emerald-400 font-bold">{node.latency} ms</span>
-                    </div>
-                )}
+                {isUp && (() => {
+                    const hasLive = typeof node.latency === 'number' && isFinite(node.latency);
+                    const hasLastKnown = typeof node.lastKnownLatency === 'number' && isFinite(node.lastKnownLatency);
+                    if (!hasLive && !hasLastKnown) return null;
+                    const value = hasLive ? node.latency : node.lastKnownLatency;
+                    return (
+                        <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400">Latency</span>
+                            <span className={hasLive ? 'text-emerald-400 font-bold' : 'text-slate-400 font-bold'}
+                                  title={hasLive ? undefined : 'Last known latency (belum ada ping terbaru)'}>
+                                {value} ms{hasLive ? '' : ' *'}
+                            </span>
+                        </div>
+                    );
+                })()}
                 {node.deviceType === 'odp' && node.portCapacity && (
                     <div className="flex items-center justify-between text-xs mt-1 pt-1 border-t border-slate-700/30">
                         <span className="text-slate-400">Port Usage</span>
