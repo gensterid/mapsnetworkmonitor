@@ -9,19 +9,19 @@ export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId 
         <div className="bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-800/50 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+                    <thead className="sticky top-0 z-20 text-slate-400 text-[10px] uppercase font-bold tracking-wider shadow-[0_1px_0_rgba(148,163,184,0.12)]">
                         <tr>
-                            <th className="px-4 py-3">Status</th>
-                            <th className="px-4 py-3">Name</th>
-                            <th className="px-4 py-3">IP Address</th>
-                            <th className="px-4 py-3">Hardware</th>
-                            <th className="px-4 py-3">CPU</th>
-                            <th className="px-4 py-3">Memory</th>
-                            <th className="px-4 py-3">Uptime</th>
-                            <th className="px-4 py-3">Speed</th>
-                            <th className="px-4 py-3">Latency</th>
-                            <th className="px-4 py-3 text-right">Last Sync</th>
-                            <th className="px-4 py-3 text-right">Actions</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Status</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Name</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">IP Address</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Hardware</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">CPU</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Memory</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Uptime</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Speed</th>
+                            <th className="px-4 py-3 bg-slate-800/95 backdrop-blur-sm">Latency</th>
+                            <th className="px-4 py-3 text-right bg-slate-800/95 backdrop-blur-sm">Last Sync</th>
+                            <th className="px-4 py-3 text-right bg-slate-800/95 backdrop-blur-sm">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
