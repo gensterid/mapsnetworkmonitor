@@ -24,8 +24,14 @@ export function computeOnuSourceHealth(onu) {
 
     if (!oltRelevant && !acsRelevant) return { kind: 'na' };
 
-    const oltStale = oltRelevant && (oltTs === 0 || now - oltTs > STALE_THRESHOLD_MS);
-    const acsStale = acsRelevant && (acsTs === 0 || now - acsTs > STALE_THRESHOLD_MS);
+    // Treat NULL/0 timestamps as "unknown" rather than stale. Fresh installs
+    // and newly-migrated databases have NULL until the next poll populates
+    // the column — flagging them as "missing" produces false positives.
+    // If the source is genuinely gone, the poll won't update the column
+    // either, but the column will have been backfilled with updated_at
+    // via migration 0036 so it will age out naturally from there.
+    const oltStale = oltRelevant && oltTs > 0 && (now - oltTs > STALE_THRESHOLD_MS);
+    const acsStale = acsRelevant && acsTs > 0 && (now - acsTs > STALE_THRESHOLD_MS);
 
     if (oltStale && acsStale) return { kind: 'ghost' };
     if (oltStale) return { kind: 'missing-olt' };
