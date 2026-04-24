@@ -437,40 +437,52 @@ const runRepair = async () => {
             console.log('✅ Unique index for pppoe_sessions created.');
         }
 
-        // 10. Metrics Restoration: Decompress hypertables to allow new data
-        console.log('🧊 Checking for compressed chunks in metrics tables (Schema Qualified)...');
+        // 10. Metrics Health Check (non-destructive).
+        //
+        // Previous implementation eagerly decompressed chunks and removed the
+        // compression policy every time this script ran — which defeated the
+        // whole point of compression for operators who rely on it for disk
+        // savings. TimescaleDB 2.11+ supports INSERTs into compressed chunks
+        // natively, so decompression is no longer required for "allowing new
+        // data". We now only report status and leave compression intact.
+        //
+        // If an operator ever needs to force-decompress (e.g. for a schema
+        // migration that can't run against compressed data), set the env var
+        // REPAIR_DB_FORCE_DECOMPRESS=1 before running this script.
+        console.log('🧊 Checking compression status of metrics hypertables...');
         const hyperTables = ['device_performance_history', 'router_interface_metrics', 'router_metrics'];
-        
+        const forceDecompress = process.env.REPAIR_DB_FORCE_DECOMPRESS === '1';
+
         for (const tableName of hyperTables) {
             try {
-                // Find compressed chunks with their schema
                 const chunks = await db.execute(sql.raw(`
-                    SELECT i.chunk_schema, i.chunk_name 
-                    FROM timescaledb_information.chunks i 
+                    SELECT i.chunk_schema, i.chunk_name, i.range_start, i.range_end
+                    FROM timescaledb_information.chunks i
                     WHERE i.hypertable_name = '${tableName}' AND i.is_compressed = true
                     ORDER BY i.range_start DESC;
                 `)) as any[];
 
-                if (chunks.length > 0) {
-                    console.log(`⚠️ Found ${chunks.length} compressed chunks in "${tableName}". Restoring access...`);
-                    
-                    // Try to disable compression policy first (to prevent re-compression)
+                if (chunks.length === 0) {
+                    console.log(`ℹ️ ${tableName}: no compressed chunks yet`);
+                    continue;
+                }
+
+                if (forceDecompress) {
+                    console.log(`🔧 ${tableName}: force-decompress enabled via env, removing ${chunks.length} compressed chunks...`);
                     try {
                         await queryClient.unsafe(`SELECT remove_compression_policy('${tableName}', if_exists => true);`);
-                        console.log(`   - Suspended compression policy for ${tableName}`);
-                    } catch (e) {}
-
+                    } catch { /* ignore */ }
                     for (const chunk of chunks) {
                         try {
                             const fullName = `${chunk.chunk_schema}.${chunk.chunk_name}`;
-                            console.log(`   - Decompressing ${fullName}...`);
                             await queryClient.unsafe(`SELECT decompress_chunk('${fullName}', if_compressed => true);`);
+                            console.log(`   - Decompressed ${fullName}`);
                         } catch (e: any) {
                             console.log(`   - Skipping ${chunk.chunk_name}: ${e.message.split('\n')[0]}`);
                         }
                     }
                 } else {
-                    console.log(`✅ Table "${tableName}" has no blocking compressed chunks.`);
+                    console.log(`✅ ${tableName}: ${chunks.length} chunks compressed (preserved — set REPAIR_DB_FORCE_DECOMPRESS=1 to force)`);
                 }
             } catch (err: any) {
                 console.log(`ℹ️ Info: Hypertables check skipped for ${tableName} (${err.message.split('\n')[0]})`);
