@@ -122,10 +122,26 @@ export async function safeWrite(api: any, command: string | string[], timeoutMs:
                            msg.includes('reset by peer');
 
         if (poolKey && isConnError) {
-            logger.warn({ host: api.host, msg: error.message }, '🧨 Purging dead MikroTik connection from pool');
+            if (shouldLogPurge(api.host)) {
+                logger.warn({ host: api.host, msg: error.message }, '🧨 Purging dead MikroTik connection from pool');
+            }
             connectionPool.delete(poolKey);
         }
         if (isRouterosQuirk(error)) return [];
         throw error;
     }
+}
+
+// Rate-limit connection-pool purge warnings to prevent log flooding when a
+// router is flaky — a single host can otherwise emit dozens of identical
+// warnings per polling cycle. We keep one log line per host per minute, which
+// is enough to alert an operator without drowning the log.
+const PURGE_LOG_WINDOW_MS = 60_000;
+const lastPurgeLog: Map<string, number> = new Map();
+function shouldLogPurge(host: string): boolean {
+    const now = Date.now();
+    const last = lastPurgeLog.get(host) ?? 0;
+    if (now - last < PURGE_LOG_WINDOW_MS) return false;
+    lastPurgeLog.set(host, now);
+    return true;
 }

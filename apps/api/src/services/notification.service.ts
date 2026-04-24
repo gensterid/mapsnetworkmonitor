@@ -27,10 +27,24 @@ export class NotificationService {
             await axios.post(url, payload);
             logger.info({ chatId, threadId }, 'Telegram message sent successfully');
         } catch (error: any) {
+            // Unpack the Telegram API response so operators can see the actual
+            // failure reason (e.g. "Bad Request: message thread not found",
+            // "Unauthorized", "Too Many Requests"). Previously an empty object
+            // `{}` was logged as `err: ""` which gave no actionable info.
+            const status = error?.response?.status;
+            const telegramError =
+                error?.response?.data?.description ||
+                error?.response?.data?.error_code ||
+                (error?.response?.data && JSON.stringify(error.response.data)) ||
+                error?.code ||
+                error?.message ||
+                'Unknown error';
             logger.error({
-                err: error?.response?.data || error?.message,
+                telegramStatus: status,
+                telegramError,
                 chatId,
-                messageSnippet: message.substring(0, 100)
+                threadId,
+                messageSnippet: message.substring(0, 100),
             }, 'Failed to send Telegram message');
         }
     }
