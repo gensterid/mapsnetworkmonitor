@@ -180,10 +180,33 @@ function SuperAdminRoute({ children }) {
 
 function App() {
   const loading = (
-    <div className="min-h-[400px] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-sm text-slate-400">Loading page...</p>
+    <div className="fixed inset-0 flex items-center justify-center bg-[#020617] overflow-hidden">
+      {/* Ambient radial glow */}
+      <div
+        aria-hidden
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse at center, rgba(59,130,246,0.15) 0%, rgba(59,130,246,0.04) 30%, transparent 65%)',
+        }}
+      />
+
+      <div className="relative flex flex-col items-center gap-5">
+        {/* Orbital ring stack */}
+        <div className="relative w-20 h-20">
+          <div className="absolute inset-0 rounded-full border-2 border-primary/15" />
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-primary animate-spin" />
+          <div
+            className="absolute inset-2 rounded-full border-2 border-transparent border-b-sky-400/70"
+            style={{ animation: 'spin 1.6s linear reverse infinite' }}
+          />
+          <div className="absolute inset-[30%] rounded-full bg-primary/80 blur-sm animate-pulse" />
+        </div>
+
+        <div className="flex flex-col items-center gap-1">
+          <p className="text-sm font-medium text-slate-200 tracking-wide">NetMonitor</p>
+          <p className="text-xs text-slate-500 tracking-[0.2em] uppercase">Loading</p>
+        </div>
       </div>
     </div>
   );
