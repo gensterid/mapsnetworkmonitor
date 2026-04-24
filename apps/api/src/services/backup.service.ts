@@ -39,21 +39,36 @@ export class BackupService {
             fs.mkdirSync(dir, { recursive: true });
         }
 
-        // Command arguments for pg_dump
+        // Command arguments for pg_dump.
+        // NOTE: --compress=<algo>:<level> syntax only exists in pg_dump 16+.
+        // We use --compress=<level> (0-9) which works from pg_dump 9.3+ up.
         const args = [
             this.dbUrl,
             '--clean',
             '--if-exists',
             '--no-owner',
             '--no-acl',
-            '--format=plain', // Plain format but we compress it
-            '--compress=gzi:9', // Max GZIP compression
+            '--format=plain',
+            '--compress=9',
             '-f',
-            outputPath
+            outputPath,
         ];
 
         try {
-            await execFileAsync(this.pgDumpPath, args);
+            const startedAt = Date.now();
+            const { stdout, stderr } = await execFileAsync(this.pgDumpPath, args, {
+                maxBuffer: 200 * 1024 * 1024, // 200MB buffer for large dumps
+            });
+            const durationMs = Date.now() - startedAt;
+            let sizeBytes = 0;
+            try { sizeBytes = fs.statSync(outputPath).size; } catch { /* ignore */ }
+            logger.info({
+                file: filename,
+                sizeBytes,
+                durationMs,
+                isAuto,
+                stderrSnippet: stderr ? String(stderr).slice(0, 200) : undefined,
+            }, '💾 Database backup written');
 
             if (isAuto) {
                 await this.cleanupOldBackups();
@@ -61,7 +76,18 @@ export class BackupService {
 
             return outputPath;
         } catch (error: any) {
-            logger.error({ error }, 'Backup failed');
+            // Surface the actual pg_dump stderr so operators can see WHY the
+            // dump failed (missing tools, permission denied, bad connection).
+            const stderr = error?.stderr ? String(error.stderr).slice(0, 500) : undefined;
+            logger.error({
+                err: error?.message || String(error),
+                code: error?.code,
+                stderr,
+                outputPath,
+                isAuto,
+            }, 'Backup failed');
+            // Clean up empty/incomplete file so it doesn't linger
+            try { if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath); } catch { /* ignore */ }
             throw new Error('Failed to create database backup: ' + (error.message || 'Unknown error'));
         }
     }
