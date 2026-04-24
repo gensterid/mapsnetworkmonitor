@@ -544,15 +544,19 @@ async function cleanupOldMetrics(): Promise<void> {
             const bCutoff = new Date();
             bCutoff.setDate(bCutoff.getDate() - backupRetention);
 
-            await db.execute(sql`DELETE FROM router_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff}`);
-            await db.execute(sql`DELETE FROM genieacs_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff}`);
+            // NOTE: pass Date cutoffs as ISO strings — passing JS Date objects
+            // directly here caused "Failed query" on PG 14 because Date.toString()
+            // produces "Sat Jan 24 2026 21:03:05 GMT+0000 (Coordinated Universal Time)"
+            // which PostgreSQL refuses to coerce into a timestamp.
+            await db.execute(sql`DELETE FROM router_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff.toISOString()}`);
+            await db.execute(sql`DELETE FROM genieacs_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff.toISOString()}`);
 
             // 6. Disconnected PPPoE Sessions
             const pppoeRetention = await settingsService.getSettingValue('pppoe_retention_days', tenant.id, 30);
             const pppCutoff = new Date();
             pppCutoff.setDate(pppCutoff.getDate() - pppoeRetention);
 
-            await db.execute(sql`DELETE FROM pppoe_sessions WHERE tenant_id = ${tenant.id} AND status = 'disconnected' AND last_seen < ${pppCutoff}`);
+            await db.execute(sql`DELETE FROM pppoe_sessions WHERE tenant_id = ${tenant.id} AND status = 'disconnected' AND last_seen < ${pppCutoff.toISOString()}`);
 
             // 7. Ghost ONUs — soft-archive offline devices, hard-delete after 2× retention
             const ghostRetention = await settingsService.getSettingValue('ghost_onu_retention_days', tenant.id, 30);
