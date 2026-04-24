@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles, Wrench, History, CheckCircle2, XCircle } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles, Wrench, History, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
 import { useExportDatabase, useImportDatabase, useBackups, useDeleteBackup, useRestoreBackup, useTriggerManualBackup } from '@/hooks';
 import { useTheme } from '@/context/ThemeContext';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
@@ -19,6 +19,7 @@ import MapColorsSettings from '@/components/settings/MapColorsSettings';
 import PollingSettings from '@/components/settings/PollingSettings';
 import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
 import AISettings from '@/components/settings/AISettings';
+import SystemHealthGuide from '@/components/settings/SystemHealthGuide';
 
 const TABS = [
     { id: 'profile', label: 'My Profile', icon: User },
@@ -28,6 +29,8 @@ const TABS = [
     { id: 'polling', label: 'Polling & Sync', icon: Clock },
     { id: 'ai', label: 'AI Intelligence', icon: Sparkles },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench },
+    // Superadmin-only tab. Filtered out of the nav for other roles below.
+    { id: 'system-guide', label: 'Panduan Sistem', icon: ShieldCheck, superadminOnly: true },
 ];
 
 // Helper components moved to PollingSettings.jsx
@@ -311,13 +314,13 @@ export default function Settings() {
 
             {/* Tab Navigation */}
             <div className="px-6 border-b border-slate-800">
-                <nav className="flex gap-1">
-                    {TABS.map((tab) => (
+                <nav className="flex gap-1 overflow-x-auto">
+                    {TABS.filter(tab => !tab.superadminOnly || currentUser?.role === 'superadmin').map((tab) => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={clsx(
-                                "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-[2px]",
+                                "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-[2px] whitespace-nowrap",
                                 activeTab === tab.id
                                     ? "border-primary text-primary"
                                     : "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600"
@@ -325,6 +328,9 @@ export default function Settings() {
                         >
                             <tab.icon className="w-4 h-4" />
                             {tab.label}
+                            {tab.superadminOnly && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-primary/10 text-primary rounded uppercase tracking-wider">SA</span>
+                            )}
                         </button>
                     ))}
                 </nav>
@@ -420,6 +426,10 @@ export default function Settings() {
                     <div className="max-w-2xl">
                         <AlertSettingsPanel />
                     </div>
+                )}
+
+                {activeTab === 'system-guide' && (
+                    <SystemHealthGuide currentUser={currentUser} />
                 )}
 
             </div>
