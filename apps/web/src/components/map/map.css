@@ -983,33 +983,34 @@ svg.leaflet-zoom-animated {
 
 /* ===== Animations ===== */
 
-/* High Performance Blink for Offline Devices */
+/* Offline blink — opacity/brightness only (no drop-shadow, which follows glyph silhouette
+   and renders lopsided because the badge background is transparent for status icons) */
 @keyframes marker-blink {
 
     0%,
     100% {
         opacity: 1;
-        filter: brightness(1) drop-shadow(0 0 8px rgba(239, 68, 68, 0.8));
+        filter: brightness(1);
     }
 
     50% {
         opacity: 0.4;
-        filter: brightness(1.5) drop-shadow(0 0 2px rgba(239, 68, 68, 0.3));
+        filter: brightness(1.5);
     }
 }
 
-/* GPU-friendly Pulse Glow — uses filter:drop-shadow (composited w/ will-change) instead of box-shadow (paint) */
+/* Pulse glow — opacity only. The visible glow ring is rendered by .device-icon__pulse,
+   which is a perfectly centered circle. Animating box-shadow on the badge has no visual
+   effect because .device-icon--online/offline/warning forces box-shadow:none !important. */
 @keyframes pulse-glow {
 
     0%,
     100% {
         opacity: 1;
-        filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.45));
     }
 
     50% {
         opacity: 0.85;
-        filter: drop-shadow(0 0 11px rgba(16, 185, 129, 0.7));
     }
 }
 
@@ -1018,19 +1019,17 @@ svg.leaflet-zoom-animated {
     0%,
     100% {
         opacity: 1;
-        filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.55));
     }
 
     50% {
         opacity: 0.85;
-        filter: drop-shadow(0 0 13px rgba(245, 158, 11, 0.85));
     }
 }
 
 .device-icon--online .device-icon__badge,
 .device-icon--warning .device-icon__badge,
 .device-icon--offline .device-icon__badge {
-    will-change: filter, opacity;
+    will-change: opacity;
     contain: layout paint style;
 }
 
