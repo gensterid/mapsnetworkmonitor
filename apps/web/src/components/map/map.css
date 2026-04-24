@@ -998,18 +998,18 @@ svg.leaflet-zoom-animated {
     }
 }
 
-/* Optimized Pulse Glow (uses opacity for better performance than pure box-shadow) */
+/* GPU-friendly Pulse Glow — uses filter:drop-shadow (composited w/ will-change) instead of box-shadow (paint) */
 @keyframes pulse-glow {
 
     0%,
     100% {
         opacity: 1;
-        box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+        filter: drop-shadow(0 0 6px rgba(16, 185, 129, 0.45));
     }
 
     50% {
-        opacity: 0.8;
-        box-shadow: 0 0 12px rgba(16, 185, 129, 0.6);
+        opacity: 0.85;
+        filter: drop-shadow(0 0 11px rgba(16, 185, 129, 0.7));
     }
 }
 
@@ -1018,13 +1018,20 @@ svg.leaflet-zoom-animated {
     0%,
     100% {
         opacity: 1;
-        box-shadow: 0 0 8px rgba(245, 158, 11, 0.5);
+        filter: drop-shadow(0 0 6px rgba(245, 158, 11, 0.55));
     }
 
     50% {
-        opacity: 0.8;
-        box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
+        opacity: 0.85;
+        filter: drop-shadow(0 0 13px rgba(245, 158, 11, 0.85));
     }
+}
+
+.device-icon--online .device-icon__badge,
+.device-icon--warning .device-icon__badge,
+.device-icon--offline .device-icon__badge {
+    will-change: filter, opacity;
+    contain: layout paint style;
 }
 
 .device-icon--online .device-icon__badge {
