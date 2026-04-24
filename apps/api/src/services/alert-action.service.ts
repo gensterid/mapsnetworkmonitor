@@ -506,8 +506,16 @@ export class AlertActionService {
     async createPerformanceAlert(routerId: string, routerName: string, host: string | null, deviceName: string, latency: number, packetLoss: number, status?: string, tx: any = db): Promise<Alert | null> {
         const thresholds = await getThresholds(tx);
         if (!thresholds.alertsEnabled || deviceName?.includes('[DISABLED]')) return null;
-        const isHighLatency = latency > 100;
-        const isPacketLoss = packetLoss > 0;
+
+        // Performance alerts are noisy by nature — wireless links flap, paket 1-2%
+        // hilang secara alami. Raise the trigger threshold + cooldown so we only
+        // fire when there's a real degradation worth operator attention.
+        const LATENCY_THRESHOLD_MS = 100;
+        const PACKET_LOSS_THRESHOLD_PCT = 10; // was 0 (fired on ANY loss), now only on ≥10%
+        const COOLDOWN_MINUTES = 30;          // was 5 (too short for flap-prone perf alerts)
+
+        const isHighLatency = latency > LATENCY_THRESHOLD_MS;
+        const isPacketLoss = packetLoss >= PACKET_LOSS_THRESHOLD_PCT;
         if (!isHighLatency && !isPacketLoss) return null;
         if (packetLoss === 100 && status === 'down') return null;
 
@@ -523,12 +531,12 @@ export class AlertActionService {
 
         if (existingUnresolved.length > 0) return null;
 
-        const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+        const cooldownCutoff = new Date(Date.now() - COOLDOWN_MINUTES * 60 * 1000);
         const recentlyFlapping = host ? await tx.select({ id: alerts.id }).from(alerts).where(and(
             eq(alerts.routerId, routerId),
             eq(alerts.type, type),
             ilike(alerts.message, `%${host}%`),
-            gte(alerts.createdAt, fiveMinutesAgo)
+            gte(alerts.createdAt, cooldownCutoff)
         )).limit(1) : [];
 
         if (recentlyFlapping.length > 0) return null;
