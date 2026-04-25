@@ -416,8 +416,21 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
 
             let resolvedRouterId = routerId || existing?.routerId;
             if (!resolvedRouterId && dev._ip) {
-                const [matched] = await db.select({ routerId: routerNetwatch.routerId }).from(routerNetwatch).where(eq(routerNetwatch.host, dev._ip)).limit(1);
-                if (matched) resolvedRouterId = matched.routerId;
+                // Tenant-scoped + ambiguity-safe netwatch lookup. RFC1918 IP commonly overlap
+                // antar router (bahkan dalam 1 tenant), match by host saja bisa cross-attach.
+                // Kalau tenantId tidak ada (sync global), JANGAN auto-resolve — biarkan NULL
+                // supaya admin manual yang assign, daripada salah set ke router tenant lain.
+                if (tenantId) {
+                    const candidates = await db.select({ routerId: routerNetwatch.routerId })
+                        .from(routerNetwatch)
+                        .where(and(eq(routerNetwatch.host, dev._ip), eq(routerNetwatch.tenantId, tenantId)))
+                        .limit(2);
+                    if (candidates.length === 1) {
+                        resolvedRouterId = candidates[0].routerId;
+                    } else if (candidates.length > 1) {
+                        logger.warn({ ip: dev._ip, sn, tenantId }, 'ACS sync: ambiguous netwatch host within tenant, leaving routerId unset');
+                    }
+                }
             }
 
             let targetOnuId = existing?.id;

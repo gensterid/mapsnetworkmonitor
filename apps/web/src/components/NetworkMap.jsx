@@ -686,7 +686,9 @@ const NetworkMap = ({
                         deviceMap.set(entry.id, node);
 
                         if (node.sn) nodesBySN.set(node.sn, node);
-                        if (node.host) nodesByHost.set(node.host, node);
+                        // Composite key: routerId+host. RFC1918 IP can collide across routers
+                        // even within a tenant, so plain-host indexing causes wrong merges.
+                        if (node.host && node.routerId) nodesByHost.set(`${node.routerId}:${node.host}`, node);
                     }
                 });
             }
@@ -710,7 +712,8 @@ const NetworkMap = ({
                     deviceMap.set(session.id, node);
 
                     if (node.sn) nodesBySN.set(node.sn, node);
-                    if (node.host || node.address) nodesByHost.set(node.host || node.address, node);
+                    const pppoeHost = node.host || node.address;
+                    if (pppoeHost && node.routerId) nodesByHost.set(`${node.routerId}:${pppoeHost}`, node);
                 }
             });
         }
@@ -727,7 +730,14 @@ const NetworkMap = ({
                 return;
             }
 
-            const existingNode = (onu.sn && nodesBySN.get(onu.sn)) || (onu.host && nodesByHost.get(onu.host));
+            // SN match takes priority (globally unique). Host match only allowed when
+            // routerId matches — otherwise overlapping RFC1918 IPs across routers/tenants
+            // would cause cross-attach (security: tenant data leak).
+            let existingNode = onu.sn ? nodesBySN.get(onu.sn) : null;
+            if (!existingNode && onu.host && onu.routerId) {
+                const candidate = nodesByHost.get(`${onu.routerId}:${onu.host}`);
+                if (candidate) existingNode = candidate;
+            }
 
             if (existingNode) {
                 // Determine accurate OLT values (Support both camelCase and snake_case from API)
