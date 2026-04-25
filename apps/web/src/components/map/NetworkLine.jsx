@@ -138,10 +138,17 @@ const NetworkLineOriginal = ({
         const thresholdNormal = (Number(mapColors.trafficThresholdNormal) || 20) * 1000000;
         const thresholdHigh = (Number(mapColors.trafficThresholdHigh) || 50) * 1000000;
 
-        if (line.deviceType === 'odp') {
-            railColor = mapColors.odp;
-        } else if (line.status && !['up', 'online', 'active'].includes(line.status.toLowerCase())) {
+        const lineStatusLower = line.status ? String(line.status).toLowerCase() : '';
+        const isLineOffline = lineStatusLower && !['up', 'online', 'active', 'warning'].includes(lineStatusLower);
+
+        if (isLineOffline) {
+            // Status offline menang atas deviceType=odp — line ke ODP yg derived-down akan merah
             railColor = mapColors.offline;
+        } else if (lineStatusLower === 'warning') {
+            // ODP partial / perangkat warning — pakai warna warning (kuning)
+            railColor = mapColors.warning;
+        } else if (line.deviceType === 'odp') {
+            railColor = mapColors.odp;
         } else if (isHeatmapActive) {
             if (maxRate < thresholdIdle) railColor = mapColors.trafficyIdle;
             else if (maxRate < thresholdNormal) railColor = mapColors.trafficNormal;

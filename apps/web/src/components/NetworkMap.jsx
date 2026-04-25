@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone } from '@/hooks';
 import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import '@/lib/GoogleMutant';
+import { computeOdpDerivedStatus } from '@/lib/odpStatus';
 import { toast } from 'react-hot-toast';
 
 const MapZoomHandler = ({ onZoomChange }) => {
@@ -763,6 +764,37 @@ const NetworkMap = ({
                 };
                 nodes.push(node);
                 deviceMap.set(onu.id, node);
+            }
+        });
+
+        // 2.8 pass: Derive ODP health from attached ONUs.
+        // ODP tidak punya ping sendiri — kalau ≥2 ONU anaknya semua optical-down
+        // maka fiber ke ODP kemungkinan putus (merah). Sebagian down → warning (kuning).
+        const onusByParent = new Map();
+        [...nodes, ...pppoeNodesList].forEach(n => {
+            const isOnuLike = n.deviceType === 'onu' || n.type === 'onu' || !!n.linkedOnuId;
+            if (!isOnuLike || !n.connectedToId) return;
+            const arr = onusByParent.get(n.connectedToId) || [];
+            arr.push(n);
+            onusByParent.set(n.connectedToId, arr);
+        });
+
+        nodes.forEach(node => {
+            const isOdp = node.deviceType === 'odp' || node.type === 'odp';
+            if (!isOdp) return;
+            const currentStatus = String(node.status || '').toLowerCase();
+            // Kalau ODP sudah punya status offline eksplisit dari netwatch, jangan di-override
+            if (['offline', 'down', 'lost'].includes(currentStatus)) return;
+            const attached = onusByParent.get(node.id) || [];
+            const derived = computeOdpDerivedStatus(attached);
+            if (derived === 'down') {
+                node.status = 'down';
+                node.statusSource = 'odp-derived-all-optical-down';
+                node.odpDerivedAttachedCount = attached.length;
+            } else if (derived === 'warning') {
+                node.status = 'warning';
+                node.statusSource = 'odp-derived-partial-optical-down';
+                node.odpDerivedAttachedCount = attached.length;
             }
         });
 

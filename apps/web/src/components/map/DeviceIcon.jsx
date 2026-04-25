@@ -92,6 +92,10 @@ export const createDeviceIcon = ({
     } else if (isOffline) {
         normalizedStatus = 'offline';
     }
+    // Explicit warning status (e.g. ODP with partial optical-down children, derived upstream)
+    else if (status === 'warning') {
+        normalizedStatus = 'warning';
+    }
     // Smart Warning: ODP only shows warning if it has an IP host (monitored)
     else if (hasPerformanceIssue && host) {
         normalizedStatus = 'warning';
