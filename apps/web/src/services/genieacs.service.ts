@@ -69,6 +69,12 @@ export const genieacsService = {
     /**
      * Update ACS Settings
      */
-    updateAcsSettings: (id, settings, routerId) => 
+    updateAcsSettings: (id, settings, routerId) =>
         patch(`/genieacs/devices/${id}/acs-settings`, settings, { params: { routerId } }),
+
+    /**
+     * Trigger ACS metadata sync — re-discovers ONUs from ACS for the active tenant
+     * (or a specific router when routerId provided). Updates the onus table.
+     */
+    syncMetadata: (routerId) => post('/genieacs/sync', {}, { params: { routerId } }),
 };

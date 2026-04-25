@@ -88,6 +88,27 @@ const bulkConfigSchema = bulkActionSchema.extend({
 router.use(authMiddleware);
 
 /**
+ * POST /api/genieacs/sync
+ * Trigger ACS metadata sync for the current tenant.
+ * Optional ?routerId= to sync only one router.
+ */
+router.post(
+    '/sync',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const tenantId = getEffectiveTenantId(req);
+        const routerId = (req.query.routerId as string | undefined) || undefined;
+        try {
+            const result = await genieacsService.syncMetadata(routerId, tenantId);
+            res.json({ data: result });
+        } catch (error: any) {
+            logger.error({ err: error, tenantId, routerId }, 'Manual ACS sync failed');
+            handleGenieAcsError(error);
+        }
+    })
+);
+
+/**
  * GET /api/genieacs/devices
  * List all devices
  */

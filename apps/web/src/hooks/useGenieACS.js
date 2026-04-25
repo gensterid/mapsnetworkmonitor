@@ -98,6 +98,24 @@ export function useUpdateGenieACSWifiConfig() {
     });
 }
 
+export function useSyncGenieACSMetadata() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ routerId } = {}) => genieacsService.syncMetadata(routerId),
+        onSuccess: (data, { routerId } = {}) => {
+            const summary = data && typeof data === 'object'
+                ? `added ${data.added ?? 0}, updated ${data.updated ?? 0}, total ${data.total ?? 0}`
+                : 'completed';
+            toast.success(`ACS sync ${summary}`);
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', routerId] });
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+        },
+        onError: (error) => {
+            toast.error(error?.response?.data?.message || error?.message || 'Failed to sync ACS');
+        },
+    });
+}
+
 export function useRefreshGenieACSDevice() {
     const queryClient = useQueryClient();
     return useMutation({

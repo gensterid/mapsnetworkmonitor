@@ -12,6 +12,7 @@ import {
     useRouterNetwatch,
     useBulkPushConfigGenieAcs,
     useBulkRebootGenieAcs,
+    useSyncGenieACSMetadata,
     useAppTimezone
 } from '@/hooks';
 import {
@@ -26,6 +27,7 @@ import {
     Search,
     LayoutGrid,
     List,
+    RefreshCw,
 } from 'lucide-react';
 import WanConfigModal from '@/components/genieacs/WanConfigModal';
 import WifiConfigModal from '@/components/genieacs/WifiConfigModal';
@@ -69,6 +71,7 @@ export default function GenieACS() {
 
     const refreshMutation = useRefreshGenieACSDevice();
     const createBackupMutation = useCreateGenieACSBackup();
+    const syncMutation = useSyncGenieACSMetadata();
 
     const { data: routers = [] } = useRouters();
     const acsEnabledRouters = routers.filter(r => r.useGenieAcs);
@@ -241,6 +244,16 @@ export default function GenieACS() {
                                         className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
                                     />
                                 </div>
+                                <Button
+                                    onClick={() => syncMutation.mutate({ routerId: selectedRouterId || undefined })}
+                                    disabled={syncMutation.isPending}
+                                    variant="secondary"
+                                    size="sm"
+                                    title="Re-discover ONUs from ACS for the active tenant"
+                                >
+                                    <RefreshCw className={clsx("w-4 h-4 mr-2", syncMutation.isPending && "animate-spin")} />
+                                    {syncMutation.isPending ? 'Syncing…' : 'Sync ACS'}
+                                </Button>
                                 <Button onClick={() => setShowPresetManager(true)} variant="secondary" size="sm">
                                     <Database className="w-4 h-4 mr-2" /> Presets
                                 </Button>
