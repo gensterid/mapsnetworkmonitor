@@ -288,6 +288,24 @@ FROM timescaledb_information.hypertables h;
         expected: 'Daftar pendek, age < 60 hari.',
         level: 'info',
     },
+    {
+        title: 'Pertumbuhan Storage (Snapshot Mingguan)',
+        description: 'Snapshot satu-perintah untuk memantau pertumbuhan disk, ukuran hypertable, dan jumlah alerts. Catat hasilnya tiap minggu untuk deteksi anomali.',
+        command: `echo "=== Disk ==="; df -h /
+echo ""
+echo "=== Hypertables ==="
+sudo -u postgres psql -d mikrotik_monitor -c "
+SELECT hypertable_name,
+  pg_size_pretty(hypertable_size(format('%I.%I', hypertable_schema, hypertable_name)::regclass)) AS size
+FROM timescaledb_information.hypertables;
+"
+echo ""
+echo "=== Alerts ==="
+sudo -u postgres psql -d mikrotik_monitor -c "SELECT count(*) FROM alerts;"`,
+        expected: 'Disk Use% < 60%. device_performance_history < 1.2 GB. router_interface_metrics < 1 GB (akan tumbuh sesuai retention 360 hari). alerts count < 50K.',
+        troubleshoot: 'Jika tumbuh > 20%/minggu di luar prediksi, jalankan VACUUM ANALYZE pada tabel terbesar (lihat Maintenance Bulanan), turunkan retention via app_settings, atau jalankan drop_chunks() manual untuk hypertable.',
+        level: 'info',
+    },
 ];
 
 const MONTHLY_CHECKS = [
