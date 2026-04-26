@@ -92,7 +92,18 @@ export class BackupService {
         }
     }
 
-    async automatedBackup(): Promise<string> {
+    async automatedBackup(): Promise<string | null> {
+        // Skip jika sudah ada auto backup hari ini — mencegah triplikasi saat
+        // PM2 reload beberapa kali dalam sehari.
+        const dir = path.join(process.cwd(), 'backups');
+        if (fs.existsSync(dir)) {
+            const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+            const existsToday = fs.readdirSync(dir).some(f => f.startsWith(`auto-bkp-${today}`));
+            if (existsToday) {
+                logger.info({ today }, '⏭️  Skipping automated backup — file for today already exists');
+                return null;
+            }
+        }
         logger.info('Starting scheduled automated backup...');
         return this.exportDatabase(true);
     }
@@ -158,10 +169,26 @@ export class BackupService {
         const dir = path.join(process.cwd(), 'backups');
         if (!fs.existsSync(dir)) return;
 
+        // Read retention from settings (any tenant — backup file is global). Default 7 days.
+        let retentionDays = 7;
+        try {
+            // settingsService import is avoided here to keep backup.service free of cycles.
+            // We read the global default via a quick query instead.
+            const { db } = await import('../db/index.js');
+            const { sql: dsql } = await import('drizzle-orm');
+            const [row] = await db.execute(dsql`
+                SELECT value FROM app_settings
+                WHERE key = 'backups_retention_days'
+                ORDER BY tenant_id NULLS FIRST LIMIT 1
+            `) as any[];
+            const parsed = parseInt(String(row?.value ?? '').replace(/"/g, ''), 10);
+            if (Number.isFinite(parsed) && parsed > 0) retentionDays = parsed;
+        } catch { /* fallback to default */ }
+
         try {
             const files = fs.readdirSync(dir);
             const now = Date.now();
-            const MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
+            const MAX_AGE = retentionDays * 24 * 60 * 60 * 1000;
             let deletedCount = 0;
 
             for (const file of files) {
