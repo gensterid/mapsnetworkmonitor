@@ -466,11 +466,15 @@ async function batchDeleteSafe(
         try {
             // Safe: Uses Drizzle's parameterized sql template literal
             // The tenant_id and recorded_at values are properly bound as parameters
+            // Pass cutoff as ISO string — JS Date.toString() produces a format
+            // PostgreSQL 14 refuses to coerce into a timestamp, causing the
+            // delete to fail silently and old metrics to accumulate.
+            const cutoffIso = cutoffDate.toISOString();
             const result = await db.execute(
                 sql`DELETE FROM ${table}
                     WHERE id IN (
                         SELECT id FROM ${table}
-                        WHERE tenant_id = ${tenantId} AND recorded_at < ${cutoffDate}
+                        WHERE tenant_id = ${tenantId} AND recorded_at < ${cutoffIso}
                         LIMIT ${batchSize}
                     )`
             );
@@ -524,11 +528,24 @@ async function cleanupOldMetrics(): Promise<void> {
             const aCutoff = new Date();
             aCutoff.setDate(aCutoff.getDate() - alertsRetention);
 
+            // Delete resolved alerts beyond retention.
+                        await db.delete(alerts)
+                .where(and(
+                    eq(alerts.tenantId, tenant.id),
+                    eq(alerts.resolved, true),
+                    lt(alerts.createdAt, aCutoff)
+                ));
+
+            // Also delete UNRESOLVED alerts that are extra-old (2× retention).
+            // Without this, alert flood (e.g. packet_loss before cooldown fix) accumulates
+            // forever because nobody acknowledges them. 2× window keeps recent unresolved
+            // visible for operators while bounding total storage.
+            const unackCutoff = new Date();
+            unackCutoff.setDate(unackCutoff.getDate() - alertsRetention * 2);
             await db.delete(alerts)
                 .where(and(
-                    eq(alerts.tenantId, tenant.id), 
-                    eq(alerts.resolved, true), 
-                    lt(alerts.createdAt, aCutoff)
+                    eq(alerts.tenantId, tenant.id),
+                    lt(alerts.createdAt, unackCutoff)
                 ));
 
             // 4. Audit Logs
