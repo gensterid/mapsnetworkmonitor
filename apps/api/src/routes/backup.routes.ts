@@ -124,7 +124,9 @@ router.get('/list', requireRole('superadmin'), async (_req, res) => {
 // Trigger Manual (Persistent) Backup
 router.post('/trigger-manual', requireRole('superadmin'), async (_req, res) => {
     try {
-        const filePath = await backupService.automatedBackup();
+        // Manual trigger always creates a fresh dump — bypass the same-day skip
+        // that automatedBackup() applies for the scheduler.
+        const filePath = await backupService.exportDatabase(true);
         res.json({ message: 'Backup created successfully', filename: path.basename(filePath) });
     } catch (error: any) {
         logger.error({ err: error }, 'Manual trigger error');
