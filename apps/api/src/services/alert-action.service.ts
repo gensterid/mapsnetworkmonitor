@@ -517,7 +517,11 @@ export class AlertActionService {
         const isHighLatency = latency > LATENCY_THRESHOLD_MS;
         const isPacketLoss = packetLoss >= PACKET_LOSS_THRESHOLD_PCT;
         if (!isHighLatency && !isPacketLoss) return null;
-        if (packetLoss === 100 && status === 'down') return null;
+
+        // Host yang sedang DOWN sudah punya alert sendiri (netwatch_down). Performance
+        // alert untuk host tsb biasanya berbasis data stale (latency/packetLoss field
+        // tidak di-clear saat host offline) → false positive. Skip semuanya saat down.
+        if (status === 'down' || status === 'offline' || status === 'lost') return null;
 
         const type = isHighLatency ? 'high_latency' : 'packet_loss';
 
