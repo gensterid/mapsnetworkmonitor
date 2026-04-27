@@ -30,13 +30,13 @@ function Modal({ open, onClose, title, children, footer }) {
     if (!open) return null;
     return (
         <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-xl shadow-2xl">
-                <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3">
+            <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+                <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3 shrink-0">
                     <h3 className="font-semibold text-white">{title}</h3>
                     <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
                 </div>
-                <div className="p-5 max-h-[70vh] overflow-y-auto">{children}</div>
-                {footer && <div className="border-t border-slate-800 px-5 py-3 flex justify-end gap-2">{footer}</div>}
+                <div className="p-5 overflow-y-auto flex-1 min-h-0">{children}</div>
+                {footer && <div className="border-t border-slate-800 px-5 py-3 flex justify-end gap-2 shrink-0">{footer}</div>}
             </div>
         </div>
     );
