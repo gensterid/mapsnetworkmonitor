@@ -95,6 +95,7 @@ export * from './useGenieACS';
 export * from './useBackup';
 export * from './useSocket';
 export * from './useAI';
+export * from './useBandwidth';
 export * from './usePresets';
 export * from './useTenants';
 // Analytics hooks

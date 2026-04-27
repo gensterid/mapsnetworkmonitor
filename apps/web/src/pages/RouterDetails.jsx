@@ -24,7 +24,8 @@ import {
     ArrowLeft,
     Clock,
     Edit,
-    HardDrive
+    HardDrive,
+    BarChart2
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -38,6 +39,7 @@ import NeighborsTab from '@/components/router/tabs/NeighborsTab';
 import HistoryTab from '@/components/router/tabs/HistoryTab';
 import MapTab from '@/components/router/tabs/MapTab';
 import BackupsTab from '@/components/router/tabs/BackupsTab';
+import BandwidthTab from '@/components/router/tabs/BandwidthTab';
 import MiniTopology from '@/components/router/MiniTopology';
 
 // Utils
@@ -171,6 +173,7 @@ export default function RouterDetails() {
         { id: 'history', label: 'History', icon: <History className="w-4 h-4" /> },
         { id: 'netwatch', label: 'Netwatch', icon: <Eye className="w-4 h-4" /> },
         { id: 'pppoe', label: 'PPPoE', icon: <PhoneCall className="w-4 h-4" /> },
+        { id: 'bandwidth', label: 'Bandwidth', icon: <BarChart2 className="w-4 h-4" /> },
         { id: 'neighbors', label: 'Neighbors', icon: <Network className="w-4 h-4" /> },
         { id: 'topology', label: 'Topology', icon: <Zap className="w-4 h-4" /> },
         { id: 'backups', label: 'Backups', icon: <HardDrive className="w-4 h-4" /> },
@@ -307,6 +310,9 @@ export default function RouterDetails() {
                 )}
                 {activeTab === 'pppoe' && (
                     <PppoeTab routerId={id} />
+                )}
+                {activeTab === 'bandwidth' && (
+                    <BandwidthTab routerId={id} />
                 )}
                 {activeTab === 'neighbors' && (
                     <NeighborsTab routerId={id} />
