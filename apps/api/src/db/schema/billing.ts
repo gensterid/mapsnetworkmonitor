@@ -213,7 +213,7 @@ export const payments = pgTable('billing_payments', {
     gatewayTxnId: text('gateway_txn_id'),
     gatewayPayload: jsonb('gateway_payload'),
 
-    recordedBy: text('recorded_by').references(() => users.id, { onDelete: 'set null' }),
+    recordedBy: uuid('recorded_by').references(() => users.id, { onDelete: 'set null' }),
     recordedAt: timestamp('recorded_at').notNull().defaultNow(),
     notes: text('notes'),
 }, (t) => ({
@@ -236,7 +236,7 @@ export const voucherBatches = pgTable('billing_voucher_batches', {
     prefix: text('prefix'),
     notes: text('notes'),
 
-    generatedBy: text('generated_by').references(() => users.id, { onDelete: 'set null' }),
+    generatedBy: uuid('generated_by').references(() => users.id, { onDelete: 'set null' }),
     generatedAt: timestamp('generated_at').notNull().defaultNow(),
 }, (t) => ({
     tenantIdx: index('billing_vb_tenant_idx').on(t.tenantId),

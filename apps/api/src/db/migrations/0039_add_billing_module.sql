@@ -141,7 +141,7 @@ CREATE TABLE IF NOT EXISTS "billing_payments" (
     "method" "billing_payment_method" NOT NULL,
     "gateway_txn_id" text,
     "gateway_payload" jsonb,
-    "recorded_by" text REFERENCES "users"("id") ON DELETE set null,
+    "recorded_by" uuid REFERENCES "users"("id") ON DELETE set null,
     "recorded_at" timestamp DEFAULT now() NOT NULL,
     "notes" text
 );
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS "billing_voucher_batches" (
     "count" integer NOT NULL,
     "prefix" text,
     "notes" text,
-    "generated_by" text REFERENCES "users"("id") ON DELETE set null,
+    "generated_by" uuid REFERENCES "users"("id") ON DELETE set null,
     "generated_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
