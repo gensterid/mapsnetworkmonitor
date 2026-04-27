@@ -21,6 +21,7 @@ const NotificationGroups = lazy(() => import('./pages/NotificationGroups'));
 const Analytics = lazy(() => import('./pages/Analytics'));
 const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
 const Tenants = lazy(() => import('./pages/Tenants'));
+const Billing = lazy(() => import('./pages/Billing'));
 const KioskView = lazy(() => import('./pages/KioskView'));
 
 import { useSession, useRole } from './lib/auth-client';
@@ -260,6 +261,11 @@ function App() {
                 <Route path="analytics" element={
                   <OperatorRoute>
                     <Analytics />
+                  </OperatorRoute>
+                } />
+                <Route path="billing" element={
+                  <OperatorRoute>
+                    <Billing />
                   </OperatorRoute>
                 } />
                 <Route path="settings" element={<Settings />} />

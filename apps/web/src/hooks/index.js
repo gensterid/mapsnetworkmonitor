@@ -96,6 +96,7 @@ export * from './useBackup';
 export * from './useSocket';
 export * from './useAI';
 export * from './useBandwidth';
+export * from './useBilling';
 export * from './usePresets';
 export * from './useTenants';
 // Analytics hooks

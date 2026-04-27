@@ -17,7 +17,8 @@ import {
     BarChart3,
     Activity,
     Monitor,
-    Building
+    Building,
+    Receipt
 } from 'lucide-react';
 import clsx from 'clsx';
 import TenantSwitcher from './TenantSwitcher';
@@ -144,6 +145,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     {isAdmin && <NavItem path="/users" icon={Users} label="Users" isActive={isActive("/users")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/notification-groups" icon={MessageSquare} label="Notifications" isActive={isActive("/notification-groups")} onClose={onClose} />}
                     {(isAdmin || isOperator) && <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />}
+                    {(isAdmin || isOperator) && <NavItem path="/billing" icon={Receipt} label="Billing" isActive={isActive("/billing")} onClose={onClose} />}
                     <NavItem path="/settings" icon={Settings} label="Settings" isActive={isActive("/settings")} onClose={onClose} />
                 </div>
 
