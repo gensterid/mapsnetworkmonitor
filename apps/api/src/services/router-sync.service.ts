@@ -113,10 +113,24 @@ export class RouterSyncService {
                         // Track Sessions
                         const currentPppSessions = await getPppSessions(conn);
                         await pppoeService.trackSessions(finalUpdatedRouter, currentPppSessions);
-                        
+
                         // Simple Queues
                         const queues = await getSimpleQueues(conn);
                         await pppoeService.updateTraffic(id, queues);
+
+                        // Per-client bandwidth deltas (Phase 1) — fire-and-forget,
+                        // tidak boleh memblokir alur sinkronisasi utama.
+                        try {
+                            const { clientBandwidthService } = await import('./client-bandwidth.service.js');
+                            await clientBandwidthService.record({
+                                routerId: id,
+                                tenantId: finalUpdatedRouter!.tenantId!,
+                                pppActive: currentPppSessions,
+                                simpleQueues: queues,
+                            });
+                        } catch (bwErr) {
+                            logger.warn({ err: bwErr, router: finalUpdatedRouter!.name }, 'Client bandwidth tracking failed (non-fatal)');
+                        }
 
                         // Metrics
                         if (resources) {

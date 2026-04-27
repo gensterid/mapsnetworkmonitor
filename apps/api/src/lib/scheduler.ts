@@ -523,6 +523,12 @@ async function cleanupOldMetrics(): Promise<void> {
 
             await batchDeleteSafe(routerInterfaceMetrics, tenant.id, ifCutoff);
 
+            // 2b. Per-client bandwidth deltas (Phase 1)
+            const clientBwRetention = await settingsService.getSettingValue('client_bandwidth_retention_days', tenant.id, 30);
+            const cbwCutoff = new Date();
+            cbwCutoff.setDate(cbwCutoff.getDate() - clientBwRetention);
+            await db.execute(sql`DELETE FROM client_bandwidth_history WHERE tenant_id = ${tenant.id} AND recorded_at < ${cbwCutoff.toISOString()}`);
+
             // 3. Resolved Alerts (Low volume, usually safe for direct delete)
             const alertsRetention = await settingsService.getSettingValue('alerts_retention_days', tenant.id, 60);
             const aCutoff = new Date();

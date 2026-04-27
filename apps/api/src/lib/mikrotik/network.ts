@@ -388,7 +388,9 @@ export async function getPppSessions(api: any): Promise<PppSession[]> {
         uptime: session.uptime,
         uptimeSeconds: parseUptimeToSeconds(session.uptime || '0s'),
         encoding: session.encoding,
-        sessionId: session['session-id']
+        sessionId: session['session-id'],
+        bytesIn: parseInt(session['bytes-in'] || '0', 10) || 0,
+        bytesOut: parseInt(session['bytes-out'] || '0', 10) || 0,
     }));
 }
 

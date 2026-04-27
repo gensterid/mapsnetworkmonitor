@@ -17,3 +17,4 @@ export * from './performance-history.js';
 export * from './interface-metrics.js';
 export * from './router_backups.js';
 export * from './genieacs-backups.js';
+export * from './client-bandwidth.js';

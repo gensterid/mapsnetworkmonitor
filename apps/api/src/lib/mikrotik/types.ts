@@ -88,16 +88,18 @@ export interface NetwatchData {
 }
 
 export interface PppSession {
-    name: string;           
-    service?: string;       
-    callerId?: string;      
-    address?: string;       
-    uptime?: string;        
-    uptimeSeconds?: number; 
+    name: string;
+    service?: string;
+    callerId?: string;
+    address?: string;
+    uptime?: string;
+    uptimeSeconds?: number;
     encoding?: string;
     sessionId?: string;
     limitBytesIn?: number;
     limitBytesOut?: number;
+    bytesIn?: number;
+    bytesOut?: number;
 }
 
 export interface SimpleQueueData {

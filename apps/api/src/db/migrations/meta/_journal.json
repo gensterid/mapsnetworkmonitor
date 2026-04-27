@@ -267,6 +267,13 @@
       "when": 1776938000000,
       "tag": "0037_add_onu_active_clients",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1777262400000,
+      "tag": "0038_add_client_bandwidth_history",
+      "breakpoints": true
     }
   ]
 }
