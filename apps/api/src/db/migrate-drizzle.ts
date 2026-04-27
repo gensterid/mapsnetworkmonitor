@@ -89,6 +89,13 @@ export async function runDrizzleMigrations() {
 
                 if (!isCompressedHypertableError(error)) {
                     console.error('❌ Drizzle Migration failed:', error.message);
+                    if (error.cause) {
+                        const cause = error.cause as any;
+                        console.error('   PG cause:', cause.message || cause);
+                        if (cause.code) console.error('   PG code :', cause.code);
+                        if (cause.detail) console.error('   PG detail:', cause.detail);
+                        if (cause.hint) console.error('   PG hint :', cause.hint);
+                    }
                     throw error;
                 }
 
