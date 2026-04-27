@@ -20,6 +20,7 @@ import aiRoutes from './ai.routes.js';
 import tenantRoutes from './tenant.routes.js';
 import genieacsDashboardRoutes from './genieacs-dashboard.routes.js';
 import bandwidthRoutes from './bandwidth.routes.js';
+import billingRoutes from './billing.routes.js';
 
 const router = Router();
 
@@ -54,6 +55,7 @@ router.use('/ai', aiRoutes);
 router.use('/tenants', tenantRoutes);
 router.use('/genieacs-dashboard', genieacsDashboardRoutes);
 router.use('/bandwidth', bandwidthRoutes);
+router.use('/billing', billingRoutes);
 
 export default router;
 

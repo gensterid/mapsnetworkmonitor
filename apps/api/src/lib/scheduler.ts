@@ -43,6 +43,7 @@ let metricsInterval: ReturnType<typeof setInterval> | null = null;
 let routerSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
+let billingDailyInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let isPollingSnmp = false;
 let pollingStartTime: number | null = null;
@@ -678,6 +679,21 @@ export async function startScheduler(): Promise<void> {
     acsWarmerInterval = setInterval(warmAcsDashboard, 60000); // Warm dashboard every minute
     cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
     autoBackupInterval = setInterval(() => backupService.automatedBackup(), 24 * 60 * 60 * 1000); // Daily
+
+    // Billing daily — generate invoices, mark overdue, auto-isolir.
+    // Initial run 5 minutes after startup so DB+migrations settle, then once per hour
+    // (idempotent: jobs that already ran today are skipped via DB checks).
+    setTimeout(() => runBillingJobSafe(), 300000);
+    billingDailyInterval = setInterval(() => runBillingJobSafe(), 60 * 60 * 1000);
+}
+
+async function runBillingJobSafe() {
+    try {
+        const { runBillingDailyJob } = await import('../services/billing/billing-scheduler.js');
+        await runBillingDailyJob();
+    } catch (err) {
+        logger.error({ err }, 'Billing daily job crashed');
+    }
 }
 
 /**
@@ -694,7 +710,8 @@ export function stopScheduler(): void {
     if (routerSnmpInterval) { clearInterval(routerSnmpInterval); routerSnmpInterval = null; }
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
-    
+    if (billingDailyInterval) { clearInterval(billingDailyInterval); billingDailyInterval = null; }
+
     stopQueueWorker();
     logger.info('🛑 Scheduler stopped');
 }
