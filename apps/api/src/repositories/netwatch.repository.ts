@@ -276,8 +276,13 @@ export class NetwatchRepository {
                     latency: sql`EXCLUDED.latency`,
                     disabled: sql`EXCLUDED.disabled`,
                     lastCheck: sql`EXCLUDED.last_check`,
-                    lastUp: sql`EXCLUDED.last_up`,
-                    lastDown: sql`EXCLUDED.last_down`,
+                    // Preserve last_up / last_down history when RouterOS doesn't expose
+                    // it. RouterOS netwatch only fills `sinceUp` while the host is UP and
+                    // `sinceDown` while the host is DOWN — the other becomes empty. Without
+                    // COALESCE we'd overwrite the prior outage timestamp with NULL on every
+                    // sync, so the popup would lose the "last down" history.
+                    lastUp: sql`COALESCE(EXCLUDED.last_up, ${routerNetwatch.lastUp})`,
+                    lastDown: sql`COALESCE(EXCLUDED.last_down, ${routerNetwatch.lastDown})`,
                     updatedAt: new Date(),
                     hasWebhook: sql`EXCLUDED.has_webhook`,
                     name: sql`EXCLUDED.name`,
