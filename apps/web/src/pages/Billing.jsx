@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X } from 'lucide-react';
@@ -28,7 +29,10 @@ const fmtDateTime = (d) => d ? new Date(d).toLocaleString('id-ID', { dateStyle: 
 
 function Modal({ open, onClose, title, children, footer }) {
     if (!open) return null;
-    return (
+    // Render via portal so the modal escapes any ancestor with transform /
+    // overflow / containing-block that would otherwise pin `position: fixed`
+    // to a scrolled content area instead of the viewport.
+    return createPortal(
         <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3 shrink-0">
@@ -38,7 +42,8 @@ function Modal({ open, onClose, title, children, footer }) {
                 <div className="p-5 overflow-y-auto flex-1 min-h-0">{children}</div>
                 {footer && <div className="border-t border-slate-800 px-5 py-3 flex justify-end gap-2 shrink-0">{footer}</div>}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }
 
