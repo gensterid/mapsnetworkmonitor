@@ -8,6 +8,7 @@ import {
     packageService, customerService, subscriptionService, invoiceService,
     billingSettingsService,
 } from '../services/billing/billing.service.js';
+import { voucherService } from '../services/billing/voucher.service.js';
 
 /**
  * Billing routes — Phase B.2.
@@ -254,6 +255,64 @@ router.post('/invoices/:id/cancel', requireTenant, requireOperator, asyncHandler
     const row = await invoiceService.cancel(req.params.id, req._tenantId);
     if (!row) return res.status(404).json({ error: 'Not found' });
     res.json({ data: row });
+}));
+
+// ─── Vouchers (Phase C) ────────────────────────────────────────────────────
+
+router.get('/vouchers/router/:routerId', requireTenant, asyncHandler(async (req: any, res) => {
+    const result = await voucherService.listForRouter(req._tenantId, req.params.routerId);
+    res.json({ data: result });
+}));
+
+router.get('/vouchers/batches', requireTenant, asyncHandler(async (req: any, res) => {
+    const rows = await voucherService.listBatches(req._tenantId, {
+        routerId: req.query.routerId as any,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    res.json({ data: rows });
+}));
+
+router.get('/vouchers/batches/:id', requireTenant, asyncHandler(async (req: any, res) => {
+    const batch = await voucherService.getBatch(req.params.id, req._tenantId);
+    if (!batch) return res.status(404).json({ error: 'Not found' });
+    const list = await voucherService.listNative(req._tenantId, { batchId: req.params.id });
+    res.json({ data: { batch, vouchers: list } });
+}));
+
+router.post('/vouchers/batches', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        routerId: z.string().uuid(),
+        packageId: z.string().uuid(),
+        count: z.number().int().min(1).max(500),
+        codeMode: z.enum(['vc', 'up']),
+        charsetMode: z.enum(['lower', 'upper', 'upplow', 'mix', 'mix1', 'mix2', 'num']),
+        codeLength: z.number().int().min(3).max(12),
+        prefix: z.string().optional(),
+        note: z.string().optional(),
+    }).parse(req.body);
+
+    const result = await voucherService.generateBatch({
+        tenantId: req._tenantId,
+        ...body,
+        generatedBy: req.user?.id,
+    });
+    res.status(201).json({ data: result });
+}));
+
+router.delete('/vouchers/batches/:id', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const result = await voucherService.deleteBatch(req.params.id, req._tenantId);
+    res.json({ data: result });
+}));
+
+router.post('/vouchers/batches/:id/mark-printed', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    await voucherService.markPrinted(req.params.id, req._tenantId);
+    res.json({ data: { ok: true } });
+}));
+
+router.delete('/vouchers/:id', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const ok = await voucherService.deleteVoucher(req.params.id, req._tenantId);
+    if (!ok) return res.status(404).json({ error: 'Not found' });
+    res.status(204).end();
 }));
 
 // ─── Per-router settings ───────────────────────────────────────────────────

@@ -182,6 +182,73 @@ export function useCancelInvoice() {
     });
 }
 
+// ─── Vouchers (Phase C) ───────────────────────────────────────────────────
+export function useVouchersForRouter(routerId) {
+    return useQuery({
+        queryKey: ['billing-vouchers', routerId],
+        enabled: !!routerId,
+        refetchInterval: 60_000,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/vouchers/router/${routerId}`);
+            return res.data?.data ?? { mode: 'disabled', items: [] };
+        },
+    });
+}
+export function useVoucherBatches(params = {}) {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => v !== undefined && v !== null && v !== '' && search.set(k, String(v)));
+    return useQuery({
+        queryKey: ['billing-voucher-batches', params],
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/vouchers/batches?${search}`);
+            return res.data?.data ?? [];
+        },
+        refetchInterval: 60_000,
+    });
+}
+export function useVoucherBatch(id) {
+    return useQuery({
+        queryKey: ['billing-voucher-batch', id],
+        enabled: !!id,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/vouchers/batches/${id}`);
+            return res.data?.data ?? null;
+        },
+    });
+}
+export function useGenerateVoucherBatch() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (input) => apiClient.post(`${API}/vouchers/batches`, input).then(r => r.data?.data),
+        onSuccess: (data) => {
+            toast.success(`${data.created} voucher dibuat${data.failed ? `, ${data.failed} gagal` : ''}`);
+            qc.invalidateQueries({ queryKey: ['billing-voucher-batches'] });
+            qc.invalidateQueries({ queryKey: ['billing-vouchers'] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+export function useDeleteVoucherBatch() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => apiClient.delete(`${API}/vouchers/batches/${id}`).then(r => r.data?.data),
+        onSuccess: () => {
+            toast.success('Batch dihapus');
+            qc.invalidateQueries({ queryKey: ['billing-voucher-batches'] });
+            qc.invalidateQueries({ queryKey: ['billing-vouchers'] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+export function useMarkBatchPrinted() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => apiClient.post(`${API}/vouchers/batches/${id}/mark-printed`).then(r => r.data?.data),
+        onSuccess: () => qc.invalidateQueries({ queryKey: ['billing-vouchers'] }),
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
 // ─── Per-router settings ──────────────────────────────────────────────────
 export function useBillingRouterSettings(routerId) {
     return useQuery({

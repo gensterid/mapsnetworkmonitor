@@ -22,6 +22,7 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
 const Tenants = lazy(() => import('./pages/Tenants'));
 const Billing = lazy(() => import('./pages/Billing'));
+const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const KioskView = lazy(() => import('./pages/KioskView'));
 
 import { useSession, useRole } from './lib/auth-client';
@@ -278,6 +279,11 @@ function App() {
               <Route path="/kiosk" element={
                 <ProtectedRoute>
                   <KioskView />
+                </ProtectedRoute>
+              } />
+              <Route path="/billing/vouchers/print/:id" element={
+                <ProtectedRoute>
+                  <VoucherPrint />
                 </ProtectedRoute>
               } />
             </Routes>

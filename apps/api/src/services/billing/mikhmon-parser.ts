@@ -39,11 +39,49 @@ const TS_KEYS = new Set(['up', 'on']);
 const NUM_KEYS = new Set(['ts']);
 
 /**
- * Parse a Mikhmon-style comment. Returns null when the input is empty,
- * otherwise always returns a result (with empty fields where not parseable).
+ * Mikhmon v3 native format used by hotspot/generateuser.php and adduser.php:
+ *
+ *     <mode>-<rand3>-<m.d.y>-<note>
+ *
+ * where <mode> is literally "vc" or "up". Examples:
+ *     vc-523-04.28.26-                    (vc mode, no note)
+ *     up-742-04.28.26-paket-1d            (up mode, with note)
+ *
+ * The trailing note is optional / often holds the package name. The date is
+ * generation date (creation), not expiry — Mikhmon stores expiry separately
+ * in /system scheduler entries (pipe-delimited).
+ */
+const MIKHMON_LEGACY_RE = /^(up|vc)-(\d{3})-(\d{2})\.(\d{2})\.(\d{2})-(.*)$/;
+
+/**
+ * Parse a hotspot user comment. Supports two formats:
+ *
+ * 1. Mikhmon v3 legacy: `vc-523-04.28.26-note` (handled first)
+ * 2. Key:value form:    `up:2026-04-30 12:00:00 ts:1714478400 vc:1d-100k bp:1d`
+ *
+ * Returns null when the input is empty, otherwise always returns a result
+ * (with empty fields where not parseable).
  */
 export function parseMikhmonComment(raw: string | null | undefined): MikhmonComment | null {
     if (!raw || typeof raw !== 'string' || raw.trim().length === 0) return null;
+
+    const trimmed = raw.trim();
+
+    // Try Mikhmon v3 native first.
+    const legacy = MIKHMON_LEGACY_RE.exec(trimmed);
+    if (legacy) {
+        const [, mode, rand, mm, dd, yy, note] = legacy;
+        const year = 2000 + parseInt(yy, 10);
+        const generatedAt = new Date(year, parseInt(mm, 10) - 1, parseInt(dd, 10));
+        return {
+            expiresAt: null, // Mikhmon stores expiry in scheduler, not in user comment
+            firstLoginAt: null,
+            voucherCode: mode === 'vc' ? trimmed.split('-')[0] || null : null,
+            billingPeriod: note?.trim() || null,
+            extras: { mikhmonMode: mode, mikhmonRand: rand, generatedAt: generatedAt.toISOString() },
+            raw,
+        };
+    }
 
     const result: MikhmonComment = {
         expiresAt: null,
