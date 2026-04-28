@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import {
     ShieldCheck, Terminal, Check, Copy, AlertTriangle, Info,
     HardDrive, Database, Server, Cpu, Activity, RefreshCw, Clock,
-    FileText, Wrench, AlertCircle, ChevronDown, ChevronRight
+    FileText, Wrench, AlertCircle, ChevronDown, ChevronRight, Receipt
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -82,6 +82,14 @@ export default function SystemHealthGuide({ currentUser }) {
             description: 'Nilai optimal untuk setup saat ini',
             color: 'text-amber-400',
             items: REFERENCE,
+        },
+        {
+            id: 'billing',
+            title: 'Panduan Modul Billing',
+            icon: Receipt,
+            description: 'Alur pemakaian: paket → pelanggan → tagihan → bayar',
+            color: 'text-cyan-400',
+            items: BILLING_GUIDE,
         },
     ];
 
@@ -495,6 +503,329 @@ pm2 save`,
 /var/lib/postgresql/14/             # PostgreSQL data
 /var/lib/redis/                     # Redis RDB dump
 /var/log/redis/                     # Redis logs`,
+        level: 'info',
+    },
+];
+
+// =============================================================================
+// BILLING MODULE GUIDE — operational walkthrough
+// =============================================================================
+
+const BILLING_GUIDE = [
+    {
+        title: '🎯 Alur Lengkap (overview)',
+        description: 'Urutan langkah dari setup awal sampai pelanggan bayar online.',
+        command: `1. SETTINGS  → pilih router → atur Profile Isolir, mode Hotspot, gateway, WA
+2. PAKET     → buat template layanan (PPPoE / Hotspot)
+3. PELANGGAN → daftarkan pelanggan + nomor HP (PIN auto = 4 digit terakhir)
+4. SUBSCRIPTION → assign pelanggan → paket → router (otomatis push ke MikroTik)
+5. SCHEDULER otomatis generate INVOICE pada tgl billing tiap pelanggan
+6. WA REMINDER otomatis kirim H-1, hari-H, overdue
+7. PELANGGAN bayar via /member portal atau operator catat manual
+8. ISOLIR otomatis kalau lewat grace days, UNISOLIR otomatis saat dibayar`,
+        expected: 'Sekali setup awal selesai, alur 5-8 jalan otomatis tiap hari/bulan.',
+        level: 'info',
+    },
+    {
+        title: '⚙️ Step 1 — Pengaturan Router (wajib dulu)',
+        description: 'Buka tab Pengaturan Router, pilih router, isi sesuai kondisi MikroTik Anda.',
+        command: `[PPPoE]
+☑ Aktifkan billing PPPoE
+  Profile Isolir       : nama profile MikroTik untuk isolir (mis: pppoe-isolir)
+                         Profile ini harus sudah ada di /ppp profile dengan
+                         rate-limit kecil (256k/256k) + queue redirect ke
+                         halaman tagihan (kalau perlu)
+  Redirect URL         : URL halaman tagihan (opsional, untuk transparent proxy)
+  Grace Days           : jumlah hari setelah jatuh tempo sebelum auto-isolir
+                         0 = isolir langsung saat lewat
+                         3 = beri toleransi 3 hari
+  Default tanggal tagih: kalau pelanggan tidak set, pakai tgl ini
+
+[Hotspot]
+  Mode Hotspot:
+  - Disabled        : tidak pakai voucher
+  - Native          : sistem ini yang pegang state voucher
+  - Mikhmon Bridge  : baca dari MikroTik comments (untuk migrasi dari Mikhmon)`,
+        expected: 'Tombol Simpan tersimpan tanpa error.',
+        troubleshoot: 'Profile isolir wajib ada DI MIKROTIK sebelum diset di sini. Kalau profile salah, isolir akan gagal silent. Cek di winbox: /ppp profile print',
+        level: 'critical',
+    },
+    {
+        title: '📦 Step 2 — Buat Paket Layanan',
+        description: 'Tab Paket → klik Tambah. Paket = template yang dipakai banyak pelanggan.',
+        command: `Contoh PPPoE:
+  Nama Paket       : HOME 10 Mbps
+  Tipe             : pppoe
+  MikroTik Profile : pppoe-home-10m   (HARUS sudah ada di MikroTik!)
+  Harga (IDR)      : 150000
+  Cycle Type       : monthly
+  Cycle Value      : 1                (1 bulan)
+
+Contoh Hotspot Voucher:
+  Nama Paket       : Voucher 1 Hari
+  Tipe             : hotspot
+  MikroTik Profile : default          (atau profile hotspot yang sudah ada)
+  Harga (IDR)      : 5000
+  Cycle Type       : duration
+  Cycle Value      : 86400            (24 jam dalam detik)`,
+        expected: 'Paket muncul di tabel.',
+        troubleshoot: 'Profile MikroTik wajib ada DULU. Cek: /ppp profile print (PPPoE) atau /ip hotspot user profile print (Hotspot)',
+        level: 'warning',
+    },
+    {
+        title: '👤 Step 3 — Daftar Pelanggan',
+        description: 'Tab Pelanggan → klik Tambah. Kode pelanggan auto (CUST-NNNN).',
+        command: `Wajib  : Nama
+Wajib  : Nomor HP   (4 digit terakhir = PIN default untuk login portal)
+Opsional: Email, Alamat
+Opsional: PIN custom (kalau ingin pakai PIN selain 4 digit terakhir HP)`,
+        expected: 'Pelanggan masuk tabel dengan kode CUST-XXXX dan PIN otomatis.',
+        level: 'info',
+    },
+    {
+        title: '🔗 Step 4 — Buat Subscription (penting: ini yang push ke MikroTik)',
+        description: 'Tab Subscription → klik Tambah. Akan otomatis bikin /ppp secret di router.',
+        command: `Pelanggan        : pilih dari dropdown
+Paket            : pilih dari dropdown (filter PPPoE/Hotspot)
+Router           : router target (paket akan di-push ke router ini)
+Username PPPoE   : harus unik per router (mis: budi-home)
+Password         : password PPPoE — pelanggan akan pakai ini di mikrotik
+Tanggal tagih    : 1-28 (anchor per pelanggan, mis tgl 5 → tagihan tiap tgl 5)`,
+        expected: 'Subscription muncul di tabel dengan status active. Cek di MikroTik: /ppp secret print where name=<username> — harus muncul.',
+        troubleshoot: 'Kalau gagal "MikroTik push failed": cek koneksi ke router (status online di halaman Devices), profile valid, username belum dipakai.',
+        level: 'critical',
+    },
+    {
+        title: '🤖 Step 5 — Scheduler Otomatis (tidak perlu dipencet)',
+        description: 'Job billing-scheduler jalan tiap jam. Yang dia kerjakan:',
+        command: `Setiap jam:
+  ✓ Generate invoice baru untuk subscription yang nextDueAt sudah lewat
+  ✓ Tandai invoice yang lewat dueAt sebagai 'overdue'
+  ✓ Auto-isolir subscription yang overdue + lewat grace days
+  ✓ Sweep WA reminder (H-1, hari-H, overdue) — kirim sekali per hari per invoice
+
+Cek log scheduler:
+pm2 logs monitoring-api --lines 200 --nostream | grep -E "Billing daily|WA reminder|generate invoice"`,
+        expected: 'Log "Billing daily job completed" muncul tiap jam.',
+        level: 'info',
+    },
+    {
+        title: '💬 Step 6 — Setup Notifikasi WA',
+        description: 'Pengaturan Router → bagian "Notifikasi WhatsApp". Pilih provider.',
+        command: `[Fonnte] (paling populer di Indonesia, free tier)
+1. Daftar https://fonnte.com → buat device → connect WA
+2. Copy token dari dashboard
+3. Paste di settings: Provider WA = Fonnte, Token = ...
+4. Centang reminder yang mau aktif (H-1, hari-H, overdue, isolir)
+5. Test: tab Notifikasi WA → klik "Tes Kirim"
+
+[Wablas] (berbayar, lebih stabil)
+- Token + (opsional) Secret + Base URL
+- Format mirip Fonnte
+
+[Webhook generic]
+- Untuk gateway custom (WAHA, WACI, dll)
+- POST URL akan dikirimi: { phone, message, type, invoiceId, subscriptionId }`,
+        expected: 'Tes kirim muncul di HP Anda.',
+        troubleshoot: 'Kalau "401" atau "device not found": token salah / device WA disconnect. Login ulang ke dashboard provider, scan QR ulang.',
+        level: 'warning',
+    },
+    {
+        title: '💳 Step 7 — Setup Payment Gateway (opsional)',
+        description: 'Untuk customer self-service. Pengaturan Router → bagian "Payment Gateway".',
+        command: `[Tripay] paling cocok untuk RT/RW Indonesia
+1. Daftar https://tripay.co.id → verifikasi merchant
+2. Copy: API Key, Private Key, Merchant Code
+3. Set di settings, default method = QRIS
+4. PENTING: copy "Webhook URL" dari settings → paste di Tripay dashboard
+   → Pengaturan → Callback URL
+5. Centang Sandbox dulu untuk test
+
+[Midtrans] global player
+1. https://midtrans.com → register
+2. Copy Server Key
+3. Set webhook URL di Midtrans → Settings → Configuration → Payment Notification
+
+[Xendit] enterprise-grade
+1. https://xendit.co → register
+2. Copy Secret Key + buat Webhook → catat Verification Token
+3. Set webhook URL di Xendit dashboard`,
+        expected: 'Saat klik "Link Bayar" di tab Tagihan, URL Tripay/Midtrans/Xendit muncul.',
+        troubleshoot: 'Kalau webhook tidak callback: cek di dashboard gateway log webhook → kalau timeout, pastikan domain aplikasi accessible publik (bukan localhost). Tripay sandbox kadang delay 1-2 menit.',
+        level: 'info',
+    },
+    {
+        title: '🎫 Step 8 — Generate Voucher Hotspot',
+        description: 'Tab Voucher Hotspot → pilih router → klik Generate Batch.',
+        command: `Paket             : pilih paket Hotspot (Voucher 1 Jam, dll)
+Jumlah            : 1-500 voucher per batch
+Panjang Kode      : 3-12 karakter
+Format Kode       : Angka / Huruf kecil / Campuran / dst
+Mode              : VC (kode = password) atau UP (kode dan password berbeda)
+Prefix (opsional) : tambahan di awal kode (HSP-, dst)
+Catatan           : tag paket, tampil di voucher cetak
+
+Setelah generate:
+- Sistem otomatis push semua voucher ke /ip hotspot user
+- Comment-nya pakai format Mikhmon-compatible
+- Klik "Cetak" di tabel batch → tab baru terbuka
+  - ?layout=a4       4 voucher per baris
+  - ?layout=small    6 voucher per baris (denser)
+  - ?layout=thermal  thermal printer 58/80mm`,
+        expected: 'Toast "{N} voucher dibuat". Voucher muncul di tabel + di MikroTik /ip hotspot user print.',
+        troubleshoot: 'Kalau "X gagal": kemungkinan nama bentrok atau profile tidak valid. Coba ulang dengan prefix berbeda.',
+        level: 'info',
+    },
+    {
+        title: '🔄 Step 9 — Mikhmon Bridge Mode (untuk migrasi)',
+        description: 'Operator yang sudah pakai Mikhmon → set hotspotMode = mikhmon_bridge.',
+        command: `1. Pengaturan Router → Mode Hotspot = Mikhmon Bridge → Simpan
+2. Tab Voucher Hotspot → pilih router yang sama
+3. Voucher existing dari Mikhmon langsung muncul (read-only via parsing comment)
+4. Mau migrasi penuh? Switch ke Native, voucher baru pakai DB kita.
+   Voucher Mikhmon lama tetap valid di MikroTik tapi tidak terlihat lagi
+   di UI (kecuali kembalikan mode bridge).
+
+Format comment Mikhmon yang dikenali:
+  vc-NNN-mm.dd.yy-note    (mode VC)
+  up-NNN-mm.dd.yy-note    (mode UP)`,
+        expected: 'Tabel voucher menampilkan badge "mikhmon_bridge" dan list dari MikroTik.',
+        level: 'info',
+    },
+    {
+        title: '👥 Step 10 — Pelanggan Self-Service Portal',
+        description: 'Bagikan ke pelanggan: link cek status + login portal.',
+        command: `Halaman Publik (no login):
+  https://YOURDOMAIN/cekstatus
+  Input: Username PPPoE/Kode pelanggan + 4 digit terakhir HP
+  Hasil: status layanan ringkas
+
+Halaman Portal Pelanggan:
+  https://YOURDOMAIN/member
+  Login: Username + PIN (default 4 digit terakhir HP)
+  Bisa: lihat profil, tagihan, klik "Bayar" → pilih gateway → URL
+
+Bagikan via WA broadcast atau footer landing page.`,
+        expected: 'Pelanggan bisa cek status & bayar tanpa menghubungi operator.',
+        level: 'info',
+    },
+    {
+        title: '🔐 Step 11 — Set PORTAL_TOKEN_SECRET (production)',
+        description: 'Token portal pelanggan ditandatangani HMAC. Set secret kuat di .env.',
+        command: `# Generate random 64-char hex
+echo "PORTAL_TOKEN_SECRET=$(openssl rand -hex 32)" >> /opt/app/.env
+pm2 reload monitoring-api
+
+# Verifikasi:
+grep PORTAL_TOKEN_SECRET /opt/app/.env`,
+        expected: 'Variabel terset, API reload tanpa error.',
+        troubleshoot: 'Jangan ganti SECRET sembarangan setelah production live — semua token portal pelanggan akan invalid (mereka harus login ulang).',
+        level: 'warning',
+    },
+    {
+        title: '🚨 Troubleshooting: Subscription dibuat tapi tidak push ke MikroTik',
+        description: 'Cek koneksi router + log API.',
+        command: `# Cek status router target
+sudo -u postgres psql -d mikrotik_monitor -c \\
+  "SELECT name, host, status, last_error_message FROM routers WHERE id = '<routerId>';"
+
+# Cek log push secret
+pm2 logs monitoring-api --lines 200 --nostream | grep -iE "subscription|ppp secret"`,
+        expected: 'Status online + tidak ada last_error_message. Log "Failed to push PPP secret" = router tidak reachable.',
+        troubleshoot: 'Cek SNMP/API port (8728) reachable dari Proxmox ke router. Test manual: telnet <host> 8728 atau pakai winbox dari laptop yang sama dengan Proxmox.',
+        level: 'critical',
+    },
+    {
+        title: '🚨 Troubleshooting: Auto-isolir tidak jalan',
+        description: 'Subscription overdue tapi tetap aktif.',
+        command: `# Cek scheduler benar-benar jalan
+pm2 logs monitoring-api --lines 500 --nostream | grep "Billing daily job completed"
+
+# Cek subscription yang seharusnya isolir
+sudo -u postgres psql -d mikrotik_monitor -c "
+SELECT s.id, s.mikrotik_identity, s.status, s.next_due_at,
+       i.invoice_number, i.due_at, i.status AS inv_status
+FROM billing_subscriptions s
+LEFT JOIN billing_invoices i ON i.subscription_id = s.id
+WHERE s.status = 'active'
+  AND i.status = 'overdue'
+  AND i.due_at < NOW() - INTERVAL '0 days';
+"`,
+        expected: 'Job log muncul tiap jam. Query menunjukkan kandidat isolir.',
+        troubleshoot: 'Cek isolirGraceDays di settings — kalau diset 30 hari, baru isolir setelah 30 hari overdue. Set 0 untuk isolir langsung.',
+        level: 'warning',
+    },
+    {
+        title: '🚨 Troubleshooting: WA reminder tidak terkirim',
+        description: 'Cek tab Notifikasi WA → tabel log.',
+        command: `# Lihat semua attempt 24 jam terakhir
+sudo -u postgres psql -d mikrotik_monitor -c "
+SELECT to_phone, type, provider, status, error, created_at
+FROM billing_wa_notifications_log
+WHERE created_at >= NOW() - INTERVAL '24 hours'
+ORDER BY created_at DESC LIMIT 20;
+"`,
+        expected: 'Status "sent" untuk semua reminder yang seharusnya kirim.',
+        troubleshoot: `Status failed:
+- "missing token"        → kredensial belum diisi
+- "401" / "Unauthorized" → token salah, regenerate di dashboard provider
+- "device not found"     → device WA disconnect, scan QR ulang
+- "invalid phone"        → format nomor pelanggan salah, edit pelanggan`,
+        level: 'warning',
+    },
+    {
+        title: '🚨 Troubleshooting: Webhook gateway tidak callback',
+        description: 'Customer sudah bayar tapi invoice tetap unpaid.',
+        command: `# Cek log billing webhook
+pm2 logs monitoring-api --lines 1000 --nostream | grep -iE "webhook|gateway"
+
+# Cek pending payments
+sudo -u postgres psql -d mikrotik_monitor -c "
+SELECT i.invoice_number, p.method, p.gateway_txn_id,
+       i.status, p.recorded_at
+FROM billing_payments p
+JOIN billing_invoices i ON i.id = p.invoice_id
+WHERE p.method LIKE 'gateway_%'
+ORDER BY p.recorded_at DESC LIMIT 10;
+"`,
+        expected: 'Log "gateway webhook → invoice marked paid" muncul setiap pembayaran.',
+        troubleshoot: `Penyebab umum:
+1. Webhook URL belum di-set di dashboard gateway → set sekarang
+2. Domain tidak accessible publik (di belakang VPN/firewall)
+   → Tripay/Midtrans/Xendit perlu domain publik
+3. Signature mismatch → kredensial di sistem berbeda dengan yang dipakai
+   saat create transaction (cek mode sandbox vs production)
+4. Body parser conflict → harus pakai raw body (sudah dihandle, jangan
+   diubah middleware order di routes/billing.routes.ts)`,
+        level: 'critical',
+    },
+    {
+        title: '📊 Query Bermanfaat untuk Operasional',
+        description: 'SQL siap-pakai untuk laporan ad-hoc.',
+        command: `-- Total piutang per tenant
+SELECT t.name AS tenant, COUNT(*) AS invoices,
+       SUM(i.amount)::numeric AS total
+FROM billing_invoices i
+JOIN tenants t ON t.id = i.tenant_id
+WHERE i.status IN ('unpaid', 'overdue')
+GROUP BY t.name ORDER BY total DESC;
+
+-- Pelanggan dengan tagihan tertua
+SELECT c.code, c.name, i.invoice_number, i.due_at,
+       NOW()::date - i.due_at::date AS days_overdue,
+       i.amount
+FROM billing_invoices i
+JOIN billing_customers c ON c.id = i.customer_id
+WHERE i.status = 'overdue'
+ORDER BY i.due_at ASC LIMIT 20;
+
+-- Pendapatan harian 30 hari terakhir
+SELECT DATE(paid_at) AS day, COUNT(*) AS payments,
+       SUM(amount)::numeric AS revenue
+FROM billing_invoices
+WHERE status = 'paid' AND paid_at >= NOW() - INTERVAL '30 days'
+GROUP BY DATE(paid_at) ORDER BY day DESC;`,
+        expected: 'Output sesuai data Anda.',
         level: 'info',
     },
 ];
