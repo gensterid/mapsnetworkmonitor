@@ -145,6 +145,15 @@ export async function runBillingDailyJob(): Promise<{
         logger.error({ err: err?.message }, 'billing job: auto-isolir step failed');
     }
 
+    // ─── 4. WA reminder sweep ────────────────────────────────────────────
+    try {
+        const { runWaReminderSweep } = await import('./wa-notification.service.js');
+        const r = await runWaReminderSweep();
+        logger.info({ wa: r }, 'WA reminder sweep done');
+    } catch (err: any) {
+        logger.error({ err: err?.message }, 'billing job: wa reminder step failed');
+    }
+
     logger.info({ invoicesGenerated, isolirApplied, overdueMarked }, 'Billing daily job completed');
     return { invoicesGenerated, isolirApplied, overdueMarked };
 }

@@ -9,6 +9,9 @@ import {
     billingSettingsService,
 } from '../services/billing/billing.service.js';
 import { voucherService } from '../services/billing/voucher.service.js';
+import { billingReportsService } from '../services/billing/billing-reports.service.js';
+import { sendWaNotification, buildMessage } from '../services/billing/wa-notification.service.js';
+import type { WaProviderConfig } from '../services/billing/wa-providers.js';
 
 /**
  * Billing routes — Phase B.2.
@@ -320,6 +323,87 @@ router.delete('/vouchers/:id', requireTenant, requireOperator, asyncHandler(asyn
 router.get('/settings/router/:routerId', requireTenant, asyncHandler(async (req: any, res) => {
     const row = await billingSettingsService.getForRouter(req.params.routerId, req._tenantId);
     res.json({ data: row });
+}));
+
+// ─── Reports (Phase D) ─────────────────────────────────────────────────────
+
+router.get('/reports/overview', requireTenant, asyncHandler(async (req: any, res) => {
+    const data = await billingReportsService.overview(req._tenantId);
+    res.json({ data });
+}));
+
+router.get('/reports/revenue-by-month', requireTenant, asyncHandler(async (req: any, res) => {
+    const data = await billingReportsService.revenueByMonth(req._tenantId);
+    res.json({ data });
+}));
+
+router.get('/reports/aging', requireTenant, asyncHandler(async (req: any, res) => {
+    const data = await billingReportsService.aging(req._tenantId);
+    res.json({ data });
+}));
+
+router.get('/reports/top-payers', requireTenant, asyncHandler(async (req: any, res) => {
+    const months = Math.max(1, Math.min(12, parseInt(String(req.query.months ?? '1'), 10) || 1));
+    const limit = Math.max(1, Math.min(50, parseInt(String(req.query.limit ?? '10'), 10) || 10));
+    const data = await billingReportsService.topPayers(req._tenantId, months, limit);
+    res.json({ data });
+}));
+
+router.get('/reports/voucher-sales', requireTenant, asyncHandler(async (req: any, res) => {
+    const months = Math.max(1, Math.min(12, parseInt(String(req.query.months ?? '1'), 10) || 1));
+    const data = await billingReportsService.voucherSales(req._tenantId, months);
+    res.json({ data });
+}));
+
+router.get('/reports/recent-payments', requireTenant, asyncHandler(async (req: any, res) => {
+    const limit = Math.max(1, Math.min(100, parseInt(String(req.query.limit ?? '20'), 10) || 20));
+    const data = await billingReportsService.recentPayments(req._tenantId, limit);
+    res.json({ data });
+}));
+
+// ─── WA notification log + test ────────────────────────────────────────────
+
+router.get('/wa-log', requireTenant, asyncHandler(async (req: any, res) => {
+    const limit = Math.max(1, Math.min(500, parseInt(String(req.query.limit ?? '100'), 10) || 100));
+    const data = await billingReportsService.waNotifLog(req._tenantId, limit);
+    res.json({ data });
+}));
+
+router.post('/wa-test', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        routerId: z.string().uuid(),
+        phone: z.string().min(6),
+        message: z.string().optional(),
+    }).parse(req.body);
+
+    const settings = await billingSettingsService.getForRouter(body.routerId, req._tenantId);
+    if (!settings) return res.status(404).json({ error: 'Router settings not found' });
+    if (settings.waProvider === 'none' || !settings.waProvider) {
+        return res.status(400).json({ error: 'WA provider belum dikonfigurasi untuk router ini' });
+    }
+
+    const cfg = settings.waConfig || {};
+    let providerCfg: WaProviderConfig;
+    if (settings.waProvider === 'fonnte') {
+        if (!(cfg as any).token) return res.status(400).json({ error: 'Fonnte token belum diisi' });
+        providerCfg = { provider: 'fonnte', token: (cfg as any).token, deviceId: (cfg as any).deviceId, countryCode: (cfg as any).countryCode };
+    } else if (settings.waProvider === 'wablas') {
+        if (!(cfg as any).token) return res.status(400).json({ error: 'Wablas token belum diisi' });
+        providerCfg = { provider: 'wablas', token: (cfg as any).token, secret: (cfg as any).secret, baseUrl: (cfg as any).baseUrl };
+    } else if (settings.waProvider === 'webhook') {
+        if (!(cfg as any).url) return res.status(400).json({ error: 'Webhook URL belum diisi' });
+        providerCfg = { provider: 'webhook', url: (cfg as any).url, headers: (cfg as any).headers, method: (cfg as any).method };
+    } else {
+        return res.status(400).json({ error: 'Unknown provider' });
+    }
+
+    const message = body.message || buildMessage('manual', { customerName: 'Test' });
+    const result = await sendWaNotification({
+        tenantId: req._tenantId, routerId: body.routerId,
+        customerId: null,
+        type: 'manual', phone: body.phone, message, cfg: providerCfg,
+    });
+    res.json({ data: result });
 }));
 
 router.put('/settings/router/:routerId', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {

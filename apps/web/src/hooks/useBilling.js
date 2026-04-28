@@ -249,6 +249,84 @@ export function useMarkBatchPrinted() {
     });
 }
 
+// ─── Reports + WA (Phase D) ───────────────────────────────────────────────
+export function useBillingOverview() {
+    return useQuery({
+        queryKey: ['billing-report-overview'],
+        refetchInterval: 60_000,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/reports/overview`);
+            return res.data?.data ?? null;
+        },
+    });
+}
+export function useRevenueByMonth() {
+    return useQuery({
+        queryKey: ['billing-report-revenue-by-month'],
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/reports/revenue-by-month`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useAgingReport() {
+    return useQuery({
+        queryKey: ['billing-report-aging'],
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/reports/aging`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useTopPayers(months = 1, limit = 10) {
+    return useQuery({
+        queryKey: ['billing-report-top-payers', months, limit],
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/reports/top-payers?months=${months}&limit=${limit}`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useVoucherSales(months = 1) {
+    return useQuery({
+        queryKey: ['billing-report-voucher-sales', months],
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/reports/voucher-sales?months=${months}`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useRecentPayments(limit = 20) {
+    return useQuery({
+        queryKey: ['billing-report-recent-payments', limit],
+        refetchInterval: 60_000,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/reports/recent-payments?limit=${limit}`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useWaLog(limit = 100) {
+    return useQuery({
+        queryKey: ['billing-wa-log', limit],
+        refetchInterval: 30_000,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/wa-log?limit=${limit}`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useWaTest() {
+    return useMutation({
+        mutationFn: ({ routerId, phone, message }) => apiClient.post(`${API}/wa-test`, { routerId, phone, message }).then(r => r.data?.data),
+        onSuccess: (data) => {
+            if (data?.ok) toast.success('Pesan WA terkirim');
+            else toast.error(data?.error || 'Gagal mengirim WA');
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
 // ─── Per-router settings ──────────────────────────────────────────────────
 export function useBillingRouterSettings(routerId) {
     return useQuery({

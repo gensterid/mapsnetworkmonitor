@@ -297,6 +297,25 @@ export const subscriptionService = {
             .set({ status: 'isolir', statusReason: reason, updatedAt: new Date() })
             .where(eq(subscriptions.id, id))
             .returning();
+
+        // Fire WA notification (best-effort, do not block on failure)
+        try {
+            if (settings?.waNotifIsolirEnabled !== false) {
+                const { sendOneOff, buildMessage } = await import('./wa-notification.service.js');
+                const [cust] = await db.select().from(customers).where(eq(customers.id, sub.customerId)).limit(1);
+                if (cust?.phone) {
+                    const message = buildMessage('isolir', { customerName: cust.name });
+                    await sendOneOff({
+                        tenantId: sub.tenantId, routerId: sub.routerId,
+                        customerId: cust.id, subscriptionId: sub.id,
+                        type: 'isolir', phone: cust.phone, message,
+                    });
+                }
+            }
+        } catch (e: any) {
+            logger.warn({ err: e?.message }, 'WA isolir notification failed');
+        }
+
         return row;
     },
 
@@ -456,6 +475,28 @@ export const invoiceService = {
                     await subscriptionService.unisolir(sub.id, tenantId);
                 }
             }
+
+            // Payment received WA notification (best-effort)
+            try {
+                const { sendOneOff, buildMessage } = await import('./wa-notification.service.js');
+                const [cust] = await db.select().from(customers).where(eq(customers.id, inv.customerId)).limit(1);
+                if (cust?.phone && inv.routerId) {
+                    const message = buildMessage('payment_received', {
+                        customerName: cust.name,
+                        invoiceNumber: inv.invoiceNumber,
+                        amount: payment.amount,
+                    });
+                    await sendOneOff({
+                        tenantId, routerId: inv.routerId,
+                        customerId: cust.id, subscriptionId: inv.subscriptionId,
+                        invoiceId: inv.id,
+                        type: 'payment_received', phone: cust.phone, message,
+                    });
+                }
+            } catch (e: any) {
+                logger.warn({ err: e?.message }, 'WA payment notification failed');
+            }
+
             return result;
         });
     },

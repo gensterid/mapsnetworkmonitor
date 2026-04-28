@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer } from 'lucide-react';
+import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send } from 'lucide-react';
 import clsx from 'clsx';
 import {
     usePackages, useCreatePackage, useUpdatePackage, useDeletePackage,
@@ -12,6 +12,8 @@ import {
     useInvoices, useCreateInvoice, usePayInvoice, useCancelInvoice,
     useBillingRouterSettings, useUpdateBillingRouterSettings,
     useVouchersForRouter, useVoucherBatches, useGenerateVoucherBatch, useDeleteVoucherBatch,
+    useBillingOverview, useRevenueByMonth, useAgingReport, useTopPayers, useVoucherSales, useRecentPayments,
+    useWaLog, useWaTest,
     useRouters,
 } from '@/hooks';
 import toast from 'react-hot-toast';
@@ -22,6 +24,8 @@ const TABS = [
     { id: 'subscriptions', label: 'Subscription', icon: Repeat },
     { id: 'invoices', label: 'Tagihan', icon: Receipt },
     { id: 'vouchers', label: 'Voucher Hotspot', icon: Ticket },
+    { id: 'reports', label: 'Laporan', icon: BarChart3 },
+    { id: 'wa', label: 'Notifikasi WA', icon: MessageSquare },
     { id: 'settings', label: 'Pengaturan Router', icon: SettingsIcon },
 ];
 
@@ -639,16 +643,263 @@ function VouchersTab() {
     );
 }
 
+// ─── Reports tab ───────────────────────────────────────────────────────────
+function ReportsTab() {
+    const { data: ov } = useBillingOverview();
+    const { data: rev = [] } = useRevenueByMonth();
+    const { data: aging = [] } = useAgingReport();
+    const { data: top = [] } = useTopPayers(1, 10);
+    const { data: vs = [] } = useVoucherSales(1);
+    const { data: payments = [] } = useRecentPayments(20);
+
+    const maxRev = useMemo(() => Math.max(1, ...rev.map(r => Number(r.revenue) || 0)), [rev]);
+
+    return (
+        <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <Card><CardContent className="p-4">
+                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Pelanggan Aktif</div>
+                    <div className="text-2xl font-bold text-white">{ov?.active_customers ?? '—'}</div>
+                </CardContent></Card>
+                <Card><CardContent className="p-4">
+                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Subscription Aktif</div>
+                    <div className="text-2xl font-bold text-emerald-400">{ov?.active_subscriptions ?? '—'}</div>
+                    <div className="text-xs text-slate-500 mt-1">Isolir: {ov?.isolir_subscriptions ?? '—'}</div>
+                </CardContent></Card>
+                <Card><CardContent className="p-4">
+                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Pendapatan Bulan Ini</div>
+                    <div className="text-2xl font-bold text-emerald-400 font-mono">{fmtIDR(ov?.revenue_this_month)}</div>
+                    <div className="text-xs text-slate-500 mt-1">Bulan lalu: {fmtIDR(ov?.revenue_last_month)}</div>
+                </CardContent></Card>
+                <Card><CardContent className="p-4">
+                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Piutang (Outstanding)</div>
+                    <div className="text-2xl font-bold text-amber-400 font-mono">{fmtIDR(ov?.receivables_total)}</div>
+                    <div className="text-xs text-slate-500 mt-1">Unpaid: {ov?.unpaid_invoices ?? 0} • Overdue: {ov?.overdue_invoices ?? 0}</div>
+                </CardContent></Card>
+            </div>
+
+            <Card>
+                <CardHeader><CardTitle className="text-base">Tren Pendapatan (12 bulan)</CardTitle></CardHeader>
+                <CardContent>
+                    {rev.length === 0 ? <div className="text-center text-slate-500 py-6">Belum ada data</div> : (
+                        <div className="space-y-2">
+                            {rev.map(r => {
+                                const pct = ((Number(r.revenue) || 0) / maxRev) * 100;
+                                return (
+                                    <div key={r.month} className="flex items-center gap-3 text-sm">
+                                        <div className="w-20 text-slate-400 text-xs font-mono">{r.month}</div>
+                                        <div className="flex-1 h-6 bg-slate-800 rounded overflow-hidden relative">
+                                            <div className="h-full bg-gradient-to-r from-emerald-500/40 to-emerald-500/80" style={{ width: `${pct}%` }} />
+                                            <div className="absolute inset-0 flex items-center justify-end pr-2 text-xs text-white font-mono">{fmtIDR(r.revenue)}</div>
+                                        </div>
+                                        <div className="w-12 text-right text-xs text-slate-500">{r.invoices}x</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                    <CardHeader><CardTitle className="text-base">Aging (Piutang per umur)</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <tr><th className="text-left px-4 py-2">Bucket</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Jumlah</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {aging.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">Tidak ada piutang</td></tr> : aging.map((a, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-2 text-slate-300">{a.bucket === 'current' ? 'Belum jatuh tempo' : `${a.bucket} hari`}</td>
+                                        <td className="px-4 py-2 text-right text-white">{a.invoices}</td>
+                                        <td className="px-4 py-2 text-right text-amber-400 font-mono">{fmtIDR(a.amount)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader><CardTitle className="text-base">Top 10 Pelanggan (1 bulan)</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Total</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {top.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">Belum ada</td></tr> : top.map((t, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-2 text-white">{t.name} <span className="text-xs text-slate-500 font-mono">{t.code}</span></td>
+                                        <td className="px-4 py-2 text-right text-slate-300">{t.invoices_paid}</td>
+                                        <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(t.total_paid)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </CardContent>
+                </Card>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card>
+                    <CardHeader><CardTitle className="text-base">Penjualan Voucher per Paket (1 bulan)</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <tr><th className="text-left px-4 py-2">Paket</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-right px-4 py-2">Pendapatan</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {vs.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">Belum ada</td></tr> : vs.map((v, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-2 text-white">{v.package_name}</td>
+                                        <td className="px-4 py-2 text-right text-slate-300">{v.vouchers_sold}</td>
+                                        <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(v.revenue)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader><CardTitle className="text-base">Pembayaran Terbaru</CardTitle></CardHeader>
+                    <CardContent className="p-0">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <tr><th className="text-left px-4 py-2">Tanggal</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Invoice</th><th className="text-right px-4 py-2">Jumlah</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {payments.length === 0 ? <tr><td colSpan={4} className="px-4 py-4 text-center text-slate-500">Belum ada</td></tr> : payments.map((p, i) => (
+                                    <tr key={i}>
+                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(p.recorded_at)}</td>
+                                        <td className="px-4 py-2 text-white">{p.customer_name}</td>
+                                        <td className="px-4 py-2 font-mono text-blue-400 text-xs">{p.invoice_number}</td>
+                                        <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(p.amount)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+    );
+}
+
+// ─── WA Notifications tab ──────────────────────────────────────────────────
+function WaTab() {
+    const { data: routers = [] } = useRouters();
+    const { data: log = [], refetch, isRefetching } = useWaLog(200);
+    const test = useWaTest();
+    const [modal, setModal] = useState(false);
+
+    const handleTest = async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        await test.mutateAsync({
+            routerId: f.get('routerId'),
+            phone: f.get('phone'),
+            message: f.get('message') || undefined,
+        });
+        setModal(false);
+    };
+
+    return (
+        <div className="space-y-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-base flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" /> Riwayat Notifikasi WA</CardTitle>
+                    <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>
+                        <Button size="sm" onClick={() => setModal(true)}><Send className="w-4 h-4 mr-1" /> Tes Kirim</Button>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Provider</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Error</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800">
+                                {log.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">Belum ada notifikasi terkirim</td></tr> : log.map(l => (
+                                    <tr key={l.id} className="hover:bg-slate-800/30">
+                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(l.sent_at || l.created_at)}</td>
+                                        <td className="px-4 py-2 text-white">{l.customer_name || '—'} {l.customer_code && <span className="text-xs text-slate-500 font-mono">({l.customer_code})</span>}</td>
+                                        <td className="px-4 py-2 font-mono text-slate-400">{l.to_phone}</td>
+                                        <td className="px-4 py-2 text-xs"><span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 uppercase">{l.type}</span></td>
+                                        <td className="px-4 py-2 text-slate-400 text-xs">{l.provider}</td>
+                                        <td className="px-4 py-2">
+                                            <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
+                                                l.status === 'sent' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                l.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                                                'bg-amber-500/20 text-amber-400')}>{l.status}</span>
+                                        </td>
+                                        <td className="px-4 py-2 text-red-400 text-xs max-w-xs truncate">{l.error || ''}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Modal open={modal} onClose={() => setModal(false)} title="Tes Kirim WA" footer={<>
+                <Button variant="ghost" onClick={() => setModal(false)}>Batal</Button>
+                <Button form="wa-test-form" type="submit" loading={test.isPending}>Kirim</Button>
+            </>}>
+                <form id="wa-test-form" onSubmit={handleTest}>
+                    <Field label="Router (mengambil konfigurasi WA)">
+                        <select name="routerId" required className={inputCls}>
+                            <option value="">Pilih…</option>
+                            {routers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                    </Field>
+                    <Field label="Nomor HP tujuan (+62 atau 08…)"><input name="phone" required className={inputCls} placeholder="08123456789" /></Field>
+                    <Field label="Pesan (opsional, default: pesan tes)"><textarea name="message" className={inputCls} rows={3} placeholder="Pesan tes dari sistem billing." /></Field>
+                </form>
+            </Modal>
+        </div>
+    );
+}
+
 // ─── Settings tab ──────────────────────────────────────────────────────────
 function SettingsTab() {
     const { data: routers = [] } = useRouters();
     const [routerId, setRouterId] = useState('');
     const { data: settings } = useBillingRouterSettings(routerId);
     const update = useUpdateBillingRouterSettings();
+    const [waProvider, setWaProvider] = useState('none');
+
+    React.useEffect(() => { setWaProvider(settings?.waProvider || 'none'); }, [settings?.waProvider]);
 
     const save = async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
+
+        // Build provider-specific waConfig
+        let waConfig = {};
+        if (waProvider === 'fonnte') {
+            waConfig = {
+                token: f.get('fonnteToken') || '',
+                deviceId: f.get('fonnteDeviceId') || undefined,
+                countryCode: f.get('fonnteCountryCode') || '62',
+            };
+        } else if (waProvider === 'wablas') {
+            waConfig = {
+                token: f.get('wablasToken') || '',
+                secret: f.get('wablasSecret') || undefined,
+                baseUrl: f.get('wablasBaseUrl') || undefined,
+            };
+        } else if (waProvider === 'webhook') {
+            waConfig = {
+                url: f.get('webhookUrl') || '',
+                method: f.get('webhookMethod') || 'POST',
+            };
+        }
+
         await update.mutateAsync({
             routerId,
             pppoeBillingEnabled: f.get('pppoeBillingEnabled') === 'on',
@@ -657,7 +908,8 @@ function SettingsTab() {
             isolirRedirectUrl: f.get('isolirRedirectUrl') || null,
             isolirGraceDays: Number(f.get('isolirGraceDays')) || 0,
             defaultBillingDay: Number(f.get('defaultBillingDay')) || 1,
-            waProvider: f.get('waProvider'),
+            waProvider,
+            waConfig,
             waNotifHMinus1Enabled: f.get('waNotifHMinus1Enabled') === 'on',
             waNotifDueDayEnabled: f.get('waNotifDueDayEnabled') === 'on',
             waNotifOverdueEnabled: f.get('waNotifOverdueEnabled') === 'on',
@@ -668,6 +920,8 @@ function SettingsTab() {
             invoiceFooterText: f.get('invoiceFooterText') || null,
         });
     };
+
+    const cfg = settings?.waConfig || {};
 
     return (
         <Card>
@@ -708,13 +962,39 @@ function SettingsTab() {
 
                                 <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide pt-2">Notifikasi WhatsApp</h4>
                                 <Field label="Provider WA">
-                                    <select name="waProvider" defaultValue={settings?.waProvider || 'none'} className={inputCls}>
+                                    <select value={waProvider} onChange={(e) => setWaProvider(e.target.value)} className={inputCls}>
                                         <option value="none">— Nonaktif —</option>
                                         <option value="fonnte">Fonnte</option>
                                         <option value="wablas">Wablas</option>
                                         <option value="webhook">Webhook generic</option>
                                     </select>
                                 </Field>
+                                {waProvider === 'fonnte' && (
+                                    <div className="space-y-2 pl-3 border-l-2 border-emerald-500/30">
+                                        <Field label="Token Fonnte"><input name="fonnteToken" defaultValue={cfg.token || ''} className={inputCls} placeholder="api.fonnte.com token" /></Field>
+                                        <Field label="Device ID (opsional, untuk multi-device)"><input name="fonnteDeviceId" defaultValue={cfg.deviceId || ''} className={inputCls} /></Field>
+                                        <Field label="Country code default (mis. 62)"><input name="fonnteCountryCode" defaultValue={cfg.countryCode || '62'} className={inputCls} /></Field>
+                                    </div>
+                                )}
+                                {waProvider === 'wablas' && (
+                                    <div className="space-y-2 pl-3 border-l-2 border-emerald-500/30">
+                                        <Field label="Token Wablas"><input name="wablasToken" defaultValue={cfg.token || ''} className={inputCls} /></Field>
+                                        <Field label="Secret (opsional)"><input name="wablasSecret" defaultValue={cfg.secret || ''} className={inputCls} /></Field>
+                                        <Field label="Base URL (opsional, default https://console.wablas.com)"><input name="wablasBaseUrl" defaultValue={cfg.baseUrl || ''} className={inputCls} placeholder="https://xxx.wablas.com" /></Field>
+                                    </div>
+                                )}
+                                {waProvider === 'webhook' && (
+                                    <div className="space-y-2 pl-3 border-l-2 border-emerald-500/30">
+                                        <Field label="Webhook URL"><input name="webhookUrl" defaultValue={cfg.url || ''} className={inputCls} placeholder="https://your.gateway.tld/send" /></Field>
+                                        <Field label="HTTP Method">
+                                            <select name="webhookMethod" defaultValue={cfg.method || 'POST'} className={inputCls}>
+                                                <option value="POST">POST</option>
+                                                <option value="PUT">PUT</option>
+                                            </select>
+                                        </Field>
+                                        <p className="text-xs text-slate-500">Body JSON: {`{ phone, message, type, invoiceId, subscriptionId }`}</p>
+                                    </div>
+                                )}
                                 <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifHMinus1Enabled" defaultChecked={settings?.waNotifHMinus1Enabled !== false} /> H-1 jatuh tempo</label>
                                 <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifDueDayEnabled" defaultChecked={settings?.waNotifDueDayEnabled !== false} /> Hari-H jatuh tempo</label>
                                 <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifOverdueEnabled" defaultChecked={settings?.waNotifOverdueEnabled !== false} /> Saat overdue</label>
@@ -779,6 +1059,8 @@ export default function Billing() {
                 {tab === 'subscriptions' && <SubscriptionsTab />}
                 {tab === 'invoices' && <InvoicesTab />}
                 {tab === 'vouchers' && <VouchersTab />}
+                {tab === 'reports' && <ReportsTab />}
+                {tab === 'wa' && <WaTab />}
                 {tab === 'settings' && <SettingsTab />}
             </div>
         </div>
