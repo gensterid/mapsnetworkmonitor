@@ -1,9 +1,10 @@
-import { Router } from 'express';
+import { Router, raw as expressRaw } from 'express';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+import { gatewayService } from '../services/billing/gateway.service.js';
 import {
     packageService, customerService, subscriptionService, invoiceService,
     billingSettingsService,
@@ -33,6 +34,27 @@ import type { WaProviderConfig } from '../services/billing/wa-providers.js';
  */
 
 const router = Router();
+
+// ─── Public webhook endpoints (NO auth, raw body for signature verify) ────
+// Mounted before authMiddleware so external gateways can POST without
+// session/cookie. The handler does signature verification with the
+// router-specific secret and rejects on mismatch.
+const webhookHandler = (gateway: 'tripay' | 'midtrans' | 'xendit') =>
+    asyncHandler(async (req: any, res) => {
+        const rawBody = req.body instanceof Buffer ? req.body.toString('utf8') : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {}));
+        const result = await gatewayService.handleWebhook({
+            gateway,
+            rawBody,
+            headers: req.headers as any,
+        });
+        res.status(result.status).json(result.body);
+    });
+
+router.post('/webhook/tripay',   expressRaw({ type: '*/*', limit: '256kb' }), webhookHandler('tripay'));
+router.post('/webhook/midtrans', expressRaw({ type: '*/*', limit: '256kb' }), webhookHandler('midtrans'));
+router.post('/webhook/xendit',   expressRaw({ type: '*/*', limit: '256kb' }), webhookHandler('xendit'));
+
+// All routes below require authentication
 router.use(authMiddleware);
 
 const requireTenant = (req: any, res: any, next: any) => {
@@ -258,6 +280,28 @@ router.post('/invoices/:id/cancel', requireTenant, requireOperator, asyncHandler
     const row = await invoiceService.cancel(req.params.id, req._tenantId);
     if (!row) return res.status(404).json({ error: 'Not found' });
     res.json({ data: row });
+}));
+
+router.post('/invoices/:id/payment-link', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        gateway: z.enum(['tripay', 'midtrans', 'xendit']),
+        returnUrl: z.string().url().optional(),
+        options: z.record(z.any()).optional(),
+    }).parse(req.body);
+
+    const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https') as string;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    const callbackUrl = `${proto}://${host}/api/billing/webhook/${body.gateway}`;
+
+    const result = await gatewayService.createPayment({
+        invoiceId: req.params.id,
+        tenantId: req._tenantId,
+        gateway: body.gateway,
+        returnUrl: body.returnUrl,
+        callbackUrl,
+        options: body.options,
+    });
+    res.json({ data: result });
 }));
 
 // ─── Vouchers (Phase C) ────────────────────────────────────────────────────

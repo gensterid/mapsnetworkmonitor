@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send } from 'lucide-react';
+import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send, CreditCard, Copy, ExternalLink } from 'lucide-react';
 import clsx from 'clsx';
 import {
     usePackages, useCreatePackage, useUpdatePackage, useDeletePackage,
@@ -14,6 +14,7 @@ import {
     useVouchersForRouter, useVoucherBatches, useGenerateVoucherBatch, useDeleteVoucherBatch,
     useBillingOverview, useRevenueByMonth, useAgingReport, useTopPayers, useVoucherSales, useRecentPayments,
     useWaLog, useWaTest,
+    useCreatePaymentLink,
     useRouters,
 } from '@/hooks';
 import toast from 'react-hot-toast';
@@ -378,11 +379,27 @@ function SubscriptionsTab() {
 function InvoicesTab() {
     const [filter, setFilter] = useState('');
     const [payTarget, setPayTarget] = useState(null);
+    const [linkTarget, setLinkTarget] = useState(null);
+    const [linkResult, setLinkResult] = useState(null);
     const { data: rows = [], isLoading, refetch, isRefetching } = useInvoices({ status: filter || undefined });
     const { data: customers = [] } = useCustomers();
     const pay = usePayInvoice();
     const cancel = useCancelInvoice();
+    const createLink = useCreatePaymentLink();
     const custMap = useMemo(() => Object.fromEntries(customers.map(c => [c.id, c])), [customers]);
+
+    const handleCreateLink = async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+            const result = await createLink.mutateAsync({
+                id: linkTarget.id,
+                gateway: f.get('gateway'),
+                returnUrl: f.get('returnUrl') || undefined,
+            });
+            setLinkResult(result);
+        } catch {}
+    };
 
     const handlePay = async (e) => {
         e.preventDefault();
@@ -434,7 +451,12 @@ function InvoicesTab() {
                                         </td>
                                         <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(i.paidAt)}</td>
                                         <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
-                                            {i.status !== 'paid' && i.status !== 'cancelled' && <Button size="sm" onClick={() => setPayTarget(i)}>Bayar</Button>}
+                                            {i.status !== 'paid' && i.status !== 'cancelled' && (
+                                                <>
+                                                    <Button size="sm" variant="outline" onClick={() => { setLinkTarget(i); setLinkResult(null); }}><CreditCard className="w-3.5 h-3.5 mr-1" /> Link Bayar</Button>
+                                                    <Button size="sm" onClick={() => setPayTarget(i)}>Bayar Manual</Button>
+                                                </>
+                                            )}
                                             {i.status === 'unpaid' && <button onClick={() => { if (confirm('Batalkan tagihan?')) cancel.mutate(i.id); }} className="text-slate-400 hover:text-red-400 px-2"><X className="w-4 h-4" /></button>}
                                         </td>
                                     </tr>
@@ -444,6 +466,49 @@ function InvoicesTab() {
                     </div>
                 )}
             </CardContent>
+
+            <Modal open={!!linkTarget} onClose={() => { setLinkTarget(null); setLinkResult(null); }} title={`Link Pembayaran — ${linkTarget?.invoiceNumber}`} footer={
+                linkResult ? (
+                    <Button onClick={() => { setLinkTarget(null); setLinkResult(null); }}>Selesai</Button>
+                ) : (
+                    <>
+                        <Button variant="ghost" onClick={() => { setLinkTarget(null); setLinkResult(null); }}>Batal</Button>
+                        <Button form="link-form" type="submit" loading={createLink.isPending}>Buat Link</Button>
+                    </>
+                )
+            }>
+                {!linkResult ? (
+                    <form id="link-form" onSubmit={handleCreateLink}>
+                        <Field label="Gateway">
+                            <select name="gateway" defaultValue="tripay" required className={inputCls}>
+                                <option value="tripay">Tripay</option>
+                                <option value="midtrans">Midtrans</option>
+                                <option value="xendit">Xendit</option>
+                            </select>
+                        </Field>
+                        <Field label="Return URL setelah bayar (opsional)">
+                            <input name="returnUrl" type="url" className={inputCls} placeholder="https://genster.id/terima-kasih" />
+                        </Field>
+                        <p className="text-xs text-slate-500">Pastikan gateway sudah dikonfigurasi di tab Pengaturan Router.</p>
+                    </form>
+                ) : (
+                    <div className="space-y-3">
+                        <div className="bg-slate-800/50 border border-slate-700 rounded p-3">
+                            <div className="text-xs text-slate-400 mb-1">URL Pembayaran</div>
+                            <div className="flex items-center gap-2">
+                                <input readOnly value={linkResult.paymentUrl} className={inputCls + ' font-mono text-xs'} />
+                                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(linkResult.paymentUrl); toast.success('Tersalin'); }}><Copy className="w-3.5 h-3.5" /></Button>
+                                <a href={linkResult.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1.5 rounded border border-slate-700"><ExternalLink className="w-3.5 h-3.5" /> Buka</a>
+                            </div>
+                        </div>
+                        <div className="text-xs text-slate-500">
+                            Gateway TXN ID: <span className="font-mono text-slate-300">{linkResult.gatewayTxnId}</span>
+                            {linkResult.expiresAt && <><br />Berlaku sampai: {fmtDateTime(linkResult.expiresAt)}</>}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">Status invoice akan otomatis terupdate ke "paid" saat customer berhasil membayar (lewat webhook gateway).</p>
+                    </div>
+                )}
+            </Modal>
 
             <Modal open={!!payTarget} onClose={() => setPayTarget(null)} title={`Bayar ${payTarget?.invoiceNumber}`} footer={<>
                 <Button variant="ghost" onClick={() => setPayTarget(null)}>Batal</Button>
@@ -872,8 +937,16 @@ function SettingsTab() {
     const { data: settings } = useBillingRouterSettings(routerId);
     const update = useUpdateBillingRouterSettings();
     const [waProvider, setWaProvider] = useState('none');
+    const [showTripay, setShowTripay] = useState(false);
+    const [showMidtrans, setShowMidtrans] = useState(false);
+    const [showXendit, setShowXendit] = useState(false);
 
     React.useEffect(() => { setWaProvider(settings?.waProvider || 'none'); }, [settings?.waProvider]);
+    React.useEffect(() => {
+        setShowTripay(!!settings?.gatewayTripayEnabled);
+        setShowMidtrans(!!settings?.gatewayMidtransEnabled);
+        setShowXendit(!!settings?.gatewayXenditEnabled);
+    }, [settings?.gatewayTripayEnabled, settings?.gatewayMidtransEnabled, settings?.gatewayXenditEnabled]);
 
     const save = async (e) => {
         e.preventDefault();
@@ -900,6 +973,32 @@ function SettingsTab() {
             };
         }
 
+        // Build gateway config (jsonb) per provider
+        const existingGatewayCfg = settings?.gatewayConfig || {};
+        const gatewayConfig = { ...existingGatewayCfg };
+        if (showTripay) {
+            gatewayConfig.tripay = {
+                apiKey: f.get('tripayApiKey') || '',
+                privateKey: f.get('tripayPrivateKey') || '',
+                merchantCode: f.get('tripayMerchantCode') || '',
+                sandbox: f.get('tripaySandbox') === 'on',
+                defaultMethod: f.get('tripayDefaultMethod') || 'QRIS',
+            };
+        }
+        if (showMidtrans) {
+            gatewayConfig.midtrans = {
+                serverKey: f.get('midtransServerKey') || '',
+                clientKey: f.get('midtransClientKey') || undefined,
+                isProduction: f.get('midtransProduction') === 'on',
+            };
+        }
+        if (showXendit) {
+            gatewayConfig.xendit = {
+                secretKey: f.get('xenditSecretKey') || '',
+                callbackToken: f.get('xenditCallbackToken') || '',
+            };
+        }
+
         await update.mutateAsync({
             routerId,
             pppoeBillingEnabled: f.get('pppoeBillingEnabled') === 'on',
@@ -914,9 +1013,10 @@ function SettingsTab() {
             waNotifDueDayEnabled: f.get('waNotifDueDayEnabled') === 'on',
             waNotifOverdueEnabled: f.get('waNotifOverdueEnabled') === 'on',
             waNotifIsolirEnabled: f.get('waNotifIsolirEnabled') === 'on',
-            gatewayTripayEnabled: f.get('gatewayTripayEnabled') === 'on',
-            gatewayMidtransEnabled: f.get('gatewayMidtransEnabled') === 'on',
-            gatewayXenditEnabled: f.get('gatewayXenditEnabled') === 'on',
+            gatewayTripayEnabled: showTripay,
+            gatewayMidtransEnabled: showMidtrans,
+            gatewayXenditEnabled: showXendit,
+            gatewayConfig,
             invoiceFooterText: f.get('invoiceFooterText') || null,
         });
     };
@@ -1002,14 +1102,54 @@ function SettingsTab() {
                             </div>
                         </div>
 
-                        <div>
-                            <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide mb-2">Payment Gateway</h4>
-                            <div className="flex flex-wrap gap-4">
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="gatewayTripayEnabled" defaultChecked={settings?.gatewayTripayEnabled} /> Tripay</label>
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="gatewayMidtransEnabled" defaultChecked={settings?.gatewayMidtransEnabled} /> Midtrans</label>
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="gatewayXenditEnabled" defaultChecked={settings?.gatewayXenditEnabled} /> Xendit</label>
-                            </div>
-                            <p className="text-xs text-slate-500 mt-2">Konfigurasi kredensial gateway dilakukan di Phase E (sesi berikutnya). Toggle ini hanya untuk indikasi.</p>
+                        <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Payment Gateway</h4>
+                            {(() => {
+                                const tripayCfg = settings?.gatewayConfig?.tripay || {};
+                                const midtransCfg = settings?.gatewayConfig?.midtrans || {};
+                                const xenditCfg = settings?.gatewayConfig?.xendit || {};
+                                const baseUrl = (typeof window !== 'undefined' ? window.location.origin : '');
+                                return (
+                                    <>
+                                        <div className="flex flex-wrap gap-4">
+                                            <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={showTripay} onChange={e => setShowTripay(e.target.checked)} /> Tripay</label>
+                                            <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={showMidtrans} onChange={e => setShowMidtrans(e.target.checked)} /> Midtrans</label>
+                                            <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={showXendit} onChange={e => setShowXendit(e.target.checked)} /> Xendit</label>
+                                        </div>
+
+                                        {showTripay && (
+                                            <div className="space-y-2 pl-3 border-l-2 border-blue-500/30">
+                                                <h5 className="text-xs font-semibold text-blue-400 uppercase">Tripay</h5>
+                                                <Field label="API Key"><input name="tripayApiKey" defaultValue={tripayCfg.apiKey || ''} className={inputCls} /></Field>
+                                                <Field label="Private Key"><input name="tripayPrivateKey" defaultValue={tripayCfg.privateKey || ''} className={inputCls} type="password" /></Field>
+                                                <Field label="Merchant Code"><input name="tripayMerchantCode" defaultValue={tripayCfg.merchantCode || ''} className={inputCls} placeholder="T1234" /></Field>
+                                                <Field label="Default Method"><input name="tripayDefaultMethod" defaultValue={tripayCfg.defaultMethod || 'QRIS'} className={inputCls} placeholder="QRIS / BRIVA / BCAVA" /></Field>
+                                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="tripaySandbox" defaultChecked={!!tripayCfg.sandbox} /> Mode sandbox</label>
+                                                <p className="text-xs text-slate-500">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/tripay</code></p>
+                                            </div>
+                                        )}
+
+                                        {showMidtrans && (
+                                            <div className="space-y-2 pl-3 border-l-2 border-blue-500/30">
+                                                <h5 className="text-xs font-semibold text-blue-400 uppercase">Midtrans</h5>
+                                                <Field label="Server Key"><input name="midtransServerKey" defaultValue={midtransCfg.serverKey || ''} className={inputCls} type="password" /></Field>
+                                                <Field label="Client Key (opsional)"><input name="midtransClientKey" defaultValue={midtransCfg.clientKey || ''} className={inputCls} /></Field>
+                                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="midtransProduction" defaultChecked={!!midtransCfg.isProduction} /> Mode production (default sandbox)</label>
+                                                <p className="text-xs text-slate-500">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/midtrans</code> — set di Midtrans dashboard</p>
+                                            </div>
+                                        )}
+
+                                        {showXendit && (
+                                            <div className="space-y-2 pl-3 border-l-2 border-blue-500/30">
+                                                <h5 className="text-xs font-semibold text-blue-400 uppercase">Xendit</h5>
+                                                <Field label="Secret Key"><input name="xenditSecretKey" defaultValue={xenditCfg.secretKey || ''} className={inputCls} type="password" /></Field>
+                                                <Field label="Callback Verification Token"><input name="xenditCallbackToken" defaultValue={xenditCfg.callbackToken || ''} className={inputCls} type="password" /></Field>
+                                                <p className="text-xs text-slate-500">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/xendit</code> — set di Xendit dashboard</p>
+                                            </div>
+                                        )}
+                                    </>
+                                );
+                            })()}
                         </div>
 
                         <Field label="Footer Invoice"><textarea name="invoiceFooterText" defaultValue={settings?.invoiceFooterText || ''} className={inputCls} rows={2} placeholder="Terima kasih atas pembayaran Anda. Hubungi 0812-xxx untuk bantuan." /></Field>

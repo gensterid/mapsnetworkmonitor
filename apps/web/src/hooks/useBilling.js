@@ -327,6 +327,15 @@ export function useWaTest() {
     });
 }
 
+// ─── Payment gateway (Phase E) ────────────────────────────────────────────
+export function useCreatePaymentLink() {
+    return useMutation({
+        mutationFn: ({ id, gateway, returnUrl, options }) =>
+            apiClient.post(`${API}/invoices/${id}/payment-link`, { gateway, returnUrl, options }).then(r => r.data?.data),
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
 // ─── Per-router settings ──────────────────────────────────────────────────
 export function useBillingRouterSettings(routerId) {
     return useQuery({
