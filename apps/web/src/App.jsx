@@ -23,6 +23,8 @@ const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
 const Tenants = lazy(() => import('./pages/Tenants'));
 const Billing = lazy(() => import('./pages/Billing'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
+const CekStatus = lazy(() => import('./pages/CekStatus'));
+const Member = lazy(() => import('./pages/Member'));
 const KioskView = lazy(() => import('./pages/KioskView'));
 
 import { useSession, useRole } from './lib/auth-client';
@@ -222,6 +224,8 @@ function App() {
             <Routes>
               <Route path="/login" element={<Login />} />
               <Route path="/animation-demo" element={<AnimationDemo />} />
+              <Route path="/cekstatus" element={<CekStatus />} />
+              <Route path="/member" element={<Member />} />
 
               <Route
                 path="/"

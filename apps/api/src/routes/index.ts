@@ -21,6 +21,7 @@ import tenantRoutes from './tenant.routes.js';
 import genieacsDashboardRoutes from './genieacs-dashboard.routes.js';
 import bandwidthRoutes from './bandwidth.routes.js';
 import billingRoutes from './billing.routes.js';
+import portalRoutes from './portal.routes.js';
 
 const router = Router();
 
@@ -56,6 +57,7 @@ router.use('/tenants', tenantRoutes);
 router.use('/genieacs-dashboard', genieacsDashboardRoutes);
 router.use('/bandwidth', bandwidthRoutes);
 router.use('/billing', billingRoutes);
+router.use('/portal', portalRoutes);
 
 export default router;
 
