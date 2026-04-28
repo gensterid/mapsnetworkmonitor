@@ -70,7 +70,7 @@ async function sendFonnte(toPhone: string, message: string, cfg: { token: string
                 countryCode: cfg.countryCode || '62',
             }).toString(),
         });
-        const json = await res.json().catch(() => ({}));
+        const json: any = await res.json().catch(() => ({} as any));
         // Fonnte returns { status: true, ... } on success
         const ok = res.ok && (json?.status === true || json?.detail === 'success');
         return { ok, providerStatus: res.status, providerResponse: json, error: ok ? undefined : json?.reason || `HTTP ${res.status}` };
@@ -96,7 +96,7 @@ async function sendWablas(toPhone: string, message: string, cfg: { token: string
             },
             body: JSON.stringify({ phone, message }),
         });
-        const json = await res.json().catch(() => ({}));
+        const json: any = await res.json().catch(() => ({} as any));
         // Wablas returns { status: true, ... } on success
         const ok = res.ok && (json?.status === true);
         return { ok, providerStatus: res.status, providerResponse: json, error: ok ? undefined : json?.message || `HTTP ${res.status}` };
