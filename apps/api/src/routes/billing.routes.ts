@@ -362,6 +362,72 @@ router.delete('/vouchers/:id', requireTenant, requireOperator, asyncHandler(asyn
     res.status(204).end();
 }));
 
+// ─── MikroTik introspection helpers (Phase B+) ─────────────────────────────
+
+router.get('/router/:id/ppp-profiles', requireTenant, asyncHandler(async (req: any, res) => {
+    const { routerActionService } = await import('../services/router-action.service.js');
+    const { getPppProfiles } = await import('../lib/mikrotik/billing.js');
+    try {
+        const api = await routerActionService.getRouterConnection(req.params.id, req._tenantId);
+        const profiles = await getPppProfiles(api);
+        res.json({ data: profiles });
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message || 'gagal baca profile dari router' });
+    }
+}));
+
+router.post('/router/:id/ppp-profiles', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        name: z.string().min(1),
+        rateLimit: z.string().optional(),
+        localAddress: z.string().optional(),
+        remoteAddress: z.string().optional(),
+        addressList: z.string().optional(),
+        onlyOne: z.enum(['yes', 'no', 'default']).optional(),
+        comment: z.string().optional(),
+    }).parse(req.body);
+    const { routerActionService } = await import('../services/router-action.service.js');
+    const { addPppProfile } = await import('../lib/mikrotik/billing.js');
+    try {
+        const api = await routerActionService.getRouterConnection(req.params.id, req._tenantId);
+        const id = await addPppProfile(api, body);
+        res.status(201).json({ data: { id, name: body.name } });
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message || 'gagal buat profile' });
+    }
+}));
+
+router.get('/router/:id/isolir-firewall', requireTenant, asyncHandler(async (req: any, res) => {
+    const { routerActionService } = await import('../services/router-action.service.js');
+    const { inspectIsolirFirewall } = await import('../lib/mikrotik/billing.js');
+    const listName = (req.query.list as string) || 'isolir';
+    try {
+        const api = await routerActionService.getRouterConnection(req.params.id, req._tenantId);
+        const status = await inspectIsolirFirewall(api, listName);
+        res.json({ data: status });
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message });
+    }
+}));
+
+router.post('/router/:id/isolir-firewall/setup', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        listName: z.string().optional(),
+        redirectIp: z.string().min(1),
+        redirectPort: z.number().int().optional(),
+        addWalledGarden: z.boolean().optional(),
+    }).parse(req.body);
+    const { routerActionService } = await import('../services/router-action.service.js');
+    const { setupIsolirFirewall } = await import('../lib/mikrotik/billing.js');
+    try {
+        const api = await routerActionService.getRouterConnection(req.params.id, req._tenantId);
+        const result = await setupIsolirFirewall(api, body);
+        res.json({ data: result });
+    } catch (e: any) {
+        res.status(500).json({ error: e?.message });
+    }
+}));
+
 // ─── Per-router settings ───────────────────────────────────────────────────
 
 router.get('/settings/router/:routerId', requireTenant, asyncHandler(async (req: any, res) => {

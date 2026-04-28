@@ -327,6 +327,50 @@ export function useWaTest() {
     });
 }
 
+// ─── MikroTik introspection helpers ────────────────────────────────────────
+export function useMikrotikPppProfiles(routerId) {
+    return useQuery({
+        queryKey: ['billing-mikrotik-ppp-profiles', routerId],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/router/${routerId}/ppp-profiles`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useCreatePppProfile() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ routerId, ...body }) => apiClient.post(`${API}/router/${routerId}/ppp-profiles`, body).then(r => r.data?.data),
+        onSuccess: (_, vars) => {
+            toast.success('Profile dibuat di MikroTik');
+            qc.invalidateQueries({ queryKey: ['billing-mikrotik-ppp-profiles', vars.routerId] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+export function useIsolirFirewallStatus(routerId, listName) {
+    return useQuery({
+        queryKey: ['billing-isolir-fw', routerId, listName],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/router/${routerId}/isolir-firewall?list=${listName || 'isolir'}`);
+            return res.data?.data ?? null;
+        },
+    });
+}
+export function useSetupIsolirFirewall() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ routerId, ...body }) => apiClient.post(`${API}/router/${routerId}/isolir-firewall/setup`, body).then(r => r.data?.data),
+        onSuccess: (_, vars) => {
+            toast.success('Firewall isolir terpasang di MikroTik');
+            qc.invalidateQueries({ queryKey: ['billing-isolir-fw', vars.routerId] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
 // ─── Payment gateway (Phase E) ────────────────────────────────────────────
 export function useCreatePaymentLink() {
     return useMutation({

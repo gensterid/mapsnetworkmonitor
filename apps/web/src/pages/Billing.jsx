@@ -15,6 +15,7 @@ import {
     useBillingOverview, useRevenueByMonth, useAgingReport, useTopPayers, useVoucherSales, useRecentPayments,
     useWaLog, useWaTest,
     useCreatePaymentLink,
+    useMikrotikPppProfiles, useCreatePppProfile, useIsolirFirewallStatus, useSetupIsolirFirewall,
     useRouters,
 } from '@/hooks';
 import toast from 'react-hot-toast';
@@ -151,11 +152,13 @@ function CustomersTab() {
 function PackagesTab() {
     const [editing, setEditing] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
+    const [routerForProfiles, setRouterForProfiles] = useState('');
     const { data: rows = [], isLoading, refetch, isRefetching } = usePackages();
     const create = useCreatePackage();
     const update = useUpdatePackage();
     const del = useDeletePackage();
     const { data: routers = [] } = useRouters();
+    const { data: pppProfiles = [] } = useMikrotikPppProfiles(routerForProfiles);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -225,7 +228,22 @@ function PackagesTab() {
                             <option value="hotspot">Hotspot</option>
                         </select>
                     </Field>
-                    <Field label="MikroTik Profile (harus ada di router)"><input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder="contoh: pppoe-home-10m" /></Field>
+                    <Field label="Router untuk preview profile (opsional)">
+                        <select value={routerForProfiles} onChange={(e) => setRouterForProfiles(e.target.value)} className={inputCls}>
+                            <option value="">— pilih router supaya muncul daftar profile —</option>
+                            {routers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                    </Field>
+                    <Field label="MikroTik Profile (harus ada di router target)">
+                        {routerForProfiles && pppProfiles.length > 0 ? (
+                            <select name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls}>
+                                <option value="">— pilih dari profile yang ada —</option>
+                                {pppProfiles.map(p => <option key={p.id} value={p.name}>{p.name} {p.rateLimit ? `(${p.rateLimit})` : ''}</option>)}
+                            </select>
+                        ) : (
+                            <input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder="contoh: pppoe-home-10m" />
+                        )}
+                    </Field>
                     <Field label="Harga (IDR)"><input name="price" type="number" min="0" defaultValue={editing?.price || 0} required className={inputCls} /></Field>
                     <div className="grid grid-cols-2 gap-3">
                         <Field label="Cycle Type">
@@ -930,6 +948,151 @@ function WaTab() {
     );
 }
 
+// ─── Profile picker (dropdown dari MikroTik + opsi buat baru) ──────────────
+function IsolirProfilePicker({ routerId, currentValue }) {
+    const { data: profiles = [], isLoading, refetch, isRefetching } = useMikrotikPppProfiles(routerId);
+    const create = useCreatePppProfile();
+    const [creating, setCreating] = useState(false);
+
+    const exists = profiles.some(p => p.name === currentValue);
+
+    const handleCreate = async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+            await create.mutateAsync({
+                routerId,
+                name: f.get('name'),
+                rateLimit: f.get('rateLimit') || undefined,
+                addressList: f.get('addressList') || undefined,
+                onlyOne: 'yes',
+                comment: 'auto-billing-isolir',
+            });
+            setCreating(false);
+            refetch();
+        } catch {}
+    };
+
+    return (
+        <div>
+            <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Profile Isolir</span>
+                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                    <RefreshCw className={clsx('w-3 h-3', isRefetching && 'animate-spin')} /> {isLoading ? 'memuat…' : `${profiles.length} profile di router`}
+                </button>
+            </div>
+            <select name="isolirProfile" defaultValue={currentValue} className={inputCls}>
+                {!exists && <option value={currentValue}>{currentValue} ⚠ (tidak ada di router)</option>}
+                {profiles.map(p => <option key={p.id} value={p.name}>{p.name} {p.rateLimit ? `— ${p.rateLimit}` : ''}</option>)}
+                {profiles.length === 0 && <option value={currentValue}>{currentValue}</option>}
+            </select>
+            <button type="button" onClick={() => setCreating(c => !c)} className="text-xs text-primary hover:underline mt-1">
+                {creating ? 'Batal' : '+ Buat profile isolir baru di MikroTik'}
+            </button>
+
+            {creating && (
+                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 mt-2 space-y-2" onClick={e => e.stopPropagation()}>
+                    <p className="text-xs text-slate-400">Sistem akan menjalankan <code>/ppp profile add</code> di router. Konfigurasi default sudah cocok untuk isolir umum.</p>
+                    <form onSubmit={handleCreate}>
+                        <Field label="Nama Profile"><input name="name" defaultValue="pppoe-isolir" required className={inputCls} /></Field>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Field label="Rate Limit (mis. 256k/256k)"><input name="rateLimit" defaultValue="256k/256k" className={inputCls} /></Field>
+                            <Field label="Address List (untuk redirect)"><input name="addressList" defaultValue="isolir" className={inputCls} /></Field>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-2">
+                            <Button type="button" size="sm" variant="ghost" onClick={() => setCreating(false)}>Batal</Button>
+                            <Button type="submit" size="sm" loading={create.isPending}>Buat di MikroTik</Button>
+                        </div>
+                    </form>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ─── Firewall isolir auto-setup ────────────────────────────────────────────
+function IsolirFirewallSetup({ routerId }) {
+    const { data: status, refetch, isFetching } = useIsolirFirewallStatus(routerId, 'isolir');
+    const setup = useSetupIsolirFirewall();
+    const [showSetup, setShowSetup] = useState(false);
+
+    const handleSetup = async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.target);
+        try {
+            await setup.mutateAsync({
+                routerId,
+                listName: f.get('listName') || 'isolir',
+                redirectIp: f.get('redirectIp'),
+                redirectPort: Number(f.get('redirectPort')) || 80,
+                addWalledGarden: f.get('walled') === 'on',
+            });
+            setShowSetup(false);
+            refetch();
+        } catch {}
+    };
+
+    if (!routerId) return null;
+
+    return (
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase">Firewall Isolir di MikroTik</div>
+                    <p className="text-xs text-slate-500 mt-0.5">Address-list, NAT redirect, dan walled-garden untuk redirect pelanggan isolir ke halaman tagihan.</p>
+                </div>
+                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300">
+                    {isFetching ? 'cek…' : 'refresh'}
+                </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-xs">
+                <FwBadge label="Address List" ok={status?.addressListPresent} />
+                <FwBadge label="NAT Redirect" ok={status?.natRedirectPresent} />
+                <FwBadge label="Walled Garden" ok={status?.walledGardenPresent} />
+            </div>
+
+            {!status?.addressListPresent || !status?.natRedirectPresent ? (
+                <button type="button" onClick={() => setShowSetup(s => !s)} className="text-xs text-primary hover:underline">
+                    {showSetup ? 'Batal' : '+ Auto-setup firewall isolir'}
+                </button>
+            ) : (
+                <p className="text-xs text-emerald-400">✓ Firewall isolir sudah lengkap di router ini.</p>
+            )}
+
+            {showSetup && (
+                <form onSubmit={handleSetup} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2 mt-2">
+                    <p className="text-xs text-slate-400">Sistem akan menjalankan command MikroTik untuk membuat: address-list, NAT dst-nat tcp/80, dan (opsional) filter walled-garden.</p>
+                    <Field label="Nama Address List"><input name="listName" defaultValue="isolir" className={inputCls} /></Field>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Field label="IP halaman tagihan (di sisi LAN router)"><input name="redirectIp" required defaultValue="" placeholder="10.10.0.5" className={inputCls} /></Field>
+                        <Field label="Port"><input name="redirectPort" type="number" defaultValue="80" className={inputCls} /></Field>
+                    </div>
+                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                        <input type="checkbox" name="walled" defaultChecked />
+                        Tambah walled-garden (allow billing IP, drop traffic lain) — wajib supaya redirect bekerja
+                    </label>
+                    <div className="flex justify-end gap-2">
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setShowSetup(false)}>Batal</Button>
+                        <Button type="submit" size="sm" loading={setup.isPending}>Setup Firewall</Button>
+                    </div>
+                </form>
+            )}
+        </div>
+    );
+}
+
+function FwBadge({ label, ok }) {
+    return (
+        <div className={clsx('rounded p-2 border text-center',
+            ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
+                 'bg-slate-700/30 border-slate-700 text-slate-500')}>
+            <div className="font-semibold uppercase text-[10px] tracking-wide">{label}</div>
+            <div className="text-sm font-bold mt-0.5">{ok ? '✓ Ada' : '— Belum'}</div>
+        </div>
+    );
+}
+
 // ─── Settings tab ──────────────────────────────────────────────────────────
 function SettingsTab() {
     const { data: routers = [] } = useRouters();
@@ -1044,10 +1207,14 @@ function SettingsTab() {
                             <div className="space-y-3">
                                 <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">PPPoE</h4>
                                 <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="pppoeBillingEnabled" defaultChecked={settings?.pppoeBillingEnabled} /> Aktifkan billing PPPoE</label>
-                                <Field label="Profile Isolir"><input name="isolirProfile" defaultValue={settings?.isolirProfile || 'pppoe-isolir'} className={inputCls} /></Field>
+                                <IsolirProfilePicker
+                                    routerId={routerId}
+                                    currentValue={settings?.isolirProfile || 'pppoe-isolir'}
+                                />
                                 <Field label="Redirect URL halaman tagihan"><input name="isolirRedirectUrl" defaultValue={settings?.isolirRedirectUrl || ''} className={inputCls} placeholder="https://genster.id/tagihan" /></Field>
-                                <Field label="Grace days sebelum auto-isolir"><input name="isolirGraceDays" type="number" min="0" defaultValue={settings?.isolirGraceDays || 0} className={inputCls} /></Field>
-                                <Field label="Default tanggal tagih"><input name="defaultBillingDay" type="number" min="1" max="28" defaultValue={settings?.defaultBillingDay || 1} className={inputCls} /></Field>
+                                <IsolirFirewallSetup routerId={routerId} />
+                                <Field label="Grace days sebelum auto-isolir (0 = isolir hari saat lewat jatuh tempo)"><input name="isolirGraceDays" type="number" min="0" defaultValue={settings?.isolirGraceDays || 0} className={inputCls} /></Field>
+                                <Field label="Default tanggal tagih (1-28, dipakai kalau pelanggan tidak set sendiri)"><input name="defaultBillingDay" type="number" min="1" max="28" defaultValue={settings?.defaultBillingDay || 1} className={inputCls} /></Field>
                             </div>
 
                             <div className="space-y-3">
