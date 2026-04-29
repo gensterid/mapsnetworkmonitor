@@ -45,17 +45,22 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): vo
 }
 
 /**
- * Run fn, retry once on MikroTik timeout. Helps when router is occasionally
- * slow due to traffic burst — second call usually succeeds.
+ * Run fn(api), retry once on MikroTik timeout with a FRESH connection.
+ * The first connection may be a stale entry from the pool — re-acquiring
+ * forces routerActionService to reconnect.
  */
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+async function withRetryFresh<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>): Promise<T> {
     try {
-        return await fn();
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
+        return await fn(api);
     } catch (e: any) {
         const msg = String(e?.message || '');
         if (!msg.includes('timed out')) throw e;
-        logger.warn({ err: msg }, 'mikrotik command timed out, retrying once');
-        return await fn();
+        logger.warn({ err: msg, routerId }, 'mikrotik command timed out, retrying with fresh connection');
+        // Wait a beat to let pool drop the dead connection
+        await new Promise(r => setTimeout(r, 500));
+        const api2 = await routerActionService.getRouterConnection(routerId, tenantId);
+        return await fn(api2);
     }
 }
 
@@ -66,8 +71,7 @@ export const mikrotikSetupService = {
             const cached = cacheGet(profileCache, cacheKey);
             if (cached) return cached;
         }
-        const api = await routerActionService.getRouterConnection(routerId, tenantId);
-        const profiles = await withRetry(() => getPppProfiles(api));
+        const profiles = await withRetryFresh(routerId, tenantId, (api) => getPppProfiles(api));
         cacheSet(profileCache, cacheKey, profiles);
         return profiles;
     },
@@ -78,8 +82,6 @@ export const mikrotikSetupService = {
      * parallel to halve the latency.
      */
     async getIsolirReadiness(routerId: string, profileName: string = 'pppoe-isolir', listName: string = 'isolir', tenantId?: string): Promise<IsolirReadiness> {
-        const api = await routerActionService.getRouterConnection(routerId, tenantId);
-
         const cacheKeyP = `${routerId}:${tenantId || ''}`;
         const cacheKeyF = `${routerId}:${tenantId || ''}:${listName}`;
 
@@ -88,9 +90,11 @@ export const mikrotikSetupService = {
 
         const [profiles, firewall] = await Promise.all([
             cachedProfiles ? Promise.resolve(cachedProfiles) :
-                withRetry(() => getPppProfiles(api)).then(p => { cacheSet(profileCache, cacheKeyP, p); return p; }),
+                withRetryFresh(routerId, tenantId, (api) => getPppProfiles(api))
+                    .then(p => { cacheSet(profileCache, cacheKeyP, p); return p; }),
             cachedFirewall ? Promise.resolve(cachedFirewall) :
-                withRetry(() => inspectIsolirFirewall(api, listName)).then(f => { cacheSet(firewallCache, cacheKeyF, f); return f; }),
+                withRetryFresh(routerId, tenantId, (api) => inspectIsolirFirewall(api, listName))
+                    .then(f => { cacheSet(firewallCache, cacheKeyF, f); return f; }),
         ]);
 
         const found = profiles.find(p => p.name === profileName);
