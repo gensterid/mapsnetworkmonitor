@@ -433,10 +433,11 @@ router.post('/router/:id/isolir-firewall/setup', requireTenant, requireOperator,
 
 router.get('/mikrotik/:routerId/ppp-profiles', requireTenant, asyncHandler(async (req: any, res) => {
     try {
-        const profiles = await mikrotikSetupService.listPppProfiles(req.params.routerId);
+        const profiles = await mikrotikSetupService.listPppProfiles(req.params.routerId, req._tenantId);
         res.json({ data: profiles });
     } catch (e: any) {
-        res.status(502).json({ error: e?.message || 'Gagal baca profile dari MikroTik' });
+        const msg = e?.message || 'Gagal baca profile dari MikroTik';
+        res.status(502).json({ error: msg, code: e?.code, detail: e?.cause?.message });
     }
 }));
 
@@ -444,7 +445,7 @@ router.get('/mikrotik/:routerId/isolir-status', requireTenant, asyncHandler(asyn
     const profileName = (req.query.profile as string) || 'pppoe-isolir';
     const listName = (req.query.list as string) || 'isolir';
     try {
-        const data = await mikrotikSetupService.getIsolirReadiness(req.params.routerId, profileName, listName);
+        const data = await mikrotikSetupService.getIsolirReadiness(req.params.routerId, profileName, listName, req._tenantId);
         res.json({ data });
     } catch (e: any) {
         res.status(502).json({ error: e?.message || 'Gagal baca status isolir' });
@@ -463,10 +464,11 @@ router.post('/mikrotik/:routerId/isolir-setup', requireTenant, requireOperator, 
     }).parse(req.body);
 
     try {
-        const result = await mikrotikSetupService.autoCreateIsolir(req.params.routerId, body);
+        const result = await mikrotikSetupService.autoCreateIsolir(req.params.routerId, body, req._tenantId);
         res.json({ data: result });
     } catch (e: any) {
-        res.status(502).json({ error: e?.message || 'Gagal auto-setup isolir' });
+        const msg = e?.message || 'Gagal auto-setup isolir';
+        res.status(502).json({ error: msg, code: e?.code, detail: e?.cause?.message });
     }
 }));
 

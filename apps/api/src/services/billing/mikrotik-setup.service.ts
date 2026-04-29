@@ -28,8 +28,8 @@ export interface IsolirReadiness {
 }
 
 export const mikrotikSetupService = {
-    async listPppProfiles(routerId: string): Promise<PppProfile[]> {
-        const api = await routerActionService.getRouterConnection(routerId);
+    async listPppProfiles(routerId: string, tenantId?: string): Promise<PppProfile[]> {
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
         return getPppProfiles(api);
     },
 
@@ -37,8 +37,8 @@ export const mikrotikSetupService = {
      * Check whether the configured isolir profile + firewall walled-garden
      * is already in place on the router.
      */
-    async getIsolirReadiness(routerId: string, profileName: string = 'pppoe-isolir', listName: string = 'isolir'): Promise<IsolirReadiness> {
-        const api = await routerActionService.getRouterConnection(routerId);
+    async getIsolirReadiness(routerId: string, profileName: string = 'pppoe-isolir', listName: string = 'isolir', tenantId?: string): Promise<IsolirReadiness> {
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
         const profiles = await getPppProfiles(api);
         const found = profiles.find(p => p.name === profileName);
         const firewall = await inspectIsolirFirewall(api, listName);
@@ -69,11 +69,11 @@ export const mikrotikSetupService = {
         redirectIp?: string;
         redirectPort?: number;
         addWalledGarden?: boolean;
-    } = {}): Promise<{
+    } = {}, tenantId?: string): Promise<{
         profile: { created: boolean; name: string; id?: string | null };
         firewall: { addressListId: string | null; natRedirectId: string | null; filterAllowId: string | null; filterDropId: string | null };
     }> {
-        const api = await routerActionService.getRouterConnection(routerId);
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
         const profileName = opts.profileName || 'pppoe-isolir';
         const listName = opts.addressListName || 'isolir';
 
