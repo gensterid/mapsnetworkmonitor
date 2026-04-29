@@ -100,7 +100,12 @@ export const mikrotikSetupService = {
         }
 
         // 2. Firewall pieces (only if redirectIp provided)
-        let firewallResult = { addressListId: null, natRedirectId: null, filterAllowId: null, filterDropId: null };
+        let firewallResult: {
+            addressListId: string | null;
+            natRedirectId: string | null;
+            filterAllowId: string | null;
+            filterDropId: string | null;
+        } = { addressListId: null, natRedirectId: null, filterAllowId: null, filterDropId: null };
         if (opts.redirectIp) {
             try {
                 firewallResult = await setupIsolirFirewall(api, {
