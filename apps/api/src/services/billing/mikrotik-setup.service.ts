@@ -27,21 +27,73 @@ export interface IsolirReadiness {
     firewall: IsolirFirewallStatus;
 }
 
+// In-memory cache so repeated settings-tab opens don't hammer slow routers.
+// PPP profile + firewall list rarely change, 60s TTL is acceptable.
+interface CacheEntry<T> { value: T; expiresAt: number; }
+const profileCache = new Map<string, CacheEntry<PppProfile[]>>();
+const firewallCache = new Map<string, CacheEntry<IsolirFirewallStatus>>();
+const TTL_MS = 60_000;
+
+function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
+    const entry = map.get(key);
+    if (!entry) return null;
+    if (entry.expiresAt < Date.now()) { map.delete(key); return null; }
+    return entry.value;
+}
+function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): void {
+    map.set(key, { value, expiresAt: Date.now() + TTL_MS });
+}
+
+/**
+ * Run fn, retry once on MikroTik timeout. Helps when router is occasionally
+ * slow due to traffic burst — second call usually succeeds.
+ */
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+        return await fn();
+    } catch (e: any) {
+        const msg = String(e?.message || '');
+        if (!msg.includes('timed out')) throw e;
+        logger.warn({ err: msg }, 'mikrotik command timed out, retrying once');
+        return await fn();
+    }
+}
+
 export const mikrotikSetupService = {
-    async listPppProfiles(routerId: string, tenantId?: string): Promise<PppProfile[]> {
+    async listPppProfiles(routerId: string, tenantId?: string, force = false): Promise<PppProfile[]> {
+        const cacheKey = `${routerId}:${tenantId || ''}`;
+        if (!force) {
+            const cached = cacheGet(profileCache, cacheKey);
+            if (cached) return cached;
+        }
         const api = await routerActionService.getRouterConnection(routerId, tenantId);
-        return getPppProfiles(api);
+        const profiles = await withRetry(() => getPppProfiles(api));
+        cacheSet(profileCache, cacheKey, profiles);
+        return profiles;
     },
 
     /**
      * Check whether the configured isolir profile + firewall walled-garden
-     * is already in place on the router.
+     * is already in place on the router. Profile + firewall fetched in
+     * parallel to halve the latency.
      */
     async getIsolirReadiness(routerId: string, profileName: string = 'pppoe-isolir', listName: string = 'isolir', tenantId?: string): Promise<IsolirReadiness> {
         const api = await routerActionService.getRouterConnection(routerId, tenantId);
-        const profiles = await getPppProfiles(api);
+
+        const cacheKeyP = `${routerId}:${tenantId || ''}`;
+        const cacheKeyF = `${routerId}:${tenantId || ''}:${listName}`;
+
+        const cachedProfiles = cacheGet(profileCache, cacheKeyP);
+        const cachedFirewall = cacheGet(firewallCache, cacheKeyF);
+
+        const [profiles, firewall] = await Promise.all([
+            cachedProfiles ? Promise.resolve(cachedProfiles) :
+                withRetry(() => getPppProfiles(api)).then(p => { cacheSet(profileCache, cacheKeyP, p); return p; }),
+            cachedFirewall ? Promise.resolve(cachedFirewall) :
+                withRetry(() => inspectIsolirFirewall(api, listName)).then(f => { cacheSet(firewallCache, cacheKeyF, f); return f; }),
+        ]);
+
         const found = profiles.find(p => p.name === profileName);
-        const firewall = await inspectIsolirFirewall(api, listName);
         return {
             profileExists: !!found,
             profileName,
@@ -49,6 +101,13 @@ export const mikrotikSetupService = {
             profiles,
             firewall,
         };
+    },
+
+    /** Invalidate caches — called after auto-create so next read is fresh. */
+    invalidateCache(routerId: string, tenantId?: string): void {
+        const prefix = `${routerId}:${tenantId || ''}`;
+        for (const k of profileCache.keys()) if (k.startsWith(prefix)) profileCache.delete(k);
+        for (const k of firewallCache.keys()) if (k.startsWith(prefix)) firewallCache.delete(k);
     },
 
     /**
@@ -118,6 +177,9 @@ export const mikrotikSetupService = {
                 logger.warn({ err: e?.message, routerId }, 'firewall setup failed (non-fatal — profile already created)');
             }
         }
+
+        // Invalidate cache so next read sees the freshly created profile/rules
+        mikrotikSetupService.invalidateCache(routerId, tenantId);
 
         return {
             profile: { created: createdProfile, name: profileName, id: profileId },
