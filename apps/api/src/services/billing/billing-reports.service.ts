@@ -49,9 +49,13 @@ export const billingReportsService = {
 
     /**
      * Aging report — receivables bucketed by days past due.
+     *
+     * Sort is done in JS afterwards because PG doesn't let an alias defined
+     * in SELECT (`bucket`) be referenced inside an ORDER BY CASE expression
+     * in some versions / via Drizzle prepared statements.
      */
     async aging(tenantId: string) {
-        return db.execute(sql`
+        const rows = await db.execute(sql`
             SELECT
                 CASE
                     WHEN due_at >= NOW() THEN 'current'
@@ -66,15 +70,9 @@ export const billingReportsService = {
             WHERE tenant_id = ${tenantId}
               AND status IN ('unpaid','overdue')
             GROUP BY 1
-            ORDER BY
-                CASE
-                    WHEN bucket = 'current' THEN 0
-                    WHEN bucket = '1-7' THEN 1
-                    WHEN bucket = '8-30' THEN 2
-                    WHEN bucket = '31-60' THEN 3
-                    ELSE 4
-                END
-        `) as any;
+        `) as any[];
+        const order: Record<string, number> = { 'current': 0, '1-7': 1, '8-30': 2, '31-60': 3, '60+': 4 };
+        return rows.sort((a: any, b: any) => (order[a.bucket] ?? 99) - (order[b.bucket] ?? 99));
     },
 
     /**
