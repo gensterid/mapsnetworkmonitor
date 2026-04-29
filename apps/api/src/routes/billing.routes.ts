@@ -437,6 +437,8 @@ router.get('/mikrotik/:routerId/ppp-profiles', requireTenant, asyncHandler(async
         res.json({ data: profiles });
     } catch (e: any) {
         const msg = e?.message || 'Gagal baca profile dari MikroTik';
+        const { logger } = await import('../lib/logger.js');
+        logger.warn({ err: msg, code: e?.code, cause: e?.cause?.message, routerId: req.params.routerId, tenantId: req._tenantId }, 'mikrotik ppp-profiles failed');
         res.status(502).json({ error: msg, code: e?.code, detail: e?.cause?.message });
     }
 }));
@@ -448,6 +450,8 @@ router.get('/mikrotik/:routerId/isolir-status', requireTenant, asyncHandler(asyn
         const data = await mikrotikSetupService.getIsolirReadiness(req.params.routerId, profileName, listName, req._tenantId);
         res.json({ data });
     } catch (e: any) {
+        const { logger } = await import('../lib/logger.js');
+        logger.warn({ err: e?.message, code: e?.code, cause: e?.cause?.message, routerId: req.params.routerId, tenantId: req._tenantId }, 'mikrotik isolir-status failed');
         res.status(502).json({ error: e?.message || 'Gagal baca status isolir' });
     }
 }));
