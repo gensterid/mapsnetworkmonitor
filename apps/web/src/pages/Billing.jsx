@@ -1202,7 +1202,11 @@ function SettingsTab() {
                 </div>
 
                 {routerId && (
-                    <form onSubmit={save} className="space-y-4">
+                    // key remounts the form when settings change so defaultChecked /
+                    // defaultValue re-apply with fresh data. Without this, a refetch
+                    // of settings (e.g. tab re-open) would leave checkboxes stale at
+                    // the value they had during initial mount.
+                    <form key={`settings-${routerId}-${settings?.updatedAt || 'new'}`} onSubmit={save} className="space-y-4">
                         <div className="grid md:grid-cols-2 gap-4">
                             <div className="space-y-3">
                                 <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">PPPoE</h4>
