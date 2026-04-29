@@ -308,8 +308,23 @@ router.post('/invoices/:id/payment-link', requireTenant, requireOperator, asyncH
 // ─── Vouchers (Phase C) ────────────────────────────────────────────────────
 
 router.get('/vouchers/router/:routerId', requireTenant, asyncHandler(async (req: any, res) => {
-    const result = await voucherService.listForRouter(req._tenantId, req.params.routerId);
-    res.json({ data: result });
+    try {
+        const result = await voucherService.listForRouter(req._tenantId, req.params.routerId);
+        res.json({ data: result });
+    } catch (e: any) {
+        const msg = String(e?.message || '');
+        const { logger } = await import('../lib/logger.js');
+        logger.warn({ err: msg, routerId: req.params.routerId }, 'voucher list failed');
+        // MikroTik bridge mode tergantung router — kalau router lambat/down, return
+        // 503 dengan empty list supaya UI tetap render (bukan crash dengan 500).
+        if (msg.includes('timed out') || msg.includes('ECONNREFUSED') || msg.includes('EHOSTUNREACH')) {
+            return res.status(503).json({
+                data: { mode: 'unknown', items: [] },
+                error: 'Router tidak merespons — bridge mode butuh koneksi MikroTik yang aktif. Coba ganti ke mode Native atau cek status router.',
+            });
+        }
+        res.status(500).json({ error: msg || 'Gagal baca voucher' });
+    }
 }));
 
 router.get('/vouchers/batches', requireTenant, asyncHandler(async (req: any, res) => {
