@@ -5,6 +5,7 @@ import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 import { gatewayService } from '../services/billing/gateway.service.js';
+import { mikrotikSetupService } from '../services/billing/mikrotik-setup.service.js';
 import {
     packageService, customerService, subscriptionService, invoiceService,
     billingSettingsService,
@@ -425,6 +426,47 @@ router.post('/router/:id/isolir-firewall/setup', requireTenant, requireOperator,
         res.json({ data: result });
     } catch (e: any) {
         res.status(500).json({ error: e?.message });
+    }
+}));
+
+// ─── MikroTik setup helpers (Phase B fitur tambahan) ───────────────────────
+
+router.get('/mikrotik/:routerId/ppp-profiles', requireTenant, asyncHandler(async (req: any, res) => {
+    try {
+        const profiles = await mikrotikSetupService.listPppProfiles(req.params.routerId);
+        res.json({ data: profiles });
+    } catch (e: any) {
+        res.status(502).json({ error: e?.message || 'Gagal baca profile dari MikroTik' });
+    }
+}));
+
+router.get('/mikrotik/:routerId/isolir-status', requireTenant, asyncHandler(async (req: any, res) => {
+    const profileName = (req.query.profile as string) || 'pppoe-isolir';
+    const listName = (req.query.list as string) || 'isolir';
+    try {
+        const data = await mikrotikSetupService.getIsolirReadiness(req.params.routerId, profileName, listName);
+        res.json({ data });
+    } catch (e: any) {
+        res.status(502).json({ error: e?.message || 'Gagal baca status isolir' });
+    }
+}));
+
+router.post('/mikrotik/:routerId/isolir-setup', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        profileName: z.string().optional(),
+        rateLimit: z.string().optional(),
+        remoteAddress: z.string().optional(),
+        addressListName: z.string().optional(),
+        redirectIp: z.string().optional(),
+        redirectPort: z.number().int().min(1).max(65535).optional(),
+        addWalledGarden: z.boolean().optional(),
+    }).parse(req.body);
+
+    try {
+        const result = await mikrotikSetupService.autoCreateIsolir(req.params.routerId, body);
+        res.json({ data: result });
+    } catch (e: any) {
+        res.status(502).json({ error: e?.message || 'Gagal auto-setup isolir' });
     }
 }));
 

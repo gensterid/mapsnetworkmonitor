@@ -371,6 +371,48 @@ export function useSetupIsolirFirewall() {
     });
 }
 
+// ─── MikroTik setup helpers (auto-detect / auto-create isolir) ────────────
+export function useMikrotikPppProfiles(routerId) {
+    return useQuery({
+        queryKey: ['billing-ppp-profiles', routerId],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/mikrotik/${routerId}/ppp-profiles`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+export function useIsolirFirewallStatus(routerId, profile = 'pppoe-isolir') {
+    return useQuery({
+        queryKey: ['billing-isolir-status', routerId, profile],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/mikrotik/${routerId}/isolir-status?profile=${encodeURIComponent(profile)}`);
+            return res.data?.data ?? null;
+        },
+    });
+}
+/**
+ * Auto-create profile + firewall isolir. Idempotent: kalau sudah ada, hanya
+ * isi yang missing. Return { profile: { created, name }, firewall: { ids } }.
+ */
+export function useSetupIsolirFirewall() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ routerId, ...body }) => apiClient.post(`${API}/mikrotik/${routerId}/isolir-setup`, body).then(r => r.data?.data),
+        onSuccess: (data, vars) => {
+            const created = data?.profile?.created;
+            toast.success(created ? `Profile "${data.profile.name}" dibuat di MikroTik` : `Profile "${data.profile.name}" sudah ada — firewall di-update`);
+            qc.invalidateQueries({ queryKey: ['billing-ppp-profiles', vars.routerId] });
+            qc.invalidateQueries({ queryKey: ['billing-isolir-status', vars.routerId] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+/** Alias yang dipakai SettingsTab — same as useSetupIsolirFirewall, distinct
+ * keying biar invalidation konsisten saat operator buat profile manual. */
+export function useCreatePppProfile() { return useSetupIsolirFirewall(); }
+
 // ─── Payment gateway (Phase E) ────────────────────────────────────────────
 export function useCreatePaymentLink() {
     return useMutation({
