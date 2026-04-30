@@ -17,6 +17,7 @@ import {
     useCreatePaymentLink,
     useMikrotikPppProfiles, useCreatePppProfile, useIsolirFirewallStatus, useSetupIsolirFirewall,
     useBillingSchedulerStatus, useSetupBillingScheduler,
+    useCommentAudit, useResyncComment,
     useImportCandidates,
     useRouters,
 } from '@/hooks';
@@ -1122,6 +1123,87 @@ function IsolirProfilePicker({ routerId, currentValue }) {
     );
 }
 
+// ─── Comment audit (deteksi typo / manual edit operator) ──────────────────
+function CommentAuditCard({ routerId }) {
+    const { data, refetch, isFetching } = useCommentAudit(routerId);
+    const resync = useResyncComment();
+
+    if (!routerId) return null;
+    const issues = data?.issues || [];
+
+    const labelFor = (k) => {
+        switch (k) {
+            case 'missing-dn': return 'Tanpa dn:';
+            case 'mismatched-dn': return 'dn ≠ DB';
+            case 'inconsistent-due-vs-dn': return 'due ≠ dn (typo)';
+            case 'orphan-mikrotik': return 'Orphan di router';
+            default: return k;
+        }
+    };
+
+    return (
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase">Audit Comment di Router</div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                        Deteksi typo / edit manual operator di winbox. Klik "Resync" untuk paksa sistem menulis ulang.
+                    </p>
+                </div>
+                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                    <RefreshCw className={clsx('w-3 h-3', isFetching && 'animate-spin')} /> scan
+                </button>
+            </div>
+
+            {data && (
+                <div className="text-xs text-slate-500">
+                    {data.totalSecrets} secret di router • {data.totalSubs} subscription di DB •{' '}
+                    {issues.length === 0 ? (
+                        <span className="text-emerald-400 font-semibold">semua konsisten ✓</span>
+                    ) : (
+                        <span className="text-amber-400 font-semibold">{issues.length} issue ditemukan</span>
+                    )}
+                </div>
+            )}
+
+            {issues.length > 0 && (
+                <div className="max-h-60 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
+                    <table className="w-full text-xs">
+                        <thead className="bg-slate-900 sticky top-0 text-slate-500 uppercase">
+                            <tr>
+                                <th className="text-left px-2 py-1">Username</th>
+                                <th className="text-left px-2 py-1">Issue</th>
+                                <th className="text-left px-2 py-1">Saat ini</th>
+                                <th className="text-left px-2 py-1">Seharusnya</th>
+                                <th className="px-2 py-1"></th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                            {issues.map((i, idx) => (
+                                <tr key={idx} className="hover:bg-slate-800/50">
+                                    <td className="px-2 py-1 font-mono text-blue-400">{i.name}</td>
+                                    <td className="px-2 py-1">
+                                        <span className="bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">{labelFor(i.kind)}</span>
+                                    </td>
+                                    <td className="px-2 py-1 font-mono text-slate-400">{i.current || '—'}</td>
+                                    <td className="px-2 py-1 font-mono text-emerald-400">{i.expected || '—'}</td>
+                                    <td className="px-2 py-1 text-right">
+                                        {i.subscriptionId ? (
+                                            <button type="button" onClick={() => resync.mutate(i.subscriptionId)} className="text-primary hover:underline">Resync</button>
+                                        ) : (
+                                            <span className="text-slate-500 text-[10px]">orphan</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+}
+
 // ─── Master billing scheduler (resilient isolir) ───────────────────────────
 function BillingSchedulerCard({ routerId, isolirProfile }) {
     const { data: status, refetch, isFetching } = useBillingSchedulerStatus(routerId);
@@ -1397,6 +1479,7 @@ function SettingsTab() {
                                 <Field label="Redirect URL halaman tagihan"><input name="isolirRedirectUrl" defaultValue={settings?.isolirRedirectUrl || ''} className={inputCls} placeholder="https://genster.id/tagihan" /></Field>
                                 <IsolirFirewallSetup routerId={routerId} />
                                 <BillingSchedulerCard routerId={routerId} isolirProfile={settings?.isolirProfile || 'pppoe-isolir'} />
+                                <CommentAuditCard routerId={routerId} />
                                 <Field label="Grace days sebelum auto-isolir (0 = isolir hari saat lewat jatuh tempo)"><input name="isolirGraceDays" type="number" min="0" defaultValue={settings?.isolirGraceDays || 0} className={inputCls} /></Field>
                                 <Field label="Default tanggal tagih (1-28, dipakai kalau pelanggan tidak set sendiri)"><input name="defaultBillingDay" type="number" min="1" max="28" defaultValue={settings?.defaultBillingDay || 1} className={inputCls} /></Field>
                             </div>

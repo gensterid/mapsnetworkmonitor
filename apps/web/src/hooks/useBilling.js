@@ -407,6 +407,34 @@ export function useSetupBillingScheduler() {
 }
 
 /**
+ * Audit comments PPP secret di router vs DB. Deteksi dn mismatch / due-vs-dn
+ * inkonsistensi / orphan / missing-dn. Operator manual edit di winbox akan
+ * ketahuan di sini.
+ */
+export function useCommentAudit(routerId) {
+    return useQuery({
+        queryKey: ['billing-comment-audit', routerId],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/mikrotik/${routerId}/audit-comments`);
+            return res.data?.data ?? null;
+        },
+    });
+}
+export function useResyncComment() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (subscriptionId) => apiClient.post(`${API}/subscriptions/${subscriptionId}/resync-comment`).then(r => r.data?.data),
+        onSuccess: (_, subscriptionId) => {
+            toast.success('Comment di-resync ke router');
+            qc.invalidateQueries({ queryKey: ['billing-comment-audit'] });
+            qc.invalidateQueries({ queryKey: ['billing-subscriptions'] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
+/**
  * List user MikroTik (PPPoE secret atau Hotspot user) yang BELUM ter-import
  * ke subscription/voucher di sistem. Untuk fitur "adopt existing".
  */

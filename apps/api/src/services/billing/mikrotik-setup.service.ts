@@ -31,6 +31,28 @@ export interface IsolirReadiness {
     firewall: IsolirFirewallStatus;
 }
 
+// Local helpers — duplicated here to avoid circular imports with billing-helpers
+function computeIsolirDateLocal(nextDueAt: Date | null | undefined, graceDays: number = 0): Date | null {
+    if (!nextDueAt) return null;
+    const d = new Date(nextDueAt);
+    d.setDate(d.getDate() + Math.max(0, graceDays));
+    return d;
+}
+function formatDateNumericLocal(d: Date): string {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+}
+const MONTH_LOCAL = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+function parseDueLocal(due: string): Date | null {
+    const m = due.match(/^([a-z]{3})\/(\d{1,2})\/(\d{4})$/i);
+    if (!m) return null;
+    const mIdx = MONTH_LOCAL.indexOf(m[1].toLowerCase());
+    if (mIdx < 0) return null;
+    return new Date(Number(m[3]), mIdx, Number(m[2]));
+}
+
 // In-memory cache so repeated settings-tab opens don't hammer slow routers.
 // PPP profile + firewall list rarely change, 60s TTL is acceptable. Stale
 // entries are KEPT (just flagged) so we can fall back to them when MikroTik
@@ -308,6 +330,136 @@ export const mikrotikSetupService = {
             nextRun: entry['next-run'],
             runCount: entry['run-count'],
         };
+    },
+
+    /**
+     * Audit subscription comments on the router. Compares each PPP secret's
+     * `dn:` field against our DB's expected isolir date (subscription.nextDueAt
+     * + isolirGraceDays). Returns a list of mismatches the operator can
+     * one-click resync.
+     */
+    async auditSubscriptionComments(routerId: string, tenantId: string) {
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
+        const { getPppSecrets } = await import('../../lib/mikrotik/billing.js');
+        const secrets = await getPppSecrets(api);
+
+        const subs = await db.select()
+            .from(subscriptions)
+            .where(and(
+                eq(subscriptions.routerId, routerId),
+                eq(subscriptions.tenantId, tenantId),
+                eq(subscriptions.type, 'pppoe'),
+            ));
+
+        // Lookup grace days
+        const { billingRouterSettings } = await import('../../db/schema/index.js');
+        const [settings] = await db.select().from(billingRouterSettings)
+            .where(eq(billingRouterSettings.routerId, routerId)).limit(1);
+        const graceDays = settings?.isolirGraceDays ?? 0;
+
+        const subByName = new Map(subs.map(s => [s.mikrotikIdentity, s]));
+        const issues: Array<{
+            name: string;
+            kind: 'missing-dn' | 'mismatched-dn' | 'inconsistent-due-vs-dn' | 'orphan-mikrotik';
+            comment: string | null;
+            expected: string | null;
+            current: string | null;
+            subscriptionId?: string;
+        }> = [];
+
+        for (const sec of secrets) {
+            const sub = subByName.get(sec.name);
+            const cmt = sec.comment || '';
+
+            // Skip secrets that aren't tagged as ours (no subscription:UUID)
+            if (!cmt.includes('subscription:') && !sub) continue;
+
+            // Find dn: and due: in the comment
+            const dnMatch = cmt.match(/dn:(\d{8})/);
+            const dueMatch = cmt.match(/due:([a-zA-Z]{3}\/\d{1,2}\/\d{4})/);
+
+            // Compute expected dn from DB
+            const expectedDn = sub
+                ? (() => {
+                    const isolirDate = computeIsolirDateLocal(sub.nextDueAt, graceDays);
+                    return isolirDate ? formatDateNumericLocal(isolirDate) : null;
+                })()
+                : null;
+
+            // Case A: tagged in comment but no matching subscription in DB
+            if (cmt.includes('subscription:') && !sub) {
+                issues.push({
+                    name: sec.name, kind: 'orphan-mikrotik',
+                    comment: cmt, expected: null, current: dnMatch?.[1] || null,
+                });
+                continue;
+            }
+
+            // Case B: subscription exists but no dn in comment
+            if (sub && !dnMatch) {
+                issues.push({
+                    name: sec.name, kind: 'missing-dn', comment: cmt,
+                    expected: expectedDn, current: null,
+                    subscriptionId: sub.id,
+                });
+                continue;
+            }
+
+            // Case C: dn doesn't match expected (most common: operator manual edit)
+            if (sub && dnMatch && expectedDn && dnMatch[1] !== expectedDn) {
+                issues.push({
+                    name: sec.name, kind: 'mismatched-dn', comment: cmt,
+                    expected: expectedDn, current: dnMatch[1],
+                    subscriptionId: sub.id,
+                });
+                continue;
+            }
+
+            // Case D: due and dn don't refer to the same date (typo)
+            if (dnMatch && dueMatch) {
+                const dnYmd = dnMatch[1];
+                const dueParsed = parseDueLocal(dueMatch[1]);
+                if (dueParsed && formatDateNumericLocal(dueParsed) !== dnYmd) {
+                    issues.push({
+                        name: sec.name, kind: 'inconsistent-due-vs-dn', comment: cmt,
+                        expected: dnYmd, current: dueMatch[1],
+                        subscriptionId: sub?.id,
+                    });
+                }
+            }
+        }
+
+        return { totalSecrets: secrets.length, totalSubs: subs.length, issues };
+    },
+
+    /**
+     * Resync — force-write the canonical comment for a single subscription
+     * back to the router. Used by the audit UI's "fix" button.
+     */
+    async resyncSubscriptionComment(subscriptionId: string, tenantId: string): Promise<{ ok: boolean }> {
+        const [sub] = await db.select().from(subscriptions)
+            .where(and(eq(subscriptions.id, subscriptionId), eq(subscriptions.tenantId, tenantId))).limit(1);
+        if (!sub) return { ok: false };
+
+        const { packages, billingRouterSettings } = await import('../../db/schema/index.js');
+        const [pkg] = await db.select().from(packages).where(eq(packages.id, sub.packageId)).limit(1);
+        const [settings] = await db.select().from(billingRouterSettings).where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
+        const graceDays = settings?.isolirGraceDays ?? 0;
+        const isolirDate = computeIsolirDateLocal(sub.nextDueAt, graceDays);
+
+        const { buildSubscriptionComment } = await import('./billing-helpers.js');
+        const comment = buildSubscriptionComment({
+            subscriptionId: sub.id,
+            isolirDate,
+            packageName: pkg?.name,
+        });
+
+        const { getPppSecretByName, updatePppSecret } = await import('../../lib/mikrotik/billing.js');
+        const api = await routerActionService.getRouterConnection(sub.routerId, tenantId);
+        const sec = await getPppSecretByName(api, sub.mikrotikIdentity);
+        if (!sec) return { ok: false };
+        await updatePppSecret(api, sec.id, { comment });
+        return { ok: true };
     },
 
     /**

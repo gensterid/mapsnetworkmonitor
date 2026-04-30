@@ -496,6 +496,25 @@ router.post('/mikrotik/:routerId/billing-scheduler-setup', requireTenant, requir
     }
 }));
 
+router.get('/mikrotik/:routerId/audit-comments', requireTenant, asyncHandler(async (req: any, res) => {
+    try {
+        const data = await mikrotikSetupService.auditSubscriptionComments(req.params.routerId, req._tenantId);
+        res.json({ data });
+    } catch (e: any) {
+        res.status(502).json({ error: e?.message || 'Gagal audit comment' });
+    }
+}));
+
+router.post('/subscriptions/:id/resync-comment', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    try {
+        const result = await mikrotikSetupService.resyncSubscriptionComment(req.params.id, req._tenantId);
+        if (!result.ok) return res.status(404).json({ error: 'Tidak bisa resync (subscription/secret tidak ditemukan)' });
+        res.json({ data: result });
+    } catch (e: any) {
+        res.status(502).json({ error: e?.message || 'Gagal resync comment' });
+    }
+}));
+
 router.get('/mikrotik/:routerId/import-candidates', requireTenant, asyncHandler(async (req: any, res) => {
     const type = (req.query.type as string) === 'hotspot' ? 'hotspot' : 'pppoe';
     try {
