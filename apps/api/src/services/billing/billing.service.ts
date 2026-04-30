@@ -17,7 +17,7 @@ import {
 } from '../../lib/mikrotik/billing.js';
 import {
     generateInvoiceNumber, generateCustomerCode, computeNextDueAt,
-    defaultPinForCustomer,
+    defaultPinForCustomer, buildSubscriptionComment, computeIsolirDate,
 } from './billing-helpers.js';
 
 /**
@@ -196,21 +196,27 @@ export const subscriptionService = {
         // Push to MikroTik. If a secret with the same name already exists,
         // ADOPT it instead of erroring — this is the common path for operators
         // migrating from a router that already has hundreds of customers.
-        // We update the existing secret's profile + comment to mark it as
-        // tracked by our billing system, but keep the password as-is unless
-        // operator explicitly typed a different one.
         if (pkg.type === 'pppoe') {
             try {
+                // Look up router settings for grace days (used to compute isolir date)
+                const { db: _db } = await import('../../db/index.js');
+                const { billingRouterSettings } = await import('../../db/schema/index.js');
+                const [settings] = await _db.select().from(billingRouterSettings)
+                    .where(eq(billingRouterSettings.routerId, input.routerId)).limit(1);
+                const graceDays = settings?.isolirGraceDays ?? 0;
+                const isolirDate = computeIsolirDate(nextDueAt, graceDays);
+                const comment = buildSubscriptionComment({
+                    subscriptionId: row.id,
+                    isolirDate,
+                    packageName: pkg.name,
+                });
+
                 const api = await routerActionService.getRouterConnection(input.routerId);
                 const existing = await getPppSecretByName(api, input.mikrotikIdentity);
                 if (existing) {
-                    // Adopt mode: update profile + comment, password only if differs
                     await updatePppSecret(api, existing.id, {
                         profile: pkg.mikrotikProfile,
-                        comment: `subscription:${row.id}`,
-                        // Update password ONLY if MikroTik returned a different one
-                        // (meaning operator typed a NEW password to override).
-                        // If existing has the same password, no-op.
+                        comment,
                         ...(existing.password && existing.password !== input.plainPassword
                             ? { password: input.plainPassword } : {}),
                     });
@@ -221,7 +227,7 @@ export const subscriptionService = {
                         password: input.plainPassword,
                         profile: pkg.mikrotikProfile,
                         service: 'pppoe',
-                        comment: `subscription:${row.id}`,
+                        comment,
                     });
                 }
             } catch (err: any) {
@@ -348,12 +354,32 @@ export const subscriptionService = {
         const pkg = await packageService.findById(sub.packageId, tenantId);
         if (!pkg) return null;
 
+        // Advance the next-due forward one cycle (typically called after payment).
+        // Comment on MikroTik gets the new isolir date so the on-router scheduler
+        // re-evaluates against the new period.
+        const nextDueAt = computeNextDueAt(sub.billingDay || 1, new Date());
+
         if (sub.type === 'pppoe') {
             try {
+                const { db: _db } = await import('../../db/index.js');
+                const { billingRouterSettings } = await import('../../db/schema/index.js');
+                const [settings] = await _db.select().from(billingRouterSettings)
+                    .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
+                const graceDays = settings?.isolirGraceDays ?? 0;
+                const isolirDate = computeIsolirDate(nextDueAt, graceDays);
+                const comment = buildSubscriptionComment({
+                    subscriptionId: sub.id,
+                    isolirDate,
+                    packageName: pkg.name,
+                });
+
                 const api = await routerActionService.getRouterConnection(sub.routerId);
                 const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
                 if (secret) {
-                    await updatePppSecret(api, secret.id, { profile: pkg.mikrotikProfile });
+                    await updatePppSecret(api, secret.id, {
+                        profile: pkg.mikrotikProfile,
+                        comment,
+                    });
                     await kickPppSession(api, sub.mikrotikIdentity);
                 }
             } catch (err: any) {
@@ -362,7 +388,12 @@ export const subscriptionService = {
         }
 
         const [row] = await db.update(subscriptions)
-            .set({ status: 'active', statusReason: null, updatedAt: new Date() })
+            .set({
+                status: 'active',
+                statusReason: null,
+                nextDueAt,
+                updatedAt: new Date(),
+            })
             .where(eq(subscriptions.id, id))
             .returning();
         return row;

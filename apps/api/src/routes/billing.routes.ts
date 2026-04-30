@@ -471,6 +471,31 @@ router.get('/mikrotik/:routerId/isolir-status', requireTenant, asyncHandler(asyn
     }
 }));
 
+router.get('/mikrotik/:routerId/billing-scheduler-status', requireTenant, asyncHandler(async (req: any, res) => {
+    try {
+        const data = await mikrotikSetupService.getBillingSchedulerStatus(req.params.routerId, req._tenantId);
+        res.json({ data });
+    } catch (e: any) {
+        res.status(502).json({ error: e?.message || 'Gagal baca scheduler' });
+    }
+}));
+
+router.post('/mikrotik/:routerId/billing-scheduler-setup', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        isolirProfile: z.string().optional(),
+        interval: z.string().optional(),
+    }).parse(req.body || {});
+    try {
+        const result = await mikrotikSetupService.setupBillingScheduler(req.params.routerId, req._tenantId, body);
+        res.json({ data: result });
+    } catch (e: any) {
+        const msg = e?.message || 'Gagal setup scheduler';
+        const { logger } = await import('../lib/logger.js');
+        logger.warn({ err: msg, routerId: req.params.routerId }, 'billing scheduler setup failed');
+        res.status(502).json({ error: msg });
+    }
+}));
+
 router.get('/mikrotik/:routerId/import-candidates', requireTenant, asyncHandler(async (req: any, res) => {
     const type = (req.query.type as string) === 'hotspot' ? 'hotspot' : 'pppoe';
     try {

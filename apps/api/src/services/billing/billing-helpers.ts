@@ -78,3 +78,53 @@ export function defaultPinForCustomer(c: { phone?: string | null; code: string }
     const code = c.code.replace(/\D/g, '');
     return code.padStart(4, '0').slice(-4);
 }
+
+const MONTH_NAMES_EN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/** Mikhmon-style date "jun/06/2026" (lowercase month, zero-padded day, 4-digit year). */
+export function formatDateMikhmon(d: Date): string {
+    const mm = MONTH_NAMES_EN[d.getMonth()];
+    const dd = String(d.getDate()).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${mm}/${dd}/${yyyy}`;
+}
+
+/** Numeric "YYYYMMDD" for fast string-as-number comparison in RouterOS scripts. */
+export function formatDateNumeric(d: Date): string {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}${mm}${dd}`;
+}
+
+/**
+ * Build the canonical PPP secret comment used by our billing system. The
+ * RouterOS-side scheduler reads `dn:` for the isolir decision; operators
+ * see `due:` in winbox; `subscription:` is our DB tracking key.
+ */
+export function buildSubscriptionComment(opts: {
+    subscriptionId: string;
+    isolirDate?: Date | null;
+    packageName?: string | null;
+}): string {
+    const parts = [`subscription:${opts.subscriptionId}`];
+    if (opts.isolirDate) {
+        parts.push(`due:${formatDateMikhmon(opts.isolirDate)}`);
+        parts.push(`dn:${formatDateNumeric(opts.isolirDate)}`);
+    }
+    if (opts.packageName) parts.push(`paket:${opts.packageName.replace(/\s+/g, '_')}`);
+    return parts.join(' ');
+}
+
+/**
+ * Compute the date when a subscription SHOULD be isolired:
+ *   nextDueAt + graceDays
+ *
+ * Returns null if nextDueAt is missing.
+ */
+export function computeIsolirDate(nextDueAt: Date | null | undefined, graceDays: number = 0): Date | null {
+    if (!nextDueAt) return null;
+    const d = new Date(nextDueAt);
+    d.setDate(d.getDate() + Math.max(0, graceDays));
+    return d;
+}

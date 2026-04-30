@@ -212,6 +212,105 @@ export const mikrotikSetupService = {
     },
 
     /**
+     * Push a single master scheduler entry to the router that auto-isolirs
+     * any PPP secret whose comment contains `dn:YYYYMMDD <= today`.
+     *
+     * Idempotent: replaces an existing entry with the same name. Safe to
+     * re-run after operator changes interval or isolir profile name.
+     */
+    async setupBillingScheduler(routerId: string, tenantId: string, opts: {
+        isolirProfile?: string;
+        interval?: string;            // RouterOS interval string, default "1h"
+        schedulerName?: string;       // default "billing-isolir-check"
+    } = {}): Promise<{ created: boolean; replaced: boolean; name: string }> {
+        const isolirProfile = opts.isolirProfile || 'pppoe-isolir';
+        const interval = opts.interval || '1h';
+        const name = opts.schedulerName || 'billing-isolir-check';
+
+        // Build the on-event script. Detects the date format on the router
+        // (RouterOS 6.x = "name" mmm/dd/yyyy, 7.x default = "iso" yyyy-mm-dd)
+        // and converts to YYYYMMDD numeric for comparison.
+        const script = `:local now [/system clock get date]
+:local todayNum 0
+:if ([:pick \$now 4 5] = "-") do={
+  :set todayNum [:tonum ([:pick \$now 0 4] . [:pick \$now 5 7] . [:pick \$now 8 10])]
+} else={
+  :local mm [:pick \$now 0 3]
+  :local mn "00"
+  :if (\$mm = "jan") do={ :set mn "01" }
+  :if (\$mm = "feb") do={ :set mn "02" }
+  :if (\$mm = "mar") do={ :set mn "03" }
+  :if (\$mm = "apr") do={ :set mn "04" }
+  :if (\$mm = "may") do={ :set mn "05" }
+  :if (\$mm = "jun") do={ :set mn "06" }
+  :if (\$mm = "jul") do={ :set mn "07" }
+  :if (\$mm = "aug") do={ :set mn "08" }
+  :if (\$mm = "sep") do={ :set mn "09" }
+  :if (\$mm = "oct") do={ :set mn "10" }
+  :if (\$mm = "nov") do={ :set mn "11" }
+  :if (\$mm = "dec") do={ :set mn "12" }
+  :set todayNum [:tonum ([:pick \$now 7 11] . \$mn . [:pick \$now 4 6])]
+}
+:foreach s in=[/ppp/secret/find disabled=no] do={
+  :local cmt [/ppp/secret/get \$s comment]
+  :local dnIdx [:find \$cmt "dn:"]
+  :if ([:typeof \$dnIdx] = "num") do={
+    :local dnStr [:pick \$cmt (\$dnIdx + 3) (\$dnIdx + 11)]
+    :local dn [:tonum \$dnStr]
+    :if ((\$dn != 0) and (\$dn <= \$todayNum)) do={
+      :local cur [/ppp/secret/get \$s profile]
+      :if (\$cur != "${isolirProfile}") do={
+        /ppp/secret/set \$s profile=${isolirProfile}
+        :local uname [/ppp/secret/get \$s name]
+        :foreach a in=[/ppp/active/find] do={
+          :if ([/ppp/active/get \$a name] = \$uname) do={ /ppp/active/remove \$a }
+        }
+      }
+    }
+  }
+}`;
+
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
+        const { safeWrite } = await import('../../lib/mikrotik/connection.js');
+
+        // Check if scheduler already exists
+        const existing = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]) as any[];
+        const replaced = existing.length > 0;
+        if (replaced) {
+            await safeWrite(api, ['/system/scheduler/remove', `=.id=${existing[0]['.id']}`]);
+        }
+
+        await safeWrite(api, [
+            '/system/scheduler/add',
+            `=name=${name}`,
+            `=interval=${interval}`,
+            `=on-event=${script}`,
+            '=comment=auto-billing isolir master scheduler',
+            '=disabled=no',
+        ]);
+
+        return { created: !replaced, replaced, name };
+    },
+
+    /**
+     * Check if the master billing scheduler is present on the router.
+     */
+    async getBillingSchedulerStatus(routerId: string, tenantId: string, name: string = 'billing-isolir-check') {
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
+        const { safeWrite } = await import('../../lib/mikrotik/connection.js');
+        const result = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]) as any[];
+        if (!result?.length) return { present: false };
+        const entry = result[0];
+        return {
+            present: true,
+            interval: entry.interval,
+            disabled: entry.disabled === 'true' || entry.disabled === true,
+            nextRun: entry['next-run'],
+            runCount: entry['run-count'],
+        };
+    },
+
+    /**
      * List import candidates: PPP secrets / hotspot users that exist on the
      * router but aren't yet linked to a subscription/voucher in our DB.
      * Used by the "Adopt existing user" flow when migrating an operator who

@@ -16,6 +16,7 @@ import {
     useWaLog, useWaTest,
     useCreatePaymentLink,
     useMikrotikPppProfiles, useCreatePppProfile, useIsolirFirewallStatus, useSetupIsolirFirewall,
+    useBillingSchedulerStatus, useSetupBillingScheduler,
     useImportCandidates,
     useRouters,
 } from '@/hooks';
@@ -1121,6 +1122,73 @@ function IsolirProfilePicker({ routerId, currentValue }) {
     );
 }
 
+// ─── Master billing scheduler (resilient isolir) ───────────────────────────
+function BillingSchedulerCard({ routerId, isolirProfile }) {
+    const { data: status, refetch, isFetching } = useBillingSchedulerStatus(routerId);
+    const setup = useSetupBillingScheduler();
+    const [interval, setInterval_] = useState('1h');
+
+    if (!routerId) return null;
+
+    const handleSetup = async () => {
+        await setup.mutateAsync({
+            routerId,
+            isolirProfile: isolirProfile || 'pppoe-isolir',
+            interval,
+        });
+        refetch();
+    };
+
+    return (
+        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between">
+                <div>
+                    <div className="text-xs font-semibold text-slate-400 uppercase">Scheduler Auto-Isolir di Router</div>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                        1 scheduler entry yang scan semua /ppp secret tiap interval. Tetap jalan walau server aplikasi down.
+                    </p>
+                </div>
+                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                    <RefreshCw className={clsx('w-3 h-3', isFetching && 'animate-spin')} /> cek
+                </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 text-xs">
+                <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
+                    <div className="text-slate-500 uppercase text-[10px]">Status</div>
+                    <div className={status?.present ? 'text-emerald-400 font-semibold' : 'text-slate-500'}>
+                        {status?.present ? '✓ Terpasang' : '— Belum'}
+                    </div>
+                </div>
+                <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
+                    <div className="text-slate-500 uppercase text-[10px]">Interval</div>
+                    <div className="text-slate-300">{status?.interval || '—'}</div>
+                </div>
+                <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
+                    <div className="text-slate-500 uppercase text-[10px]">Run Count</div>
+                    <div className="text-slate-300">{status?.runCount || '—'}</div>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+                <Field label="Interval (cth: 1h, 30m, 6h)">
+                    <input value={interval} onChange={(e) => setInterval_(e.target.value)} className={inputCls} placeholder="1h" />
+                </Field>
+            </div>
+
+            <Button size="sm" type="button" onClick={handleSetup} loading={setup.isPending}>
+                {status?.present ? 'Update Scheduler di Router' : 'Pasang Scheduler di Router'}
+            </Button>
+
+            <p className="text-xs text-slate-500">
+                Scheduler akan baca <code className="text-blue-400">dn:YYYYMMDD</code> dari comment tiap PPP secret.
+                Sistem otomatis tulis comment ini saat buat/payment subscription dengan format
+                <code className="text-blue-400"> dn:20260606 due:jun/06/2026</code>.
+            </p>
+        </div>
+    );
+}
+
 // ─── Firewall isolir auto-setup ────────────────────────────────────────────
 function IsolirFirewallSetup({ routerId }) {
     const { data: status, refetch, isFetching } = useIsolirFirewallStatus(routerId, 'isolir');
@@ -1328,6 +1396,7 @@ function SettingsTab() {
                                 />
                                 <Field label="Redirect URL halaman tagihan"><input name="isolirRedirectUrl" defaultValue={settings?.isolirRedirectUrl || ''} className={inputCls} placeholder="https://genster.id/tagihan" /></Field>
                                 <IsolirFirewallSetup routerId={routerId} />
+                                <BillingSchedulerCard routerId={routerId} isolirProfile={settings?.isolirProfile || 'pppoe-isolir'} />
                                 <Field label="Grace days sebelum auto-isolir (0 = isolir hari saat lewat jatuh tempo)"><input name="isolirGraceDays" type="number" min="0" defaultValue={settings?.isolirGraceDays || 0} className={inputCls} /></Field>
                                 <Field label="Default tanggal tagih (1-28, dipakai kalau pelanggan tidak set sendiri)"><input name="defaultBillingDay" type="number" min="1" max="28" defaultValue={settings?.defaultBillingDay || 1} className={inputCls} /></Field>
                             </div>

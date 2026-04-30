@@ -381,6 +381,32 @@ export function useSetupIsolirFirewall() {
 export function useCreatePppProfile() { return useSetupIsolirFirewall(); }
 
 /**
+ * Status master billing scheduler (1 entry yang scan semua /ppp secret).
+ * Resilient mode: kalau server aplikasi down, MikroTik scheduler tetap jalan.
+ */
+export function useBillingSchedulerStatus(routerId) {
+    return useQuery({
+        queryKey: ['billing-scheduler-status', routerId],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/mikrotik/${routerId}/billing-scheduler-status`);
+            return res.data?.data ?? null;
+        },
+    });
+}
+export function useSetupBillingScheduler() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ routerId, ...body }) => apiClient.post(`${API}/mikrotik/${routerId}/billing-scheduler-setup`, body).then(r => r.data?.data),
+        onSuccess: (data, vars) => {
+            toast.success(data?.replaced ? 'Scheduler diperbarui di router' : 'Scheduler dipasang di router');
+            qc.invalidateQueries({ queryKey: ['billing-scheduler-status', vars.routerId] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
+/**
  * List user MikroTik (PPPoE secret atau Hotspot user) yang BELUM ter-import
  * ke subscription/voucher di sistem. Untuk fitur "adopt existing".
  */
