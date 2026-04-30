@@ -380,6 +380,21 @@ export function useSetupIsolirFirewall() {
  * keying biar invalidation konsisten saat operator buat profile manual. */
 export function useCreatePppProfile() { return useSetupIsolirFirewall(); }
 
+/**
+ * List user MikroTik (PPPoE secret atau Hotspot user) yang BELUM ter-import
+ * ke subscription/voucher di sistem. Untuk fitur "adopt existing".
+ */
+export function useImportCandidates(routerId, type = 'pppoe') {
+    return useQuery({
+        queryKey: ['billing-import-candidates', routerId, type],
+        enabled: !!routerId,
+        queryFn: async () => {
+            const res = await apiClient.get(`${API}/mikrotik/${routerId}/import-candidates?type=${type}`);
+            return res.data?.data ?? [];
+        },
+    });
+}
+
 // ─── Payment gateway (Phase E) ────────────────────────────────────────────
 export function useCreatePaymentLink() {
     return useMutation({

@@ -16,6 +16,7 @@ import {
     useWaLog, useWaTest,
     useCreatePaymentLink,
     useMikrotikPppProfiles, useCreatePppProfile, useIsolirFirewallStatus, useSetupIsolirFirewall,
+    useImportCandidates,
     useRouters,
 } from '@/hooks';
 import toast from 'react-hot-toast';
@@ -297,18 +298,30 @@ function SubscriptionsTab() {
     const pkgMap = useMemo(() => Object.fromEntries(pkgs.map(p => [p.id, p])), [pkgs]);
     const routerMap = useMemo(() => Object.fromEntries(routers.map(r => [r.id, r])), [routers]);
 
+    // Form state (controlled) — needed so "Pilih dari MikroTik" can fill fields
+    const [subRouterId, setSubRouterId] = useState('');
+    const [subIdentity, setSubIdentity] = useState('');
+    const [subPassword, setSubPassword] = useState('');
+    const [subPickerOpen, setSubPickerOpen] = useState(false);
+    const { data: importCandidates = [], isLoading: importLoading } = useImportCandidates(subRouterId, 'pppoe');
+
+    const resetSubForm = () => {
+        setSubRouterId(''); setSubIdentity(''); setSubPassword(''); setSubPickerOpen(false);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
         await create.mutateAsync({
             customerId: f.get('customerId'),
             packageId: f.get('packageId'),
-            routerId: f.get('routerId'),
-            mikrotikIdentity: f.get('mikrotikIdentity'),
-            plainPassword: f.get('plainPassword'),
+            routerId: subRouterId || f.get('routerId'),
+            mikrotikIdentity: subIdentity || f.get('mikrotikIdentity'),
+            plainPassword: subPassword || f.get('plainPassword'),
             billingDay: Number(f.get('billingDay')) || undefined,
         });
         setModalOpen(false);
+        resetSubForm();
     };
 
     const showPwd = async (id) => {
@@ -373,8 +386,8 @@ function SubscriptionsTab() {
                 )}
             </CardContent>
 
-            <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="Tambah Subscription" footer={<>
-                <Button variant="ghost" onClick={() => setModalOpen(false)}>Batal</Button>
+            <Modal open={modalOpen} onClose={() => { setModalOpen(false); resetSubForm(); }} title="Tambah Subscription" footer={<>
+                <Button variant="ghost" onClick={() => { setModalOpen(false); resetSubForm(); }}>Batal</Button>
                 <Button form="sub-form" type="submit" loading={create.isPending}>Buat & Push ke MikroTik</Button>
             </>}>
                 <form id="sub-form" onSubmit={handleSubmit}>
@@ -391,13 +404,63 @@ function SubscriptionsTab() {
                         </select>
                     </Field>
                     <Field label="Router">
-                        <select name="routerId" required className={inputCls}>
+                        <select name="routerId" value={subRouterId} onChange={(e) => setSubRouterId(e.target.value)} required className={inputCls}>
                             <option value="">Pilih…</option>
                             {routers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                         </select>
                     </Field>
-                    <Field label="Username PPPoE / Voucher Code"><input name="mikrotikIdentity" required className={inputCls} placeholder="budi-home" /></Field>
-                    <Field label="Password"><input name="plainPassword" required className={inputCls} /></Field>
+
+                    {subRouterId && (
+                        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 mb-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <div className="text-xs font-semibold text-slate-300 uppercase">Pilih dari MikroTik existing</div>
+                                    <p className="text-xs text-slate-500 mt-0.5">Adopt user PPPoE yang sudah ada di router. Username & password auto-isi.</p>
+                                </div>
+                                <button type="button" onClick={() => setSubPickerOpen(p => !p)} className="text-xs text-primary hover:underline">
+                                    {subPickerOpen ? 'Sembunyikan' : 'Buka picker'}
+                                </button>
+                            </div>
+                            {subPickerOpen && (
+                                <div className="max-h-48 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
+                                    {importLoading ? (
+                                        <div className="p-3 text-xs text-slate-500 text-center">Memuat dari router…</div>
+                                    ) : importCandidates.length === 0 ? (
+                                        <div className="p-3 text-xs text-slate-500 text-center">Tidak ada user PPPoE belum-bound, atau router timeout.</div>
+                                    ) : (
+                                        <table className="w-full text-xs">
+                                            <thead className="bg-slate-900 sticky top-0 text-slate-500 uppercase">
+                                                <tr><th className="text-left px-2 py-1">Username</th><th className="text-left px-2 py-1">Profile</th><th className="px-2 py-1"></th></tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-800">
+                                                {importCandidates.map((c) => (
+                                                    <tr key={c.name} className={clsx('hover:bg-slate-800/50', c.disabled && 'opacity-50')}>
+                                                        <td className="px-2 py-1 font-mono text-blue-400">{c.name}</td>
+                                                        <td className="px-2 py-1 text-slate-400">{c.profile || '—'}</td>
+                                                        <td className="px-2 py-1 text-right">
+                                                            <button type="button" onClick={() => {
+                                                                setSubIdentity(c.name);
+                                                                setSubPassword(c.password || '');
+                                                                setSubPickerOpen(false);
+                                                                if (!c.password) toast('MikroTik tidak return password — isi manual', { icon: '⚠️' });
+                                                            }} className="text-primary hover:underline">Pilih</button>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    <Field label="Username PPPoE / Voucher Code">
+                        <input name="mikrotikIdentity" value={subIdentity} onChange={(e) => setSubIdentity(e.target.value)} required className={inputCls} placeholder="budi-home" />
+                    </Field>
+                    <Field label="Password">
+                        <input name="plainPassword" value={subPassword} onChange={(e) => setSubPassword(e.target.value)} required className={inputCls} />
+                    </Field>
                     <Field label="Tanggal tagih (1-28, kosong = 1)"><input name="billingDay" type="number" min="1" max="28" className={inputCls} /></Field>
                 </form>
             </Modal>

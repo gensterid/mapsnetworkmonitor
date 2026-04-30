@@ -2,8 +2,12 @@ import { routerActionService } from '../router-action.service.js';
 import {
     getPppProfiles, addPppProfile,
     inspectIsolirFirewall, setupIsolirFirewall,
+    getPppSecrets, getHotspotUsers,
     type PppProfile, type IsolirFirewallStatus,
 } from '../../lib/mikrotik/billing.js';
+import { db } from '../../db/index.js';
+import { subscriptions, vouchers } from '../../db/schema/index.js';
+import { and, eq, inArray } from 'drizzle-orm';
 import { logger } from '../../lib/logger.js';
 
 /**
@@ -205,5 +209,65 @@ export const mikrotikSetupService = {
             profile: { created: createdProfile, name: profileName, id: profileId },
             firewall: firewallResult,
         };
+    },
+
+    /**
+     * List import candidates: PPP secrets / hotspot users that exist on the
+     * router but aren't yet linked to a subscription/voucher in our DB.
+     * Used by the "Adopt existing user" flow when migrating an operator who
+     * already has hundreds of customers in MikroTik.
+     */
+    async listImportCandidates(routerId: string, tenantId: string, type: 'pppoe' | 'hotspot') {
+        const api = await routerActionService.getRouterConnection(routerId, tenantId);
+
+        if (type === 'pppoe') {
+            const secrets = await getPppSecrets(api);
+            // Find which usernames are already taken in our DB for this router
+            const existingSubs = await db.select({ name: subscriptions.mikrotikIdentity })
+                .from(subscriptions)
+                .where(and(
+                    eq(subscriptions.routerId, routerId),
+                    eq(subscriptions.type, 'pppoe'),
+                ));
+            const taken = new Set(existingSubs.map(s => s.name));
+            return secrets
+                .filter(s => !taken.has(s.name))
+                .map(s => ({
+                    name: s.name,
+                    profile: s.profile || null,
+                    service: s.service || 'pppoe',
+                    hasPassword: !!s.password,
+                    password: s.password || null,
+                    comment: s.comment || null,
+                    disabled: s.disabled,
+                }));
+        }
+
+        // Hotspot
+        const users = await getHotspotUsers(api);
+        const existingV = await db.select({ code: vouchers.code })
+            .from(vouchers)
+            .where(eq(vouchers.routerId, routerId));
+        const existingS = await db.select({ name: subscriptions.mikrotikIdentity })
+            .from(subscriptions)
+            .where(and(
+                eq(subscriptions.routerId, routerId),
+                eq(subscriptions.type, 'hotspot'),
+            ));
+        const taken = new Set([
+            ...existingV.map(v => v.code),
+            ...existingS.map(s => s.name),
+        ]);
+        return users
+            .filter(u => !taken.has(u.name))
+            .map(u => ({
+                name: u.name,
+                profile: u.profile || null,
+                hasPassword: !!u.password,
+                password: u.password || null,
+                comment: u.comment || null,
+                limitUptime: u.limitUptime || null,
+                disabled: u.disabled,
+            }));
     },
 };

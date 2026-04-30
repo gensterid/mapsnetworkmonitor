@@ -471,6 +471,19 @@ router.get('/mikrotik/:routerId/isolir-status', requireTenant, asyncHandler(asyn
     }
 }));
 
+router.get('/mikrotik/:routerId/import-candidates', requireTenant, asyncHandler(async (req: any, res) => {
+    const type = (req.query.type as string) === 'hotspot' ? 'hotspot' : 'pppoe';
+    try {
+        const candidates = await mikrotikSetupService.listImportCandidates(req.params.routerId, req._tenantId, type);
+        res.json({ data: candidates });
+    } catch (e: any) {
+        const msg = e?.message || 'Gagal baca user dari MikroTik';
+        const { logger } = await import('../lib/logger.js');
+        logger.warn({ err: msg, routerId: req.params.routerId }, 'mikrotik import-candidates failed');
+        res.status(502).json({ error: msg });
+    }
+}));
+
 router.post('/mikrotik/:routerId/isolir-setup', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
     const body = z.object({
         profileName: z.string().optional(),

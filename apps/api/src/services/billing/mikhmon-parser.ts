@@ -154,17 +154,45 @@ function appendValue(out: MikhmonComment, key: string, extra: string): void {
     }
 }
 
+const MONTH_MAP: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+};
+
 function parseDate(value: string): Date | null {
     if (!value) return null;
-    // Try ISO first, fall back to `YYYY-MM-DD HH:MM:SS` Mikhmon format.
+
+    // 1. ISO / native — fastest path
     const direct = new Date(value);
     if (!isNaN(direct.getTime())) return direct;
-    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
-    if (m) {
-        const [, y, mo, d, hh = '00', mm = '00', ss = '00'] = m;
+
+    // 2. "YYYY-MM-DD HH:MM:SS" Mikhmon canonical
+    const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/);
+    if (isoMatch) {
+        const [, y, mo, d, hh = '00', mm = '00', ss = '00'] = isoMatch;
         const dt = new Date(Number(y), Number(mo) - 1, Number(d), Number(hh), Number(mm), Number(ss));
         if (!isNaN(dt.getTime())) return dt;
     }
+
+    // 3. "may/25/2026" or "May/25/2026" — Mikhmon v3.x scheduler comment
+    const monMatch = value.match(/^([a-zA-Z]{3})\/(\d{1,2})\/(\d{4})$/);
+    if (monMatch) {
+        const [, monStr, d, y] = monMatch;
+        const mo = MONTH_MAP[monStr.toLowerCase().slice(0, 3)];
+        if (mo !== undefined) {
+            const dt = new Date(Number(y), mo, Number(d));
+            if (!isNaN(dt.getTime())) return dt;
+        }
+    }
+
+    // 4. "25/05/2026" or "05/25/2026" (DMY/MDY ambiguous → assume DMY for ID locale)
+    const slashMatch = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (slashMatch) {
+        const [, a, b, y] = slashMatch;
+        const dt = new Date(Number(y), Number(b) - 1, Number(a));
+        if (!isNaN(dt.getTime())) return dt;
+    }
+
     return null;
 }
 
