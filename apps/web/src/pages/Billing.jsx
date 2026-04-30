@@ -158,7 +158,7 @@ function PackagesTab() {
     const update = useUpdatePackage();
     const del = useDeletePackage();
     const { data: routers = [] } = useRouters();
-    const { data: pppProfiles = [] } = useMikrotikPppProfiles(routerForProfiles);
+    const { data: pppProfiles = [], isLoading: pppProfilesLoading, isError: pppProfilesError } = useMikrotikPppProfiles(routerForProfiles);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -235,11 +235,23 @@ function PackagesTab() {
                         </select>
                     </Field>
                     <Field label="MikroTik Profile (harus ada di router target)">
-                        {routerForProfiles && pppProfiles.length > 0 ? (
-                            <select name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls}>
-                                <option value="">— pilih dari profile yang ada —</option>
-                                {pppProfiles.map(p => <option key={p.id} value={p.name}>{p.name} {p.rateLimit ? `(${p.rateLimit})` : ''}</option>)}
-                            </select>
+                        {routerForProfiles && pppProfilesLoading ? (
+                            <div className={inputCls + ' text-slate-500 flex items-center gap-2'}>
+                                <RefreshCw className="w-3 h-3 animate-spin" /> Memuat profile dari router…
+                            </div>
+                        ) : routerForProfiles && pppProfiles.length > 0 ? (
+                            <>
+                                <select name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls}>
+                                    <option value="">— pilih dari profile yang ada —</option>
+                                    {pppProfiles.map(p => <option key={p.id} value={p.name}>{p.name} {p.rateLimit ? `(${p.rateLimit})` : ''}</option>)}
+                                </select>
+                                <p className="text-xs text-slate-500 mt-1">{pppProfiles.length} profile ditemukan di router</p>
+                            </>
+                        ) : routerForProfiles && pppProfilesError ? (
+                            <>
+                                <input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder="contoh: pppoe-home-10m" />
+                                <p className="text-xs text-amber-400 mt-1">⚠ Tidak bisa baca profile dari router (timeout). Ketik manual nama profile.</p>
+                            </>
                         ) : (
                             <input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder="contoh: pppoe-home-10m" />
                         )}
