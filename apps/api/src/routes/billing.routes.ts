@@ -74,7 +74,7 @@ const packageSchema = z.object({
     price: z.number().nonnegative().or(z.string()),
     cycleType: z.enum(['monthly', 'duration']),
     cycleValue: z.number().int().positive().default(1),
-    description: z.string().optional(),
+    description: z.string().optional().nullable(),
     routerId: z.string().uuid().optional().nullable(),
     active: z.boolean().optional(),
 });

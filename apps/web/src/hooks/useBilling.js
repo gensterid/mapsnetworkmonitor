@@ -4,7 +4,18 @@ import toast from 'react-hot-toast';
 
 const API = '/billing';
 
-const handle = (err) => err?.response?.data?.message || err?.response?.data?.error || err?.message || 'Operation failed';
+const handle = (err) => {
+    const data = err?.response?.data;
+    // Backend error middleware returns { error: { name, message, details: [{ path, message }] } }
+    if (data?.error?.details?.length) {
+        const detail = data.error.details[0];
+        return `${detail.path}: ${detail.message}`;
+    }
+    if (typeof data?.error === 'string') return data.error;
+    if (typeof data?.error?.message === 'string') return data.error.message;
+    if (typeof data?.message === 'string') return data.message;
+    return err?.message || 'Operation failed';
+};
 
 // ─── Packages ──────────────────────────────────────────────────────────────
 export function usePackages(params = {}) {
