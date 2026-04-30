@@ -28,7 +28,9 @@ export interface IsolirReadiness {
 }
 
 // In-memory cache so repeated settings-tab opens don't hammer slow routers.
-// PPP profile + firewall list rarely change, 60s TTL is acceptable.
+// PPP profile + firewall list rarely change, 60s TTL is acceptable. Stale
+// entries are KEPT (just flagged) so we can fall back to them when MikroTik
+// is currently timing out — better serve slightly-old data than 502.
 interface CacheEntry<T> { value: T; expiresAt: number; }
 const profileCache = new Map<string, CacheEntry<PppProfile[]>>();
 const firewallCache = new Map<string, CacheEntry<IsolirFirewallStatus>>();
@@ -37,8 +39,11 @@ const TTL_MS = 60_000;
 function cacheGet<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
     const entry = map.get(key);
     if (!entry) return null;
-    if (entry.expiresAt < Date.now()) { map.delete(key); return null; }
+    if (entry.expiresAt < Date.now()) return null; // expired but DON'T delete — keep for stale fallback
     return entry.value;
+}
+function cacheGetStale<T>(map: Map<string, CacheEntry<T>>, key: string): T | null {
+    return map.get(key)?.value ?? null;
 }
 function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): void {
     map.set(key, { value, expiresAt: Date.now() + TTL_MS });
@@ -71,9 +76,20 @@ export const mikrotikSetupService = {
             const cached = cacheGet(profileCache, cacheKey);
             if (cached) return cached;
         }
-        const profiles = await withRetryFresh(routerId, tenantId, (api) => getPppProfiles(api));
-        cacheSet(profileCache, cacheKey, profiles);
-        return profiles;
+        try {
+            const profiles = await withRetryFresh(routerId, tenantId, (api) => getPppProfiles(api));
+            cacheSet(profileCache, cacheKey, profiles);
+            return profiles;
+        } catch (e: any) {
+            // If router is timing out, prefer stale cache over 502 so the
+            // operator settings UI keeps working with slightly old data.
+            const stale = cacheGetStale(profileCache, cacheKey);
+            if (stale) {
+                logger.warn({ routerId, err: e?.message }, 'mikrotik ppp-profiles failed, returning stale cache');
+                return stale;
+            }
+            throw e;
+        }
     },
 
     /**
