@@ -193,19 +193,39 @@ export const subscriptionService = {
             status: 'active',
         }).returning();
 
-        // Push to MikroTik. Roll back on failure.
+        // Push to MikroTik. If a secret with the same name already exists,
+        // ADOPT it instead of erroring — this is the common path for operators
+        // migrating from a router that already has hundreds of customers.
+        // We update the existing secret's profile + comment to mark it as
+        // tracked by our billing system, but keep the password as-is unless
+        // operator explicitly typed a different one.
         if (pkg.type === 'pppoe') {
             try {
                 const api = await routerActionService.getRouterConnection(input.routerId);
-                await addPppSecret(api, {
-                    name: input.mikrotikIdentity,
-                    password: input.plainPassword,
-                    profile: pkg.mikrotikProfile,
-                    service: 'pppoe',
-                    comment: `subscription:${row.id}`,
-                });
+                const existing = await getPppSecretByName(api, input.mikrotikIdentity);
+                if (existing) {
+                    // Adopt mode: update profile + comment, password only if differs
+                    await updatePppSecret(api, existing.id, {
+                        profile: pkg.mikrotikProfile,
+                        comment: `subscription:${row.id}`,
+                        // Update password ONLY if MikroTik returned a different one
+                        // (meaning operator typed a NEW password to override).
+                        // If existing has the same password, no-op.
+                        ...(existing.password && existing.password !== input.plainPassword
+                            ? { password: input.plainPassword } : {}),
+                    });
+                    logger.info({ subId: row.id, name: input.mikrotikIdentity }, 'Adopted existing PPP secret');
+                } else {
+                    await addPppSecret(api, {
+                        name: input.mikrotikIdentity,
+                        password: input.plainPassword,
+                        profile: pkg.mikrotikProfile,
+                        service: 'pppoe',
+                        comment: `subscription:${row.id}`,
+                    });
+                }
             } catch (err: any) {
-                logger.error({ err: err?.message, subId: row.id }, 'Failed to push PPP secret — rolling back');
+                logger.error({ err: err?.message, subId: row.id }, 'Failed to push/adopt PPP secret — rolling back');
                 await db.delete(subscriptions).where(eq(subscriptions.id, row.id));
                 throw err;
             }
