@@ -303,10 +303,20 @@ function SubscriptionsTab() {
     const [subIdentity, setSubIdentity] = useState('');
     const [subPassword, setSubPassword] = useState('');
     const [subPickerOpen, setSubPickerOpen] = useState(false);
+    const [pickerSearch, setPickerSearch] = useState('');
     const { data: importCandidates = [], isLoading: importLoading } = useImportCandidates(subRouterId, 'pppoe');
+    const filteredCandidates = useMemo(() => {
+        const q = pickerSearch.trim().toLowerCase();
+        if (!q) return importCandidates;
+        return importCandidates.filter((c) =>
+            c.name?.toLowerCase().includes(q) ||
+            c.profile?.toLowerCase().includes(q) ||
+            c.comment?.toLowerCase().includes(q)
+        );
+    }, [importCandidates, pickerSearch]);
 
     const resetSubForm = () => {
-        setSubRouterId(''); setSubIdentity(''); setSubPassword(''); setSubPickerOpen(false);
+        setSubRouterId(''); setSubIdentity(''); setSubPassword(''); setSubPickerOpen(false); setPickerSearch('');
     };
 
     const handleSubmit = async (e) => {
@@ -422,35 +432,61 @@ function SubscriptionsTab() {
                                 </button>
                             </div>
                             {subPickerOpen && (
-                                <div className="max-h-48 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
-                                    {importLoading ? (
-                                        <div className="p-3 text-xs text-slate-500 text-center">Memuat dari router…</div>
-                                    ) : importCandidates.length === 0 ? (
-                                        <div className="p-3 text-xs text-slate-500 text-center">Tidak ada user PPPoE belum-bound, atau router timeout.</div>
-                                    ) : (
-                                        <table className="w-full text-xs">
-                                            <thead className="bg-slate-900 sticky top-0 text-slate-500 uppercase">
-                                                <tr><th className="text-left px-2 py-1">Username</th><th className="text-left px-2 py-1">Profile</th><th className="px-2 py-1"></th></tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-800">
-                                                {importCandidates.map((c) => (
-                                                    <tr key={c.name} className={clsx('hover:bg-slate-800/50', c.disabled && 'opacity-50')}>
-                                                        <td className="px-2 py-1 font-mono text-blue-400">{c.name}</td>
-                                                        <td className="px-2 py-1 text-slate-400">{c.profile || '—'}</td>
-                                                        <td className="px-2 py-1 text-right">
-                                                            <button type="button" onClick={() => {
-                                                                setSubIdentity(c.name);
-                                                                setSubPassword(c.password || '');
-                                                                setSubPickerOpen(false);
-                                                                if (!c.password) toast('MikroTik tidak return password — isi manual', { icon: '⚠️' });
-                                                            }} className="text-primary hover:underline">Pilih</button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                <>
+                                    {!importLoading && importCandidates.length > 0 && (
+                                        <div className="relative">
+                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                                            <input
+                                                type="text"
+                                                value={pickerSearch}
+                                                onChange={(e) => setPickerSearch(e.target.value)}
+                                                placeholder={`Cari dari ${importCandidates.length} user (username, profile, comment)…`}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-primary"
+                                                autoFocus
+                                            />
+                                            {pickerSearch && (
+                                                <button type="button" onClick={() => setPickerSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
                                     )}
-                                </div>
+                                    <div className="max-h-48 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
+                                        {importLoading ? (
+                                            <div className="p-3 text-xs text-slate-500 text-center">Memuat dari router…</div>
+                                        ) : importCandidates.length === 0 ? (
+                                            <div className="p-3 text-xs text-slate-500 text-center">Tidak ada user PPPoE belum-bound, atau router timeout.</div>
+                                        ) : filteredCandidates.length === 0 ? (
+                                            <div className="p-3 text-xs text-slate-500 text-center">Tidak ada hasil untuk "{pickerSearch}".</div>
+                                        ) : (
+                                            <table className="w-full text-xs">
+                                                <thead className="bg-slate-900 sticky top-0 text-slate-500 uppercase">
+                                                    <tr><th className="text-left px-2 py-1">Username</th><th className="text-left px-2 py-1">Profile</th><th className="px-2 py-1"></th></tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-800">
+                                                    {filteredCandidates.map((c) => (
+                                                        <tr key={c.name} className={clsx('hover:bg-slate-800/50', c.disabled && 'opacity-50')}>
+                                                            <td className="px-2 py-1 font-mono text-blue-400">{c.name}</td>
+                                                            <td className="px-2 py-1 text-slate-400">{c.profile || '—'}</td>
+                                                            <td className="px-2 py-1 text-right">
+                                                                <button type="button" onClick={() => {
+                                                                    setSubIdentity(c.name);
+                                                                    setSubPassword(c.password || '');
+                                                                    setSubPickerOpen(false);
+                                                                    setPickerSearch('');
+                                                                    if (!c.password) toast('MikroTik tidak return password — isi manual', { icon: '⚠️' });
+                                                                }} className="text-primary hover:underline">Pilih</button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+                                    {!importLoading && pickerSearch && filteredCandidates.length > 0 && (
+                                        <p className="text-xs text-slate-500 text-right">{filteredCandidates.length} hasil dari {importCandidates.length}</p>
+                                    )}
+                                </>
                             )}
                         </div>
                     )}
