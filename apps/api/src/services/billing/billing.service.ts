@@ -21,6 +21,25 @@ import {
 } from './billing-helpers.js';
 
 /**
+ * Run fn(api), retry once on MikroTik timeout with a FRESH connection.
+ * Stale connections in the pool sometimes time out for 30s on first command;
+ * a re-acquire forces a new socket and the second attempt typically succeeds.
+ */
+async function withFreshConnRetry<T>(routerId: string, fn: (api: any) => Promise<T>): Promise<T> {
+    try {
+        const api = await routerActionService.getRouterConnection(routerId);
+        return await fn(api);
+    } catch (e: any) {
+        const msg = String(e?.message || '');
+        if (!msg.includes('timed out')) throw e;
+        logger.warn({ err: msg, routerId }, 'mikrotik command timed out, retrying with fresh connection');
+        await new Promise(r => setTimeout(r, 500));
+        const api2 = await routerActionService.getRouterConnection(routerId);
+        return await fn(api2);
+    }
+}
+
+/**
  * Billing service — Phase B.1 core operations.
  *
  * Covers:
@@ -211,25 +230,29 @@ export const subscriptionService = {
                     packageName: pkg.name,
                 });
 
-                const api = await routerActionService.getRouterConnection(input.routerId);
-                const existing = await getPppSecretByName(api, input.mikrotikIdentity);
-                if (existing) {
-                    await updatePppSecret(api, existing.id, {
-                        profile: pkg.mikrotikProfile,
-                        comment,
-                        ...(existing.password && existing.password !== input.plainPassword
-                            ? { password: input.plainPassword } : {}),
-                    });
-                    logger.info({ subId: row.id, name: input.mikrotikIdentity }, 'Adopted existing PPP secret');
-                } else {
-                    await addPppSecret(api, {
-                        name: input.mikrotikIdentity,
-                        password: input.plainPassword,
-                        profile: pkg.mikrotikProfile,
-                        service: 'pppoe',
-                        comment,
-                    });
-                }
+                await withFreshConnRetry(input.routerId, async (api) => {
+                    const existing = await getPppSecretByName(api, input.mikrotikIdentity);
+                    if (existing) {
+                        await updatePppSecret(api, existing.id, {
+                            profile: pkg.mikrotikProfile,
+                            comment,
+                            // Only push password when operator typed something AND it differs.
+                            // If RouterOS hides existing.password, treat operator's input as
+                            // authoritative when non-empty.
+                            ...(input.plainPassword && existing.password !== input.plainPassword
+                                ? { password: input.plainPassword } : {}),
+                        });
+                        logger.info({ subId: row.id, name: input.mikrotikIdentity }, 'Adopted existing PPP secret');
+                    } else {
+                        await addPppSecret(api, {
+                            name: input.mikrotikIdentity,
+                            password: input.plainPassword,
+                            profile: pkg.mikrotikProfile,
+                            service: 'pppoe',
+                            comment,
+                        });
+                    }
+                });
             } catch (err: any) {
                 logger.error({ err: err?.message, subId: row.id }, 'Failed to push/adopt PPP secret — rolling back');
                 await db.delete(subscriptions).where(eq(subscriptions.id, row.id));
@@ -280,14 +303,15 @@ export const subscriptionService = {
 
         if (sub.type === 'pppoe' && (newProfile || patch.plainPassword)) {
             try {
-                const api = await routerActionService.getRouterConnection(sub.routerId);
-                const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
-                if (secret) {
-                    await updatePppSecret(api, secret.id, {
-                        profile: newProfile,
-                        password: patch.plainPassword,
-                    });
-                }
+                await withFreshConnRetry(sub.routerId, async (api) => {
+                    const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
+                    if (secret) {
+                        await updatePppSecret(api, secret.id, {
+                            profile: newProfile,
+                            password: patch.plainPassword,
+                        });
+                    }
+                });
             } catch (err: any) {
                 logger.warn({ err: err?.message, subId: id }, 'Subscription update succeeded locally but MikroTik push failed');
             }
@@ -309,12 +333,13 @@ export const subscriptionService = {
         const isolirProfile = settings?.isolirProfile || 'pppoe-isolir';
 
         try {
-            const api = await routerActionService.getRouterConnection(sub.routerId);
-            const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
-            if (secret) {
-                await updatePppSecret(api, secret.id, { profile: isolirProfile });
-                await kickPppSession(api, sub.mikrotikIdentity);
-            }
+            await withFreshConnRetry(sub.routerId, async (api) => {
+                const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
+                if (secret) {
+                    await updatePppSecret(api, secret.id, { profile: isolirProfile });
+                    await kickPppSession(api, sub.mikrotikIdentity);
+                }
+            });
         } catch (err: any) {
             logger.error({ err: err?.message, subId: id }, 'Failed to isolir on MikroTik');
         }
@@ -373,15 +398,16 @@ export const subscriptionService = {
                     packageName: pkg.name,
                 });
 
-                const api = await routerActionService.getRouterConnection(sub.routerId);
-                const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
-                if (secret) {
-                    await updatePppSecret(api, secret.id, {
-                        profile: pkg.mikrotikProfile,
-                        comment,
-                    });
-                    await kickPppSession(api, sub.mikrotikIdentity);
-                }
+                await withFreshConnRetry(sub.routerId, async (api) => {
+                    const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
+                    if (secret) {
+                        await updatePppSecret(api, secret.id, {
+                            profile: pkg.mikrotikProfile,
+                            comment,
+                        });
+                        await kickPppSession(api, sub.mikrotikIdentity);
+                    }
+                });
             } catch (err: any) {
                 logger.error({ err: err?.message, subId: id }, 'Failed to unisolir on MikroTik');
             }
@@ -404,9 +430,10 @@ export const subscriptionService = {
         if (!sub) return false;
         if (sub.type === 'pppoe') {
             try {
-                const api = await routerActionService.getRouterConnection(sub.routerId);
-                const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
-                if (secret) await deletePppSecret(api, secret.id);
+                await withFreshConnRetry(sub.routerId, async (api) => {
+                    const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
+                    if (secret) await deletePppSecret(api, secret.id);
+                });
             } catch (err: any) {
                 logger.warn({ err: err?.message, subId: id }, 'Failed to delete PPP secret on MikroTik');
             }
