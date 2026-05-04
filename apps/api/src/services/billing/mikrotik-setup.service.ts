@@ -80,7 +80,7 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): vo
  * The first connection may be a stale entry from the pool — re-acquiring
  * forces routerActionService to reconnect.
  */
-async function withRetryFresh<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 12000): Promise<T> {
+async function withRetryFresh<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 25000): Promise<T> {
     const race = (p: Promise<T>) => Promise.race<T>([
         p,
         new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`mikrotik attempt timed out after ${perAttemptMs}ms`)), perAttemptMs)),
