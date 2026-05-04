@@ -292,9 +292,11 @@ function SubscriptionsTab() {
     const { data: pkgs = [] } = usePackages();
     const { data: routers = [] } = useRouters();
     const create = useCreateSubscription();
+    const update = useUpdateSubscription();
     const del = useDeleteSubscription();
     const isolir = useIsolirSubscription();
     const unisolir = useUnisolirSubscription();
+    const [editingSub, setEditingSub] = useState(null);
 
     const custMap = useMemo(() => Object.fromEntries(customers.map(c => [c.id, c])), [customers]);
     const pkgMap = useMemo(() => Object.fromEntries(pkgs.map(p => [p.id, p])), [pkgs]);
@@ -388,7 +390,8 @@ function SubscriptionsTab() {
                                             ) : s.status === 'isolir' ? (
                                                 <button title="Buka Isolir" onClick={() => unisolir.mutate(s.id)} className="text-slate-400 hover:text-emerald-400"><Unlock className="w-4 h-4" /></button>
                                             ) : null}
-                                            <button onClick={() => { if (confirm('Hapus subscription? PPPoE secret juga dihapus dari MikroTik.')) del.mutate(s.id); }} className="text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                                            <button title="Edit" onClick={() => setEditingSub(s)} className="text-slate-400 hover:text-blue-400"><Pencil className="w-4 h-4" /></button>
+                                            <button title="Hapus" onClick={() => { if (confirm('Hapus subscription? PPPoE secret juga dihapus dari MikroTik.')) del.mutate(s.id); }} className="text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -501,6 +504,58 @@ function SubscriptionsTab() {
                     </Field>
                     <Field label="Tanggal tagih (1-28, kosong = 1)"><input name="billingDay" type="number" min="1" max="28" className={inputCls} /></Field>
                 </form>
+            </Modal>
+
+            <Modal
+                open={!!editingSub}
+                onClose={() => setEditingSub(null)}
+                title={`Edit Subscription — ${editingSub ? (custMap[editingSub.customerId]?.name || editingSub.mikrotikIdentity) : ''}`}
+                footer={<>
+                    <Button variant="ghost" onClick={() => setEditingSub(null)}>Batal</Button>
+                    <Button form="sub-edit-form" type="submit" loading={update.isPending}>Simpan</Button>
+                </>}
+            >
+                {editingSub && (
+                    <form
+                        id="sub-edit-form"
+                        onSubmit={async (e) => {
+                            e.preventDefault();
+                            const f = new FormData(e.target);
+                            const patch = {
+                                id: editingSub.id,
+                                packageId: f.get('packageId') || undefined,
+                                billingDay: f.get('billingDay') ? Number(f.get('billingDay')) : undefined,
+                            };
+                            const newPwd = f.get('plainPassword');
+                            if (newPwd && String(newPwd).trim()) patch.plainPassword = String(newPwd).trim();
+                            await update.mutateAsync(patch);
+                            setEditingSub(null);
+                        }}
+                    >
+                        <Field label="Pelanggan">
+                            <input value={custMap[editingSub.customerId]?.name || '—'} disabled className={inputCls + ' opacity-60'} />
+                        </Field>
+                        <Field label="Router / Username">
+                            <input value={`${routerMap[editingSub.routerId]?.name || '—'} / ${editingSub.mikrotikIdentity}`} disabled className={inputCls + ' opacity-60'} />
+                        </Field>
+                        <Field label="Paket">
+                            <select name="packageId" defaultValue={editingSub.packageId} className={inputCls}>
+                                {pkgs.filter(p => p.active || p.id === editingSub.packageId).map(p => (
+                                    <option key={p.id} value={p.id}>{p.name} — {fmtIDR(p.price)}/{p.cycleType === 'monthly' ? 'bln' : 'sesi'}</option>
+                                ))}
+                            </select>
+                        </Field>
+                        <Field label="Password baru (kosongkan jika tidak diubah)">
+                            <input name="plainPassword" type="text" placeholder="••••••" className={inputCls} />
+                        </Field>
+                        <Field label="Tanggal tagih (1-28)">
+                            <input name="billingDay" type="number" min="1" max="28" defaultValue={editingSub.billingDay || ''} className={inputCls} />
+                        </Field>
+                        <p className="text-xs text-slate-500 mt-2">
+                            Perubahan paket / password langsung di-push ke MikroTik (profile + secret password). Tagihan berikut & tanggal isolir baru ter-update saat siklus tagihan berikutnya.
+                        </p>
+                    </form>
+                )}
             </Modal>
         </Card>
     );
