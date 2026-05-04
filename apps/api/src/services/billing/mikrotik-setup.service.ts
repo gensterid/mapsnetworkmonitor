@@ -292,44 +292,45 @@ export const mikrotikSetupService = {
   }
 }`;
 
-        const api = await routerActionService.getRouterConnection(routerId, tenantId);
         const { safeWrite } = await import('../../lib/mikrotik/connection.js');
 
-        // Check if scheduler already exists
-        const existing = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]) as any[];
-        const replaced = existing.length > 0;
-        if (replaced) {
-            await safeWrite(api, ['/system/scheduler/remove', `=.id=${existing[0]['.id']}`]);
-        }
+        return await withRetryFresh(routerId, tenantId, async (api) => {
+            const existing = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]) as any[];
+            const replaced = existing.length > 0;
+            if (replaced) {
+                await safeWrite(api, ['/system/scheduler/remove', `=.id=${existing[0]['.id']}`]);
+            }
 
-        await safeWrite(api, [
-            '/system/scheduler/add',
-            `=name=${name}`,
-            `=interval=${interval}`,
-            `=on-event=${script}`,
-            '=comment=auto-billing isolir master scheduler',
-            '=disabled=no',
-        ]);
+            await safeWrite(api, [
+                '/system/scheduler/add',
+                `=name=${name}`,
+                `=interval=${interval}`,
+                `=on-event=${script}`,
+                '=comment=auto-billing isolir master scheduler',
+                '=disabled=no',
+            ]);
 
-        return { created: !replaced, replaced, name };
+            return { created: !replaced, replaced, name };
+        });
     },
 
     /**
      * Check if the master billing scheduler is present on the router.
      */
     async getBillingSchedulerStatus(routerId: string, tenantId: string, name: string = 'billing-isolir-check') {
-        const api = await routerActionService.getRouterConnection(routerId, tenantId);
         const { safeWrite } = await import('../../lib/mikrotik/connection.js');
-        const result = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]) as any[];
-        if (!result?.length) return { present: false };
-        const entry = result[0];
-        return {
-            present: true,
-            interval: entry.interval,
-            disabled: entry.disabled === 'true' || entry.disabled === true,
-            nextRun: entry['next-run'],
-            runCount: entry['run-count'],
-        };
+        return await withRetryFresh(routerId, tenantId, async (api) => {
+            const result = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]) as any[];
+            if (!result?.length) return { present: false };
+            const entry = result[0];
+            return {
+                present: true,
+                interval: entry.interval,
+                disabled: entry.disabled === 'true' || entry.disabled === true,
+                nextRun: entry['next-run'],
+                runCount: entry['run-count'],
+            };
+        });
     },
 
     /**
@@ -339,9 +340,8 @@ export const mikrotikSetupService = {
      * one-click resync.
      */
     async auditSubscriptionComments(routerId: string, tenantId: string) {
-        const api = await routerActionService.getRouterConnection(routerId, tenantId);
         const { getPppSecrets } = await import('../../lib/mikrotik/billing.js');
-        const secrets = await getPppSecrets(api);
+        const secrets = await withRetryFresh(routerId, tenantId, (api) => getPppSecrets(api));
 
         const subs = await db.select()
             .from(subscriptions)
@@ -455,11 +455,12 @@ export const mikrotikSetupService = {
         });
 
         const { getPppSecretByName, updatePppSecret } = await import('../../lib/mikrotik/billing.js');
-        const api = await routerActionService.getRouterConnection(sub.routerId, tenantId);
-        const sec = await getPppSecretByName(api, sub.mikrotikIdentity);
-        if (!sec) return { ok: false };
-        await updatePppSecret(api, sec.id, { comment });
-        return { ok: true };
+        return await withRetryFresh(sub.routerId, tenantId, async (api) => {
+            const sec = await getPppSecretByName(api, sub.mikrotikIdentity);
+            if (!sec) return { ok: false };
+            await updatePppSecret(api, sec.id, { comment });
+            return { ok: true };
+        });
     },
 
     /**
