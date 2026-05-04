@@ -1,61 +1,122 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Map, Router, Bell } from 'lucide-react';
+import React, { useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import {
+    LayoutDashboard, Map, Router, Bell, Receipt,
+    MoreHorizontal, X, Server, Monitor, Activity, Globe,
+    BarChart3, Users, MessageSquare, Settings as SettingsIcon, Building,
+} from 'lucide-react';
 import clsx from 'clsx';
+import { useRole } from '@/lib/auth-client';
 
-const NAV_ITEMS = [
+/**
+ * Bottom nav for mobile (lg:hidden). Shows 5 primary items + a "More"
+ * button that opens a drawer with the rest of the sidebar destinations.
+ *
+ * Primary items chosen by frequency of use for an operator on the field:
+ * Dashboard, Map, Routers, Billing, Alerts. Everything else (GenieACS,
+ * OLTs, System Issues, Service Health, Users, Settings, Tenants, etc)
+ * lives in the More drawer.
+ */
+
+const PRIMARY_ITEMS = [
     { label: 'Dash', icon: LayoutDashboard, path: '/' },
     { label: 'Map', icon: Map, path: '/map' },
-    { label: 'Devices', icon: Router, path: '/routers' },
-    { label: 'Alerts', icon: '/alerts' }, // Using path directly since we don't have all icons imported yet or can add Bell
+    { label: 'Routers', icon: Router, path: '/routers' },
+    { label: 'Billing', icon: Receipt, path: '/billing', minRole: 'operator' },
+    { label: 'Alerts', icon: Bell, path: '/alerts' },
 ];
 
-export default function BottomNav() {
+function NavButton({ item }) {
+    const Icon = item.icon;
     return (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 flex items-center justify-around px-2 z-50 pb-safe">
-            <NavLink
-                to="/"
-                className={({ isActive }) => clsx(
-                    "flex flex-col items-center gap-1 min-w-[64px] transition-colors",
-                    isActive ? "text-primary" : "text-slate-500 hover:text-slate-300"
-                )}
-            >
-                <LayoutDashboard className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Dash</span>
-            </NavLink>
+        <NavLink
+            to={item.path}
+            className={({ isActive }) => clsx(
+                'flex flex-col items-center gap-1 flex-1 min-w-0 transition-colors',
+                isActive ? 'text-primary' : 'text-slate-500 hover:text-slate-300'
+            )}
+        >
+            <Icon className="w-5 h-5" />
+            <span className="text-[10px] font-bold uppercase tracking-wider">{item.label}</span>
+        </NavLink>
+    );
+}
 
-            <NavLink
-                to="/map"
-                className={({ isActive }) => clsx(
-                    "flex flex-col items-center gap-1 min-w-[64px] transition-colors",
-                    isActive ? "text-primary" : "text-slate-500 hover:text-slate-300"
-                )}
-            >
-                <Map className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Map</span>
-            </NavLink>
+export default function BottomNav() {
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const navigate = useNavigate();
+    const { isAdmin, isSuperAdmin, isOperator } = useRole();
 
-            <NavLink
-                to="/routers"
-                className={({ isActive }) => clsx(
-                    "flex flex-col items-center gap-1 min-w-[64px] transition-colors",
-                    isActive ? "text-primary" : "text-slate-500 hover:text-slate-300"
-                )}
-            >
-                <Router className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Devices</span>
-            </NavLink>
+    const visiblePrimary = PRIMARY_ITEMS.filter((it) => {
+        if (it.minRole === 'operator') return isAdmin || isOperator;
+        return true;
+    });
 
-            <NavLink
-                to="/alerts"
-                className={({ isActive }) => clsx(
-                    "flex flex-col items-center gap-1 min-w-[64px] transition-colors",
-                    isActive ? "text-primary" : "text-slate-500 hover:text-slate-300"
-                )}
-            >
-                <Bell className="w-5 h-5" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">Alerts</span>
-            </NavLink>
-        </div>
+    const drawerItems = [
+        { label: 'GenieACS', icon: Monitor, path: '/genieacs' },
+        { label: 'OLTs', icon: Server, path: '/olts' },
+        { label: 'System Issues', icon: Activity, path: '/issues' },
+        ...(isAdmin ? [{ label: 'Service Health', icon: Globe, path: '/netwatch' }] : []),
+        ...((isAdmin || isOperator) ? [{ label: 'Analytics', icon: BarChart3, path: '/analytics' }] : []),
+        ...(isSuperAdmin ? [{ label: 'Tenants', icon: Building, path: '/tenants' }] : []),
+        ...(isAdmin ? [{ label: 'Users', icon: Users, path: '/users' }] : []),
+        ...(isAdmin ? [{ label: 'Notifications', icon: MessageSquare, path: '/notification-groups' }] : []),
+        { label: 'Settings', icon: SettingsIcon, path: '/settings' },
+    ];
+
+    const goto = (path) => {
+        setDrawerOpen(false);
+        navigate(path);
+    };
+
+    return (
+        <>
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 flex items-stretch justify-between px-1 z-50 pb-safe">
+                {visiblePrimary.map((item) => <NavButton key={item.path} item={item} />)}
+                <button
+                    type="button"
+                    onClick={() => setDrawerOpen(true)}
+                    className="flex flex-col items-center gap-1 flex-1 min-w-0 transition-colors text-slate-500 hover:text-slate-300"
+                    aria-label="More navigation"
+                >
+                    <MoreHorizontal className="w-5 h-5" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">More</span>
+                </button>
+            </div>
+
+            {drawerOpen && (
+                <div
+                    className="lg:hidden fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-end"
+                    onClick={() => setDrawerOpen(false)}
+                >
+                    <div
+                        className="w-full bg-slate-900 border-t border-slate-700 rounded-t-2xl pb-safe"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
+                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Menu Lainnya</h3>
+                            <button onClick={() => setDrawerOpen(false)} className="text-slate-400 hover:text-white">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 p-4">
+                            {drawerItems.map((it) => {
+                                const Icon = it.icon;
+                                return (
+                                    <button
+                                        key={it.path}
+                                        onClick={() => goto(it.path)}
+                                        className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95 transition"
+                                    >
+                                        <Icon className="w-5 h-5 text-primary" />
+                                        <span className="text-xs text-slate-200 text-center leading-tight">{it.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
