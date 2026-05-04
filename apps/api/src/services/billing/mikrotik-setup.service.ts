@@ -80,18 +80,22 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): vo
  * The first connection may be a stale entry from the pool — re-acquiring
  * forces routerActionService to reconnect.
  */
-async function withRetryFresh<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>): Promise<T> {
+async function withRetryFresh<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 12000): Promise<T> {
+    const race = (p: Promise<T>) => Promise.race<T>([
+        p,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`mikrotik attempt timed out after ${perAttemptMs}ms`)), perAttemptMs)),
+    ]);
     try {
         const api = await routerActionService.getRouterConnection(routerId, tenantId);
-        return await fn(api);
+        return await race(fn(api));
     } catch (e: any) {
         const msg = String(e?.message || '');
         if (!msg.includes('timed out')) throw e;
         logger.warn({ err: msg, routerId }, 'mikrotik command timed out, retrying with fresh connection');
-        // Wait a beat to let pool drop the dead connection
+        // safeWrite auto-purges dead pool entries; wait a beat then re-acquire
         await new Promise(r => setTimeout(r, 500));
         const api2 = await routerActionService.getRouterConnection(routerId, tenantId);
-        return await fn(api2);
+        return await race(fn(api2));
     }
 }
 
