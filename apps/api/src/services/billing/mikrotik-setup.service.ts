@@ -6,9 +6,13 @@ import {
     type PppProfile, type IsolirFirewallStatus,
 } from '../../lib/mikrotik/billing.js';
 import { db } from '../../db/index.js';
-import { subscriptions, vouchers } from '../../db/schema/index.js';
+import { subscriptions, vouchers, routers } from '../../db/schema/index.js';
 import { and, eq, inArray } from 'drizzle-orm';
 import { logger } from '../../lib/logger.js';
+import { decrypt } from '../../lib/encryption.js';
+import * as nodeRouterosModule from 'node-routeros';
+const nodeRouteros: any = (nodeRouterosModule as any).default || nodeRouterosModule;
+const RouterOSAPI = nodeRouteros.RouterOSAPI || nodeRouteros;
 
 /**
  * Auto-detect + auto-setup helpers for the billing module.
@@ -76,28 +80,45 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): vo
 }
 
 /**
- * Run fn(api), retry once on MikroTik timeout with a FRESH connection.
- * The first connection may be a stale entry from the pool — re-acquiring
- * forces routerActionService to reconnect.
+ * Run fn(api) on a DEDICATED short-lived MikroTik connection that bypasses
+ * the shared pool. The pool is heavily reused by background pollers
+ * (traffic-monitor streams, metrics scheduler, netwatch sync) — quick
+ * config commands like /system/scheduler/print get queued behind those
+ * streaming commands and time out. A one-shot connection avoids that.
+ *
+ * Closes the socket after fn finishes (or fails). Safe under load.
  */
-async function withRetryFresh<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 25000): Promise<T> {
-    const race = (p: Promise<T>) => Promise.race<T>([
+async function withDedicatedConn<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 20000): Promise<T> {
+    const filters = [eq(routers.id, routerId)];
+    if (tenantId) filters.push(eq(routers.tenantId, tenantId));
+    const [router] = await db.select().from(routers).where(and(...filters));
+    if (!router) throw new Error('Router not found');
+
+    const password = router.passwordEncrypted ? decrypt(router.passwordEncrypted, router.name) : '';
+    const api = new RouterOSAPI({
+        host: router.host,
+        port: router.port,
+        user: router.username,
+        password,
+        timeout: 30,
+        keepalive: false,
+    });
+
+    const race = <U>(p: Promise<U>) => Promise.race<U>([
         p,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`mikrotik attempt timed out after ${perAttemptMs}ms`)), perAttemptMs)),
+        new Promise<U>((_, reject) => setTimeout(() => reject(new Error(`mikrotik dedicated attempt timed out after ${perAttemptMs}ms`)), perAttemptMs)),
     ]);
+
     try {
-        const api = await routerActionService.getRouterConnection(routerId, tenantId);
+        await race(api.connect());
         return await race(fn(api));
-    } catch (e: any) {
-        const msg = String(e?.message || '');
-        if (!msg.includes('timed out')) throw e;
-        logger.warn({ err: msg, routerId }, 'mikrotik command timed out, retrying with fresh connection');
-        // safeWrite auto-purges dead pool entries; wait a beat then re-acquire
-        await new Promise(r => setTimeout(r, 500));
-        const api2 = await routerActionService.getRouterConnection(routerId, tenantId);
-        return await race(fn(api2));
+    } finally {
+        try { await api.close(); } catch { /* ignore */ }
     }
 }
+
+// Backward-compat alias for existing call sites in this file.
+const withRetryFresh = withDedicatedConn;
 
 export const mikrotikSetupService = {
     async listPppProfiles(routerId: string, tenantId?: string, force = false): Promise<PppProfile[]> {
