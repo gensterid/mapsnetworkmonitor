@@ -21,61 +21,52 @@ export class CDataDriver extends BaseOltDriver {
     }
 
     async testConnection(): Promise<{ success: boolean; error?: string }> {
-        if (this.config.protocol === 'http' || this.config.protocol === 'https' || this.config.port === 80 || this.config.port === 443) {
-            const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
-            const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
-            const username = this.config.username || 'admin';
-            const password = this.config.password || '';
-            const auth = Buffer.from(`${username}:${password}`).toString('base64');
-
-            // Probing endpoints
-            const endpoints = [
-                { path: '/cgi-bin/h.cgi', auth: 'none' },
-                { path: '/cgi-bin/h.cgi?module=sys_login', auth: 'none' },
-                { path: '/api/onu/list', auth: 'basic' },
-                { path: '/cgi-bin/system.cgi', auth: 'basic' },
-                { path: '/cgi-bin/onu_status.cgi', auth: 'basic' },
-                { path: '/cgi-bin/onu_mgmt.cgi', auth: 'basic' },
-                { path: '/index.cgi', auth: 'basic' },
-                { path: '/onu_list.cgi', auth: 'basic' },
-                { path: '/login.cgi', auth: 'none' }
-            ];
-
-            let lastRespStatus = null;
-            for (const ep of endpoints) {
-                try {
-                    const headers: any = { 'User-Agent': 'Mozilla/5.0' };
-                    if (ep.auth === 'basic') headers['Authorization'] = `Basic ${auth}`;
-
-                    const response = await fetch(`${baseUrl}${ep.path}`, {
-                        method: 'GET',
-                        headers,
-                        signal: AbortSignal.timeout(4000)
-                    });
-
-                    if (response.ok) {
-                        return { success: true };
-                    }
-                    
-                    lastRespStatus = response.status;
-                    if (response.status === 401 || response.status === 403) {
-                        // If we get an auth error but the endpoint exists, we count it as a "success" in terms of reachability
-                        // but since testConnection is for credentials too, we should actually return success for 40? if it's the expected result?
-                        // Usually testConnection should prove FULL access.
-                        // Let's keep it simple for now matching the interface.
-                        // Wait, previous code returned true for 401/403.
-                        return { success: true }; 
-                    }
-                } catch (e) {
-                    continue;
-                }
-            }
-            
-            if (lastRespStatus === 401 || lastRespStatus === 403) {
-                 return { success: false, error: 'Auth Failed: Invalid Web Username/Password' };
-            }
+        if (this.config.protocol !== 'http' && this.config.protocol !== 'https' && this.config.port !== 80 && this.config.port !== 443) {
+            return { success: false, error: 'OLT Web API Unreachable' };
         }
-        return { success: false, error: 'OLT Web API Unreachable' };
+
+        const protocol = this.config.protocol || (this.config.port === 443 ? 'https' : 'http');
+        const baseUrl = `${protocol}://${this.config.host}:${this.config.port}`;
+        const username = this.config.username || 'admin';
+        const password = this.config.password || '';
+        const auth = Buffer.from(`${username}:${password}`).toString('base64');
+
+        // First: check the OLT is reachable at all
+        let reachable = false;
+        let httpStatus: number | null = null;
+        const probeEndpoints = ['/cgi-bin/h.cgi', '/login.cgi', '/index.cgi', '/'];
+        for (const path of probeEndpoints) {
+            try {
+                const r = await fetch(`${baseUrl}${path}`, {
+                    method: 'GET',
+                    headers: { 'User-Agent': 'Mozilla/5.0' },
+                    signal: AbortSignal.timeout(4000),
+                });
+                httpStatus = r.status;
+                reachable = true;
+                break;
+            } catch { /* try next */ }
+        }
+        if (!reachable) return { success: false, error: 'OLT Web API Unreachable' };
+
+        // Second: try modern login (the real auth path used by getOnuListHttp).
+        // Success here means credentials are correct and ONU sync will work.
+        const token = await this.loginModern(baseUrl);
+        if (token) return { success: true };
+
+        // Third: modern login failed. Try a Basic-auth GET to see if legacy mode works.
+        try {
+            const r = await fetch(`${baseUrl}/cgi-bin/system.cgi`, {
+                headers: { 'Authorization': `Basic ${auth}`, 'User-Agent': 'Mozilla/5.0' },
+                signal: AbortSignal.timeout(4000),
+            });
+            if (r.ok) return { success: true };
+            if (r.status === 401 || r.status === 403) {
+                return { success: false, error: 'Auth Failed: Web username/password rejected by OLT (modern login + basic auth both denied)' };
+            }
+        } catch { /* fall through */ }
+
+        return { success: false, error: `Auth probe inconclusive (HTTP ${httpStatus ?? '?'}). Check OLT firmware compatibility — modern login API returned no token.` };
     }
 
     async getOnuList(): Promise<OnuInfo[]> {
@@ -89,33 +80,48 @@ export class CDataDriver extends BaseOltDriver {
     }
 
     private async loginModern(baseUrl: string): Promise<string | null> {
-        try {
-            const uname = this.config.username || 'admin';
-            const password = this.config.password || '';
-            const md5Password = crypto.createHash('md5').update(password).digest('hex');
+        const uname = this.config.username || 'admin';
+        const password = this.config.password || '';
+        const md5Lower = crypto.createHash('md5').update(password).digest('hex');
+        const md5Upper = md5Lower.toUpperCase();
 
-            const payload = {
-                Usrname: uname,
-                Password: md5Password
-            };
+        // Different CDATA firmwares accept different password hash formats.
+        // Try plain → md5 lowercase → md5 uppercase before giving up.
+        const variants: Array<{ label: string; password: string }> = [
+            { label: 'md5-lower', password: md5Lower },
+            { label: 'plain', password },
+            { label: 'md5-upper', password: md5Upper },
+        ];
 
-            const response = await fetch(`${baseUrl}/cgi-bin/h.cgi?module=sys_login`, {
-                method: 'POST',
-                body: JSON.stringify(payload),
-                headers: { 'Content-Type': 'application/json' },
-                signal: AbortSignal.timeout(5000)
-            });
+        for (const v of variants) {
+            try {
+                const payload = { Usrname: uname, Password: v.password };
+                const response = await fetch(`${baseUrl}/cgi-bin/h.cgi?module=sys_login`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: AbortSignal.timeout(5000),
+                });
 
-            if (!response.ok) return null;
+                if (!response.ok) {
+                    logger.warn({ baseUrl, variant: v.label, httpStatus: response.status }, 'C-Data: modern login HTTP not OK');
+                    continue;
+                }
 
-            const data = await response.json() as any;
-            if (data.code === 0) {
-                return data.token || (data.data && data.data.token) || null;
+                const data = await response.json() as any;
+                if (data.code === 0) {
+                    const token = data.token || (data.data && data.data.token) || null;
+                    if (token) {
+                        logger.info({ baseUrl, variant: v.label }, 'C-Data: modern login succeeded');
+                        return token;
+                    }
+                }
+                logger.warn({ baseUrl, variant: v.label, code: data.code, desc: data.description }, 'C-Data: modern login rejected');
+            } catch (e: any) {
+                logger.warn({ baseUrl, variant: v.label, err: e?.message }, 'C-Data: modern login threw');
             }
-            return null;
-        } catch (e) {
-            return null;
         }
+        return null;
     }
 
     private async getOnuListHttp(): Promise<OnuInfo[]> {
@@ -306,7 +312,14 @@ export class CDataDriver extends BaseOltDriver {
             }
         }
 
-        throw lastError || new Error(`C-Data OLT: All Web API endpoints failed after retries. Please check OLT model and Web Port.`);
+        // Re-probe testConnection to give an actionable error message instead of
+        // the generic "all endpoints failed". This costs one extra HTTP call but
+        // only on the failure path.
+        const probe = await this.testConnection();
+        if (!probe.success && probe.error) {
+            throw new Error(`C-Data OLT: ${probe.error}`);
+        }
+        throw lastError || new Error('C-Data OLT: Login succeeded but no ONU list endpoint returned data — check firmware compatibility.');
     }
 
     private parseOnuData(data: any): OnuInfo[] {
