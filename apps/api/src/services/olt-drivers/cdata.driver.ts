@@ -79,21 +79,31 @@ export class CDataDriver extends BaseOltDriver {
         throw new Error('C-Data Telnet/SSH access is disabled. Please use HTTP/HTTPS (Web Port 80/443).');
     }
 
+    // Per-OLT cache of which password format worked, so we don't spam 3
+    // variants on every poll. Cleared if the cached variant later fails.
+    private static workingVariant = new Map<string, 'md5-lower' | 'plain' | 'md5-upper'>();
+
     private async loginModern(baseUrl: string): Promise<string | null> {
         const uname = this.config.username || 'admin';
         const password = this.config.password || '';
         const md5Lower = crypto.createHash('md5').update(password).digest('hex');
         const md5Upper = md5Lower.toUpperCase();
 
-        // Different CDATA firmwares accept different password hash formats.
-        // Try plain → md5 lowercase → md5 uppercase before giving up.
-        const variants: Array<{ label: string; password: string }> = [
+        const allVariants: Array<{ label: 'md5-lower' | 'plain' | 'md5-upper'; password: string }> = [
             { label: 'md5-lower', password: md5Lower },
             { label: 'plain', password },
             { label: 'md5-upper', password: md5Upper },
         ];
 
-        for (const v of variants) {
+        // If we've already learned which variant this OLT accepts, try it
+        // FIRST and return immediately on success — avoids hammering the OLT.
+        const cachedLabel = CDataDriver.workingVariant.get(baseUrl);
+        const ordered = cachedLabel
+            ? [allVariants.find(v => v.label === cachedLabel)!, ...allVariants.filter(v => v.label !== cachedLabel)]
+            : allVariants;
+
+        let lastRejectionDesc: string | null = null;
+        for (const v of ordered) {
             try {
                 const payload = { Usrname: uname, Password: v.password };
                 const response = await fetch(`${baseUrl}/cgi-bin/h.cgi?module=sys_login`, {
@@ -112,15 +122,25 @@ export class CDataDriver extends BaseOltDriver {
                 if (data.code === 0) {
                     const token = data.token || (data.data && data.data.token) || null;
                     if (token) {
+                        CDataDriver.workingVariant.set(baseUrl, v.label);
                         logger.info({ baseUrl, variant: v.label }, 'C-Data: modern login succeeded');
                         return token;
                     }
                 }
+                lastRejectionDesc = data.description || `code ${data.code}`;
                 logger.warn({ baseUrl, variant: v.label, code: data.code, desc: data.description }, 'C-Data: modern login rejected');
+
+                // If OLT explicitly says wrong password, no point trying other hash formats.
+                // Different formats only matter when the OLT silently rejects without explanation.
+                if (data.code === 13) break;
             } catch (e: any) {
                 logger.warn({ baseUrl, variant: v.label, err: e?.message }, 'C-Data: modern login threw');
             }
         }
+
+        // Cached variant didn't work this time — clear it so next call retries all
+        if (cachedLabel) CDataDriver.workingVariant.delete(baseUrl);
+        if (lastRejectionDesc) logger.warn({ baseUrl, reason: lastRejectionDesc }, 'C-Data: all login variants rejected');
         return null;
     }
 
