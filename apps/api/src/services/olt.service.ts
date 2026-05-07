@@ -3,7 +3,7 @@ import { olts, onus, devicePerformanceHistory } from '../db/schema/index.js';
 import { eq, and, sql, inArray, isNotNull, isNull, lt } from 'drizzle-orm';
 import { ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
-import { decrypt } from '../lib/encryption.js';
+import { decrypt, encrypt } from '../lib/encryption.js';
 import type { Onu } from '../db/schema/onus.js';
 
 export class OltService {
@@ -73,15 +73,28 @@ export class OltService {
         return olt;
     }
 
+    /**
+     * Encrypt webPassword if it's a fresh plain-text value. Encrypted values
+     * always start with the encryption library's "v2:" version tag, so we can
+     * detect already-encrypted input and avoid double-encrypting.
+     */
+    private normalizeWebPassword(data: any): any {
+        if (!data || typeof data.webPassword !== 'string' || data.webPassword.length === 0) return data;
+        if (data.webPassword.startsWith('v2:')) return data;
+        return { ...data, webPassword: encrypt(data.webPassword) };
+    }
+
     async create(data: any, tenantId: string): Promise<any> {
-        const [inserted] = await db.insert(olts).values({ ...data, tenantId }).returning();
+        const safe = this.normalizeWebPassword(data);
+        const [inserted] = await db.insert(olts).values({ ...safe, tenantId }).returning();
         return inserted;
     }
 
     async update(id: string, data: any, tenantId?: string): Promise<any> {
         const filters = [eq(olts.id, id)];
         if (tenantId) filters.push(eq(olts.tenantId, tenantId));
-        const [updated] = await db.update(olts).set({ ...data, updatedAt: new Date() }).where(and(...filters)).returning();
+        const safe = this.normalizeWebPassword(data);
+        const [updated] = await db.update(olts).set({ ...safe, updatedAt: new Date() }).where(and(...filters)).returning();
         return updated;
     }
 
@@ -266,7 +279,10 @@ export class OltService {
             let decryptedPassword;
             try {
                 decryptedPassword = olt.webPassword ? decrypt(olt.webPassword) : undefined;
-            } catch (e) {}
+            } catch (e: any) {
+                logger.warn({ err: e?.message, oltId: id, oltName: olt.name }, 'OLT password decrypt failed — likely stored as plain text. Re-edit OLT to re-encrypt.');
+                decryptedPassword = olt.webPassword || undefined; // fallback: pass raw value, driver will fail with explicit auth error
+            }
 
             const driver = OltDriverFactory.getDriver(
                 olt.type || 'generic',
