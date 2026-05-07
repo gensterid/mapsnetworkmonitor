@@ -137,6 +137,27 @@ router.patch('/:id/onus/:onuId', strictLimiter, requireOperator, asyncHandler(as
     res.json({ data: updatedHook });
 }));
 
+// Reassign ONU to a different OLT (manual move after physical PON migration)
+// Requires: Operator or Admin
+const reassignOnuSchema = z.object({
+    targetOltId: z.string().uuid(),
+    targetPonPort: z.string().nullable().optional(),
+});
+router.post('/onus/:onuId/reassign', strictLimiter, requireOperator, asyncHandler(async (req, res) => {
+    const { onuId } = req.params as { onuId: string };
+    const data = reassignOnuSchema.parse(req.body);
+    const updated = await oltService.reassignOnu(
+        onuId,
+        data.targetOltId,
+        data.targetPonPort ?? null,
+        getEffectiveTenantId(req),
+    );
+    if (!updated) {
+        throw ApiError.notFound('ONU not found or access denied');
+    }
+    res.json({ data: updated });
+}));
+
 // Refresh OLT status
 // Requires: Operator or Admin
 router.post('/:id/refresh', strictLimiter, requireOperator, asyncHandler(async (req, res) => {

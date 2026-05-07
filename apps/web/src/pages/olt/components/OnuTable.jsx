@@ -24,6 +24,7 @@ export default function OnuTable({
     onEdit,
     onReboot,
     onArchive,
+    onMove,
     netwatchLookup,
     oltType
 }) {
@@ -241,6 +242,17 @@ export default function OnuTable({
                                             >
                                                 Edit
                                             </Button>
+                                            {onMove && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 text-[10px] font-bold text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 uppercase tracking-wider"
+                                                    title="Pindah ONU ke OLT lain (preserve koordinat & history)"
+                                                    onClick={() => onMove(onu)}
+                                                >
+                                                    Pindah
+                                                </Button>
+                                            )}
                                             {onArchive && (
                                                 <Button
                                                     size="sm"

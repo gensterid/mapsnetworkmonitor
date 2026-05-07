@@ -383,6 +383,39 @@ export class OltService {
         }
 
         if (valuesToUpsert.length > 0) {
+            // Auto-reassign cross-OLT moves: if any incoming SN already exists
+            // in DB but is currently linked to a different OLT, AND the old
+            // OLT hasn't seen it for 6+ hours, reassign before the bulk upsert
+            // so olt_id/pon_port follow the physical move.
+            const STALE_HOURS = 6;
+            const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
+            const incomingSns = valuesToUpsert.map(v => v.sn);
+            const crossOltCandidates = await db.select({
+                id: onus.id,
+                sn: onus.sn,
+                oldOltId: onus.oltId,
+                lastSeenOlt: onus.lastSeenOlt,
+            }).from(onus).where(and(
+                inArray(onus.sn, incomingSns),
+                isNotNull(onus.oltId),
+                sql`${onus.oltId} != ${oltId}`,
+            ));
+            for (const c of crossOltCandidates) {
+                if (c.lastSeenOlt && c.lastSeenOlt > staleThreshold) continue; // dual-registered, leave alone
+                const incoming = valuesToUpsert.find(v => v.sn === c.sn);
+                if (!incoming) continue;
+                await db.update(onus).set({
+                    oltId: oltId,
+                    ponPort: incoming.ponPort,
+                    onuIndex: incoming.onuIndex,
+                    routerId: olt.parentId,
+                    updatedAt: now,
+                }).where(eq(onus.id, c.id));
+                logger.info({
+                    oltId, oltName: olt.name, sn: c.sn, fromOltId: c.oldOltId,
+                }, '🔀 Auto-reassigned ONU to this OLT (stale on previous)');
+            }
+
             let historyValues: any[] = [];
             await db.transaction(async (tx) => {
                 await tx.insert(onus).values(valuesToUpsert as any).onConflictDoUpdate({
@@ -507,6 +540,60 @@ export class OltService {
         }
 
         const [updated] = await db.update(onus).set({ ...data, updatedAt: new Date() }).where(and(...filters)).returning();
+        return updated;
+    }
+
+    /**
+     * Move an ONU record from its current OLT to a different OLT, preserving
+     * SN, latitude/longitude, name, description, and ACS metadata. Used when
+     * a customer's PON port physically migrates between OLTs (e.g. rebuild)
+     * without losing map placement or audit history.
+     *
+     * Field updates:
+     *   - olt_id      → target OLT
+     *   - pon_port    → new physical port string on target OLT (operator-supplied)
+     *   - router_id   → derived from target OLT's parent router (topology link)
+     *   - last_seen_olt → null so the next OLT sync immediately refreshes it
+     *
+     * Does NOT touch the source OLT — operator should remove the stale
+     * registration on the old OLT separately to prevent dual-listing.
+     */
+    async reassignOnu(
+        onuId: string,
+        targetOltId: string,
+        targetPonPort: string | null,
+        tenantId?: string
+    ): Promise<Onu | undefined> {
+        const filters = [eq(onus.id, onuId)];
+        if (tenantId) filters.push(eq(onus.tenantId, tenantId));
+        const [onu] = await db.select().from(onus).where(and(...filters));
+        if (!onu) return undefined;
+
+        const targetFilters = [eq(olts.id, targetOltId)];
+        if (tenantId) targetFilters.push(eq(olts.tenantId, tenantId));
+        const [targetOlt] = await db.select().from(olts).where(and(...targetFilters));
+        if (!targetOlt) throw new ApiError(404, 'Target OLT not found');
+
+        if (onu.oltId === targetOltId && onu.ponPort === targetPonPort) {
+            return onu; // no-op
+        }
+
+        const [updated] = await db.update(onus).set({
+            oltId: targetOltId,
+            ponPort: targetPonPort,
+            routerId: targetOlt.parentId,
+            lastSeenOlt: null,
+            updatedAt: new Date(),
+        }).where(eq(onus.id, onuId)).returning();
+
+        logger.info({
+            onuId,
+            sn: onu.sn,
+            fromOltId: onu.oltId,
+            toOltId: targetOltId,
+            newPonPort: targetPonPort,
+        }, '🔀 ONU reassigned to new OLT');
+
         return updated;
     }
 

@@ -136,3 +136,20 @@ export function useArchiveOnu() {
         },
     });
 }
+
+export function useReassignOnu() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ onuId, targetOltId, targetPonPort }) =>
+            oltService.reassignOnu(onuId, targetOltId, targetPonPort),
+        onSuccess: (_, variables) => {
+            queryClient.invalidateQueries({ queryKey: ['olts'] });
+            queryClient.invalidateQueries({ queryKey: ['onus-map'] });
+            toast.success('ONU dipindah ke OLT baru');
+        },
+        onError: (error) => {
+            toast.error(error.response?.data?.error?.message || error.response?.data?.error || 'Gagal pindah OLT');
+        },
+    });
+}

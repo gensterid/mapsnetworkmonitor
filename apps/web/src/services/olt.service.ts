@@ -30,4 +30,8 @@ export const oltService = {
 
     // Archive ONU (hide from map). Auto-restored if SN reappears in OLT polling.
     archiveOnu: (id: string, onuId: string) => post<any>(`/olts/${id}/onus/${onuId}/archive`),
+
+    // Reassign ONU to a different OLT (manual move after physical PON migration)
+    reassignOnu: (onuId: string, targetOltId: string, targetPonPort: string | null) =>
+        post<any>(`/olts/onus/${onuId}/reassign`, { targetOltId, targetPonPort }),
 };

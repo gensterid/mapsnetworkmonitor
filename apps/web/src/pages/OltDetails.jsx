@@ -35,6 +35,7 @@ import clsx from 'clsx';
 import OnuTable from './olt/components/OnuTable';
 import EditOnuModal from './olt/components/EditOnuModal';
 import RebootOnuModal from './olt/components/RebootOnuModal';
+import MoveOltModal from './olt/components/MoveOltModal';
 
 // Helper to format date to local string or relative time
 function formatLastSync(date) {
@@ -70,6 +71,7 @@ export default function OltDetails() {
     const [searchTerm, setSearchTerm] = useState('');
     const [editingOnu, setEditingOnu] = useState(null);
     const [rebootingOnu, setRebootingOnu] = useState(null);
+    const [movingOnu, setMovingOnu] = useState(null);
 
     const handleArchiveOnu = (onu) => {
         const confirmed = window.confirm(
@@ -367,6 +369,7 @@ export default function OltDetails() {
                         onEdit={(onu) => setEditingOnu(onu)}
                         onReboot={(onu) => setRebootingOnu(onu)}
                         onArchive={handleArchiveOnu}
+                        onMove={(onu) => setMovingOnu(onu)}
                         netwatchLookup={netwatchLookup}
                         oltType={olt.type}
                     />
@@ -382,12 +385,19 @@ export default function OltDetails() {
                 onSubmit={handleUpdateOnu}
             />
 
-            <RebootOnuModal 
+            <RebootOnuModal
                 isOpen={!!rebootingOnu}
                 onClose={() => setRebootingOnu(null)}
                 onu={rebootingOnu}
                 isSubmitting={rebootOnuMutation.isPending}
                 onConfirm={handleRebootOnu}
+            />
+
+            <MoveOltModal
+                isOpen={!!movingOnu}
+                onClose={() => setMovingOnu(null)}
+                onu={movingOnu}
+                currentOltId={id}
             />
         </div>
     );
