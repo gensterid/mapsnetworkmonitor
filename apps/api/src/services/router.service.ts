@@ -651,9 +651,10 @@ export class RouterService {
         routerId: string,
         netwatchId: string,
         data: any,
-        tenantId?: string
+        tenantId?: string,
+        audit?: any
     ): Promise<RouterNetwatch | undefined> {
-        return routerNetwatchService.updateEntry(routerId, netwatchId, data, tenantId);
+        return routerNetwatchService.updateEntry(routerId, netwatchId, data, tenantId, undefined, audit);
     }
 
     /**

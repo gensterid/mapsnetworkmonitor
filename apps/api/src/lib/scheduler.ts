@@ -44,6 +44,7 @@ let routerSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let billingDailyInterval: ReturnType<typeof setInterval> | null = null;
+let netwatchAutoHealInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let isPollingSnmp = false;
 let pollingStartTime: number | null = null;
@@ -685,6 +686,12 @@ export async function startScheduler(): Promise<void> {
     // (idempotent: jobs that already ran today are skipped via DB checks).
     setTimeout(() => runBillingJobSafe(), 300000);
     billingDailyInterval = setInterval(() => runBillingJobSafe(), 60 * 60 * 1000);
+
+    // Netwatch auto-heal — every 5 minutes, walk netwatch entries with
+    // linkedOnuId and update host IP if PPPoE/ACS reports a different one.
+    // Initial run after 90s so PPPoE polling has populated pppoe_sessions.
+    setTimeout(() => runNetwatchAutoHealSafe(), 90000);
+    netwatchAutoHealInterval = setInterval(() => runNetwatchAutoHealSafe(), 5 * 60 * 1000);
 }
 
 async function runBillingJobSafe() {
@@ -693,6 +700,18 @@ async function runBillingJobSafe() {
         await runBillingDailyJob();
     } catch (err) {
         logger.error({ err }, 'Billing daily job crashed');
+    }
+}
+
+async function runNetwatchAutoHealSafe() {
+    try {
+        const { healStaleEntries } = await import('../services/netwatch/netwatch-autoheal.service.js');
+        const result = await healStaleEntries();
+        if (result.healed > 0 || result.failed > 0) {
+            logger.info(result, 'Netwatch auto-heal cycle complete');
+        }
+    } catch (err) {
+        logger.error({ err }, 'Netwatch auto-heal crashed');
     }
 }
 
@@ -711,6 +730,7 @@ export function stopScheduler(): void {
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
     if (billingDailyInterval) { clearInterval(billingDailyInterval); billingDailyInterval = null; }
+    if (netwatchAutoHealInterval) { clearInterval(netwatchAutoHealInterval); netwatchAutoHealInterval = null; }
 
     stopQueueWorker();
     logger.info('🛑 Scheduler stopped');

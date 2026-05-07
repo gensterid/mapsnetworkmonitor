@@ -4,12 +4,20 @@ import {
     routers,
     routerNetwatch,
     onus,
+    netwatchIpHistory,
 } from '../../db/schema/index.js';
 import { decrypt } from '../../lib/encryption.js';
 import { alertService } from '../alert.service.js';
 import { settingsService } from '../settings.service.js';
 import { netwatchRepository } from '../../repositories/netwatch.repository.js';
 import { alertRepository } from '../../repositories/alert.repository.js';
+
+export interface UpdateEntryAuditOpts {
+    reason?: 'manual_edit' | 'auto_heal_pppoe' | 'auto_heal_acs' | 'sync_correction';
+    changedBy?: string; // 'system' or user.id
+    pppoeUser?: string | null;
+    onuId?: string | null;
+}
 
 /**
  * Internal helper to find a router and decrypt its password.
@@ -99,7 +107,7 @@ export async function create(routerId: string, data: any, tenantId?: string, tx:
 /**
  * Update an existing netwatch entry
  */
-export async function updateEntry(routerId: string, id: string, data: any, tenantId?: string, tx: any = db): Promise<any> {
+export async function updateEntry(routerId: string, id: string, data: any, tenantId?: string, tx: any = db, audit: UpdateEntryAuditOpts = {}): Promise<any> {
     // 1. Fetch current entry to check for IP changes
     const entry = await netwatchRepository.findById(id, tx);
     if (!entry || entry.routerId !== routerId) return null;
@@ -107,6 +115,7 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
     const oldHost = entry.host;
     const newHost = data.host;
     const ipChanged = newHost && oldHost && newHost !== oldHost;
+    const historyShouldRecord = newHost !== undefined && newHost !== oldHost;
 
     // 2. If IP changed, perform system-wide alignment (Alerts/MikroTik/Webhooks)
     if (ipChanged) {
@@ -167,10 +176,31 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
         const sanitizedData = { ...data };
         if (sanitizedData.host === '') sanitizedData.host = null;
 
-        return await netwatchRepository.update(id, {
+        const updated = await netwatchRepository.update(id, {
             ...sanitizedData,
             updatedAt: new Date(),
         }, tx);
+
+        // 5. Audit trail — record IP change so operators can review history later
+        if (historyShouldRecord) {
+            try {
+                await tx.insert(netwatchIpHistory).values({
+                    netwatchId: id,
+                    routerId,
+                    tenantId: entry.tenantId || tenantId || null,
+                    oldHost: oldHost,
+                    newHost: sanitizedData.host || newHost,
+                    reason: audit.reason || 'manual_edit',
+                    pppoeUser: audit.pppoeUser ?? null,
+                    onuId: audit.onuId ?? entry.linkedOnuId ?? null,
+                    changedBy: audit.changedBy || null,
+                });
+            } catch (err: any) {
+                console.error('[Netwatch Update] Failed to record IP history:', err.message);
+            }
+        }
+
+        return updated;
     } catch (err: any) {
         console.error(`[Netwatch Core] Failed to update entry ${id}:`, err.message);
         throw err;

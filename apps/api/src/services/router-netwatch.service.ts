@@ -14,7 +14,7 @@ export class RouterNetwatchService {
     async getNetwatch(routerId: string, tx?: any) { return core.getNetwatch(routerId, tx); }
     async getNetwatchAll(routerIds: string[], tx?: any) { return core.getNetwatchAll(routerIds); }
     async create(routerId: string, data: any, tenantId?: string, tx?: any) { return core.create(routerId, data, tenantId, tx); }
-    async updateEntry(routerId: string, id: string, data: any, tenantId?: string, tx?: any) { return core.updateEntry(routerId, id, data, tenantId, tx); }
+    async updateEntry(routerId: string, id: string, data: any, tenantId?: string, tx?: any, audit?: core.UpdateEntryAuditOpts) { return core.updateEntry(routerId, id, data, tenantId, tx, audit); }
     async delete(routerId: string, id: string, tenantId?: string, deleteFromMikrotik: boolean = true, tx?: any) { 
         return core.deleteEntry(routerId, id, tenantId, deleteFromMikrotik, tx); 
     }

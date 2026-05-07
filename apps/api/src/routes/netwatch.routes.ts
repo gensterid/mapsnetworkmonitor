@@ -157,6 +157,51 @@ router.put(
 );
 
 /**
+ * GET /api/routers/:id/netwatch/:netwatchId/history
+ * Last 50 IP changes for a netwatch entry (auto-heal + manual edits)
+ */
+router.get(
+    '/:netwatchId/history',
+    asyncHandler(async (req, res) => {
+        const { netwatchId } = req.params as { netwatchId: string };
+        const { getHistory } = await import('../services/netwatch/netwatch-autoheal.service.js');
+        const history = await getHistory(netwatchId, 50);
+        res.json({ data: history });
+    })
+);
+
+/**
+ * POST /api/routers/:id/netwatch/:netwatchId/heal-now
+ * Manually trigger auto-heal for a single netwatch entry (debug helper)
+ */
+router.post(
+    '/:netwatchId/heal-now',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const { id, netwatchId } = req.params as { id: string; netwatchId: string };
+        const { resolveCurrentIp } = await import('../services/netwatch/netwatch-autoheal.service.js');
+        const resolved = await resolveCurrentIp(netwatchId);
+        if (!resolved) {
+            throw new ApiError(404, 'Netwatch entry not found or has no linkedOnuId');
+        }
+        if (!resolved.sourceIp) {
+            return res.json({ data: { healed: false, reason: 'no_active_session', resolved } });
+        }
+        if (resolved.sourceIp === resolved.currentIp) {
+            return res.json({ data: { healed: false, reason: 'already_in_sync', resolved } });
+        }
+        const reason = resolved.source === 'pppoe' ? 'auto_heal_pppoe' : 'auto_heal_acs';
+        const updated = await routerService.updateNetwatch(id, netwatchId, { host: resolved.sourceIp }, getEffectiveTenantId(req), {
+            reason,
+            changedBy: req.user!.id,
+            pppoeUser: resolved.pppoeUser,
+            onuId: resolved.onuId,
+        });
+        res.json({ data: { healed: !!updated, oldHost: resolved.currentIp, newHost: resolved.sourceIp, source: resolved.source } });
+    })
+);
+
+/**
  * DELETE /api/routers/:id/netwatch/:netwatchId
  * Delete a netwatch entry
  */

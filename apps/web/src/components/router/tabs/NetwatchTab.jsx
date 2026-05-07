@@ -19,11 +19,13 @@ import {
     Globe,
     Clock,
     Search,
-    ChevronDown
+    ChevronDown,
+    Sparkles,
 } from 'lucide-react';
 import clsx from 'clsx';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import NetwatchFormModal from '../modals/NetwatchFormModal';
+import NetwatchHistoryDialog from './NetwatchHistoryDialog';
 import { formatBits, formatLastSync, formatTimeOnly, formatRelativeTime, formatNetwatchDate } from '../router-utils';
 import { apiClient } from '@/lib/api';
 import toast from 'react-hot-toast';
@@ -31,6 +33,7 @@ import toast from 'react-hot-toast';
 function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
     const [formModal, setFormModal] = useState({ open: false, netwatch: null });
     const [deleteModal, setDeleteModal] = useState({ open: false, netwatch: null });
+    const [historyModal, setHistoryModal] = useState({ open: false, netwatch: null });
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [filter, setFilter] = useState('all');
@@ -138,8 +141,22 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
 
     const filteredNetwatch = getProcessedData();
 
+    const linkedCount = netwatch.filter(n => n.linkedOnuId).length;
+
     return (
         <div className="space-y-4">
+            {linkedCount > 0 && (
+                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                    <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <div className="flex-1">
+                        <span className="text-emerald-300 font-semibold">Auto-Heal AKTIF</span>
+                        <span className="text-slate-400 ml-2">
+                            {linkedCount} entry tertaut ke ONU/Customer — IP otomatis disesuaikan saat customer reconnect dengan IP baru.
+                        </span>
+                    </div>
+                </div>
+            )}
+
             {/* Header with Stats/Filters */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -365,7 +382,21 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                             {formatTimeOnly(nw.lastCheck)}
                                         </td>
                                         <td className="py-2.5 px-4 text-right">
-                                            <div className="flex justify-end gap-1">
+                                            <div className="flex justify-end gap-1 items-center">
+                                                {nw.linkedOnuId && (
+                                                    <span title="Auto-heal aktif: IP otomatis update saat customer reconnect" className="text-emerald-400">
+                                                        <Sparkles className="w-3.5 h-3.5" />
+                                                    </span>
+                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                                    onClick={() => setHistoryModal({ open: true, netwatch: nw })}
+                                                    title="Riwayat perubahan IP"
+                                                >
+                                                    <History className="w-3.5 h-3.5" />
+                                                </Button>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -417,6 +448,13 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                 message={`Are you sure you want to delete ${deleteModal.netwatch?.host}?`}
                 isDeleting={isDeleting}
                 showMikrotikOption={true}
+            />
+
+            <NetwatchHistoryDialog
+                open={historyModal.open}
+                onClose={() => setHistoryModal({ open: false, netwatch: null })}
+                routerId={routerId}
+                netwatch={historyModal.netwatch}
             />
         </div>
     );
