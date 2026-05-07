@@ -65,6 +65,25 @@ async function markMigrationApplied(db: ReturnType<typeof drizzle>, hash: string
     `);
 }
 
+/**
+ * Drizzle applies migrations sequentially in journal order. The next-to-be-applied
+ * migration is at journal index = count(__drizzle_migrations). Use this to find
+ * which migration just failed without parsing the error query (which may not
+ * contain identifying tokens for "column already exists" cases).
+ */
+async function findNextPendingMigration(db: ReturnType<typeof drizzle>, migrationsFolder: string): Promise<{ tag: string; when: number; hash: string } | null> {
+    const journalRaw = JSON.parse(readFileSync(path.join(migrationsFolder, 'meta', '_journal.json'), 'utf8'));
+    const entries = journalRaw.entries as JournalEntry[];
+    const result: any = await db.execute(sql`SELECT count(*)::int AS n FROM drizzle.__drizzle_migrations`);
+    const applied: number = result?.[0]?.n ?? result?.rows?.[0]?.n ?? 0;
+    const next = entries[applied];
+    if (!next) return null;
+    const filePath = path.join(migrationsFolder, `${next.tag}.sql`);
+    const content = readFileSync(filePath, 'utf8');
+    const hash = createHash('sha256').update(content).digest('hex');
+    return { tag: next.tag, when: next.when, hash };
+}
+
 export async function runDrizzleMigrations() {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error('DATABASE_URL is not set');
@@ -82,9 +101,19 @@ export async function runDrizzleMigrations() {
                 console.log('✅ Drizzle Migrations completed successfully!');
                 return;
             } catch (error: any) {
+                // "already exists" / "duplicate_object" — partially-applied migration
+                // (e.g. someone hand-patched a column). Mark the failing migration as
+                // applied and continue, so subsequent migrations still run instead of
+                // being silently skipped.
                 if (error.message?.includes('duplicate_object') || error.message?.includes('already exists')) {
-                    console.log('⚠️ Drizzle Migration: Some objects already exist, skipping duplicates...');
-                    return;
+                    const next = await findNextPendingMigration(db, migrationsFolder);
+                    if (next) {
+                        console.log(`⚠️  ${next.tag} hit "already exists" — marking applied and continuing...`);
+                        await markMigrationApplied(db, next.hash, next.when);
+                        continue; // retry migrate() — drizzle picks up where we left off
+                    }
+                    console.error('❌ "already exists" but no pending migration found in journal. Inconsistent state.');
+                    throw error;
                 }
 
                 if (!isCompressedHypertableError(error)) {
