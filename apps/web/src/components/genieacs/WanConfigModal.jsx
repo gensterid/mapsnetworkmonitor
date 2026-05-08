@@ -427,7 +427,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                         : isZte
                             ? 'UserInterface.RemoteAccess.Enable'
                             : isHw
-                                ? 'X_HW_RemoteAccess.Enable'
+                                ? 'X_HW_Security.AclServices.HTTPWanEnable (+ SSH/TELNET)'
                                 : 'standard TR-181/TR-098 path';
                     return (
                         <div className={clsx(

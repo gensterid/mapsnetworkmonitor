@@ -232,29 +232,35 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             (config as any)._skipNat = true;
         },
         onGlobalUpdate: (params, config, device, addParam) => {
-            // Huawei Remote Access — multi-path best-effort. Different
-            // Huawei firmwares (HG8245H, HG8546M, EG8141, EG8145V5,
-            // HG8145V5, ONT-V3) expose REMOTE access under different
-            // vendor paths. Action service splits these into separate
-            // tasks, so each path is tried independently — the one that
-            // exists succeeds, the others fail silently.
+            // Huawei Remote Access — verified parameter paths.
+            //
+            // Confirmed working on EG8145V5 / HG8145V5 (V5 series, very
+            // common in Indonesia ISPs):
+            //   X_HW_Security.AclServices.HTTPWanEnable
+            //   X_HW_Security.AclServices.SSHWanEnable
+            //   X_HW_Security.AclServices.TELNETWanEnable
+            //
+            // Identified from device parameter tree dump + device's own
+            // Config-Log showing ACS successful Set on this exact path.
+            //
+            // Older HG models (HG8245H, HG8546M) and TR-181 firmware use
+            // a fallback. Action service splits each path into a separate
+            // task so unsupported paths fail silent without breaking the
+            // working ones.
             if (config.remoteAccessEnable !== undefined) {
                 const isTr181 = !!device.Device;
-                const root = isTr181 ? 'Device.' : 'InternetGatewayDevice.';
                 const val = config.remoteAccessEnable;
-                // 1. TR-181/TR-098 standard
-                addParam(`${root}UserInterface.RemoteAccess.Enable`, val, 'xsd:boolean');
                 if (!isTr181) {
-                    // 2. Common Huawei extension (HG8245H, EG8145)
+                    // V5 series — verified path
+                    addParam('InternetGatewayDevice.X_HW_Security.AclServices.HTTPWanEnable', val, 'xsd:boolean');
+                    addParam('InternetGatewayDevice.X_HW_Security.AclServices.SSHWanEnable', val, 'xsd:boolean');
+                    addParam('InternetGatewayDevice.X_HW_Security.AclServices.TELNETWanEnable', val, 'xsd:boolean');
+                    // Older HG firmware fallback
                     addParam('InternetGatewayDevice.X_HW_RemoteAccess.Enable', val, 'xsd:boolean');
-                    // 3. Older HG firmware path
-                    addParam('InternetGatewayDevice.X_HW_DEVMGMT.RemoteWebAccess', val, 'xsd:boolean');
-                    // 4. EG8145V5 / HG8145V5 — Security node
-                    addParam('InternetGatewayDevice.X_HW_Security.WANAccessEnable', val, 'xsd:boolean');
-                    addParam('InternetGatewayDevice.X_HW_Security.RemoteAccess.Enable', val, 'xsd:boolean');
-                    // 5. Alternative naming on some firmwares
-                    addParam('InternetGatewayDevice.X_HW_RemoteWebAccess.Enable', val, 'xsd:boolean');
-                    addParam('InternetGatewayDevice.X_HW_RemoteAccess.WanAccessEnable', val, 'xsd:boolean');
+                } else {
+                    // TR-181 standard path (very rare for Huawei OLT-paired
+                    // CPEs but kept for forward compatibility)
+                    addParam('Device.UserInterface.RemoteAccess.Enable', val, 'xsd:boolean');
                 }
             }
         }
