@@ -413,24 +413,55 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                 )}
                 {/* VLAN Section - Combined above, removing redundant block */}
 
-                {/* FiberHome Specific Settings */}
-                <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            id="remoteAccessEnable"
-                            checked={remoteAccessEnable}
-                            onChange={(e) => setRemoteAccessEnable(e.target.checked)}
-                            className="rounded bg-slate-900 border-slate-700 text-primary focus:ring-primary"
-                        />
-                        <label htmlFor="remoteAccessEnable" className="text-sm font-medium text-slate-300 cursor-pointer select-none">
-                            Enable Remote Access (FiberHome)
-                        </label>
-                    </div>
-                    <p className="text-[10px] text-slate-500 mt-1 italic">
-                        *Parameter: X_FH_FireWall.REMOTEACCEnable
-                    </p>
-                </div>
+                {/* Remote Access — vendor-specific parameter path. Driver
+                    will pick the right path for the detected manufacturer. */}
+                {(() => {
+                    const mfg = (device?._deviceId?._Manufacturer || device?._manufacturer || '').toUpperCase();
+                    const isFh = mfg.includes('FIBERHOME') || mfg.includes('FHTT') || mfg.includes('FH');
+                    const isZte = mfg.includes('ZTE');
+                    const isHw = mfg.includes('HUAWEI');
+                    const supported = isFh || isZte || isHw;
+                    const vendorLabel = isFh ? 'FiberHome' : isZte ? 'ZTE' : isHw ? 'Huawei' : (mfg || 'Unknown');
+                    const paramHint = isFh
+                        ? 'X_FH_FireWall.REMOTEACCEnable'
+                        : isZte
+                            ? 'UserInterface.RemoteAccess.Enable'
+                            : isHw
+                                ? 'X_HW_RemoteAccess.Enable'
+                                : 'standard TR-181/TR-098 path';
+                    return (
+                        <div className={clsx(
+                            "p-4 rounded-xl border",
+                            supported ? "bg-slate-950/50 border-slate-800" : "bg-amber-500/5 border-amber-500/20"
+                        )}>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    id="remoteAccessEnable"
+                                    checked={remoteAccessEnable}
+                                    onChange={(e) => setRemoteAccessEnable(e.target.checked)}
+                                    className="rounded bg-slate-900 border-slate-700 text-primary focus:ring-primary"
+                                />
+                                <label htmlFor="remoteAccessEnable" className="text-sm font-medium text-slate-300 cursor-pointer select-none">
+                                    Enable Remote Access ({vendorLabel})
+                                </label>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1 italic">
+                                *Parameter: {paramHint}
+                            </p>
+                            {!supported && (
+                                <p className="text-[10px] text-amber-300 mt-1">
+                                    ⚠️ Vendor "{vendorLabel}" not in supported list — parameter may not apply. Verify in device web GUI after save.
+                                </p>
+                            )}
+                            {(isZte || isHw) && (
+                                <p className="text-[10px] text-cyan-400 mt-1">
+                                    ℹ️ Best-effort: app pakai TR-181/TR-098 standar + fallback vendor extension. Verify di device setelah apply.
+                                </p>
+                            )}
+                        </div>
+                    );
+                })()}
 
                 {/* Port Binding */}
                 <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-800">

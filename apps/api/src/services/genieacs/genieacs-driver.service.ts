@@ -178,6 +178,23 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
                 }
             }
         },
+        onGlobalUpdate: (params, config, device, addParam) => {
+            // ZTE Remote Access — best effort across firmware variants.
+            // We try the TR-181/TR-098 standard path first (UserInterface.
+            // RemoteAccess.Enable) plus a ZTE vendor-extension fallback.
+            // Different ZTE firmwares expose only one of these; sending
+            // both means at least one usually applies. The other will be
+            // recorded as a fault in GenieACS but doesn't prevent the
+            // working one from taking effect.
+            if (config.remoteAccessEnable !== undefined) {
+                const isTr181 = !!device.Device;
+                const root = isTr181 ? 'Device.' : 'InternetGatewayDevice.';
+                addParam(`${root}UserInterface.RemoteAccess.Enable`, config.remoteAccessEnable, 'xsd:boolean');
+                if (!isTr181) {
+                    addParam('InternetGatewayDevice.X_ZTE-COM_FireWall.WANRemoteAccess', config.remoteAccessEnable, 'xsd:boolean');
+                }
+            }
+        },
         getNewWcdIndex: (device) => {
             return 1;
         }
@@ -213,6 +230,20 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             addParam('Name', `WAN_INTERNET_${connModeShort}_VID_${config.vlanId || ''}`);
             addParam('NATEnabled', !isBridge, 'xsd:boolean');
             (config as any)._skipNat = true;
+        },
+        onGlobalUpdate: (params, config, device, addParam) => {
+            // Huawei Remote Access — best effort. TR-181/TR-098 standard
+            // path covers most modern Huawei OLT-paired CPEs (HG8245,
+            // EG8145, EG8141). Vendor extension as fallback for older
+            // firmware. See ZTE driver above for the rationale.
+            if (config.remoteAccessEnable !== undefined) {
+                const isTr181 = !!device.Device;
+                const root = isTr181 ? 'Device.' : 'InternetGatewayDevice.';
+                addParam(`${root}UserInterface.RemoteAccess.Enable`, config.remoteAccessEnable, 'xsd:boolean');
+                if (!isTr181) {
+                    addParam('InternetGatewayDevice.X_HW_RemoteAccess.Enable', config.remoteAccessEnable, 'xsd:boolean');
+                }
+            }
         }
     }
 };
