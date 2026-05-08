@@ -234,22 +234,27 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
         onGlobalUpdate: (params, config, device, addParam) => {
             // Huawei Remote Access — multi-path best-effort. Different
             // Huawei firmwares (HG8245H, HG8546M, EG8141, EG8145V5,
-            // ONT-V3) expose REMOTE access under different vendor paths.
-            // Action service splits these into separate tasks, so each
-            // path is tried independently — the one that exists succeeds,
-            // the others fail silently. We don't know in advance which
-            // firmware version we're talking to.
+            // HG8145V5, ONT-V3) expose REMOTE access under different
+            // vendor paths. Action service splits these into separate
+            // tasks, so each path is tried independently — the one that
+            // exists succeeds, the others fail silently.
             if (config.remoteAccessEnable !== undefined) {
                 const isTr181 = !!device.Device;
                 const root = isTr181 ? 'Device.' : 'InternetGatewayDevice.';
                 const val = config.remoteAccessEnable;
-                // 1. TR-181/TR-098 standard (newer firmware)
+                // 1. TR-181/TR-098 standard
                 addParam(`${root}UserInterface.RemoteAccess.Enable`, val, 'xsd:boolean');
                 if (!isTr181) {
-                    // 2. Common Huawei extension on TR-098 (HG8245, EG8145)
+                    // 2. Common Huawei extension (HG8245H, EG8145)
                     addParam('InternetGatewayDevice.X_HW_RemoteAccess.Enable', val, 'xsd:boolean');
-                    // 3. Alternate Huawei firmware path (older HG models)
+                    // 3. Older HG firmware path
                     addParam('InternetGatewayDevice.X_HW_DEVMGMT.RemoteWebAccess', val, 'xsd:boolean');
+                    // 4. EG8145V5 / HG8145V5 — Security node
+                    addParam('InternetGatewayDevice.X_HW_Security.WANAccessEnable', val, 'xsd:boolean');
+                    addParam('InternetGatewayDevice.X_HW_Security.RemoteAccess.Enable', val, 'xsd:boolean');
+                    // 5. Alternative naming on some firmwares
+                    addParam('InternetGatewayDevice.X_HW_RemoteWebAccess.Enable', val, 'xsd:boolean');
+                    addParam('InternetGatewayDevice.X_HW_RemoteAccess.WanAccessEnable', val, 'xsd:boolean');
                 }
             }
         }
