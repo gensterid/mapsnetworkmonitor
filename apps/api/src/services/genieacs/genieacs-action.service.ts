@@ -26,8 +26,21 @@ export async function updateWanConfig(deviceId: string, config: WanConfigPayload
         }
         if (driver?.onGlobalUpdate) driver.onGlobalUpdate(globalParams, config, device, addGlobalParam);
 
-        if (globalParams.length > 0) {
-            await axios.post(`${url}/devices/${encodedId}/tasks?connection_request`, { name: 'setParameterValues', parameterValues: globalParams }, { auth }).catch(() => {});
+        // Best-effort param push: send each global parameter as a SEPARATE
+        // GenieACS task. Some vendor extensions (e.g. Huawei
+        // X_HW_RemoteAccess.Enable) don't exist on every firmware; if we
+        // bundled all params in one task, a single rejected param would
+        // fail the whole batch with 9002. Splitting means params that DO
+        // exist still apply. Each .catch(() => {}) silently absorbs the
+        // expected fault for missing parameters.
+        for (const param of globalParams) {
+            await axios.post(
+                `${url}/devices/${encodedId}/tasks?connection_request`,
+                { name: 'setParameterValues', parameterValues: [param] },
+                { auth }
+            ).catch((err: any) => {
+                logger.debug({ deviceId, param: param[0], err: err?.response?.data || err?.message }, 'GenieACS global param rejected (best-effort, ignored)');
+            });
         }
 
         let connectionPath = config.connectionPath;

@@ -232,16 +232,24 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             (config as any)._skipNat = true;
         },
         onGlobalUpdate: (params, config, device, addParam) => {
-            // Huawei Remote Access — best effort. TR-181/TR-098 standard
-            // path covers most modern Huawei OLT-paired CPEs (HG8245,
-            // EG8145, EG8141). Vendor extension as fallback for older
-            // firmware. See ZTE driver above for the rationale.
+            // Huawei Remote Access — multi-path best-effort. Different
+            // Huawei firmwares (HG8245H, HG8546M, EG8141, EG8145V5,
+            // ONT-V3) expose REMOTE access under different vendor paths.
+            // Action service splits these into separate tasks, so each
+            // path is tried independently — the one that exists succeeds,
+            // the others fail silently. We don't know in advance which
+            // firmware version we're talking to.
             if (config.remoteAccessEnable !== undefined) {
                 const isTr181 = !!device.Device;
                 const root = isTr181 ? 'Device.' : 'InternetGatewayDevice.';
-                addParam(`${root}UserInterface.RemoteAccess.Enable`, config.remoteAccessEnable, 'xsd:boolean');
+                const val = config.remoteAccessEnable;
+                // 1. TR-181/TR-098 standard (newer firmware)
+                addParam(`${root}UserInterface.RemoteAccess.Enable`, val, 'xsd:boolean');
                 if (!isTr181) {
-                    addParam('InternetGatewayDevice.X_HW_RemoteAccess.Enable', config.remoteAccessEnable, 'xsd:boolean');
+                    // 2. Common Huawei extension on TR-098 (HG8245, EG8145)
+                    addParam('InternetGatewayDevice.X_HW_RemoteAccess.Enable', val, 'xsd:boolean');
+                    // 3. Alternate Huawei firmware path (older HG models)
+                    addParam('InternetGatewayDevice.X_HW_DEVMGMT.RemoteWebAccess', val, 'xsd:boolean');
                 }
             }
         }
