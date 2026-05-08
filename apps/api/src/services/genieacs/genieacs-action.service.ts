@@ -34,13 +34,19 @@ export async function updateWanConfig(deviceId: string, config: WanConfigPayload
         // exist still apply. Each .catch(() => {}) silently absorbs the
         // expected fault for missing parameters.
         for (const param of globalParams) {
-            await axios.post(
-                `${url}/devices/${encodedId}/tasks?connection_request`,
-                { name: 'setParameterValues', parameterValues: [param] },
-                { auth }
-            ).catch((err: any) => {
-                logger.debug({ deviceId, param: param[0], err: err?.response?.data || err?.message }, 'GenieACS global param rejected (best-effort, ignored)');
-            });
+            try {
+                await axios.post(
+                    `${url}/devices/${encodedId}/tasks?connection_request`,
+                    { name: 'setParameterValues', parameterValues: [param] },
+                    { auth }
+                );
+                logger.info({ deviceId, param: param[0], value: param[1] }, 'GenieACS global param task queued');
+            } catch (err: any) {
+                // HTTP-level error (GenieACS itself reachable issue). Device-level
+                // 9002 faults happen LATER when CPE applies; those only appear in
+                // GenieACS Faults UI, not here.
+                logger.warn({ deviceId, param: param[0], err: err?.response?.data || err?.message }, 'GenieACS global param POST failed at HTTP layer');
+            }
         }
 
         let connectionPath = config.connectionPath;
