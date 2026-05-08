@@ -25,6 +25,17 @@ export async function resolveCurrentIp(netwatchId: string): Promise<{
     const [onu] = await db.select().from(onus).where(eq(onus.id, entry.linkedOnuId)).limit(1);
     if (!onu) return null;
 
+    // Multi-tenant safety: refuse to resolve if the linked ONU belongs to a
+    // different tenant than the netwatch entry. This guards against bad
+    // historical links (e.g. before the genieacs auto-link was tenant-aware)
+    // where a private IP collision could have created a cross-tenant link.
+    if (entry.tenantId && onu.tenantId && entry.tenantId !== onu.tenantId) {
+        logger.warn({
+            netwatchId, netwatchTenant: entry.tenantId, onuTenant: onu.tenantId,
+        }, 'Auto-heal: refused — linkedOnuId points to a different tenant. Manual cleanup required.');
+        return null;
+    }
+
     let sourceIp: string | null = null;
     let source: 'pppoe' | 'acs' | null = null;
 

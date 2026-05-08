@@ -500,7 +500,19 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                 }
                 added++;
             }
-            if (dev._ip && targetOnuId) await db.update(routerNetwatch).set({ linkedOnuId: targetOnuId }).where(eq(routerNetwatch.host, dev._ip)).catch(() => {});
+            if (dev._ip && targetOnuId) {
+                // Multi-tenant safety: only link netwatch entries that belong
+                // to the same tenant AND same router as the ACS device.
+                // Without this guard, two tenants sharing private IPs (e.g.
+                // 192.168.x.x) would cross-link each other's netwatch.
+                const linkConditions = [eq(routerNetwatch.host, dev._ip)];
+                if (tenantId) linkConditions.push(eq(routerNetwatch.tenantId, tenantId));
+                if (resolvedRouterId) linkConditions.push(eq(routerNetwatch.routerId, resolvedRouterId));
+                await db.update(routerNetwatch)
+                    .set({ linkedOnuId: targetOnuId })
+                    .where(and(...linkConditions))
+                    .catch(() => {});
+            }
         }
         return { added, updated, total };
     } catch (error) {
