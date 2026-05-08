@@ -1,5 +1,18 @@
 import { GenieACSDevice, WanConfigPayload, WifiConfigPayload } from './genieacs-core.service.js';
 
+/**
+ * Result of postGlobalUpdate — describes additional GenieACS tasks the
+ * driver wants to fire AFTER the standard global setParameterValues.
+ *
+ * Used for vendor flows that need addObject + setParameterValues
+ * sequence (e.g. Huawei ACL WanAccess entry creation: addObject the
+ * list, then set Protocol/Enable on the new index).
+ */
+export interface PostGlobalTask {
+    addObject?: string;            // path to addObject (optional)
+    setParams?: [string, any, string?][]; // params to set after addObject
+}
+
 // Device Driver Interface for model-specific overrides
 export interface GenieACSDeviceDriver {
     name: string;
@@ -8,6 +21,7 @@ export interface GenieACSDeviceDriver {
     onWanUpdate?: (params: any[], config: WanConfigPayload, device: any, addParam: (name: string, value: any, type?: string) => void) => void;
     onWifiUpdate?: (params: any[], config: WifiConfigPayload, device: any, addParam: (name: string, value: any, type?: string) => void) => void;
     onGlobalUpdate?: (params: any[], config: WanConfigPayload, device: any, addParam: (name: string, value: any, type?: string) => void) => void;
+    onPostGlobalUpdate?: (config: WanConfigPayload, device: any) => PostGlobalTask[];
     onWanDelete?: (deviceId: string, connectionPath: string) => string;
     getNewWcdIndex?: (device: any) => number;
 }
@@ -232,37 +246,73 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             (config as any)._skipNat = true;
         },
         onGlobalUpdate: (params, config, device, addParam) => {
-            // Huawei Remote Access — verified parameter paths.
-            //
-            // Confirmed working on EG8145V5 / HG8145V5 (V5 series, very
-            // common in Indonesia ISPs):
-            //   X_HW_Security.AclServices.HTTPWanEnable
-            //   X_HW_Security.AclServices.SSHWanEnable
-            //   X_HW_Security.AclServices.TELNETWanEnable
-            //
-            // Identified from device parameter tree dump + device's own
-            // Config-Log showing ACS successful Set on this exact path.
-            //
-            // Older HG models (HG8245H, HG8546M) and TR-181 firmware use
-            // a fallback. Action service splits each path into a separate
-            // task so unsupported paths fail silent without breaking the
-            // working ones.
+            // Huawei Remote Access — STEP 1: master switches.
+            // Verified on EG8145V5 / HG8145V5 (V5 series, common in ID
+            // ISPs). Master switches alone NOT sufficient — V5 firmware
+            // also requires an ACL entry under WanAccess list. See
+            // onPostGlobalUpdate below for the addObject + Protocol set
+            // that whitelists the actual access.
             if (config.remoteAccessEnable !== undefined) {
                 const isTr181 = !!device.Device;
                 const val = config.remoteAccessEnable;
                 if (!isTr181) {
-                    // V5 series — verified path
                     addParam('InternetGatewayDevice.X_HW_Security.AclServices.HTTPWanEnable', val, 'xsd:boolean');
                     addParam('InternetGatewayDevice.X_HW_Security.AclServices.SSHWanEnable', val, 'xsd:boolean');
                     addParam('InternetGatewayDevice.X_HW_Security.AclServices.TELNETWanEnable', val, 'xsd:boolean');
                     // Older HG firmware fallback
                     addParam('InternetGatewayDevice.X_HW_RemoteAccess.Enable', val, 'xsd:boolean');
                 } else {
-                    // TR-181 standard path (very rare for Huawei OLT-paired
-                    // CPEs but kept for forward compatibility)
                     addParam('Device.UserInterface.RemoteAccess.Enable', val, 'xsd:boolean');
                 }
             }
+        },
+        onPostGlobalUpdate: (config, device) => {
+            // Huawei Remote Access — STEP 2: ACL whitelist entry.
+            //
+            // V5 series (EG8145V5/HG8145V5) blocks all WAN inbound by
+            // default even with HTTPWanEnable=true. Need to addObject
+            // a WanAccess entry then set Protocol=HTTP on it.
+            //
+            // From the device's own Config-Log earlier:
+            //   ACS Type:Add, X_HW_Security.AclServices.WanAccess
+            //   ACS Type:Set, WanAccess:1, Protocol:HTTP
+            //
+            // We replicate this when remoteAccessEnable=true. If the
+            // entry already exists, addObject creates a new index;
+            // GenieACS will accept and the Protocol set lands on the
+            // new entry. Idempotent enough — operator can manually
+            // delete extra entries if they pile up.
+            if (config.remoteAccessEnable !== true) return [];
+            const isTr181 = !!device.Device;
+            if (isTr181) return []; // TR-181 firmware uses different model
+
+            const tasks: PostGlobalTask[] = [];
+
+            // Check existing WanAccess list to figure out next index
+            const root = device.InternetGatewayDevice;
+            const existingWanAccess = root?.X_HW_Security?.AclServices?.WanAccess || {};
+            const existingKeys = Object.keys(existingWanAccess).filter(k => /^\d+$/.test(k));
+
+            if (existingKeys.length === 0) {
+                // No entry yet — create + set Protocol on index 1
+                tasks.push({
+                    addObject: 'InternetGatewayDevice.X_HW_Security.AclServices.WanAccess',
+                    setParams: [
+                        ['InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.1.Protocol', 'HTTP', 'xsd:string'],
+                        ['InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.1.Enable', 1, 'xsd:unsignedInt'],
+                    ],
+                });
+            } else {
+                // Entry already exists — just ensure Protocol is HTTP and Enable=1 on first entry
+                const idx = existingKeys[0];
+                tasks.push({
+                    setParams: [
+                        [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.Protocol`, 'HTTP', 'xsd:string'],
+                        [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.Enable`, 1, 'xsd:unsignedInt'],
+                    ],
+                });
+            }
+            return tasks;
         }
     }
 };

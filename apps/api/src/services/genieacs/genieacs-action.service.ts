@@ -49,6 +49,33 @@ export async function updateWanConfig(deviceId: string, config: WanConfigPayload
             }
         }
 
+        // Vendor-specific post-global tasks (e.g. Huawei requires addObject
+        // + Protocol set for ACL WanAccess entry to actually allow inbound
+        // HTTP from WAN — master switch HTTPWanEnable alone is not enough).
+        if (driver?.onPostGlobalUpdate) {
+            const postTasks = driver.onPostGlobalUpdate(config, device);
+            for (const task of postTasks) {
+                if (task.addObject) {
+                    try {
+                        await axios.post(`${url}/devices/${encodedId}/tasks`, { name: 'addObject', objectName: task.addObject }, { auth });
+                        logger.info({ deviceId, objectName: task.addObject }, 'GenieACS post-global addObject queued');
+                    } catch (err: any) {
+                        logger.warn({ deviceId, objectName: task.addObject, err: err?.response?.data || err?.message }, 'GenieACS post-global addObject failed');
+                    }
+                }
+                if (task.setParams && task.setParams.length > 0) {
+                    for (const sp of task.setParams) {
+                        try {
+                            await axios.post(`${url}/devices/${encodedId}/tasks?connection_request`, { name: 'setParameterValues', parameterValues: [sp] }, { auth });
+                            logger.info({ deviceId, param: sp[0], value: sp[1] }, 'GenieACS post-global param queued');
+                        } catch (err: any) {
+                            logger.warn({ deviceId, param: sp[0], err: err?.response?.data || err?.message }, 'GenieACS post-global param failed');
+                        }
+                    }
+                }
+            }
+        }
+
         let connectionPath = config.connectionPath;
         if (!connectionPath) {
             const connections = getWanConnections(device);
