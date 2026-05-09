@@ -438,25 +438,52 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                 {/* VLAN Section - Combined above, removing redundant block */}
 
                 {/* Remote Access — vendor-specific parameter path. Driver
-                    will pick the right path for the detected manufacturer. */}
+                    will pick the right path for the detected manufacturer.
+                    Detect when target firmware doesn't expose the parameter
+                    at all (e.g. ZTE F609) and disable toggle + show note. */}
                 {(() => {
                     const mfg = (device?._deviceId?._Manufacturer || device?._manufacturer || '').toUpperCase();
+                    const productClass = (device?._deviceId?._ProductClass || device?._productClass || '').toUpperCase();
                     const isFh = mfg.includes('FIBERHOME') || mfg.includes('FHTT') || mfg.includes('FH');
                     const isZte = mfg.includes('ZTE');
                     const isHw = mfg.includes('HUAWEI');
-                    const supported = isFh || isZte || isHw;
                     const vendorLabel = isFh ? 'FiberHome' : isZte ? 'ZTE' : isHw ? 'Huawei' : (mfg || 'Unknown');
+
+                    // Probe device tree for parameter presence. If none of
+                    // the known paths exist for this vendor, the firmware
+                    // doesn't expose Remote Access via TR-069 and toggle
+                    // would be a no-op (e.g. ZTE F609).
+                    const igd = device?.InternetGatewayDevice;
+                    const tr181 = device?.Device;
+                    let hasParam = false;
+                    if (isFh) {
+                        hasParam = !!igd?.X_FH_FireWall?.REMOTEACCEnable;
+                    } else if (isHw) {
+                        hasParam = !!igd?.X_HW_Security?.AclServices?.HTTPWanEnable
+                            || !!igd?.X_HW_RemoteAccess?.Enable
+                            || !!tr181?.UserInterface?.RemoteAccess?.Enable;
+                    } else if (isZte) {
+                        // ZTE F609 famously doesn't have either of these
+                        hasParam = !!igd?.UserInterface?.RemoteAccess?.Enable
+                            || !!igd?.['X_ZTE-COM_FireWall']?.WANRemoteAccess
+                            || !!tr181?.UserInterface?.RemoteAccess?.Enable;
+                    } else {
+                        hasParam = !!tr181?.UserInterface?.RemoteAccess?.Enable
+                            || !!igd?.UserInterface?.RemoteAccess?.Enable;
+                    }
+                    const knownVendor = isFh || isZte || isHw;
                     const paramHint = isFh
                         ? 'X_FH_FireWall.REMOTEACCEnable'
                         : isZte
-                            ? 'UserInterface.RemoteAccess.Enable'
+                            ? '(not supported on this firmware)'
                             : isHw
                                 ? 'X_HW_Security.AclServices.HTTPWanEnable (+ SSH/TELNET)'
                                 : 'standard TR-181/TR-098 path';
+
                     return (
                         <div className={clsx(
                             "p-4 rounded-xl border",
-                            supported ? "bg-slate-950/50 border-slate-800" : "bg-amber-500/5 border-amber-500/20"
+                            !hasParam ? "bg-slate-900/30 border-slate-800/60 opacity-70" : "bg-slate-950/50 border-slate-800"
                         )}>
                             <div className="flex items-center gap-2">
                                 <input
@@ -464,23 +491,34 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                                     id="remoteAccessEnable"
                                     checked={remoteAccessEnable}
                                     onChange={(e) => setRemoteAccessEnable(e.target.checked)}
-                                    className="rounded bg-slate-900 border-slate-700 text-primary focus:ring-primary"
+                                    disabled={!hasParam}
+                                    className="rounded bg-slate-900 border-slate-700 text-primary focus:ring-primary disabled:cursor-not-allowed"
                                 />
-                                <label htmlFor="remoteAccessEnable" className="text-sm font-medium text-slate-300 cursor-pointer select-none">
-                                    Enable Remote Access ({vendorLabel})
+                                <label htmlFor="remoteAccessEnable" className={clsx(
+                                    "text-sm font-medium select-none",
+                                    !hasParam ? "text-slate-500 cursor-not-allowed" : "text-slate-300 cursor-pointer"
+                                )}>
+                                    Enable Remote Access ({vendorLabel}{productClass ? ` ${productClass}` : ''})
                                 </label>
                             </div>
                             <p className="text-[10px] text-slate-500 mt-1 italic">
                                 *Parameter: {paramHint}
                             </p>
-                            {!supported && (
-                                <p className="text-[10px] text-amber-300 mt-1">
-                                    ⚠️ Vendor "{vendorLabel}" not in supported list — parameter may not apply. Verify in device web GUI after save.
+                            {!hasParam && knownVendor && (
+                                <p className="text-[10px] text-amber-300 mt-1.5 leading-relaxed">
+                                    ⚠️ Firmware {vendorLabel} {productClass || ''} ini tidak expose parameter Remote Access via TR-069.
+                                    Toggle dinonaktifkan. Konfigurasi WAN HTTP access hanya bisa via web GUI device langsung
+                                    (login dari LAN customer).
                                 </p>
                             )}
-                            {(isZte || isHw) && (
+                            {!knownVendor && (
+                                <p className="text-[10px] text-amber-300 mt-1">
+                                    ⚠️ Vendor "{vendorLabel}" tidak dikenali — toggle mungkin no-op. Verify di device web GUI.
+                                </p>
+                            )}
+                            {hasParam && isHw && (
                                 <p className="text-[10px] text-cyan-400 mt-1">
-                                    ℹ️ Best-effort: app pakai TR-181/TR-098 standar + fallback vendor extension. Verify di device setelah apply.
+                                    ℹ️ Aktifkan: master switch HTTP/SSH/TELNET WanEnable + ACL WanAccess entry (Protocol HTTP, WanName ANY, Source 0.0.0.0/0).
                                 </p>
                             )}
                         </div>
