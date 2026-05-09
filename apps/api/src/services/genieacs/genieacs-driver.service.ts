@@ -282,7 +282,7 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             // GenieACS will accept and the Protocol set lands on the
             // new entry. Idempotent enough — operator can manually
             // delete extra entries if they pile up.
-            if (config.remoteAccessEnable !== true) return [];
+            if (config.remoteAccessEnable === undefined) return [];
             const isTr181 = !!device.Device;
             if (isTr181) return []; // TR-181 firmware uses different model
 
@@ -292,6 +292,22 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             const root = device.InternetGatewayDevice;
             const existingWanAccess = root?.X_HW_Security?.AclServices?.WanAccess || {};
             const existingKeys = Object.keys(existingWanAccess).filter(k => /^\d+$/.test(k));
+
+            // Uncheck path — disable existing ACL entries instead of leaving
+            // them active. Without this, master switch off but ACL entry
+            // still says "allow HTTP" — operator confused why state appears
+            // half-on. Set Enable=0 on each existing rule.
+            if (config.remoteAccessEnable === false) {
+                if (existingKeys.length === 0) return [];
+                for (const idx of existingKeys) {
+                    tasks.push({
+                        setParams: [
+                            [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.Enable`, 0, 'xsd:unsignedInt'],
+                        ],
+                    });
+                }
+                return tasks;
+            }
 
             // ACL rule needs FOUR params filled to actually allow access:
             //   Protocol     — HTTP/SSH/TELNET (which service to allow)

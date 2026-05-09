@@ -57,9 +57,21 @@ export function useUpdateGenieACSWanConfig() {
     return useMutation({
         mutationFn: ({ id, config, routerId }) =>
             genieacsService.updateWanConfig(id, config, routerId),
-        onSuccess: (_, { routerId }) => {
+        onSuccess: (_, { id, routerId }) => {
             toast.success('WAN configuration task created');
-            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', routerId] });
+            queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+            if (routerId) queryClient.invalidateQueries({ queryKey: ['genieacs-devices', routerId] });
+
+            // Trigger Summon after a delay so the device pushes its new
+            // post-apply parameter values back to ACS, then refetch — so
+            // the next open of Edit modal reads accurate state instead
+            // of pre-task-apply cached values.
+            try {
+                setTimeout(async () => {
+                    try { await genieacsService.refreshDevice(id, routerId); } catch {}
+                    queryClient.invalidateQueries({ queryKey: ['genieacs-devices', id, routerId] });
+                }, 3000);
+            } catch {}
         },
         onError: (error) => {
             toast.error(error.response?.data?.error || 'Failed to update WAN configuration');
