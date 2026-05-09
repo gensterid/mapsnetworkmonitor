@@ -110,7 +110,7 @@ function CustomersTab() {
             <CardContent className="p-0">
                 {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Kode</th><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Alamat</th><th className="text-left px-4 py-2">PIN</th><th className="px-4 py-2 w-24"></th></tr>
                             </thead>
@@ -194,7 +194,7 @@ function PackagesTab() {
             <CardContent className="p-0">
                 {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Profile</th><th className="text-right px-4 py-2">Harga</th><th className="text-left px-4 py-2">Cycle</th><th className="text-center px-4 py-2">Aktif</th><th className="px-4 py-2 w-20"></th></tr>
                             </thead>
@@ -358,7 +358,7 @@ function SubscriptionsTab() {
             <CardContent className="p-0">
                 {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Paket</th><th className="text-left px-4 py-2">Router</th><th className="text-left px-4 py-2">Identitas / Pwd</th><th className="text-center px-4 py-2">Tgl Tagih</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Tagihan Berikut</th><th className="px-4 py-2"></th></tr>
                             </thead>
@@ -617,7 +617,7 @@ function InvoicesTab() {
             <CardContent className="p-0">
                 {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">No. Invoice</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-left px-4 py-2">Jatuh Tempo</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Dibayar</th><th className="px-4 py-2"></th></tr>
                             </thead>
@@ -783,7 +783,7 @@ function VouchersTab() {
                             </div>
 
                             <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
+                                <table className="w-full text-sm min-w-[640px]">
                                     <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                         <tr>
                                             <th className="text-left px-3 py-2">Kode</th>
@@ -824,7 +824,7 @@ function VouchersTab() {
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full text-sm min-w-[640px]">
                                 <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                     <tr>
                                         <th className="text-left px-4 py-2">Tanggal</th>
@@ -956,7 +956,7 @@ function ReportsTab() {
                 <Card>
                     <CardHeader><CardTitle className="text-base">Aging (Piutang per umur)</CardTitle></CardHeader>
                     <CardContent className="p-0">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Bucket</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Jumlah</th></tr>
                             </thead>
@@ -976,7 +976,7 @@ function ReportsTab() {
                 <Card>
                     <CardHeader><CardTitle className="text-base">Top 10 Pelanggan (1 bulan)</CardTitle></CardHeader>
                     <CardContent className="p-0">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Total</th></tr>
                             </thead>
@@ -998,7 +998,7 @@ function ReportsTab() {
                 <Card>
                     <CardHeader><CardTitle className="text-base">Penjualan Voucher per Paket (1 bulan)</CardTitle></CardHeader>
                     <CardContent className="p-0">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Paket</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-right px-4 py-2">Pendapatan</th></tr>
                             </thead>
@@ -1018,7 +1018,7 @@ function ReportsTab() {
                 <Card>
                     <CardHeader><CardTitle className="text-base">Pembayaran Terbaru</CardTitle></CardHeader>
                     <CardContent className="p-0">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Tanggal</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Invoice</th><th className="text-right px-4 py-2">Jumlah</th></tr>
                             </thead>
@@ -1070,7 +1070,7 @@ function WaTab() {
                 </CardHeader>
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[640px]">
                             <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
                                 <tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Provider</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Error</th></tr>
                             </thead>

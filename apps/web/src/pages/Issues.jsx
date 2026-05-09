@@ -97,62 +97,48 @@ export default function Issues() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="p-4 border-b border-slate-800 flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                    <div>
+                <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
                         <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Issues</h1>
                         <p className="text-slate-400 text-xs md:sm">Monitor system performance</p>
                     </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                        className="flex-1 sm:flex-none justify-center min-w-[80px]"
+                    >
+                        {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
+                        Sort
+                    </Button>
+                    <Button
+                        variant={showResolved ? "primary" : "outline"}
+                        size="sm"
+                        onClick={() => setShowResolved(!showResolved)}
+                        className="flex-1 sm:flex-none justify-center min-w-[120px]"
+                    >
+                        <Clock className="w-4 h-4 mr-2" />
+                        {showResolved ? "Showing All" : "Active Only"}
+                    </Button>
+                    <Button onClick={() => refetch()} variant="outline" size="sm" className="flex-1 sm:flex-none justify-center min-w-[100px]">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Refresh
+                    </Button>
                     {hasUnacknowledged && (
                         <Button
                             onClick={handleAcknowledgeAll}
                             variant="primary"
                             size="sm"
                             loading={acknowledgeAllMutation.isPending}
-                            className="lg:hidden"
+                            className="flex-1 sm:flex-none justify-center min-w-[100px]"
                         >
                             <CheckCheck className="w-4 h-4 mr-2" />
                             Ack All
                         </Button>
                     )}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2">
-                    <div className="flex gap-2 flex-1">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
-                            className="flex-1 justify-center"
-                        >
-                            {sortOrder === 'desc' ? <ArrowDown className="w-4 h-4 mr-2" /> : <ArrowUp className="w-4 h-4 mr-2" />}
-                            Sort
-                        </Button>
-                        <Button
-                            variant={showResolved ? "primary" : "outline"}
-                            size="sm"
-                            onClick={() => setShowResolved(!showResolved)}
-                            className="flex-1 justify-center lg:flex-none"
-                        >
-                            <Clock className="w-4 h-4 mr-2" />
-                            {showResolved ? "Showing All" : "Active Only"}
-                        </Button>
-                        <Button onClick={() => refetch()} variant="outline" size="sm" className="flex-1 justify-center lg:flex-none">
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Refresh
-                        </Button>
-                        {hasUnacknowledged && (
-                            <Button
-                                onClick={handleAcknowledgeAll}
-                                variant="primary"
-                                size="sm"
-                                loading={acknowledgeAllMutation.isPending}
-                                className="hidden lg:flex"
-                            >
-                                <CheckCheck className="w-4 h-4 mr-2" />
-                                Ack All
-                            </Button>
-                        )}
-                    </div>
 
                     <div className="flex items-center gap-2">
                         <input

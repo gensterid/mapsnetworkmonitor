@@ -38,10 +38,10 @@ export default function BulkActions({
   if (selectedCount === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 bg-slate-800 p-1.5 rounded-lg animate-in fade-in slide-in-from-top-2 border border-primary/20 shadow-lg shadow-primary/5">
+    <div className="flex flex-wrap items-center gap-2 bg-slate-800 p-1.5 rounded-lg animate-in fade-in slide-in-from-top-2 border border-primary/20 shadow-lg shadow-primary/5">
       <span className="text-xs text-white px-2 font-black uppercase tracking-widest">{selectedCount} Selected</span>
 
-      <div className="w-px h-4 bg-slate-700 mx-1" />
+      <div className="hidden sm:block w-px h-4 bg-slate-700 mx-1" />
 
       <Button size="sm" variant="destructive" onClick={onReboot} loading={isRebootPending} title="Reboot semua device terpilih">
         <Power className="w-3 h-3 mr-1.5" /> Reboot

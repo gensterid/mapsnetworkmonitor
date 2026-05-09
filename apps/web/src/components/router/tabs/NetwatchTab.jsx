@@ -256,7 +256,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
 
             <Card className="glass-panel border-slate-800/50 overflow-hidden bg-[#0a0c10]/80">
                 <div className="max-h-[calc(100vh-280px)] min-h-[400px] overflow-auto custom-scrollbar">
-                    <table className="w-full text-[11px]">
+                    <table className="w-full text-[11px] min-w-[800px]">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-slate-800">
                                 <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">HOST</th>
