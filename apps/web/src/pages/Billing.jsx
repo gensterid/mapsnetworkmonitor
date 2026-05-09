@@ -38,14 +38,14 @@ const fmtIDR = (v) => new Intl.NumberFormat('id-ID', { style: 'currency', curren
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 
-function Modal({ open, onClose, title, children, footer }) {
+function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-lg' }) {
     if (!open) return null;
     // Render via portal so the modal escapes any ancestor with transform /
     // overflow / containing-block that would otherwise pin `position: fixed`
     // to a scrolled content area instead of the viewport.
     return createPortal(
-        <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
+            <div className={`w-full ${maxWidth} bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}>
                 <div className="flex items-center justify-between border-b border-slate-800 px-5 py-3 shrink-0">
                     <h3 className="font-semibold text-white">{title}</h3>
                     <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
@@ -401,7 +401,7 @@ function SubscriptionsTab() {
                 )}
             </CardContent>
 
-            <Modal open={modalOpen} onClose={() => { setModalOpen(false); resetSubForm(); }} title="Tambah Subscription" footer={<>
+            <Modal open={modalOpen} onClose={() => { setModalOpen(false); resetSubForm(); }} maxWidth="max-w-2xl" title="Tambah Subscription" footer={<>
                 <Button variant="ghost" onClick={() => { setModalOpen(false); resetSubForm(); }}>Batal</Button>
                 <Button form="sub-form" type="submit" loading={create.isPending}>Buat & Push ke MikroTik</Button>
             </>}>
@@ -852,7 +852,7 @@ function VouchersTab() {
                 </Card>
             )}
 
-            <Modal open={batchModalOpen} onClose={() => setBatchModalOpen(false)} title="Generate Batch Voucher" footer={<>
+            <Modal open={batchModalOpen} onClose={() => setBatchModalOpen(false)} maxWidth="max-w-2xl" title="Generate Batch Voucher" footer={<>
                 <Button variant="ghost" onClick={() => setBatchModalOpen(false)}>Batal</Button>
                 <Button form="batch-form" type="submit" loading={generate.isPending}>Generate & Push</Button>
             </>}>

@@ -153,7 +153,7 @@ const RestoreModal = ({ isOpen, onClose, device, routerId }) => {
     if (!isOpen) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Restore Configuration: ${device?._serialNumber}`} size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={`Restore Configuration: ${device?._serialNumber}`} maxWidth="max-w-3xl">
             <div className="flex border-b border-gray-700 mb-4">
                 <button
                     className={`px-4 py-2 font-medium ${activeTab === 'auto' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-400'}`}

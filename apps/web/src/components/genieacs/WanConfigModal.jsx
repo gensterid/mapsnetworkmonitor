@@ -230,7 +230,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`WAN Configuration (${device?._serialNumber || device?._id})`} size="lg">
+        <Modal isOpen={isOpen} onClose={onClose} title={`WAN Configuration (${device?._serialNumber || device?._id})`} maxWidth="max-w-4xl">
             <form onSubmit={handleSubmit} className="space-y-4 py-2">
                 {editingPath && (
                     <div className="flex items-center justify-between p-3 bg-blue-900/30 border border-blue-500/50 rounded-lg text-blue-300 mb-2">

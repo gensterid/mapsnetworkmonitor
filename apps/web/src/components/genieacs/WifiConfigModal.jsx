@@ -173,7 +173,7 @@ export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
                     Last device sync: {formatTimeOnly(lastSyncTime)}
                 </p>
             </div>
-        }>
+        } maxWidth="max-w-3xl">
             <form onSubmit={(e) => { e.preventDefault(); handleSave(); }} className="space-y-4 py-2">
 
                 {/* Wireless Management Grid */}

@@ -499,7 +499,7 @@ export default function Dashboard() {
                     </div>
 
                     {/* Stats Row */}
-                    <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4" aria-labelledby="stats-heading">
+                    <section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4" aria-labelledby="stats-heading">
                         <h2 id="stats-heading" className="sr-only">Statistik Real-time</h2>
                         {routersLoading || statsLoading ? (
                             <>
