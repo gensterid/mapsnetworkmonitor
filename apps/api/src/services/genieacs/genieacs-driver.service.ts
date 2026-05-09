@@ -293,22 +293,31 @@ export const DEVICE_DRIVERS: Record<string, GenieACSDeviceDriver> = {
             const existingWanAccess = root?.X_HW_Security?.AclServices?.WanAccess || {};
             const existingKeys = Object.keys(existingWanAccess).filter(k => /^\d+$/.test(k));
 
+            // ACL rule needs FOUR params filled to actually allow access:
+            //   Protocol     — HTTP/SSH/TELNET (which service to allow)
+            //   Enable       — 1 (rule active)
+            //   WanName      — "ANY" or specific connection name (which WAN scope)
+            //   SrcIPPrefix  — "0.0.0.0/0" or specific prefix (which sources allowed)
+            // Without WanName + SrcIPPrefix, rule has no scope → all inbound
+            // still blocked even though Protocol+Enable look correct.
             if (existingKeys.length === 0) {
-                // No entry yet — create + set Protocol on index 1
                 tasks.push({
                     addObject: 'InternetGatewayDevice.X_HW_Security.AclServices.WanAccess',
                     setParams: [
                         ['InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.1.Protocol', 'HTTP', 'xsd:string'],
                         ['InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.1.Enable', 1, 'xsd:unsignedInt'],
+                        ['InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.1.WanName', 'ANY', 'xsd:string'],
+                        ['InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.1.SrcIPPrefix', '0.0.0.0/0', 'xsd:string'],
                     ],
                 });
             } else {
-                // Entry already exists — just ensure Protocol is HTTP and Enable=1 on first entry
                 const idx = existingKeys[0];
                 tasks.push({
                     setParams: [
                         [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.Protocol`, 'HTTP', 'xsd:string'],
                         [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.Enable`, 1, 'xsd:unsignedInt'],
+                        [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.WanName`, 'ANY', 'xsd:string'],
+                        [`InternetGatewayDevice.X_HW_Security.AclServices.WanAccess.${idx}.SrcIPPrefix`, '0.0.0.0/0', 'xsd:string'],
                     ],
                 });
             }
