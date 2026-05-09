@@ -250,7 +250,19 @@ export async function refreshDevice(deviceId: string, routerId?: string, tenantI
     try {
         const config = await getGenieAcsConfig(routerId, tenantId);
         const encodedId = encodeURIComponent(deviceId);
-        const objects = ['InternetGatewayDevice.DeviceInfo', 'Device.DeviceInfo', 'InternetGatewayDevice.LANDevice.1.WLANConfiguration'];
+        // Include WANConnectionDevice so VLANID, ServiceList, BindPort, etc.
+        // get pulled to ACS. Without this, parameters under WAN appear as
+        // "Object" placeholder in GenieACS (no _value), and our parsers
+        // can't read VLAN/port-binding values for the device list UI.
+        const objects = [
+            'InternetGatewayDevice.DeviceInfo',
+            'Device.DeviceInfo',
+            'InternetGatewayDevice.LANDevice.1.WLANConfiguration',
+            'Device.WiFi',
+            'InternetGatewayDevice.WANDevice.1.WANConnectionDevice',
+            'Device.IP.Interface',
+            'InternetGatewayDevice.X_HW_Security',
+        ];
         for (const obj of objects) {
             await axios.post(`${config!.url}/devices/${encodedId}/tasks?timeout=1500&connection_request`, { name: 'refreshObject', objectName: obj }, { auth: config!.auth }).catch(() => {});
         }
