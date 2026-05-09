@@ -198,7 +198,7 @@ export default function PollingSettings({ formData, handleChange, handleSubmit, 
                                                 />
                                                 <p className="text-[10px] text-slate-500">URL server cadangan jika router tidak memiliki URL spesifik.</p>
                                             </div>
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                                 <div className="space-y-2">
                                                     <label className="text-sm font-medium text-slate-300">ACS Username</label>
                                                     <Input

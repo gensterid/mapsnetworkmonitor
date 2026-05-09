@@ -305,8 +305,8 @@ export default function Analytics() {
 
     return (
         <main className="flex flex-col h-full bg-background-dark overflow-hidden" aria-label="Analytics Dashboard">
-            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-                <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 lg:p-8">
+                <div className="max-w-full xl:max-w-[1600px] mx-auto flex flex-col gap-4 sm:gap-6">
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>

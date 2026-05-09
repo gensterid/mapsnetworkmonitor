@@ -24,7 +24,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">Online / Up</label>
                             <div className="flex items-center gap-3">
@@ -97,7 +97,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">Router / Server</label>
                             <div className="flex items-center gap-3">

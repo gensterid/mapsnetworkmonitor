@@ -330,7 +330,7 @@ const RestoreModal = ({ isOpen, onClose, device, routerId }) => {
                     )}
                     {/* ... (rest of the form remains similar but using the new path logic) ... */}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-400 mb-1">Connection Type</label>
                             <select
@@ -371,7 +371,7 @@ const RestoreModal = ({ isOpen, onClose, device, routerId }) => {
                     </div>
 
                     {manualConfig.connectionType === 'PPPoE' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                             <div>
                                 <label className="block text-sm font-medium text-gray-400 mb-1">PPPoE User</label>
                                 <input

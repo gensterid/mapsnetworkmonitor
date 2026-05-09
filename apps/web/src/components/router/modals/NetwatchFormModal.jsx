@@ -111,7 +111,7 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <Input
                         label="Host/IP Address *"
                         name="host"
@@ -129,7 +129,7 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                     />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <Input
                         label="Check Interval (seconds)"
                         name="interval"
@@ -153,7 +153,7 @@ function NetwatchFormModal({ isOpen, onClose, onSuccess, netwatch = null, router
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Map Coordinates (Optional)</span>
                         <button type="button" onClick={clearAllCoords} className="text-[10px] font-bold text-red-500 hover:text-red-400 uppercase tracking-wider">Clear All</button>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="relative">
                             <Input
                                 label="Latitude"

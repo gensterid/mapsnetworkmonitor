@@ -289,7 +289,7 @@ export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
                 <div className="pt-2 border-t border-slate-800">
                     <p className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider">Advanced Settings</p>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                         <div className="space-y-1">
                             <label className="text-xs text-slate-500">Security Mode</label>
                             <select
