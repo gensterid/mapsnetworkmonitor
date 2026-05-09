@@ -28,10 +28,10 @@ export default function DeviceDetailModal({
   });
 
   const tabs = [
-    { id: 'summary', label: 'Summary', icon: Info, component: SummaryTab },
-    { id: 'wan', label: 'WAN / Network', icon: Globe, component: WanTab },
-    { id: 'wifi', label: 'Radio / WiFi', icon: Wifi, component: WifiTab },
-    { id: 'advanced', label: 'Advanced Parameters', icon: Settings, component: AdvancedTab },
+    { id: 'summary', label: 'Summary', shortLabel: 'Summary', icon: Info, component: SummaryTab },
+    { id: 'wan', label: 'WAN / Network', shortLabel: 'WAN', icon: Globe, component: WanTab },
+    { id: 'wifi', label: 'Radio / WiFi', shortLabel: 'WiFi', icon: Wifi, component: WifiTab },
+    { id: 'advanced', label: 'Advanced Parameters', shortLabel: 'Advanced', icon: Settings, component: AdvancedTab },
   ];
 
   const ActiveComponent = tabs.find(t => t.id === activeTab)?.component || SummaryTab;
@@ -41,7 +41,7 @@ export default function DeviceDetailModal({
       isOpen={isOpen}
       onClose={onClose}
       title={fullDevice ? `Device Detail: ${fullDevice._id}` : 'Loading...'}
-      size="2xl"
+      maxWidth="max-w-5xl"
     >
       <div className="flex flex-col h-[75vh]">
         {isLoading ? (
@@ -57,14 +57,15 @@ export default function DeviceDetailModal({
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
                   className={clsx(
-                    "flex items-center gap-2 px-6 py-3 border-b-2 transition-all whitespace-nowrap text-sm font-bold uppercase tracking-wider",
+                    "flex items-center gap-2 px-3 sm:px-5 md:px-6 py-3 border-b-2 transition-all whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider",
                     activeTab === tab.id
                       ? "border-primary text-primary bg-primary/5"
                       : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
                   )}
                 >
-                  <tab.icon className="w-4 h-4" />
-                  {tab.label}
+                  <tab.icon className="w-4 h-4 shrink-0" />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                  <span className="sm:hidden">{tab.shortLabel}</span>
                 </button>
               ))}
             </div>

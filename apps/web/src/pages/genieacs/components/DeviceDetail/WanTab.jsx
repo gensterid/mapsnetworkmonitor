@@ -5,29 +5,29 @@ import clsx from 'clsx';
 export default function WanTab({ fullDevice, onOpenWanConfig }) {
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-right-2 duration-300">
-      <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800">
+      <div className="bg-slate-900/50 p-4 sm:p-6 rounded-xl border border-slate-800">
         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">WAN Interface Details</h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-          <div className="flex justify-between py-2 border-b border-slate-800">
-            <span className="text-sm text-slate-400">PPPoE IP</span>
-            <span className="text-sm text-primary font-mono font-bold">{fullDevice?._pppoeIp || 'N/A'}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-1">
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-slate-800 min-w-0">
+            <span className="text-sm text-slate-400 shrink-0">PPPoE IP</span>
+            <span className="text-sm text-primary font-mono font-bold break-all">{fullDevice?._pppoeIp || 'N/A'}</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-slate-800">
-            <span className="text-sm text-slate-400">Management IP</span>
-            <span className="text-sm text-white font-mono">{fullDevice?._mgmtIp || 'N/A'}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-slate-800 min-w-0">
+            <span className="text-sm text-slate-400 shrink-0">Management IP</span>
+            <span className="text-sm text-white font-mono break-all">{fullDevice?._mgmtIp || 'N/A'}</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-slate-800">
-            <span className="text-sm text-slate-400">Connection Mode</span>
-            <span className="text-sm text-white">{fullDevice?._pppoeUser ? 'PPPoE' : 'Static/DHCP'}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-slate-800 min-w-0">
+            <span className="text-sm text-slate-400 shrink-0">Connection Mode</span>
+            <span className="text-sm text-white break-all">{fullDevice?._pppoeUser ? 'PPPoE' : 'Static/DHCP'}</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-slate-800">
-            <span className="text-sm text-slate-400">MAC Address</span>
-            <span className="text-sm text-white font-mono">{fullDevice?._macAddress || 'N/A'}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-slate-800 min-w-0">
+            <span className="text-sm text-slate-400 shrink-0">MAC Address</span>
+            <span className="text-sm text-white font-mono break-all">{fullDevice?._macAddress || 'N/A'}</span>
           </div>
-          <div className="flex justify-between py-2 border-b border-slate-800">
-            <span className="text-sm text-slate-400">Status</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2 border-b border-slate-800 min-w-0">
+            <span className="text-sm text-slate-400 shrink-0">Status</span>
             <span className={clsx(
-              "px-2 py-0.5 text-[10px] font-bold rounded uppercase",
+              "px-2 py-0.5 text-[10px] font-bold rounded uppercase shrink-0",
               fullDevice?._wanStatus === 'Connected' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
             )}>{fullDevice?._wanStatus || 'Disconnected'}</span>
           </div>
