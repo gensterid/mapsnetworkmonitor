@@ -374,6 +374,31 @@ export function getWanConnections(dev: any): any[] {
             Object.keys(conns).forEach(pKey => {
                 if (pKey.startsWith('_')) return;
                 const conn = conns[pKey];
+                // Vendor extension fallback chain — different OEMs name
+                // the same field differently. Huawei (X_HW_*) was missing
+                // before; user reported VLAN/ports kosong saat Edit ONU
+                // Huawei. Order is broadest first then specific vendors.
+                const vlanRaw = conn.VLANID?._value
+                    ?? conn['X_HW_VLAN']?._value
+                    ?? conn['X_ZTE_COM_VLANID']?._value
+                    ?? conn['X_ZTE-COM_VLANID']?._value
+                    ?? conn['X_FH_VLANID']?._value
+                    ?? conn['X_CT-COM_VLANID']?._value;
+                const serviceListRaw = conn.ServiceList?._value
+                    ?? conn['X_HW_ServiceList']?._value
+                    ?? conn['X_HW_SERVICELIST']?._value
+                    ?? conn['X_CT-COM_ServiceList']?._value
+                    ?? conn['X_FH_ServiceList']?._value
+                    ?? conn['X_ZTE-COM_ServiceList']?._value
+                    ?? '';
+                const bindPortsRaw = conn['X_HW_BindPhyPortInfo']?._value
+                    ?? conn['X_HW_LANBinding']?._value
+                    ?? conn['X_CT-COM_BindPort']?._value
+                    ?? conn['X_FH_LanInterface']?._value
+                    ?? conn['X_ZTE-COM_LanInterface']?._value
+                    ?? '';
+                const vlanIdNum = vlanRaw !== undefined && vlanRaw !== null && vlanRaw !== '' ? Number(vlanRaw) : undefined;
+
                 connections.push({
                     path: `${basePath}.${subName}.${pKey}`,
                     name: conn.Name?._value || `${type}-${key}-${pKey}`,
@@ -382,10 +407,12 @@ export function getWanConnections(dev: any): any[] {
                     mac: conn.MACAddress?._value,
                     username: conn.Username?._value,
                     password: conn.Password?._value,
-                    vlanId: conn.VLANID?._value || conn['X_ZTE_COM_VLANID']?._value || conn['X_ZTE-COM_VLANID']?._value || conn['X_FH_VLANID']?._value || conn['X_CT-COM_VLANID']?._value,
-                    serviceList: conn.ServiceList?._value || conn['X_CT-COM_ServiceList']?._value || conn['X_FH_ServiceList']?._value || conn['X_ZTE-COM_ServiceList']?._value || '',
+                    vlanId: vlanIdNum && !isNaN(vlanIdNum) && vlanIdNum > 0 ? vlanIdNum : undefined,
+                    vlanEnable: !!(vlanIdNum && vlanIdNum > 0),
+                    serviceList: serviceListRaw,
                     mode: conn.ConnectionType?._value?.includes('Bridged') ? 'Bridge' : 'Route',
-                    bindPorts: (conn['X_CT-COM_BindPort']?._value || conn['X_FH_LanInterface']?._value || conn['X_ZTE-COM_LanInterface']?._value || '').split(',').filter(Boolean),
+                    bindPorts: String(bindPortsRaw).split(',').map((s: string) => s.trim()).filter(Boolean),
+                    dhcpServerEnable: conn.NATEnabled?._value !== undefined ? !!conn.NATEnabled?._value : undefined,
                     isManagement: (key === '1' && pKey === '1') || (conn.Name?._value || '').toUpperCase().includes('TR069')
                 });
             });
