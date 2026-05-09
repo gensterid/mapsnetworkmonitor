@@ -1,31 +1,16 @@
 import React from 'react';
-import { Search } from 'lucide-react';
 import clsx from 'clsx';
 
 export default function DeviceFilters({
-  searchQuery,
-  setSearchQuery,
   statusFilter,
   setStatusFilter,
   vendorFilter,
   setVendorFilter,
   vendors,
-  filteredCount
+  deviceCount
 }) {
   return (
     <div className="px-6 py-3 bg-slate-900/40 border-b border-slate-800 flex flex-wrap items-center gap-4">
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text"
-            placeholder="Search serial, IP..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-slate-950 border border-slate-800 text-white text-sm rounded-lg pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48 outline-none"
-          />
-        </div>
-      </div>
 
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status:</span>
@@ -60,7 +45,7 @@ export default function DeviceFilters({
       </div>
 
       <div className="ml-auto text-[10px] text-slate-500 font-medium">
-        Found <span className="text-white font-bold">{filteredCount}</span> devices
+        Found <span className="text-white font-bold">{deviceCount}</span> devices
       </div>
     </div>
   );
