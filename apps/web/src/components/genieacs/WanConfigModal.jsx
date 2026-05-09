@@ -53,8 +53,32 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
             setBindPorts([]);
             setDhcpServerEnable(true);
             setEditingPath(null);
-            setRemoteAccessEnable(false);
             setServiceList('INTERNET');
+
+            // Derive current Remote Access state from the device parameter
+            // tree. Path differs per vendor — pick the most authoritative
+            // for each. GenieACS exposes parameter values under `_value`.
+            const igd = device.InternetGatewayDevice;
+            const tr181 = device.Device;
+            const mfg = (device._deviceId?._Manufacturer || device._manufacturer || '').toUpperCase();
+            const isHw = mfg.includes('HUAWEI');
+            const isFh = mfg.includes('FIBERHOME') || mfg.includes('FHTT') || mfg.includes('FH');
+            const isZte = mfg.includes('ZTE');
+            let currentRemote = false;
+            try {
+                if (isHw && igd?.X_HW_Security?.AclServices) {
+                    currentRemote = !!igd.X_HW_Security.AclServices.HTTPWanEnable?._value;
+                } else if (isFh && igd?.X_FH_FireWall) {
+                    currentRemote = !!igd.X_FH_FireWall.REMOTEACCEnable?._value;
+                } else if (isZte) {
+                    currentRemote = !!(tr181?.UserInterface?.RemoteAccess?.Enable?._value
+                        || igd?.UserInterface?.RemoteAccess?.Enable?._value);
+                } else {
+                    currentRemote = !!(tr181?.UserInterface?.RemoteAccess?.Enable?._value
+                        || igd?.UserInterface?.RemoteAccess?.Enable?._value);
+                }
+            } catch { currentRemote = false; }
+            setRemoteAccessEnable(currentRemote);
 
             // Discover SSIDs from device data
             const lanDevice = device.InternetGatewayDevice?.LANDevice?.[1] || device.Device?.LANDevice?.[1];
