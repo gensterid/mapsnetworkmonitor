@@ -246,7 +246,7 @@ function StatusDetailsModal({ type, isOpen, onClose }) {
                                 </div>
                                 <Link 
                                     to={`/routers/${item.routerId}`} 
-                                    className="p-2 rounded-lg bg-slate-800 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:bg-slate-700 hover:text-white"
+                                    className="p-2 rounded-lg bg-slate-800 text-slate-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all hover:bg-slate-700 hover:text-white"
                                 >
                                     <ArrowRight className="w-4 h-4" />
                                 </Link>

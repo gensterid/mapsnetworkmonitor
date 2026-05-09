@@ -292,7 +292,7 @@ export default function MaintenanceSettings({
                                                 {(backup.size / 1024 / 1024).toFixed(2)} MB
                                             </td>
                                             <td className="px-4 py-3 text-right">
-                                                <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                                                     <Button
                                                         variant="ghost"
                                                         size="icon"

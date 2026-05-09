@@ -482,7 +482,7 @@ export default function Olts() {
                             onClick={() => navigate(`/olts/${olt.id}`)}
                         >
                             {(isAdmin || isOperator) && (
-                                <div className="absolute top-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 border border-slate-700/50 shadow-sm">
+                                <div className="absolute top-3 right-3 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 border border-slate-700/50 shadow-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setViewingOnusOlt(olt); }}
                                         className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"

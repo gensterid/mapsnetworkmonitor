@@ -203,7 +203,7 @@ export default function AnalyticsDetailModal({ open, type, target, onClose }) {
                                                     <Button
                                                         size="xs"
                                                         variant="ghost"
-                                                        className="h-7 text-[10px] text-primary hover:text-white hover:bg-primary/20 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        className="h-7 text-[10px] text-primary hover:text-white hover:bg-primary/20 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity"
                                                         onClick={() => handleResolve(alert.id)}
                                                         disabled={resolveAlertMutation.isLoading}
                                                     >

@@ -225,7 +225,7 @@ export default function OnuTable({
                                         </div>
                                     </td>
                                     <td className="px-4 py-3 whitespace-nowrap">
-                                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity duration-200">
                                             <Button
                                                 size="sm"
                                                 variant="ghost"

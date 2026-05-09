@@ -154,45 +154,45 @@ export default function DeviceList({
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => onRefresh(dev._id)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
                         title="Refresh"
                       >
                         <RefreshCw className={clsx("w-3.5 h-3.5", refreshPendingId === dev._id && "animate-spin")} />
                       </button>
                       <button
                         onClick={() => onOpenWifi(dev)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
                         title="WiFi"
                       >
                         <Wifi className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onViewDetails(dev._id)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
                         title="Details"
                       >
                         <Info className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onBackup(dev._id)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors"
                         title="Create Backup"
                       >
                         <Database className={clsx("w-3.5 h-3.5", backupPendingId === dev._id && "animate-pulse")} />
                       </button>
                       <button
                         onClick={() => onRestore(dev)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-purple-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-purple-400 transition-colors"
                         title="Restore Configuration"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onReboot(dev)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
                         title="Reboot Device"
                       >
                         <Power className="w-3.5 h-3.5" />
