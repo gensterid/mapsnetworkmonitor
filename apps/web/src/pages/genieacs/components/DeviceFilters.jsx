@@ -1,17 +1,15 @@
 import React from 'react';
-import { Search, LayoutGrid, List } from 'lucide-react';
+import { Search } from 'lucide-react';
 import clsx from 'clsx';
 
-export default function DeviceFilters({ 
-  searchQuery, 
-  setSearchQuery, 
-  statusFilter, 
-  setStatusFilter, 
-  vendorFilter, 
-  setVendorFilter, 
+export default function DeviceFilters({
+  searchQuery,
+  setSearchQuery,
+  statusFilter,
+  setStatusFilter,
+  vendorFilter,
+  setVendorFilter,
   vendors,
-  viewMode,
-  setViewMode,
   filteredCount
 }) {
   return (
@@ -26,21 +24,6 @@ export default function DeviceFilters({
             onChange={(e) => setSearchQuery(e.target.value)}
             className="bg-slate-950 border border-slate-800 text-white text-sm rounded-lg pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48 outline-none"
           />
-        </div>
-        
-        <div className="flex bg-slate-950 border border-slate-800 rounded-lg p-1">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
-          >
-            <LayoutGrid className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
-          >
-            <List className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
