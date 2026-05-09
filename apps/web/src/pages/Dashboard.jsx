@@ -89,7 +89,7 @@ function StatsCard({ icon: Icon, label, value, trend, trendLabel, color, progres
                 <span className="text-slate-300 text-sm font-semibold tracking-tight">{label}</span>
             </div>
             <div className="flex items-end gap-2 z-10">
-                <span className={clsx("text-4xl font-bold text-white tracking-tight drop-shadow-lg", colors.text === 'text-emerald-400' && "text-shadow-glow-emerald")}>
+                <span className={clsx("text-3xl sm:text-4xl font-bold text-white tracking-tight drop-shadow-lg", colors.text === 'text-emerald-400' && "text-shadow-glow-emerald")}>
                     {value}
                 </span>
                 {trend && (
@@ -162,7 +162,7 @@ function MultiStatsCard({ icon: Icon, label, total, up, down, color, onClickDown
 
             <div className="flex items-end justify-between z-10 mt-2 relative">
                 <div className="flex flex-col">
-                    <span className="text-4xl font-black text-white tracking-tighter drop-shadow-lg">{total}</span>
+                    <span className="text-3xl sm:text-4xl font-black text-white tracking-tighter drop-shadow-lg">{total}</span>
                     <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest opacity-80">Total Nodes</span>
                 </div>
                 

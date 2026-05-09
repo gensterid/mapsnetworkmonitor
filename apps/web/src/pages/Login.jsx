@@ -87,7 +87,7 @@ export default function Login() {
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-400 shadow-lg shadow-blue-500/20 mb-4 transform hover:scale-105 transition-transform duration-300">
                         <Activity className="w-8 h-8 text-white relative z-10" />
                     </div>
-                    <h1 className="text-3xl font-bold text-white tracking-tight">MikroTik Monitor</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">MikroTik Monitor</h1>
                     <p className="text-blue-200/60 mt-2 text-sm">Secure Network Management System</p>
                 </div>
 

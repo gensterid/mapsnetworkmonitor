@@ -193,7 +193,7 @@ export default function OltDetails() {
                     </Link>
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <h1 className="text-3xl font-black text-white tracking-tight">{olt.name}</h1>
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight break-all leading-tight">{olt.name}</h1>
                             <Badge variant={olt.status === 'online' ? 'success' : 'destructive'} size="md" className="font-black px-4 animate-pulse">
                                 {olt.status}
                             </Badge>

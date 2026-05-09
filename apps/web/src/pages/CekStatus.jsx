@@ -37,7 +37,7 @@ export default function CekStatus() {
                     <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 mb-4">
                         <Wifi className="w-7 h-7 text-primary" />
                     </div>
-                    <h1 className="text-3xl font-bold mb-2">Cek Status Layanan</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold mb-2">Cek Status Layanan</h1>
                     <p className="text-slate-400 text-sm">Masukkan username PPPoE / kode pelanggan dan 4 digit terakhir nomor HP Anda.</p>
                 </header>
 

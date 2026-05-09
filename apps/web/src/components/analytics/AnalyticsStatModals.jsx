@@ -27,11 +27,11 @@ function AnalyticsStatModals({ detailModal, setDetailModal }) {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="bg-slate-800 rounded-lg p-4 text-center">
-                                    <p className="text-3xl font-bold text-amber-400">{detailModal.data?.total || 0}</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-amber-400">{detailModal.data?.total || 0}</p>
                                     <p className="text-sm text-slate-400 mt-1">Total Alerts</p>
                                 </div>
                                 <div className="bg-slate-800 rounded-lg p-4 text-center">
-                                    <p className="text-3xl font-bold text-red-400">{detailModal.data?.unresolved || 0}</p>
+                                    <p className="text-2xl sm:text-3xl font-bold text-red-400">{detailModal.data?.unresolved || 0}</p>
                                     <p className="text-sm text-slate-400 mt-1">Unresolved</p>
                                 </div>
                             </div>
@@ -42,7 +42,7 @@ function AnalyticsStatModals({ detailModal, setDetailModal }) {
                     {detailModal.type === 'uptime' && (
                         <div className="space-y-4">
                             <div className="bg-slate-800 rounded-lg p-6 text-center">
-                                <p className="text-5xl font-bold text-emerald-400">{detailModal.data?.uptime || 0}%</p>
+                                <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-emerald-400">{detailModal.data?.uptime || 0}%</p>
                                 <p className="text-sm text-slate-400 mt-2">Rata-rata Uptime Jaringan</p>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
@@ -100,7 +100,7 @@ function AnalyticsStatModals({ detailModal, setDetailModal }) {
                     {detailModal.type === 'devices' && (
                         <div className="space-y-4">
                             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-6 text-center">
-                                <p className="text-5xl font-bold text-blue-400">{detailModal.data?.total || 0}</p>
+                                <p className="text-3xl sm:text-4xl md:text-5xl font-bold text-blue-400">{detailModal.data?.total || 0}</p>
                                 <p className="text-sm text-slate-400 mt-2">Total Netwatch Devices</p>
                             </div>
                             <p className="text-sm text-slate-500 text-center">Lihat halaman Map untuk detail setiap device.</p>
@@ -110,7 +110,7 @@ function AnalyticsStatModals({ detailModal, setDetailModal }) {
                     {detailModal.type === 'pppoe-connect' && (
                         <div className="space-y-4">
                             <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-4 text-center">
-                                <p className="text-4xl font-bold text-emerald-400">{detailModal.data?.connects || 0}</p>
+                                <p className="text-3xl sm:text-4xl font-bold text-emerald-400">{detailModal.data?.connects || 0}</p>
                                 <p className="text-sm text-slate-400 mt-1">Koneksi PPPoE Baru</p>
                             </div>
                             <div className="space-y-2">
@@ -133,7 +133,7 @@ function AnalyticsStatModals({ detailModal, setDetailModal }) {
                     {detailModal.type === 'pppoe-disconnect' && (
                         <div className="space-y-4">
                             <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 text-center">
-                                <p className="text-4xl font-bold text-red-400">{detailModal.data?.disconnects || 0}</p>
+                                <p className="text-3xl sm:text-4xl font-bold text-red-400">{detailModal.data?.disconnects || 0}</p>
                                 <p className="text-sm text-slate-400 mt-1">PPPoE Terputus</p>
                             </div>
                             {detailModal.data?.disconnectors?.length > 0 && (

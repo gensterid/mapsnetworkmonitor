@@ -116,7 +116,7 @@ const Tenants = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-surface-dark/50 border border-slate-800/60 p-6 rounded-2xl backdrop-blur-sm">
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Total ISP</p>
-                    <p className="text-3xl font-bold text-white tracking-tight">{tenants.length}</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{tenants.length}</p>
                 </div>
                 <div className="bg-surface-dark/50 border border-slate-800/60 p-6 rounded-2xl backdrop-blur-sm">
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Status Sistem</p>
