@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
-import { Loader2, Trash2, Play } from 'lucide-react';
+import { Loader2, Trash2, Play, Info } from 'lucide-react';
 import { usePresets, useDeletePreset } from '@/hooks';
 
-export default function PresetManagerModal({ isOpen, onClose, onApply }) {
+export default function PresetManagerModal({ isOpen, onClose, onApply, selectedCount = 0 }) {
     const { data: presets = [], isLoading } = usePresets();
     const deleteMutation = useDeletePreset();
 
@@ -13,10 +13,29 @@ export default function PresetManagerModal({ isOpen, onClose, onApply }) {
     const [filterType, setFilterType] = useState('all');
 
     const filteredPresets = presets.filter(p => filterType === 'all' || p.type === filterType);
+    const canApply = !!onApply && selectedCount > 0;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Configuration Presets">
+        <Modal isOpen={isOpen} onClose={onClose} title="Configuration Presets" maxWidth="max-w-3xl">
             <div className="space-y-4">
+                {!canApply && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-cyan-500/5 border border-cyan-500/20 text-xs">
+                        <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-cyan-200/90 leading-relaxed">
+                            <strong>Untuk apply preset ke device:</strong> tutup modal ini → centang ☑️ device target di daftar GenieACS → klik tombol <strong>Config</strong> di Bulk Action Bar yang muncul di atas list.
+                            <br />
+                            Modal ini sekarang mode <strong>kelola preset</strong> (lihat/hapus saja).
+                        </div>
+                    </div>
+                )}
+                {canApply && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                        <Info className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+                        <div className="text-emerald-200/90">
+                            Apply ready — <strong>{selectedCount}</strong> device terpilih akan menerima preset saat tombol Apply di-klik.
+                        </div>
+                    </div>
+                )}
                 <div className="flex justify-between items-center">
                     <p className="text-sm text-slate-400">
                         Manage and apply WAN/WiFi configuration templates.
@@ -34,8 +53,8 @@ export default function PresetManagerModal({ isOpen, onClose, onApply }) {
                     </div>
                 </div>
 
-                <div className="border border-slate-800 rounded-lg overflow-hidden">
-                    <table className="w-full text-sm text-left">
+                <div className="border border-slate-800 rounded-lg overflow-x-auto">
+                    <table className="w-full text-sm text-left min-w-[560px]">
                         <thead className="bg-slate-950 text-slate-400 uppercase text-xs">
                             <tr>
                                 <th className="px-4 py-3 font-medium">Name</th>

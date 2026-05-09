@@ -424,6 +424,7 @@ export default function GenieACS() {
             <PresetManagerModal
                 isOpen={showPresetManager}
                 onClose={() => setShowPresetManager(false)}
+                selectedCount={selectedDeviceIds.length}
                 onApply={selectedDeviceIds.length > 0 ? handleApplyPreset : undefined}
             />
         </div>
