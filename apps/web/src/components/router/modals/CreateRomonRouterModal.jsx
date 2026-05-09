@@ -73,7 +73,7 @@ function CreateRomonRouterModal({ isOpen, onClose, onSuccess, gateway, romonId }
 
                 <Input label="Device Name" name="name" value={formData.name} onChange={handleChange} placeholder="e.g. Remote Client Router" required />
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <Input label="Username" name="username" value={formData.username} onChange={handleChange} required />
                     <Input label="Password" name="password" type="password" value={formData.password} onChange={handleChange} required />
                 </div>

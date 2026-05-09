@@ -126,7 +126,7 @@ export default function Netwatch() {
                 </div>
 
                 {/* Stats */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
                         <div className="text-2xl font-bold text-white">{netwatchEntries.length}</div>
                         <div className="text-xs text-slate-400">Total Hosts</div>

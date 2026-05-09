@@ -113,7 +113,7 @@ const Tenants = () => {
             </div>
 
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
                 <div className="bg-surface-dark/50 border border-slate-800/60 p-6 rounded-2xl backdrop-blur-sm">
                     <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-2">Total ISP</p>
                     <p className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{tenants.length}</p>
@@ -134,7 +134,7 @@ const Tenants = () => {
             {/* Content Table */}
             <div className="bg-surface-dark/30 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-md">
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left">
+                    <table className="w-full text-left min-w-[640px]">
                         <thead>
                             <tr className="border-b border-slate-800/60 bg-slate-900/40">
                                 <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Informasi ISP</th>

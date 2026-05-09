@@ -49,7 +49,7 @@ function PppoeCoordinatesModal({ session, onClose, onSave, isSaving }) {
     return (
         <Modal isOpen={!!session} onClose={onClose} title={`Set Coordinates: ${session?.name}`}>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <Input
                         label="Latitude"
                         name="latitude"

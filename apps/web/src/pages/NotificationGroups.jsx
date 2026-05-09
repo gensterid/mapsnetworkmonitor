@@ -111,7 +111,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                                 <label className="text-xs text-slate-400">Bot Token</label>
                                 <Input name="telegramBotToken" value={formData.telegramBotToken} onChange={handleChange} placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
                                     <label className="text-xs text-slate-400">Chat ID</label>
                                     <Input name="telegramChatId" value={formData.telegramChatId} onChange={handleChange} placeholder="-1001234567890" />
@@ -148,7 +148,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                                 <label className="text-xs text-slate-400">API URL (Base)</label>
                                 <Input name="whatsappUrl" value={formData.whatsappUrl} onChange={handleChange} placeholder="http://localhost:3000" />
                             </div>
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
                                     <label className="text-xs text-slate-400">API Key (Optional)</label>
                                     <Input name="whatsappKey" value={formData.whatsappKey} onChange={handleChange} placeholder="Secret Key" />

@@ -260,7 +260,7 @@ function PackagesTab() {
                         )}
                     </Field>
                     <Field label="Harga (IDR)"><input name="price" type="number" min="0" defaultValue={editing?.price || 0} required className={inputCls} /></Field>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="Cycle Type">
                             <select name="cycleType" defaultValue={editing?.cycleType || 'monthly'} className={inputCls}>
                                 <option value="monthly">Bulanan</option>
@@ -863,11 +863,11 @@ function VouchersTab() {
                             {pkgs.filter(p => p.active).map(p => <option key={p.id} value={p.id}>{p.name} — {fmtIDR(p.price)} ({p.cycleType === 'duration' ? `${p.cycleValue} dtk` : 'bulanan'})</option>)}
                         </select>
                     </Field>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="Jumlah Voucher (1-500)"><input name="count" type="number" min="1" max="500" defaultValue="10" required className={inputCls} /></Field>
                         <Field label="Panjang Kode (3-12)"><input name="codeLength" type="number" min="3" max="12" defaultValue="6" required className={inputCls} /></Field>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Field label="Format Kode">
                             <select name="charsetMode" defaultValue="num" className={inputCls}>
                                 <option value="num">Angka (123456)</option>
@@ -1163,7 +1163,7 @@ function IsolirProfilePicker({ routerId, currentValue }) {
                     <p className="text-xs text-slate-400">Sistem akan menjalankan <code>/ppp profile add</code> di router. Konfigurasi default sudah cocok untuk isolir umum.</p>
                     <form onSubmit={handleCreate}>
                         <Field label="Nama Profile"><input name="name" defaultValue="pppoe-isolir" required className={inputCls} /></Field>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <Field label="Rate Limit (mis. 256k/256k)"><input name="rateLimit" defaultValue="256k/256k" className={inputCls} /></Field>
                             <Field label="Address List (untuk redirect)"><input name="addressList" defaultValue="isolir" className={inputCls} /></Field>
                         </div>
@@ -1380,7 +1380,7 @@ function IsolirFirewallSetup({ routerId }) {
                 <form onSubmit={handleSetup} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2 mt-2">
                     <p className="text-xs text-slate-400">Sistem akan menjalankan command MikroTik untuk membuat: address-list, NAT dst-nat tcp/80, dan (opsional) filter walled-garden.</p>
                     <Field label="Nama Address List"><input name="listName" defaultValue="isolir" className={inputCls} /></Field>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <Field label="IP halaman tagihan (di sisi LAN router)"><input name="redirectIp" required defaultValue="" placeholder="10.10.0.5" className={inputCls} /></Field>
                         <Field label="Port"><input name="redirectPort" type="number" defaultValue="80" className={inputCls} /></Field>
                     </div>

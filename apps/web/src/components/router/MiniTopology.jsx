@@ -592,7 +592,7 @@ const MiniTopology = ({ routerId }) => {
                             <button onClick={() => setEditingEdge(null)}><X size={18} /></button>
                         </div>
                         <div className="config-body space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div className="space-y-1">
                                     <label className="text-[10px] text-slate-500 uppercase font-bold block">Port (Local)</label>
                                     {(sourceInterfaces && sourceInterfaces.length > 0) ? (
