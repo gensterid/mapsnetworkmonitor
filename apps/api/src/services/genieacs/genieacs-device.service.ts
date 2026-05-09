@@ -370,6 +370,14 @@ export function getWanConnections(dev: any): any[] {
         const wanConnDevice = wanDevice.WANConnectionDevice[key];
         const basePath = `${rootPath}.WANDevice.1.WANConnectionDevice.${key}`;
 
+        // Some FiberHome firmwares store VLAN at the WANConnectionDevice
+        // level under X_FH_WANGponLinkConfig.VLANID, NOT on the WANIPConnection
+        // / WANPPPConnection child. The TR-069 management connection (Index 1)
+        // commonly sits here with VLAN 100. Fallback to this when child lacks
+        // its own VLAN value.
+        const wcdLevelVlan = wanConnDevice?.X_FH_WANGponLinkConfig?.VLANID?._value
+            ?? wanConnDevice?.X_FH_WANGponLinkConfig?.['VLANID']?._value;
+
         const processConn = (conns: any, subName: string, type: string) => {
             Object.keys(conns).forEach(pKey => {
                 if (pKey.startsWith('_')) return;
@@ -383,7 +391,8 @@ export function getWanConnections(dev: any): any[] {
                     ?? conn['X_ZTE_COM_VLANID']?._value
                     ?? conn['X_ZTE-COM_VLANID']?._value
                     ?? conn['X_FH_VLANID']?._value
-                    ?? conn['X_CT-COM_VLANID']?._value;
+                    ?? conn['X_CT-COM_VLANID']?._value
+                    ?? wcdLevelVlan; // FiberHome WCD-level fallback
                 const serviceListRaw = conn.ServiceList?._value
                     ?? conn['X_HW_ServiceList']?._value
                     ?? conn['X_HW_SERVICELIST']?._value
@@ -399,11 +408,24 @@ export function getWanConnections(dev: any): any[] {
                     ?? '';
                 const vlanIdNum = vlanRaw !== undefined && vlanRaw !== null && vlanRaw !== '' ? Number(vlanRaw) : undefined;
 
+                // ConnectionStatus often empty/Object placeholder on
+                // freshly-synced devices. Fallback: if we have an external
+                // IP and Enable=true, treat as Connected. Else if Enable
+                // is explicitly false, Disconnected. Else Unknown.
+                const rawStatus = conn.ConnectionStatus?._value;
+                const isEnable = conn.Enable?._value;
+                const extIp = conn.ExternalIPAddress?._value;
+                const derivedStatus = rawStatus
+                    ? rawStatus
+                    : (extIp && extIp !== '0.0.0.0'
+                        ? 'Connected'
+                        : (isEnable === false ? 'Disconnected' : 'Unknown'));
+
                 connections.push({
                     path: `${basePath}.${subName}.${pKey}`,
                     name: conn.Name?._value || `${type}-${key}-${pKey}`,
-                    type, status: conn.ConnectionStatus?._value || 'Unknown',
-                    externalIp: conn.ExternalIPAddress?._value,
+                    type, status: derivedStatus,
+                    externalIp: extIp,
                     mac: conn.MACAddress?._value,
                     username: conn.Username?._value,
                     password: conn.Password?._value,
