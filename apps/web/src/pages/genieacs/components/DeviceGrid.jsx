@@ -34,7 +34,7 @@ export default function DeviceGrid({
   const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 lg:gap-4">
       {devices.map((dev) => {
         const lastInformDate = dev._lastInform ? new Date(dev._lastInform) : null;
         const isOnline = lastInformDate && (lastInformDate.getTime() > now - ONLINE_THRESHOLD);

@@ -293,6 +293,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                                 value={formData.latitude}
                                 onChange={handleCoordinateInput}
                                 placeholder="0.5309802229475449"
+                                inputMode="decimal"
                             />
                         </div>
                         <div className="space-y-2">
@@ -302,6 +303,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                                 value={formData.longitude}
                                 onChange={handleChange}
                                 placeholder="123.0600260859604"
+                                inputMode="decimal"
                             />
                         </div>
                     </div>
