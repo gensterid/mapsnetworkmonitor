@@ -88,12 +88,21 @@ const Sidebar = ({ isOpen, onClose }) => {
     };
 
     return (
-        <aside
-            aria-label="Sidebar Navigation"
-            className={clsx(
-                "fixed lg:static inset-y-0 left-0 z-40 w-72 flex flex-col justify-between transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none",
-                isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-            )}>
+        <>
+            {/* Backdrop overlay — only when sidebar is open on mobile/tablet */}
+            {isOpen && (
+                <div
+                    className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm lg:hidden"
+                    onClick={onClose}
+                    aria-hidden="true"
+                />
+            )}
+            <aside
+                aria-label="Sidebar Navigation"
+                className={clsx(
+                    "fixed lg:static inset-y-0 left-0 z-[2001] lg:z-40 w-72 flex flex-col justify-between transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none",
+                    isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+                )}>
             <div className="flex flex-col h-full glass-premium border-r border-white/5">
                 {/* Header */}
                 <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
@@ -169,7 +178,8 @@ const Sidebar = ({ isOpen, onClose }) => {
                     </button>
                 </div>
             </div>
-        </aside>
+            </aside>
+        </>
     );
 };
 

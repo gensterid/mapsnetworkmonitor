@@ -204,77 +204,75 @@ export default function GenieACS() {
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
             <div className="px-3 pt-3 sm:px-6 sm:pt-6 border-b border-slate-800 bg-slate-900/20">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-6">
-                    <div>
-                        <h1 className="text-base sm:text-2xl font-bold text-white flex items-center gap-2">
-                            <Monitor className="w-5 h-5 sm:w-8 sm:h-8 text-primary" />
-                            GenieACS Management
-                        </h1>
-                        <p className="hidden sm:block text-slate-400 text-sm">Unified TR-069 Monitoring & Orchestration</p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2 sm:gap-3">
-                        {acsEnabledRouters.length > 0 && (
-                            <div className="relative">
-                                <select
-                                    value={selectedRouterId}
-                                    onChange={(e) => setSelectedRouterId(e.target.value)}
-                                    className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto"
-                                >
-                                    {isAdmin && <option value="">Global ACS View</option>}
-                                    {acsEnabledRouters.map(router => (
-                                        <option key={router.id} value={router.id}>
-                                            {router.name}
-                                        </option>
-                                    ))}
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
-                            </div>
-                        )}
-
-                        {pageTab === 'devices' && (
-                            <>
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search serial, IP..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
-                                    />
-                                </div>
-                                <Button
-                                    onClick={() => syncMutation.mutate({ routerId: selectedRouterId || undefined })}
-                                    disabled={syncMutation.isPending}
-                                    variant="secondary"
-                                    size="sm"
-                                    title="Re-discover ONUs from ACS for the active tenant"
-                                >
-                                    <RefreshCw className={clsx("w-4 h-4 mr-2", syncMutation.isPending && "animate-spin")} />
-                                    {syncMutation.isPending ? 'Syncing…' : 'Sync ACS'}
-                                </Button>
-                                <Button onClick={() => setShowPresetManager(true)} variant="secondary" size="sm">
-                                    <Database className="w-4 h-4 mr-2" /> Presets
-                                </Button>
-                                <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1">
-                                    <button
-                                        onClick={() => setViewMode('grid')}
-                                        className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
-                                    >
-                                        <LayoutGrid className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode('list')}
-                                        className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
-                                    >
-                                        <List className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            </>
-                        )}
-                    </div>
+                {/* Title row + router select inline (compact mobile layout) */}
+                <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
+                    <h1 className="text-base sm:text-2xl font-bold text-white flex items-center gap-2 min-w-0">
+                        <Monitor className="w-5 h-5 sm:w-8 sm:h-8 text-primary shrink-0" />
+                        <span className="truncate">GenieACS Management</span>
+                    </h1>
+                    {acsEnabledRouters.length > 0 && (
+                        <div className="relative shrink-0">
+                            <select
+                                value={selectedRouterId}
+                                onChange={(e) => setSelectedRouterId(e.target.value)}
+                                className="bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer max-w-[160px] sm:max-w-none"
+                            >
+                                {isAdmin && <option value="">Global ACS View</option>}
+                                {acsEnabledRouters.map(router => (
+                                    <option key={router.id} value={router.id}>
+                                        {router.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
+                        </div>
+                    )}
                 </div>
+
+                <p className="hidden sm:block text-slate-400 text-sm mb-3 sm:mb-6">Unified TR-069 Monitoring & Orchestration</p>
+
+                {/* Action row: search + sync + presets + view toggle */}
+                {pageTab === 'devices' && (
+                    <div className="flex flex-wrap gap-2 sm:gap-3 mb-3 sm:mb-6">
+                        <div className="relative flex-1 min-w-[180px] sm:flex-none">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                            <input
+                                type="text"
+                                placeholder="Search serial, IP..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
+                            />
+                        </div>
+                        <Button
+                            onClick={() => syncMutation.mutate({ routerId: selectedRouterId || undefined })}
+                            disabled={syncMutation.isPending}
+                            variant="secondary"
+                            size="sm"
+                            title="Re-discover ONUs from ACS for the active tenant"
+                        >
+                            <RefreshCw className={clsx("w-4 h-4 sm:mr-2", syncMutation.isPending && "animate-spin")} />
+                            <span className="hidden sm:inline">{syncMutation.isPending ? 'Syncing…' : 'Sync ACS'}</span>
+                        </Button>
+                        <Button onClick={() => setShowPresetManager(true)} variant="secondary" size="sm">
+                            <Database className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Presets</span>
+                        </Button>
+                        <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1 ml-auto sm:ml-0">
+                            <button
+                                onClick={() => setViewMode('grid')}
+                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
+                            >
+                                <LayoutGrid className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setViewMode('list')}
+                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
+                            >
+                                <List className="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Top Level Tabs */}
                 <div className="flex items-center gap-1">
