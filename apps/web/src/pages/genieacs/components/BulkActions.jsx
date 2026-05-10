@@ -43,26 +43,27 @@ export default function BulkActions({
 
       <div className="hidden sm:block w-px h-4 bg-slate-700 mx-1" />
 
-      <Button size="sm" variant="destructive" onClick={onReboot} loading={isRebootPending} title="Reboot semua device terpilih">
-        <Power className="w-3 h-3 mr-1.5" /> Reboot
+      <Button size="sm" variant="destructive" onClick={onReboot} loading={isRebootPending} aria-label="Reboot selected devices" title="Reboot semua device terpilih">
+        <Power className="w-3.5 h-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Reboot</span>
       </Button>
 
-      <Button size="sm" variant="primary" onClick={onPreset} title="Push preset config (WiFi/WAN) ke semua device terpilih">
-        <Cpu className="w-3 h-3 mr-1.5" /> Config
+      <Button size="sm" variant="primary" onClick={onPreset} aria-label="Apply preset config to selected devices" title="Push preset config (WiFi/WAN) ke semua device terpilih">
+        <Cpu className="w-3.5 h-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Apply Preset</span><span className="sm:hidden">Preset</span>
       </Button>
 
-      <Button size="sm" variant="secondary" onClick={onBackup} title="Buat backup config untuk semua device terpilih">
-        <Database className="w-3 h-3 mr-1.5" /> Backup
+      <Button size="sm" variant="secondary" onClick={onBackup} aria-label="Backup selected devices" title="Buat backup config untuk semua device terpilih">
+        <Database className="w-3.5 h-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Backup</span>
       </Button>
 
       {onRefresh && (
-        <Button size="sm" variant="ghost" onClick={onRefresh} title="Force device check-in sekarang (refresh data)">
-          <RefreshCw className="w-3 h-3 mr-1.5" /> Refresh
+        <Button size="sm" variant="ghost" onClick={onRefresh} aria-label="Refresh device data" title="Force device check-in sekarang (refresh data)">
+          <RefreshCw className="w-3.5 h-3.5 sm:mr-1.5" /> <span className="hidden sm:inline">Refresh</span>
         </Button>
       )}
 
-      <Button size="sm" variant="ghost" onClick={onClear} title="Batal pilihan">
-        Cancel
+      <Button size="sm" variant="ghost" onClick={onClear} aria-label="Cancel selection" title="Batal pilihan">
+        <span className="hidden sm:inline">Cancel</span>
+        <span className="sm:hidden">✕</span>
       </Button>
     </div>
   );

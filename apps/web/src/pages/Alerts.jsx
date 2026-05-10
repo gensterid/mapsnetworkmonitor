@@ -306,9 +306,11 @@ export default function Alerts() {
                                                 size="sm"
                                                 onClick={() => acknowledgeAlert(alert.id)}
                                                 loading={acknowledgeMutation.isPending}
-                                                className="shrink-0 h-8 sm:h-auto px-2 sm:px-3 text-[11px] sm:text-sm"
+                                                aria-label="Acknowledge alert"
+                                                className="shrink-0 h-8 sm:h-auto px-2 sm:px-3 text-[11px] sm:text-sm flex items-center gap-1"
                                             >
-                                                <CheckCheck className="w-3 h-3 sm:hidden" />
+                                                <CheckCheck className="w-3.5 h-3.5" />
+                                                <span className="sm:hidden">OK</span>
                                                 <span className="hidden sm:inline">Acknowledge</span>
                                             </Button>
                                         ) : (
