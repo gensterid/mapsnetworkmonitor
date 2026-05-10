@@ -41,18 +41,26 @@ export default function CekStatus() {
                     <p className="text-slate-400 text-sm">Masukkan username PPPoE / kode pelanggan dan 4 digit terakhir nomor HP Anda.</p>
                 </header>
 
-                <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 space-y-4">
+                <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 sm:p-6 space-y-4">
                     <label className="block">
                         <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Username PPPoE / Kode Pelanggan</span>
                         <input value={identity} onChange={(e) => setIdentity(e.target.value)} required
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-1 focus:ring-primary"
-                               placeholder="contoh: budi-home atau CUST-0042" autoFocus />
+                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-primary"
+                               placeholder="contoh: budi-home atau CUST-0042"
+                               autoComplete="username"
+                               autoCapitalize="none"
+                               autoCorrect="off"
+                               spellCheck="false"
+                               autoFocus />
                     </label>
                     <label className="block">
                         <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">4 Digit Terakhir HP</span>
                         <input value={last4} onChange={(e) => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} required minLength={4} maxLength={4}
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-1 focus:ring-primary font-mono tracking-widest"
-                               placeholder="1234" inputMode="numeric" />
+                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-primary font-mono tracking-widest"
+                               placeholder="1234"
+                               inputMode="numeric"
+                               autoComplete="off"
+                               pattern="[0-9]*" />
                     </label>
                     <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-white py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2">
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}

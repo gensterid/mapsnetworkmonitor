@@ -80,19 +80,26 @@ function LoginForm({ onLogin }) {
                     <p className="text-slate-400 text-sm mt-1">Cek tagihan & bayar online.</p>
                 </div>
 
-                <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-6 space-y-4">
+                <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 sm:p-6 space-y-4">
                     <label className="block">
                         <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Username / Kode Pelanggan</span>
                         <input value={identity} onChange={(e) => setIdentity(e.target.value)} required autoFocus
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-1 focus:ring-primary"
-                               placeholder="budi-home / CUST-0042" />
+                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-primary"
+                               placeholder="budi-home / CUST-0042"
+                               autoComplete="username"
+                               autoCapitalize="none"
+                               autoCorrect="off"
+                               spellCheck="false" />
                     </label>
                     <label className="block">
                         <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">PIN</span>
                         <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                                required minLength={4} maxLength={8} type="password"
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white focus:ring-1 focus:ring-primary font-mono tracking-widest"
-                               placeholder="••••" inputMode="numeric" />
+                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-primary font-mono tracking-widest"
+                               placeholder="••••"
+                               inputMode="numeric"
+                               pattern="[0-9]*"
+                               autoComplete="current-password" />
                         <span className="text-xs text-slate-500 mt-1 block">Default PIN = 4 digit terakhir nomor HP</span>
                     </label>
                     <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-white py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2">

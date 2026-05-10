@@ -93,7 +93,7 @@ export default function Login() {
 
                 {/* Login Card */}
                 <div className="bg-surface-dark/60 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-fade-in-up delay-100">
-                    <div className="p-8">
+                    <div className="p-5 sm:p-8">
                         {error && (
                             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3 animate-shake">
                                 <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
@@ -125,6 +125,10 @@ export default function Login() {
                                         onBlur={() => setFocusedInput(null)}
                                         className="w-full bg-transparent border border-white/5 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-all duration-200"
                                         placeholder="admin"
+                                        autoComplete="username"
+                                        autoCapitalize="none"
+                                        autoCorrect="off"
+                                        spellCheck="false"
                                         required
                                     />
                                 </div>
@@ -152,6 +156,7 @@ export default function Login() {
                                         onBlur={() => setFocusedInput(null)}
                                         className="w-full bg-transparent border border-white/5 rounded-xl pl-10 pr-12 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-all duration-200"
                                         placeholder="••••••••"
+                                        autoComplete="current-password"
                                         required
                                     />
                                     <button

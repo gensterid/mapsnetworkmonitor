@@ -41,7 +41,7 @@ export default function SignUp() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-background-dark p-4">
             <div className="w-full max-w-md bg-surface-dark border border-white/5 rounded-xl shadow-xl overflow-hidden backdrop-blur-sm">
-                <div className="p-8">
+                <div className="p-5 sm:p-8">
                     <div className="text-center mb-8">
                         <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
                         <p className="text-gray-400">Get started with NetMonitor</p>
@@ -65,6 +65,7 @@ export default function SignUp() {
                                     onChange={(e) => setName(e.target.value)}
                                     className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="John Doe"
+                                    autoComplete="name"
                                     required
                                 />
                             </div>
@@ -80,6 +81,10 @@ export default function SignUp() {
                                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
                                     className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="johndoe"
+                                    autoComplete="username"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck="false"
                                 />
                             </div>
                             <p className="text-xs text-gray-500 ml-1">You can use this to login instead of email</p>
@@ -95,6 +100,11 @@ export default function SignUp() {
                                     onChange={(e) => setEmail(e.target.value)}
                                     className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="admin@example.com"
+                                    autoComplete="email"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck="false"
+                                    inputMode="email"
                                     required
                                 />
                             </div>
@@ -110,6 +120,7 @@ export default function SignUp() {
                                     onChange={(e) => setPassword(e.target.value)}
                                     className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-12 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="••••••••"
+                                    autoComplete="new-password"
                                     required
                                 />
                                 <button
