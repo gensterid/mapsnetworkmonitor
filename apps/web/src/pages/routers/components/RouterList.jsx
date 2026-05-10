@@ -7,7 +7,72 @@ import { formatUptime, formatLastSync } from './utils';
 export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId }) {
     return (
         <div className="h-full flex flex-col bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
-            <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+            {/* Mobile card stack — visible <md */}
+            <div className="md:hidden flex-1 min-h-0 overflow-auto custom-scrollbar p-2 space-y-2">
+                {routers.map((router) => (
+                    <div key={router.id} className="bg-slate-900/70 border border-slate-800 rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                            <Link to={`/routers/${router.id}`} className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={clsx("w-2 h-2 rounded-full shrink-0",
+                                        router.status === 'online' ? "bg-emerald-500" : "bg-red-500"
+                                    )}></span>
+                                    <span className="font-semibold text-white text-sm truncate">{router.name}</span>
+                                    {router.useWebhook && <Webhook className="w-3 h-3 text-blue-400 shrink-0" />}
+                                    {router.useGenieAcs && <ShieldCheck className="w-3 h-3 text-indigo-400 shrink-0" />}
+                                </div>
+                                <div className="text-[11px] text-slate-400 font-mono truncate">{router.host}:{router.port}</div>
+                            </Link>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRefresh(router.id); }}
+                                    disabled={refreshingId === router.id}
+                                    className="p-2 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 disabled:opacity-50"
+                                    aria-label="Refresh router"
+                                >
+                                    <RefreshCw className={clsx("w-4 h-4", refreshingId === router.id && "animate-spin")} />
+                                </button>
+                                <button onClick={(e) => onEdit(e, router)} className="p-2 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white" aria-label="Edit router">
+                                    <Edit className="w-4 h-4" />
+                                </button>
+                                <button onClick={(e) => onDelete(e, router)} className="p-2 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400" aria-label="Delete router">
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-[11px] pt-2 border-t border-slate-800/60">
+                            <div>
+                                <div className="text-slate-500 uppercase text-[9px] mb-0.5">Status</div>
+                                <div className={clsx("font-semibold", router.status === 'online' ? "text-emerald-400" : "text-red-400")}>
+                                    {router.status === 'online' ? `${router.latency || '--'}ms` : 'Offline'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-slate-500 uppercase text-[9px] mb-0.5">CPU/Mem</div>
+                                <div className="text-slate-200 font-mono">
+                                    {router.latestMetrics?.cpuLoad != null ? `${router.latestMetrics.cpuLoad}%` : '--'}
+                                    {' / '}
+                                    {router.latestMetrics?.totalMemory && router.latestMetrics?.usedMemory
+                                        ? `${Math.round((router.latestMetrics.usedMemory / router.latestMetrics.totalMemory) * 100)}%`
+                                        : '--'}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-slate-500 uppercase text-[9px] mb-0.5">Last Sync</div>
+                                <div className="text-slate-300 font-mono truncate">{formatLastSync(router.lastSeen || router.updatedAt)}</div>
+                            </div>
+                        </div>
+                        {router.status !== 'online' && router.lastErrorMessage && (
+                            <div className="mt-2 text-[10px] text-red-400/80 italic truncate" title={router.lastErrorMessage}>
+                                {router.lastErrorMessage}
+                            </div>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {/* Desktop table — visible >=md */}
+            <div className="hidden md:block flex-1 min-h-0 overflow-auto custom-scrollbar">
                 <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 z-10 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
                         <tr>
