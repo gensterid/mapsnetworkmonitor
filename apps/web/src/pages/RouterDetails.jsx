@@ -203,8 +203,8 @@ export default function RouterDetails() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-4 sm:p-6 border-b border-slate-800">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
+            <div className="p-3 sm:p-6 border-b border-slate-800">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
                     <div className="flex items-center gap-4">
                         <Link to="/routers">
                             <Button variant="ghost" size="icon">

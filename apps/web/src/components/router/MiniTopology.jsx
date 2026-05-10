@@ -520,7 +520,7 @@ const MiniTopology = ({ routerId }) => {
                         maxZoom={2}
                     >
                         <Background color="#1e293b" gap={30} size={1} />
-                        <Controls />
+                        <Controls position="top-right" />
                     </ReactFlow>
                 </div>
             </div>

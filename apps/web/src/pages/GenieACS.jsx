@@ -203,17 +203,17 @@ export default function GenieACS() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="px-6 pt-6 border-b border-slate-800 bg-slate-900/20">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div className="px-3 pt-3 sm:px-6 sm:pt-6 border-b border-slate-800 bg-slate-900/20">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 sm:gap-4 mb-3 sm:mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                            <Monitor className="w-8 h-8 text-primary" />
+                        <h1 className="text-base sm:text-2xl font-bold text-white flex items-center gap-2">
+                            <Monitor className="w-5 h-5 sm:w-8 sm:h-8 text-primary" />
                             GenieACS Management
                         </h1>
-                        <p className="text-slate-400 text-sm">Unified TR-069 Monitoring & Orchestration</p>
+                        <p className="hidden sm:block text-slate-400 text-sm">Unified TR-069 Monitoring & Orchestration</p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex flex-wrap gap-2 sm:gap-3">
                         {acsEnabledRouters.length > 0 && (
                             <div className="relative">
                                 <select
@@ -281,7 +281,7 @@ export default function GenieACS() {
                     <button
                         onClick={() => setPageTab('dashboard')}
                         className={clsx(
-                            "px-6 py-3 text-sm font-bold uppercase tracking-widest transition-all border-b-2",
+                            "px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider sm:tracking-widest transition-all border-b-2",
                             pageTab === 'dashboard' ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
                         )}
                     >
@@ -290,7 +290,7 @@ export default function GenieACS() {
                     <button
                         onClick={() => setPageTab('devices')}
                         className={clsx(
-                            "px-6 py-3 text-sm font-bold uppercase tracking-widest transition-all border-b-2",
+                            "px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider sm:tracking-widest transition-all border-b-2",
                             pageTab === 'devices' ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
                         )}
                     >

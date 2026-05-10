@@ -10,7 +10,7 @@ export default function DeviceFilters({
   deviceCount
 }) {
   return (
-    <div className="px-6 py-3 bg-slate-900/40 border-b border-slate-800 flex flex-wrap items-center gap-4">
+    <div className="px-3 sm:px-6 py-2 sm:py-3 bg-slate-900/40 border-b border-slate-800 flex flex-wrap items-center gap-2 sm:gap-4">
 
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status:</span>

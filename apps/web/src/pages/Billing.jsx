@@ -96,12 +96,12 @@ function CustomersTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                 <CardTitle className="text-base flex items-center gap-2"><UsersIcon className="w-5 h-5 text-primary" /> Pelanggan</CardTitle>
                 <div className="flex gap-2 items-center">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/kode/HP…" className="bg-slate-900 border border-slate-700 text-white text-xs rounded pl-9 pr-3 py-1.5 w-56" />
+                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/kode/HP…" className="bg-slate-900 border border-slate-700 text-white text-xs rounded pl-9 pr-3 py-1.5 w-full sm:w-56" />
                     </div>
                     <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>
                     <Button size="sm" onClick={() => { setEditing(null); setModalOpen(true); }}><Plus className="w-4 h-4 mr-1" /> Tambah</Button>
@@ -184,7 +184,7 @@ function PackagesTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                 <CardTitle className="text-base flex items-center gap-2"><PackageIcon className="w-5 h-5 text-primary" /> Paket Layanan</CardTitle>
                 <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>
@@ -348,7 +348,7 @@ function SubscriptionsTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                 <CardTitle className="text-base flex items-center gap-2"><Repeat className="w-5 h-5 text-primary" /> Subscription</CardTitle>
                 <div className="flex gap-2">
                     <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>
@@ -601,7 +601,7 @@ function InvoicesTab() {
 
     return (
         <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                 <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-5 h-5 text-primary" /> Tagihan</CardTitle>
                 <div className="flex gap-2">
                     <select value={filter} onChange={(e) => setFilter(e.target.value)} className={inputCls + ' text-xs py-1.5 w-auto'}>
@@ -753,7 +753,7 @@ function VouchersTab() {
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                     <CardTitle className="text-base flex items-center gap-2"><Ticket className="w-5 h-5 text-primary" /> Voucher Hotspot</CardTitle>
                     <div className="flex gap-2 items-center">
                         <select value={routerId} onChange={(e) => setRouterId(e.target.value)} className={inputCls + ' text-xs py-1.5 w-auto'}>
@@ -1061,7 +1061,7 @@ function WaTab() {
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
+                <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
                     <CardTitle className="text-base flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" /> Riwayat Notifikasi WA</CardTitle>
                     <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>

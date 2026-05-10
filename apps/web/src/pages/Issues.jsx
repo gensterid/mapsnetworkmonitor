@@ -190,38 +190,43 @@ export default function Issues() {
                         <p className="text-slate-400">{searchQuery ? 'Try a different search term' : 'System performance is optimal'}</p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                         {filteredAlerts.map((alert) => (
                             <Card key={alert.id} className={clsx("border", getSeverityColor(alert.severity))}>
-                                <CardContent className="p-4">
-                                    <div className="flex items-start justify-between gap-4">
-                                        <div className="flex items-start gap-3">
-                                            {getAlertIcon(alert)}
-                                            <div>
-                                                <h3 className="font-medium text-white">{alert.title}</h3>
-                                                <p className="text-sm text-slate-400 mt-1">{alert.message}</p>
-                                                <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
+                                <CardContent className="p-2.5 sm:p-4">
+                                    <div className="flex items-start justify-between gap-2 sm:gap-4">
+                                        <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
+                                            <div className="shrink-0 mt-0.5">{getAlertIcon(alert)}</div>
+                                            <div className="min-w-0 flex-1">
+                                                <h3 className="font-medium text-white text-sm sm:text-base leading-snug break-words">{alert.title}</h3>
+                                                <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1 line-clamp-2 sm:line-clamp-none">{alert.message}</p>
+                                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1 sm:mt-2 text-[10px] sm:text-xs text-slate-500">
                                                     <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{formatAlertTime(alert.createdAt)}</span>
-                                                    {alert.routerName && <span>Router: {alert.routerName}</span>}
+                                                    {alert.routerName && <span className="truncate">Router: {alert.routerName}</span>}
                                                 </div>
 
-                                                {/* AI Diagnosis Integrated */}
-                                                <AiDiagnosis
-                                                    alertId={alert.id}
-                                                    initialAnalysis={alert.aiAnalysis}
-                                                    severity={alert.severity}
-                                                />
+                                                <div className="hidden sm:block">
+                                                    <AiDiagnosis
+                                                        alertId={alert.id}
+                                                        initialAnalysis={alert.aiAnalysis}
+                                                        severity={alert.severity}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                         {!alert.acknowledged ? (
-                                            <Button variant="ghost" size="sm" onClick={() => acknowledgeAlert(alert.id)} loading={acknowledgeMutation.isPending}>Acknowledge</Button>
+                                            <Button variant="ghost" size="sm" onClick={() => acknowledgeAlert(alert.id)} loading={acknowledgeMutation.isPending} className="shrink-0 h-8 sm:h-auto px-2 sm:px-3 text-[11px] sm:text-sm">
+                                                <CheckCheck className="w-3 h-3 sm:hidden" />
+                                                <span className="hidden sm:inline">Acknowledge</span>
+                                            </Button>
                                         ) : (
-                                            <div className="text-xs text-slate-500 text-right">
-                                                <div className="flex items-center justify-end gap-1 text-emerald-500 mb-1">
+                                            <div className="text-[10px] sm:text-xs text-slate-500 text-right shrink-0">
+                                                <div className="flex items-center justify-end gap-1 text-emerald-500 mb-0.5 sm:mb-1">
                                                     <CheckCircle className="w-3 h-3" />
-                                                    <span>Acknowledged {alert.acknowledgedByName ? `by ${alert.acknowledgedByName}` : ''}</span>
+                                                    <span className="hidden sm:inline">Acknowledged {alert.acknowledgedByName ? `by ${alert.acknowledgedByName}` : ''}</span>
+                                                    <span className="sm:hidden">Ack'd</span>
                                                 </div>
-                                                <div>{formatFullDateTime(alert.acknowledgedAt, timezone)}</div>
+                                                <div className="hidden sm:block">{formatFullDateTime(alert.acknowledgedAt, timezone)}</div>
                                             </div>
                                         )}
                                     </div>

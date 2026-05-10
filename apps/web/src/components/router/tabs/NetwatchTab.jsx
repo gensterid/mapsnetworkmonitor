@@ -144,27 +144,28 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
     const linkedCount = netwatch.filter(n => n.linkedOnuId).length;
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
             {linkedCount > 0 && (
-                <div className="flex items-center gap-3 px-4 py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-xs">
+                <div className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-[11px] sm:text-xs">
                     <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                         <span className="text-emerald-300 font-semibold">Auto-Heal AKTIF</span>
-                        <span className="text-slate-400 ml-2">
-                            {linkedCount} entry tertaut ke ONU/Customer — IP otomatis disesuaikan saat customer reconnect dengan IP baru.
+                        <span className="text-slate-400 ml-1.5 sm:ml-2">
+                            <span className="hidden sm:inline">{linkedCount} entry tertaut ke ONU/Customer — IP otomatis disesuaikan saat customer reconnect dengan IP baru.</span>
+                            <span className="sm:hidden">{linkedCount} entry auto-update IP saat reconnect</span>
                         </span>
                     </div>
                 </div>
             )}
 
             {/* Header with Stats/Filters */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-2 sm:gap-4">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs">
                     <Button
                         variant={filter === 'all' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setFilter('all')}
-                        className="h-8 px-4 gap-2 border border-slate-700/50 bg-slate-900/40 text-[11px] font-bold"
+                        className="h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 bg-slate-900/40 text-[10px] sm:text-[11px] font-bold"
                     >
                         <span>TOTAL: {stats.total}</span>
                     </Button>
@@ -173,7 +174,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={() => setFilter('up')}
                         className={clsx(
-                            "h-8 px-4 gap-2 border border-slate-700/50 text-[11px] font-bold",
+                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
                             filter === 'up' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/20' : 'text-emerald-500 hover:bg-emerald-500/10'
                         )}
                     >
@@ -185,7 +186,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={() => setFilter('down')}
                         className={clsx(
-                            "h-8 px-4 gap-2 border border-slate-700/50 text-[11px] font-bold",
+                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
                             filter === 'down' ? 'bg-red-600/20 text-red-500 border-red-500/20' : 'text-red-500 hover:bg-red-500/10'
                         )}
                     >
@@ -197,7 +198,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={() => setFilter('disabled')}
                         className={clsx(
-                            "h-8 px-4 gap-2 border border-slate-700/50 text-[11px] font-bold",
+                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
                             filter === 'disabled' ? 'bg-slate-700/40 text-slate-300' : 'text-slate-400 hover:bg-slate-700/20'
                         )}
                     >
