@@ -124,7 +124,7 @@ export default function BackupsTab({ routerId }) {
                     </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-end">
                         <div className="flex-1 space-y-2 w-full">
                             <label className="text-sm font-medium text-slate-400">Format</label>
                             <div className="flex gap-2">
@@ -236,7 +236,7 @@ export default function BackupsTab({ routerId }) {
                         </p>
                     ) : (
                         <div className="space-y-4 pt-2">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">SMTP Server</label>
                                     <Input 

@@ -18,7 +18,7 @@ function DashboardTab({ router, metrics, interfaces }) {
     return (
         <div className="space-y-6">
             {/* System Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <StatsCard icon={Cpu} label="CPU Usage" value={`${metrics?.cpuLoad || 0}%`} color="blue" />
                 <StatsCard
                     icon={MemoryStick}
@@ -86,7 +86,7 @@ function DashboardTab({ router, metrics, interfaces }) {
                 </CardHeader>
                 <CardContent>
                     <div className="overflow-x-auto">
-                        <table className="w-full">
+                        <table className="w-full min-w-[640px]">
                             <thead>
                                 <tr className="border-b border-slate-700">
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase">Name</th>

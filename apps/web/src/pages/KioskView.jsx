@@ -51,7 +51,7 @@ export default function KioskView() {
     return (
         <div className="kiosk-mode">
             <header className="kiosk-header">
-                <div className="flex items-center gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
                     <div className="flex items-center gap-3">
                         <div className="p-2 bg-primary/20 rounded-lg text-primary">
                             <Monitor className="w-6 h-6" />
@@ -67,7 +67,7 @@ export default function KioskView() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
                     <div className="text-right">
                         <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest">{formatDateOnly(currentTime, timezone)}</div>
                         <div className="kiosk-clock">{formatTimeOnly(currentTime, timezone)}</div>
@@ -108,7 +108,7 @@ export default function KioskView() {
 
                         {/* NOC-Style Device Detail Popup */}
                         {selectedDevice && (
-                            <div className="absolute top-6 left-6 z-[1000] w-80 bg-slate-900/90 backdrop-blur-md border border-primary/30 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
+                            <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-[1000] w-[calc(100%-1.5rem)] max-w-[20rem] sm:w-80 bg-slate-900/90 backdrop-blur-md border border-primary/30 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
                                 <div className="p-3 bg-primary/10 border-b border-primary/20 flex justify-between items-center">
                                     <div className="flex items-center gap-2">
                                         <div className={`w-2 h-2 rounded-full ${['online', 'up', 'active'].includes(selectedDevice.data.status?.toLowerCase()) ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`} />

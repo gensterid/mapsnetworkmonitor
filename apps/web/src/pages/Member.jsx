@@ -186,14 +186,14 @@ function Dashboard() {
                     {profile.subscriptions.length === 0 ? (
                         <div className="text-sm text-slate-500 bg-slate-900/40 border border-slate-800 rounded-lg p-4">Belum ada layanan aktif.</div>
                     ) : profile.subscriptions.map(s => (
-                        <div key={s.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
+                        <div key={s.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 sm:p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="min-w-0 flex-1">
                                     <div className="text-xs text-slate-500 uppercase">{s.type}</div>
-                                    <div className="font-mono text-blue-400">{s.identity}</div>
+                                    <div className="font-mono text-blue-400 break-all">{s.identity}</div>
                                     {s.packageName && <div className="text-sm text-slate-300 mt-1">{s.packageName} {s.price && <span className="text-emerald-400 font-mono">({fmtIDR(s.price)})</span>}</div>}
                                 </div>
-                                <span className={`text-xs px-2.5 py-1 rounded uppercase font-semibold ${
+                                <span className={`text-xs px-2.5 py-1 rounded uppercase font-semibold self-start sm:self-auto ${
                                     s.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
                                     s.status === 'isolir' ? 'bg-red-500/20 text-red-400' :
                                     s.status === 'expired' ? 'bg-amber-500/20 text-amber-400' :
@@ -214,7 +214,7 @@ function Dashboard() {
                     ) : (
                         <div className="space-y-2">
                             {invoices.map(i => (
-                                <div key={i.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-4 flex items-center justify-between gap-3">
+                                <div key={i.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
                                             <span className="font-mono text-blue-400 text-sm">{i.invoiceNumber}</span>

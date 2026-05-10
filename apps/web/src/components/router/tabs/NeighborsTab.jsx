@@ -104,7 +104,7 @@ function NeighborsTab({ routerId }) {
             <Card className="glass-panel overflow-hidden">
                 <div className="max-h-[calc(100vh-280px)] min-h-[400px] overflow-auto custom-scrollbar">
                     {subTab === 'mndp' ? (
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[700px]">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-slate-800">
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Identity</th>
@@ -140,7 +140,7 @@ function NeighborsTab({ routerId }) {
                             </tbody>
                         </table>
                     ) : (
-                        <table className="w-full text-sm">
+                        <table className="w-full text-sm min-w-[700px]">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-slate-800">
                                     <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Identity / RoMON ID</th>

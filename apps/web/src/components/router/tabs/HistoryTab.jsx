@@ -205,7 +205,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
             </div>
 
             {/* Header Cards (Top Stats) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                 <Card className="bg-slate-900/40 border-slate-800/60 backdrop-blur-sm shadow-xl min-h-[160px]">
                     <CardContent className="p-6 pt-9 flex flex-col items-center justify-center gap-3 text-center">
                         <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center text-red-500 shadow-inner group-hover:scale-110 transition-transform">

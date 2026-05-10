@@ -313,7 +313,7 @@ const AnimationDemo = () => {
                         <span className="w-4 h-4 rounded-full" style={{ backgroundColor: currentStyle.color }}></span>
                         {currentStyle.name}
                     </h2>
-                    <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
                         <div className="bg-gray-700 rounded-lg p-3">
                             <span className="text-gray-400 text-xs">Delay</span>
                             <p className="text-lg font-mono">{currentStyle.delay}ms</p>
@@ -344,7 +344,7 @@ const AnimationDemo = () => {
                 </div>
 
                 {/* Map Preview */}
-                <div className="bg-gray-800 rounded-xl overflow-hidden" style={{ height: '500px' }}>
+                <div className="bg-gray-800 rounded-xl overflow-hidden h-[300px] sm:h-[400px] md:h-[500px]">
                     <MapContainer
                         center={center}
                         zoom={12}
