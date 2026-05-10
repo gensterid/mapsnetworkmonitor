@@ -78,10 +78,14 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
             projection['InternetGatewayDevice.Hosts.HostNumberOfEntries'] = 1;
             projection['Device.Hosts.HostNumberOfEntries'] = 1;
             projection['InternetGatewayDevice.LANDevice.1.Hosts.HostNumberOfEntries'] = 1;
-            projection['InternetGatewayDevice.LANDevice.1.Hosts.Host'] = 1;
-            projection['Device.Hosts.Host'] = 1;
-            projection['Device.Hosts.Host.1.PhysAddress'] = 1;
+            // NOTE: Do NOT include `Hosts.Host` array in the list-view projection.
+            // GenieACS NBI is very slow to project the full Host[] array (observed
+            // 2+ minutes for 33 devices, exceeding our axios timeout). Client count
+            // falls back to WLANConfiguration.TotalAssociations or HostNumberOfEntries
+            // which are scalar and fast. The single-device endpoint (`getDevice`)
+            // does not use a projection, so device-details still receives full Hosts.Host.
             projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations'] = 1;
+            projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.2.TotalAssociations'] = 1;
         }
 
         const response = await axios.get(`${url}/devices`, {
