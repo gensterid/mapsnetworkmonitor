@@ -65,16 +65,48 @@ export async function getRouterInterfaces(api: any): Promise<RouterInterfaceData
 }
 
 /**
+ * Patterns for interfaces that should NOT be polled for traffic.
+ * These are management/virtual/tunnel interfaces that either don't carry
+ * customer traffic or are owned by overlay networks (ZeroTier, WireGuard).
+ * Skipping them cuts polling load substantially on routers with many VLANs
+ * (e.g., genster: 160 interfaces -> often 60-80% are PPPoE/VLAN sub-interfaces
+ * whose throughput is already captured by their parent or via SNMP).
+ *
+ * Override per-router by setting router_interfaces.exclude_from_traffic=true.
+ */
+const SKIP_TRAFFIC_PATTERNS: RegExp[] = [
+    /^lo$/i,                  // loopback
+    /^zerotier/i,             // ZeroTier overlay
+    /^wg/i,                   // WireGuard
+    /^l2tp-/i,                // L2TP dial-out tunnels
+    /^pptp-/i,                // PPTP dial-out tunnels
+    /^sstp-/i,                // SSTP dial-out tunnels
+    /^ovpn-/i,                // OpenVPN dial-out tunnels
+    /^<pppoe-.+>$/i,          // Per-client PPPoE virtual interfaces
+    /^pppoe-out\d+$/i,        // PPPoE client side
+];
+
+export function shouldPollTraffic(interfaceName: string): boolean {
+    if (!interfaceName) return false;
+    for (const re of SKIP_TRAFFIC_PATTERNS) {
+        if (re.test(interfaceName)) return false;
+    }
+    return true;
+}
+
+/**
  * Get interface traffic consumption
  */
 export async function getInterfaceTraffic(
     api: any, interfaces: string[]
 ): Promise<Map<string, { tx: number; rx: number }>> {
     if (!interfaces || interfaces.length === 0) return new Map();
+    const filtered = interfaces.filter(shouldPollTraffic);
+    if (filtered.length === 0) return new Map();
     const trafficMap = new Map<string, { tx: number; rx: number }>();
     const CHUNK_SIZE = 10;
-    for (let i = 0; i < interfaces.length; i += CHUNK_SIZE) {
-        const chunk = interfaces.slice(i, i + CHUNK_SIZE);
+    for (let i = 0; i < filtered.length; i += CHUNK_SIZE) {
+        const chunk = filtered.slice(i, i + CHUNK_SIZE);
         try {
             const result = await safeWrite(api, ['/interface/monitor-traffic', `=interface=${chunk.join(',')}`, '=once=']);
             result.forEach((res: any) => {

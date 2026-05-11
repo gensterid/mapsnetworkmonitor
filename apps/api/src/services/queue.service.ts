@@ -62,7 +62,10 @@ export function startQueueWorker() {
         },
         {
             connection: createRedisConnection() as any,
-            concurrency: 10, // Process 10 routers at a time
+            // Tunable: at ~15s per router poll, concurrency=20 lets us drain
+            // 80 routers per minute. Raise for larger fleets, lower if MikroTik
+            // boxes or the DB connection pool become saturated.
+            concurrency: parseInt(process.env.ROUTER_SYNC_CONCURRENCY || '20', 10),
         }
     );
 
@@ -98,7 +101,7 @@ export function startQueueWorker() {
         },
         {
             connection: createRedisConnection() as any,
-            concurrency: 5,
+            concurrency: parseInt(process.env.OLT_SYNC_CONCURRENCY || '10', 10),
         }
     );
 }

@@ -288,6 +288,13 @@
       "when": 1778500000000,
       "tag": "0040_add_netwatch_ip_history",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1778600000000,
+      "tag": "0041_retention_and_scale_prep",
+      "breakpoints": true
     }
   ]
 }
