@@ -117,6 +117,10 @@ export class AlertService {
     async resolveAlertsByHost(routerId: string, host: string | null, tenantId?: string, tx: any = db) {
         return alertActionService.resolveAlertsByHost(routerId, host, tenantId, tx);
     }
+
+    async sweepStaleNetwatchAlerts() {
+        return alertActionService.sweepStaleNetwatchAlerts();
+    }
 }
 
 // Export singleton instance

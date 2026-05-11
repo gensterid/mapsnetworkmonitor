@@ -45,6 +45,7 @@ let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let billingDailyInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAutoHealInterval: ReturnType<typeof setInterval> | null = null;
+let netwatchAlertSweepInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let isPollingSnmp = false;
 let pollingStartTime: number | null = null;
@@ -692,6 +693,12 @@ export async function startScheduler(): Promise<void> {
     // Initial run after 90s so PPPoE polling has populated pppoe_sessions.
     setTimeout(() => runNetwatchAutoHealSafe(), 90000);
     netwatchAutoHealInterval = setInterval(() => runNetwatchAutoHealSafe(), 5 * 60 * 1000);
+
+    // Netwatch alert sweeper — every 5 minutes, resolve netwatch_down alerts
+    // whose corresponding netwatch entry is currently UP (catches stale alerts
+    // from IP changes, app restart races, deleted entries, etc.).
+    setTimeout(() => runNetwatchAlertSweepSafe(), 120000);
+    netwatchAlertSweepInterval = setInterval(() => runNetwatchAlertSweepSafe(), 5 * 60 * 1000);
 }
 
 async function runBillingJobSafe() {
@@ -715,6 +722,15 @@ async function runNetwatchAutoHealSafe() {
     }
 }
 
+async function runNetwatchAlertSweepSafe() {
+    try {
+        const { alertService } = await import('../services/alert.service.js');
+        await alertService.sweepStaleNetwatchAlerts();
+    } catch (err) {
+        logger.error({ err }, 'Netwatch alert sweeper crashed');
+    }
+}
+
 /**
  * Stop the background polling scheduler
  */
@@ -731,6 +747,7 @@ export function stopScheduler(): void {
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
     if (billingDailyInterval) { clearInterval(billingDailyInterval); billingDailyInterval = null; }
     if (netwatchAutoHealInterval) { clearInterval(netwatchAutoHealInterval); netwatchAutoHealInterval = null; }
+    if (netwatchAlertSweepInterval) { clearInterval(netwatchAlertSweepInterval); netwatchAlertSweepInterval = null; }
 
     stopQueueWorker();
     logger.info('🛑 Scheduler stopped');

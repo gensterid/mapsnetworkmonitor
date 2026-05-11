@@ -1,7 +1,7 @@
 import { eq, and, or, ilike, gte, inArray, notInArray, desc, isNull, type SQL } from 'drizzle-orm';
 import NodeCache from 'node-cache';
 import { db } from '../db/index.js';
-import { alerts, userRouters, routers, type Alert, type NewAlert } from '../db/schema/index.js';
+import { alerts, userRouters, routers, routerNetwatch, type Alert, type NewAlert } from '../db/schema/index.js';
 import { alertRepository } from '../repositories/alert.repository.js';
 import { aiService } from './ai.service.js';
 import { notificationService } from './notification.service.js';
@@ -271,13 +271,19 @@ export class AlertActionService {
 
             let resolvedCount = 0;
             const idsToResolve = [];
+            // Extract bare device name from "[router] <name>" prefix so we can
+            // match historical alerts whose host IP has since changed (auto-heal,
+            // manual edit, PPPoE re-auth). Title format: `Device [router] <name> is DOWN`.
+            const bareName = (deviceName || '').replace(/^\[[^\]]+\]\s*/, '').trim();
             for (const alert of unresolvedAlerts) {
-                if (host && alert.message && alert.message.includes(host)) {
+                const matchesHost = host && alert.message && alert.message.includes(host);
+                const matchesName = bareName && alert.title && alert.title.includes(bareName);
+                if (matchesHost || matchesName) {
                     idsToResolve.push(alert.id);
                     resolvedCount++;
                 }
             }
-            
+
             if (idsToResolve.length > 0) {
                 await alertRepository.resolveBatch(idsToResolve, tx);
             }
@@ -588,6 +594,55 @@ export class AlertActionService {
         
         const idsToResolve = alertsToResolve.map((a: any) => a.id);
         return alertRepository.resolveBatch(idsToResolve, tx);
+    }
+
+    /**
+     * Sweep stale netwatch_down alerts whose corresponding netwatch entry is
+     * currently UP. Runs periodically to catch cases where the normal
+     * resolution path missed: IP changed (auto-heal), entry deleted, app
+     * restart racing with status transition, etc.
+     *
+     * Matching strategy: extract device name from alert title (after the
+     * "[router] " prefix and before " is DOWN"), find a router_netwatch row
+     * with the same name on the same router. If that entry is currently 'up',
+     * resolve the alert.
+     */
+    async sweepStaleNetwatchAlerts(): Promise<number> {
+        const unresolved = await db
+            .select()
+            .from(alerts)
+            .where(and(
+                eq(alerts.type, 'netwatch_down' as any),
+                eq(alerts.resolved, false)
+            ));
+        if (unresolved.length === 0) return 0;
+
+        const idsToResolve: string[] = [];
+        for (const alert of unresolved) {
+            const title = alert.title || '';
+            // Title format: "Device [router] <name> is DOWN"
+            const m = title.match(/^Device\s+\[[^\]]+\]\s+(.+?)\s+is\s+DOWN$/i);
+            const bareName = m ? m[1].trim() : null;
+            if (!bareName) continue;
+
+            const [entry] = await db
+                .select({ status: routerNetwatch.status })
+                .from(routerNetwatch)
+                .where(and(
+                    eq(routerNetwatch.routerId, alert.routerId!),
+                    eq(routerNetwatch.name, bareName)
+                ))
+                .limit(1);
+
+            if (entry && entry.status === 'up') {
+                idsToResolve.push(alert.id);
+            }
+        }
+
+        if (idsToResolve.length === 0) return 0;
+        await alertRepository.resolveBatch(idsToResolve, db);
+        logger.info({ count: idsToResolve.length }, 'Netwatch alert sweeper: resolved stale alerts');
+        return idsToResolve.length;
     }
 
     /**
