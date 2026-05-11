@@ -275,9 +275,15 @@ export class AlertActionService {
             // match historical alerts whose host IP has since changed (auto-heal,
             // manual edit, PPPoE re-auth). Title format: `Device [router] <name> is DOWN`.
             const bareName = (deviceName || '').replace(/^\[[^\]]+\]\s*/, '').trim();
+            const titleRe = bareName
+                ? new RegExp(`^Device\\s+\\[[^\\]]+\\]\\s+${bareName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+is\\s+DOWN$`, 'i')
+                : null;
             for (const alert of unresolvedAlerts) {
                 const matchesHost = host && alert.message && alert.message.includes(host);
-                const matchesName = bareName && alert.title && alert.title.includes(bareName);
+                // Name match uses exact regex (anchored) so "IYEN" does not match
+                // "IYEN BACKUP". Already scoped to alert.routerId at the query
+                // above, so cross-router and cross-tenant isolation is preserved.
+                const matchesName = titleRe && alert.title && titleRe.test(alert.title);
                 if (matchesHost || matchesName) {
                     idsToResolve.push(alert.id);
                     resolvedCount++;
