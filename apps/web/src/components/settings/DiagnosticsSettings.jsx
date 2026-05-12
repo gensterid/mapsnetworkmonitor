@@ -164,44 +164,82 @@ export default function DiagnosticsSettings() {
 
             {/* Quick Actions */}
             <Card>
-                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Wrench className="w-4 h-4" /> Maintenance Actions</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                    <Button
-                        onClick={() => pruneRetentionMut.mutate()}
-                        loading={pruneRetentionMut.isPending}
-                        variant="outline"
-                        size="sm"
-                        className="justify-start"
-                    >
-                        <Brush className="w-4 h-4 mr-2" /> Prune Retention (30d)
-                    </Button>
-                    <Button
-                        onClick={() => clearBreakersMut.mutate()}
-                        loading={clearBreakersMut.isPending}
-                        variant="outline"
-                        size="sm"
-                        className="justify-start"
-                    >
-                        <Zap className="w-4 h-4 mr-2" /> Clear Breakers & Back-offs
-                    </Button>
-                    <Button
-                        onClick={() => sweepAlertsMut.mutate()}
-                        loading={sweepAlertsMut.isPending}
-                        variant="outline"
-                        size="sm"
-                        className="justify-start"
-                    >
-                        <Wand2 className="w-4 h-4 mr-2" /> Sweep Stale Alerts
-                    </Button>
-                    <Button
-                        onClick={() => vacuumMut.mutate('client_bandwidth_history')}
-                        loading={vacuumMut.isPending}
-                        variant="outline"
-                        size="sm"
-                        className="justify-start"
-                    >
-                        <Database className="w-4 h-4 mr-2" /> VACUUM bandwidth
-                    </Button>
+                <CardHeader>
+                    <CardTitle className="text-sm flex items-center gap-2"><Wrench className="w-4 h-4" /> Maintenance Actions</CardTitle>
+                    <p className="text-[11px] text-slate-500 mt-1">Klik tombol sesuai gejala di Health Checks di atas. Aksi aman dan bisa diulang kapan saja.</p>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="flex flex-col gap-1.5">
+                        <Button
+                            onClick={() => pruneRetentionMut.mutate()}
+                            loading={pruneRetentionMut.isPending}
+                            variant="outline"
+                            size="sm"
+                            className="justify-start"
+                            title="Pangkas data lama (>30 hari) dari bandwidth_history, router_metrics, dan resolved alerts. Aman dijalankan kapan saja."
+                        >
+                            <Brush className="w-4 h-4 mr-2" /> Prune Retention (30d)
+                        </Button>
+                        <div className="text-[10px] text-slate-500 leading-snug px-1">
+                            <span className="text-amber-300/80 font-semibold">Jika:</span> "Database Size" warning, atau DB tumbuh cepat.
+                            <br/>
+                            <span className="text-slate-400">Efek:</span> hapus data &gt;30 hari, kosongkan ruang disk.
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Button
+                            onClick={() => clearBreakersMut.mutate()}
+                            loading={clearBreakersMut.isPending}
+                            variant="outline"
+                            size="sm"
+                            className="justify-start"
+                            title="Reset state circuit-breaker + adaptive back-off untuk semua router. Polling normal lagi langsung."
+                        >
+                            <Zap className="w-4 h-4 mr-2" /> Clear Breakers & Back-offs
+                        </Button>
+                        <div className="text-[10px] text-slate-500 leading-snug px-1">
+                            <span className="text-amber-300/80 font-semibold">Jika:</span> "Circuit Breaker Open" muncul, atau setelah perbaiki router yang sebelumnya bermasalah.
+                            <br/>
+                            <span className="text-slate-400">Efek:</span> router yang skip polling akan dicoba lagi sekarang.
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Button
+                            onClick={() => sweepAlertsMut.mutate()}
+                            loading={sweepAlertsMut.isPending}
+                            variant="outline"
+                            size="sm"
+                            className="justify-start"
+                            title="Cari alert netwatch_down yang IP-nya sudah berubah/up tapi alert belum di-resolve. Auto-resolve semua."
+                        >
+                            <Wand2 className="w-4 h-4 mr-2" /> Sweep Stale Alerts
+                        </Button>
+                        <div className="text-[10px] text-slate-500 leading-snug px-1">
+                            <span className="text-amber-300/80 font-semibold">Jika:</span> "Unresolved Alerts" tinggi, atau alert lama masih muncul padahal device sudah UP.
+                            <br/>
+                            <span className="text-slate-400">Efek:</span> auto-resolve alert nyangkut.
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <Button
+                            onClick={() => vacuumMut.mutate('client_bandwidth_history')}
+                            loading={vacuumMut.isPending}
+                            variant="outline"
+                            size="sm"
+                            className="justify-start"
+                            title="Defragment dan analyze tabel client_bandwidth_history. Reklaim disk dari row yang sudah ter-delete. Bisa lambat di tabel besar."
+                        >
+                            <Database className="w-4 h-4 mr-2" /> VACUUM bandwidth
+                        </Button>
+                        <div className="text-[10px] text-slate-500 leading-snug px-1">
+                            <span className="text-amber-300/80 font-semibold">Jika:</span> baru selesai Prune Retention, ukuran tabel belum turun.
+                            <br/>
+                            <span className="text-slate-400">Efek:</span> reklaim ruang disk, optimalkan query planner.
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
