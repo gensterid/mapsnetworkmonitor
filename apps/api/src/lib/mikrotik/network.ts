@@ -249,10 +249,12 @@ export async function configureNetwatchWebhook(
     if (entries.length === 0) return;
 
     const entry = entries[0];
-    const cleanUrl = webhookUrl.split('?token=')[0];
+    // Strip any trailing ?token=… (legacy) so we can rebuild the query string
+    // cleanly. The first param must use `?`, subsequent params use `&`.
+    const cleanUrl = webhookUrl.split('?')[0];
     const headers = `Authorization: Bearer ${webhookToken},User-Agent: Mozilla/5.0 (Mikrotik Monitor)`;
-    const upCommand = `${WEBHOOK_MARKER}\r\n:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=up" http-header-field="${headers}" keep-result=no;`;
-    const downCommand = `${WEBHOOK_MARKER}\r\n:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=down" http-header-field="${headers}" keep-result=no;`;
+    const upCommand = `${WEBHOOK_MARKER}\r\n:delay 1s; /tool fetch url="${cleanUrl}?host=${host}&status=up" http-header-field="${headers}" keep-result=no;`;
+    const downCommand = `${WEBHOOK_MARKER}\r\n:delay 1s; /tool fetch url="${cleanUrl}?host=${host}&status=down" http-header-field="${headers}" keep-result=no;`;
 
     /**
      * Strip any previously-injected webhook block(s) from the script. We
@@ -284,8 +286,13 @@ export async function configureNetwatchWebhook(
     };
 
     const buildScript = (existing: string, command: string): { script: string; modified: boolean } => {
-        const hasMarker = existing.includes(WEBHOOK_MARKER) && existing.includes('/api/webhook/netwatch') && existing.includes(webhookToken);
-        if (hasMarker && !forceOverwrite) {
+        // Tight check: marker AND correct-format webhook URL AND current token must
+        // all be present. The `?host=` (not `&host=`) is required to ensure that
+        // any past inject with the malformed URL gets overwritten on the next cycle.
+        const hasCorrectInject = existing.includes(WEBHOOK_MARKER)
+            && existing.includes('/api/webhook/netwatch?host=')
+            && existing.includes(webhookToken);
+        if (hasCorrectInject && !forceOverwrite) {
             return { script: existing, modified: false };
         }
         const cleaned = stripWebhookBlocks(existing);
