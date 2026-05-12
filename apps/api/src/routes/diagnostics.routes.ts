@@ -58,13 +58,23 @@ function runHealthChecks(d: any): HealthCheck[] {
         detail: `Netwatch entry terbanyak per router: ${maxNw}`,
     });
 
-    const heapPct = d.process?.heapTotalMB ? Math.round((d.process.heapUsedMB / d.process.heapTotalMB) * 100) : 0;
+    // Heap pressure relative to absolute RSS/heap size, not just heapUsed/heapTotal
+    // ratio. Node grows heap dynamically up to --max-old-space-size, so a high
+    // ratio in a small heap is normal — only worry when absolute heap is large.
+    const heapUsedMB = d.process?.heapUsedMB ?? 0;
+    const rssMB = d.process?.rssMB ?? 0;
+    const heapPct = d.process?.heapTotalMB ? Math.round((heapUsedMB / d.process.heapTotalMB) * 100) : 0;
+    const heapSeverity: Severity =
+        rssMB > 1800 ? 'critical' :
+        rssMB > 1200 ? 'warn' :
+        (heapPct > 90 && heapUsedMB > 800) ? 'warn' :
+        'ok';
     push({
         id: 'heap-memory',
         title: 'Heap Memory',
-        severity: heapPct < 70 ? 'ok' : heapPct <= 85 ? 'warn' : 'critical',
-        detail: `${heapPct}% heap terpakai (${d.process?.heapUsedMB ?? 0}/${d.process?.heapTotalMB ?? 0} MB)`,
-        action: heapPct > 85 ? 'Restart pm2 monitoring-api atau naikkan --max-old-space-size' : undefined,
+        severity: heapSeverity,
+        detail: `RSS ${rssMB} MB · heap ${heapUsedMB}/${d.process?.heapTotalMB ?? 0} MB (${heapPct}%)`,
+        action: heapSeverity !== 'ok' ? 'Restart pm2 monitoring-api atau naikkan --max-old-space-size' : undefined,
     });
 
     const qWait = d.queue?.waiting ?? 0;
