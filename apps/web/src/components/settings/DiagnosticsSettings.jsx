@@ -55,6 +55,7 @@ export default function DiagnosticsSettings() {
     const stale = d.staleRouters || [];
     const hotspots = d.interfaceHotspots || [];
     const dbSize = d.dbSize || [];
+    const routerHealth = d.routerHealth || { breakers: [], backoffs: [] };
 
     const offlineCount = fleet.offline ?? 0;
     const maxIfaces = ifaces.max_interfaces ?? 0;
@@ -144,6 +145,37 @@ export default function DiagnosticsSettings() {
                                 </div>
                             ))}
                         </div>
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Router health — breakers / back-off */}
+            {(routerHealth.breakers.length > 0 || routerHealth.backoffs.length > 0) && (
+                <Card>
+                    <CardHeader><CardTitle className="text-sm flex items-center gap-2 text-amber-400"><AlertCircle className="w-4 h-4" /> Router Health (Adaptive)</CardTitle></CardHeader>
+                    <CardContent className="space-y-2">
+                        {routerHealth.breakers.length > 0 && (
+                            <div>
+                                <div className="text-[10px] uppercase tracking-wider text-red-400 mb-1">Circuit Breaker Open</div>
+                                {routerHealth.breakers.map((b, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs bg-red-500/5 border border-red-500/20 rounded px-3 py-1.5">
+                                        <span className="font-mono text-slate-300">{b.routerId.slice(0, 8)}…</span>
+                                        <span className="font-mono text-red-400">{b.failures} fail · cooldown {b.openForSec}s</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        {routerHealth.backoffs.length > 0 && (
+                            <div>
+                                <div className="text-[10px] uppercase tracking-wider text-amber-400 mb-1">Adaptive Back-off</div>
+                                {routerHealth.backoffs.map((b, i) => (
+                                    <div key={i} className="flex items-center justify-between text-xs bg-amber-500/5 border border-amber-500/20 rounded px-3 py-1.5">
+                                        <span className="font-mono text-slate-300">{b.routerId.slice(0, 8)}…</span>
+                                        <span className="font-mono text-amber-400">{b.failures} fail · skip {b.eligibleInSec}s</span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}

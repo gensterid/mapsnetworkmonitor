@@ -1,5 +1,6 @@
 // Polling scheduler for MikroTik devices and other services
 import { routerService, settingsService, oltService, genieacsService, backupService, routerSyncQueue, oltSyncQueue, startQueueWorker, stopQueueWorker, metricsService, routerMetricsService } from '../services/index.js';
+import { shouldEnqueueRouter, queueHasCapacity } from '../services/queue.service.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
@@ -123,11 +124,22 @@ async function pollTenantRouters(tenantId: string, scalingConfig: ScalingConfig)
         const routers = await routerService.findAll(tenantId);
 
         // Filter out routers in maintenance mode to prevent conflicts
-        const activeRouters = routers.filter(r => r.status !== 'maintenance');
+        let activeRouters = routers.filter(r => r.status !== 'maintenance');
 
         if (activeRouters.length === 0) return { success: 0, fail: 0, timeout: 0 };
 
-        logger.debug(`🔄 [Tenant: ${tenantId}] Polling ${activeRouters.length} active routers (Skipped ${routers.length - activeRouters.length} in maintenance)...`);
+        // Adaptive polling: skip routers in back-off or circuit-breaker-open.
+        // Healthy routers always pass; unhealthy ones get a longer interval
+        // between enqueues to free worker slots for the rest of the fleet.
+        const beforeFilter = activeRouters.length;
+        activeRouters = activeRouters.filter(r => shouldEnqueueRouter(r.id));
+        const skippedAdaptive = beforeFilter - activeRouters.length;
+        if (skippedAdaptive > 0) {
+            logger.debug({ tenantId, skipped: skippedAdaptive }, 'Adaptive skip: routers in back-off this cycle');
+        }
+        if (activeRouters.length === 0) return { success: 0, fail: 0, timeout: 0 };
+
+        logger.debug(`🔄 [Tenant: ${tenantId}] Polling ${activeRouters.length} active routers (Skipped ${routers.length - activeRouters.length} in maintenance, ${skippedAdaptive} in back-off)...`);
 
         // Add all active routers to the background queue
         const jobs = activeRouters.map(router => ({
@@ -198,6 +210,13 @@ async function pollAllRouters(): Promise<void> {
 
     if (isPolling) {
         logger.debug('⏳ Previous polling still in progress, skipping...');
+        return;
+    }
+
+    // Backpressure: bail out if the queue is already saturated. Better to
+    // skip one cycle than pile up jobs whose data will be stale by the time
+    // they run.
+    if (!(await queueHasCapacity())) {
         return;
     }
 

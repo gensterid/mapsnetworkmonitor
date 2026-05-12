@@ -69,6 +69,81 @@ function breakerRecord(routerId: string, ok: boolean) {
     breaker.set(routerId, s);
 }
 
+/**
+ * Per-router adaptive polling state. Tracks consecutive failures and the
+ * time of the last enqueue. Used by the scheduler to decide whether a
+ * router needs a fresh job this cycle, or whether it should be skipped
+ * because either:
+ *   (a) the circuit breaker is open,
+ *   (b) the router is in adaptive back-off,
+ *   (c) a job was enqueued very recently (anti-storm).
+ *
+ * Back-off doubles after each failure up to 16× base interval, then
+ * resets on the next success.
+ */
+type AdaptiveState = { failures: number; nextEligibleAt: number };
+const adaptive = new Map<string, AdaptiveState>();
+const ADAPTIVE_BASE_MS = parseInt(process.env.ADAPTIVE_BASE_MS || '30000', 10);
+const ADAPTIVE_MAX_MULTIPLIER = parseInt(process.env.ADAPTIVE_MAX_MULTIPLIER || '16', 10);
+
+export function shouldEnqueueRouter(routerId: string): boolean {
+    if (!breakerAllow(routerId)) return false;
+    const s = adaptive.get(routerId);
+    if (!s) return true;
+    return Date.now() >= s.nextEligibleAt;
+}
+
+function adaptiveRecord(routerId: string, ok: boolean) {
+    if (ok) {
+        if (adaptive.has(routerId)) adaptive.delete(routerId);
+        return;
+    }
+    const s = adaptive.get(routerId) || { failures: 0, nextEligibleAt: 0 };
+    s.failures = Math.min(s.failures + 1, 16);
+    const multiplier = Math.min(2 ** s.failures, ADAPTIVE_MAX_MULTIPLIER);
+    s.nextEligibleAt = Date.now() + ADAPTIVE_BASE_MS * multiplier;
+    adaptive.set(routerId, s);
+}
+
+/**
+ * Backpressure check — returns true if the queue is healthy enough to
+ * accept more jobs. Used by the scheduler to skip an entire enqueue
+ * cycle when the worker is already saturated.
+ */
+const BP_WAITING_LIMIT = parseInt(process.env.QUEUE_BP_WAITING_LIMIT || '200', 10);
+
+/** Snapshot of in-memory breaker + adaptive state for diagnostics. */
+export function getRouterHealthSnapshot() {
+    const now = Date.now();
+    const breakers: Array<{ routerId: string; failures: number; openForSec: number }> = [];
+    for (const [routerId, s] of breaker.entries()) {
+        if (s.openUntil > now) {
+            breakers.push({ routerId, failures: s.failures, openForSec: Math.round((s.openUntil - now) / 1000) });
+        }
+    }
+    const backoffs: Array<{ routerId: string; failures: number; eligibleInSec: number }> = [];
+    for (const [routerId, s] of adaptive.entries()) {
+        if (s.nextEligibleAt > now) {
+            backoffs.push({ routerId, failures: s.failures, eligibleInSec: Math.round((s.nextEligibleAt - now) / 1000) });
+        }
+    }
+    return { breakers, backoffs };
+}
+
+export async function queueHasCapacity(): Promise<boolean> {
+    try {
+        const waiting = await routerSyncQueue.getWaitingCount();
+        if (waiting > BP_WAITING_LIMIT) {
+            logger.warn({ waiting, limit: BP_WAITING_LIMIT }, 'Queue backpressure — skipping enqueue cycle');
+            return false;
+        }
+        return true;
+    } catch (err) {
+        // If we can't read the queue, fail-open to avoid blocking forever.
+        return true;
+    }
+}
+
 export function startQueueWorker() {
     if (worker) return;
 
@@ -94,9 +169,11 @@ export function startQueueWorker() {
                 // We use routerService directly which handles state/db updates
                 await routerService.refreshRouterStatus(routerId, includeNetwatch, isFullSync, tenantId);
                 breakerRecord(routerId, true);
+                adaptiveRecord(routerId, true);
                 return { success: true };
             } catch (err: any) {
                 breakerRecord(routerId, false);
+                adaptiveRecord(routerId, false);
                 logger.error({
                     err: err.message,
                     routerId,

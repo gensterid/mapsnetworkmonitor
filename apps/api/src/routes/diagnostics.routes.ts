@@ -4,7 +4,7 @@ import { db } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
-import { getRedisConnection } from '../services/queue.service.js';
+import { getRedisConnection, getRouterHealthSnapshot } from '../services/queue.service.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -144,6 +144,9 @@ router.get(
         } catch (err: any) {
             out.queue = { error: err?.message || 'redis error' };
         }
+
+        // 12. Per-router health snapshot (circuit-breaker + adaptive back-off)
+        out.routerHealth = getRouterHealthSnapshot();
 
         out.collectedAt = new Date().toISOString();
         res.json({ data: out });
