@@ -20,6 +20,7 @@ import PollingSettings from '@/components/settings/PollingSettings';
 import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
 import AISettings from '@/components/settings/AISettings';
 import SystemHealthGuide from '@/components/settings/SystemHealthGuide';
+import DiagnosticsSettings from '@/components/settings/DiagnosticsSettings';
 
 const TABS = [
     { id: 'profile', label: 'My Profile', icon: User },
@@ -29,6 +30,7 @@ const TABS = [
     { id: 'polling', label: 'Polling & Sync', icon: Clock },
     { id: 'ai', label: 'AI Intelligence', icon: Sparkles },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench },
+    { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
     // Superadmin-only tab. Filtered out of the nav for other roles below.
     { id: 'system-guide', label: 'Panduan Sistem', icon: ShieldCheck, superadminOnly: true },
 ];
@@ -430,6 +432,10 @@ export default function Settings() {
 
                 {activeTab === 'system-guide' && (
                     <SystemHealthGuide currentUser={currentUser} />
+                )}
+
+                {activeTab === 'diagnostics' && (
+                    <DiagnosticsSettings />
                 )}
 
             </div>

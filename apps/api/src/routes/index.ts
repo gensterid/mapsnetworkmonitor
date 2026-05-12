@@ -22,6 +22,7 @@ import genieacsDashboardRoutes from './genieacs-dashboard.routes.js';
 import bandwidthRoutes from './bandwidth.routes.js';
 import billingRoutes from './billing.routes.js';
 import portalRoutes from './portal.routes.js';
+import diagnosticsRoutes from './diagnostics.routes.js';
 
 const router = Router();
 
@@ -58,6 +59,7 @@ router.use('/genieacs-dashboard', genieacsDashboardRoutes);
 router.use('/bandwidth', bandwidthRoutes);
 router.use('/billing', billingRoutes);
 router.use('/portal', portalRoutes);
+router.use('/diagnostics', diagnosticsRoutes);
 
 export default router;
 
