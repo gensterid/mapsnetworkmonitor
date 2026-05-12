@@ -228,12 +228,21 @@ export async function removeNetwatchEntry(api: any, host: string): Promise<void>
 /**
  * Configure Netwatch Webhook (Smart Append)
  */
+/**
+ * Marker comment placed on the line directly before our webhook fetch.
+ * RouterOS treats `#` as a comment, so it's preserved through edits and
+ * round-trips through `/tool netwatch print`. Detection becomes a single
+ * exact-string search, eliminating the fragile normalised-substring check
+ * that was causing the sync loop to re-inject every cycle.
+ */
+const WEBHOOK_MARKER = '# maps-monitor-webhook v1';
+
 export async function configureNetwatchWebhook(
-    api: any, 
-    host: string, 
-    webhookUrl: string, 
-    webhookToken: string, 
-    nw?: any, 
+    api: any,
+    host: string,
+    webhookUrl: string,
+    webhookToken: string,
+    nw?: any,
     forceOverwrite: boolean = false
 ): Promise<void> {
     const entries = await safeWrite(api, ['/tool/netwatch/print', `?host=${host}`]);
@@ -242,19 +251,50 @@ export async function configureNetwatchWebhook(
     const entry = entries[0];
     const cleanUrl = webhookUrl.split('?token=')[0];
     const headers = `Authorization: Bearer ${webhookToken},User-Agent: Mozilla/5.0 (Mikrotik Monitor)`;
-    const upCommand = `:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=up" http-header-field="${headers}" keep-result=no;`;
-    const downCommand = `:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=down" http-header-field="${headers}" keep-result=no;`;
+    const upCommand = `${WEBHOOK_MARKER}\r\n:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=up" http-header-field="${headers}" keep-result=no;`;
+    const downCommand = `${WEBHOOK_MARKER}\r\n:delay 1s; /tool fetch url="${cleanUrl}&host=${host}&status=down" http-header-field="${headers}" keep-result=no;`;
 
-    const smartAppend = (current: string, command: string) => {
-        const base = current.trim();
-        const norm = (s: string) => s.toLowerCase().replace(/[\s;]/g, '');
-        if (norm(base).includes(norm(command))) return { script: current, modified: false };
-        const separator = (base === '' || base.endsWith(';') || base.endsWith('\n')) ? '' : ';';
-        return { script: base ? `${base}${separator}\r\n${command}` : command, modified: true };
+    /**
+     * Strip any previously-injected webhook block(s) from the script. We
+     * remove the marker line and the very next non-empty line (the fetch
+     * command). This handles scripts bloated by past versions of this
+     * function that re-appended on every cycle.
+     */
+    const stripWebhookBlocks = (script: string): string => {
+        const lines = script.split(/\r?\n/);
+        const kept: string[] = [];
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            if (line.includes(WEBHOOK_MARKER)) {
+                // skip marker line + the following fetch line
+                let j = i + 1;
+                while (j < lines.length && lines[j].trim() === '') j++;
+                if (j < lines.length && lines[j].toLowerCase().includes('/api/webhook/netwatch')) {
+                    i = j; // consume the fetch line too
+                }
+                continue;
+            }
+            // Also strip orphan webhook fetch lines from pre-marker versions of this code
+            if (line.toLowerCase().includes('/api/webhook/netwatch') && (!webhookToken || line.includes(webhookToken))) {
+                continue;
+            }
+            kept.push(line);
+        }
+        return kept.join('\r\n').trim();
     };
 
-    const upRes = smartAppend(entry['up-script'] || '', upCommand);
-    const downRes = smartAppend(entry['down-script'] || '', downCommand);
+    const buildScript = (existing: string, command: string): { script: string; modified: boolean } => {
+        const hasMarker = existing.includes(WEBHOOK_MARKER) && existing.includes('/api/webhook/netwatch') && existing.includes(webhookToken);
+        if (hasMarker && !forceOverwrite) {
+            return { script: existing, modified: false };
+        }
+        const cleaned = stripWebhookBlocks(existing);
+        const separator = cleaned ? '\r\n' : '';
+        return { script: `${cleaned}${separator}${command}`, modified: true };
+    };
+
+    const upRes = buildScript(entry['up-script'] || '', upCommand);
+    const downRes = buildScript(entry['down-script'] || '', downCommand);
 
     const params: string[] = [`/tool/netwatch/set`, `=.id=${entry['.id']}`];
     if (upRes.modified) params.push(`=up-script=${upRes.script}`);
@@ -277,10 +317,25 @@ export async function removeNetwatchWebhook(
 
     const entry = entries[0];
     const clean = (script: string) => {
-        return script.split(/\r?\n/).filter(line => {
+        const lines = script.split(/\r?\n/);
+        const kept: string[] = [];
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            // Strip our marker line + the following fetch line as a block
+            if (line.includes(WEBHOOK_MARKER)) {
+                let j = i + 1;
+                while (j < lines.length && lines[j].trim() === '') j++;
+                if (j < lines.length && lines[j].toLowerCase().includes('/api/webhook/netwatch')) {
+                    i = j;
+                }
+                continue;
+            }
+            // Also strip any standalone webhook fetch lines (pre-marker versions)
             const isWebhook = line.toLowerCase().includes('/api/webhook/netwatch');
-            return !(isWebhook && (secret ? line.includes(secret) : true));
-        }).join('\r\n').trim();
+            if (isWebhook && (!secret || line.includes(secret))) continue;
+            kept.push(line);
+        }
+        return kept.join('\r\n').trim();
     };
 
     const params: string[] = [`/tool/netwatch/set`, `=.id=${entry['.id']}`];
