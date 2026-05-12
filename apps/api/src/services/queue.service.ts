@@ -112,6 +112,22 @@ function adaptiveRecord(routerId: string, ok: boolean) {
  */
 const BP_WAITING_LIMIT = parseInt(process.env.QUEUE_BP_WAITING_LIMIT || '200', 10);
 
+/** Reset all circuit breakers (manual admin action). */
+export function clearBreakers(): number {
+    const n = breaker.size;
+    breaker.clear();
+    if (n > 0) logger.warn({ cleared: n }, 'Router circuit breakers manually cleared');
+    return n;
+}
+
+/** Reset all adaptive back-off counters (manual admin action). */
+export function clearAdaptiveBackoffs(): number {
+    const n = adaptive.size;
+    adaptive.clear();
+    if (n > 0) logger.warn({ cleared: n }, 'Router adaptive back-offs manually cleared');
+    return n;
+}
+
 /** Snapshot of in-memory breaker + adaptive state for diagnostics. */
 export function getRouterHealthSnapshot() {
     const now = Date.now();

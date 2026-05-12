@@ -30,7 +30,7 @@ const TABS = [
     { id: 'polling', label: 'Polling & Sync', icon: Clock },
     { id: 'ai', label: 'AI Intelligence', icon: Sparkles },
     { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-    { id: 'diagnostics', label: 'Diagnostics', icon: Activity },
+    { id: 'diagnostics', label: 'Diagnostics', icon: Activity, superadminOnly: true },
     // Superadmin-only tab. Filtered out of the nav for other roles below.
     { id: 'system-guide', label: 'Panduan Sistem', icon: ShieldCheck, superadminOnly: true },
 ];

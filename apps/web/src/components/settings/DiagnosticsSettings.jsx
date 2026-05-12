@@ -1,18 +1,15 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { get } from '@/lib/api';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { get, post } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { RefreshCw, Activity, Database, AlertCircle, HardDrive, Server, Loader2 } from 'lucide-react';
+import {
+    RefreshCw, Activity, Database, AlertCircle, Server, Loader2,
+    CheckCircle2, AlertTriangle, XCircle, Info as InfoIcon,
+    Zap, Brush, Wand2, Wrench,
+} from 'lucide-react';
 import clsx from 'clsx';
-
-const fmtPretty = (b) => {
-    if (!b) return '0 B';
-    const u = ['B','KB','MB','GB','TB'];
-    let i = 0; let n = Number(b);
-    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
-    return `${n.toFixed(1)} ${u[i]}`;
-};
+import toast from 'react-hot-toast';
 
 const Stat = ({ label, value, hint, tone = 'default' }) => (
     <div className={clsx(
@@ -28,12 +25,71 @@ const Stat = ({ label, value, hint, tone = 'default' }) => (
     </div>
 );
 
+const SEVERITY_META = {
+    ok: { icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/5 border-emerald-500/20', label: 'OK' },
+    info: { icon: InfoIcon, color: 'text-blue-400', bg: 'bg-blue-500/5 border-blue-500/20', label: 'INFO' },
+    warn: { icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/5 border-amber-500/20', label: 'WARN' },
+    critical: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/5 border-red-500/20', label: 'CRITICAL' },
+};
+
+function HealthCheckRow({ check }) {
+    const meta = SEVERITY_META[check.severity] || SEVERITY_META.ok;
+    const Icon = meta.icon;
+    return (
+        <div className={clsx('rounded-lg border px-3 py-2 flex items-start gap-3', meta.bg)}>
+            <Icon className={clsx('w-4 h-4 shrink-0 mt-0.5', meta.color)} />
+            <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-white">{check.title}</span>
+                    <span className={clsx('text-[9px] font-bold uppercase px-1.5 py-0.5 rounded', meta.color, meta.bg.split(' ')[0])}>{meta.label}</span>
+                </div>
+                <div className="text-xs text-slate-300 mt-0.5">{check.detail}</div>
+                {check.action && <div className="text-[11px] text-amber-300/80 mt-1 italic">→ {check.action}</div>}
+            </div>
+        </div>
+    );
+}
+
 export default function DiagnosticsSettings() {
+    const qc = useQueryClient();
     const { data, isLoading, isFetching, refetch, error } = useQuery({
         queryKey: ['diagnostics'],
         queryFn: () => get('/diagnostics'),
         refetchInterval: 30000,
         staleTime: 15000,
+    });
+
+    const pruneRetentionMut = useMutation({
+        mutationFn: () => post('/diagnostics/actions/prune-retention', { days: 30 }),
+        onSuccess: (r) => {
+            const d = r?.data || {};
+            toast.success(`Prune OK: ${d.bandwidthDeleted ?? 0} bw, ${d.metricsDeleted ?? 0} metrics, ${d.resolvedAlertsDeleted ?? 0} alerts deleted`);
+            qc.invalidateQueries({ queryKey: ['diagnostics'] });
+        },
+        onError: (e) => toast.error(`Prune failed: ${e.message}`),
+    });
+    const clearBreakersMut = useMutation({
+        mutationFn: () => post('/diagnostics/actions/clear-breakers'),
+        onSuccess: (r) => {
+            const d = r?.data || {};
+            toast.success(`Cleared ${d.breakersCleared ?? 0} breakers + ${d.backoffsCleared ?? 0} back-offs`);
+            qc.invalidateQueries({ queryKey: ['diagnostics'] });
+        },
+        onError: (e) => toast.error(`Clear failed: ${e.message}`),
+    });
+    const sweepAlertsMut = useMutation({
+        mutationFn: () => post('/diagnostics/actions/sweep-alerts'),
+        onSuccess: (r) => {
+            const n = r?.data?.resolved ?? 0;
+            toast.success(`Sweep OK: ${n} stale alert resolved`);
+            qc.invalidateQueries({ queryKey: ['diagnostics'] });
+        },
+        onError: (e) => toast.error(`Sweep failed: ${e.message}`),
+    });
+    const vacuumMut = useMutation({
+        mutationFn: (table) => post('/diagnostics/actions/vacuum-analyze', { table }),
+        onSuccess: (r) => toast.success(`VACUUM ANALYZE ${r?.data?.table} OK`),
+        onError: (e) => toast.error(`Vacuum failed: ${e.message}`),
     });
 
     if (isLoading) {
@@ -56,26 +112,121 @@ export default function DiagnosticsSettings() {
     const hotspots = d.interfaceHotspots || [];
     const dbSize = d.dbSize || [];
     const routerHealth = d.routerHealth || { breakers: [], backoffs: [] };
+    const checks = d.healthChecks || [];
+    const features = d.features || [];
+    const verdict = d.verdict || { severity: 'ok', counts: { ok: 0, info: 0, warn: 0, critical: 0 } };
 
     const offlineCount = fleet.offline ?? 0;
     const maxIfaces = ifaces.max_interfaces ?? 0;
     const queueWaiting = queue.waiting ?? 0;
     const heapPct = proc.heapTotalMB ? Math.round((proc.heapUsedMB / proc.heapTotalMB) * 100) : 0;
 
+    const verdictMeta = SEVERITY_META[verdict.severity] || SEVERITY_META.ok;
+    const VerdictIcon = verdictMeta.icon;
+    const verdictLabel = verdict.severity === 'ok' ? 'Sistem Sehat' : verdict.severity === 'info' ? 'Berjalan Normal' : verdict.severity === 'warn' ? 'Perlu Perhatian' : 'Tindakan Mendesak';
+
     return (
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            {/* Header */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                         <Activity className="w-5 h-5" /> System Diagnostics
                     </h3>
-                    <p className="text-xs text-slate-500">Auto-refresh tiap 30 detik · last update {d.collectedAt ? new Date(d.collectedAt).toLocaleTimeString() : '—'}</p>
+                    <p className="text-xs text-slate-500">Auto-refresh 30 detik · update {d.collectedAt ? new Date(d.collectedAt).toLocaleTimeString() : '—'}</p>
                 </div>
                 <Button onClick={() => refetch()} variant="outline" size="sm" disabled={isFetching}>
                     <RefreshCw className={clsx('w-4 h-4 mr-2', isFetching && 'animate-spin')} />
                     Refresh
                 </Button>
             </div>
+
+            {/* Verdict Card */}
+            <Card className={verdictMeta.bg}>
+                <CardContent className="p-4 sm:p-5 flex items-center gap-4">
+                    <VerdictIcon className={clsx('w-10 h-10 sm:w-12 sm:h-12 shrink-0', verdictMeta.color)} />
+                    <div className="min-w-0 flex-1">
+                        <div className={clsx('text-lg sm:text-xl font-bold', verdictMeta.color)}>{verdictLabel}</div>
+                        <div className="text-xs sm:text-sm text-slate-300 mt-1">
+                            {verdict.counts.ok} ok · {verdict.counts.info} info · {verdict.counts.warn} warn · {verdict.counts.critical} critical
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Health Checks */}
+            <Card>
+                <CardHeader><CardTitle className="text-sm">Health Checks & Recommendations</CardTitle></CardHeader>
+                <CardContent className="space-y-1.5">
+                    {checks.map((c) => <HealthCheckRow key={c.id} check={c} />)}
+                </CardContent>
+            </Card>
+
+            {/* Quick Actions */}
+            <Card>
+                <CardHeader><CardTitle className="text-sm flex items-center gap-2"><Wrench className="w-4 h-4" /> Maintenance Actions</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                    <Button
+                        onClick={() => pruneRetentionMut.mutate()}
+                        loading={pruneRetentionMut.isPending}
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                    >
+                        <Brush className="w-4 h-4 mr-2" /> Prune Retention (30d)
+                    </Button>
+                    <Button
+                        onClick={() => clearBreakersMut.mutate()}
+                        loading={clearBreakersMut.isPending}
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                    >
+                        <Zap className="w-4 h-4 mr-2" /> Clear Breakers & Back-offs
+                    </Button>
+                    <Button
+                        onClick={() => sweepAlertsMut.mutate()}
+                        loading={sweepAlertsMut.isPending}
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                    >
+                        <Wand2 className="w-4 h-4 mr-2" /> Sweep Stale Alerts
+                    </Button>
+                    <Button
+                        onClick={() => vacuumMut.mutate('client_bandwidth_history')}
+                        loading={vacuumMut.isPending}
+                        variant="outline"
+                        size="sm"
+                        className="justify-start"
+                    >
+                        <Database className="w-4 h-4 mr-2" /> VACUUM bandwidth
+                    </Button>
+                </CardContent>
+            </Card>
+
+            {/* Scaling Features */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-sm">Scaling Features (Fase A & B)</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {features.map((f) => (
+                            <div key={f.id} className="rounded-lg border border-slate-800 bg-slate-900/40 p-3 flex items-start gap-3">
+                                <span className="font-mono text-[10px] font-bold bg-emerald-500/15 text-emerald-400 px-2 py-1 rounded shrink-0">{f.id}</span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-semibold text-white">{f.title}</span>
+                                        {f.active && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />}
+                                    </div>
+                                    <div className="text-[11px] text-slate-400 font-mono mt-0.5 break-all">{f.config}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
 
             {/* Fleet overview */}
             <Card>
