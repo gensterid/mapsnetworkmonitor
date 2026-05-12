@@ -62,7 +62,7 @@ export default function DiagnosticsSettings() {
     const pruneRetentionMut = useMutation({
         mutationFn: () => post('/diagnostics/actions/prune-retention', { days: 30 }),
         onSuccess: (r) => {
-            const d = r?.data || {};
+            const d = r || {};
             toast.success(`Prune OK: ${d.bandwidthDeleted ?? 0} bw, ${d.metricsDeleted ?? 0} metrics, ${d.resolvedAlertsDeleted ?? 0} alerts deleted`);
             qc.invalidateQueries({ queryKey: ['diagnostics'] });
         },
@@ -71,7 +71,7 @@ export default function DiagnosticsSettings() {
     const clearBreakersMut = useMutation({
         mutationFn: () => post('/diagnostics/actions/clear-breakers'),
         onSuccess: (r) => {
-            const d = r?.data || {};
+            const d = r || {};
             toast.success(`Cleared ${d.breakersCleared ?? 0} breakers + ${d.backoffsCleared ?? 0} back-offs`);
             qc.invalidateQueries({ queryKey: ['diagnostics'] });
         },
@@ -80,7 +80,7 @@ export default function DiagnosticsSettings() {
     const sweepAlertsMut = useMutation({
         mutationFn: () => post('/diagnostics/actions/sweep-alerts'),
         onSuccess: (r) => {
-            const n = r?.data?.resolved ?? 0;
+            const n = r?.resolved ?? 0;
             toast.success(`Sweep OK: ${n} stale alert resolved`);
             qc.invalidateQueries({ queryKey: ['diagnostics'] });
         },
@@ -88,7 +88,7 @@ export default function DiagnosticsSettings() {
     });
     const vacuumMut = useMutation({
         mutationFn: (table) => post('/diagnostics/actions/vacuum-analyze', { table }),
-        onSuccess: (r) => toast.success(`VACUUM ANALYZE ${r?.data?.table} OK`),
+        onSuccess: (r) => toast.success(`VACUUM ANALYZE ${r?.table} OK`),
         onError: (e) => toast.error(`Vacuum failed: ${e.message}`),
     });
 
@@ -99,7 +99,7 @@ export default function DiagnosticsSettings() {
         return <div className="text-red-400 py-6">Failed to load: {error.message}</div>;
     }
 
-    const d = data?.data || {};
+    const d = data || {};
     const fleet = d.fleet || {};
     const ifaces = d.interfaces || {};
     const nw = d.netwatch || {};
