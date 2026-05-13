@@ -251,11 +251,12 @@ export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
         return 'Unknown';
     };
 
-    // Determine if we should show the outage/warning reason section
+    // Determine if we should show the outage/warning reason section.
+    // ODP is passive — low-signal trigger from lingering ONU fields does not apply.
     const showReasonSection = !isUp ||
         (node.latency !== null && node.latency > 100) ||
         (node.packetLoss !== null && node.packetLoss > 0) ||
-        (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
+        (node.deviceType !== 'odp' && node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
     return (
         <div className="flex flex-col min-w-[240px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
@@ -581,11 +582,12 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
         return 'Unknown';
     };
 
-    // Determine if we should show the outage/warning reason section
+    // Determine if we should show the outage/warning reason section.
+    // ODP is passive — low-signal trigger from lingering ONU fields does not apply.
     const showReasonSection = !isUp ||
         (node.latency !== null && node.latency > 100) ||
         (node.packetLoss !== null && node.packetLoss > 0) ||
-        (node.lastRxPower && parseFloat(node.lastRxPower) < -24);
+        (node.deviceType !== 'odp' && node.lastRxPower && parseFloat(node.lastRxPower) < -24);
 
     return (
         <div className="flex flex-col min-w-[200px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden">
@@ -684,8 +686,11 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                     );
                 })()}
 
-                {/* Unified Linkage Metadata (Netwatch + ACS + OLT) */}
-                {(node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastRxPower) && (
+                {/* Unified Linkage Metadata (Netwatch + ACS + OLT) — ONU/Client only.
+                    ODP is a passive splitter; any lingering ONU fields on an ODP row
+                    (from a prior reclassification or shared data column) must not
+                    render or it looks like a broken ONU. */}
+                {node.deviceType !== 'odp' && (node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastRxPower) && (
                     <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
                         {node.model && (
                             <div className="flex items-center justify-between text-xs">
@@ -765,8 +770,9 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                         </span>
                     </div>
                 </div>
-                {/* Show Down Reason only if UP but suspicious (e.g. low signal). If Offline, Outage Section handles it below. */}
-                {isUp && (node.lastDownReason || ['lost', 'power_down', 'dying_gasp'].includes(status) || (node.lastRxPower && parseFloat(node.lastRxPower) < -27)) && (
+                {/* Show Down Reason only if UP but suspicious (e.g. low signal). If Offline, Outage Section handles it below.
+                    ODP is passive; "Power Down" / signal-based reasons do not apply. */}
+                {node.deviceType !== 'odp' && isUp && (node.lastDownReason || ['lost', 'power_down', 'dying_gasp'].includes(status) || (node.lastRxPower && parseFloat(node.lastRxPower) < -27)) && (
                     <div className="flex items-center justify-between text-xs">
                         <span className="text-slate-400">Status Detail</span>
                         <span className="text-amber-400 font-medium truncate max-w-[120px]" title={getDownReason(node)}>
