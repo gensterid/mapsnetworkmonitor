@@ -3,6 +3,7 @@ import { useSettings, useUpdateSetting } from '@/hooks';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import Toggle from '@/components/ui/Toggle';
 import { AlertTriangle, Cpu, HardDrive, Save, RefreshCw, Info } from 'lucide-react';
 
 // Default threshold values
@@ -139,15 +140,11 @@ export default function AlertSettingsPanel() {
                             <label className="text-sm font-medium text-white">Enable Alerts</label>
                             <p className="text-xs text-slate-500">Master toggle for all alert notifications</p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                checked={thresholds.alertsEnabled}
-                                onChange={(e) => handleChange('alertsEnabled', e.target.checked)}
-                                className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
+                        <Toggle
+                            checked={thresholds.alertsEnabled}
+                            onChange={(v) => handleChange('alertsEnabled', v)}
+                            ariaLabel="Enable alerts"
+                        />
                     </div>
 
                     {/* Alert Types */}
@@ -159,16 +156,12 @@ export default function AlertSettingsPanel() {
                                 <label className="text-sm text-slate-300">Status Change Alerts</label>
                                 <p className="text-xs text-slate-500">Alert when router goes online/offline</p>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={thresholds.statusChangeAlerts}
-                                    onChange={(e) => handleChange('statusChangeAlerts', e.target.checked)}
-                                    disabled={!thresholds.alertsEnabled}
-                                    className="sr-only peer"
-                                />
-                                <div className={`w-11 h-6 ${thresholds.alertsEnabled ? 'bg-slate-700' : 'bg-slate-800'} peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-disabled:opacity-50`}></div>
-                            </label>
+                            <Toggle
+                                checked={thresholds.statusChangeAlerts}
+                                onChange={(v) => handleChange('statusChangeAlerts', v)}
+                                disabled={!thresholds.alertsEnabled}
+                                ariaLabel="Status change alerts"
+                            />
                         </div>
 
                         <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
@@ -176,16 +169,12 @@ export default function AlertSettingsPanel() {
                                 <label className="text-sm text-slate-300">High CPU Alerts</label>
                                 <p className="text-xs text-slate-500">Alert when CPU exceeds threshold</p>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={thresholds.highCpuAlerts}
-                                    onChange={(e) => handleChange('highCpuAlerts', e.target.checked)}
-                                    disabled={!thresholds.alertsEnabled}
-                                    className="sr-only peer"
-                                />
-                                <div className={`w-11 h-6 ${thresholds.alertsEnabled ? 'bg-slate-700' : 'bg-slate-800'} peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-disabled:opacity-50`}></div>
-                            </label>
+                            <Toggle
+                                checked={thresholds.highCpuAlerts}
+                                onChange={(v) => handleChange('highCpuAlerts', v)}
+                                disabled={!thresholds.alertsEnabled}
+                                ariaLabel="High CPU alerts"
+                            />
                         </div>
 
                         <div className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
@@ -193,16 +182,12 @@ export default function AlertSettingsPanel() {
                                 <label className="text-sm text-slate-300">High Memory Alerts</label>
                                 <p className="text-xs text-slate-500">Alert when memory exceeds threshold</p>
                             </div>
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={thresholds.highMemoryAlerts}
-                                    onChange={(e) => handleChange('highMemoryAlerts', e.target.checked)}
-                                    disabled={!thresholds.alertsEnabled}
-                                    className="sr-only peer"
-                                />
-                                <div className={`w-11 h-6 ${thresholds.alertsEnabled ? 'bg-slate-700' : 'bg-slate-800'} peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary peer-disabled:opacity-50`}></div>
-                            </label>
+                            <Toggle
+                                checked={thresholds.highMemoryAlerts}
+                                onChange={(v) => handleChange('highMemoryAlerts', v)}
+                                disabled={!thresholds.alertsEnabled}
+                                ariaLabel="High memory alerts"
+                            />
                         </div>
                     </div>
                 </CardContent>

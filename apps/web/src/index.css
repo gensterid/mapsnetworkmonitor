@@ -56,6 +56,11 @@
     --slate-surface: #1E293B;
     --slate-border: #334155;
 
+    /* Toggle (Switch) — overridden per theme where the default would render
+       low-contrast. White thumb works against every non-white --primary. */
+    --toggle-thumb: #ffffff;
+    --toggle-off-bg: #334155;
+
     /* Device Colors Base */
     --color-orange: #F97316;
     --color-purple: #A855F7;
@@ -152,6 +157,11 @@
     --slate-border: #333333;
     /* Thin borders */
 
+    /* Black thumb because --primary is white — a white thumb would vanish
+       against the white track in the ON state. */
+    --toggle-thumb: #000000;
+    --toggle-off-bg: #1f1f1f;
+
     /* Font override for data numbers */
     --font-display: "Roboto Mono", monospace;
 }
@@ -193,6 +203,10 @@
     --slate-surface: #FFFFFF;
     --slate-border: #CBD5E1;
     /* Light Grey Border */
+
+    /* Light theme: lighter OFF track so it isn't a dark blob on white card */
+    --toggle-thumb: #ffffff;
+    --toggle-off-bg: #94a3b8;
 }
 
 @theme {

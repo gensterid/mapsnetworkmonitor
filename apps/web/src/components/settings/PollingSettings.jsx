@@ -3,6 +3,11 @@ import { Clock, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import Toggle from '@/components/ui/Toggle';
+
+// Adapt Toggle's (boolean) onChange into the synthetic-event shape that
+// PollingSettings' handleChange expects.
+const toEvent = (name, checked) => ({ target: { name, type: 'checkbox', checked, value: checked } });
 
 const SettingSection = ({ title, description, children }) => (
     <div className="p-4 bg-slate-900/50 rounded-lg border border-slate-800">
@@ -61,16 +66,11 @@ export default function PollingSettings({ formData, handleChange, handleSubmit, 
                         description="Cek status OLT Hidup/Mati. Sangat ringan."
                     >
                         <div className="flex items-center gap-4">
-                            <label className="relative inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    name="olt_sync_enabled"
-                                    checked={formData.olt_sync_enabled}
-                                    onChange={handleChange}
-                                    className="sr-only peer"
-                                />
-                                <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                            </label>
+                            <Toggle
+                                checked={formData.olt_sync_enabled}
+                                onChange={(v) => handleChange(toEvent('olt_sync_enabled', v))}
+                                ariaLabel="OLT fast polling enabled"
+                            />
                             <div className="flex-1">
                                 <Input
                                     type="number"
@@ -114,16 +114,11 @@ export default function PollingSettings({ formData, handleChange, handleSubmit, 
                     >
                         <div className="space-y-4">
                             <div className="flex items-center gap-4">
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        name="genieacs_enabled"
-                                        checked={formData.genieacs_enabled}
-                                        onChange={handleChange}
-                                        className="sr-only peer"
-                                    />
-                                    <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                </label>
+                                <Toggle
+                                    checked={formData.genieacs_enabled}
+                                    onChange={(v) => handleChange(toEvent('genieacs_enabled', v))}
+                                    ariaLabel="GenieACS service enabled"
+                                />
                                 <span className="text-sm font-medium text-slate-300">
                                     {formData.genieacs_enabled ? 'Service Active' : 'Service Disabled'}
                                 </span>
@@ -158,16 +153,11 @@ export default function PollingSettings({ formData, handleChange, handleSubmit, 
                         <div className="space-y-4 opacity-100 disabled:opacity-50">
                             <fieldset disabled={!formData.genieacs_enabled} className="space-y-4">
                                 <div className="flex items-center gap-4">
-                                    <label className="relative inline-flex items-center cursor-pointer">
-                                        <input
-                                            type="checkbox"
-                                            name="genieacs_global_enabled"
-                                            checked={formData.genieacs_global_enabled}
-                                            onChange={handleChange}
-                                            className="sr-only peer"
-                                        />
-                                        <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                    </label>
+                                    <Toggle
+                                        checked={formData.genieacs_global_enabled}
+                                        onChange={(v) => handleChange(toEvent('genieacs_global_enabled', v))}
+                                        ariaLabel="Global GenieACS fallback enabled"
+                                    />
                                     <span className="text-sm text-slate-300">Enable Global Fallback Server</span>
                                 </div>
 
@@ -175,16 +165,12 @@ export default function PollingSettings({ formData, handleChange, handleSubmit, 
                                     <div className="space-y-4 pt-2">
                                         <div className="flex items-center justify-between p-3 bg-slate-800/50 rounded-lg border border-slate-700">
                                             <span className="text-xs font-medium text-slate-300">Auto Polling (Fallback Scheduler)</span>
-                                            <label className="relative inline-flex items-center cursor-pointer scale-75 origin-right">
-                                                <input
-                                                    type="checkbox"
-                                                    name="acs_sync_enabled"
-                                                    checked={formData.acs_sync_enabled}
-                                                    onChange={handleChange}
-                                                    className="sr-only peer"
-                                                />
-                                                <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                            </label>
+                                            <Toggle
+                                                checked={formData.acs_sync_enabled}
+                                                onChange={(v) => handleChange(toEvent('acs_sync_enabled', v))}
+                                                ariaLabel="ACS fallback auto polling"
+                                                className="scale-75 origin-right"
+                                            />
                                         </div>
 
                                         <div className="space-y-4 p-4 bg-slate-800/20 rounded-lg border border-slate-800/50">
