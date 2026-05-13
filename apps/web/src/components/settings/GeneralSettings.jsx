@@ -3,6 +3,9 @@ import { Palette, Settings as SettingsIcon, Clock, Globe, Bell, RefreshCw, Activ
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import Toggle from '@/components/ui/Toggle';
+
+const toEvent = (name, checked) => ({ target: { name, type: 'checkbox', checked, value: checked } });
 
 export default function GeneralSettings({
     formData,
@@ -212,16 +215,11 @@ export default function GeneralSettings({
                             <label className="text-sm font-medium text-slate-300">Email Alerts</label>
                             <p className="text-xs text-slate-500">Receive alerts via email</p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="alertEmailEnabled"
-                                checked={formData.alertEmailEnabled}
-                                onChange={handleChange}
-                                className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
+                        <Toggle
+                            checked={formData.alertEmailEnabled}
+                            onChange={(v) => handleChange(toEvent('alertEmailEnabled', v))}
+                            ariaLabel="Email alerts"
+                        />
                     </div>
                     {formData.alertEmailEnabled && (
                         <div className="space-y-2">

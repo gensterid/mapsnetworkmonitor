@@ -3,6 +3,9 @@ import { Sparkles, Info, Save } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
+import Toggle from '@/components/ui/Toggle';
+
+const toEvent = (name, checked) => ({ target: { name, type: 'checkbox', checked, value: checked } });
 
 export default function AISettings({ formData, handleChange, handleSubmit, updateUserMutation, saveStatus }) {
     return (
@@ -41,16 +44,11 @@ export default function AISettings({ formData, handleChange, handleSubmit, updat
                             <label className="text-sm font-medium text-slate-200">Aktifkan AI Intelligence</label>
                             <p className="text-xs text-slate-500">Gunakan AI untuk rangkuman dan analisis</p>
                         </div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="aiEnabled"
-                                checked={formData.aiEnabled}
-                                onChange={handleChange}
-                                className="sr-only peer"
-                            />
-                            <div className="w-11 h-6 bg-slate-700 peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
+                        <Toggle
+                            checked={formData.aiEnabled}
+                            onChange={(v) => handleChange(toEvent('aiEnabled', v))}
+                            ariaLabel="Aktifkan AI Intelligence"
+                        />
                     </div>
 
                     {formData.aiEnabled && (

@@ -6,7 +6,10 @@ import toast from 'react-hot-toast';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
 import { Input } from '@/components/ui/Input';
+import Toggle from '@/components/ui/Toggle';
 import clsx from 'clsx';
+
+const toEvent = (name, checked) => ({ target: { name, type: 'checkbox', checked, value: checked } });
 
 // Router Form Modal (for Add and Edit)
 export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
@@ -314,16 +317,12 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 <div className="pt-2 border-t border-slate-700/50">
                     <div className="flex items-center justify-between mb-3">
                         <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">Monitoring Webhooks</div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="useWebhook"
-                                checked={formData.useWebhook}
-                                onChange={handleChange}
-                                className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
+                        <Toggle
+                            checked={formData.useWebhook}
+                            onChange={(v) => handleChange(toEvent('useWebhook', v))}
+                            ariaLabel="Monitoring webhooks"
+                            size="sm"
+                        />
                     </div>
 
                     {formData.useWebhook && (
@@ -351,16 +350,12 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
 
                     <div className="flex items-center justify-between mb-3">
                         <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">GenieACS Integration</div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="useGenieAcs"
-                                checked={formData.useGenieAcs}
-                                onChange={(e) => setFormData(prev => ({ ...prev, useGenieAcs: e.target.checked }))}
-                                className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
+                        <Toggle
+                            checked={formData.useGenieAcs}
+                            onChange={(v) => setFormData(prev => ({ ...prev, useGenieAcs: v }))}
+                            ariaLabel="GenieACS integration"
+                            size="sm"
+                        />
                     </div>
 
                     {formData.useGenieAcs && (
@@ -437,16 +432,12 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                 <div className="pt-2 border-t border-slate-700/50">
                     <div className="flex items-center justify-between mb-3">
                         <div className="text-xs font-bold text-slate-500 uppercase tracking-wide">SNMP Configuration (Live Traffic)</div>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                            <input
-                                type="checkbox"
-                                name="useSnmp"
-                                checked={formData.useSnmp}
-                                onChange={(e) => setFormData(prev => ({ ...prev, useSnmp: e.target.checked }))}
-                                className="sr-only peer"
-                            />
-                            <div className="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
+                        <Toggle
+                            checked={formData.useSnmp}
+                            onChange={(v) => setFormData(prev => ({ ...prev, useSnmp: v }))}
+                            ariaLabel="SNMP configuration"
+                            size="sm"
+                        />
                     </div>
 
                     {formData.useSnmp && (
