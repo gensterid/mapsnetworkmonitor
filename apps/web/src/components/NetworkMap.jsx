@@ -436,11 +436,20 @@ const NetworkMap = ({
         onMutate: async ({ netwatchId, data }) => {
             await queryClient.cancelQueries({ queryKey: ['netwatch-all'] });
             const previousData = queryClient.getQueryData(['netwatch-all']);
+            // The netwatch-all query returns groups of { routerId, entries: [...] }.
+            // We must reach into entries to update the right row — the previous
+            // flat-array .map() never matched anything, so the marker stayed put
+            // until the onSuccess refetch landed.
             queryClient.setQueryData(['netwatch-all'], (old) => {
                 if (!old || !Array.isArray(old)) return old;
-                return old.map(item =>
-                    item.id === netwatchId ? { ...item, ...data } : item
-                );
+                return old.map(group => ({
+                    ...group,
+                    entries: Array.isArray(group?.entries)
+                        ? group.entries.map(entry =>
+                            entry.id === netwatchId ? { ...entry, ...data } : entry
+                        )
+                        : group?.entries,
+                }));
             });
             return { previousData };
         },
