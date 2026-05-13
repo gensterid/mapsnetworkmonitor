@@ -11,7 +11,7 @@ function Tabs({ tabs, activeTab, onTabChange }) {
                     className={clsx(
                         "flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors",
                         activeTab === tab.id
-                            ? "bg-primary text-white"
+                            ? "bg-primary text-[var(--on-primary)]"
                             : "text-slate-400 hover:text-white hover:bg-slate-700/50"
                     )}
                 >

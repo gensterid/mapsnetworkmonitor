@@ -122,7 +122,7 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
                                     onClick={() => setPeriod(p.value)}
                                     className={clsx(
                                         'px-3 py-1 text-xs rounded transition-colors',
-                                        period === p.value ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'
+                                        period === p.value ? 'bg-primary text-[var(--on-primary)]' : 'text-slate-400 hover:text-white'
                                     )}
                                 >
                                     {p.label}
@@ -278,7 +278,7 @@ function BandwidthTab({ routerId }) {
                                     onClick={() => setPeriod(p.value)}
                                     className={clsx(
                                         'px-2.5 py-1 text-xs rounded transition-colors',
-                                        period === p.value ? 'bg-primary text-white' : 'text-slate-400 hover:text-white'
+                                        period === p.value ? 'bg-primary text-[var(--on-primary)]' : 'text-slate-400 hover:text-white'
                                     )}
                                 >
                                     {p.label}

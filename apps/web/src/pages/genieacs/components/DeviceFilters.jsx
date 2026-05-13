@@ -21,7 +21,7 @@ export default function DeviceFilters({
               onClick={() => setStatusFilter(s)}
               className={clsx(
                 "px-3 py-1 text-[10px] font-bold rounded-md transition-all capitalize",
-                statusFilter === s ? "bg-primary text-white shadow-lg shadow-primary/20" : "text-slate-500 hover:text-slate-300"
+                statusFilter === s ? "bg-primary text-[var(--on-primary)] shadow-lg shadow-primary/20" : "text-slate-500 hover:text-slate-300"
               )}
             >
               {s}

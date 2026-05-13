@@ -260,13 +260,13 @@ export default function GenieACS() {
                         <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1 ml-auto sm:ml-0">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
+                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white")}
                             >
                                 <LayoutGrid className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white")}
+                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white")}
                             >
                                 <List className="w-4 h-4" />
                             </button>

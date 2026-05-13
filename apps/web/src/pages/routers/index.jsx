@@ -129,7 +129,7 @@ export default function Routers() {
                                 }}
                                 className={clsx(
                                     "p-1.5 rounded-md transition-colors",
-                                    viewMode === 'grid' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                                    viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white"
                                 )}
                                 title="Grid View"
                             >
@@ -142,7 +142,7 @@ export default function Routers() {
                                 }}
                                 className={clsx(
                                     "p-1.5 rounded-md transition-colors",
-                                    viewMode === 'list' ? "bg-primary text-white" : "text-slate-400 hover:text-white"
+                                    viewMode === 'list' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white"
                                 )}
                                 title="List View"
                             >

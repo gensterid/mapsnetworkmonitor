@@ -68,7 +68,7 @@ function DateRangePicker({ value, onChange }) {
                                     className={clsx(
                                         "flex-1 px-3 py-2 rounded-lg text-sm transition-colors focus:ring-2 focus:ring-primary/50 outline-none",
                                         value.label === preset.label
-                                            ? "bg-primary text-white"
+                                            ? "bg-primary text-[var(--on-primary)]"
                                             : "bg-slate-700 text-slate-300 hover:bg-slate-600"
                                     )}
                                     aria-current={value.label === preset.label ? 'true' : 'false'}

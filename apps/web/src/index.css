@@ -61,6 +61,10 @@
     --toggle-thumb: #ffffff;
     --toggle-off-bg: #334155;
 
+    /* Contrast color for text/icons rendered on top of bg-primary. Overridden
+       in themes where --primary is white (text-white would disappear). */
+    --on-primary: #ffffff;
+
     /* Device Colors Base */
     --color-orange: #F97316;
     --color-purple: #A855F7;
@@ -161,6 +165,9 @@
        against the white track in the ON state. */
     --toggle-thumb: #000000;
     --toggle-off-bg: #1f1f1f;
+
+    /* Tabs / buttons / chips rendered on a white --primary need black text. */
+    --on-primary: #000000;
 
     /* Font override for data numbers */
     --font-display: "Roboto Mono", monospace;

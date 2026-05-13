@@ -544,7 +544,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                                         className={clsx(
                                             "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
                                             bindPorts.includes(port)
-                                                ? "bg-primary border-primary text-white"
+                                                ? "bg-primary border-primary text-[var(--on-primary)]"
                                                 : "bg-slate-900 border-slate-800 text-slate-500"
                                         )}
                                     >
@@ -568,7 +568,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                                         className={clsx(
                                             "px-3 py-1.5 rounded-lg text-xs font-bold border transition-all",
                                             bindPorts.includes(port)
-                                                ? "bg-primary border-primary text-white"
+                                                ? "bg-primary border-primary text-[var(--on-primary)]"
                                                 : "bg-slate-900 border-slate-800 text-slate-500"
                                         )}
                                     >
@@ -694,7 +694,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                                                                         onClick={() => handleEditWan(conn)}
                                                                         className={clsx(
                                                                             "p-1.5 rounded transition-all",
-                                                                            isEditing ? "bg-primary text-white" : "hover:bg-slate-800 text-blue-400"
+                                                                            isEditing ? "bg-primary text-[var(--on-primary)]" : "hover:bg-slate-800 text-blue-400"
                                                                         )}
                                                                         title="Edit Connection"
                                                                     >

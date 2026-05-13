@@ -194,7 +194,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                             className={clsx(
                                 "px-6 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all duration-300",
                                 timeframe === t 
-                                    ? "bg-primary text-white shadow-[0_0_15px_rgba(59,130,246,0.5)]" 
+                                    ? "bg-primary text-[var(--on-primary)] shadow-[0_0_15px_rgba(59,130,246,0.5)]"
                                     : "text-slate-600 hover:text-slate-300"
                             )}
                         >
@@ -439,7 +439,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                     className={clsx(
                                         "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap",
                                         category === cat.id
-                                            ? "bg-primary text-white shadow-lg shadow-primary/20"
+                                            ? "bg-primary text-[var(--on-primary)] shadow-lg shadow-primary/20"
                                             : "bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
                                     )}
                                 >
