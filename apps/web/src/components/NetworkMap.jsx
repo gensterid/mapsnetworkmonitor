@@ -1340,7 +1340,22 @@ const NetworkMap = ({
                     onDragEnd={(pos) => {
                         const payload = { latitude: String(pos[0]), longitude: String(pos[1]) };
 
-                        // 1. Update specifically as ONU if it's passive OR linked
+                        // ODP is a physical splitter that happens to be linked to an ONU
+                        // (for source-of-truth purposes). Moving the ODP marker should
+                        // only relocate the ODP itself — the linked ONU stays where the
+                        // technician installed it. Same for any non-ONU netwatch entry.
+                        if (node.deviceType === 'odp' || node.deviceType === 'client' || node.deviceType === 'pppoe') {
+                            updateNetwatchMutation.mutate({
+                                routerId: node.routerId,
+                                netwatchId: node.id,
+                                data: payload
+                            });
+                            return;
+                        }
+
+                        // Genuine ONU (passive=true OR deviceType='onu') — move the ONU
+                        // record. If a netwatch entry mirrors it via linkedOnuId, that
+                        // entry's coords are derived at read time so no second write needed.
                         if (node.isPassive || node.deviceType === 'onu' || node.linkedOnuId) {
                             const onuId = node.linkedOnuId || node.id;
                             const oltId = node.oltId;
@@ -1356,8 +1371,8 @@ const NetworkMap = ({
                             }
                         }
 
-                        // 2. Update as Netwatch if it's NOT purely passive
-                        if (!node.isPassive) {
+                        // Fallback for any other non-passive netwatch row.
+                        if (!node.isPassive && node.deviceType !== 'onu') {
                             updateNetwatchMutation.mutate({
                                 routerId: node.routerId,
                                 netwatchId: node.id,
