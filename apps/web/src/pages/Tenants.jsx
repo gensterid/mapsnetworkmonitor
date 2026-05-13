@@ -206,7 +206,7 @@ const Tenants = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                    <div className="bg-slate-900 border border-slate-700/50 rounded-3xl w-full max-w-md overflow-hidden relative shadow-2xl animate-in zoom-in-95 duration-300">
+                    <div className="bg-slate-900 border border-slate-700/50 rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto relative shadow-2xl animate-in zoom-in-95 duration-300">
                         <div className="p-6 border-b border-slate-800/80 bg-slate-800/20">
                             <h3 className="text-xl font-bold text-white flex items-center gap-3">
                                 <Layout className="w-5 h-5 text-primary" />

@@ -118,7 +118,7 @@ function OnuListModal({ isOpen, onClose, olt }) {
                 ) : null}
 
                 {onus && Array.isArray(onus) && onus.length > 0 && typeof onus[0] === 'string' && (
-                    <div className="bg-gray-900 text-gray-100 p-4 rounded-md font-mono text-xs overflow-auto max-h-[500px] whitespace-pre">
+                    <div className="bg-gray-900 text-gray-100 p-3 sm:p-4 rounded-md font-mono text-[10px] sm:text-xs overflow-auto max-h-[60vh] sm:max-h-[500px] whitespace-pre">
                         {onus.join('\n')}
                     </div>
                 ) || null}

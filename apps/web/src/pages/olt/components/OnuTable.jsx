@@ -111,15 +111,15 @@ export default function OnuTable({
                     <table className="w-full border-collapse">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-slate-800">
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">PON / ID</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">SN / Alias</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">MAC Address</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Note</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Status / Reason</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Last Activity</th>
-                                <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Signal</th>
-                                <th className="px-4 py-4 text-left text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Location</th>
-                                <th className="px-4 py-4 text-right text-[10px] font-bold text-slate-400 uppercase tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Actions</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">PON / ID</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">SN / Alias</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">MAC Address</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Note</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Status / Reason</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Last Activity</th>
+                                <th className="px-4 py-4 text-right text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Signal</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Location</th>
+                                <th className="px-4 py-4 text-right text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">

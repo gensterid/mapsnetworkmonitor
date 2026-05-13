@@ -287,7 +287,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                 {isSuperAdmin && (
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-slate-300">Additional ISP Access</label>
-                        <div className="grid grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
                             {tenants.map(t => (
                                 <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
                                     <input
@@ -454,7 +454,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         <label className="block text-sm font-medium text-slate-300">
                             Additional ISP Access
                         </label>
-                        <div className="grid grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
                             {tenants.map(t => (
                                 <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
                                     <input

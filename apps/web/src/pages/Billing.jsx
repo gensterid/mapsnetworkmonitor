@@ -1290,7 +1290,7 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
                 </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
                     <div className="text-slate-500 uppercase text-[10px]">Status</div>
                     <div className={status?.present ? 'text-emerald-400 font-semibold' : 'text-slate-500'}>
@@ -1362,7 +1362,7 @@ function IsolirFirewallSetup({ routerId }) {
                 </button>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <FwBadge label="Address List" ok={status?.addressListPresent} />
                 <FwBadge label="NAT Redirect" ok={status?.natRedirectPresent} />
                 <FwBadge label="Walled Garden" ok={status?.walledGardenPresent} />

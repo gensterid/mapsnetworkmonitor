@@ -215,7 +215,7 @@ export default function GenieACS() {
                             <select
                                 value={selectedRouterId}
                                 onChange={(e) => setSelectedRouterId(e.target.value)}
-                                className="bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer max-w-[160px] sm:max-w-none"
+                                className="bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto sm:max-w-none"
                             >
                                 {isAdmin && <option value="">Global ACS View</option>}
                                 {acsEnabledRouters.map(router => (
