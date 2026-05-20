@@ -632,7 +632,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                             >
                                 <span className="material-symbols-outlined text-[16px]">edit</span>
                             </button>
-                            {onArchive && (node.oltId || node.linkedOnuId) && (
+                            {onArchive && (node.oltId || node.linkedOnuId || (node.routerId && node.deviceType !== 'router')) && (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -640,7 +640,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                                         onArchive(node);
                                     }}
                                     className="w-6 h-6 flex items-center justify-center bg-orange-500/30 hover:bg-orange-500/60 rounded transition-colors text-white"
-                                    title="Hapus dari aplikasi (ONU yang sudah dihapus di OLT)"
+                                    title="Hapus dari aplikasi (pilih: ONU saja / netwatch saja / semua)"
                                 >
                                     <span className="material-symbols-outlined text-[16px]">delete</span>
                                 </button>

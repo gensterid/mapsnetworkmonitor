@@ -51,6 +51,7 @@ import {
     MapLegend,
     MapControls,
     DeviceModal,
+    DeleteDeviceDialog,
     createDeviceIcon,
     LineThicknessControl,
     RouterTooltip,
@@ -486,13 +487,32 @@ const NetworkMap = ({
             const res = await apiClient.delete(`/routers/${routerId}/netwatch/${netwatchId}?deleteFromMikrotik=${deleteFromMikrotik}`);
             return res.data;
         },
+        onMutate: async ({ netwatchId }) => {
+            // Optimistically strip the entry from nested groups so the marker
+            // disappears the moment the user confirms — without this the
+            // marker lingers until the onSuccess refetch lands (or worse,
+            // never disappears if cache key drifts).
+            await queryClient.cancelQueries({ queryKey: ['netwatch-all'] });
+            const prev = queryClient.getQueryData(['netwatch-all']);
+            queryClient.setQueryData(['netwatch-all'], (old) => {
+                if (!Array.isArray(old)) return old;
+                return old.map(group => ({
+                    ...group,
+                    entries: Array.isArray(group?.entries)
+                        ? group.entries.filter(e => e.id !== netwatchId)
+                        : group?.entries,
+                }));
+            });
+            return { prev };
+        },
+        onError: (err, _vars, ctx) => {
+            if (ctx?.prev) queryClient.setQueryData(['netwatch-all'], ctx.prev);
+            console.error('Delete failed:', err);
+            toast.error(`Gagal hapus netwatch: ${err.response?.data?.message || err.message}`);
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
-            toast.success('Device has been removed.');
-        },
-        onError: (err) => {
-            console.error('Delete failed:', err);
-            toast.error(`Failed to Delete Device: ${err.response?.data?.message || err.message}`);
+            toast.success('Netwatch dihapus dari aplikasi.');
         },
     });
 
@@ -529,30 +549,57 @@ const NetworkMap = ({
             const res = await apiClient.post(`/olts/${oltId}/onus/${onuId}/archive`);
             return res.data;
         },
+        onMutate: async ({ onuId }) => {
+            await queryClient.cancelQueries({ queryKey: ['onus-map'] });
+            const prev = queryClient.getQueryData(['onus-map']);
+            queryClient.setQueryData(['onus-map'], (old) =>
+                Array.isArray(old) ? old.filter(o => o.id !== onuId) : old
+            );
+            return { prev };
+        },
+        onError: (err, _vars, ctx) => {
+            if (ctx?.prev) queryClient.setQueryData(['onus-map'], ctx.prev);
+            toast.error(err.response?.data?.error || 'Gagal menghapus ONU');
+        },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['onus-map'] });
-            toast.success('ONU dihapus dari aplikasi');
-        },
-        onError: (err) => {
-            toast.error(err.response?.data?.error || 'Gagal menghapus ONU');
+            toast.success('ONU dihapus dari aplikasi.');
         },
     });
 
+    // 3-option delete dialog state. Replaces the previous window.confirm flow
+    // that always archived ONU — paired ODP/Netwatch markers wouldn't disappear
+    // because their netwatch row was never touched.
+    const [deleteDialog, setDeleteDialog] = useState({ isOpen: false, node: null });
+
     const handleArchiveOnu = useCallback((node) => {
-        const onuId = node.linkedOnuId || node.id;
-        const oltId = node.oltId;
-        if (!onuId || !oltId) {
-            toast.error('Node ini bukan ONU yang bisa dihapus');
-            return;
+        if (!node) return;
+        setDeleteDialog({ isOpen: true, node });
+    }, []);
+
+    const handleDeleteConfirmed = useCallback(({ mode, node }) => {
+        if (!node) return;
+        const wantsOnu = mode === 'onu' || mode === 'both';
+        const wantsNetwatch = mode === 'netwatch' || mode === 'both';
+
+        if (wantsOnu) {
+            const onuId = node.linkedOnuId || (node.deviceType === 'onu' ? node.id : null);
+            const oltId = node.oltId;
+            if (onuId && oltId) {
+                archiveOnuMutation.mutate({ oltId, onuId });
+            } else if (mode === 'onu') {
+                toast.error('Tidak ada ONU yang ter-link ke node ini.');
+            }
         }
-        const confirmed = window.confirm(
-            `Hapus "${node.name || node.host || onuId}" dari aplikasi?\n\n` +
-            `ONU akan disembunyikan dari peta. Data koordinat tetap tersimpan dan akan otomatis kembali jika ONU muncul lagi di polling OLT. ` +
-            `Setelah 60 hari tidak muncul, data akan dihapus permanen.`
-        );
-        if (!confirmed) return;
-        archiveOnuMutation.mutate({ oltId, onuId });
-    }, [archiveOnuMutation]);
+        if (wantsNetwatch) {
+            if (node.routerId && node.id && node.deviceType !== 'onu') {
+                deleteNetwatchMutation.mutate({ routerId: node.routerId, netwatchId: node.id });
+            } else if (mode === 'netwatch') {
+                toast.error('Node ini bukan netwatch entry.');
+            }
+        }
+        setDeleteDialog({ isOpen: false, node: null });
+    }, [archiveOnuMutation, deleteNetwatchMutation]);
 
     // Mutation for updating ONU coordinates (Passive Nodes)
     const updateOnuMutation = useMutation({
@@ -1853,6 +1900,14 @@ const NetworkMap = ({
                             />
                         </>
                     )}
+
+                    {/* Trash confirmation — 3 options (ONU only / Netwatch only / Both) */}
+                    <DeleteDeviceDialog
+                        isOpen={deleteDialog.isOpen}
+                        node={deleteDialog.node}
+                        onClose={() => setDeleteDialog({ isOpen: false, node: null })}
+                        onConfirm={handleDeleteConfirmed}
+                    />
 
                     {/* Device Modal */}
                     <DeviceModal
