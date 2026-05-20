@@ -147,10 +147,16 @@ const DeviceModal = ({
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value,
-        }));
+        setFormData(prev => {
+            const next = { ...prev, [name]: value };
+            // Switching the device type to ODP must clear any previously-picked
+            // ONU link — the UI hides the field for ODP, and we don't want a
+            // stale linkedOnuId to be persisted on save.
+            if (name === 'type' && value === 'odp' && prev.linkedOnuId) {
+                next.linkedOnuId = '';
+            }
+            return next;
+        });
     };
 
     const handleSubmit = (e) => {
@@ -547,27 +553,30 @@ const DeviceModal = ({
                                         />
                                     </div>
 
-                                    {/* Link to ONU (Manual) */}
-                                    <div className="device-modal__field" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 16, paddingTop: 16 }}>
-                                        <label className="device-modal__label">
-                                            Link to OLT ONU (Manual)
-                                            <span style={{ marginLeft: 6, fontSize: 10, color: '#64748b', fontWeight: 400 }}>
-                                                Optional fallback for passive devices
-                                            </span>
-                                        </label>
-                                        <SearchableSelect
-                                            name="linkedOnuId"
-                                            options={(Array.isArray(availableOnus) ? availableOnus : []).map(onu => ({
-                                                value: onu.id,
-                                                label: `${onu.name || 'Unnamed ONU'} [SN: ${onu.sn}]`
-                                            }))}
-                                            value={formData.linkedOnuId}
-                                            onChange={handleChange}
-                                            placeholder={isLoadingOnus ? "Loading ONUs..." : "Select ONU to link..."}
-                                            disabled={isSaving || isLoadingOnus}
-                                        />
-                                        {isLoadingOnus && <div className="text-[10px] text-blue-400 mt-1">Fetching ONUs from OLTs...</div>}
-                                    </div>
+                                    {/* Link to ONU (Manual) — ODP is a passive splitter, not a CPE,
+                                        so linking it to a specific ONU does not apply. */}
+                                    {formData.type !== 'odp' && (
+                                        <div className="device-modal__field" style={{ borderTop: '1px solid rgba(255,255,255,0.05)', marginTop: 16, paddingTop: 16 }}>
+                                            <label className="device-modal__label">
+                                                Link to OLT ONU (Manual)
+                                                <span style={{ marginLeft: 6, fontSize: 10, color: '#64748b', fontWeight: 400 }}>
+                                                    Optional fallback for passive devices
+                                                </span>
+                                            </label>
+                                            <SearchableSelect
+                                                name="linkedOnuId"
+                                                options={(Array.isArray(availableOnus) ? availableOnus : []).map(onu => ({
+                                                    value: onu.id,
+                                                    label: `${onu.name || 'Unnamed ONU'} [SN: ${onu.sn}]`
+                                                }))}
+                                                value={formData.linkedOnuId}
+                                                onChange={handleChange}
+                                                placeholder={isLoadingOnus ? "Loading ONUs..." : "Select ONU to link..."}
+                                                disabled={isSaving || isLoadingOnus}
+                                            />
+                                            {isLoadingOnus && <div className="text-[10px] text-blue-400 mt-1">Fetching ONUs from OLTs...</div>}
+                                        </div>
+                                    )}
                                 </>
                             )}
 
