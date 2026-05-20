@@ -37,8 +37,13 @@ export class NetwatchRepository {
             return await tx
                 .select({
                     ...getTableColumns(routerNetwatch),
-                    latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
-                    longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
+                    // Prefer the netwatch row's own latitude/longitude when set —
+                    // that is what the user edits when dragging the marker via
+                    // PUT /api/routers/:id/netwatch/:netwatchId. The ONU coord
+                    // is only used as a fallback for entries that don't yet
+                    // have their own placement (e.g. freshly discovered).
+                    latitude: sql<string>`COALESCE(${routerNetwatch.latitude}, ${onus.latitude})`.as('latitude'),
+                    longitude: sql<string>`COALESCE(${routerNetwatch.longitude}, ${onus.longitude})`.as('longitude'),
                     model: onus.model,
                     ssid: onus.ssid,
                     firmwareVersion: onus.firmwareVersion,
@@ -106,8 +111,13 @@ export class NetwatchRepository {
             return await tx
                 .select({
                     ...getTableColumns(routerNetwatch),
-                    latitude: sql<string>`COALESCE(${onus.latitude}, ${routerNetwatch.latitude})`.as('latitude'),
-                    longitude: sql<string>`COALESCE(${onus.longitude}, ${routerNetwatch.longitude})`.as('longitude'),
+                    // Prefer the netwatch row's own latitude/longitude when set —
+                    // that is what the user edits when dragging the marker via
+                    // PUT /api/routers/:id/netwatch/:netwatchId. The ONU coord
+                    // is only used as a fallback for entries that don't yet
+                    // have their own placement (e.g. freshly discovered).
+                    latitude: sql<string>`COALESCE(${routerNetwatch.latitude}, ${onus.latitude})`.as('latitude'),
+                    longitude: sql<string>`COALESCE(${routerNetwatch.longitude}, ${onus.longitude})`.as('longitude'),
                     model: onus.model,
                     ssid: onus.ssid,
                     firmwareVersion: onus.firmwareVersion,
