@@ -33,17 +33,33 @@ const MotionPathRenderer = ({
             return;
         }
 
+        // Track mount state — Throttled may schedule a trailing call that fires
+        // after unmount, by which point the leaflet layer has been removed and
+        // its internal _map is null. Touching getBounds() then throws
+        // 'Cannot read properties of null (reading layerPointToContainerPoint)'.
+        let mounted = true;
+
         const checkVisibility = Throttled(() => {
-            if (!polylineRef.current) return;
-            const bounds = polylineRef.current.getBounds();
-            const mapBounds = map.getBounds();
-            setIsVisible(mapBounds.intersects(bounds));
+            if (!mounted) return;
+            const layer = polylineRef.current;
+            // Leaflet layer is only usable while it's still attached to a map.
+            // After removal the internal _map is wiped before our ref clears.
+            if (!layer || !layer._map || !map._container) return;
+            try {
+                const bounds = layer.getBounds();
+                const mapBounds = map.getBounds();
+                setIsVisible(mapBounds.intersects(bounds));
+            } catch {
+                // Leaflet can still throw during teardown even with the guards
+                // above (e.g. partial projection state). Silently swallow.
+            }
         }, 500);
 
         map.on('moveend zoomend', checkVisibility);
         checkVisibility();
 
         return () => {
+            mounted = false;
             map.off('moveend zoomend', checkVisibility);
         };
     }, [map, lowPerfMode]);
