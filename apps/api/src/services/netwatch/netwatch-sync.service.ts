@@ -144,7 +144,32 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
             }
 
             if (upsertData.length > 0) {
-                await netwatchRepository.upsertBatch(upsertData, transaction);
+                // Deduplicate by (routerId, host) before passing to upsertBatch.
+                // RouterOS can legitimately have two /tool netwatch entries with
+                // the same host (e.g. one named, one default) — and the upsert
+                // statement uses (router_id, host) as the ON CONFLICT target, so
+                // a duplicate in the same batch triggers
+                //   'ON CONFLICT DO UPDATE command cannot affect row a second time'
+                // which rolls the entire sync back. Keep the LAST occurrence so
+                // the most recent name/status wins; that matches what the next
+                // sync round would do if it had run on the deduped set.
+                const deduped = new Map<string, any>();
+                for (const row of upsertData) {
+                    if (!row?.host) continue;
+                    deduped.set(`${row.routerId}:${row.host}`, row);
+                }
+                const finalBatch = Array.from(deduped.values());
+                if (finalBatch.length !== upsertData.length) {
+                    logger.warn({
+                        routerId,
+                        original: upsertData.length,
+                        deduped: finalBatch.length,
+                        skipped: upsertData.length - finalBatch.length,
+                    }, 'Netwatch sync: deduplicated duplicate (router_id, host) entries before upsert');
+                }
+                if (finalBatch.length > 0) {
+                    await netwatchRepository.upsertBatch(finalBatch, transaction);
+                }
             }
 
             const toDelete = existingEntries.filter((e: any) => {
