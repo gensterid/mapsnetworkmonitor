@@ -62,10 +62,12 @@ export class NetwatchRepository {
                 .from(routerNetwatch)
                 .leftJoin(onus, eq(onus.id, sql`(
                     SELECT id FROM onus o
-                    WHERE 
+                    WHERE
                         o.id = ${routerNetwatch.linkedOnuId} OR
                         (
-                            o.router_id = ${routerNetwatch.routerId} AND 
+                            o.router_id = ${routerNetwatch.routerId} AND
+                            o.device_class = 'onu' AND
+                            o.archived_at IS NULL AND
                             (
                                 (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
                                 (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
@@ -73,13 +75,15 @@ export class NetwatchRepository {
                             )
                         )
                     ORDER BY (
-                        CASE 
+                        CASE
                             WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
                             WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
                             WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 3
                             ELSE 4
                         END
-                    ) ASC
+                    ) ASC,
+                    o.last_seen_olt DESC NULLS LAST,
+                    o.created_at DESC
                     LIMIT 1
                 )`))
                 .leftJoin(olts, eq(onus.oltId, olts.id))
@@ -141,10 +145,12 @@ export class NetwatchRepository {
                 .from(routerNetwatch)
                 .leftJoin(onus, eq(onus.id, sql`(
                     SELECT id FROM onus o
-                    WHERE 
+                    WHERE
                         o.id = ${routerNetwatch.linkedOnuId} OR
                         (
-                            o.router_id = ${routerNetwatch.routerId} AND 
+                            o.router_id = ${routerNetwatch.routerId} AND
+                            o.device_class = 'onu' AND
+                            o.archived_at IS NULL AND
                             (
                                 (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
                                 (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
@@ -152,13 +158,15 @@ export class NetwatchRepository {
                             )
                         )
                     ORDER BY (
-                        CASE 
+                        CASE
                             WHEN o.id = ${routerNetwatch.linkedOnuId} THEN 1
                             WHEN TRIM(o.host) = TRIM(${routerNetwatch.host}) THEN 2
                             WHEN LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) THEN 3
                             ELSE 4
                         END
-                    ) ASC
+                    ) ASC,
+                    o.last_seen_olt DESC NULLS LAST,
+                    o.created_at DESC
                     LIMIT 1
                 )`))
                 .leftJoin(olts, eq(onus.oltId, olts.id))

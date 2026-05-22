@@ -508,7 +508,14 @@ export class OltService {
     async getAllOnusWithCoordinates(tenantId?: string, userId?: string, userRole?: string): Promise<any[]> {
         const { getTableColumns } = await import('drizzle-orm');
         const onusColumns = getTableColumns(onus);
-        const filters = [isNotNull(onus.latitude), isNotNull(onus.longitude), isNull(onus.archivedAt)];
+        // Map renders ONU markers — exclude CPE routers, which would double-render
+        // every customer that has TR-069 enabled on their CPE (different SN, same IP).
+        const filters = [
+            isNotNull(onus.latitude),
+            isNotNull(onus.longitude),
+            isNull(onus.archivedAt),
+            eq(onus.deviceClass, 'onu'),
+        ];
         if (tenantId) filters.push(eq(onus.tenantId, tenantId));
 
         if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {

@@ -513,6 +513,11 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                     tenantId,
                     routerId: resolvedRouterId,
                     name: `ACS-${sn.slice(-4)}`,
+                    // ACS-discovered devices with no matching OLT ONU are almost always
+                    // the CPE router behind the actual ONU (different SN from the GPON
+                    // bridge device). Tagging them so the map and linkage layer can
+                    // treat them as a separate device class.
+                    deviceClass: 'cpe_router',
                     model: dev._productClass,
                     ssid: dev._ssid,
                     firmwareVersion: dev._softwareVersion,

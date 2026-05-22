@@ -28,6 +28,11 @@ export const onus = pgTable('onus', {
     id: uuid('id').defaultRandom().primaryKey(),
     tenantId: uuid('tenant_id').references(() => tenants.id),
     sn: text('sn').notNull().unique(), // Serial Number - Main Key
+    // Distinguishes a GPON ONU (seen by OLT) from a CPE router behind it (seen by ACS only).
+    // OLT-discovered rows stay 'onu'; ACS-only rows with auto-generated 'ACS-XXXX' names
+    // are migrated to 'cpe_router'. Map and netwatch linkage filter on this to avoid
+    // rendering two markers per customer.
+    deviceClass: text('device_class').notNull().default('onu'),
     oltId: uuid('olt_id')
         .references(() => olts.id, { onDelete: 'set null' }),
     routerId: uuid('router_id')
