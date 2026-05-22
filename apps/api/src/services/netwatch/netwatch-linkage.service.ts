@@ -1,4 +1,4 @@
-import { eq, inArray, sql, and } from 'drizzle-orm';
+import { eq, inArray, sql, and, isNull } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { routers, routerNetwatch, onus, olts } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
@@ -13,13 +13,13 @@ export async function syncToOnus(routerId: string, tx: any = db): Promise<void> 
         if (linkedOlts.length === 0) {
             const [router] = await tx.select({ tenantId: routers.tenantId }).from(routers).where(eq(routers.id, routerId)).limit(1);
             if (!router?.tenantId) return;
-            const activeOnus = await tx.select().from(onus).where(eq(onus.tenantId, router.tenantId));
+            const activeOnus = await tx.select().from(onus).where(and(eq(onus.tenantId, router.tenantId), isNull(onus.archivedAt)));
             if (activeOnus.length === 0) return;
             return performLinkage(routerId, activeOnus, tx);
         }
  
         const oltIds = linkedOlts.map((o: any) => o.id);
-        const activeOnus = await tx.select().from(onus).where(inArray(onus.oltId, oltIds));
+        const activeOnus = await tx.select().from(onus).where(and(inArray(onus.oltId, oltIds), isNull(onus.archivedAt)));
         if (activeOnus.length === 0) return;
  
         return performLinkage(routerId, activeOnus, tx);
@@ -34,14 +34,38 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
         const netwatchEntries = await tx.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
         if (netwatchEntries.length === 0) return;
 
-        const hostToOnu = new Map(activeOnus.filter(o => o.host).map(o => [(o.host || '').trim(), o]));
-        const nameToOnu = new Map(activeOnus.filter(o => !o.host).map(o => [(o.name || '').toLowerCase().trim(), o]));
+        // Only real GPON ONUs participate in linkage. ACS-discovered CPE
+        // routers share the same host as their ONU (they're behind it), so
+        // including them here would make linkage flip-flop between the two
+        // on every sync cycle.
+        const linkableOnus = activeOnus.filter((o: any) =>
+            !o.deviceClass || o.deviceClass === 'onu'
+        );
+        // Prefer the most-recently OLT-confirmed ONU when multiple share a
+        // host — covers the genuine 'replaced ONU, old still offline in DB'
+        // case until the ghost cleanup catches up.
+        const sortedOnus = [...linkableOnus].sort((a: any, b: any) => {
+            const at = a.lastSeenOlt ? new Date(a.lastSeenOlt).getTime() : 0;
+            const bt = b.lastSeenOlt ? new Date(b.lastSeenOlt).getTime() : 0;
+            return bt - at;
+        });
+        const hostToOnu = new Map(sortedOnus.filter((o: any) => o.host).map((o: any) => [(o.host || '').trim(), o]));
+        const nameToOnu = new Map(sortedOnus.filter((o: any) => !o.host).map((o: any) => [(o.name || '').toLowerCase().trim(), o]));
 
         let linkedCount = 0;
         for (const entry of netwatchEntries) {
             const host = (entry.host || '').trim();
             const entryNameNormalized = (entry.name || '').toLowerCase().trim();
             if (!host || host === '0.0.0.0') continue;
+
+            // Honour an explicit existing linkedOnuId — that was set either
+            // by a prior linkage decision or by an operator via the device
+            // modal. Re-matching every cycle was the cause of the data
+            // 'flip-flop' users reported when both old and new ONU rows
+            // shared the same host.
+            if (entry.linkedOnuId) {
+                continue;
+            }
 
             const targetOnu = hostToOnu.get(host) || nameToOnu.get(entryNameNormalized);
             if (targetOnu) {
