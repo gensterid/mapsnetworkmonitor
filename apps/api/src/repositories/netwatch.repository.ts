@@ -65,15 +65,17 @@ export class NetwatchRepository {
                 .leftJoin(onus, eq(onus.id, sql`(
                     SELECT id FROM onus o
                     WHERE
-                        o.id = ${routerNetwatch.linkedOnuId} OR
-                        (
-                            o.router_id = ${routerNetwatch.routerId} AND
-                            o.device_class = 'onu' AND
-                            o.archived_at IS NULL AND
+                        ${routerNetwatch.deviceType} IS DISTINCT FROM 'odp' AND (
+                            o.id = ${routerNetwatch.linkedOnuId} OR
                             (
-                                (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
-                                (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
-                                (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
+                                o.router_id = ${routerNetwatch.routerId} AND
+                                o.device_class = 'onu' AND
+                                o.archived_at IS NULL AND
+                                (
+                                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                                    (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
+                                    (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
+                                )
                             )
                         )
                     ORDER BY (
@@ -150,15 +152,17 @@ export class NetwatchRepository {
                 .leftJoin(onus, eq(onus.id, sql`(
                     SELECT id FROM onus o
                     WHERE
-                        o.id = ${routerNetwatch.linkedOnuId} OR
-                        (
-                            o.router_id = ${routerNetwatch.routerId} AND
-                            o.device_class = 'onu' AND
-                            o.archived_at IS NULL AND
+                        ${routerNetwatch.deviceType} IS DISTINCT FROM 'odp' AND (
+                            o.id = ${routerNetwatch.linkedOnuId} OR
                             (
-                                (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
-                                (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
-                                (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
+                                o.router_id = ${routerNetwatch.routerId} AND
+                                o.device_class = 'onu' AND
+                                o.archived_at IS NULL AND
+                                (
+                                    (TRIM(o.host) = TRIM(${routerNetwatch.host}) AND o.host IS NOT NULL AND o.host != '') OR
+                                    (LOWER(TRIM(o.name)) = LOWER(TRIM(${routerNetwatch.name})) AND o.name IS NOT NULL AND o.name != '') OR
+                                    (${routerNetwatch.name} LIKE '%' || o.name || '%' AND o.name IS NOT NULL AND LENGTH(o.name) > 3)
+                                )
                             )
                         )
                     ORDER BY (
