@@ -129,6 +129,10 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
         let linkedCount = 0;
         let ambiguousCount = 0;
         for (const entry of netwatchEntries) {
+            // ODP is a passive splitter — it has no CPE, so it must never be
+            // linked to an ONU row.
+            if (entry.deviceType === 'odp') continue;
+
             // Operator lock — never overwrite a manual choice.
             if (entry.linkLocked) continue;
 
