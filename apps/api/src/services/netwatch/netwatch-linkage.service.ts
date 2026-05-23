@@ -15,7 +15,9 @@ export async function syncToOnus(routerId: string, tx: any = db): Promise<void> 
             if (!router?.tenantId) return;
             const activeOnus = await tx.select().from(onus).where(and(eq(onus.tenantId, router.tenantId), isNull(onus.archivedAt)));
             if (activeOnus.length === 0) return;
-            return performLinkage(routerId, activeOnus, tx);
+            // Strict mode: this router has no OLT, so ONUs come from tenant-wide
+            // search. Only SN + PPPoE user are safe — host/name can collide cross-router.
+            return performLinkage(routerId, activeOnus, tx, true);
         }
  
         const oltIds = linkedOlts.map((o: any) => o.id);
@@ -55,12 +57,12 @@ export async function syncToOnus(routerId: string, tx: any = db): Promise<void> 
 const SN_COMMENT_RE = /SN[:=]\s*([A-Z0-9]+)/i;
 const USER_COMMENT_RE = /(?:user|pppoe)[:=]\s*(\S+)/i;
 
-function pickByTier(entry: any, sortedOnus: any[]): { onu: any | null; source: string | null } {
+function pickByTier(entry: any, sortedOnus: any[], strictMode = false): { onu: any | null; source: string | null } {
     const host = (entry.host || '').trim();
     const comment = `${entry.name || ''} ${entry.comment || ''}`;
     const entryNameNormalized = (entry.name || '').toLowerCase().trim();
 
-    // Tier 1 — SN in comment
+    // Tier 1 — SN in comment (globally unique, safe cross-router)
     const snMatch = comment.match(SN_COMMENT_RE);
     if (snMatch) {
         const sn = snMatch[1].toUpperCase();
@@ -68,13 +70,17 @@ function pickByTier(entry: any, sortedOnus: any[]): { onu: any | null; source: s
         if (o) return { onu: o, source: 'sn' };
     }
 
-    // Tier 2 — PPPoE user in comment
+    // Tier 2 — PPPoE user in comment (tenant-unique, safe cross-router)
     const userMatch = comment.match(USER_COMMENT_RE);
     if (userMatch) {
         const user = userMatch[1].toLowerCase();
         const o = sortedOnus.find(o => (o.pppoeUser || '').toLowerCase() === user);
         if (o) return { onu: o, source: 'pppoe_user' };
     }
+
+    // Strict mode (router-without-OLT fallback): refuse tier 3-7 because IP/host/name
+    // collide across routers within the same tenant (RFC1918, generic names).
+    if (strictMode) return { onu: null, source: null };
 
     if (host && host !== '0.0.0.0') {
         // Tier 3 — PPPoE WAN IP
@@ -106,7 +112,7 @@ function pickByTier(entry: any, sortedOnus: any[]): { onu: any | null; source: s
     return { onu: null, source: null };
 }
 
-export async function performLinkage(routerId: string, activeOnus: any[], tx: any = db): Promise<void> {
+export async function performLinkage(routerId: string, activeOnus: any[], tx: any = db, strictMode = false): Promise<void> {
     try {
         const netwatchEntries = await tx.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
         if (netwatchEntries.length === 0) return;
@@ -140,8 +146,21 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
             // can re-link via UI (which clears link_source / sets manual).
             if (entry.linkedOnuId && entry.linkSource) continue;
 
-            const { onu: targetOnu, source } = pickByTier(entry, sortedOnus);
+            const { onu: targetOnu, source } = pickByTier(entry, sortedOnus, strictMode);
             if (!targetOnu || !source) continue;
+
+            // Audit trail: tenant-wide fallback can legitimately match SN/PPPoE user
+            // across routers (e.g. uplink router monitoring downstream OLT). Logged
+            // so operators can verify these are intended.
+            if (strictMode && targetOnu.routerId && targetOnu.routerId !== routerId) {
+                logger.info({
+                    routerId,
+                    entryName: entry.name,
+                    onuSn: targetOnu.sn,
+                    onuRouterId: targetOnu.routerId,
+                    source,
+                }, '[Linkage] Strict-mode cross-router match (router has no OLT)');
+            }
 
             // Surface ambiguity: more than one ONU could have matched in the chosen tier.
             // Useful diagnostic without blocking the assignment.
