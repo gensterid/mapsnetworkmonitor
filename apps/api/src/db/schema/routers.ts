@@ -236,6 +236,14 @@ export const routerNetwatch = pgTable('router_netwatch', {
 
     // Manual Link to ONU Inventory
     linkedOnuId: uuid('linked_onu_id'),
+    // True when the link was set/confirmed by an operator. Auto-linkage skips
+    // any row with link_locked=true so the operator's choice is not overwritten
+    // by the next sync cycle.
+    linkLocked: boolean('link_locked').notNull().default(false),
+    // Why linkedOnuId was set: 'sn' | 'pppoe_user' | 'pppoe_ip' | 'mgmt_ip' |
+    // 'host' | 'name_exact' | 'name_fuzzy' | 'manual'. Shown in the UI as a
+    // small badge so operators understand the basis of the match.
+    linkSource: text('link_source'),
 
     // Topology Schematic (Independent of geographic lat/lng)
     topologyX: decimal('topology_x', { precision: 10, scale: 2 }),

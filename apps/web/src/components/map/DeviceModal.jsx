@@ -42,6 +42,7 @@ const DeviceModal = ({
         targetInterface: '', // Heatmap traffic mapping
         linkedOnuId: '', // Manual link to ONU inventory
         portCapacity: 8, // ODP Port Capacity
+        linkLocked: false, // Prevent auto-linkage from overwriting manual choice
     });
 
     const [availableOnus, setAvailableOnus] = useState([]);
@@ -107,6 +108,7 @@ const DeviceModal = ({
                     targetInterface: device.targetInterface || (shouldResetFields ? '' : prev.targetInterface) || '',
                     linkedOnuId: device.linkedOnuId || (shouldResetFields ? '' : prev.linkedOnuId) || '',
                     portCapacity: device.portCapacity || (shouldResetFields ? 8 : prev.portCapacity) || 8,
+                    linkLocked: device.linkLocked ?? (shouldResetFields ? false : prev.linkLocked) ?? false,
                     splitterRatio: device.splitterRatio || (shouldResetFields ? '' : prev.splitterRatio) || '',
                 };
             });
@@ -191,6 +193,7 @@ const DeviceModal = ({
                 targetInterface: formData.targetInterface || null,
                 linkedOnuId: formData.linkedOnuId || null,
                 portCapacity: parseInt(formData.portCapacity) || 8,
+                linkLocked: formData.linkLocked,
                 splitterRatio: formData.splitterRatio || null,
             };
 
@@ -575,6 +578,36 @@ const DeviceModal = ({
                                                 disabled={isSaving || isLoadingOnus}
                                             />
                                             {isLoadingOnus && <div className="text-[10px] text-blue-400 mt-1">Fetching ONUs from OLTs...</div>}
+
+                                            {/* Auto-link status + lock toggle */}
+                                            {device?.id && (device.linkSource || device.linkLocked) && (
+                                                <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                                                    <div style={{ fontSize: 10, color: '#64748b' }}>
+                                                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>Auto-link: </span>
+                                                        {device.linkSource === 'sn' ? 'SN match' :
+                                                         device.linkSource === 'pppoe_user' ? 'PPPoE user' :
+                                                         device.linkSource === 'pppoe_ip' ? 'PPPoE IP' :
+                                                         device.linkSource === 'mgmt_ip' ? 'TR-069 IP' :
+                                                         device.linkSource === 'host' ? 'Host IP' :
+                                                         device.linkSource === 'name_exact' ? 'Name match' :
+                                                         device.linkSource === 'name_fuzzy' ? 'Name fuzzy' :
+                                                         device.linkSource || '—'}
+                                                    </div>
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 10 }}>
+                                                        <span style={{ color: formData.linkLocked ? '#f59e0b' : '#64748b' }}>
+                                                            {formData.linkLocked ? '🔒 Locked' : '🔓 Unlocked'}
+                                                        </span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!formData.linkLocked}
+                                                            onChange={e => setFormData(prev => ({ ...prev, linkLocked: e.target.checked }))}
+                                                            disabled={isSaving}
+                                                            title={formData.linkLocked ? 'Click to allow auto-linkage to update this entry' : 'Click to lock — prevent auto-linkage from overwriting'}
+                                                            style={{ accentColor: '#f59e0b', width: 14, height: 14, cursor: 'pointer' }}
+                                                        />
+                                                    </label>
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </>

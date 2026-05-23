@@ -690,8 +690,42 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                     ODP is a passive splitter; any lingering ONU fields on an ODP row
                     (from a prior reclassification or shared data column) must not
                     render or it looks like a broken ONU. */}
-                {node.deviceType !== 'odp' && (node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastRxPower) && (
+                {node.deviceType !== 'odp' && (node.model || node.sn || node.ssid || node.oltName || node.ponPort || node.lastRxPower || node.linkSource) && (
                     <div className="space-y-1.5 py-1 pt-1 border-t border-slate-700/30">
+                        {(node.linkSource || node.linkLocked) && (
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Link</span>
+                                <span className={`text-[10px] font-bold uppercase tracking-tight px-1.5 py-0.5 rounded ${
+                                    node.linkLocked ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' :
+                                    node.linkSource === 'sn' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
+                                    node.linkSource === 'pppoe_user' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
+                                    node.linkSource === 'pppoe_ip' || node.linkSource === 'mgmt_ip' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
+                                    node.linkSource === 'host' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
+                                    'bg-slate-500/15 text-slate-400 border border-slate-500/30'
+                                }`} title={
+                                    node.linkLocked ? 'Operator menetap link ini (auto-linkage tidak akan mengubah)' :
+                                    node.linkSource === 'sn' ? 'Match dari SN di komentar netwatch' :
+                                    node.linkSource === 'pppoe_user' ? 'Match dari PPPoE user di komentar' :
+                                    node.linkSource === 'pppoe_ip' ? 'Match dari IP PPPoE customer' :
+                                    node.linkSource === 'mgmt_ip' ? 'Match dari IP TR-069 management' :
+                                    node.linkSource === 'host' ? 'Match dari host generik' :
+                                    node.linkSource === 'name_exact' ? 'Match dari nama (exact)' :
+                                    node.linkSource === 'name_fuzzy' ? 'Match dari nama (fuzzy)' :
+                                    'Sumber link tidak diketahui'
+                                }>
+                                    {node.linkLocked && '🔒 '}
+                                    {node.linkSource === 'sn' ? 'SN' :
+                                     node.linkSource === 'pppoe_user' ? 'PPPoE User' :
+                                     node.linkSource === 'pppoe_ip' ? 'PPPoE IP' :
+                                     node.linkSource === 'mgmt_ip' ? 'TR-069' :
+                                     node.linkSource === 'host' ? 'Host' :
+                                     node.linkSource === 'name_exact' ? 'Name' :
+                                     node.linkSource === 'name_fuzzy' ? 'Name~' :
+                                     node.linkSource === 'manual' ? 'Manual' :
+                                     node.linkLocked ? 'Locked' : '—'}
+                                </span>
+                            </div>
+                        )}
                         {node.model && (
                             <div className="flex items-center justify-between text-xs">
                                 <span className="text-slate-500 uppercase text-[9px] font-bold tracking-tight">Model</span>

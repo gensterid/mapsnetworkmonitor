@@ -493,6 +493,11 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                 await db.update(onus).set({
                     routerId: resolvedRouterId, model: dev._productClass || existing.model, ssid: dev._ssid || existing.ssid,
                     firmwareVersion: dev._softwareVersion || existing.firmwareVersion, host: dev._ip || existing.host,
+                    // Persist both kinds of WAN-side IP so the linkage layer can match a
+                    // netwatch entry that monitors either the PPPoE IP or the TR-069 mgmt IP.
+                    pppoeIp: dev._pppoeIp || existing.pppoeIp,
+                    mgmtIp: dev._mgmtIp || existing.mgmtIp,
+                    pppoeUser: dev._pppoeUser || existing.pppoeUser,
                     lastRxPower: sources.includes('olt') && existing.lastRxPower !== null ? existing.lastRxPower : (dev._rxPower || existing.lastRxPower),
                     macAddress: dev._macAddress || existing.macAddress, discoverySources: sources, updatedAt: new Date(),
                     lastSeen: dev._lastInform ? new Date(dev._lastInform) : existing.lastSeen,
@@ -522,6 +527,9 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                     ssid: dev._ssid,
                     firmwareVersion: dev._softwareVersion,
                     host: dev._ip,
+                    pppoeIp: dev._pppoeIp,
+                    mgmtIp: dev._mgmtIp,
+                    pppoeUser: dev._pppoeUser,
                     lastRxPower: dev._rxPower,
                     macAddress: dev._macAddress,
                     status,

@@ -46,7 +46,12 @@ export const onus = pgTable('onus', {
     model: text('model'), // Device Model
     ssid: text('ssid'), // WiFi SSID
     firmwareVersion: text('firmware_version'), // Firmware Version
-    host: text('host'), // Management IP (Last known)
+    host: text('host'), // Management IP (Last known) — generic fallback
+    // Persisted from ACS sync. The customer's WAN-side PPPoE IP and the TR-069
+    // management IP are often different (different subnets/VLANs). Storing both
+    // lets the linkage layer match a netwatch entry against either one.
+    pppoeIp: text('pppoe_ip'),
+    mgmtIp: text('mgmt_ip'),
 
     // Physical Metrics
     lastRxPower: text('last_rx_power'),

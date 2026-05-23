@@ -302,6 +302,13 @@
       "when": 1779475000000,
       "tag": "0042_add_onu_device_class",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1779490000000,
+      "tag": "0043_smart_linkage",
+      "breakpoints": true
     }
   ]
 }

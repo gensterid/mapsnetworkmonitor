@@ -32,6 +32,9 @@ export interface GenieACSDevice {
     Device?: any;
     _tags?: string[];
     _clientCount?: number;
+    _pppoeIp?: string;
+    _mgmtIp?: string;
+    _pppoeUser?: string;
     _connectedHosts?: Array<{
         hostname?: string;
         ipAddress?: string;

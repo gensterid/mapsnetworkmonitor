@@ -44,6 +44,10 @@ const updateNetwatchSchema = z.object({
     connectedToId: z.string().uuid().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
+    // Setting linkLocked=true tells the auto-linkage layer to leave this row
+    // alone. Surfaced via the marker popup as a small badge.
+    linkLocked: z.boolean().optional(),
+    linkSource: z.string().optional().nullable(),
     isAppOnly: z.boolean().optional(),
     portCapacity: z.number().int().min(1).max(128).optional(),
     splitterRatio: z.string().optional().nullable(),
