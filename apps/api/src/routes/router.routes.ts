@@ -325,4 +325,79 @@ router.post('/:id/traffic/snmp', requireOperator, asyncHandler(async (req, res) 
     res.json({ data: traffic });
 }));
 
+// ─── Network Tools ────────────────────────────────────────────────────────────
+
+const BLOCKED_HOSTS = /^(localhost|127\.|0\.0\.0\.0|169\.254\.|::1|0:0:0:0:0:0:0:1)$/i;
+const VALID_HOST_RE = /^[a-zA-Z0-9.\-_]+$/;
+
+function validateToolHost(host: string) {
+    if (!host || !VALID_HOST_RE.test(host) || BLOCKED_HOSTS.test(host)) {
+        throw new ApiError(400, 'Invalid or blocked host');
+    }
+}
+
+const pingToolSchema = z.object({
+    host: z.string().min(1).max(253),
+    count: z.number().int().min(1).max(10).optional().default(4),
+});
+
+const tracerouteToolSchema = z.object({
+    host: z.string().min(1).max(253),
+    maxHops: z.number().int().min(1).max(30).optional().default(20),
+});
+
+const portCheckSchema = z.object({
+    host: z.string().min(1).max(253),
+    port: z.number().int().min(1).max(65535),
+});
+
+/**
+ * POST /api/routers/:id/tools/ping
+ */
+router.post('/:id/tools/ping', requireOperator, strictLimiter, asyncHandler(async (req, res) => {
+    const id = req.params.id as string;
+    const { host, count } = pingToolSchema.parse(req.body);
+    validateToolHost(host);
+    const result = await routerService.pingHost(id, host, getEffectiveTenantId(req));
+    res.json({ data: { host, latency: result.latency, packetLoss: result.packetLoss, success: result.packetLoss !== 100 } });
+}));
+
+/**
+ * POST /api/routers/:id/tools/traceroute
+ */
+router.post('/:id/tools/traceroute', requireOperator, strictLimiter, asyncHandler(async (req, res) => {
+    const id = req.params.id as string;
+    const { host, maxHops } = tracerouteToolSchema.parse(req.body);
+    validateToolHost(host);
+    const result = await routerService.tracerouteHost(id, host, getEffectiveTenantId(req), maxHops);
+    res.json({ data: result });
+}));
+
+/**
+ * POST /api/routers/:id/tools/port-check
+ * Runs from the API server (VPN-connected), not from MikroTik.
+ */
+router.post('/:id/tools/port-check', requireOperator, strictLimiter, asyncHandler(async (req, res) => {
+    const id = req.params.id as string;
+    const { host, port } = portCheckSchema.parse(req.body);
+    validateToolHost(host);
+
+    // Verify router exists and tenant matches
+    await routerService.findById(id, getEffectiveTenantId(req));
+
+    const { createConnection } = await import('net');
+    const start = Date.now();
+    const open = await new Promise<boolean>((resolve) => {
+        const socket = createConnection({ host, port, timeout: 5000 }, () => {
+            socket.destroy();
+            resolve(true);
+        });
+        socket.on('error', () => resolve(false));
+        socket.on('timeout', () => { socket.destroy(); resolve(false); });
+    });
+    const latency = Date.now() - start;
+
+    res.json({ data: { host, port, open, latency: open ? latency : null } });
+}));
+
 export default router;

@@ -577,6 +577,24 @@ const NetworkMap = ({
         setDeleteDialog({ isOpen: true, node });
     }, []);
 
+    const handleQuickPing = useCallback(async (node) => {
+        const host = node.host || node.address;
+        const routerId = node.routerId || (node.deviceType === 'router' ? node.id : null);
+        if (!host || !routerId) return;
+        const toastId = toast.loading(`Pinging ${host}...`);
+        try {
+            const res = await apiClient.post(`/routers/${routerId}/tools/ping`, { host, count: 4 });
+            const { latency, packetLoss, success } = res.data.data;
+            if (success) {
+                toast.success(`${host}: ${latency}ms, loss ${packetLoss}%`, { id: toastId });
+            } else {
+                toast.error(`${host}: Timeout (${packetLoss}% loss)`, { id: toastId });
+            }
+        } catch (err) {
+            toast.error(`Ping gagal ke ${host}`, { id: toastId });
+        }
+    }, []);
+
     const handleDeleteConfirmed = useCallback(({ mode, node }) => {
         if (!node) return;
         const wantsOnu = mode === 'onu' || mode === 'both';
@@ -1355,6 +1373,7 @@ const NetworkMap = ({
                     <DevicePopup
                         node={{ ...router, deviceType: 'router' }}
                         onEdit={(node, tab) => handleDeviceClick(node, 'router', tab)}
+                        onQuickPing={handleQuickPing}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1453,6 +1472,7 @@ const NetworkMap = ({
                         line={line}
                         onEdit={(n, tab) => handleDeviceClick(n, n.deviceType || 'netwatch', tab)}
                         onArchive={handleArchiveOnu}
+                        onQuickPing={handleQuickPing}
                     />
                 </MemoizedSmartMarker>
             );

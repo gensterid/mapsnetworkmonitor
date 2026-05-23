@@ -712,6 +712,10 @@ export class RouterService {
     async pingHost(routerId: string, ip: string, tenantId?: string): Promise<{ latency: number | null; packetLoss: number | null }> {
         return routerActionService.pingHost(routerId, ip, tenantId);
     }
+
+    async tracerouteHost(routerId: string, host: string, tenantId?: string, maxHops?: number) {
+        return routerActionService.tracerouteHost(routerId, host, tenantId, maxHops);
+    }
 }
 
 // Export singleton instance

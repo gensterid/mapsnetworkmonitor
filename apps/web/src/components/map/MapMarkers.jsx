@@ -632,6 +632,19 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
                             >
                                 <span className="material-symbols-outlined text-[16px]">edit</span>
                             </button>
+                            {onQuickPing && node.host && node.host !== '0.0.0.0' && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        e.preventDefault();
+                                        onQuickPing(node);
+                                    }}
+                                    className="w-6 h-6 flex items-center justify-center bg-cyan-500/30 hover:bg-cyan-500/50 rounded transition-colors text-white"
+                                    title={`Ping ${node.host}`}
+                                >
+                                    <span className="material-symbols-outlined text-[16px]">network_ping</span>
+                                </button>
+                            )}
                             {onArchive && (node.oltId || node.linkedOnuId || (node.routerId && node.deviceType !== 'router')) && (
                                 <button
                                     onClick={(e) => {

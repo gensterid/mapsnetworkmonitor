@@ -16,6 +16,7 @@ import {
     getInterfaceTraffic,
     testConnection,
     getRouterInfo,
+    safeWrite,
     type RouterConnection,
     type PppSession,
     type RouterNeighbor,
@@ -306,6 +307,36 @@ export class RouterActionService {
         } catch (error: any) {
             logger.error({ err: error?.message || String(error), routerId, ip }, 'Failed to execute arbitrary ping');
             return { latency: null, packetLoss: 100 };
+        } finally {
+            if (api) api.release();
+        }
+    }
+
+    /**
+     * Run traceroute to a specific host via MikroTik router.
+     */
+    async tracerouteHost(routerId: string, host: string, tenantId?: string, maxHops = 20): Promise<{ hops: { hop: number; address: string; latency: number | null; loss: number }[] }> {
+        let api: any;
+        try {
+            api = await this.getRouterConnection(routerId, tenantId);
+            const result = await safeWrite(api, [
+                '/tool/traceroute',
+                `=address=${host}`,
+                '=count=1',
+                `=max-hops=${maxHops}`,
+            ], 45000);
+
+            const hops = (result || []).map((hop: any, i: number) => ({
+                hop: parseInt(hop['hop'] || hop['.id'] || String(i + 1)),
+                address: hop['address'] || '*',
+                latency: hop['avg-rtt'] ? parseFloat(hop['avg-rtt']) : (hop['rtt1'] ? parseFloat(hop['rtt1']) : null),
+                loss: hop['loss'] ? parseFloat(hop['loss']) : 100,
+            }));
+
+            return { hops };
+        } catch (error: any) {
+            logger.error({ err: error?.message || String(error), routerId, host }, 'Failed to execute traceroute');
+            throw new ApiError(500, `Traceroute failed: ${error.message}`);
         } finally {
             if (api) api.release();
         }

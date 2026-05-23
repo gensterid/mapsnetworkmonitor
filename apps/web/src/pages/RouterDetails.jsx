@@ -25,7 +25,8 @@ import {
     Clock,
     Edit,
     HardDrive,
-    BarChart2
+    BarChart2,
+    Terminal
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -41,6 +42,7 @@ import MapTab from '@/components/router/tabs/MapTab';
 import BackupsTab from '@/components/router/tabs/BackupsTab';
 import BandwidthTab from '@/components/router/tabs/BandwidthTab';
 import MiniTopology from '@/components/router/MiniTopology';
+import ToolsTab from '@/components/router/tabs/ToolsTab';
 
 // Utils
 import { formatLastSync } from '@/components/router/router-utils';
@@ -178,6 +180,7 @@ export default function RouterDetails() {
         { id: 'topology', label: 'Topology', icon: <Zap className="w-4 h-4" /> },
         { id: 'backups', label: 'Backups', icon: <HardDrive className="w-4 h-4" /> },
         { id: 'map', label: 'Map', icon: <MapPin className="w-4 h-4" /> },
+        { id: 'tools', label: 'Tools', icon: <Terminal className="w-4 h-4" /> },
     ];
 
     if (isLoading) {
@@ -330,6 +333,9 @@ export default function RouterDetails() {
                         realtimeTraffic={realtimeTraffic}
                         isLiveMode={isLiveMode}
                     />
+                )}
+                {activeTab === 'tools' && (
+                    <ToolsTab routerId={id} />
                 )}
             </div>
 
