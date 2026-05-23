@@ -1,6 +1,6 @@
 import { eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
-import { routerNetwatch, type NewRouterNetwatch } from '../../db/schema/index.js';
+import { routerNetwatch, topologyNodes, type NewRouterNetwatch } from '../../db/schema/index.js';
 import {
     getNetwatchHosts,
     getRouterClock,
@@ -193,7 +193,22 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
             });
 
             if (toDelete.length > 0) {
-                await transaction.delete(routerNetwatch).where(inArray(routerNetwatch.id, toDelete.map((e: any) => e.id)));
+                const ids = toDelete.map((e: any) => e.id);
+                await transaction.delete(routerNetwatch).where(inArray(routerNetwatch.id, ids));
+
+                // Null-ify topology node references to avoid orphaned schematic nodes.
+                await transaction.update(topologyNodes).set({ nodeId: null }).where(inArray(topologyNodes.nodeId, ids));
+
+                // Resolve stale alerts immediately rather than waiting for next sweep.
+                for (const entry of toDelete) {
+                    logger.info({ routerId, host: entry.host, name: entry.name, reason: 'not_in_mikrotik' }, '[NetwatchSync] Auto-deleted stale entry');
+                    if (entry.host) {
+                        await alertService.resolveAlertsByHost(routerId, entry.host, router.tenantId ?? undefined, transaction).catch((e: any) =>
+                            logger.warn({ err: e?.message || String(e), host: entry.host }, '[NetwatchSync] Failed to resolve alerts for deleted entry')
+                        );
+                    }
+                }
+
                 logger.info({ routerId, deletedCount: toDelete.length }, 'Cleaned up stale netwatch hosts (unmapped only)');
             }
         };
