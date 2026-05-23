@@ -471,7 +471,7 @@ export const RouterTooltipContent = React.memo(({ node, onEdit }) => {
 });
 
 // 1. Content Component (Heavy Logic, only rendered when hovered or clicked)
-export const DeviceTooltipContent = ({ node, line, onEdit, onArchive }) => {
+export const DeviceTooltipContent = ({ node, line, onEdit, onArchive, onQuickPing }) => {
     const { hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode } = React.useContext(TrafficContext);
 
     // If it's a router, use the router specialized view
@@ -978,10 +978,10 @@ export const DeviceTooltip = React.memo(({ node, line }) => {
 });
 
 // 3. Popup Container (Rendered when clicked)
-export const DevicePopup = React.memo(({ node, line, onEdit, onArchive }) => {
+export const DevicePopup = React.memo(({ node, line, onEdit, onArchive, onQuickPing }) => {
     return (
         <Popup offset={[0, -10]} className="custom-map-popup">
-            <DeviceTooltipContent node={node} line={line} onEdit={onEdit} onArchive={onArchive} />
+            <DeviceTooltipContent node={node} line={line} onEdit={onEdit} onArchive={onArchive} onQuickPing={onQuickPing} />
         </Popup>
     );
 });
