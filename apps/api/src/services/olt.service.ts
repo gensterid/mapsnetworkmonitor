@@ -363,13 +363,23 @@ export class OltService {
                 else status = 'offline';
             } else status = 'offline';
 
+            // OLT vendors differ on where they store the operator-set identifier.
+            // CDATA exposes it as ont_name; HSGQ uses ont_description (with pencil
+            // icon in web UI). Prefer name when set, fall back to description so a
+            // rename in either field propagates to the app. Final fallback is the
+            // auto-generated 'ONT-XXXX' placeholder (caught later in CASE WHEN to
+            // avoid overwriting existing real names).
+            const resolvedName = device.name
+                || (device as any).description
+                || `ONT-${device.sn.substring(device.sn.length - 4)}`;
+
             valuesToUpsert.push({
                 sn: device.sn,
                 oltId: oltId,
                 routerId: olt.parentId,
                 ponPort: device.ponId,
                 onuIndex: device.onuId,
-                name: device.name || `ONT-${device.sn.substring(device.sn.length - 4)}`,
+                name: resolvedName,
                 status: status,
                 tenantId: tenantId,
                 lastRxPower: device.signal ? String(device.signal) : null,
