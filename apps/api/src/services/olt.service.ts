@@ -377,7 +377,11 @@ export class OltService {
                 macAddress: device.macAddress,
                 lastSeen: status === 'online' ? now : null,
                 lastSeenOlt: now,
-                lastDownReason: device.lastDownReason,
+                // CDATA drivers return the last historical down reason even when
+                // the ONU is currently online (bookkeeping). Clear it when online
+                // so popups don't show 'Power Down' / 'Removed from OLT' for an
+                // ONU that's actually up.
+                lastDownReason: status === 'online' ? null : device.lastDownReason,
                 updatedAt: now,
             });
         }
@@ -416,6 +420,23 @@ export class OltService {
                 }, '🔀 Auto-reassigned ONU to this OLT (stale on previous)');
             }
 
+            // Operator-archived ONUs that the OLT still reports — log so operator
+            // is aware. We do NOT auto-unarchive: operator's hide intent wins
+            // until they explicitly Unarchive via UI. Otherwise polling would
+            // reverse every delete-from-map action and break the workflow.
+            const archivedReappearing = await db.select({ id: onus.id, sn: onus.sn, name: onus.name })
+                .from(onus)
+                .where(and(
+                    inArray(onus.sn, valuesToUpsert.map(v => v.sn)),
+                    isNotNull(onus.archivedAt),
+                ));
+            if (archivedReappearing.length > 0) {
+                logger.info({
+                    oltId, oltName: olt.name,
+                    archivedSns: archivedReappearing.map(r => ({ sn: r.sn, name: r.name })),
+                }, '[OLT Sync] Operator-archived ONUs still present in OLT — skipping unarchive (respect operator intent)');
+            }
+
             let historyValues: any[] = [];
             await db.transaction(async (tx) => {
                 await tx.insert(onus).values(valuesToUpsert as any).onConflictDoUpdate({
@@ -427,7 +448,9 @@ export class OltService {
                         lastSeenOlt: sql`excluded.last_seen_olt`,
                         lastDownReason: sql`excluded.last_down_reason`,
                         updatedAt: sql`excluded.updated_at`,
-                        archivedAt: null,
+                        // archivedAt intentionally NOT in the SET clause —
+                        // operator's archive must be sticky against polling.
+                        // To unarchive, operator must explicitly Unarchive via UI.
                     } as any
                 });
 
@@ -486,12 +509,13 @@ export class OltService {
     }
 
     /**
-     * Manually archive an ONU (soft-delete). Admin can invoke this when an ONU
-     * has been removed from the OLT and should be hidden from the map immediately
-     * instead of waiting for ghost_onu_retention_days.
+     * Manually archive an ONU (soft-delete). Admin invokes this when an ONU
+     * is duplicate, retired, or should be hidden from the map.
      *
-     * If the same SN reappears in OLT polling later, syncOnuInventory's upsert
-     * will automatically restore archivedAt to NULL.
+     * Archive is STICKY against polling — even if OLT keeps reporting this SN,
+     * syncOnuInventory will NOT unarchive it. Operator must explicitly call
+     * unarchiveOnu() to bring it back. This prevents the bug where polling
+     * reverses every delete-from-map action.
      */
     async archiveOnu(onuId: string, tenantId?: string): Promise<boolean> {
         const filters = [eq(onus.id, onuId)];
@@ -500,6 +524,22 @@ export class OltService {
             archivedAt: new Date(),
             status: 'offline',
             lastDownReason: 'Manually archived by admin',
+            updatedAt: new Date(),
+        }).where(and(...filters)).returning({ id: onus.id });
+        return result.length > 0;
+    }
+
+    /**
+     * Restore a previously archived ONU. Operator escape hatch when they
+     * change their mind about archiving, or to bring back ONUs that were
+     * archived by a previous bulk cleanup.
+     */
+    async unarchiveOnu(onuId: string, tenantId?: string): Promise<boolean> {
+        const filters = [eq(onus.id, onuId)];
+        if (tenantId) filters.push(eq(onus.tenantId, tenantId));
+        const result = await db.update(onus).set({
+            archivedAt: null,
+            lastDownReason: null,
             updatedAt: new Date(),
         }).where(and(...filters)).returning({ id: onus.id });
         return result.length > 0;

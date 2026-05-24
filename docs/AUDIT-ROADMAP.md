@@ -128,6 +128,7 @@
 | 16 | Linkage hardening (strict mode) | `8fb75db` |
 | Hot | ODP-ONU JOIN bypass | `4b5200c` |
 | Hot | Linkage skip ODP entries | `d25ddec` |
+| 17 | OLT sync: clear stale lastDownReason + sticky archive + unarchive endpoint | pending |
 
 ---
 
