@@ -233,6 +233,20 @@ export class HsgqDriver extends BaseOltDriver {
             }, '[HSGQ Debug] Raw ONU item structure (HSGQ_DEBUG_FIELDS=true)');
         }
 
+        // SN-targeted debug: when HSGQ_DEBUG_SN is set, log the full raw item
+        // for any ONU whose serial contains that substring. Useful when the
+        // app shows a stale name and we need to confirm what the OLT API
+        // currently returns for a specific device.
+        const debugSn = process.env.HSGQ_DEBUG_SN;
+        if (debugSn) {
+            const matching = items.filter((i: any) =>
+                String(i.ont_sn || i.sn || '').toLowerCase().includes(debugSn.toLowerCase())
+            );
+            if (matching.length > 0) {
+                logger.info({ matchingItems: matching }, `[HSGQ Debug] Items matching SN=${debugSn}`);
+            }
+        }
+
         return items.map((item: any) => {
             const sn = item.ont_sn || item.sn || item.alias || item.mac || 'Unknown';
             const ponId = String(item.pon_id || item.port_id || item.ponIndex || '0');
