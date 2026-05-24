@@ -448,6 +448,11 @@ export class OltService {
                         lastSeenOlt: sql`excluded.last_seen_olt`,
                         lastDownReason: sql`excluded.last_down_reason`,
                         updatedAt: sql`excluded.updated_at`,
+                        // Sync name from OLT — operator's source of truth for ONU naming
+                        // is the OLT itself. Skip if incoming name is the auto-generated
+                        // 'ONT-XXXX' fallback (driver returned empty); keep existing name
+                        // in that case so we don't overwrite a real name with placeholder.
+                        name: sql`CASE WHEN excluded.name LIKE 'ONT-%' THEN onus.name ELSE excluded.name END`,
                         // archivedAt intentionally NOT in the SET clause —
                         // operator's archive must be sticky against polling.
                         // To unarchive, operator must explicitly Unarchive via UI.
