@@ -143,7 +143,9 @@ export class OltService {
             }
 
             const results: any[] = [];
-            const dbOnus = await db.select().from(onus).where(eq(onus.oltId, id));
+            // Filter archived ONUs — when driver fails and we fall back to DB,
+            // archived rows (operator-deleted ghosts) must not reappear.
+            const dbOnus = await db.select().from(onus).where(and(eq(onus.oltId, id), isNull(onus.archivedAt)));
             
             // If driver failed but we have DB data, we should at least show that
             if (driverOnus.length === 0 && dbOnus.length > 0) {

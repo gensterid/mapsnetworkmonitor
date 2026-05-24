@@ -223,6 +223,16 @@ export class HsgqDriver extends BaseOltDriver {
     private parseOnuData(data: any): OnuInfo[] {
         const items = data.data || data.info || data.onus || (Array.isArray(data) ? data : []);
 
+        // One-shot debug: dump the JSON keys of the first item so we can see
+        // which field HSGQ exposes the operator-set name in. Helps diagnose
+        // vendor-specific field names without spamming the log.
+        if (items.length > 0 && process.env.HSGQ_DEBUG_FIELDS === 'true') {
+            logger.info({
+                firstItemKeys: Object.keys(items[0]),
+                firstItemSample: items[0],
+            }, '[HSGQ Debug] Raw ONU item structure (HSGQ_DEBUG_FIELDS=true)');
+        }
+
         return items.map((item: any) => {
             const sn = item.ont_sn || item.sn || item.alias || item.mac || 'Unknown';
             const ponId = String(item.pon_id || item.port_id || item.ponIndex || '0');
