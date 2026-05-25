@@ -228,23 +228,29 @@ export class HsgqDriver extends BaseOltDriver {
         // vendor-specific field names without spamming the log.
         if (items.length > 0 && process.env.HSGQ_DEBUG_FIELDS === 'true') {
             logger.info({
+                totalItems: items.length,
                 firstItemKeys: Object.keys(items[0]),
                 firstItemSample: items[0],
+                allSns: items.slice(0, 50).map((i: any) => ({ sn: i.ont_sn || i.sn, name: i.ont_name || i.name })),
             }, '[HSGQ Debug] Raw ONU item structure (HSGQ_DEBUG_FIELDS=true)');
         }
 
         // SN-targeted debug: when HSGQ_DEBUG_SN is set, log the full raw item
         // for any ONU whose serial contains that substring. Useful when the
         // app shows a stale name and we need to confirm what the OLT API
-        // currently returns for a specific device.
+        // currently returns for a specific device. Also logs whether the SN
+        // was found at all (to distinguish OLT-side missing-SN bug vs other).
         const debugSn = process.env.HSGQ_DEBUG_SN;
         if (debugSn) {
             const matching = items.filter((i: any) =>
                 String(i.ont_sn || i.sn || '').toLowerCase().includes(debugSn.toLowerCase())
             );
-            if (matching.length > 0) {
-                logger.info({ matchingItems: matching }, `[HSGQ Debug] Items matching SN=${debugSn}`);
-            }
+            logger.info({
+                searchSn: debugSn,
+                totalItems: items.length,
+                matchCount: matching.length,
+                matchingItems: matching,
+            }, `[HSGQ Debug] SN search result for ${debugSn}`);
         }
 
         return items.map((item: any) => {
