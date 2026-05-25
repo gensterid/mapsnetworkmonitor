@@ -1,4 +1,4 @@
-import { eq, and, isNotNull, desc } from 'drizzle-orm';
+import { eq, and, isNotNull, desc, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { routerNetwatch, onus, pppoeSessions, netwatchIpHistory } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
@@ -95,6 +95,29 @@ export async function healStaleEntries(opts: { routerId?: string } = {}): Promis
             const resolved = await resolveCurrentIp(entry.id);
             if (!resolved || !resolved.sourceIp) { skipped++; continue; }
             if (resolved.sourceIp === entry.host) { skipped++; continue; }
+
+            // Pre-check uniqueness — (router_id, host) has a UNIQUE constraint,
+            // so if another entry in this router already owns the target IP,
+            // the update would fail. Skip and log instead of failing repeatedly.
+            const [conflict] = await db.select({ id: routerNetwatch.id, name: routerNetwatch.name })
+                .from(routerNetwatch)
+                .where(and(
+                    eq(routerNetwatch.routerId, entry.routerId),
+                    eq(routerNetwatch.host, resolved.sourceIp),
+                    sql`${routerNetwatch.id} != ${entry.id}`
+                ))
+                .limit(1);
+            if (conflict) {
+                skipped++;
+                logger.warn({
+                    netwatchId: entry.id,
+                    netwatchName: entry.name,
+                    targetHost: resolved.sourceIp,
+                    conflictWithId: conflict.id,
+                    conflictWithName: conflict.name,
+                }, 'Auto-heal: target IP already owned by another entry in same router, skipping');
+                continue;
+            }
 
             const reason = resolved.source === 'pppoe' ? 'auto_heal_pppoe' : 'auto_heal_acs';
             const updated = await core.updateEntry(
