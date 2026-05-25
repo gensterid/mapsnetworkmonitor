@@ -132,7 +132,7 @@
 | 18 | OLT sync: propagate name update from OLT to DB (skip ONT-XXXX placeholder) | `86cb4b7` |
 | 19 | OLT sync: fallback to device.description when name empty (HSGQ vendor compat) | `3eb8515` |
 | 20 | getOnus(): filter archived in DB-fallback + HSGQ debug log toggle | `f59e2e4` |
-| 21 | getOnus(): propagate name + clear stale lastDownReason in UPDATE path | pending |
+| 21 | getOnus(): propagate name + clear stale lastDownReason in UPDATE path | `d16f17f` |
 
 ---
 
