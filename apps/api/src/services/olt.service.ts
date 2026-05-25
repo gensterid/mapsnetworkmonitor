@@ -211,14 +211,29 @@ export class OltService {
                         }
                     } else {
                         try {
+                            // Resolve name with same cascade as syncOnuInventory:
+                            // OLT name → description (HSGQ alias field) → keep existing.
+                            // Skip update if resolved value matches the auto-generated
+                            // 'ONT-XXXX' placeholder pattern.
+                            const incomingName = device.name
+                                || (device as any).description
+                                || undefined;
+
                             const updateData: any = {
                                 status: status as any,
                                 lastRxPower: device.signal ? String(device.signal) : dbOnu.lastRxPower,
-                                lastDownReason: device.lastDownReason || dbOnu.lastDownReason,
+                                // Clear lastDownReason when ONU is online — drivers report
+                                // historical reason as bookkeeping even when up.
+                                lastDownReason: status === 'online'
+                                    ? null
+                                    : (device.lastDownReason || dbOnu.lastDownReason),
                                 macAddress: device.macAddress || dbOnu.macAddress,
                                 updatedAt: new Date(),
                             };
                             if (status === 'online') updateData.lastSeen = new Date();
+                            if (incomingName && !incomingName.startsWith('ONT-')) {
+                                updateData.name = incomingName;
+                            }
 
                             await tx.update(onus).set(updateData).where(eq(onus.id, dbOnu.id));
 
