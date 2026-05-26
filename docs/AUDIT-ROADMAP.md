@@ -135,7 +135,8 @@
 | 21 | getOnus(): propagate name + clear stale lastDownReason in UPDATE path | `d16f17f` |
 | 22 | Netwatch auto-heal: pre-check (router_id, host) uniqueness before update | `de6fad8` |
 | 23 | Smart Sync state tracking (Phase 23, multi-step) | in-progress |
-| 23.1 | Schema + migration for sync_state | pending |
+| 23.1 | Schema + migration for sync_state | `3d56464` |
+| 23.2 | Sync logic: detect & mark conflicts | pending |
 
 ---
 

@@ -291,7 +291,7 @@ export class NetwatchRepository {
      */
     async upsertBatch(data: NewRouterNetwatch[], tx: any = db): Promise<number> {
         if (data.length === 0) return 0;
-        
+
         const result = await tx
             .insert(routerNetwatch)
             .values(data)
@@ -312,12 +312,45 @@ export class NetwatchRepository {
                     updatedAt: new Date(),
                     hasWebhook: sql`EXCLUDED.has_webhook`,
                     name: sql`EXCLUDED.name`,
-                    interval: sql`EXCLUDED.interval`
+                    interval: sql`EXCLUDED.interval`,
+                    // Smart Sync: row matched on (router_id, host) → host is in sync.
+                    // mikrotikHost snapshot equals the incoming host. Clear any
+                    // previous conflict state — operator's earlier resolution stuck.
+                    mikrotikHost: sql`EXCLUDED.host`,
+                    mikrotikSyncedAt: new Date(),
+                    syncState: sql`'synced'`,
+                    conflictReason: sql`NULL`,
                 }
             })
             .returning();
-            
+
         return result.length;
+    }
+
+    /**
+     * After fullSync upsert, detect rows in the same router with duplicate
+     * names but different hosts — those indicate MikroTik diverged from app
+     * (e.g. auto-heal pushed a new host to MikroTik but the push failed, so
+     * the old host remained as a separate row). Flag all such rows so the UI
+     * can surface them to the operator.
+     */
+    async markDuplicateNameConflicts(routerId: string, tx: any = db): Promise<number> {
+        const result: any = await tx.execute(sql`
+            UPDATE router_netwatch
+            SET sync_state = 'conflict',
+                conflict_reason = 'Multiple entries share this name on the same router — likely IP changed but the old MikroTik entry was not removed'
+            WHERE router_id = ${routerId}
+              AND name IS NOT NULL
+              AND name IN (
+                  SELECT name FROM router_netwatch
+                  WHERE router_id = ${routerId} AND name IS NOT NULL
+                  GROUP BY name
+                  HAVING count(*) > 1
+              )
+              AND link_locked = false
+              AND sync_state != 'app_only'
+        `);
+        return result?.rowCount ?? 0;
     }
 }
 

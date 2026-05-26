@@ -172,6 +172,18 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 }
             }
 
+            // Smart Sync: after upsert, detect rows with duplicate names within
+            // this router (typically caused by IP migrations where MikroTik kept
+            // the old entry). Flag them so the UI can prompt operator to resolve.
+            try {
+                const conflictsFlagged = await netwatchRepository.markDuplicateNameConflicts(routerId, transaction);
+                if (conflictsFlagged > 0) {
+                    logger.info({ routerId, conflictsFlagged }, '[NetwatchSync] Flagged duplicate-name conflicts');
+                }
+            } catch (e: any) {
+                logger.warn({ err: e?.message || String(e), routerId }, '[NetwatchSync] Failed to flag duplicate-name conflicts');
+            }
+
             const toDelete = existingEntries.filter((e: any) => {
                 // 1. Basic filter per existing logic: must be a client, not app-only, has a host, and not found in current scan
                 if (e.deviceType !== 'client' || e.isAppOnly || !e.host || e.host === '0.0.0.0' || processedHosts.has(e.host)) {
