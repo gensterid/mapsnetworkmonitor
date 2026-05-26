@@ -92,6 +92,16 @@ export async function healStaleEntries(opts: { routerId?: string } = {}): Promis
 
     for (const entry of candidates) {
         try {
+            // Smart Sync respect: never auto-heal a row that operator is
+            // explicitly managing. 'conflict' means operator decision pending;
+            // 'app_only' has no MikroTik counterpart to push to. link_locked
+            // is the operator's explicit "do not touch" flag.
+            if (entry.linkLocked) { skipped++; continue; }
+            if (entry.syncState === 'conflict' || entry.syncState === 'app_only') {
+                skipped++;
+                continue;
+            }
+
             const resolved = await resolveCurrentIp(entry.id);
             if (!resolved || !resolved.sourceIp) { skipped++; continue; }
             if (resolved.sourceIp === entry.host) { skipped++; continue; }

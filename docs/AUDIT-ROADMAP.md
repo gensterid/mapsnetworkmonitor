@@ -137,7 +137,8 @@
 | 23 | Smart Sync state tracking (Phase 23, multi-step) | in-progress |
 | 23.1 | Schema + migration for sync_state | `3d56464` |
 | 23.2 | Sync logic: detect & mark conflicts | `d21bccc` |
-| 23.3 | Edit endpoint: mark pending/synced/conflict on push outcome | pending |
+| 23.3 | Edit endpoint: mark pending/synced/conflict on push outcome | `069d6b5` |
+| 23.4 | Auto-heal: skip rows in conflict / app_only / link_locked | pending |
 
 ---
 
