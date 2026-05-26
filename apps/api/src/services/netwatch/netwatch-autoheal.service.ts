@@ -90,7 +90,23 @@ export async function healStaleEntries(opts: { routerId?: string } = {}): Promis
     let skipped = 0;
     let failed = 0;
 
+    // Per-cycle cap to prevent mass-update storms when ACS reports many new IPs
+    // at once. MikroTik logs every host change + each modification briefly turns
+    // the netwatch entry DOWN/UP, which floods webhooks. Default 5; override with
+    // NETWATCH_AUTOHEAL_MAX_PER_CYCLE env var. Set to a large number (e.g. 9999)
+    // for unlimited.
+    const MAX_PER_CYCLE = Number(process.env.NETWATCH_AUTOHEAL_MAX_PER_CYCLE || '5');
+
+    // Throttle delay between individual MikroTik pushes (ms). Gives the router
+    // time to settle between netwatch host modifications. Default 1500ms.
+    const PUSH_DELAY_MS = Number(process.env.NETWATCH_AUTOHEAL_PUSH_DELAY_MS || '1500');
+
     for (const entry of candidates) {
+        // Stop processing if cap reached — remaining entries heal next cycle.
+        if (healed >= MAX_PER_CYCLE) {
+            skipped++;
+            continue;
+        }
         try {
             // Smart Sync respect: never auto-heal a row that operator is
             // explicitly managing. 'conflict' means operator decision pending;
@@ -149,6 +165,12 @@ export async function healStaleEntries(opts: { routerId?: string } = {}): Promis
                     newHost: resolved.sourceIp,
                     source: resolved.source,
                 }, 'Netwatch auto-heal: IP updated');
+                // Throttle: give MikroTik time to settle between host modifications.
+                // Avoids back-to-back netwatch entry changes which flood the router
+                // log and trigger UP/DOWN webhook noise.
+                if (PUSH_DELAY_MS > 0) {
+                    await new Promise(r => setTimeout(r, PUSH_DELAY_MS));
+                }
             } else {
                 failed++;
             }

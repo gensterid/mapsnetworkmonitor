@@ -142,6 +142,7 @@
 | 23.5 | API: list conflicts + resolve (single/bulk) | `182b668` |
 | 23.6 | Frontend: hook + banner + per-row badge | `6dbaf73` |
 | 23.7 | Frontend: conflict resolution dialog | `6dbaf73` |
+| 24 | Auto-heal kill switch + per-cycle cap + push throttle | pending |
 
 ---
 
