@@ -87,6 +87,10 @@ export {
     settingsKeys,
 } from './useSettings';
 
+// Netwatch hooks
+export { useNetwatchConflicts, useResolveConflicts } from './useNetwatchConflicts';
+export { useNetwatchHistory, useHealNetwatchNow } from './useNetwatchHistory';
+
 // SSE (Server-Sent Events) hook
 export { useSSE } from './useSSE';
 // export * from './usePppoe'; // Skipped for now

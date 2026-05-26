@@ -26,19 +26,25 @@ import clsx from 'clsx';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 import NetwatchFormModal from '../modals/NetwatchFormModal';
 import NetwatchHistoryDialog from './NetwatchHistoryDialog';
+import NetwatchConflictsDialog from '../modals/NetwatchConflictsDialog';
 import { formatBits, formatLastSync, formatTimeOnly, formatRelativeTime, formatNetwatchDate } from '../router-utils';
 import { apiClient } from '@/lib/api';
+import { useNetwatchConflicts } from '@/hooks/useNetwatchConflicts';
 import toast from 'react-hot-toast';
 
 function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
     const [formModal, setFormModal] = useState({ open: false, netwatch: null });
     const [deleteModal, setDeleteModal] = useState({ open: false, netwatch: null });
     const [historyModal, setHistoryModal] = useState({ open: false, netwatch: null });
+    const [conflictsModalOpen, setConflictsModalOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
     const [filter, setFilter] = useState('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [sortBy, setSortBy] = useState('status');
+
+    const { data: conflicts = [] } = useNetwatchConflicts(routerId);
+    const conflictCount = conflicts.length;
 
     const handleSuccess = () => {
         onRefresh();
@@ -145,6 +151,27 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
 
     return (
         <div className="space-y-3 sm:space-y-4">
+            {conflictCount > 0 && (
+                <div className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[11px] sm:text-xs">
+                    <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                        <span className="text-amber-300 font-semibold">{conflictCount} konflik sinkronisasi</span>
+                        <span className="text-slate-400 ml-1.5 sm:ml-2">
+                            MikroTik dan aplikasi tidak setuju soal IP. Klik Resolve untuk memilih sumber kebenaran.
+                        </span>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setConflictsModalOpen(true)}
+                        className="h-7 px-3 text-[11px] border-amber-500/40 text-amber-200 hover:bg-amber-500/10 gap-1.5"
+                    >
+                        <AlertCircle className="w-3 h-3" />
+                        Resolve
+                    </Button>
+                </div>
+            )}
+
             {linkedCount > 0 && (
                 <div className="flex items-center gap-2 px-3 py-2 sm:px-4 sm:py-2.5 rounded-lg bg-emerald-500/5 border border-emerald-500/20 text-[11px] sm:text-xs">
                     <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
@@ -321,6 +348,24 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                         <span className="text-[8px] font-bold uppercase tracking-wider">App Only</span>
                                                     </div>
                                                 )}
+                                                {nw.syncState === 'conflict' && (
+                                                    <div
+                                                        className="flex items-center gap-1 bg-amber-950/60 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/30"
+                                                        title={nw.conflictReason || 'MikroTik dan aplikasi tidak setuju soal IP'}
+                                                    >
+                                                        <AlertCircle className="w-2.5 h-2.5" />
+                                                        <span className="text-[8px] font-bold uppercase tracking-wider">Conflict</span>
+                                                    </div>
+                                                )}
+                                                {nw.syncState === 'pending' && (
+                                                    <div
+                                                        className="flex items-center gap-1 bg-yellow-950/60 text-yellow-300 px-2.5 py-0.5 rounded-full border border-yellow-500/30"
+                                                        title="Menunggu konfirmasi MikroTik"
+                                                    >
+                                                        <Clock className="w-2.5 h-2.5" />
+                                                        <span className="text-[8px] font-bold uppercase tracking-wider">Pending</span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </td>
                                         <td className="py-2.5 px-4">
@@ -456,6 +501,12 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                 onClose={() => setHistoryModal({ open: false, netwatch: null })}
                 routerId={routerId}
                 netwatch={historyModal.netwatch}
+            />
+
+            <NetwatchConflictsDialog
+                open={conflictsModalOpen}
+                onClose={() => { setConflictsModalOpen(false); onRefresh(); }}
+                routerId={routerId}
             />
         </div>
     );
