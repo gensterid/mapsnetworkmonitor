@@ -136,7 +136,8 @@
 | 22 | Netwatch auto-heal: pre-check (router_id, host) uniqueness before update | `de6fad8` |
 | 23 | Smart Sync state tracking (Phase 23, multi-step) | in-progress |
 | 23.1 | Schema + migration for sync_state | `3d56464` |
-| 23.2 | Sync logic: detect & mark conflicts | pending |
+| 23.2 | Sync logic: detect & mark conflicts | `d21bccc` |
+| 23.3 | Edit endpoint: mark pending/synced/conflict on push outcome | pending |
 
 ---
 
