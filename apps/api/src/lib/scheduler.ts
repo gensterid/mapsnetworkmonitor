@@ -731,19 +731,20 @@ async function runBillingJobSafe() {
 
 async function runNetwatchAutoHealSafe() {
     // Kill switch — set NETWATCH_AUTOHEAL_ENABLED=false to disable cycle entirely.
-    // Useful when ACS reports are unreliable and auto-heal causes mass MikroTik
-    // updates that flood the UP/DOWN log and webhook alerts.
+    // In Phase 25, auto-heal is detect-only — it flags conflicts in DB for
+    // operator to resolve manually. Set this env var to 'false' if you don't
+    // even want the detection cycle to run.
     if (process.env.NETWATCH_AUTOHEAL_ENABLED === 'false') {
         return;
     }
     try {
         const { healStaleEntries } = await import('../services/netwatch/netwatch-autoheal.service.js');
         const result = await healStaleEntries();
-        if (result.healed > 0 || result.failed > 0) {
-            logger.info(result, 'Netwatch auto-heal cycle complete');
+        if (result.detected > 0 || result.conflicts > 0 || result.cleared > 0 || result.flapped > 0 || result.failed > 0) {
+            logger.info(result, 'Netwatch auto-detect cycle complete');
         }
     } catch (err) {
-        logger.error({ err }, 'Netwatch auto-heal crashed');
+        logger.error({ err }, 'Netwatch auto-detect crashed');
     }
 }
 

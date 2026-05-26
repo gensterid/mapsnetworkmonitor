@@ -2,7 +2,6 @@ import { eq, and, isNotNull, desc, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import { routerNetwatch, onus, pppoeSessions, netwatchIpHistory } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
-import * as core from './netwatch-core.service.js';
 
 /**
  * For a given netwatch entry, return the IP its linked customer should
@@ -69,16 +68,39 @@ export async function resolveCurrentIp(netwatchId: string): Promise<{
 }
 
 /**
- * Walk every netwatch entry that has linkedOnuId set and apply auto-heal:
- * if the resolved IP differs from the stored host, push the new IP to
- * MikroTik via the existing updateEntry() flow and append a history row.
+ * Phase 25 — DETECT-ONLY auto-heal.
  *
- * Bounded to one router at a time when routerId is given (used by the
- * "heal now" debug endpoint). Otherwise sweeps all tenants/routers.
+ * Walks every netwatch entry that has linkedOnuId set and compares the
+ * MikroTik-side host with the ACS/PPPoE-detected IP. Instead of pushing
+ * the change to MikroTik (which previously caused mass-update storms),
+ * this function ONLY flags the row in DB so the operator gets a banner
+ * notification via Phase 23's conflict UI.
+ *
+ * Safeguards:
+ *  - link_locked rows are skipped entirely.
+ *  - app_only rows are skipped (no MikroTik counterpart).
+ *  - Two-cycle stability gate: first detection → 'pending', second cycle
+ *    confirms → 'conflict'. Prevents transient PPPoE re-auth from firing
+ *    a conflict banner.
+ *  - 30-min cooldown after marking 'conflict' so the same row isn't
+ *    re-stamped on every cycle.
+ *  - Flap detection: if a row gets flagged 3× in 1 hour, auto-lock it
+ *    so it stops generating noise until operator intervenes.
+ *  - If detected IP becomes equal to MikroTik host again, the conflict
+ *    auto-clears back to 'synced'.
+ *
+ * Operator then resolves via the conflict dialog (Phase 23). Choosing
+ * "Pakai App" pushes the new IP to MikroTik (manual, allowed); choosing
+ * "Pakai MikroTik" clears the conflict without changing anything.
+ *
+ * Bounded to one router at a time when routerId is given.
  */
 export async function healStaleEntries(opts: { routerId?: string } = {}): Promise<{
     scanned: number;
-    healed: number;
+    detected: number;   // first-time mismatch → marked 'pending'
+    conflicts: number;  // second-time confirmed → marked 'conflict'
+    cleared: number;    // mismatch resolved → marked 'synced'
+    flapped: number;    // auto-locked after repeated flag
     skipped: number;
     failed: number;
 }> {
@@ -86,101 +108,144 @@ export async function healStaleEntries(opts: { routerId?: string } = {}): Promis
     if (opts.routerId) filters.push(eq(routerNetwatch.routerId, opts.routerId));
 
     const candidates = await db.select().from(routerNetwatch).where(and(...filters));
-    let healed = 0;
+
+    // Cooldown — after a row is marked 'conflict', skip re-detection for this
+    // long. Prevents spam-flagging an operator who hasn't had time to resolve.
+    const COOLDOWN_MS = Number(process.env.NETWATCH_AUTOHEAL_COOLDOWN_MS || String(30 * 60 * 1000));
+    // Flap detection — if this row has been flagged this many times in the
+    // last hour, auto-lock it so it stops generating noise until operator
+    // intervenes.
+    const FLAP_THRESHOLD = Number(process.env.NETWATCH_AUTOHEAL_FLAP_THRESHOLD || '3');
+
+    let detected = 0;
+    let conflicts = 0;
+    let cleared = 0;
+    let flapped = 0;
     let skipped = 0;
     let failed = 0;
 
-    // Per-cycle cap to prevent mass-update storms when ACS reports many new IPs
-    // at once. MikroTik logs every host change + each modification briefly turns
-    // the netwatch entry DOWN/UP, which floods webhooks. Default 5; override with
-    // NETWATCH_AUTOHEAL_MAX_PER_CYCLE env var. Set to a large number (e.g. 9999)
-    // for unlimited.
-    const MAX_PER_CYCLE = Number(process.env.NETWATCH_AUTOHEAL_MAX_PER_CYCLE || '5');
-
-    // Throttle delay between individual MikroTik pushes (ms). Gives the router
-    // time to settle between netwatch host modifications. Default 1500ms.
-    const PUSH_DELAY_MS = Number(process.env.NETWATCH_AUTOHEAL_PUSH_DELAY_MS || '1500');
+    const cooldownCutoff = new Date(Date.now() - COOLDOWN_MS);
 
     for (const entry of candidates) {
-        // Stop processing if cap reached — remaining entries heal next cycle.
-        if (healed >= MAX_PER_CYCLE) {
-            skipped++;
-            continue;
-        }
         try {
-            // Smart Sync respect: never auto-heal a row that operator is
-            // explicitly managing. 'conflict' means operator decision pending;
-            // 'app_only' has no MikroTik counterpart to push to. link_locked
-            // is the operator's explicit "do not touch" flag.
+            // link_locked = operator's explicit "do not touch" → skip entirely.
             if (entry.linkLocked) { skipped++; continue; }
-            if (entry.syncState === 'conflict' || entry.syncState === 'app_only') {
+            // app_only entries have no MikroTik counterpart → skip.
+            if (entry.syncState === 'app_only') { skipped++; continue; }
+            // Cooldown — entry already in conflict, don't re-flag for 30 min.
+            if (entry.syncState === 'conflict' && entry.updatedAt && entry.updatedAt > cooldownCutoff) {
                 skipped++;
                 continue;
             }
 
             const resolved = await resolveCurrentIp(entry.id);
-            if (!resolved || !resolved.sourceIp) { skipped++; continue; }
-            if (resolved.sourceIp === entry.host) { skipped++; continue; }
-
-            // Pre-check uniqueness — (router_id, host) has a UNIQUE constraint,
-            // so if another entry in this router already owns the target IP,
-            // the update would fail. Skip and log instead of failing repeatedly.
-            const [conflict] = await db.select({ id: routerNetwatch.id, name: routerNetwatch.name })
-                .from(routerNetwatch)
-                .where(and(
-                    eq(routerNetwatch.routerId, entry.routerId),
-                    eq(routerNetwatch.host, resolved.sourceIp),
-                    sql`${routerNetwatch.id} != ${entry.id}`
-                ))
-                .limit(1);
-            if (conflict) {
+            if (!resolved || !resolved.sourceIp) {
+                // No source IP to compare against. If row was previously flagged,
+                // leave it; otherwise just skip.
                 skipped++;
-                logger.warn({
-                    netwatchId: entry.id,
-                    netwatchName: entry.name,
-                    targetHost: resolved.sourceIp,
-                    conflictWithId: conflict.id,
-                    conflictWithName: conflict.name,
-                }, 'Auto-heal: target IP already owned by another entry in same router, skipping');
                 continue;
             }
 
-            const reason = resolved.source === 'pppoe' ? 'auto_heal_pppoe' : 'auto_heal_acs';
-            const updated = await core.updateEntry(
-                entry.routerId,
-                entry.id,
-                { host: resolved.sourceIp },
-                entry.tenantId || undefined,
-                db,
-                { reason, changedBy: 'system', pppoeUser: resolved.pppoeUser, onuId: resolved.onuId }
-            );
+            // ✅ MATCH — IP yang dideteksi sama dengan host MikroTik.
+            // Clear any prior 'pending' or 'conflict' marker since they agree now.
+            if (resolved.sourceIp === entry.host) {
+                if (entry.syncState === 'pending' || entry.syncState === 'conflict') {
+                    await db.update(routerNetwatch).set({
+                        syncState: 'synced',
+                        conflictReason: null,
+                        updatedAt: new Date(),
+                    }).where(eq(routerNetwatch.id, entry.id));
+                    cleared++;
+                } else {
+                    skipped++;
+                }
+                continue;
+            }
 
-            if (updated) {
-                healed++;
-                logger.info({
+            // ⚠️ MISMATCH detected. Use two-cycle stability gate to avoid
+            // false positives during PPPoE re-auth transitions:
+            //   - First detection: mark 'pending'.
+            //   - Second detection (next cycle, ~5 min later): escalate to
+            //     'conflict' so the operator banner fires.
+            const sourceLabel = resolved.source.toUpperCase();
+            const pendingReason = `[PENDING_${sourceLabel}_MISMATCH] Detected ${resolved.sourceIp} (source: ${resolved.source}); MikroTik has ${entry.host}. Awaiting next cycle to confirm.`;
+            const conflictReason = `[${sourceLabel}_IP_MISMATCH] ${resolved.source} reports ${resolved.sourceIp} but MikroTik shows ${entry.host}. Operator: review and resolve.`;
+
+            if (entry.syncState === 'synced' || !entry.syncState) {
+                // First-time detection → mark pending, don't escalate yet.
+                await db.update(routerNetwatch).set({
+                    syncState: 'pending',
+                    conflictReason: pendingReason,
+                    mikrotikHost: entry.host,
+                    updatedAt: new Date(),
+                }).where(eq(routerNetwatch.id, entry.id));
+                detected++;
+                continue;
+            }
+
+            if (entry.syncState === 'pending') {
+                // Second-cycle confirmation — escalate to conflict, but first
+                // check flap count to avoid spam-flagging the same entry.
+                const [flapRow] = await db.select({ count: sql<number>`count(*)::int` })
+                    .from(netwatchIpHistory)
+                    .where(and(
+                        eq(netwatchIpHistory.netwatchId, entry.id),
+                        eq(netwatchIpHistory.reason, 'auto_detect_conflict'),
+                        sql`${netwatchIpHistory.changedAt} > NOW() - INTERVAL '1 hour'`,
+                    ));
+                const flapCount = Number(flapRow?.count || 0);
+
+                if (flapCount >= FLAP_THRESHOLD) {
+                    // Too noisy — auto-lock so operator gets a clear signal
+                    // that this entry needs manual investigation.
+                    await db.update(routerNetwatch).set({
+                        linkLocked: true,
+                        syncState: 'conflict',
+                        conflictReason: `[FLAP_DETECTED] Entry flagged ${flapCount}× in the last hour. Auto-locked for operator review.`,
+                        mikrotikHost: entry.host,
+                        updatedAt: new Date(),
+                    }).where(eq(routerNetwatch.id, entry.id));
+                    flapped++;
+                    logger.warn({
+                        netwatchId: entry.id,
+                        netwatchName: entry.name,
+                        flapCount,
+                    }, 'Auto-heal detect: flap threshold exceeded, entry auto-locked');
+                    continue;
+                }
+
+                await db.update(routerNetwatch).set({
+                    syncState: 'conflict',
+                    conflictReason,
+                    mikrotikHost: entry.host,
+                    updatedAt: new Date(),
+                }).where(eq(routerNetwatch.id, entry.id));
+
+                // Audit trail so flap detection can count over the hour.
+                await db.insert(netwatchIpHistory).values({
                     netwatchId: entry.id,
                     routerId: entry.routerId,
-                    pppoeUser: resolved.pppoeUser,
+                    tenantId: entry.tenantId,
                     oldHost: entry.host,
                     newHost: resolved.sourceIp,
-                    source: resolved.source,
-                }, 'Netwatch auto-heal: IP updated');
-                // Throttle: give MikroTik time to settle between host modifications.
-                // Avoids back-to-back netwatch entry changes which flood the router
-                // log and trigger UP/DOWN webhook noise.
-                if (PUSH_DELAY_MS > 0) {
-                    await new Promise(r => setTimeout(r, PUSH_DELAY_MS));
-                }
-            } else {
-                failed++;
+                    reason: 'auto_detect_conflict',
+                    pppoeUser: resolved.pppoeUser,
+                    onuId: resolved.onuId,
+                    changedBy: 'system',
+                });
+                conflicts++;
+                continue;
             }
+
+            // Any other syncState falls through to skip.
+            skipped++;
         } catch (err: any) {
             failed++;
-            logger.warn({ err: err?.message, netwatchId: entry.id }, 'Netwatch auto-heal: entry failed');
+            logger.warn({ err: err?.message, netwatchId: entry.id }, 'Netwatch auto-detect: entry failed');
         }
     }
 
-    return { scanned: candidates.length, healed, skipped, failed };
+    return { scanned: candidates.length, detected, conflicts, cleared, flapped, skipped, failed };
 }
 
 /**
