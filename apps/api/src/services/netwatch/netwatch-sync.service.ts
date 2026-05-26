@@ -15,6 +15,14 @@ import { logger } from '../../lib/logger.js';
 import { routerRepository } from '../../repositories/router.repository.js';
 import { netwatchRepository } from '../../repositories/netwatch.repository.js';
 import os from 'os';
+import crypto from 'crypto';
+
+// Phase 26 — short hash used as webhook idempotency signature. We don't need
+// the full sha256, 16 hex chars is plenty for uniqueness given the small
+// input space (host + url + secret).
+function sha256Short(input: string): string {
+    return crypto.createHash('sha256').update(input).digest('hex').substring(0, 16);
+}
 
 /**
  * Sync and update hosts status from MikroTik (inside an existing connection)
@@ -96,8 +104,23 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 const isOurWebhook = isOurUpWebhook || isOurDownWebhook;
 
                 let finalHasWebhook = detectedWebhook && isOurWebhook;
+                let webhookSyncedAt = existing?.webhookLastSyncedAt as Date | null | undefined;
 
-                if (shouldInjectWebhook && (existing?.deviceType || 'client') !== 'odp' && nw.host) {
+                // Phase 26 — webhook idempotency cache.
+                // Compute a stable signature from (host, webhookUrl, webhookSecret).
+                // If the cached signature matches AND we synced this entry within
+                // the freshness window, skip touching MikroTik entirely. Avoids
+                // the per-cycle re-injection that previously flooded the router
+                // log with 'netwatch host modified' events.
+                const expectedSig = router.webhookSecret
+                    ? sha256Short(`${nw.host}|${webhookUrl}|${router.webhookSecret}`)
+                    : null;
+                const WEBHOOK_FRESHNESS_MS = 24 * 60 * 60 * 1000; // 24h
+                const sigMatches = !!expectedSig && existing?.webhookSignature === expectedSig;
+                const recentSync = !!webhookSyncedAt && (Date.now() - new Date(webhookSyncedAt).getTime()) < WEBHOOK_FRESHNESS_MS;
+                const skipWebhookWork = sigMatches && recentSync && finalHasWebhook;
+
+                if (shouldInjectWebhook && (existing?.deviceType || 'client') !== 'odp' && nw.host && !skipWebhookWork) {
                     let forceReconfig = false;
                     if (finalHasWebhook) {
                         const combo = (nw.upScript || '') + (nw.downScript || '');
@@ -117,24 +140,30 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                             if (!detectedWebhook || isOurWebhook || forceReconfig) finalHasWebhook = true;
                         } catch (err) { logger.warn({ err: String(err), host: nw.host }, 'Failed to configure webhook'); }
                     }
+                    // Record the successful (or already-correct) sync so the next
+                    // cycle can skip via the signature cache.
+                    webhookSyncedAt = new Date();
                 } else if (!shouldInjectWebhook && isOurWebhook) {
                     try {
                         await removeNetwatchWebhook(conn, nw.host, router.webhookSecret || '', nw);
                         finalHasWebhook = false;
                     } catch (err) { logger.warn({ err: String(err), host: nw.host }, 'Failed cleanup webhook'); }
+                    webhookSyncedAt = null;
                 }
 
-                const baseData: any = { 
-                    routerId, 
-                    host: nw.host, 
-                    name: finalName, 
-                    interval: nw.interval || 30, 
-                    status, 
-                    disabled: isDisabled, 
-                    lastCheck: new Date(), 
-                    lastUp: nw.sinceUp, 
-                    lastDown: nw.sinceDown, 
-                    hasWebhook: finalHasWebhook, 
+                const baseData: any = {
+                    routerId,
+                    host: nw.host,
+                    name: finalName,
+                    interval: nw.interval || 30,
+                    status,
+                    disabled: isDisabled,
+                    lastCheck: new Date(),
+                    lastUp: nw.sinceUp,
+                    lastDown: nw.sinceDown,
+                    hasWebhook: finalHasWebhook,
+                    webhookSignature: expectedSig,
+                    webhookLastSyncedAt: webhookSyncedAt ?? null,
                     tenantId: router.tenantId,
                     updatedAt: new Date()
                 };

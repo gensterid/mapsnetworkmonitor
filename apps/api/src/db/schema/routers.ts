@@ -261,6 +261,13 @@ export const routerNetwatch = pgTable('router_netwatch', {
     syncState: text('sync_state').notNull().default('synced'),
     conflictReason: text('conflict_reason'),
 
+    // Webhook idempotency cache (Phase 26). If webhookSignature matches the
+    // expected hash and webhookLastSyncedAt is within the freshness window,
+    // sync skips touching MikroTik's webhook script. Prevents the per-cycle
+    // re-injection that previously flooded the router log.
+    webhookSignature: text('webhook_signature'),
+    webhookLastSyncedAt: timestamp('webhook_last_synced_at'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     hasWebhook: boolean('has_webhook').default(false).notNull(),

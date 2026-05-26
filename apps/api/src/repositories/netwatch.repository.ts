@@ -320,6 +320,10 @@ export class NetwatchRepository {
                     mikrotikSyncedAt: new Date(),
                     syncState: sql`'synced'`,
                     conflictReason: sql`NULL`,
+                    // Phase 26 — preserve webhook signature/timestamp from incoming
+                    // batch. Sync layer computes these and decides when to refresh.
+                    webhookSignature: sql`EXCLUDED.webhook_signature`,
+                    webhookLastSyncedAt: sql`COALESCE(EXCLUDED.webhook_last_synced_at, ${routerNetwatch.webhookLastSyncedAt})`,
                 }
             })
             .returning();
