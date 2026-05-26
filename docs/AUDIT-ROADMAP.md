@@ -140,8 +140,8 @@
 | 23.3 | Edit endpoint: mark pending/synced/conflict on push outcome | `069d6b5` |
 | 23.4 | Auto-heal: skip rows in conflict / app_only / link_locked | `7f9bf0c` |
 | 23.5 | API: list conflicts + resolve (single/bulk) | `182b668` |
-| 23.6 | Frontend: hook + banner + per-row badge | pending |
-| 23.7 | Frontend: conflict resolution dialog | pending |
+| 23.6 | Frontend: hook + banner + per-row badge | `6dbaf73` |
+| 23.7 | Frontend: conflict resolution dialog | `6dbaf73` |
 
 ---
 
