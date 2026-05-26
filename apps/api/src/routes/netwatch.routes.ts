@@ -206,6 +206,65 @@ router.post(
 );
 
 /**
+ * POST /api/routers/:id/netwatch/conflicts/resolve
+ * Resolve one or more sync conflicts. Operator picks the source of truth:
+ *  - source='mikrotik' → adopt mikrotik_host into host (delete the diverged copies)
+ *  - source='app'      → push the current app host to MikroTik (overwriting)
+ *
+ * Body: { entryIds: string[], source: 'mikrotik' | 'app' }
+ *
+ * Both single-row and bulk operations go through this endpoint so the UI
+ * can use one mutation hook for both flows.
+ */
+router.post(
+    '/conflicts/resolve',
+    requireOperator,
+    asyncHandler(async (req, res) => {
+        const { id: routerId } = req.params as { id: string };
+        const body = z.object({
+            entryIds: z.array(z.string().uuid()).min(1).max(200),
+            source: z.enum(['mikrotik', 'app']),
+        }).parse(req.body);
+
+        const { resolveConflicts } = await import('../services/netwatch/netwatch-core.service.js');
+        const result = await resolveConflicts(
+            routerId,
+            body.entryIds,
+            body.source,
+            getEffectiveTenantId(req),
+            req.user!.id,
+        );
+
+        await settingsService.logAction(
+            'resolve_conflict',
+            'netwatch',
+            body.entryIds.join(','),
+            req.user!.id,
+            req.user!.tenantId!,
+            { source: body.source, count: body.entryIds.length, result },
+            req
+        );
+
+        res.json({ data: result });
+    })
+);
+
+/**
+ * GET /api/routers/:id/netwatch/conflicts
+ * List rows currently in sync_state='conflict' for this router.
+ * Used by the banner badge count + Conflicts panel.
+ */
+router.get(
+    '/conflicts',
+    asyncHandler(async (req, res) => {
+        const { id: routerId } = req.params as { id: string };
+        const { listConflicts } = await import('../services/netwatch/netwatch-core.service.js');
+        const conflicts = await listConflicts(routerId, getEffectiveTenantId(req));
+        res.json({ data: conflicts });
+    })
+);
+
+/**
  * DELETE /api/routers/:id/netwatch/:netwatchId
  * Delete a netwatch entry
  */

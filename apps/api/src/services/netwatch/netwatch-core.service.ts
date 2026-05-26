@@ -1,4 +1,4 @@
-import { eq, and, or } from 'drizzle-orm';
+import { eq, and, or, inArray, sql } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
     routers,
@@ -267,4 +267,123 @@ export async function deleteEntry(routerId: string, id: string, tenantId?: strin
     }
 
     return netwatchRepository.delete(id, tx);
+}
+
+/**
+ * List netwatch entries currently in sync_state='conflict' for a router.
+ * Used by the UI banner + Conflicts panel to surface rows that need
+ * operator attention.
+ */
+export async function listConflicts(routerId: string, tenantId?: string, tx: any = db) {
+    const filters = [
+        eq(routerNetwatch.routerId, routerId),
+        eq(routerNetwatch.syncState, 'conflict'),
+    ];
+    if (tenantId) filters.push(eq(routerNetwatch.tenantId, tenantId));
+
+    return tx
+        .select({
+            id: routerNetwatch.id,
+            name: routerNetwatch.name,
+            host: routerNetwatch.host,
+            mikrotikHost: routerNetwatch.mikrotikHost,
+            mikrotikSyncedAt: routerNetwatch.mikrotikSyncedAt,
+            conflictReason: routerNetwatch.conflictReason,
+            status: routerNetwatch.status,
+            linkedOnuId: routerNetwatch.linkedOnuId,
+            updatedAt: routerNetwatch.updatedAt,
+        })
+        .from(routerNetwatch)
+        .where(and(...filters))
+        .orderBy(routerNetwatch.name);
+}
+
+/**
+ * Resolve sync conflicts in bulk. Operator picks which side wins per call:
+ *  - 'mikrotik' → trust MikroTik snapshot; delete the app row that diverged
+ *    (since the canonical entry is the one with host = mikrotik_host).
+ *    The duplicate sibling row (same name, mikrotik_host) already exists
+ *    after fullSync, so removing the diverged row is enough.
+ *  - 'app' → trust app; push current host to MikroTik via updateEntry()
+ *    which already handles MikroTik update + cascade + audit history.
+ *
+ * Every resolution writes a netwatch_ip_history row with reason
+ * 'conflict_resolved_app' or 'conflict_resolved_mikrotik' so the History
+ * dialog shows who chose what and when.
+ */
+export async function resolveConflicts(
+    routerId: string,
+    entryIds: string[],
+    source: 'mikrotik' | 'app',
+    tenantId?: string,
+    changedBy?: string,
+    tx: any = db
+): Promise<{ resolved: number; failed: number; details: any[] }> {
+    if (entryIds.length === 0) return { resolved: 0, failed: 0, details: [] };
+
+    // Fetch target rows first so we can audit + decide per row
+    const rows = await tx
+        .select()
+        .from(routerNetwatch)
+        .where(and(
+            eq(routerNetwatch.routerId, routerId),
+            inArray(routerNetwatch.id, entryIds),
+        ));
+
+    const details: any[] = [];
+    let resolved = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+        try {
+            if (source === 'mikrotik') {
+                // Trust MikroTik: this row's host diverged from MikroTik's view.
+                // The proper MikroTik snapshot lives in another row (the one
+                // fullSync inserted at mikrotik_host). Remove this diverged copy.
+                await tx.insert(netwatchIpHistory).values({
+                    netwatchId: row.id,
+                    routerId,
+                    tenantId: row.tenantId || tenantId || null,
+                    oldHost: row.host,
+                    newHost: row.mikrotikHost || row.host,
+                    reason: 'conflict_resolved_mikrotik',
+                    onuId: row.linkedOnuId,
+                    changedBy: changedBy || null,
+                });
+                await tx.delete(routerNetwatch).where(eq(routerNetwatch.id, row.id));
+                details.push({ id: row.id, name: row.name, action: 'deleted_diverged_copy' });
+            } else {
+                // Trust app: push our host to MikroTik via the existing updateEntry
+                // flow (which handles MikroTik API + webhook + cascade + history).
+                await updateEntry(
+                    routerId,
+                    row.id,
+                    { host: row.host },
+                    tenantId,
+                    tx,
+                    { reason: 'manual_edit', changedBy: changedBy || 'system' },
+                );
+                // Force-mark as synced; updateEntry already does this when push OK,
+                // but if it returned conflict (push failed again) we want operator
+                // to see the new conflict_reason from this attempt.
+                await tx.insert(netwatchIpHistory).values({
+                    netwatchId: row.id,
+                    routerId,
+                    tenantId: row.tenantId || tenantId || null,
+                    oldHost: row.mikrotikHost || row.host,
+                    newHost: row.host,
+                    reason: 'conflict_resolved_app',
+                    onuId: row.linkedOnuId,
+                    changedBy: changedBy || null,
+                });
+                details.push({ id: row.id, name: row.name, action: 'pushed_app_to_mikrotik' });
+            }
+            resolved++;
+        } catch (err: any) {
+            failed++;
+            details.push({ id: row.id, name: row.name, error: err?.message || String(err) });
+        }
+    }
+
+    return { resolved, failed, details };
 }
