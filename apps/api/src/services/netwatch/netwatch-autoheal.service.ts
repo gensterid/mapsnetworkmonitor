@@ -167,9 +167,14 @@ export async function healStaleEntries(opts: { routerId?: string } = {}): Promis
             //   - First detection: mark 'pending'.
             //   - Second detection (next cycle, ~5 min later): escalate to
             //     'conflict' so the operator banner fires.
-            const sourceLabel = resolved.source.toUpperCase();
-            const pendingReason = `[PENDING_${sourceLabel}_MISMATCH] Detected ${resolved.sourceIp} (source: ${resolved.source}); MikroTik has ${entry.host}. Awaiting next cycle to confirm.`;
-            const conflictReason = `[${sourceLabel}_IP_MISMATCH] ${resolved.source} reports ${resolved.sourceIp} but MikroTik shows ${entry.host}. Operator: review and resolve.`;
+            //
+            // resolved.source is typed nullable; fall back to 'acs' when null
+            // so the conflict reason is still readable (resolver guarantees
+            // source is set when sourceIp is set, but TS doesn't infer this).
+            const source = resolved.source || 'acs';
+            const sourceLabel = source.toUpperCase();
+            const pendingReason = `[PENDING_${sourceLabel}_MISMATCH] Detected ${resolved.sourceIp} (source: ${source}); MikroTik has ${entry.host}. Awaiting next cycle to confirm.`;
+            const conflictReason = `[${sourceLabel}_IP_MISMATCH] ${source} reports ${resolved.sourceIp} but MikroTik shows ${entry.host}. Operator: review and resolve.`;
 
             if (entry.syncState === 'synced' || !entry.syncState) {
                 // First-time detection → mark pending, don't escalate yet.
