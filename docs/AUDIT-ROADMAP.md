@@ -144,7 +144,7 @@
 | 23.7 | Frontend: conflict resolution dialog | `6dbaf73` |
 | 24 | Auto-heal kill switch + per-cycle cap + push throttle | `e44d865` |
 | 25 | Auto-heal detect-only (Phase 25): no MikroTik writes, just flag conflicts | `8bff4f9` |
-| 26 | Webhook idempotency cache (signature hash + 24h freshness window) | pending |
+| 26 | Webhook idempotency cache (signature hash + 24h freshness window) | `3fd5b6d` |
 
 ---
 
