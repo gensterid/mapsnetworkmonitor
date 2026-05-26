@@ -120,6 +120,26 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 const recentSync = !!webhookSyncedAt && (Date.now() - new Date(webhookSyncedAt).getTime()) < WEBHOOK_FRESHNESS_MS;
                 const skipWebhookWork = sigMatches && recentSync && finalHasWebhook;
 
+                // Phase 26 diagnostic — set NETWATCH_WEBHOOK_DEBUG=true to log
+                // per-entry decision so we can identify why cache doesn't skip.
+                if (process.env.NETWATCH_WEBHOOK_DEBUG === 'true' && shouldInjectWebhook) {
+                    logger.info({
+                        host: nw.host,
+                        expectedSig,
+                        storedSig: existing?.webhookSignature || null,
+                        sigMatches,
+                        webhookSyncedAt: webhookSyncedAt ? new Date(webhookSyncedAt).toISOString() : null,
+                        recentSync,
+                        hasUpWebhook,
+                        hasDownWebhook,
+                        detectedWebhook,
+                        isOurUpWebhook,
+                        isOurDownWebhook,
+                        finalHasWebhook,
+                        skipWebhookWork,
+                    }, '[Webhook Cache Decision]');
+                }
+
                 if (shouldInjectWebhook && (existing?.deviceType || 'client') !== 'odp' && nw.host && !skipWebhookWork) {
                     let forceReconfig = false;
                     if (finalHasWebhook) {
