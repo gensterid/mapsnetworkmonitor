@@ -8,6 +8,8 @@ import { tenants } from './tenants.js';
  *  - manual edits via UI (reason: 'manual_edit')
  *  - sync-time corrections from MikroTik /tool netwatch (reason: 'sync_correction')
  *  - auto-heal resolver (reason: 'auto_heal_pppoe' | 'auto_heal_acs')
+ *  - smart-sync conflict resolution by operator
+ *    (reason: 'conflict_resolved_app' | 'conflict_resolved_mikrotik')
  *
  * Used by the per-host History dialog so operators can audit every IP
  * shift over time and spot patterns (e.g. a customer whose IP keeps

@@ -249,6 +249,18 @@ export const routerNetwatch = pgTable('router_netwatch', {
     topologyX: decimal('topology_x', { precision: 10, scale: 2 }),
     topologyY: decimal('topology_y', { precision: 10, scale: 2 }),
 
+    // Smart Sync state tracking — distinguishes rows in sync with MikroTik
+    // from those edited locally but not yet pushed, or genuinely conflicting
+    // because both sides changed independently.
+    //   'synced'   — app.host equals MikroTik's last reported host
+    //   'pending'  — app edited but MikroTik push not yet confirmed
+    //   'conflict' — app and MikroTik disagree on host (operator must resolve)
+    //   'app_only' — row created locally, no MikroTik counterpart expected
+    mikrotikHost: text('mikrotik_host'),
+    mikrotikSyncedAt: timestamp('mikrotik_synced_at'),
+    syncState: text('sync_state').notNull().default('synced'),
+    conflictReason: text('conflict_reason'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
     hasWebhook: boolean('has_webhook').default(false).notNull(),
@@ -265,6 +277,7 @@ export const routerNetwatch = pgTable('router_netwatch', {
     routerStatusIdx: index('router_netwatch_router_status_idx').on(table.routerId, table.status),
     lastUpIdx: index('router_netwatch_last_up_idx').on(table.lastUp),
     lastDownIdx: index('router_netwatch_last_down_idx').on(table.lastDown),
+    syncStateIdx: index('router_netwatch_sync_state_idx').on(table.syncState),
     uniqueRouterHost: uniqueIndex('router_netwatch_router_host_unique_idx').on(table.routerId, table.host),
 }));
 
