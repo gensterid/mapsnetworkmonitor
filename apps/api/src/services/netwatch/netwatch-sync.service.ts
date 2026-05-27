@@ -119,18 +119,23 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 const sigMatches = !!expectedSig && existing?.webhookSignature === expectedSig;
                 const recentSync = !!webhookSyncedAt && (Date.now() - new Date(webhookSyncedAt).getTime()) < WEBHOOK_FRESHNESS_MS;
 
-                // Phase 26 fix v2: trust the signature cache alone for the
-                // freshness window. We do NOT include finalHasWebhook here
-                // because MikroTik's RouterOS API truncates long scripts when
-                // returning them via /tool netwatch print. Customer scripts
-                // that combine operator's Telegram-bot block with our webhook
-                // block exceed the API word limit, so nw.upScript comes back
-                // missing the webhook tail — finalHasWebhook is unreliable.
+                // Phase 26 v3 — balance between idempotency and correctness.
                 //
-                // Trade-off: if operator manually wipes the webhook from
-                // MikroTik, the app won't notice until the signature/timestamp
-                // expires (24h). On expiry we re-verify and rewrite.
-                const skipWebhookWork = sigMatches && recentSync;
+                // Trust cache when ALL three agree:
+                //   1. signature matches (inputs unchanged)
+                //   2. timestamp is fresh (synced within 24h)
+                //   3. database flag has_webhook=true (we successfully injected before)
+                //
+                // Why include hasWebhook (DB flag, NOT script content):
+                // - has_webhook is what WE wrote when sync succeeded last time
+                // - If has_webhook=false in DB, we've never confirmed a successful
+                //   inject for this entry — must run the inject flow
+                // - This catches the use_webhook off→on toggle case where prior
+                //   cycle cleared has_webhook but signature wasn't reset
+                //
+                // We still do NOT include nw.upScript / nw.downScript check
+                // because RouterOS API truncates long scripts on read.
+                const skipWebhookWork = sigMatches && recentSync && existing?.hasWebhook === true;
 
                 // Phase 26 diagnostic — set NETWATCH_WEBHOOK_DEBUG=true to log
                 // per-entry decision so we can identify why cache doesn't skip.
