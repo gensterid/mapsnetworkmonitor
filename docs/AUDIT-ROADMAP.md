@@ -145,6 +145,7 @@
 | 24 | Auto-heal kill switch + per-cycle cap + push throttle | `e44d865` |
 | 25 | Auto-heal detect-only (Phase 25): no MikroTik writes, just flag conflicts | `8bff4f9` |
 | 26 | Webhook idempotency cache (signature hash + 24h freshness window) | `3fd5b6d` |
+| 26.v2 | Drop finalHasWebhook from cache skip (RouterOS API truncates long scripts) | `c9c8334` |
 
 ---
 
