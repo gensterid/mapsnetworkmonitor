@@ -118,7 +118,19 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 const WEBHOOK_FRESHNESS_MS = 24 * 60 * 60 * 1000; // 24h
                 const sigMatches = !!expectedSig && existing?.webhookSignature === expectedSig;
                 const recentSync = !!webhookSyncedAt && (Date.now() - new Date(webhookSyncedAt).getTime()) < WEBHOOK_FRESHNESS_MS;
-                const skipWebhookWork = sigMatches && recentSync && finalHasWebhook;
+
+                // Phase 26 fix v2: trust the signature cache alone for the
+                // freshness window. We do NOT include finalHasWebhook here
+                // because MikroTik's RouterOS API truncates long scripts when
+                // returning them via /tool netwatch print. Customer scripts
+                // that combine operator's Telegram-bot block with our webhook
+                // block exceed the API word limit, so nw.upScript comes back
+                // missing the webhook tail — finalHasWebhook is unreliable.
+                //
+                // Trade-off: if operator manually wipes the webhook from
+                // MikroTik, the app won't notice until the signature/timestamp
+                // expires (24h). On expiry we re-verify and rewrite.
+                const skipWebhookWork = sigMatches && recentSync;
 
                 // Phase 26 diagnostic — set NETWATCH_WEBHOOK_DEBUG=true to log
                 // per-entry decision so we can identify why cache doesn't skip.
