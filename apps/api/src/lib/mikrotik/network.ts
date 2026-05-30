@@ -413,18 +413,36 @@ export async function measurePing(
     const tryPing = async (params: string[]) => {
         const result = await safeWrite(api, ['/ping', `=address=${address}`, ...params]);
         if (result && result.length > 0) {
-            let totalLatency = 0, receivedCount = 0, sentCount = count;
+            let sentCount = count;
+            let summaryReceived: number | null = null;
+            let perEntryReceived = 0;
+            let totalLatency = 0;
+
             for (const entry of result) {
-                if (entry['sent']) sentCount = parseInt(entry['sent']);
-                if (entry['received']) receivedCount = parseInt(entry['received']);
+                // Summary entry: MikroTik appends a final row with sent/received totals.
+                // Trust that for the authoritative receivedCount.
+                if (entry['sent'] !== undefined) sentCount = parseInt(entry['sent']);
+                if (entry['received'] !== undefined) summaryReceived = parseInt(entry['received']);
+
+                // Per-ping entry — accumulates latency. Counted separately from
+                // the summary so we don't double-count (previous code added both
+                // summary.received AND per-entry increments, yielding loss < 0%).
                 if (entry['time']) {
                     const lat = parseLatencyValue(entry['time']);
-                    if (lat >= 0) { totalLatency += lat; receivedCount++; }
+                    if (lat >= 0) {
+                        totalLatency += lat;
+                        perEntryReceived++;
+                    }
                 }
             }
+
+            const receivedCount = summaryReceived !== null ? summaryReceived : perEntryReceived;
+            const avgLatency = perEntryReceived > 0 ? totalLatency / perEntryReceived : -1;
+            const lossRaw = ((sentCount - receivedCount) / sentCount) * 100;
             return {
-                latency: receivedCount > 0 ? Math.round(totalLatency / receivedCount) : -1,
-                packetLoss: Math.round(((sentCount - receivedCount) / sentCount) * 100)
+                latency: receivedCount > 0 ? Math.round(avgLatency) : -1,
+                // Clamp 0-100 so a counting glitch never surfaces as negative loss.
+                packetLoss: Math.max(0, Math.min(100, Math.round(lossRaw))),
             };
         }
         return null;

@@ -28,7 +28,14 @@ export default function OltTab({ device, timezone }) {
     const physicalStatus = device?.physicalStatus || device?.status;
     const sources = Array.isArray(device?.discoverySources) ? device.discoverySources : [];
 
-    if (!onuId || !oltId) {
+    // Show data whenever the device has ANY OLT/ONU identity: oltId from
+    // the netwatch→onus JOIN, sn from inventory, or a hard linkedOnuId.
+    // Previously required both onuId AND oltId, which hid valid info when
+    // the row was soft-matched via host/name but linkedOnuId hadn't been
+    // backfilled by the linkage service yet.
+    const hasOltContext = !!(oltId || sn || onuId);
+
+    if (!hasOltContext) {
         return (
             <div className="p-6 text-center text-slate-500 text-sm">
                 <Radio className="w-10 h-10 mx-auto mb-3 opacity-40" />
@@ -38,9 +45,14 @@ export default function OltTab({ device, timezone }) {
         );
     }
 
+    // Actions require a hard linkedOnuId — soft-matched rows (oltId from
+    // JOIN, no linked_onu_id) can still display info but can't reboot or
+    // archive a specific ONU because the action endpoints need the ONU UUID.
+    const canRunActions = !!(onuId && oltId && ponPort);
+
     const handleReboot = () => {
-        if (!ponPort) {
-            window.alert('PON port tidak diketahui, tidak bisa reboot via OLT.');
+        if (!canRunActions) {
+            window.alert('ONU belum di-link ke inventory OLT. Buka tab Settings dan link manual dulu untuk bisa reboot.');
             return;
         }
         const confirmed = window.confirm(
@@ -56,6 +68,10 @@ export default function OltTab({ device, timezone }) {
     };
 
     const handleArchive = () => {
+        if (!onuId || !oltId) {
+            window.alert('ONU belum di-link ke inventory OLT. Tidak bisa archive tanpa link.');
+            return;
+        }
         const confirmed = window.confirm(
             `Hapus ONU "${device.name || sn}" dari aplikasi?\n\n` +
             `ONU akan disembunyikan dari peta. Koordinat dan data custom tetap tersimpan dan akan otomatis kembali jika ONU muncul lagi di polling OLT. ` +
