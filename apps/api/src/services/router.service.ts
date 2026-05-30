@@ -660,8 +660,17 @@ export class RouterService {
     /**
      * Delete a netwatch entry
      */
-    async deleteNetwatch(routerId: string, netwatchId: string, tenantId?: string, deleteFromMikrotik: boolean = true): Promise<boolean> {
-        return routerNetwatchService.delete(routerId, netwatchId, tenantId, deleteFromMikrotik);
+    async deleteNetwatch(
+        routerId: string,
+        netwatchId: string,
+        tenantId?: string,
+        optionsOrFlag: { mode?: 'both' | 'app_only' | 'mikrotik_only' } | boolean = true
+    ): Promise<boolean> {
+        // Backward compat: boolean true/false (deleteFromMikrotik) → mode mapping.
+        const options = typeof optionsOrFlag === 'boolean'
+            ? { mode: (optionsOrFlag ? 'both' : 'app_only') as 'both' | 'app_only' | 'mikrotik_only' }
+            : optionsOrFlag;
+        return routerNetwatchService.delete(routerId, netwatchId, tenantId, options);
     }
 
     /**

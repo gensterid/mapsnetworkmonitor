@@ -273,8 +273,22 @@ router.delete(
     requireOperator,
     asyncHandler(async (req, res) => {
         const { id, netwatchId } = req.params as { id: string; netwatchId: string };
-        const deleteFromMikrotik = req.query.deleteFromMikrotik !== 'false';
-        const deleted = await routerService.deleteNetwatch(id, netwatchId, getEffectiveTenantId(req), deleteFromMikrotik);
+
+        // Three delete modes:
+        //   ?mode=both         — delete from app + MikroTik (default, full removal)
+        //   ?mode=app_only     — delete app row only, MikroTik keeps entry
+        //   ?mode=mikrotik_only — delete MikroTik entry, app row stays (is_app_only=true)
+        //
+        // Legacy compat: ?deleteFromMikrotik=false maps to mode='app_only'.
+        const rawMode = (req.query.mode as string | undefined) || '';
+        let mode: 'both' | 'app_only' | 'mikrotik_only' = 'both';
+        if (rawMode === 'app_only' || rawMode === 'mikrotik_only') {
+            mode = rawMode;
+        } else if (req.query.deleteFromMikrotik === 'false') {
+            mode = 'app_only';
+        }
+
+        const deleted = await routerService.deleteNetwatch(id, netwatchId, getEffectiveTenantId(req), { mode });
 
         if (!deleted) {
             throw new ApiError(404, 'Netwatch entry not found');
@@ -286,11 +300,11 @@ router.delete(
             netwatchId,
             req.user!.id,
             req.user!.tenantId!,
-            {},
+            { mode },
             req
         );
 
-        res.json({ data: { success: true } });
+        res.json({ data: { success: true, mode } });
     })
 );
 

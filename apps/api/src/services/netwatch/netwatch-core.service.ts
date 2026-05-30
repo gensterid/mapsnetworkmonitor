@@ -245,11 +245,39 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
 /**
  * Delete a netwatch entry
  */
-export async function deleteEntry(routerId: string, id: string, tenantId?: string, deleteFromMikrotik: boolean = true, tx: any = db): Promise<boolean> {
+/**
+ * Delete a netwatch entry. Three modes supported:
+ *
+ *   'both' (default)  — Delete from BOTH app DB and MikroTik /tool netwatch.
+ *                       Marker hilang total. Cocok untuk full removal.
+ *
+ *   'app_only'        — Delete only from app DB. MikroTik tetap monitor.
+ *                       Next sync akan re-create app row dari MikroTik
+ *                       (essentially a "reset" — useful kalau ingin app
+ *                       discover ulang dengan data fresh).
+ *
+ *   'mikrotik_only'   — Stop monitor di MikroTik (remove /tool netwatch
+ *                       entry). App row TETAP, tapi di-mark is_app_only=true
+ *                       agar next sync tidak otomatis re-create di MikroTik.
+ *                       Marker di map TETAP dengan last-known status.
+ */
+export async function deleteEntry(
+    routerId: string,
+    id: string,
+    tenantId?: string,
+    options: { mode?: 'both' | 'app_only' | 'mikrotik_only'; deleteFromMikrotik?: boolean } = {},
+    tx: any = db
+): Promise<boolean> {
+    // Backward compat: legacy boolean deleteFromMikrotik flag maps to modes.
+    const mode = options.mode
+        ?? (options.deleteFromMikrotik === false ? 'app_only' : 'both');
+
     const entry = await netwatchRepository.findById(id, tx);
     if (!entry || entry.routerId !== routerId) return false;
 
-    if (deleteFromMikrotik && !entry.isAppOnly) {
+    const doRemoveMikrotik = (mode === 'both' || mode === 'mikrotik_only') && !entry.isAppOnly;
+
+    if (doRemoveMikrotik) {
         try {
             const router = await findRouterWithPassword(routerId, tenantId, tx);
             if (router) {
@@ -266,6 +294,21 @@ export async function deleteEntry(routerId: string, id: string, tenantId?: strin
         }
     }
 
+    if (mode === 'mikrotik_only') {
+        // Keep app row but mark it app-only so next netwatch sync won't try
+        // to re-create the MikroTik side. Also clear webhook cache so the
+        // marker doesn't claim a webhook it no longer has.
+        await tx.update(routerNetwatch).set({
+            isAppOnly: true,
+            hasWebhook: false,
+            webhookSignature: null,
+            webhookLastSyncedAt: null,
+            updatedAt: new Date(),
+        }).where(eq(routerNetwatch.id, id));
+        return true;
+    }
+
+    // mode === 'both' or 'app_only' → drop the DB row.
     return netwatchRepository.delete(id, tx);
 }
 

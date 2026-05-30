@@ -483,8 +483,13 @@ const NetworkMap = ({
 
     // Mutation for deleting netwatch
     const deleteNetwatchMutation = useMutation({
-        mutationFn: async ({ routerId, netwatchId, deleteFromMikrotik = true }) => {
-            const res = await apiClient.delete(`/routers/${routerId}/netwatch/${netwatchId}?deleteFromMikrotik=${deleteFromMikrotik}`);
+        mutationFn: async ({ routerId, netwatchId, deleteFromMikrotik = true, deleteMode }) => {
+            // New API supports ?mode=both|app_only|mikrotik_only.
+            // Fall back to legacy boolean flag when deleteMode isn't given.
+            const modeParam = deleteMode
+                ? `mode=${encodeURIComponent(deleteMode)}`
+                : `deleteFromMikrotik=${deleteFromMikrotik}`;
+            const res = await apiClient.delete(`/routers/${routerId}/netwatch/${netwatchId}?${modeParam}`);
             return res.data;
         },
         onMutate: async ({ netwatchId }) => {
@@ -597,6 +602,41 @@ const NetworkMap = ({
 
     const handleDeleteConfirmed = useCallback(({ mode, node }) => {
         if (!node) return;
+
+        const hasOnu = !!(node.linkedOnuId || node.deviceType === 'onu');
+        const hasNetwatchSide = node.deviceType !== 'onu' && !!node.id && !!node.routerId;
+
+        // Non-ONU netwatch modes — go straight to delete with mode param.
+        if (mode === 'app_only' || mode === 'mikrotik_only') {
+            if (!hasNetwatchSide) {
+                toast.error('Node ini bukan netwatch entry.');
+            } else {
+                deleteNetwatchMutation.mutate({
+                    routerId: node.routerId,
+                    netwatchId: node.id,
+                    deleteMode: mode,
+                });
+            }
+            setDeleteDialog({ isOpen: false, node: null });
+            return;
+        }
+
+        // 'both' for non-ONU node: just delete netwatch with mode=both.
+        if (mode === 'both' && !hasOnu) {
+            if (!hasNetwatchSide) {
+                toast.error('Node ini bukan netwatch entry.');
+            } else {
+                deleteNetwatchMutation.mutate({
+                    routerId: node.routerId,
+                    netwatchId: node.id,
+                    deleteMode: 'both',
+                });
+            }
+            setDeleteDialog({ isOpen: false, node: null });
+            return;
+        }
+
+        // ONU device modes — 'onu', 'netwatch', or 'both' chains archive + delete.
         const wantsOnu = mode === 'onu' || mode === 'both';
         const wantsNetwatch = mode === 'netwatch' || mode === 'both';
 
@@ -610,8 +650,12 @@ const NetworkMap = ({
             }
         }
         if (wantsNetwatch) {
-            if (node.routerId && node.id && node.deviceType !== 'onu') {
-                deleteNetwatchMutation.mutate({ routerId: node.routerId, netwatchId: node.id });
+            if (hasNetwatchSide) {
+                deleteNetwatchMutation.mutate({
+                    routerId: node.routerId,
+                    netwatchId: node.id,
+                    deleteMode: 'both',
+                });
             } else if (mode === 'netwatch') {
                 toast.error('Node ini bukan netwatch entry.');
             }
