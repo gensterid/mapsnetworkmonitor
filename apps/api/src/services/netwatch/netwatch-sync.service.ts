@@ -137,6 +137,21 @@ export async function syncHosts(routerId: string, routerName: string, conn: any,
                 // because RouterOS API truncates long scripts on read.
                 const skipWebhookWork = sigMatches && recentSync && existing?.hasWebhook === true;
 
+                // Phase 26 v4 — preserve has_webhook on skip path.
+                // Without this, the upsert at the end overwrites has_webhook with
+                // `finalHasWebhook` (computed at line 98 from nw.upScript checks).
+                // For some entries MikroTik API returns up-script content where
+                // the webhook tail isn't detected, so detectedWebhook=false →
+                // finalHasWebhook=false → upsert corrupts DB to has_webhook=false
+                // → next cycle's skip check fails → re-inject → flip-flop loop.
+                //
+                // When skip applies, we already trust the cache. Preserve the
+                // known-good has_webhook flag we set when inject originally
+                // succeeded, regardless of what the truncated script read says.
+                if (skipWebhookWork) {
+                    finalHasWebhook = true;
+                }
+
                 // Phase 26 diagnostic — set NETWATCH_WEBHOOK_DEBUG=true to log
                 // per-entry decision so we can identify why cache doesn't skip.
                 if (process.env.NETWATCH_WEBHOOK_DEBUG === 'true' && shouldInjectWebhook) {
