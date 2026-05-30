@@ -147,6 +147,7 @@
 | 26 | Webhook idempotency cache (signature hash + 24h freshness window) | `3fd5b6d` |
 | 26.v2 | Drop finalHasWebhook from cache skip (RouterOS API truncates long scripts) | `c9c8334` |
 | 26.v3 | Phase 26 v3 — also require DB has_webhook=true for skip | `e5b784e` |
+| 27 | Granular 3-mode delete dialog for non-ONU netwatch markers | `2629bc0` |
 
 ---
 
