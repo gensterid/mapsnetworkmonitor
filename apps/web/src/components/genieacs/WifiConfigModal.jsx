@@ -34,6 +34,20 @@ export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
         const configs = [];
         const isTrue = (val) => val === true || val === 'true' || val === '1' || val === 1;
         
+        // Helper — compute hidden conservatively. Some firmware (e.g. Fiberhome
+        // HG6243C) sets SSIDAdvertisementEnabled=false even when the SSID is
+        // actively broadcasting on the air (verified by WiFi scan). Only treat
+        // the SSID as hidden when BOTH advertisement flags agree that it's off.
+        // If either explicitly says it's advertising, trust that — the visible
+        // beacon is what end-users actually see.
+        const isHidden = (config) => {
+            const adv = config.SSIDAdvertisementEnabled?._value;
+            const beacon = config.BeaconAdvertisementEnabled?._value;
+            if (adv === false && beacon === false) return true;
+            // Single false flag is unreliable across firmwares; don't claim hidden.
+            return false;
+        };
+
         // TR-181 Support
         const tr181SSIDs = dev.Device?.WiFi?.SSID;
         if (tr181SSIDs) {
@@ -44,8 +58,8 @@ export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
                     index: parseInt(key),
                     ssid: config.SSID?._value || `WLAN ${key}`,
                     enable: isTrue(config.Enable?._value) || config.Status?._value === 'Enabled',
-                    hidden: config.SSIDAdvertisementEnabled?._value === false,
-                    securityMode: 'WPA2-PSK', 
+                    hidden: isHidden(config),
+                    securityMode: 'WPA2-PSK',
                     band: parseInt(key) > 4 ? '5GHz' : '2.4GHz'
                 });
             });
@@ -58,16 +72,16 @@ export default function WifiConfigModal({ isOpen, onClose, device, routerId }) {
             Object.keys(lanDevice.WLANConfiguration).forEach(key => {
                 if (key.startsWith('_')) return;
                 const config = lanDevice.WLANConfiguration[key];
-                
-                // Fiberhome/TR-098 logic: Enable and Status are reliable trackers. 
+
+                // Fiberhome/TR-098 logic: Enable and Status are reliable trackers.
                 // Status is usually 'Up' when active.
                 const isEnabled = isTrue(config.Enable?._value) || config.Status?._value === 'Up';
-                
+
                 configs.push({
                     index: parseInt(key),
                     ssid: config.SSID?._value || `WLAN ${key}`,
                     enable: isEnabled,
-                    hidden: config.SSIDAdvertisementEnabled?._value === false || config.BeaconAdvertisementEnabled?._value === false,
+                    hidden: isHidden(config),
                     beaconType: config.BeaconType?._value,
                     securityMode: config.BeaconType?._value === 'None' ? 'Open' : 'WPA2-PSK',
                     band: parseInt(key) >= 5 ? '5GHz' : '2.4GHz'

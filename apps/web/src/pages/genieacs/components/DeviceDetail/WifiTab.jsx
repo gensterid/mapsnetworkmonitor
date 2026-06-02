@@ -28,7 +28,14 @@ function getWlanConfigs(fullDevice) {
         const channel = wlan.Channel?._value;
         const standard = wlan.Standard?._value || wlan['X_HW_HardwareMode']?._value;
         const beacon = wlan.BeaconType?._value;
-        const advertised = wlan.SSIDAdvertisementEnabled?._value;
+
+        // Some firmware (Fiberhome HG6243C) reports SSIDAdvertisementEnabled=false
+        // even when the SSID is actually visible on the air. Only treat as
+        // not-advertised when BOTH ad flags explicitly say false; otherwise
+        // assume the SSID is broadcasting (matches what end-users actually see).
+        const advFlag = wlan.SSIDAdvertisementEnabled?._value;
+        const beaconAdvFlag = wlan.BeaconAdvertisementEnabled?._value;
+        const advertised = !(advFlag === false && beaconAdvFlag === false);
 
         // Heuristic: Standard '11ac'/'11ax' = 5GHz, else 2.4GHz.
         // Some FiberHome use index 5+ for 5G, ZTE uses index 2 for 5G.
@@ -43,7 +50,7 @@ function getWlanConfigs(fullDevice) {
             channel: channel || 'Auto',
             band,
             security: beacon || 'Unknown',
-            advertised: !!advertised,
+            advertised,
         });
     });
 
