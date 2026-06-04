@@ -1,7 +1,65 @@
-import React from 'react';
-import { Wifi, Settings, Cpu, Thermometer, WifiOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { Wifi, Settings, Cpu, Thermometer, WifiOff, ChevronDown, ChevronRight, Users } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import clsx from 'clsx';
+
+/**
+ * Extract connected clients from a single WLANConfiguration entry.
+ * TR-098 path: WLANConfiguration.<n>.AssociatedDevice.<i>.AssociatedDeviceMACAddress
+ * TR-181 path: WiFi.SSID.<n>.AssociatedDevice.<i>.MACAddress
+ *
+ * Returns array of { mac, ip, rssi, rate, width } sorted by RSSI (strongest first).
+ */
+function getAssociatedDevices(wlan) {
+    if (!wlan?.AssociatedDevice) return [];
+    const clients = [];
+    Object.keys(wlan.AssociatedDevice).forEach((key) => {
+        if (key.startsWith('_')) return;
+        if (!/^\d+$/.test(key)) return;
+        const dev = wlan.AssociatedDevice[key];
+        if (!dev) return;
+
+        const mac = dev.AssociatedDeviceMACAddress?._value || dev.MACAddress?._value || '';
+        if (!mac) return;
+
+        const ip = dev.IPAddress?._value
+            || dev.X_HW_IPAddress?._value
+            || dev.AssociatedDeviceIPAddress?._value
+            || '';
+        const rssiRaw = dev.SignalStrength?._value
+            ?? dev.X_HW_RSSI?._value
+            ?? dev.AssociatedDeviceRssi?._value
+            ?? null;
+        const rssi = rssiRaw !== null && rssiRaw !== undefined ? parseInt(rssiRaw) : null;
+        const rate = dev.LastDataDownlinkRate?._value
+            || dev.LastDataUplinkRate?._value
+            || dev.X_HW_RxRate?._value
+            || null;
+        const width = dev.OperatingChannelBandwidth?._value
+            || dev.X_HW_ChannelWidth?._value
+            || null;
+        const hostName = dev.HostName?._value || dev.X_HW_HostName?._value || '';
+        const noise = dev.Noise?._value || dev.X_HW_Noise?._value || null;
+
+        clients.push({ mac, ip, rssi, rate, width, hostName, noise });
+    });
+
+    // Sort by RSSI (stronger signal first), nulls last
+    clients.sort((a, b) => {
+        if (a.rssi === null) return 1;
+        if (b.rssi === null) return -1;
+        return b.rssi - a.rssi;
+    });
+    return clients;
+}
+
+function rssiColor(rssi) {
+    if (rssi === null || rssi === undefined) return 'text-slate-500';
+    if (rssi >= -55) return 'text-emerald-400';
+    if (rssi >= -70) return 'text-yellow-400';
+    if (rssi >= -80) return 'text-orange-400';
+    return 'text-red-400';
+}
 
 /**
  * Enumerate every WLANConfiguration entry on the device. CPEs typically
@@ -51,6 +109,7 @@ function getWlanConfigs(fullDevice) {
             band,
             security: beacon || 'Unknown',
             advertised,
+            clients: getAssociatedDevices(wlan),
         });
     });
 
@@ -60,6 +119,9 @@ function getWlanConfigs(fullDevice) {
 export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
     const wlans = getWlanConfigs(fullDevice);
     const enabledCount = wlans.filter((w) => w.enabled).length;
+    // Track which SSID's client list is expanded (one at a time keeps UI tidy)
+    const [expandedClients, setExpandedClients] = useState(null);
+    const toggleClients = (index) => setExpandedClients((prev) => (prev === index ? null : index));
 
     return (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -167,7 +229,53 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                     <span className="text-slate-500">Security</span>
                                     <span className="text-slate-300 font-mono truncate" title={w.security}>{w.security}</span>
                                 </div>
+
+                                {/* Connected clients toggle — only if there are clients on this SSID */}
+                                {w.clients.length > 0 && (
+                                    <button
+                                        onClick={() => toggleClients(w.index)}
+                                        className="flex items-center justify-between gap-2 text-[10px] pt-1.5 mt-1 border-t border-slate-800/50 w-full hover:text-primary transition-colors"
+                                    >
+                                        <span className="flex items-center gap-1 text-slate-400">
+                                            <Users className="w-3 h-3" />
+                                            Clients
+                                        </span>
+                                        <span className="flex items-center gap-1 text-slate-300 font-mono">
+                                            {w.clients.length}
+                                            {expandedClients === w.index ? (
+                                                <ChevronDown className="w-3 h-3" />
+                                            ) : (
+                                                <ChevronRight className="w-3 h-3" />
+                                            )}
+                                        </span>
+                                    </button>
+                                )}
                             </div>
+
+                            {/* Expanded client list — sits inside the card so layout stays clean */}
+                            {expandedClients === w.index && w.clients.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
+                                    {w.clients.map((c, i) => (
+                                        <div key={c.mac + i} className="bg-slate-950/60 rounded-md p-2 text-[10px] font-mono">
+                                            <div className="flex justify-between items-center mb-0.5">
+                                                <span className="text-slate-200">{c.mac}</span>
+                                                <span className={clsx('font-bold', rssiColor(c.rssi))}>
+                                                    {c.rssi !== null ? `${c.rssi} dBm` : '—'}
+                                                </span>
+                                            </div>
+                                            <div className="flex justify-between text-slate-500">
+                                                <span>{c.ip || '—'}</span>
+                                                <span>{c.width || ''}{c.rate ? ` · ${c.rate}` : ''}</span>
+                                            </div>
+                                            {c.hostName && (
+                                                <div className="text-slate-400 mt-0.5 truncate" title={c.hostName}>
+                                                    {c.hostName}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>
