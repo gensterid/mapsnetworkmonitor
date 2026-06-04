@@ -86,6 +86,14 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
             // does not use a projection, so device-details still receives full Hosts.Host.
             projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations'] = 1;
             projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.2.TotalAssociations'] = 1;
+            // FiberHome HG6145D2 etc. don't populate TotalAssociations but do
+            // expose AssociatedDeviceNumberOfEntries (scalar, fast to project).
+            // Cover the SSID indices commonly used by ZTE/Huawei/FiberHome.
+            for (const idx of [1, 2, 3, 4, 5, 6, 7, 8]) {
+                projection[`InternetGatewayDevice.LANDevice.1.WLANConfiguration.${idx}.TotalAssociations`] = 1;
+                projection[`InternetGatewayDevice.LANDevice.1.WLANConfiguration.${idx}.AssociatedDeviceNumberOfEntries`] = 1;
+                projection[`Device.WiFi.SSID.${idx}.AssociatedDeviceNumberOfEntries`] = 1;
+            }
         }
 
         const response = await axios.get(`${url}/devices`, {
@@ -268,15 +276,45 @@ function getDeviceClientCount(dev: any): number {
     }
 
     // 3. WiFi associations (2.4G + 5G) — usually reflects actively connected
-    //    wireless clients in real time.
-    const wlan = dev.InternetGatewayDevice?.LANDevice?.[1]?.WLANConfiguration;
-    if (wlan && typeof wlan === 'object') {
+    //    wireless clients in real time. Tries 3 sources per SSID, in order:
+    //    a) TotalAssociations scalar (most CPEs, fastest)
+    //    b) AssociatedDeviceNumberOfEntries scalar (FiberHome HG6145D2 etc.)
+    //    c) Count AssociatedDevice.<i> children (last resort — only present
+    //       when the detail-view payload is loaded; list-view projection
+    //       doesn't include AssociatedDevice subtree)
+    const wlanTr098 = dev.InternetGatewayDevice?.LANDevice?.[1]?.WLANConfiguration;
+    const wifiSsidTr181 = dev.Device?.WiFi?.SSID;
+    const wifiSources = [wlanTr098, wifiSsidTr181].filter(Boolean);
+    for (const wlan of wifiSources) {
+        if (typeof wlan !== 'object') continue;
         let wifiTotal = 0;
         let foundAny = false;
         for (const key of Object.keys(wlan)) {
             if (key.startsWith('_')) continue;
-            const n = parse(wlan[key]?.TotalAssociations?._value);
-            if (n !== null) { wifiTotal += n; foundAny = true; }
+            const node = wlan[key];
+            if (!node) continue;
+            // a) TotalAssociations
+            const ta = parse(node.TotalAssociations?._value);
+            if (ta !== null) { wifiTotal += ta; foundAny = true; continue; }
+            // b) AssociatedDeviceNumberOfEntries
+            const adnoe = parse(node.AssociatedDeviceNumberOfEntries?._value);
+            if (adnoe !== null) { wifiTotal += adnoe; foundAny = true; continue; }
+            // c) Count AssociatedDevice children (only present in full payload)
+            const ad = node.AssociatedDevice;
+            if (ad && typeof ad === 'object') {
+                let n = 0;
+                for (const ck of Object.keys(ad)) {
+                    if (ck.startsWith('_')) continue;
+                    if (!/^\d+$/.test(ck)) continue;
+                    const entry = ad[ck];
+                    // Only count entries that look like real client records
+                    // (must have a MAC field — avoids counting empty index slots
+                    // some firmware leaves behind).
+                    const hasMac = !!(entry?.AssociatedDeviceMACAddress?._value || entry?.MACAddress?._value);
+                    if (hasMac) n++;
+                }
+                if (n > 0) { wifiTotal += n; foundAny = true; }
+            }
         }
         if (foundAny) return wifiTotal;
     }
