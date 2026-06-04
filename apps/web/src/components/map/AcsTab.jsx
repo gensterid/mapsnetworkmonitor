@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { RefreshCw, Wifi, Power, Cpu, Router, Signal, AlertCircle, Laptop } from 'lucide-react';
-import { useGenieACSDevices, useRebootGenieACSDevice } from '@/hooks';
+import { useGenieACSDevices, useGenieACSDevice, useRebootGenieACSDevice } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
 import WifiConfigModal from '@/components/genieacs/WifiConfigModal';
 import clsx from 'clsx';
@@ -27,7 +27,7 @@ export default function AcsTab({ device, timezone }) {
         enabled: !!routerId && !!sn,
     });
 
-    const acsDevice = useMemo(() => {
+    const acsDeviceFromList = useMemo(() => {
         if (!devices || !Array.isArray(devices) || !sn) return null;
         const snLower = String(sn).toLowerCase();
         return devices.find(d =>
@@ -35,6 +35,12 @@ export default function AcsTab({ device, timezone }) {
             String(d._id || '').toLowerCase().includes(snLower)
         ) || null;
     }, [devices, sn]);
+
+    // List-view projection omits Hosts.Host (bandwidth saver), so connected
+    // clients aren't available there. Fetch full detail by id when we know
+    // _id so _connectedHosts is populated.
+    const { data: acsDeviceDetail } = useGenieACSDevice(acsDeviceFromList?._id, routerId);
+    const acsDevice = acsDeviceDetail || acsDeviceFromList;
 
     const rebootMutation = useRebootGenieACSDevice();
 
