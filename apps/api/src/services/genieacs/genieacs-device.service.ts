@@ -84,15 +84,20 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
             // falls back to WLANConfiguration.TotalAssociations or HostNumberOfEntries
             // which are scalar and fast. The single-device endpoint (`getDevice`)
             // does not use a projection, so device-details still receives full Hosts.Host.
-            projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.1.TotalAssociations'] = 1;
-            projection['InternetGatewayDevice.LANDevice.1.WLANConfiguration.2.TotalAssociations'] = 1;
-            // FiberHome HG6145D2 etc. don't populate TotalAssociations but do
-            // expose AssociatedDeviceNumberOfEntries (scalar, fast to project).
             // Cover the SSID indices commonly used by ZTE/Huawei/FiberHome.
+            // 3 sources per SSID (firmware varies):
+            //   - TotalAssociations (most CPEs)
+            //   - AssociatedDeviceNumberOfEntries (some Huawei)
+            //   - AssociatedDevice subtree itself — FiberHome HG6145D2 only
+            //     populates this path (proven via detail-view payload).
+            //     Each entry is small (MAC + a few attrs) so projecting the
+            //     subtree is fine, unlike Hosts.Host which is much larger.
             for (const idx of [1, 2, 3, 4, 5, 6, 7, 8]) {
                 projection[`InternetGatewayDevice.LANDevice.1.WLANConfiguration.${idx}.TotalAssociations`] = 1;
                 projection[`InternetGatewayDevice.LANDevice.1.WLANConfiguration.${idx}.AssociatedDeviceNumberOfEntries`] = 1;
+                projection[`InternetGatewayDevice.LANDevice.1.WLANConfiguration.${idx}.AssociatedDevice`] = 1;
                 projection[`Device.WiFi.SSID.${idx}.AssociatedDeviceNumberOfEntries`] = 1;
+                projection[`Device.WiFi.SSID.${idx}.AssociatedDevice`] = 1;
             }
         }
 
