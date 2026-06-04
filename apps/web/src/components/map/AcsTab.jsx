@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { RefreshCw, Wifi, Power, Cpu, Router, Signal, AlertCircle, Laptop } from 'lucide-react';
+import { RefreshCw, Wifi, Power, Cpu, Router, Signal, AlertCircle, Laptop, ChevronDown, ChevronRight, Cable } from 'lucide-react';
 import { useGenieACSDevices, useGenieACSDevice, useRebootGenieACSDevice } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
 import WifiConfigModal from '@/components/genieacs/WifiConfigModal';
@@ -11,6 +11,79 @@ function getClientStatusColor(count) {
     if (val <= 3) return 'text-emerald-400';
     if (val <= 6) return 'text-amber-400';
     return 'text-red-400';
+}
+
+function rssiColor(rssi) {
+    if (rssi === null || rssi === undefined) return 'text-slate-500';
+    if (rssi >= -55) return 'text-emerald-400';
+    if (rssi >= -70) return 'text-yellow-400';
+    if (rssi >= -80) return 'text-orange-400';
+    return 'text-red-400';
+}
+
+// Extract WiFi-associated clients from a single WLANConfiguration entry.
+// Mirrors WifiTab.getAssociatedDevices so styling stays consistent.
+function getAssociatedDevices(wlan) {
+    if (!wlan?.AssociatedDevice) return [];
+    const clients = [];
+    Object.keys(wlan.AssociatedDevice).forEach((key) => {
+        if (key.startsWith('_')) return;
+        if (!/^\d+$/.test(key)) return;
+        const dev = wlan.AssociatedDevice[key];
+        if (!dev) return;
+        const mac = dev.AssociatedDeviceMACAddress?._value || dev.MACAddress?._value || '';
+        if (!mac) return;
+        const ip = dev.IPAddress?._value || dev.X_HW_IPAddress?._value || dev.AssociatedDeviceIPAddress?._value || '';
+        const rssiRaw = dev.SignalStrength?._value ?? dev.X_HW_RSSI?._value ?? dev.AssociatedDeviceRssi?._value ?? null;
+        const rssi = rssiRaw !== null && rssiRaw !== undefined ? parseInt(rssiRaw) : null;
+        const hostName = dev.HostName?._value || dev.X_HW_HostName?._value || '';
+        clients.push({ mac, ip, rssi, hostName });
+    });
+    clients.sort((a, b) => {
+        if (a.rssi === null) return 1;
+        if (b.rssi === null) return -1;
+        return b.rssi - a.rssi;
+    });
+    return clients;
+}
+
+// Enumerate every WLANConfiguration entry (TR-098). Each returns
+// { index, ssid, enabled, band, clients }.
+function getWlanConfigs(fullDevice) {
+    if (!fullDevice) return [];
+    const lan = fullDevice.InternetGatewayDevice?.LANDevice?.[1] || fullDevice.Device?.LANDevice?.[1];
+    if (!lan?.WLANConfiguration) return [];
+
+    const configs = [];
+    Object.keys(lan.WLANConfiguration).forEach((key) => {
+        if (key.startsWith('_')) return;
+        if (!/^\d+$/.test(key)) return;
+        const wlan = lan.WLANConfiguration[key];
+        if (!wlan) return;
+
+        const ssid = wlan.SSID?._value;
+        const enableRaw = wlan.Enable?._value;
+        const enabled = enableRaw === true || enableRaw === 'true' || enableRaw === '1' || enableRaw === 1;
+        const standard = wlan.Standard?._value || wlan['X_HW_HardwareMode']?._value;
+        let band = '2.4G';
+        if (standard && /11(ac|ax|a|n5)/i.test(String(standard))) band = '5G';
+        else if (parseInt(key) >= 5) band = '5G';
+
+        configs.push({
+            index: parseInt(key),
+            ssid: ssid || `SSID${key}`,
+            enabled,
+            band,
+            clients: getAssociatedDevices(wlan),
+        });
+    });
+
+    return configs.sort((a, b) => a.index - b.index);
+}
+
+// Normalize MAC to lower-case colon-separated for set comparisons
+function normMac(s) {
+    return String(s || '').toLowerCase().replace(/-/g, ':').trim();
 }
 
 /**
@@ -41,6 +114,51 @@ export default function AcsTab({ device, timezone }) {
     // _id so _connectedHosts is populated.
     const { data: acsDeviceDetail } = useGenieACSDevice(acsDeviceFromList?._id, routerId);
     const acsDevice = acsDeviceDetail || acsDeviceFromList;
+
+    // Build per-interface groupings: LAN (wired) + one section per active SSID.
+    // WiFi MAC set is used to subtract WiFi clients from the Hosts.Host list
+    // so LAN only contains wired devices.
+    const interfaceGroups = useMemo(() => {
+        const wlans = getWlanConfigs(acsDevice);
+        const wifiMacSet = new Set();
+        wlans.forEach((w) => w.clients.forEach((c) => wifiMacSet.add(normMac(c.mac))));
+
+        const hosts = Array.isArray(acsDevice?._connectedHosts) ? acsDevice._connectedHosts : [];
+        const lanHosts = hosts.filter((h) => {
+            const mac = normMac(h.macAddress);
+            if (mac && wifiMacSet.has(mac)) return false; // it's a WiFi client, not LAN
+            // Also exclude if InterfaceType clearly says wireless
+            const iface = String(h.interfaceType || '').toLowerCase();
+            if (iface.includes('wlan') || iface.includes('wifi') || iface.includes('wireless')) return false;
+            return true;
+        });
+
+        const ssidSections = wlans
+            .filter((w) => w.enabled && w.clients.length > 0)
+            .map((w) => ({
+                key: `ssid-${w.index}`,
+                title: w.ssid,
+                badge: w.band,
+                index: w.index,
+                clients: w.clients,
+                kind: 'wifi',
+            }));
+
+        const sections = [];
+        if (lanHosts.length > 0) {
+            sections.push({ key: 'lan', title: 'LAN (Kabel)', kind: 'lan', hosts: lanHosts });
+        }
+        sections.push(...ssidSections);
+        return sections;
+    }, [acsDevice]);
+
+    const totalConnected = useMemo(() => {
+        return interfaceGroups.reduce((sum, s) => sum + (s.kind === 'lan' ? s.hosts.length : s.clients.length), 0);
+    }, [interfaceGroups]);
+
+    // One section expanded at a time
+    const [expandedSection, setExpandedSection] = useState(null);
+    const toggleSection = (key) => setExpandedSection((prev) => (prev === key ? null : key));
 
     const rebootMutation = useRebootGenieACSDevice();
 
@@ -146,42 +264,102 @@ export default function AcsTab({ device, timezone }) {
                 <Row label="Device ID" value={acsDevice._id} valueClass="text-slate-400 font-mono text-[10px]" />
             </div>
 
-            {/* Connected Hosts list */}
-            {Array.isArray(acsDevice._connectedHosts) && acsDevice._connectedHosts.length > 0 && (
+            {/* Connected Devices — grouped per interface (LAN + each active SSID) */}
+            {interfaceGroups.length > 0 && (
                 <div className="mb-5">
                     <div className="flex items-center justify-between mb-2">
                         <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                             <Laptop className="w-3.5 h-3.5" />
                             Connected Devices
                         </div>
-                        <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded', getClientStatusColor(acsDevice._clientCount))}>
-                            {acsDevice._connectedHosts.length} host{acsDevice._connectedHosts.length === 1 ? '' : 's'}
+                        <span className={clsx('text-[10px] font-bold px-1.5 py-0.5 rounded', getClientStatusColor(totalConnected))}>
+                            {totalConnected} total
                         </span>
                     </div>
-                    <div className="bg-slate-800/40 rounded-lg border border-slate-700/40 divide-y divide-slate-700/30 max-h-64 overflow-y-auto custom-scrollbar">
-                        {acsDevice._connectedHosts.map((host, idx) => {
-                            const isActive = host.active !== false; // treat undefined as active
+
+                    <div className="space-y-2">
+                        {interfaceGroups.map((section) => {
+                            const isExpanded = expandedSection === section.key;
+                            const count = section.kind === 'lan' ? section.hosts.length : section.clients.length;
+                            const Icon = section.kind === 'lan' ? Cable : Wifi;
+                            const iconColor = section.kind === 'lan' ? 'text-sky-400' : (section.badge === '5G' ? 'text-purple-400' : 'text-cyan-400');
                             return (
-                                <div key={idx} className="p-2.5 hover:bg-slate-800/40 transition-colors">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className={clsx(
-                                            'w-1.5 h-1.5 rounded-full',
-                                            isActive ? 'bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.6)]' : 'bg-slate-600'
-                                        )} />
-                                        <span className={clsx('text-xs font-bold truncate flex-1',
-                                            isActive ? 'text-slate-200' : 'text-slate-500 line-through')}>
-                                            {host.hostname || host.ipAddress || host.macAddress || 'Unknown'}
-                                        </span>
-                                        {host.interfaceType && (
-                                            <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded uppercase font-bold tracking-tight">
-                                                {host.interfaceType.includes('Wi') || host.interfaceType.includes('wifi') || host.interfaceType.includes('WLAN') ? 'WiFi' : 'LAN'}
+                                <div key={section.key} className="bg-slate-800/40 rounded-lg border border-slate-700/40 overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => toggleSection(section.key)}
+                                        className="w-full flex items-center justify-between px-3 py-2 hover:bg-slate-800/60 transition-colors text-left"
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <Icon className={clsx('w-4 h-4 shrink-0', iconColor)} />
+                                            <span className="text-xs font-bold text-slate-200 truncate">{section.title}</span>
+                                            {section.kind === 'wifi' && section.badge && (
+                                                <span className={clsx(
+                                                    'text-[9px] px-1.5 py-0.5 rounded font-bold tracking-tight',
+                                                    section.badge === '5G'
+                                                        ? 'bg-purple-500/15 text-purple-300 border border-purple-500/30'
+                                                        : 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30'
+                                                )}>
+                                                    {section.badge}
+                                                </span>
+                                            )}
+                                            {section.kind === 'wifi' && (
+                                                <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded font-mono">
+                                                    #{section.index}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className={clsx('text-[10px] font-bold', getClientStatusColor(count))}>
+                                                {count} {section.kind === 'lan' ? 'host' : 'client'}{count === 1 ? '' : 's'}
                                             </span>
-                                        )}
-                                    </div>
-                                    <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono ml-3.5">
-                                        {host.ipAddress && <span>{host.ipAddress}</span>}
-                                        {host.macAddress && <span className="truncate">{host.macAddress}</span>}
-                                    </div>
+                                            {isExpanded
+                                                ? <ChevronDown className="w-4 h-4 text-slate-500" />
+                                                : <ChevronRight className="w-4 h-4 text-slate-500" />
+                                            }
+                                        </div>
+                                    </button>
+                                    {isExpanded && (
+                                        <div className="divide-y divide-slate-700/30 border-t border-slate-700/40 max-h-64 overflow-y-auto custom-scrollbar">
+                                            {section.kind === 'lan' && section.hosts.map((host, idx) => {
+                                                const isActive = host.active !== false;
+                                                return (
+                                                    <div key={idx} className="p-2.5 hover:bg-slate-800/40 transition-colors">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <span className={clsx(
+                                                                'w-1.5 h-1.5 rounded-full shrink-0',
+                                                                isActive ? 'bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.6)]' : 'bg-slate-600'
+                                                            )} />
+                                                            <span className={clsx('text-xs font-bold truncate flex-1',
+                                                                isActive ? 'text-slate-200' : 'text-slate-500 line-through')}>
+                                                                {host.hostname || host.ipAddress || host.macAddress || 'Unknown'}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono ml-3.5">
+                                                            {host.ipAddress && <span>{host.ipAddress}</span>}
+                                                            {host.macAddress && <span className="truncate">{host.macAddress}</span>}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {section.kind === 'wifi' && section.clients.map((client, idx) => (
+                                                <div key={idx} className="p-2.5 hover:bg-slate-800/40 transition-colors">
+                                                    <div className="flex items-center justify-between gap-2 mb-1">
+                                                        <span className="text-xs font-bold text-slate-200 font-mono truncate flex-1">
+                                                            {client.mac}
+                                                        </span>
+                                                        <span className={clsx('text-[10px] font-bold shrink-0 font-mono', rssiColor(client.rssi))}>
+                                                            {client.rssi !== null ? `${client.rssi} dBm` : '—'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-[10px] text-slate-500 font-mono ml-0">
+                                                        {client.ip && <span>{client.ip}</span>}
+                                                        {client.hostName && <span className="truncate">{client.hostName}</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
