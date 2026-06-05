@@ -31,7 +31,18 @@ import {
     addWalledGarden,
     setWalledGarden,
     removeWalledGarden,
+    listHotspotActive,
+    removeHotspotActive,
+    listHotspotHosts,
+    listHotspotCookies,
+    removeHotspotCookie,
 } from '../lib/mikrotik/hotspot-advanced.js';
+import {
+    getHotspotUsers,
+    addHotspotUser,
+    updateHotspotUser,
+    deleteHotspotUser,
+} from '../lib/mikrotik/billing.js';
 import {
     listSimpleQueues,
     addSimpleQueue,
@@ -434,6 +445,168 @@ router.get(
     asyncHandler(async (req, res) => {
         const stats = await getSimpleQueueStats(req.mtConn);
         res.json({ data: stats });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Users CRUD (Phase A5) — delegates to billing.ts helpers
+// ─────────────────────────────────────────────────────────────────────────
+
+const hotspotUserAddSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    password: z.string().min(1, 'password wajib'),
+    profile: z.string().optional(),
+    server: z.string().optional(),
+    limitUptime: z.string().optional(),
+    limitBytesTotal: z.string().optional(),
+    macAddress: z.string().optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+const hotspotUserPatchSchema = z.object({
+    password: z.string().optional(),
+    profile: z.string().optional(),
+    limitUptime: z.string().optional(),
+    limitBytesTotal: z.string().optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+
+const hotspotUserCacheKey = (routerId: string) => `mikhmon:${routerId}:hotspot:users`;
+const invalidateHotspotUserCache = (routerId: string) =>
+    cacheService.delete(hotspotUserCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] hotspot user cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/hotspot/users',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = hotspotUserCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await getHotspotUsers(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/hotspot/users',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = hotspotUserAddSchema.parse(req.body);
+        const id = await addHotspotUser(req.mtConn, input);
+        await invalidateHotspotUserCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/hotspot/users/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'user id wajib');
+        const input = hotspotUserPatchSchema.parse(req.body);
+        await updateHotspotUser(req.mtConn, id, input);
+        await invalidateHotspotUserCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/hotspot/users/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'user id wajib');
+        await deleteHotspotUser(req.mtConn, id);
+        await invalidateHotspotUserCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Active sessions (Phase A5)
+// Live data — uncached. Kick via DELETE :id.
+// ─────────────────────────────────────────────────────────────────────────
+
+router.get(
+    '/:routerId/hotspot/active',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const items = await listHotspotActive(req.mtConn);
+        res.json({ data: items });
+    })
+);
+
+router.delete(
+    '/:routerId/hotspot/active/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'session id wajib');
+        await removeHotspotActive(req.mtConn, id);
+        res.json({ data: { id, kicked: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Hosts (Phase A5) — read-only, live discovery table
+// ─────────────────────────────────────────────────────────────────────────
+
+router.get(
+    '/:routerId/hotspot/hosts',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const items = await listHotspotHosts(req.mtConn);
+        res.json({ data: items });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Cookies (Phase A5) — list + remove only
+// ─────────────────────────────────────────────────────────────────────────
+
+const cookieCacheKey = (routerId: string) => `mikhmon:${routerId}:hotspot:cookies`;
+const invalidateCookieCache = (routerId: string) =>
+    cacheService.delete(cookieCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] cookie cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/hotspot/cookies',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = cookieCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listHotspotCookies(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.delete(
+    '/:routerId/hotspot/cookies/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'cookie id wajib');
+        await removeHotspotCookie(req.mtConn, id);
+        await invalidateCookieCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
     })
 );
 

@@ -358,3 +358,140 @@ export async function setWalledGarden(api: any, id: string, input: Partial<Walle
     if (!id) throw new Error('id wajib');
     await safeWrite(api, ['/ip/hotspot/walled-garden/set', `=.id=${id}`, ...walledGardenToArgs(input)]);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Active Sessions — Phase A5
+//
+// /ip/hotspot/active is the live login table. Read-only from operator's
+// POV — sessions are kicked, not edited. We expose .id so the kick
+// handler can target a single row even if the same user has multiple
+// concurrent logins (shared-users > 1).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface HotspotActiveSession {
+    id: string;
+    user?: string;
+    address?: string;          // IP address
+    macAddress?: string;
+    server?: string;
+    uptime?: string;
+    idleTime?: string;
+    sessionTimeoutLeft?: string;
+    keepaliveTimeout?: string;
+    loginBy?: string;
+    bytesIn?: string;
+    bytesOut?: string;
+    packetsIn?: string;
+    packetsOut?: string;
+    comment?: string;
+}
+
+export async function listHotspotActive(api: any): Promise<HotspotActiveSession[]> {
+    const result = await safeWrite(api, '/ip/hotspot/active/print');
+    return result.map((s: any) => ({
+        id: s['.id'],
+        user: s.user,
+        address: s.address,
+        macAddress: s['mac-address'],
+        server: s.server,
+        uptime: s.uptime,
+        idleTime: s['idle-time'],
+        sessionTimeoutLeft: s['session-time-left'],
+        keepaliveTimeout: s['keepalive-timeout'],
+        loginBy: s['login-by'],
+        bytesIn: s['bytes-in'],
+        bytesOut: s['bytes-out'],
+        packetsIn: s['packets-in'],
+        packetsOut: s['packets-out'],
+        comment: s.comment,
+    }));
+}
+
+/**
+ * Kick a session by its .id. Differs from billing.ts's kickHotspotSession()
+ * which kicks ALL sessions for a username — this targets a specific row,
+ * matching the per-row trash icon UX on the Active page.
+ */
+export async function removeHotspotActive(api: any, id: string): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/active/remove', `=.id=${id}`]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Hosts — Phase A5
+//
+// /ip/hotspot/host is RouterOS's running discovery table for every device
+// that has been seen on the hotspot interface, regardless of login state.
+// Purely informational — operators look here to chase MAC↔IP↔hostname
+// trails when troubleshooting "kenapa device ini tidak konek".
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface HotspotHost {
+    id: string;
+    macAddress?: string;
+    address?: string;
+    toAddress?: string;
+    server?: string;
+    hostname?: string;
+    uptime?: string;
+    idleTime?: string;
+    bytesIn?: string;
+    bytesOut?: string;
+    authorized?: boolean;
+    bypassed?: boolean;
+    dhcp?: boolean;
+    comment?: string;
+}
+
+export async function listHotspotHosts(api: any): Promise<HotspotHost[]> {
+    const result = await safeWrite(api, '/ip/hotspot/host/print');
+    return result.map((h: any) => ({
+        id: h['.id'],
+        macAddress: h['mac-address'],
+        address: h.address,
+        toAddress: h['to-address'],
+        server: h.server,
+        hostname: h['host-name'],
+        uptime: h.uptime,
+        idleTime: h['idle-time'],
+        bytesIn: h['bytes-in'],
+        bytesOut: h['bytes-out'],
+        authorized: toBool(h.authorized),
+        bypassed: toBool(h.bypassed),
+        dhcp: toBool(h.dhcp),
+        comment: h.comment,
+    }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Cookies — Phase A5
+//
+// RouterOS persists a cookie per (MAC, user) pair after a successful
+// login so the user is auto-recognized on next connect. Operators delete
+// cookies when forcing a user back through the login portal.
+// Read-only + remove only (no edit semantics on RouterOS side either).
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface HotspotCookie {
+    id: string;
+    user?: string;
+    macAddress?: string;
+    domain?: string;
+    expiresIn?: string;
+}
+
+export async function listHotspotCookies(api: any): Promise<HotspotCookie[]> {
+    const result = await safeWrite(api, '/ip/hotspot/cookie/print');
+    return result.map((c: any) => ({
+        id: c['.id'],
+        user: c.user,
+        macAddress: c['mac-address'],
+        domain: c.domain,
+        expiresIn: c['expires-in'],
+    }));
+}
+
+export async function removeHotspotCookie(api: any, id: string): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/cookie/remove', `=.id=${id}`]);
+}

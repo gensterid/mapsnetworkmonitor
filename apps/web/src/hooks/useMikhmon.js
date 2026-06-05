@@ -17,6 +17,10 @@ export const mikhmonKeys = {
     walledGarden: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'walled-garden'],
     queues: (routerId) => [...mikhmonKeys.all(routerId), 'queues'],
     queueStats: (routerId) => [...mikhmonKeys.all(routerId), 'queues', 'stats'],
+    hotspotUsers: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'users'],
+    hotspotActive: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'active'],
+    hotspotHosts: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'hosts'],
+    hotspotCookies: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'cookies'],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -207,5 +211,87 @@ export function useSimpleQueueStats(routerId, options = {}) {
         refetchIntervalInBackground: false,
         staleTime: 2_000,
         ...options,
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Users — Phase A5
+// ─────────────────────────────────────────────────────────────────────────
+
+const hotspotUserCrud = makeCrudHooks(mikhmonApi.hotspotUsers, mikhmonKeys.hotspotUsers);
+export const useHotspotUsers = hotspotUserCrud.useList;
+export const useAddHotspotUser = hotspotUserCrud.useAdd;
+export const useUpdateHotspotUser = hotspotUserCrud.useUpdate;
+export const useDeleteHotspotUser = hotspotUserCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Active sessions — live, kick-only
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useHotspotActive(routerId, options = {}) {
+    const { refetchInterval } = useMikhmonContext();
+    return useQuery({
+        queryKey: mikhmonKeys.hotspotActive(routerId),
+        queryFn: () => mikhmonApi.hotspotActive.list(routerId),
+        enabled: !!routerId,
+        refetchInterval: options.refetchInterval ?? refetchInterval ?? false,
+        refetchIntervalInBackground: false,
+        staleTime: 2_000,
+        ...options,
+    });
+}
+
+export function useKickHotspotActive(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => mikhmonApi.hotspotActive.kick(routerId, id),
+        onSuccess: () => {
+            toast.success('Session di-kick');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotActive(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal kick session'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Hosts — live, read-only
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useHotspotHosts(routerId, options = {}) {
+    const { refetchInterval } = useMikhmonContext();
+    return useQuery({
+        queryKey: mikhmonKeys.hotspotHosts(routerId),
+        queryFn: () => mikhmonApi.hotspotHosts.list(routerId),
+        enabled: !!routerId,
+        refetchInterval: options.refetchInterval ?? refetchInterval ?? false,
+        refetchIntervalInBackground: false,
+        staleTime: 5_000,
+        ...options,
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Cookies — list + remove
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useHotspotCookies(routerId, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.hotspotCookies(routerId),
+        queryFn: () => mikhmonApi.hotspotCookies.list(routerId),
+        enabled: !!routerId,
+        staleTime: 10 * 1000,
+        ...options,
+    });
+}
+
+export function useRemoveHotspotCookie(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => mikhmonApi.hotspotCookies.remove(routerId, id),
+        onSuccess: () => {
+            toast.success('Cookie dihapus — user akan login ulang next connect');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotCookies(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus cookie'),
     });
 }

@@ -28,6 +28,10 @@ const MikhmonHotspotProfiles = lazy(() => import('./pages/mikhmon/hotspot/Profil
 const MikhmonIpBindings = lazy(() => import('./pages/mikhmon/hotspot/IpBindings'));
 const MikhmonWalledGarden = lazy(() => import('./pages/mikhmon/hotspot/WalledGarden'));
 const MikhmonSimpleQueues = lazy(() => import('./pages/mikhmon/queues/Simple'));
+const MikhmonHotspotUsers = lazy(() => import('./pages/mikhmon/hotspot/Users'));
+const MikhmonHotspotActive = lazy(() => import('./pages/mikhmon/hotspot/Active'));
+const MikhmonHotspotHosts = lazy(() => import('./pages/mikhmon/hotspot/Hosts'));
+const MikhmonHotspotCookies = lazy(() => import('./pages/mikhmon/hotspot/Cookies'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -290,6 +294,10 @@ function App() {
                   <Route path="hotspot/ip-bindings" element={<MikhmonIpBindings />} />
                   <Route path="hotspot/walled-garden" element={<MikhmonWalledGarden />} />
                   <Route path="queues" element={<MikhmonSimpleQueues />} />
+                  <Route path="hotspot/users" element={<MikhmonHotspotUsers />} />
+                  <Route path="hotspot/active" element={<MikhmonHotspotActive />} />
+                  <Route path="hotspot/hosts" element={<MikhmonHotspotHosts />} />
+                  <Route path="hotspot/cookies" element={<MikhmonHotspotCookies />} />
                 </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={

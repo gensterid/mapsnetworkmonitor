@@ -42,6 +42,23 @@ export const mikhmonApi = {
         remove: (routerId, id) => del(`/mikhmon/${routerId}/queues/${encodeURIComponent(id)}`),
         stats: (routerId) => get(`/mikhmon/${routerId}/queues/stats`),
     },
+    hotspotUsers: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/users`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/hotspot/users`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/users/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/users/${encodeURIComponent(id)}`),
+    },
+    hotspotActive: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/active`),
+        kick: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/active/${encodeURIComponent(id)}`),
+    },
+    hotspotHosts: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/hosts`),
+    },
+    hotspotCookies: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/cookies`),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/cookies/${encodeURIComponent(id)}`),
+    },
 };
 
 export default mikhmonApi;
