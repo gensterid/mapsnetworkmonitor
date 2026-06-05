@@ -35,6 +35,13 @@ export const mikhmonApi = {
         update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/walled-garden/${encodeURIComponent(id)}`, input),
         remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/walled-garden/${encodeURIComponent(id)}`),
     },
+    queues: {
+        list: (routerId) => get(`/mikhmon/${routerId}/queues`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/queues`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/queues/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/queues/${encodeURIComponent(id)}`),
+        stats: (routerId) => get(`/mikhmon/${routerId}/queues/stats`),
+    },
 };
 
 export default mikhmonApi;

@@ -56,7 +56,7 @@ const SECTIONS = [
     {
         group: 'IP / Queue',
         items: [
-            { path: 'queues', label: 'Simple Queue', icon: Gauge, ready: false },
+            { path: 'queues', label: 'Simple Queue', icon: Gauge, ready: true },
             { path: 'ip/pool', label: 'IP Pool', icon: Network, ready: false },
             { path: 'ip/dhcp-lease', label: 'DHCP Lease', icon: Network, ready: false },
             { path: 'ip/address-list', label: 'Address List', icon: Network, ready: false },

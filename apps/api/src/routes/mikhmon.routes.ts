@@ -32,6 +32,13 @@ import {
     setWalledGarden,
     removeWalledGarden,
 } from '../lib/mikrotik/hotspot-advanced.js';
+import {
+    listSimpleQueues,
+    addSimpleQueue,
+    setSimpleQueue,
+    removeSimpleQueue,
+    getSimpleQueueStats,
+} from '../lib/mikrotik/queue-simple.js';
 import { cacheService } from '../lib/cache.js';
 import { logger } from '../lib/logger.js';
 
@@ -333,6 +340,100 @@ router.delete(
         await removeWalledGarden(req.mtConn, id);
         await invalidateWalledGardenCache(paramStr(req.params.routerId));
         res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Simple Queue CRUD + stats (Phase A4)
+// ─────────────────────────────────────────────────────────────────────────
+
+const queueInputSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    target: z.string().min(1, 'target wajib'),
+    maxLimit: z.string().optional(),
+    limitAt: z.string().optional(),
+    burstLimit: z.string().optional(),
+    burstThreshold: z.string().optional(),
+    burstTime: z.string().optional(),
+    priority: z.string().optional(),
+    parent: z.string().optional(),
+    queue: z.string().optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+const queuePatchSchema = queueInputSchema.partial();
+
+const queueCacheKey = (routerId: string) => `mikhmon:${routerId}:queue:simple`;
+const invalidateQueueCache = (routerId: string) =>
+    cacheService.delete(queueCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] queue cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/queues',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = queueCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listSimpleQueues(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/queues',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = queueInputSchema.parse(req.body);
+        const id = await addSimpleQueue(req.mtConn, input);
+        await invalidateQueueCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/queues/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'queue id wajib');
+        const input = queuePatchSchema.parse(req.body);
+        await setSimpleQueue(req.mtConn, id, input);
+        await invalidateQueueCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/queues/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'queue id wajib');
+        await removeSimpleQueue(req.mtConn, id);
+        await invalidateQueueCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+/**
+ * GET /api/mikhmon/:routerId/queues/stats
+ * Live per-queue traffic snapshot. Uncached — chart polls this directly
+ * at the global refresh interval (auto-pauses when tab hidden).
+ */
+router.get(
+    '/:routerId/queues/stats',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const stats = await getSimpleQueueStats(req.mtConn);
+        res.json({ data: stats });
     })
 );
 

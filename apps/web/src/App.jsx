@@ -27,6 +27,7 @@ const MikhmonDashboard = lazy(() => import('./pages/mikhmon/Dashboard'));
 const MikhmonHotspotProfiles = lazy(() => import('./pages/mikhmon/hotspot/Profiles'));
 const MikhmonIpBindings = lazy(() => import('./pages/mikhmon/hotspot/IpBindings'));
 const MikhmonWalledGarden = lazy(() => import('./pages/mikhmon/hotspot/WalledGarden'));
+const MikhmonSimpleQueues = lazy(() => import('./pages/mikhmon/queues/Simple'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -288,6 +289,7 @@ function App() {
                   <Route path="hotspot/profiles" element={<MikhmonHotspotProfiles />} />
                   <Route path="hotspot/ip-bindings" element={<MikhmonIpBindings />} />
                   <Route path="hotspot/walled-garden" element={<MikhmonWalledGarden />} />
+                  <Route path="queues" element={<MikhmonSimpleQueues />} />
                 </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={

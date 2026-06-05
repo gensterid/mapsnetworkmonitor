@@ -15,6 +15,8 @@ export const mikhmonKeys = {
     hotspotProfiles: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'profiles'],
     ipBindings: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'ip-bindings'],
     walledGarden: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'walled-garden'],
+    queues: (routerId) => [...mikhmonKeys.all(routerId), 'queues'],
+    queueStats: (routerId) => [...mikhmonKeys.all(routerId), 'queues', 'stats'],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -179,3 +181,31 @@ export const useWalledGarden = walledGardenCrud.useList;
 export const useAddWalledGarden = walledGardenCrud.useAdd;
 export const useUpdateWalledGarden = walledGardenCrud.useUpdate;
 export const useDeleteWalledGarden = walledGardenCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Simple Queues — Phase A4
+// ─────────────────────────────────────────────────────────────────────────
+
+const queueCrud = makeCrudHooks(mikhmonApi.queues, mikhmonKeys.queues);
+export const useSimpleQueues = queueCrud.useList;
+export const useAddSimpleQueue = queueCrud.useAdd;
+export const useUpdateSimpleQueue = queueCrud.useUpdate;
+export const useDeleteSimpleQueue = queueCrud.useRemove;
+
+/**
+ * Live per-queue traffic snapshot. Polled at the global refresh cadence
+ * — auto-pauses when the tab is hidden. Uncached on the server side so
+ * each tick gets fresh RouterOS data.
+ */
+export function useSimpleQueueStats(routerId, options = {}) {
+    const { refetchInterval } = useMikhmonContext();
+    return useQuery({
+        queryKey: mikhmonKeys.queueStats(routerId),
+        queryFn: () => mikhmonApi.queues.stats(routerId),
+        enabled: !!routerId,
+        refetchInterval: options.refetchInterval ?? refetchInterval ?? false,
+        refetchIntervalInBackground: false,
+        staleTime: 2_000,
+        ...options,
+    });
+}
