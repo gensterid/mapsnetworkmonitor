@@ -59,6 +59,28 @@ export const mikhmonApi = {
         list: (routerId) => get(`/mikhmon/${routerId}/hotspot/cookies`),
         remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/cookies/${encodeURIComponent(id)}`),
     },
+    hotspotServerProfiles: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/server-profiles`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/hotspot/server-profiles`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/server-profiles/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/server-profiles/${encodeURIComponent(id)}`),
+    },
+    pppSecrets: {
+        list: (routerId) => get(`/mikhmon/${routerId}/ppp/secrets`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/ppp/secrets`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/ppp/secrets/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/ppp/secrets/${encodeURIComponent(id)}`),
+    },
+    pppProfiles: {
+        list: (routerId) => get(`/mikhmon/${routerId}/ppp/profiles`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/ppp/profiles`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/ppp/profiles/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/ppp/profiles/${encodeURIComponent(id)}`),
+    },
+    pppActive: {
+        list: (routerId) => get(`/mikhmon/${routerId}/ppp/active`),
+        kick: (routerId, id) => del(`/mikhmon/${routerId}/ppp/active/${encodeURIComponent(id)}`),
+    },
 };
 
 export default mikhmonApi;

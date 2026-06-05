@@ -36,13 +36,29 @@ import {
     listHotspotHosts,
     listHotspotCookies,
     removeHotspotCookie,
+    listHotspotServerProfiles,
+    addHotspotServerProfile,
+    setHotspotServerProfile,
+    removeHotspotServerProfile,
 } from '../lib/mikrotik/hotspot-advanced.js';
 import {
     getHotspotUsers,
     addHotspotUser,
     updateHotspotUser,
     deleteHotspotUser,
+    getPppSecrets,
+    addPppSecret,
+    updatePppSecret,
+    deletePppSecret,
+    getPppProfiles,
+    addPppProfile,
 } from '../lib/mikrotik/billing.js';
+import {
+    setPppProfile,
+    removePppProfile,
+    listPppActive,
+    removePppActive,
+} from '../lib/mikrotik/ppp-advanced.js';
 import {
     listSimpleQueues,
     addSimpleQueue,
@@ -607,6 +623,266 @@ router.delete(
         await removeHotspotCookie(req.mtConn, id);
         await invalidateCookieCache(paramStr(req.params.routerId));
         res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Server Profile CRUD (Phase A6)
+// ─────────────────────────────────────────────────────────────────────────
+
+const serverProfileInputSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    hotspotAddress: z.string().optional(),
+    dnsName: z.string().optional(),
+    htmlDirectory: z.string().optional(),
+    rateLimit: z.string().optional(),
+    httpProxy: z.string().optional(),
+    smtpServer: z.string().optional(),
+    loginBy: z.string().optional(),
+    macAuthMode: z.string().optional(),
+    useRadius: z.boolean().optional(),
+    splitUserDomain: z.boolean().optional(),
+});
+const serverProfilePatchSchema = serverProfileInputSchema.partial();
+
+const serverProfileCacheKey = (routerId: string) => `mikhmon:${routerId}:hotspot:server-profiles`;
+const invalidateServerProfileCache = (routerId: string) =>
+    cacheService.delete(serverProfileCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] server-profile cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/hotspot/server-profiles',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = serverProfileCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listHotspotServerProfiles(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_STATIC);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/hotspot/server-profiles',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = serverProfileInputSchema.parse(req.body);
+        const id = await addHotspotServerProfile(req.mtConn, input);
+        await invalidateServerProfileCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/hotspot/server-profiles/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'server-profile id wajib');
+        const input = serverProfilePatchSchema.parse(req.body);
+        await setHotspotServerProfile(req.mtConn, id, input);
+        await invalidateServerProfileCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/hotspot/server-profiles/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'server-profile id wajib');
+        await removeHotspotServerProfile(req.mtConn, id);
+        await invalidateServerProfileCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// PPP Secrets CRUD (Phase A6) — delegates add/update/delete to billing.ts
+// ─────────────────────────────────────────────────────────────────────────
+
+const pppSecretAddSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    password: z.string().min(1, 'password wajib'),
+    profile: z.string().optional(),
+    service: z.string().optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+const pppSecretPatchSchema = z.object({
+    profile: z.string().optional(),
+    password: z.string().optional(),
+    service: z.string().optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+
+const pppSecretCacheKey = (routerId: string) => `mikhmon:${routerId}:ppp:secrets`;
+const invalidatePppSecretCache = (routerId: string) =>
+    cacheService.delete(pppSecretCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] ppp-secret cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/ppp/secrets',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = pppSecretCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await getPppSecrets(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/ppp/secrets',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = pppSecretAddSchema.parse(req.body);
+        const id = await addPppSecret(req.mtConn, input);
+        await invalidatePppSecretCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/ppp/secrets/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'secret id wajib');
+        const input = pppSecretPatchSchema.parse(req.body);
+        await updatePppSecret(req.mtConn, id, input);
+        await invalidatePppSecretCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/ppp/secrets/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'secret id wajib');
+        await deletePppSecret(req.mtConn, id);
+        await invalidatePppSecretCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// PPP Profiles CRUD (Phase A6) — list+add from billing.ts, set+remove from ppp-advanced.ts
+// ─────────────────────────────────────────────────────────────────────────
+
+const pppProfileInputSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    rateLimit: z.string().optional(),
+    localAddress: z.string().optional(),
+    remoteAddress: z.string().optional(),
+    parentQueue: z.string().optional(),
+    addressList: z.string().optional(),
+    dnsServer: z.string().optional(),
+    onlyOne: z.enum(['yes', 'no', 'default']).optional(),
+    comment: z.string().optional(),
+});
+const pppProfilePatchSchema = pppProfileInputSchema.partial();
+
+const pppProfileCacheKey = (routerId: string) => `mikhmon:${routerId}:ppp:profiles`;
+const invalidatePppProfileCache = (routerId: string) =>
+    cacheService.delete(pppProfileCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] ppp-profile cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/ppp/profiles',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = pppProfileCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await getPppProfiles(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_STATIC);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/ppp/profiles',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = pppProfileInputSchema.parse(req.body);
+        const id = await addPppProfile(req.mtConn, input);
+        await invalidatePppProfileCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/ppp/profiles/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'profile id wajib');
+        const input = pppProfilePatchSchema.parse(req.body);
+        await setPppProfile(req.mtConn, id, input);
+        await invalidatePppProfileCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/ppp/profiles/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'profile id wajib');
+        await removePppProfile(req.mtConn, id);
+        await invalidatePppProfileCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// PPP Active sessions (Phase A6) — live, kick-only
+// ─────────────────────────────────────────────────────────────────────────
+
+router.get(
+    '/:routerId/ppp/active',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const items = await listPppActive(req.mtConn);
+        res.json({ data: items });
+    })
+);
+
+router.delete(
+    '/:routerId/ppp/active/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'session id wajib');
+        await removePppActive(req.mtConn, id);
+        res.json({ data: { id, kicked: true } });
     })
 );
 

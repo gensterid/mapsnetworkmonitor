@@ -73,7 +73,7 @@ export default function HotspotCookies() {
 
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[600px]">
                         <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                             <tr>
                                 <th className="text-left px-4 py-2.5">User</th>

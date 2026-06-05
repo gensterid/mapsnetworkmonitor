@@ -42,15 +42,15 @@ const SECTIONS = [
             { path: 'hotspot/ip-bindings', label: 'IP Binding', icon: ShieldCheck, ready: true },
             { path: 'hotspot/walled-garden', label: 'Walled Garden', icon: ShieldCheck, ready: true },
             { path: 'hotspot/cookies', label: 'Cookies', icon: FileBox, ready: true },
-            { path: 'hotspot/server-profiles', label: 'Server Profile', icon: Server, ready: false },
+            { path: 'hotspot/server-profiles', label: 'Server Profile', icon: Server, ready: true },
         ],
     },
     {
         group: 'PPP',
         items: [
-            { path: 'ppp/secrets', label: 'Secrets', icon: Users, ready: false },
-            { path: 'ppp/profiles', label: 'Profile', icon: ShieldCheck, ready: false },
-            { path: 'ppp/active', label: 'Active', icon: Activity, ready: false },
+            { path: 'ppp/secrets', label: 'Secrets', icon: Users, ready: true },
+            { path: 'ppp/profiles', label: 'Profile', icon: ShieldCheck, ready: true },
+            { path: 'ppp/active', label: 'Active', icon: Activity, ready: true },
         ],
     },
     {

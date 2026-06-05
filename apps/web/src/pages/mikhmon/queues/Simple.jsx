@@ -119,7 +119,7 @@ function QueueFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode
             maxWidth="max-w-2xl"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Name *" hint={mode === 'edit' ? 'rename via RouterOS perlu hapus + tambah ulang' : 'unik direkomendasikan'}>
                         <Input
                             value={form.name}
@@ -184,7 +184,7 @@ function QueueFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode
                     <span>Disabled (queue dibuat tapi tidak aktif)</span>
                 </label>
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button
                         type="submit"
@@ -369,7 +369,7 @@ export default function SimpleQueues() {
 
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[800px]">
                         <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                             <tr>
                                 <th className="w-8"></th>

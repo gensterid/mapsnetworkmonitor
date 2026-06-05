@@ -32,6 +32,10 @@ const MikhmonHotspotUsers = lazy(() => import('./pages/mikhmon/hotspot/Users'));
 const MikhmonHotspotActive = lazy(() => import('./pages/mikhmon/hotspot/Active'));
 const MikhmonHotspotHosts = lazy(() => import('./pages/mikhmon/hotspot/Hosts'));
 const MikhmonHotspotCookies = lazy(() => import('./pages/mikhmon/hotspot/Cookies'));
+const MikhmonServerProfiles = lazy(() => import('./pages/mikhmon/hotspot/ServerProfiles'));
+const MikhmonPppSecrets = lazy(() => import('./pages/mikhmon/ppp/Secrets'));
+const MikhmonPppProfiles = lazy(() => import('./pages/mikhmon/ppp/Profiles'));
+const MikhmonPppActive = lazy(() => import('./pages/mikhmon/ppp/Active'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -298,6 +302,10 @@ function App() {
                   <Route path="hotspot/active" element={<MikhmonHotspotActive />} />
                   <Route path="hotspot/hosts" element={<MikhmonHotspotHosts />} />
                   <Route path="hotspot/cookies" element={<MikhmonHotspotCookies />} />
+                  <Route path="hotspot/server-profiles" element={<MikhmonServerProfiles />} />
+                  <Route path="ppp/secrets" element={<MikhmonPppSecrets />} />
+                  <Route path="ppp/profiles" element={<MikhmonPppProfiles />} />
+                  <Route path="ppp/active" element={<MikhmonPppActive />} />
                 </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={

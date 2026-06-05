@@ -116,7 +116,7 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
         >
             <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Core fields */}
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Name *">
                         <TextInput
                             value={form.name}
@@ -227,7 +227,7 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                     </div>
                 )}
 
-                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
                         Batal
                     </Button>
@@ -333,7 +333,7 @@ export default function HotspotProfiles() {
             )}
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm min-w-[700px]">
                         <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Name</th>

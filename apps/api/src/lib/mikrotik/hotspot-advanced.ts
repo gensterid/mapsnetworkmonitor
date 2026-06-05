@@ -495,3 +495,101 @@ export async function removeHotspotCookie(api: any, id: string): Promise<void> {
     if (!id) throw new Error('id wajib');
     await safeWrite(api, ['/ip/hotspot/cookie/remove', `=.id=${id}`]);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Server Profile — Phase A6
+//
+// `/ip/hotspot/profile` configures the captive-portal behavior of a
+// hotspot server (login methods, HTML directory, RADIUS, MAC-format,
+// HTTPS, etc.). One profile is referenced by N hotspot servers.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface HotspotServerProfileFull {
+    id: string;
+    name: string;
+    hotspotAddress?: string;
+    dnsName?: string;
+    htmlDirectory?: string;
+    rateLimit?: string;
+    httpProxy?: string;
+    smtpServer?: string;
+    loginBy?: string;            // "cookie,http-chap,http-pap" csv
+    macAuthMode?: string;
+    useRadius?: boolean;
+    splitUserDomain?: boolean;
+    default?: boolean;
+}
+
+export interface HotspotServerProfileInput {
+    name: string;
+    hotspotAddress?: string;
+    dnsName?: string;
+    htmlDirectory?: string;
+    rateLimit?: string;
+    httpProxy?: string;
+    smtpServer?: string;
+    loginBy?: string;
+    macAuthMode?: string;
+    useRadius?: boolean;
+    splitUserDomain?: boolean;
+}
+
+function mapServerProfile(p: any): HotspotServerProfileFull {
+    return {
+        id: p['.id'],
+        name: p.name,
+        hotspotAddress: p['hotspot-address'],
+        dnsName: p['dns-name'],
+        htmlDirectory: p['html-directory'],
+        rateLimit: p['rate-limit'],
+        httpProxy: p['http-proxy'],
+        smtpServer: p['smtp-server'],
+        loginBy: p['login-by'],
+        macAuthMode: p['mac-auth-mode'],
+        useRadius: toBool(p['use-radius']),
+        splitUserDomain: toBool(p['split-user-domain']),
+        default: toBool(p['default']),
+    };
+}
+
+function serverProfileToArgs(input: Partial<HotspotServerProfileInput>): string[] {
+    const args: string[] = [];
+    const push = (key: string, val: any) => {
+        if (val === undefined || val === null || val === '') return;
+        if (typeof val === 'boolean') args.push(`=${key}=${val ? 'yes' : 'no'}`);
+        else args.push(`=${key}=${val}`);
+    };
+    push('name', input.name);
+    push('hotspot-address', input.hotspotAddress);
+    push('dns-name', input.dnsName);
+    push('html-directory', input.htmlDirectory);
+    push('rate-limit', input.rateLimit);
+    push('http-proxy', input.httpProxy);
+    push('smtp-server', input.smtpServer);
+    push('login-by', input.loginBy);
+    push('mac-auth-mode', input.macAuthMode);
+    push('use-radius', input.useRadius);
+    push('split-user-domain', input.splitUserDomain);
+    return args;
+}
+
+export async function listHotspotServerProfiles(api: any): Promise<HotspotServerProfileFull[]> {
+    const result = await safeWrite(api, '/ip/hotspot/profile/print');
+    return result.map(mapServerProfile);
+}
+
+export async function addHotspotServerProfile(api: any, input: HotspotServerProfileInput): Promise<string> {
+    if (!input.name?.trim()) throw new Error('name wajib');
+    const result = await safeWrite(api, ['/ip/hotspot/profile/add', ...serverProfileToArgs(input)]);
+    return result?.[0]?.ret || '';
+}
+
+export async function setHotspotServerProfile(api: any, id: string, input: Partial<HotspotServerProfileInput>): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/profile/set', `=.id=${id}`, ...serverProfileToArgs(input)]);
+}
+
+export async function removeHotspotServerProfile(api: any, id: string): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/profile/remove', `=.id=${id}`]);
+}

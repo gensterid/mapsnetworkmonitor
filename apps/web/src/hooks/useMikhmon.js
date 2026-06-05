@@ -21,6 +21,10 @@ export const mikhmonKeys = {
     hotspotActive: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'active'],
     hotspotHosts: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'hosts'],
     hotspotCookies: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'cookies'],
+    hotspotServerProfiles: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'server-profiles'],
+    pppSecrets: (routerId) => [...mikhmonKeys.all(routerId), 'ppp', 'secrets'],
+    pppProfiles: (routerId) => [...mikhmonKeys.all(routerId), 'ppp', 'profiles'],
+    pppActive: (routerId) => [...mikhmonKeys.all(routerId), 'ppp', 'active'],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -293,5 +297,64 @@ export function useRemoveHotspotCookie(routerId) {
             qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotCookies(routerId) });
         },
         onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus cookie'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Hotspot Server Profiles — Phase A6
+// ─────────────────────────────────────────────────────────────────────────
+
+const hotspotServerProfileCrud = makeCrudHooks(mikhmonApi.hotspotServerProfiles, mikhmonKeys.hotspotServerProfiles);
+export const useHotspotServerProfiles = hotspotServerProfileCrud.useList;
+export const useAddHotspotServerProfile = hotspotServerProfileCrud.useAdd;
+export const useUpdateHotspotServerProfile = hotspotServerProfileCrud.useUpdate;
+export const useDeleteHotspotServerProfile = hotspotServerProfileCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// PPP Secrets — Phase A6
+// ─────────────────────────────────────────────────────────────────────────
+
+const pppSecretCrud = makeCrudHooks(mikhmonApi.pppSecrets, mikhmonKeys.pppSecrets);
+export const usePppSecrets = pppSecretCrud.useList;
+export const useAddPppSecret = pppSecretCrud.useAdd;
+export const useUpdatePppSecret = pppSecretCrud.useUpdate;
+export const useDeletePppSecret = pppSecretCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// PPP Profiles — Phase A6
+// ─────────────────────────────────────────────────────────────────────────
+
+const pppProfileCrud = makeCrudHooks(mikhmonApi.pppProfiles, mikhmonKeys.pppProfiles);
+export const usePppProfiles = pppProfileCrud.useList;
+export const useAddPppProfile = pppProfileCrud.useAdd;
+export const useUpdatePppProfile = pppProfileCrud.useUpdate;
+export const useDeletePppProfile = pppProfileCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// PPP Active — live, kick-only
+// ─────────────────────────────────────────────────────────────────────────
+
+export function usePppActive(routerId, options = {}) {
+    const { refetchInterval } = useMikhmonContext();
+    return useQuery({
+        queryKey: mikhmonKeys.pppActive(routerId),
+        queryFn: () => mikhmonApi.pppActive.list(routerId),
+        enabled: !!routerId,
+        refetchInterval: options.refetchInterval ?? refetchInterval ?? false,
+        refetchIntervalInBackground: false,
+        staleTime: 2_000,
+        ...options,
+    });
+}
+
+export function useKickPppActive(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => mikhmonApi.pppActive.kick(routerId, id),
+        onSuccess: () => {
+            toast.success('PPP session di-kick');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.pppActive(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal kick PPP session'),
     });
 }

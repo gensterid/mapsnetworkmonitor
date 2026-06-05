@@ -58,7 +58,7 @@ export default function RouterSelector({ className }) {
                 value={selectedRouterId || ''}
                 onChange={handleChange}
                 disabled={isPending || routers.length === 0}
-                className="bg-slate-900/60 border border-slate-700/50 text-slate-200 text-xs font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-[150px] max-w-[260px]"
+                className="bg-slate-900/60 border border-slate-700/50 text-slate-200 text-xs font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/30 min-w-0 sm:min-w-[150px] max-w-[180px] sm:max-w-[260px] truncate"
             >
                 {routers.length === 0 && (
                     <option value="">{isPending ? 'Memuat router…' : 'Belum ada router'}</option>
