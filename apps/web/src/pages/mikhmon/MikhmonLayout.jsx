@@ -76,7 +76,7 @@ const SECTIONS = [
         hotspotOnly: true,
         items: [
             { path: 'vouchers', label: 'Voucher', icon: Ticket, ready: true },
-            { path: 'reports', label: 'Reports', icon: BarChart3, ready: false },
+            { path: 'reports', label: 'Reports', icon: BarChart3, ready: true },
         ],
     },
 ];
