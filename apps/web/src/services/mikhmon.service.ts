@@ -6,7 +6,7 @@
  * the phases progress; Phase A1 covers `info` (mode badge) and
  * `resource` (top-bar widget) only.
  */
-import { get, post, patch, del } from '@/lib/api';
+import { get, post, patch, del, apiClient } from '@/lib/api';
 
 export const mikhmonApi = {
     info: {
@@ -99,6 +99,37 @@ export const mikhmonApi = {
         add: (routerId, input) => post(`/mikhmon/${routerId}/ip/address-list`, input),
         update: (routerId, id, input) => patch(`/mikhmon/${routerId}/ip/address-list/${encodeURIComponent(id)}`, input),
         remove: (routerId, id) => del(`/mikhmon/${routerId}/ip/address-list/${encodeURIComponent(id)}`),
+    },
+    systemLog: {
+        list: (routerId, opts = {}) => {
+            const params: any = {};
+            if (opts.topics) params.topics = opts.topics;
+            if (opts.limit) params.limit = opts.limit;
+            return get(`/mikhmon/${routerId}/system/log`, { params });
+        },
+    },
+    systemPackages: {
+        list: (routerId) => get(`/mikhmon/${routerId}/system/packages`),
+    },
+    systemScheduler: {
+        list: (routerId) => get(`/mikhmon/${routerId}/system/scheduler`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/system/scheduler`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/system/scheduler/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/system/scheduler/${encodeURIComponent(id)}`),
+    },
+    /**
+     * Backup delegates to the existing /api/router-backups/* surface.
+     * MikHMON UI calls these directly — no MikHMON-specific endpoint
+     * exists, the integration is purely page-level.
+     *
+     * Those routes return raw payloads (not `{ data: ... }` wrapped), so
+     * we use apiClient directly and read response.data ourselves.
+     */
+    backup: {
+        list: (routerId) => apiClient.get(`/router-backups/${routerId}`).then((r) => r.data),
+        create: (routerId, payload) => apiClient.post(`/router-backups/${routerId}`, payload).then((r) => r.data),
+        downloadUrl: (backupId) => `/api/router-backups/download/${encodeURIComponent(backupId)}`,
+        remove: (backupId) => apiClient.delete(`/router-backups/${encodeURIComponent(backupId)}`).then((r) => r.data),
     },
 };
 

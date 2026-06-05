@@ -28,6 +28,10 @@ export const mikhmonKeys = {
     ipPools: (routerId) => [...mikhmonKeys.all(routerId), 'ip', 'pool'],
     dhcpLeases: (routerId) => [...mikhmonKeys.all(routerId), 'ip', 'dhcp-lease'],
     addressList: (routerId) => [...mikhmonKeys.all(routerId), 'ip', 'address-list'],
+    systemLog: (routerId, q) => [...mikhmonKeys.all(routerId), 'system', 'log', q || {}],
+    systemPackages: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'packages'],
+    systemScheduler: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'scheduler'],
+    backup: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'backup'],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -403,3 +407,82 @@ export const useAddressList = addressListCrud.useList;
 export const useAddAddressList = addressListCrud.useAdd;
 export const useUpdateAddressList = addressListCrud.useUpdate;
 export const useDeleteAddressList = addressListCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// System Log — Phase A8 (live read, no mutation)
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useSystemLog(routerId, { topics, limit } = {}, options = {}) {
+    const { refetchInterval } = useMikhmonContext();
+    return useQuery({
+        queryKey: mikhmonKeys.systemLog(routerId, { topics, limit }),
+        queryFn: () => mikhmonApi.systemLog.list(routerId, { topics, limit }),
+        enabled: !!routerId,
+        refetchInterval: options.refetchInterval ?? refetchInterval ?? false,
+        refetchIntervalInBackground: false,
+        staleTime: 2_000,
+        ...options,
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// System Packages — Phase A8 (read-only)
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useSystemPackages(routerId, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.systemPackages(routerId),
+        queryFn: () => mikhmonApi.systemPackages.list(routerId),
+        enabled: !!routerId,
+        staleTime: 60 * 1000,
+        ...options,
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// System Scheduler — Phase A8
+// ─────────────────────────────────────────────────────────────────────────
+
+const schedulerCrud = makeCrudHooks(mikhmonApi.systemScheduler, mikhmonKeys.systemScheduler);
+export const useSystemScheduler = schedulerCrud.useList;
+export const useAddSystemScheduler = schedulerCrud.useAdd;
+export const useUpdateSystemScheduler = schedulerCrud.useUpdate;
+export const useDeleteSystemScheduler = schedulerCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Backup — Phase A8, delegates to /api/router-backups/* existing
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useBackupList(routerId, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.backup(routerId),
+        queryFn: () => mikhmonApi.backup.list(routerId),
+        enabled: !!routerId,
+        staleTime: 10 * 1000,
+        ...options,
+    });
+}
+
+export function useCreateBackup(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (payload) => mikhmonApi.backup.create(routerId, payload),
+        onSuccess: () => {
+            toast.success('Backup berhasil dibuat');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.backup(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal create backup'),
+    });
+}
+
+export function useDeleteBackup(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (backupId) => mikhmonApi.backup.remove(backupId),
+        onSuccess: () => {
+            toast.success('Backup dihapus');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.backup(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus backup'),
+    });
+}

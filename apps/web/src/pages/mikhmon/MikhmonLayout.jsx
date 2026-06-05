@@ -65,10 +65,10 @@ const SECTIONS = [
     {
         group: 'System',
         items: [
-            { path: 'system/log', label: 'Log', icon: ScrollText, ready: false },
-            { path: 'system/scheduler', label: 'Scheduler', icon: Activity, ready: false },
-            { path: 'system/backup', label: 'Backup', icon: FileBox, ready: false },
-            { path: 'system/packages', label: 'Packages', icon: Server, ready: false },
+            { path: 'system/log', label: 'Log', icon: ScrollText, ready: true },
+            { path: 'system/scheduler', label: 'Scheduler', icon: Activity, ready: true },
+            { path: 'system/backup', label: 'Backup', icon: FileBox, ready: true },
+            { path: 'system/packages', label: 'Packages', icon: Server, ready: true },
         ],
     },
     {

@@ -39,6 +39,10 @@ const MikhmonPppActive = lazy(() => import('./pages/mikhmon/ppp/Active'));
 const MikhmonIpPool = lazy(() => import('./pages/mikhmon/ip/Pool'));
 const MikhmonDhcpLease = lazy(() => import('./pages/mikhmon/ip/DhcpLease'));
 const MikhmonAddressList = lazy(() => import('./pages/mikhmon/ip/AddressList'));
+const MikhmonSystemLog = lazy(() => import('./pages/mikhmon/system/Log'));
+const MikhmonSystemScheduler = lazy(() => import('./pages/mikhmon/system/Scheduler'));
+const MikhmonSystemBackup = lazy(() => import('./pages/mikhmon/system/Backup'));
+const MikhmonSystemPackages = lazy(() => import('./pages/mikhmon/system/Packages'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -312,6 +316,10 @@ function App() {
                   <Route path="ip/pool" element={<MikhmonIpPool />} />
                   <Route path="ip/dhcp-lease" element={<MikhmonDhcpLease />} />
                   <Route path="ip/address-list" element={<MikhmonAddressList />} />
+                  <Route path="system/log" element={<MikhmonSystemLog />} />
+                  <Route path="system/scheduler" element={<MikhmonSystemScheduler />} />
+                  <Route path="system/backup" element={<MikhmonSystemBackup />} />
+                  <Route path="system/packages" element={<MikhmonSystemPackages />} />
                 </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={

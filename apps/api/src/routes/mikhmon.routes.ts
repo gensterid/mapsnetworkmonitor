@@ -75,6 +75,16 @@ import {
     removeAddressList,
 } from '../lib/mikrotik/ip-management.js';
 import {
+    getLog,
+    listSystemPackages,
+    setScheduler,
+} from '../lib/mikrotik/system-extra.js';
+import {
+    getSchedulers,
+    addScheduler,
+    deleteScheduler,
+} from '../lib/mikrotik/billing.js';
+import {
     listSimpleQueues,
     addSimpleQueue,
     setSimpleQueue,
@@ -1129,6 +1139,119 @@ router.delete(
         if (!id) throw new ApiError(400, 'address-list id wajib');
         await removeAddressList(req.mtConn, id);
         await invalidateAddressListCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// System Log (Phase A8) — uncached, live read
+// ─────────────────────────────────────────────────────────────────────────
+
+router.get(
+    '/:routerId/system/log',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const topics = typeof req.query.topics === 'string' ? req.query.topics : undefined;
+        const limit = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined;
+        const entries = await getLog(req.mtConn, { topics, limit });
+        res.json({ data: entries });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// System Packages (Phase A8) — read-only
+// ─────────────────────────────────────────────────────────────────────────
+
+router.get(
+    '/:routerId/system/packages',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = `mikhmon:${routerId}:system:packages`;
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listSystemPackages(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_STATIC);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// System Scheduler (Phase A8) — list+add+delete reuse billing.ts,
+// set comes from system-extra.ts
+// ─────────────────────────────────────────────────────────────────────────
+
+const schedulerInputSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    onEvent: z.string().min(1, 'on-event wajib'),
+    startTime: z.string().optional(),
+    startDate: z.string().optional(),
+    interval: z.string().optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+const schedulerPatchSchema = schedulerInputSchema.partial();
+
+const schedulerCacheKey = (routerId: string) => `mikhmon:${routerId}:system:scheduler`;
+const invalidateSchedulerCache = (routerId: string) =>
+    cacheService.delete(schedulerCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] scheduler cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/system/scheduler',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = schedulerCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await getSchedulers(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/system/scheduler',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = schedulerInputSchema.parse(req.body);
+        const id = await addScheduler(req.mtConn, input);
+        await invalidateSchedulerCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/system/scheduler/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'scheduler id wajib');
+        const input = schedulerPatchSchema.parse(req.body);
+        await setScheduler(req.mtConn, id, input);
+        await invalidateSchedulerCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/system/scheduler/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'scheduler id wajib');
+        await deleteScheduler(req.mtConn, id);
+        await invalidateSchedulerCache(paramStr(req.params.routerId));
         res.json({ data: { id, deleted: true } });
     })
 );
