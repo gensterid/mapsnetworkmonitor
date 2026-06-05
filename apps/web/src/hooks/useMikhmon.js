@@ -25,6 +25,9 @@ export const mikhmonKeys = {
     pppSecrets: (routerId) => [...mikhmonKeys.all(routerId), 'ppp', 'secrets'],
     pppProfiles: (routerId) => [...mikhmonKeys.all(routerId), 'ppp', 'profiles'],
     pppActive: (routerId) => [...mikhmonKeys.all(routerId), 'ppp', 'active'],
+    ipPools: (routerId) => [...mikhmonKeys.all(routerId), 'ip', 'pool'],
+    dhcpLeases: (routerId) => [...mikhmonKeys.all(routerId), 'ip', 'dhcp-lease'],
+    addressList: (routerId) => [...mikhmonKeys.all(routerId), 'ip', 'address-list'],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -358,3 +361,45 @@ export function useKickPppActive(routerId) {
         onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal kick PPP session'),
     });
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// IP Pool — Phase A7
+// ─────────────────────────────────────────────────────────────────────────
+
+const ipPoolCrud = makeCrudHooks(mikhmonApi.ipPools, mikhmonKeys.ipPools);
+export const useIpPools = ipPoolCrud.useList;
+export const useAddIpPool = ipPoolCrud.useAdd;
+export const useUpdateIpPool = ipPoolCrud.useUpdate;
+export const useDeleteIpPool = ipPoolCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// DHCP Lease — Phase A7
+// ─────────────────────────────────────────────────────────────────────────
+
+const dhcpLeaseCrud = makeCrudHooks(mikhmonApi.dhcpLeases, mikhmonKeys.dhcpLeases);
+export const useDhcpLeases = dhcpLeaseCrud.useList;
+export const useAddDhcpLease = dhcpLeaseCrud.useAdd;
+export const useUpdateDhcpLease = dhcpLeaseCrud.useUpdate;
+export const useDeleteDhcpLease = dhcpLeaseCrud.useRemove;
+
+export function useMakeDhcpLeaseStatic(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => mikhmonApi.dhcpLeases.makeStatic(routerId, id),
+        onSuccess: () => {
+            toast.success('Lease di-convert ke static');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.dhcpLeases(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal make-static'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Address List — Phase A7
+// ─────────────────────────────────────────────────────────────────────────
+
+const addressListCrud = makeCrudHooks(mikhmonApi.addressList, mikhmonKeys.addressList);
+export const useAddressList = addressListCrud.useList;
+export const useAddAddressList = addressListCrud.useAdd;
+export const useUpdateAddressList = addressListCrud.useUpdate;
+export const useDeleteAddressList = addressListCrud.useRemove;

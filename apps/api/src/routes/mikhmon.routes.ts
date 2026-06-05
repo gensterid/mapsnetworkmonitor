@@ -60,6 +60,21 @@ import {
     removePppActive,
 } from '../lib/mikrotik/ppp-advanced.js';
 import {
+    listIpPools,
+    addIpPool,
+    setIpPool,
+    removeIpPool,
+    listDhcpLeases,
+    addDhcpLease,
+    setDhcpLease,
+    makeDhcpLeaseStatic,
+    removeDhcpLease,
+    listAddressList,
+    addAddressList,
+    setAddressList,
+    removeAddressList,
+} from '../lib/mikrotik/ip-management.js';
+import {
     listSimpleQueues,
     addSimpleQueue,
     setSimpleQueue,
@@ -883,6 +898,238 @@ router.delete(
         if (!id) throw new ApiError(400, 'session id wajib');
         await removePppActive(req.mtConn, id);
         res.json({ data: { id, kicked: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// IP Pool CRUD (Phase A7)
+// ─────────────────────────────────────────────────────────────────────────
+
+const ipPoolInputSchema = z.object({
+    name: z.string().min(1, 'name wajib'),
+    ranges: z.string().min(1, 'ranges wajib'),
+    nextPool: z.string().optional(),
+    comment: z.string().optional(),
+});
+const ipPoolPatchSchema = ipPoolInputSchema.partial();
+
+const ipPoolCacheKey = (routerId: string) => `mikhmon:${routerId}:ip:pool`;
+const invalidateIpPoolCache = (routerId: string) =>
+    cacheService.delete(ipPoolCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] ip-pool cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/ip/pool',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = ipPoolCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listIpPools(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_STATIC);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/ip/pool',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = ipPoolInputSchema.parse(req.body);
+        const id = await addIpPool(req.mtConn, input);
+        await invalidateIpPoolCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/ip/pool/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'pool id wajib');
+        const input = ipPoolPatchSchema.parse(req.body);
+        await setIpPool(req.mtConn, id, input);
+        await invalidateIpPoolCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/ip/pool/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'pool id wajib');
+        await removeIpPool(req.mtConn, id);
+        await invalidateIpPoolCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// DHCP Lease (Phase A7) — list, add, set, make-static, remove
+// ─────────────────────────────────────────────────────────────────────────
+
+const dhcpLeaseInputSchema = z.object({
+    address: z.string().min(1, 'address wajib'),
+    macAddress: z.string().optional(),
+    clientId: z.string().optional(),
+    server: z.string().optional(),
+    comment: z.string().optional(),
+    blocked: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+});
+const dhcpLeasePatchSchema = dhcpLeaseInputSchema.partial();
+
+const dhcpLeaseCacheKey = (routerId: string) => `mikhmon:${routerId}:ip:dhcp-lease`;
+const invalidateDhcpLeaseCache = (routerId: string) =>
+    cacheService.delete(dhcpLeaseCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] dhcp-lease cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/ip/dhcp-lease',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = dhcpLeaseCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listDhcpLeases(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/ip/dhcp-lease',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = dhcpLeaseInputSchema.parse(req.body);
+        const id = await addDhcpLease(req.mtConn, input);
+        await invalidateDhcpLeaseCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/ip/dhcp-lease/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'lease id wajib');
+        const input = dhcpLeasePatchSchema.parse(req.body);
+        await setDhcpLease(req.mtConn, id, input);
+        await invalidateDhcpLeaseCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.post(
+    '/:routerId/ip/dhcp-lease/:id/make-static',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'lease id wajib');
+        await makeDhcpLeaseStatic(req.mtConn, id);
+        await invalidateDhcpLeaseCache(paramStr(req.params.routerId));
+        res.json({ data: { id, madeStatic: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/ip/dhcp-lease/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'lease id wajib');
+        await removeDhcpLease(req.mtConn, id);
+        await invalidateDhcpLeaseCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Firewall Address List (Phase A7)
+// ─────────────────────────────────────────────────────────────────────────
+
+const addressListInputSchema = z.object({
+    list: z.string().min(1, 'list wajib'),
+    address: z.string().min(1, 'address wajib'),
+    comment: z.string().optional(),
+    timeout: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+const addressListPatchSchema = addressListInputSchema.partial();
+
+const addressListCacheKey = (routerId: string) => `mikhmon:${routerId}:ip:address-list`;
+const invalidateAddressListCache = (routerId: string) =>
+    cacheService.delete(addressListCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] address-list cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/ip/address-list',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = addressListCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listAddressList(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/ip/address-list',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = addressListInputSchema.parse(req.body);
+        const id = await addAddressList(req.mtConn, input);
+        await invalidateAddressListCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/ip/address-list/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'address-list id wajib');
+        const input = addressListPatchSchema.parse(req.body);
+        await setAddressList(req.mtConn, id, input);
+        await invalidateAddressListCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/ip/address-list/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'address-list id wajib');
+        await removeAddressList(req.mtConn, id);
+        await invalidateAddressListCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
     })
 );
 

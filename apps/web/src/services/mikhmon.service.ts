@@ -81,6 +81,25 @@ export const mikhmonApi = {
         list: (routerId) => get(`/mikhmon/${routerId}/ppp/active`),
         kick: (routerId, id) => del(`/mikhmon/${routerId}/ppp/active/${encodeURIComponent(id)}`),
     },
+    ipPools: {
+        list: (routerId) => get(`/mikhmon/${routerId}/ip/pool`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/ip/pool`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/ip/pool/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/ip/pool/${encodeURIComponent(id)}`),
+    },
+    dhcpLeases: {
+        list: (routerId) => get(`/mikhmon/${routerId}/ip/dhcp-lease`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/ip/dhcp-lease`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/ip/dhcp-lease/${encodeURIComponent(id)}`, input),
+        makeStatic: (routerId, id) => post(`/mikhmon/${routerId}/ip/dhcp-lease/${encodeURIComponent(id)}/make-static`, {}),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/ip/dhcp-lease/${encodeURIComponent(id)}`),
+    },
+    addressList: {
+        list: (routerId) => get(`/mikhmon/${routerId}/ip/address-list`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/ip/address-list`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/ip/address-list/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/ip/address-list/${encodeURIComponent(id)}`),
+    },
 };
 
 export default mikhmonApi;

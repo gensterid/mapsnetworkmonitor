@@ -36,6 +36,9 @@ const MikhmonServerProfiles = lazy(() => import('./pages/mikhmon/hotspot/ServerP
 const MikhmonPppSecrets = lazy(() => import('./pages/mikhmon/ppp/Secrets'));
 const MikhmonPppProfiles = lazy(() => import('./pages/mikhmon/ppp/Profiles'));
 const MikhmonPppActive = lazy(() => import('./pages/mikhmon/ppp/Active'));
+const MikhmonIpPool = lazy(() => import('./pages/mikhmon/ip/Pool'));
+const MikhmonDhcpLease = lazy(() => import('./pages/mikhmon/ip/DhcpLease'));
+const MikhmonAddressList = lazy(() => import('./pages/mikhmon/ip/AddressList'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -306,6 +309,9 @@ function App() {
                   <Route path="ppp/secrets" element={<MikhmonPppSecrets />} />
                   <Route path="ppp/profiles" element={<MikhmonPppProfiles />} />
                   <Route path="ppp/active" element={<MikhmonPppActive />} />
+                  <Route path="ip/pool" element={<MikhmonIpPool />} />
+                  <Route path="ip/dhcp-lease" element={<MikhmonDhcpLease />} />
+                  <Route path="ip/address-list" element={<MikhmonAddressList />} />
                 </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={
