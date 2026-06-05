@@ -176,3 +176,185 @@ export async function removeHotspotUserProfile(api: any, id: string): Promise<vo
     if (!id) throw new Error('id wajib');
     await safeWrite(api, ['/ip/hotspot/user/profile/remove', `=.id=${id}`]);
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// IP Binding — Phase A3
+// ─────────────────────────────────────────────────────────────────────────
+
+export type IpBindingType = 'regular' | 'bypassed' | 'blocked';
+
+export interface IpBindingFull {
+    id: string;
+    macAddress?: string;
+    address?: string;
+    toAddress?: string;
+    server?: string;
+    type?: IpBindingType;
+    comment?: string;
+    disabled?: boolean;
+    dynamic?: boolean;
+    // Hits is computed by RouterOS for some firmware
+    hits?: string;
+}
+
+export interface IpBindingInput {
+    macAddress?: string;
+    address?: string;
+    toAddress?: string;
+    server?: string;
+    type: IpBindingType;
+    comment?: string;
+    disabled?: boolean;
+}
+
+function mapIpBinding(p: any): IpBindingFull {
+    return {
+        id: p['.id'],
+        macAddress: p['mac-address'],
+        address: p['address'],
+        toAddress: p['to-address'],
+        server: p['server'],
+        type: p['type'] as IpBindingType,
+        comment: p['comment'],
+        disabled: toBool(p['disabled']),
+        dynamic: toBool(p['dynamic']),
+        hits: p['hits'],
+    };
+}
+
+function ipBindingToArgs(input: Partial<IpBindingInput>): string[] {
+    const args: string[] = [];
+    const push = (key: string, val: any) => {
+        if (val === undefined || val === null || val === '') return;
+        if (typeof val === 'boolean') args.push(`=${key}=${val ? 'yes' : 'no'}`);
+        else args.push(`=${key}=${val}`);
+    };
+    push('mac-address', input.macAddress);
+    push('address', input.address);
+    push('to-address', input.toAddress);
+    push('server', input.server);
+    push('type', input.type);
+    push('comment', input.comment);
+    push('disabled', input.disabled);
+    return args;
+}
+
+export async function listIpBindings(api: any): Promise<IpBindingFull[]> {
+    const result = await safeWrite(api, '/ip/hotspot/ip-binding/print');
+    return result.map(mapIpBinding);
+}
+
+export async function addIpBinding(api: any, input: IpBindingInput): Promise<string> {
+    // RouterOS requires at least one of mac-address / address to identify the binding.
+    if (!input.macAddress && !input.address) {
+        throw new Error('Salah satu dari MAC address atau IP address wajib diisi');
+    }
+    if (!input.type) throw new Error('type wajib (regular | bypassed | blocked)');
+    const result = await safeWrite(api, ['/ip/hotspot/ip-binding/add', ...ipBindingToArgs(input)]);
+    return result?.[0]?.ret || '';
+}
+
+export async function setIpBinding(api: any, id: string, input: Partial<IpBindingInput>): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/ip-binding/set', `=.id=${id}`, ...ipBindingToArgs(input)]);
+}
+
+export async function removeIpBinding(api: any, id: string): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/ip-binding/remove', `=.id=${id}`]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Walled Garden — Phase A3
+//
+// RouterOS exposes two walled-garden tables. We focus on the L7/HTTP table
+// (`/ip/hotspot/walled-garden`) which is what MikHMON shows by default and
+// which most ISPs use to whitelist captive-portal-friendly domains (auth
+// server, payment gateway, etc.). The IP-level table at
+// `/ip/hotspot/walled-garden/ip` could be added later if needed.
+// ─────────────────────────────────────────────────────────────────────────
+
+export type WalledGardenAction = 'allow' | 'deny';
+
+export interface WalledGardenFull {
+    id: string;
+    dstHost?: string;
+    serverName?: string;
+    path?: string;
+    method?: string;
+    action?: WalledGardenAction;
+    comment?: string;
+    disabled?: boolean;
+    dynamic?: boolean;
+    hits?: string;
+}
+
+export interface WalledGardenInput {
+    dstHost?: string;
+    serverName?: string;
+    path?: string;
+    method?: string;
+    action?: WalledGardenAction;
+    comment?: string;
+    disabled?: boolean;
+}
+
+function mapWalledGarden(p: any): WalledGardenFull {
+    return {
+        id: p['.id'],
+        dstHost: p['dst-host'],
+        serverName: p['server'],
+        path: p['path'],
+        method: p['method'],
+        action: p['action'] as WalledGardenAction,
+        comment: p['comment'],
+        disabled: toBool(p['disabled']),
+        dynamic: toBool(p['dynamic']),
+        hits: p['hits'],
+    };
+}
+
+function walledGardenToArgs(input: Partial<WalledGardenInput>): string[] {
+    const args: string[] = [];
+    const push = (key: string, val: any) => {
+        if (val === undefined || val === null || val === '') return;
+        if (typeof val === 'boolean') args.push(`=${key}=${val ? 'yes' : 'no'}`);
+        else args.push(`=${key}=${val}`);
+    };
+    push('dst-host', input.dstHost);
+    push('server', input.serverName);
+    push('path', input.path);
+    push('method', input.method);
+    push('action', input.action);
+    push('comment', input.comment);
+    push('disabled', input.disabled);
+    return args;
+}
+
+export async function listWalledGarden(api: any): Promise<WalledGardenFull[]> {
+    const result = await safeWrite(api, '/ip/hotspot/walled-garden/print');
+    return result.map(mapWalledGarden);
+}
+
+export async function addWalledGarden(api: any, input: WalledGardenInput): Promise<string> {
+    if (!input.dstHost && !input.serverName && !input.path) {
+        throw new Error('Minimal isi salah satu: dst-host, server, atau path');
+    }
+    const result = await safeWrite(api, ['/ip/hotspot/walled-garden/add', ...walledGardenToArgs(input)]);
+    return result?.[0]?.ret || '';
+}
+
+export async function removeWalledGarden(api: any, id: string): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/walled-garden/remove', `=.id=${id}`]);
+}
+
+/**
+ * Walled garden has add/remove only in MikHMON UI (no edit). RouterOS does
+ * support `set` but operators usually delete + re-add to change a rule;
+ * we still expose this in case the operator wants to toggle disabled flag.
+ */
+export async function setWalledGarden(api: any, id: string, input: Partial<WalledGardenInput>): Promise<void> {
+    if (!id) throw new Error('id wajib');
+    await safeWrite(api, ['/ip/hotspot/walled-garden/set', `=.id=${id}`, ...walledGardenToArgs(input)]);
+}

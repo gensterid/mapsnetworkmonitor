@@ -23,6 +23,14 @@ import {
     addHotspotUserProfile,
     setHotspotUserProfile,
     removeHotspotUserProfile,
+    listIpBindings,
+    addIpBinding,
+    setIpBinding,
+    removeIpBinding,
+    listWalledGarden,
+    addWalledGarden,
+    setWalledGarden,
+    removeWalledGarden,
 } from '../lib/mikrotik/hotspot-advanced.js';
 import { cacheService } from '../lib/cache.js';
 import { logger } from '../lib/logger.js';
@@ -162,6 +170,168 @@ router.delete(
         if (!id) throw new ApiError(400, 'profile id wajib');
         await removeHotspotUserProfile(req.mtConn, id);
         await invalidateProfileCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// IP Binding CRUD (Phase A3)
+// ─────────────────────────────────────────────────────────────────────────
+
+const ipBindingTypeSchema = z.enum(['regular', 'bypassed', 'blocked']);
+const ipBindingInputSchema = z.object({
+    macAddress: z.string().optional(),
+    address: z.string().optional(),
+    toAddress: z.string().optional(),
+    server: z.string().optional(),
+    type: ipBindingTypeSchema,
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+const ipBindingPatchSchema = ipBindingInputSchema.partial();
+
+const ipBindingCacheKey = (routerId: string) => `mikhmon:${routerId}:hotspot:ip-bindings`;
+const invalidateIpBindingCache = (routerId: string) =>
+    cacheService.delete(ipBindingCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] ip-binding cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/hotspot/ip-bindings',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = ipBindingCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listIpBindings(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/hotspot/ip-bindings',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = ipBindingInputSchema.parse(req.body);
+        const id = await addIpBinding(req.mtConn, input);
+        await invalidateIpBindingCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/hotspot/ip-bindings/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'binding id wajib');
+        const input = ipBindingPatchSchema.parse(req.body);
+        await setIpBinding(req.mtConn, id, input);
+        await invalidateIpBindingCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/hotspot/ip-bindings/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'binding id wajib');
+        await removeIpBinding(req.mtConn, id);
+        await invalidateIpBindingCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Walled Garden CRUD (Phase A3)
+// ─────────────────────────────────────────────────────────────────────────
+
+const walledGardenInputSchema = z.object({
+    dstHost: z.string().optional(),
+    serverName: z.string().optional(),
+    path: z.string().optional(),
+    method: z.string().optional(),
+    action: z.enum(['allow', 'deny']).optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+}).refine(
+    (v) => !!(v.dstHost || v.serverName || v.path),
+    { message: 'Minimal isi dst-host, server, atau path' },
+);
+const walledGardenPatchSchema = z.object({
+    dstHost: z.string().optional(),
+    serverName: z.string().optional(),
+    path: z.string().optional(),
+    method: z.string().optional(),
+    action: z.enum(['allow', 'deny']).optional(),
+    comment: z.string().optional(),
+    disabled: z.boolean().optional(),
+});
+
+const walledGardenCacheKey = (routerId: string) => `mikhmon:${routerId}:hotspot:walled-garden`;
+const invalidateWalledGardenCache = (routerId: string) =>
+    cacheService.delete(walledGardenCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] walled-garden cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/hotspot/walled-garden',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = walledGardenCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
+        }
+        const items = await listWalledGarden(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items });
+    })
+);
+
+router.post(
+    '/:routerId/hotspot/walled-garden',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const input = walledGardenInputSchema.parse(req.body);
+        const id = await addWalledGarden(req.mtConn, input);
+        await invalidateWalledGardenCache(paramStr(req.params.routerId));
+        res.status(201).json({ data: { id } });
+    })
+);
+
+router.patch(
+    '/:routerId/hotspot/walled-garden/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'walled-garden id wajib');
+        const input = walledGardenPatchSchema.parse(req.body);
+        await setWalledGarden(req.mtConn, id, input);
+        await invalidateWalledGardenCache(paramStr(req.params.routerId));
+        res.json({ data: { id, updated: true } });
+    })
+);
+
+router.delete(
+    '/:routerId/hotspot/walled-garden/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'walled-garden id wajib');
+        await removeWalledGarden(req.mtConn, id);
+        await invalidateWalledGardenCache(paramStr(req.params.routerId));
         res.json({ data: { id, deleted: true } });
     })
 );

@@ -23,6 +23,18 @@ export const mikhmonApi = {
         update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(id)}`, input),
         remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(id)}`),
     },
+    ipBindings: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/ip-bindings`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/hotspot/ip-bindings`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/ip-bindings/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/ip-bindings/${encodeURIComponent(id)}`),
+    },
+    walledGarden: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/walled-garden`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/hotspot/walled-garden`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/walled-garden/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/walled-garden/${encodeURIComponent(id)}`),
+    },
 };
 
 export default mikhmonApi;

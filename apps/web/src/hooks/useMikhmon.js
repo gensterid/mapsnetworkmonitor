@@ -13,7 +13,60 @@ export const mikhmonKeys = {
     info: (routerId) => [...mikhmonKeys.all(routerId), 'info'],
     resource: (routerId) => [...mikhmonKeys.all(routerId), 'resource'],
     hotspotProfiles: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'profiles'],
+    ipBindings: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'ip-bindings'],
+    walledGarden: (routerId) => [...mikhmonKeys.all(routerId), 'hotspot', 'walled-garden'],
 };
+
+/** Generic CRUD hook factory — keeps add/update/remove patterns identical
+ *  across every MikHMON section. Each mutation invalidates the matching
+ *  list query on success. Returned hooks are real React hooks — call
+ *  them only from component bodies, never inside loops/conditionals.
+ */
+function makeCrudHooks(api, keyFn) {
+    function useList(routerId, options = {}) {
+        return useQuery({
+            queryKey: keyFn(routerId),
+            queryFn: () => api.list(routerId),
+            enabled: !!routerId,
+            staleTime: 10 * 1000,
+            ...options,
+        });
+    }
+    function useAdd(routerId) {
+        const qc = useQueryClient();
+        return useMutation({
+            mutationFn: (input) => api.add(routerId, input),
+            onSuccess: () => {
+                toast.success('Berhasil ditambahkan');
+                qc.invalidateQueries({ queryKey: keyFn(routerId) });
+            },
+            onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal tambah'),
+        });
+    }
+    function useUpdate(routerId) {
+        const qc = useQueryClient();
+        return useMutation({
+            mutationFn: ({ id, input }) => api.update(routerId, id, input),
+            onSuccess: () => {
+                toast.success('Berhasil diupdate');
+                qc.invalidateQueries({ queryKey: keyFn(routerId) });
+            },
+            onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal update'),
+        });
+    }
+    function useRemove(routerId) {
+        const qc = useQueryClient();
+        return useMutation({
+            mutationFn: (id) => api.remove(routerId, id),
+            onSuccess: () => {
+                toast.success('Berhasil dihapus');
+                qc.invalidateQueries({ queryKey: keyFn(routerId) });
+            },
+            onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus'),
+        });
+    }
+    return { useList, useAdd, useUpdate, useRemove };
+}
 
 /**
  * Router meta + hotspot_mode. Cached longer than live data — mode rarely
@@ -106,3 +159,23 @@ export function useDeleteHotspotUserProfile(routerId) {
         },
     });
 }
+
+// ─────────────────────────────────────────────────────────────────────────
+// IP Binding — Phase A3
+// ─────────────────────────────────────────────────────────────────────────
+
+const ipBindingCrud = makeCrudHooks(mikhmonApi.ipBindings, mikhmonKeys.ipBindings);
+export const useIpBindings = ipBindingCrud.useList;
+export const useAddIpBinding = ipBindingCrud.useAdd;
+export const useUpdateIpBinding = ipBindingCrud.useUpdate;
+export const useDeleteIpBinding = ipBindingCrud.useRemove;
+
+// ─────────────────────────────────────────────────────────────────────────
+// Walled Garden — Phase A3
+// ─────────────────────────────────────────────────────────────────────────
+
+const walledGardenCrud = makeCrudHooks(mikhmonApi.walledGarden, mikhmonKeys.walledGarden);
+export const useWalledGarden = walledGardenCrud.useList;
+export const useAddWalledGarden = walledGardenCrud.useAdd;
+export const useUpdateWalledGarden = walledGardenCrud.useUpdate;
+export const useDeleteWalledGarden = walledGardenCrud.useRemove;
