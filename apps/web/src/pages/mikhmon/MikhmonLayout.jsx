@@ -36,7 +36,7 @@ const SECTIONS = [
         hotspotOnly: true,
         items: [
             { path: 'hotspot/users', label: 'Users', icon: Users, ready: false },
-            { path: 'hotspot/profiles', label: 'User Profile', icon: ShieldCheck, ready: false },
+            { path: 'hotspot/profiles', label: 'User Profile', icon: ShieldCheck, ready: true },
             { path: 'hotspot/active', label: 'Active', icon: Activity, ready: false },
             { path: 'hotspot/hosts', label: 'Hosts', icon: Network, ready: false },
             { path: 'hotspot/ip-bindings', label: 'IP Binding', icon: ShieldCheck, ready: false },

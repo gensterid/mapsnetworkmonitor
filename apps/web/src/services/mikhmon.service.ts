@@ -6,7 +6,7 @@
  * the phases progress; Phase A1 covers `info` (mode badge) and
  * `resource` (top-bar widget) only.
  */
-import { get } from '@/lib/api';
+import { get, post, patch, del } from '@/lib/api';
 
 export const mikhmonApi = {
     info: {
@@ -16,6 +16,12 @@ export const mikhmonApi = {
     system: {
         /** GET /api/mikhmon/:routerId/resource — live CPU/RAM/uptime */
         resource: (routerId) => get(`/mikhmon/${routerId}/resource`),
+    },
+    hotspotProfiles: {
+        list: (routerId) => get(`/mikhmon/${routerId}/hotspot/profiles`),
+        add: (routerId, input) => post(`/mikhmon/${routerId}/hotspot/profiles`, input),
+        update: (routerId, id, input) => patch(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(id)}`, input),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(id)}`),
     },
 };
 
