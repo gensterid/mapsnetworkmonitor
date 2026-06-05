@@ -22,6 +22,8 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
 const Tenants = lazy(() => import('./pages/Tenants'));
 const Billing = lazy(() => import('./pages/Billing'));
+const MikhmonLayout = lazy(() => import('./pages/mikhmon/MikhmonLayout'));
+const MikhmonDashboard = lazy(() => import('./pages/mikhmon/Dashboard'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -273,6 +275,14 @@ function App() {
                     <Billing />
                   </OperatorRoute>
                 } />
+                <Route path="mikhmon" element={
+                  <OperatorRoute>
+                    <MikhmonLayout />
+                  </OperatorRoute>
+                }>
+                  <Route index element={<MikhmonDashboard />} />
+                  <Route path="dashboard" element={<MikhmonDashboard />} />
+                </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={
                   <SuperAdminRoute>

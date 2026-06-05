@@ -18,7 +18,8 @@ import {
     Activity,
     Monitor,
     Building,
-    Receipt
+    Receipt,
+    Wifi
 } from 'lucide-react';
 import clsx from 'clsx';
 import TenantSwitcher from './TenantSwitcher';
@@ -154,6 +155,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                         <>
                             <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Bisnis</div>
                             <NavItem path="/billing" icon={Receipt} label="Billing" isActive={isActive("/billing")} onClose={onClose} />
+                            <NavItem path="/mikhmon" icon={Wifi} label="MikHMON Console" isActive={isActive("/mikhmon")} onClose={onClose} />
                             <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />
                         </>
                     )}

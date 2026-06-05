@@ -11,13 +11,17 @@ import { logger } from './logger.js';
 
 // Default TTLs (in seconds)
 const CACHE_TTL = {
-    ROUTER_LIST: 30,     
-    ROUTER_DETAIL: 60,   
-    SETTINGS: 60,        
-    NETWATCH_STATS: 15,  
-    DASHBOARD: 20,       
-    GENIEACS_DEVICES: 65, 
-    GENIEACS_DEVICE: 60,  
+    ROUTER_LIST: 30,
+    ROUTER_DETAIL: 60,
+    SETTINGS: 60,
+    NETWATCH_STATS: 15,
+    DASHBOARD: 20,
+    GENIEACS_DEVICES: 65,
+    GENIEACS_DEVICE: 60,
+    // MikHMON shell — short for live data, longer for static lookups
+    MIKHMON_LIVE: 3,     // active sessions, hosts, traffic stats
+    MIKHMON_LIST: 10,    // user list, queue list
+    MIKHMON_STATIC: 60,  // user profile, server profile, packages
 };
 
 // Fallback in-memory cache

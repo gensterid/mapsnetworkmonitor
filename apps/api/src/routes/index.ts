@@ -23,6 +23,7 @@ import bandwidthRoutes from './bandwidth.routes.js';
 import billingRoutes from './billing.routes.js';
 import portalRoutes from './portal.routes.js';
 import diagnosticsRoutes from './diagnostics.routes.js';
+import mikhmonRoutes from './mikhmon.routes.js';
 
 const router = Router();
 
@@ -60,6 +61,7 @@ router.use('/bandwidth', bandwidthRoutes);
 router.use('/billing', billingRoutes);
 router.use('/portal', portalRoutes);
 router.use('/diagnostics', diagnosticsRoutes);
+router.use('/mikhmon', mikhmonRoutes);
 
 export default router;
 
