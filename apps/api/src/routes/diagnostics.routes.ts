@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { sql } from 'drizzle-orm';
+import { spawn } from 'child_process';
 import { db } from '../db/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireRole } from '../middleware/rbac.middleware.js';
@@ -386,6 +387,171 @@ router.post(
         logger.warn({ userId: req.user?.id, table }, 'Manual VACUUM ANALYZE triggered');
         await db.execute(sql.raw(`VACUUM (ANALYZE) ${table}`));
         res.json({ ok: true, data: { table } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Server Health (superadmin only) — disk usage + pm2-logrotate status.
+// Added after the disk-full incident on 2026-06-05 to surface these
+// signals before they cascade into PostgreSQL/Redis crashes.
+// ─────────────────────────────────────────────────────────────────────────
+
+/**
+ * Run a small CLI and capture stdout. Times out after 5s so a hanging
+ * binary can't stall the diagnostics endpoint. Errors are returned as
+ * `{ ok: false, error }` instead of thrown — the UI tolerates missing
+ * tools (e.g. no pm2 in PATH on a custom container).
+ */
+function runCmd(cmd: string, args: string[], timeoutMs = 5000): Promise<{ ok: boolean; stdout: string; stderr: string; error?: string }> {
+    return new Promise((resolve) => {
+        let stdout = '';
+        let stderr = '';
+        let timedOut = false;
+        try {
+            const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+            const timer = setTimeout(() => {
+                timedOut = true;
+                try { child.kill('SIGKILL'); } catch { /* noop */ }
+            }, timeoutMs);
+
+            child.stdout.on('data', (d) => { stdout += d.toString(); });
+            child.stderr.on('data', (d) => { stderr += d.toString(); });
+            child.on('error', (err) => {
+                clearTimeout(timer);
+                resolve({ ok: false, stdout, stderr, error: err?.message || String(err) });
+            });
+            child.on('close', (code) => {
+                clearTimeout(timer);
+                if (timedOut) return resolve({ ok: false, stdout, stderr, error: 'timeout' });
+                if (code !== 0) return resolve({ ok: false, stdout, stderr, error: `exit ${code}` });
+                resolve({ ok: true, stdout, stderr });
+            });
+        } catch (err: any) {
+            resolve({ ok: false, stdout, stderr, error: err?.message || 'spawn failed' });
+        }
+    });
+}
+
+/**
+ * GET /diagnostics/server-disk
+ * Returns disk usage for the filesystem hosting the app dir (`/`).
+ * Parses `df -PT --block-size=1` output (POSIX format, sizes in bytes).
+ */
+router.get(
+    '/server-disk',
+    asyncHandler(async (_req, res) => {
+        const result = await runCmd('df', ['-PT', '--block-size=1', '/']);
+        if (!result.ok) {
+            return res.json({ ok: false, error: result.error || 'df failed', stderr: result.stderr });
+        }
+        // df output:
+        //   Filesystem  Type  1B-blocks   Used   Available  Capacity  Mounted on
+        //   /dev/...   ext4  42949672960 ...    ...         97%       /
+        const lines = result.stdout.trim().split('\n');
+        const dataLine = lines[1] || '';
+        const cols = dataLine.split(/\s+/);
+        if (cols.length < 7) {
+            return res.json({ ok: false, error: 'unexpected df output', raw: result.stdout });
+        }
+        const totalBytes = parseInt(cols[2], 10);
+        const usedBytes = parseInt(cols[3], 10);
+        const availableBytes = parseInt(cols[4], 10);
+        const usePct = parseInt(String(cols[5]).replace('%', ''), 10);
+
+        let severity: 'ok' | 'warn' | 'critical' = 'ok';
+        if (usePct >= 95) severity = 'critical';
+        else if (usePct >= 85) severity = 'warn';
+
+        res.json({
+            ok: true,
+            data: {
+                filesystem: cols[0],
+                type: cols[1],
+                mountedOn: cols[6],
+                totalBytes,
+                usedBytes,
+                availableBytes,
+                usePct,
+                severity,
+                collectedAt: new Date().toISOString(),
+            },
+        });
+    })
+);
+
+/**
+ * GET /diagnostics/pm2-logrotate
+ * Checks whether the pm2-logrotate module is installed (so pm2 logs
+ * don't grow without bound — root cause of the 2026-06-05 incident).
+ * Reads `pm2 jlist` (works regardless of pm2 version), filters for the
+ * logrotate module, then surfaces the current retention/size config
+ * from `pm2 conf` when available.
+ */
+router.get(
+    '/pm2-logrotate',
+    asyncHandler(async (_req, res) => {
+        const list = await runCmd('pm2', ['jlist']);
+        if (!list.ok) {
+            return res.json({
+                ok: false,
+                installed: false,
+                error: list.error || 'pm2 not available',
+                installCommand: 'pm2 install pm2-logrotate',
+            });
+        }
+
+        let processes: any[] = [];
+        try {
+            processes = JSON.parse(list.stdout || '[]');
+        } catch {
+            return res.json({
+                ok: false,
+                installed: false,
+                error: 'failed to parse pm2 jlist',
+                installCommand: 'pm2 install pm2-logrotate',
+            });
+        }
+
+        const lr = processes.find((p: any) => p?.name === 'pm2-logrotate');
+        const installed = !!lr;
+        const status = lr?.pm2_env?.status || lr?.status;
+
+        // Pull current config from pm2 conf (best-effort)
+        let config: Record<string, string> = {};
+        if (installed) {
+            const conf = await runCmd('pm2', ['conf', 'pm2-logrotate']);
+            if (conf.ok && conf.stdout) {
+                // pm2 conf output is "module-name:\n    key value\n    key value"
+                const lines = conf.stdout.split('\n');
+                for (const ln of lines) {
+                    const m = /^\s+([A-Za-z_-][A-Za-z0-9_-]*)\s+(.+?)\s*$/.exec(ln);
+                    if (m) config[m[1]] = m[2];
+                }
+            }
+        }
+
+        // Recommended defaults — used by UI to flag deviations
+        const recommended = {
+            max_size: '50M',
+            retain: '7',
+            compress: 'true',
+            rotateInterval: '0 0 * * *',
+        };
+
+        res.json({
+            ok: true,
+            installed,
+            status: status || null,
+            config,
+            recommended,
+            installCommand: 'pm2 install pm2-logrotate',
+            applyCommands: [
+                'pm2 set pm2-logrotate:max_size 50M',
+                'pm2 set pm2-logrotate:retain 7',
+                'pm2 set pm2-logrotate:compress true',
+                'pm2 set pm2-logrotate:rotateInterval "0 0 * * *"',
+            ],
+        });
     })
 );
 

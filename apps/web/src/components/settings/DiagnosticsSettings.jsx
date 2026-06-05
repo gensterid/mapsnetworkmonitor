@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
+import ServerHealthWidget from './ServerHealthWidget';
 
 const Stat = ({ label, value, hint, tone = 'default' }) => (
     <div className={clsx(
@@ -405,6 +406,9 @@ export default function DiagnosticsSettings() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Server Health — disk + pm2-logrotate (post-incident widget) */}
+            <ServerHealthWidget />
 
             {/* DB size */}
             <Card>
