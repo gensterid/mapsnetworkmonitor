@@ -82,6 +82,11 @@ router.get('/me/invoices', requireMember, asyncHandler(async (req: any, res) => 
     res.json({ data });
 }));
 
+router.get('/me/vouchers', requireMember, asyncHandler(async (req: any, res) => {
+    const data = await portalService.getPortalVouchers(req.portalCustomerId);
+    res.json({ data });
+}));
+
 // ─── Member: create payment link for own invoice ───────────────────────────
 
 router.post('/me/invoices/:id/payment-link', requireMember, asyncHandler(async (req: any, res) => {

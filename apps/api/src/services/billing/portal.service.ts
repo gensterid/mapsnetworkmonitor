@@ -207,6 +207,48 @@ export const portalService = {
             .limit(1);
         return row || null;
     },
+
+    /**
+     * Customer-facing voucher list — read-only.
+     *
+     * Pulls the customer's hotspot subscriptions (where mikrotik_identity
+     * holds the voucher code) along with the matching billing_vouchers
+     * record (status + expiry) when one exists. We never expose
+     * passwords directly here — customers see the voucher code as the
+     * username, and for VC-mode vouchers (code == password) they can
+     * use that code to login.
+     */
+    async getPortalVouchers(customerId: string) {
+        // Lazy import to avoid circular deps at module init
+        const { vouchers } = await import('../../db/schema/billing.js');
+
+        const rows = await db.select({
+            sub: subscriptions,
+            pkg: packages,
+            voucher: vouchers,
+        })
+            .from(subscriptions)
+            .leftJoin(packages, eq(packages.id, subscriptions.packageId))
+            .leftJoin(vouchers, eq(vouchers.code, subscriptions.mikrotikIdentity))
+            .where(and(
+                eq(subscriptions.customerId, customerId),
+                eq(packages.type, 'hotspot'),
+            ))
+            .orderBy(desc(subscriptions.createdAt));
+
+        return rows.map((r) => ({
+            id: r.sub.id,
+            code: r.sub.mikrotikIdentity,
+            packageName: r.pkg?.name || null,
+            profile: r.voucher?.profile || r.pkg?.mikrotikProfile || null,
+            status: r.voucher?.status || r.sub.status,
+            cycleType: r.pkg?.cycleType || null,
+            cycleValue: r.pkg?.cycleValue || null,
+            redeemedAt: r.voucher?.redeemedAt || null,
+            expiresAt: r.voucher?.expiresAt || r.sub.expiresAt || null,
+            createdAt: r.sub.createdAt,
+        }));
+    },
 };
 
 function projectStatus(cust: any, subs: any[]) {

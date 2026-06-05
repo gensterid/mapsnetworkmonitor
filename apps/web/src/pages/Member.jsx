@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User as UserIcon, Loader2, LogOut, Receipt, Wifi, AlertCircle, CreditCard, Copy, ExternalLink } from 'lucide-react';
+import { User as UserIcon, Loader2, LogOut, Receipt, Wifi, AlertCircle, CreditCard, Copy, ExternalLink, Ticket } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 /**
  * Customer self-service portal — Phase F.
@@ -122,6 +123,7 @@ function LoginForm({ onLogin }) {
 function Dashboard() {
     const [profile, setProfile] = useState(null);
     const [invoices, setInvoices] = useState([]);
+    const [vouchers, setVouchers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [linkTarget, setLinkTarget] = useState(null);
@@ -130,12 +132,17 @@ function Dashboard() {
 
     const load = async () => {
         try {
-            const [p, inv] = await Promise.all([
+            const [p, inv, vch] = await Promise.all([
                 portalFetch('/api/portal/me'),
                 portalFetch('/api/portal/me/invoices'),
+                // Voucher endpoint may fail silently if customer has no hotspot
+                // subscriptions or the route isn't deployed yet — never let it
+                // block the rest of the dashboard.
+                portalFetch('/api/portal/me/vouchers').catch(() => []),
             ]);
             setProfile(p);
             setInvoices(inv);
+            setVouchers(Array.isArray(vch) ? vch : []);
         } catch (e) {
             setError(e.message);
             if (e.message.includes('berakhir')) {
@@ -213,6 +220,54 @@ function Dashboard() {
                         </div>
                     ))}
                 </section>
+
+                {vouchers.length > 0 && (
+                    <section className="mb-8">
+                        <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 mb-3"><Ticket className="w-4 h-4" /> Voucher Aktif</h2>
+                        <div className="space-y-2">
+                            {vouchers.map(v => (
+                                <div key={v.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 sm:p-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="text-xs text-slate-500 uppercase mb-1">Kode Voucher</div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="font-mono font-bold text-blue-400 text-lg tracking-wider break-all">{v.code}</span>
+                                                <button
+                                                    onClick={() => {
+                                                        navigator.clipboard.writeText(v.code);
+                                                        toast.success('Kode disalin');
+                                                    }}
+                                                    className="p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-white/5"
+                                                    title="Copy"
+                                                >
+                                                    <Copy className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                            {v.packageName && (
+                                                <div className="text-sm text-slate-300 mt-2">
+                                                    {v.packageName}
+                                                    {v.profile && v.profile !== v.packageName && <span className="text-slate-500"> · {v.profile}</span>}
+                                                </div>
+                                            )}
+                                            {v.expiresAt && (
+                                                <div className="text-xs text-slate-400 mt-1">Berakhir: {fmtDate(v.expiresAt)}</div>
+                                            )}
+                                            {v.redeemedAt && !v.expiresAt && (
+                                                <div className="text-xs text-slate-400 mt-1">Aktif sejak: {fmtDate(v.redeemedAt)}</div>
+                                            )}
+                                        </div>
+                                        <span className={`text-xs px-2.5 py-1 rounded uppercase font-semibold self-start sm:self-auto ${
+                                            v.status === 'active' || v.status === 'redeemed' ? 'bg-emerald-500/20 text-emerald-400' :
+                                            v.status === 'expired' ? 'bg-amber-500/20 text-amber-400' :
+                                            v.status === 'unused' ? 'bg-cyan-500/20 text-cyan-400' :
+                                            'bg-slate-500/20 text-slate-400'
+                                        }`}>{v.status || '—'}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
 
                 <section>
                     <h2 className="text-sm font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-2 mb-3"><Receipt className="w-4 h-4" /> Tagihan</h2>

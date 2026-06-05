@@ -43,6 +43,7 @@ const MikhmonSystemLog = lazy(() => import('./pages/mikhmon/system/Log'));
 const MikhmonSystemScheduler = lazy(() => import('./pages/mikhmon/system/Scheduler'));
 const MikhmonSystemBackup = lazy(() => import('./pages/mikhmon/system/Backup'));
 const MikhmonSystemPackages = lazy(() => import('./pages/mikhmon/system/Packages'));
+const MikhmonVouchers = lazy(() => import('./pages/mikhmon/vouchers/Index'));
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
@@ -320,6 +321,7 @@ function App() {
                   <Route path="system/scheduler" element={<MikhmonSystemScheduler />} />
                   <Route path="system/backup" element={<MikhmonSystemBackup />} />
                   <Route path="system/packages" element={<MikhmonSystemPackages />} />
+                  <Route path="vouchers" element={<MikhmonVouchers />} />
                 </Route>
                 <Route path="settings" element={<Settings />} />
                 <Route path="tenants" element={

@@ -131,6 +131,13 @@ export const mikhmonApi = {
         downloadUrl: (backupId) => `/api/router-backups/download/${encodeURIComponent(backupId)}`,
         remove: (backupId) => apiClient.delete(`/router-backups/${encodeURIComponent(backupId)}`).then((r) => r.data),
     },
+    vouchers: {
+        /** Returns { data: items[], modeHint } — call .then((r) => r) to get full envelope. */
+        list: (routerId) => apiClient.get(`/mikhmon/${routerId}/vouchers`).then((r) => r.data),
+        /** Returns { data: { created, count, modeHint } } — payload at .data.data */
+        generate: (routerId, input) => apiClient.post(`/mikhmon/${routerId}/vouchers/generate`, input).then((r) => r.data),
+        remove: (routerId, id) => del(`/mikhmon/${routerId}/vouchers/${encodeURIComponent(id)}`),
+    },
 };
 
 export default mikhmonApi;

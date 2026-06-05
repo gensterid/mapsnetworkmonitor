@@ -85,6 +85,11 @@ import {
     deleteScheduler,
 } from '../lib/mikrotik/billing.js';
 import {
+    generateMikhmonVouchers,
+    listMikhmonVouchers,
+    removeMikhmonVoucher,
+} from '../services/mikhmon/mikhmon-voucher.service.js';
+import {
     listSimpleQueues,
     addSimpleQueue,
     setSimpleQueue,
@@ -1252,6 +1257,85 @@ router.delete(
         if (!id) throw new ApiError(400, 'scheduler id wajib');
         await deleteScheduler(req.mtConn, id);
         await invalidateSchedulerCache(paramStr(req.params.routerId));
+        res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// MikHMON Vouchers (Phase A9)
+//
+// Behavior is intentionally identical to MikHMON external — writes go
+// to /ip/hotspot/user with the v3 legacy comment format. The Billing
+// app's parser picks them up automatically when the router is set to
+// `hotspot_mode=mikhmon_bridge`. In `native` mode the response surface
+// includes a `modeHint` flag so the UI can warn the operator that
+// vouchers generated here will not sync to Billing.
+// ─────────────────────────────────────────────────────────────────────────
+
+const voucherGenerateSchema = z.object({
+    count: z.number().int().min(1).max(500),
+    length: z.number().int().min(3).max(20),
+    charset: z.enum(['lower', 'upper', 'mix', 'num', 'alnum']).default('num'),
+    prefix: z.string().optional(),
+    profile: z.string().min(1, 'profile wajib'),
+    server: z.string().optional(),
+    mode: z.enum(['vc', 'up']).default('vc'),
+    limitUptime: z.string().optional(),
+    limitBytesTotal: z.string().optional(),
+    noteOverride: z.string().optional(),
+    commentPrefix: z.string().optional(),
+});
+
+const mikhmonVoucherCacheKey = (routerId: string) => `mikhmon:${routerId}:vouchers`;
+const invalidateMikhmonVoucherCache = (routerId: string) =>
+    cacheService.delete(mikhmonVoucherCacheKey(routerId)).catch((err) =>
+        logger.warn({ err: err?.message, routerId }, '[MikHMON] voucher cache invalidate failed'),
+    );
+
+router.get(
+    '/:routerId/vouchers',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = mikhmonVoucherCacheKey(routerId);
+        const cached = await cacheService.get<any[]>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached, modeHint: req.routerHotspotMode });
+        }
+        const items = await listMikhmonVouchers(req.mtConn);
+        await cacheService.set(cacheKey, items, cacheService.TTL.MIKHMON_LIST);
+        res.set('X-Cache', 'MISS');
+        res.json({ data: items, modeHint: req.routerHotspotMode });
+    })
+);
+
+router.post(
+    '/:routerId/vouchers/generate',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const input = voucherGenerateSchema.parse(req.body);
+        const created = await generateMikhmonVouchers(req.mtConn, routerId, input);
+        await invalidateMikhmonVoucherCache(routerId);
+
+        // Tell the UI whether Billing will pick these up automatically
+        const modeHint = req.routerHotspotMode || 'disabled';
+        res.set('X-Mode-Hint', modeHint);
+        res.status(201).json({
+            data: { created, count: created.length, modeHint },
+        });
+    })
+);
+
+router.delete(
+    '/:routerId/vouchers/:id',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'voucher id wajib');
+        await removeMikhmonVoucher(req.mtConn, id);
+        await invalidateMikhmonVoucherCache(paramStr(req.params.routerId));
         res.json({ data: { id, deleted: true } });
     })
 );

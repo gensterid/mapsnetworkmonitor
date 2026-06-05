@@ -75,7 +75,7 @@ const SECTIONS = [
         group: 'Billing',
         hotspotOnly: true,
         items: [
-            { path: 'vouchers', label: 'Voucher', icon: Ticket, ready: false },
+            { path: 'vouchers', label: 'Voucher', icon: Ticket, ready: true },
             { path: 'reports', label: 'Reports', icon: BarChart3, ready: false },
         ],
     },

@@ -32,6 +32,7 @@ export const mikhmonKeys = {
     systemPackages: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'packages'],
     systemScheduler: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'scheduler'],
     backup: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'backup'],
+    vouchers: (routerId) => [...mikhmonKeys.all(routerId), 'vouchers'],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -484,5 +485,54 @@ export function useDeleteBackup(routerId) {
             qc.invalidateQueries({ queryKey: mikhmonKeys.backup(routerId) });
         },
         onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus backup'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// MikHMON Vouchers — Phase A9
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useMikhmonVouchers(routerId, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.vouchers(routerId),
+        queryFn: () => mikhmonApi.vouchers.list(routerId),
+        enabled: !!routerId,
+        staleTime: 10 * 1000,
+        ...options,
+    });
+}
+
+export function useGenerateMikhmonVouchers(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (input) => mikhmonApi.vouchers.generate(routerId, input),
+        onSuccess: (resp) => {
+            const created = resp?.data?.count ?? 0;
+            const modeHint = resp?.data?.modeHint;
+            if (modeHint === 'native') {
+                toast.success(
+                    `${created} voucher dibuat. ⚠ Mode router = native — voucher ini TERPISAH dari Billing tracking.`,
+                    { duration: 6000 },
+                );
+            } else if (modeHint === 'mikhmon_bridge') {
+                toast.success(`${created} voucher dibuat. Akan auto-track di Billing via parser.`);
+            } else {
+                toast.success(`${created} voucher dibuat di MikroTik.`);
+            }
+            qc.invalidateQueries({ queryKey: mikhmonKeys.vouchers(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal generate voucher'),
+    });
+}
+
+export function useDeleteMikhmonVoucher(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (id) => mikhmonApi.vouchers.remove(routerId, id),
+        onSuccess: () => {
+            toast.success('Voucher dihapus');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.vouchers(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus voucher'),
     });
 }
