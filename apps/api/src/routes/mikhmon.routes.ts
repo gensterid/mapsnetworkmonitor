@@ -1389,7 +1389,7 @@ const profileSettingsSchema = z.object({
     sellingPrice: z.union([z.number(), z.string()]).optional(),
     validity: z.string().optional(),
     limitUptime: z.string().optional(),
-    expiredMode: z.enum(['Remove', 'Notice', 'Notice & Remove']).optional(),
+    expiredMode: z.enum(['Remove', 'Notice', 'Remove & Record', 'Notice & Record']).optional(),
     lockUser: z.boolean().optional(),
     sharedUsers: z.number().int().optional(),
 });
@@ -1474,7 +1474,7 @@ router.post(
 
 const installScriptsSchema = z.object({
     validity: z.string().min(2, 'validity wajib (contoh: 1d, 12h)'),
-    expiredMode: z.enum(['Remove', 'Notice', 'Notice & Remove']).optional(),
+    expiredMode: z.enum(['Remove', 'Notice', 'Remove & Record', 'Notice & Record']).optional(),
     price: z.union([z.number(), z.string()]).optional(),
     sellingPrice: z.union([z.number(), z.string()]).optional(),
     sharing: z.union([z.number(), z.string()]).optional(),

@@ -31,7 +31,14 @@ import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal
  * external parity.
  */
 
-const EXPIRED_MODES = ['Remove', 'Notice', 'Notice & Remove'];
+// MikHMON v3 external uses these 4 modes (matches Mode Kedaluwarsa
+// dropdown in the upstream profile form):
+//   Remove          — delete user when expired, no record entry
+//   Notice          — send notice, keep user
+//   Remove & Record — delete user + write a /log info "record" entry
+//                     so operator has a trail of expired vouchers
+//   Notice & Record — notice + record
+const EXPIRED_MODES = ['Remove', 'Notice', 'Remove & Record', 'Notice & Record'];
 
 const EMPTY_FORM = {
     // RouterOS profile native fields
@@ -503,6 +510,24 @@ export default function HotspotProfiles() {
                                 </td></tr>
                             ) : filtered.map((p) => {
                                 const b = resolveBilling(p) || {};
+                                // MikHMON external leaves Mode Kedaluwarsa /
+                                // Masa Berlaku / Harga / Harga Jual / Kunci
+                                // Pengguna BLANK for profiles that haven't
+                                // been MikHMON-configured. We follow the
+                                // same convention so the table doesn't
+                                // imply config that isn't actually there.
+                                const hasMikhmonConfig = !!(
+                                    b.validity ||
+                                    b.expiredMode ||
+                                    (b.price && parseFloat(b.price) > 0) ||
+                                    (b.sellingPrice && parseFloat(b.sellingPrice) > 0) ||
+                                    b.lockUser ||
+                                    b.limitUptime
+                                );
+                                const sellingPriceVal = b.sellingPrice && parseFloat(b.sellingPrice) > 0
+                                    ? Number(b.sellingPrice)
+                                    : (b.price && parseFloat(b.price) > 0 ? Number(b.price) : null);
+                                const priceVal = b.price && parseFloat(b.price) > 0 ? Number(b.price) : null;
                                 return (
                                     <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="px-3 py-2.5">
@@ -513,46 +538,47 @@ export default function HotspotProfiles() {
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-2.5 font-mono text-xs text-slate-300">{p.sharedUsers || b.sharedUsers || '1'}</td>
-                                        <td className="px-3 py-2.5 font-mono text-xs text-slate-300 max-w-[160px] truncate">{p.rateLimit || <span className="text-slate-600">unlimited</span>}</td>
+                                        <td className="px-3 py-2.5 font-mono text-xs text-slate-300">{p.sharedUsers || '1'}</td>
+                                        <td className="px-3 py-2.5 font-mono text-xs text-slate-300 max-w-[200px] truncate">{p.rateLimit || ''}</td>
                                         <td className="px-3 py-2.5 text-xs">
-                                            <span className={clsx(
-                                                'inline-flex text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-tight',
-                                                b.expiredMode === 'Notice' ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' :
-                                                b.expiredMode === 'Notice & Remove' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
-                                                'bg-slate-700/40 text-slate-300 border-slate-600/40'
-                                            )}>
-                                                {b.expiredMode || 'Remove'}
-                                            </span>
+                                            {hasMikhmonConfig && b.expiredMode ? (
+                                                <span className={clsx(
+                                                    'inline-flex text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-tight',
+                                                    b.expiredMode === 'Notice' ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' :
+                                                    b.expiredMode === 'Notice & Record' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
+                                                    b.expiredMode === 'Remove & Record' ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' :
+                                                    'bg-slate-700/40 text-slate-300 border-slate-600/40'
+                                                )}>
+                                                    {b.expiredMode}
+                                                </span>
+                                            ) : null}
                                         </td>
                                         <td className="px-3 py-2.5 font-mono text-xs">
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className={b.validity ? 'text-emerald-300' : 'text-slate-600'}>
-                                                    {b.validity || '—'}
-                                                </span>
-                                                {b.limitUptime && (
-                                                    <span className="text-cyan-300 text-[10px]">⏱ {b.limitUptime}</span>
-                                                )}
-                                            </div>
+                                            {(b.validity || b.limitUptime) ? (
+                                                <div className="flex flex-col gap-0.5">
+                                                    {b.validity && <span className="text-emerald-300">{b.validity}</span>}
+                                                    {b.limitUptime && (
+                                                        <span className="text-cyan-300 text-[10px]">⏱ {b.limitUptime}</span>
+                                                    )}
+                                                </div>
+                                            ) : null}
                                         </td>
                                         <td className="px-3 py-2.5 font-mono text-xs text-right text-slate-300">
-                                            {b.price && parseFloat(b.price) > 0 ? Number(b.price).toLocaleString('id-ID') : <span className="text-slate-600">—</span>}
+                                            {priceVal !== null ? priceVal.toLocaleString('id-ID') : ''}
                                         </td>
                                         <td className="px-3 py-2.5 font-mono text-xs text-right">
-                                            {b.sellingPrice && parseFloat(b.sellingPrice) > 0 ? (
-                                                <span className="text-emerald-300">{Number(b.sellingPrice).toLocaleString('id-ID')}</span>
-                                            ) : b.price && parseFloat(b.price) > 0 ? (
-                                                <span className="text-emerald-300">{Number(b.price).toLocaleString('id-ID')}</span>
-                                            ) : (
-                                                <span className="text-slate-600">—</span>
-                                            )}
+                                            {sellingPriceVal !== null ? (
+                                                <span className="text-emerald-300">{sellingPriceVal.toLocaleString('id-ID')}</span>
+                                            ) : null}
                                         </td>
                                         <td className="px-3 py-2.5 text-center text-xs">
-                                            {b.lockUser ? (
-                                                <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Enable</span>
-                                            ) : (
-                                                <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/40 text-slate-400 border border-slate-600/40">Disable</span>
-                                            )}
+                                            {hasMikhmonConfig ? (
+                                                b.lockUser ? (
+                                                    <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Enable</span>
+                                                ) : (
+                                                    <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/40 text-slate-400 border border-slate-600/40">Disable</span>
+                                                )
+                                            ) : null}
                                         </td>
                                         <td className="px-3 py-2.5 text-right">
                                             <div className="inline-flex items-center gap-1">

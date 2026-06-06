@@ -130,7 +130,11 @@ export async function deleteProfileSetting(routerId: string, profileName: string
 const MIKHMON_MARKER = '#mikhmon-managed';
 const MASTER_SCHEDULER_NAME = 'mikhmon-cleanup';
 
-export type ExpiredMode = 'Remove' | 'Notice' | 'Notice & Remove';
+// MikHMON v3 external uses these 4 mode names — we mirror them exactly.
+// "& Record" suffix means: additionally write a /log info entry when the
+// voucher hits expiry, so the operator has a trail in the system log
+// they can audit later.
+export type ExpiredMode = 'Remove' | 'Notice' | 'Remove & Record' | 'Notice & Record';
 
 export interface OnLoginOpts {
     validity: string;           // "1d", "12h", "30m" — RouterOS time string, embedded literal
@@ -280,6 +284,8 @@ function buildOnLoginScript(opts: OnLoginOpts): string {
  *   Notice & Remove  — both — adds a notice marker AND schedules removal
  */
 function buildExpiredModeBranchBlock(mode: ExpiredMode): string {
+    // Hard-delete scheduler: removes the user (and the scheduler itself)
+    // when expiry passes.
     const removeScheduler = [
         '  :if ([:len [/system scheduler find name=$user]] = 0) do={',
         '    /system scheduler add name=$user start-date=$expDate start-time=$expTime ',
@@ -287,14 +293,31 @@ function buildExpiredModeBranchBlock(mode: ExpiredMode): string {
         '  }',
     ].join('\n  ');
 
-    const noticeMark = [
-        '  :local cmt [/ip hotspot user get [find where name=$user] comment]',
-        '  /ip hotspot user set comment=($cmt . " notice:end") [find where name=$user]',
-        '  :log info ("MIKHMON notice queued for " . $user . " exp:" . $expDate . " " . $expTime)',
+    // Notice scheduler: kicks any active session + writes a notice-style
+    // comment marker, but does NOT delete the user so they can re-login
+    // (and the operator can see they were notified).
+    const noticeScheduler = [
+        '  :if ([:len [/system scheduler find name=$user]] = 0) do={',
+        '    /system scheduler add name=$user start-date=$expDate start-time=$expTime ',
+        '      on-event=(":local ac [/ip hotspot active find where user=\\"" . $user . "\\"]; :if ([:len $ac] > 0) do={ /ip hotspot active remove $ac }; /system scheduler remove [find name=\\"" . $user . "\\"]")',
+        '  }',
+        '  :local cmtn [/ip hotspot user get [find where name=$user] comment]',
+        '  /ip hotspot user set comment=($cmtn . " notice:end") [find where name=$user]',
     ].join('\n  ');
 
-    if (mode === 'Notice') return noticeMark;
-    if (mode === 'Notice & Remove') return noticeMark + '\n  ' + removeScheduler;
+    // & Record additionally writes a /log info entry on expiry — gives
+    // the operator a searchable trail in /log print where topics=info.
+    // Embedded as part of the on-event so it fires at the actual expiry
+    // time, not at install time.
+    const recordSuffix = ' :log info (\\"MIKHMON record \\" . $user . \\" expired sellingPrice:\\" . $sellingPrice);';
+    const withRecord = (sched: string) => sched.replace(
+        /on-event=\("/g,
+        `on-event=("${recordSuffix.trim()} `,
+    );
+
+    if (mode === 'Notice') return noticeScheduler;
+    if (mode === 'Notice & Record') return withRecord(noticeScheduler);
+    if (mode === 'Remove & Record') return withRecord(removeScheduler);
     return removeScheduler; // 'Remove' default
 }
 

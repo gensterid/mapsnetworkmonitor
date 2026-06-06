@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { BarChart3, RefreshCw, TrendingUp, Ticket, Wallet, CheckCircle2, Circle, ArrowRight } from 'lucide-react';
+import { BarChart3, RefreshCw, TrendingUp, Ticket, Wallet, CheckCircle2, Circle } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
@@ -131,29 +130,6 @@ export default function MikhmonReports() {
                 <div className="text-center text-slate-500 text-sm py-20">Memuat laporan…</div>
             ) : (
                 <>
-                    {/* Zero-income banner — shows when there are vouchers
-                        but income is still Rp 0, meaning operator hasn't
-                        set selling prices yet. Deep link to User Profile
-                        page so they can Setup Cepat in one click. */}
-                    {r.total > 0 && r.income === 0 && (
-                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
-                            <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-xl">💰</div>
-                            <div className="flex-1 min-w-0">
-                                <div className="text-sm font-bold text-amber-200">Income masih Rp 0 — Harga Jual profile belum di-set</div>
-                                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                                    Anda punya <strong>{r.total} voucher</strong> di rentang ini, tapi semua profile masih kosong Harga Jual-nya.
-                                    Buka User Profile → klik <strong>Setup Cepat</strong> untuk isi harga semua profile sekaligus, lalu refresh halaman ini.
-                                </p>
-                                <Link
-                                    to="/mikhmon/hotspot/profiles"
-                                    className="inline-flex items-center gap-1 mt-3 px-3 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-100 text-xs font-bold transition-colors"
-                                >
-                                    Ke User Profile <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
-                            </div>
-                        </div>
-                    )}
-
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <StatCard icon={Ticket} label="Total Voucher" value={r.total} color="text-slate-100" />
                         <StatCard icon={Circle} label="Unused" value={r.unused} color="text-cyan-300" />
@@ -233,9 +209,6 @@ export default function MikhmonReports() {
                         </div>
                     </div>
 
-                    <p className="text-[11px] text-slate-600 italic">
-                        Catatan: harga per profile diatur via tombol ⚡ di halaman User Profile. Voucher tanpa harga di-set tetap dihitung untuk count tapi income = 0.
-                    </p>
                 </>
             )}
         </div>
