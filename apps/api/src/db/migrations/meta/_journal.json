@@ -330,6 +330,13 @@
       "when": 1780900000000,
       "tag": "0046_mikhmon_profile_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1780910000000,
+      "tag": "0047_mikhmon_profile_more_fields",
+      "breakpoints": true
     }
   ]
 }

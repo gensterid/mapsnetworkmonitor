@@ -29,7 +29,9 @@ import { logger } from '../../lib/logger.js';
 export interface ProfileSettingsInput {
     profileName: string;
     price?: number | string;
+    sellingPrice?: number | string;
     validity?: string;
+    expiredMode?: string;
     lockUser?: boolean;
     sharedUsers?: number;
 }
@@ -72,7 +74,9 @@ export async function upsertProfileSetting(
     if (existing) {
         const update: any = { updatedAt: new Date() };
         if (input.price !== undefined) update.price = String(input.price);
+        if (input.sellingPrice !== undefined) update.sellingPrice = String(input.sellingPrice);
         if (input.validity !== undefined) update.validity = input.validity;
+        if (input.expiredMode !== undefined) update.expiredMode = input.expiredMode;
         if (input.lockUser !== undefined) update.lockUser = input.lockUser;
         if (input.sharedUsers !== undefined) update.sharedUsers = input.sharedUsers;
         await db.update(mikhmonProfileSettings).set(update).where(eq(mikhmonProfileSettings.id, existing.id));
@@ -84,7 +88,9 @@ export async function upsertProfileSetting(
         routerId,
         profileName: input.profileName,
         price: values.price ?? '0',
+        sellingPrice: input.sellingPrice !== undefined ? String(input.sellingPrice) : (values.price ?? '0'),
         validity: input.validity ?? null,
+        expiredMode: input.expiredMode ?? 'Remove',
         lockUser: input.lockUser ?? false,
         sharedUsers: input.sharedUsers ?? 1,
     }).returning();
@@ -285,6 +291,7 @@ export interface ParsedMikhmonConfig {
     sellingPrice?: number;
     sharing?: number;
     lockUser?: boolean;
+    expiredMode?: string;
     userMode?: string;
     nameLength?: number;
     prefix?: string;
@@ -330,6 +337,7 @@ export function parseMikhmonProfileConfig(onLogin: string | undefined | null): P
         sharing: parsedInt(found.sharing),
         // MikHMON v3 stores "Enable" / "Disable" strings
         lockUser: found.lockUser ? /enable|true|yes|1/i.test(found.lockUser) : undefined,
+        expiredMode: found.expiredMode || undefined,
         userMode: found.userMode || undefined,
         nameLength: parsedInt(found.nameLength),
         prefix: found.prefix || undefined,
@@ -353,8 +361,15 @@ export function mergeMikhmonProfileSettings(
     };
     return {
         validity: dbRow?.validity ?? parsed?.validity ?? null,
-        price: pickPrice(dbRow?.price, parsed?.sellingPrice ?? parsed?.price),
-        sellingPrice: pickPrice(dbRow?.price, parsed?.sellingPrice ?? parsed?.price),
+        expiredMode: dbRow?.expiredMode ?? parsed?.expiredMode ?? 'Remove',
+        // Price = cost, sellingPrice = revenue. When operator only filled
+        // one of them (legacy 0046 schema or single-input UI), use it as
+        // both so the column displays meaningful values either way.
+        price: pickPrice(dbRow?.price, parsed?.price ?? parsed?.sellingPrice),
+        sellingPrice: pickPrice(
+            dbRow?.sellingPrice && Number(dbRow.sellingPrice) > 0 ? dbRow.sellingPrice : dbRow?.price,
+            parsed?.sellingPrice ?? parsed?.price,
+        ),
         sharedUsers: dbRow?.sharedUsers ?? parsed?.sharing ?? null,
         lockUser: dbRow?.lockUser ?? parsed?.lockUser ?? false,
         scriptsInstalled: !!dbRow?.scriptsInstalled,
@@ -453,23 +468,28 @@ export async function computeReports(
         safeWrite(api, '/ip/hotspot/user/profile/print'),
     ]);
 
-    // Per-profile price lookup with the same merge rules as the UI:
-    //   1. DB row price (operator explicitly set it via ⚡ button)
-    //   2. Parsed `:local sellingPrice` from on-login script
-    //   3. Parsed `:local price` from on-login script
-    //   4. 0 if neither
-    // This is how vouchers from a MikHMON external setup (where prices
-    // live in the profile script) end up contributing real income to
-    // the Reports tab without the operator having to re-enter them.
+    // Per-profile "selling price" (Harga Jual) lookup with merge rules:
+    //   1. DB row selling_price (operator set via ⚡ / bulk import)
+    //   2. DB row price (legacy when only one field was filled)
+    //   3. Parsed `:local sellingPrice` from on-login script
+    //   4. Parsed `:local price` from on-login script
+    //   5. 0 if none
+    // Reports income = SUM(sellingPrice across vouchers). Cost (price)
+    // is operator-side and not reflected in income — matches MikHMON
+    // external "Sales Report" semantic.
     const priceByProfile = new Map<string, number>();
     for (const row of profilesRaw || []) {
         const parsed = parseMikhmonProfileConfig(row['on-login']);
         const scriptPrice = parsed?.sellingPrice ?? parsed?.price ?? 0;
         if (scriptPrice > 0) priceByProfile.set(row.name, scriptPrice);
     }
-    // DB rows override the script fallback
+    // DB rows override the script fallback. Prefer selling_price; fall
+    // back to price for rows created before 0047 migration that only
+    // populated `price`.
     for (const p of prices) {
-        const v = parseFloat(String(p.price)) || 0;
+        const sell = parseFloat(String(p.sellingPrice ?? '0')) || 0;
+        const cost = parseFloat(String(p.price ?? '0')) || 0;
+        const v = sell > 0 ? sell : cost;
         if (v > 0) priceByProfile.set(p.profileName, v);
     }
 

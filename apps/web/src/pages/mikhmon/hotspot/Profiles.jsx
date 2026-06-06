@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, ShieldCheck, RefreshCw, Search, Zap, ZapOff } from 'lucide-react';
+import { Plus, Pencil, Trash2, ShieldCheck, RefreshCw, Search, Zap, ZapOff, ListPlus, Save } from 'lucide-react';
 import clsx from 'clsx';
 import { useMikhmonContext } from '@/contexts/useMikhmonContext';
 import {
@@ -9,12 +9,16 @@ import {
     useDeleteHotspotUserProfile,
     useProfileBillingSettings,
     useUpsertProfileBillingSetting,
+    useBulkUpsertProfileBillingSettings,
     useInstallMikhmonScripts,
     useUninstallMikhmonScripts,
 } from '@/hooks/useMikhmon';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
+
+const EXPIRED_MODES = ['Remove', 'Notice', 'Notice & Remove'];
+const VALIDITY_PRESETS = ['', '1h', '3h', '6h', '12h', '1d', '3d', '7d', '30d'];
 
 /**
  * MikHMON-equivalent Hotspot → User Profile page.
@@ -50,7 +54,9 @@ const EMPTY_FORM = {
     // install + price set into the same submit. Empty validity = skip
     // wizard, operator can install later via the ⚡ button.
     mikhmonValidity: '',
+    mikhmonExpiredMode: 'Remove',
     mikhmonPrice: '',
+    mikhmonSellingPrice: '',
     mikhmonLockUser: false,
 };
 
@@ -189,8 +195,17 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                             Voucher pakai profile ini akan auto-expire X waktu setelah <strong>first login</strong>.
                             Kosongkan = skip script (bisa install belakangan via tombol ⚡).
                         </p>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <Field label="Validity" hint="contoh: 1d, 12h, 6h">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <Field label="Mode Kedaluwarsa">
+                                <select
+                                    value={form.mikhmonExpiredMode || 'Remove'}
+                                    onChange={(e) => set('mikhmonExpiredMode', e.target.value)}
+                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                >
+                                    {EXPIRED_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                                </select>
+                            </Field>
+                            <Field label="Masa Berlaku">
                                 <select
                                     value={['1h', '3h', '6h', '12h', '1d', '3d', '7d', '30d', ''].includes(form.mikhmonValidity) ? form.mikhmonValidity : 'custom'}
                                     onChange={(e) => { if (e.target.value !== 'custom') set('mikhmonValidity', e.target.value); }}
@@ -208,21 +223,31 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                                     <option value="custom">Custom…</option>
                                 </select>
                             </Field>
-                            <Field label="Custom Validity">
+                            <Field label="Custom Validity (override)">
                                 <TextInput value={form.mikhmonValidity} onChange={(v) => set('mikhmonValidity', v)} placeholder="2h30m / 5d / etc" />
                             </Field>
-                            <Field label="Harga (Rp)" hint="dipakai di Reports">
+                            <div /> {/* spacer */}
+                            <Field label="Harga Rp" hint="biaya operator (opsional)">
                                 <input
                                     type="number"
                                     value={form.mikhmonPrice}
                                     onChange={(e) => set('mikhmonPrice', e.target.value)}
+                                    placeholder="0"
+                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                />
+                            </Field>
+                            <Field label="Harga Jual Rp" hint="masuk Reports income">
+                                <input
+                                    type="number"
+                                    value={form.mikhmonSellingPrice}
+                                    onChange={(e) => set('mikhmonSellingPrice', e.target.value)}
                                     placeholder="5000"
                                     className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                                 />
                             </Field>
                         </div>
                         <CheckboxField
-                            label="Lock voucher ke MAC pertama yang login"
+                            label="Kunci Pengguna — lock voucher ke MAC pertama yang login"
                             checked={form.mikhmonLockUser}
                             onChange={(v) => set('mikhmonLockUser', v)}
                         />
@@ -401,6 +426,149 @@ function InstallScriptsModal({ isOpen, onClose, profile, defaultValidity, defaul
     );
 }
 
+/**
+ * Setup Cepat — bulk import modal for operators migrating from MikHMON
+ * external. MikHMON external stores per-profile metadata (price,
+ * validity, expiredMode, lockUser) in the browser's localStorage, so
+ * those values aren't on the router for our parser to find. This modal
+ * lets the operator enter every profile's settings in one place and
+ * save them all in one round-trip.
+ */
+function BulkSetupModal({ isOpen, onClose, profiles, currentRows, onSubmit, isSubmitting }) {
+    const [rows, setRows] = useState({});
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const init = {};
+        for (const p of profiles) {
+            const existing = currentRows[p.name] || {};
+            init[p.name] = {
+                profileName: p.name,
+                validity: existing.validity || '1d',
+                expiredMode: existing.expiredMode || 'Remove',
+                price: existing.price || '',
+                sellingPrice: existing.sellingPrice || existing.price || '',
+                lockUser: !!existing.lockUser,
+            };
+        }
+        setRows(init);
+    }, [isOpen, profiles, currentRows]);
+
+    const setRow = (name, key, value) => {
+        setRows((r) => ({ ...r, [name]: { ...r[name], [key]: value } }));
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const items = Object.values(rows)
+            .filter((r) => r.validity || r.price || r.sellingPrice)
+            .map((r) => ({
+                profileName: r.profileName,
+                validity: r.validity || undefined,
+                expiredMode: r.expiredMode || 'Remove',
+                price: r.price ? Number(r.price) : 0,
+                sellingPrice: r.sellingPrice ? Number(r.sellingPrice) : (r.price ? Number(r.price) : 0),
+                lockUser: !!r.lockUser,
+            }));
+        if (items.length === 0) return;
+        onSubmit(items);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Setup Cepat Semua Profile" maxWidth="max-w-5xl">
+            <div className="mb-3 text-xs text-slate-400 leading-relaxed bg-slate-900/40 border border-slate-700/40 rounded-lg p-3">
+                Isi <strong>Masa Berlaku</strong>, <strong>Harga</strong>, dan <strong>Harga Jual</strong> untuk setiap profile.
+                Cocok untuk migrasi dari MikHMON eksternal — yang aslinya menyimpan setting di browser localStorage, bukan di MikroTik.
+                Setelah Save All, Reports langsung pakai angka ini.
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+                    <div className="overflow-x-auto custom-scrollbar max-h-[60vh]">
+                        <table className="w-full text-xs min-w-[900px]">
+                            <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky top-0">
+                                <tr>
+                                    <th className="text-left px-3 py-2">Nama</th>
+                                    <th className="text-left px-3 py-2 w-[140px]">Mode Kedaluwarsa</th>
+                                    <th className="text-left px-3 py-2 w-[110px]">Masa Berlaku</th>
+                                    <th className="text-right px-3 py-2 w-[110px]">Harga Rp</th>
+                                    <th className="text-right px-3 py-2 w-[110px]">Harga Jual Rp</th>
+                                    <th className="text-center px-3 py-2 w-[90px]">Kunci User</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40">
+                                {profiles.map((p) => {
+                                    const r = rows[p.name] || {};
+                                    return (
+                                        <tr key={p.name} className="hover:bg-slate-800/30">
+                                            <td className="px-3 py-1.5 font-semibold text-slate-200">{p.name}</td>
+                                            <td className="px-3 py-1.5">
+                                                <select
+                                                    value={r.expiredMode || 'Remove'}
+                                                    onChange={(e) => setRow(p.name, 'expiredMode', e.target.value)}
+                                                    className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs rounded px-2 py-1"
+                                                >
+                                                    {EXPIRED_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
+                                                </select>
+                                            </td>
+                                            <td className="px-3 py-1.5">
+                                                <input
+                                                    type="text"
+                                                    value={r.validity || ''}
+                                                    onChange={(e) => setRow(p.name, 'validity', e.target.value)}
+                                                    list={`validity-presets-${p.name}`}
+                                                    placeholder="1d"
+                                                    className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs font-mono rounded px-2 py-1"
+                                                />
+                                                <datalist id={`validity-presets-${p.name}`}>
+                                                    {VALIDITY_PRESETS.filter(Boolean).map((v) => <option key={v} value={v} />)}
+                                                </datalist>
+                                            </td>
+                                            <td className="px-3 py-1.5">
+                                                <input
+                                                    type="number"
+                                                    value={r.price || ''}
+                                                    onChange={(e) => setRow(p.name, 'price', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs font-mono rounded px-2 py-1 text-right"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1.5">
+                                                <input
+                                                    type="number"
+                                                    value={r.sellingPrice || ''}
+                                                    onChange={(e) => setRow(p.name, 'sellingPrice', e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs font-mono rounded px-2 py-1 text-right"
+                                                />
+                                            </td>
+                                            <td className="px-3 py-1.5 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={!!r.lockUser}
+                                                    onChange={(e) => setRow(p.name, 'lockUser', e.target.checked)}
+                                                    className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                                                />
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                    <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
+                    <Button type="submit" loading={isSubmitting} disabled={isSubmitting}>
+                        <Save className="w-4 h-4 mr-1" />
+                        Simpan Semua
+                    </Button>
+                </div>
+            </form>
+        </Modal>
+    );
+}
+
 export default function HotspotProfiles() {
     const { selectedRouterId } = useMikhmonContext();
     const { data: profiles = [], isPending, isError, refetch, isFetching } = useHotspotUserProfiles(selectedRouterId);
@@ -409,6 +577,7 @@ export default function HotspotProfiles() {
     const updateMutation = useUpdateHotspotUserProfile(selectedRouterId);
     const deleteMutation = useDeleteHotspotUserProfile(selectedRouterId);
     const upsertBillingMutation = useUpsertProfileBillingSetting(selectedRouterId);
+    const bulkBillingMutation = useBulkUpsertProfileBillingSettings(selectedRouterId);
     const installMutation = useInstallMikhmonScripts(selectedRouterId);
     const uninstallMutation = useUninstallMikhmonScripts(selectedRouterId);
 
@@ -417,6 +586,7 @@ export default function HotspotProfiles() {
     const [deleting, setDeleting] = useState(null);
     const [installing, setInstalling] = useState(null);
     const [uninstallingConfirm, setUninstallingConfirm] = useState(null);
+    const [showBulkSetup, setShowBulkSetup] = useState(false);
     const [search, setSearch] = useState('');
 
     // Lookup by profile name. DB settings still merged via this map for
@@ -484,7 +654,14 @@ export default function HotspotProfiles() {
         // Extract MikHMON-only fields so the MikroTik /add call gets just
         // the RouterOS-native profile fields. mikhmon* fields are handled
         // after the profile is successfully created.
-        const { mikhmonValidity, mikhmonPrice, mikhmonLockUser, ...routerOsPayload } = payload;
+        const {
+            mikhmonValidity,
+            mikhmonExpiredMode,
+            mikhmonPrice,
+            mikhmonSellingPrice,
+            mikhmonLockUser,
+            ...routerOsPayload
+        } = payload;
 
         addMutation.mutate(routerOsPayload, {
             onSuccess: async (resp) => {
@@ -493,37 +670,35 @@ export default function HotspotProfiles() {
                 const profileId = resp?.data?.id || resp?.id;
                 const profileName = routerOsPayload.name;
                 const wantsWizard = !!(mikhmonValidity || '').trim();
+                const hasAnyBilling = wantsWizard
+                    || (mikhmonPrice && Number(mikhmonPrice) > 0)
+                    || (mikhmonSellingPrice && Number(mikhmonSellingPrice) > 0);
 
-                if (wantsWizard && profileId && profileName) {
-                    // 1) Save price + validity + lock to settings (so Reports
-                    //    can compute income for this profile right away).
+                if (hasAnyBilling && profileName) {
+                    // 1) Save full billing record (works even when validity
+                    //    is skipped — operator can still record prices for
+                    //    Reports without installing the scripts).
                     try {
                         await upsertBillingMutation.mutateAsync({
                             profileName,
                             price: mikhmonPrice ? Number(mikhmonPrice) : 0,
-                            validity: mikhmonValidity.trim(),
+                            sellingPrice: mikhmonSellingPrice ? Number(mikhmonSellingPrice) : (mikhmonPrice ? Number(mikhmonPrice) : 0),
+                            validity: wantsWizard ? mikhmonValidity.trim() : undefined,
+                            expiredMode: mikhmonExpiredMode || 'Remove',
                             lockUser: !!mikhmonLockUser,
                         });
-                    } catch { /* toast already shown by hook */ }
+                    } catch { /* toast handled */ }
+                }
 
-                    // 2) Install the on-login/on-logout scripts via the
-                    //    Script Wizard. RouterOS scheduler `mikhmon-cleanup`
-                    //    master is ensured server-side.
+                if (wantsWizard && profileId && profileName) {
+                    // 2) Install scripts (script wizard ensures the master
+                    //    cleanup scheduler on first run).
                     try {
                         await installMutation.mutateAsync({
                             profileId,
                             input: { validity: mikhmonValidity.trim(), lockUser: !!mikhmonLockUser },
                         });
-                    } catch { /* toast already shown by hook */ }
-                } else if (mikhmonPrice && Number(mikhmonPrice) > 0 && profileName) {
-                    // Validity skipped but price set — still persist price so
-                    // Reports can use it. No scripts installed.
-                    try {
-                        await upsertBillingMutation.mutateAsync({
-                            profileName,
-                            price: Number(mikhmonPrice),
-                        });
-                    } catch { /* noop */ }
+                    } catch { /* toast handled */ }
                 }
             },
         });
@@ -567,11 +742,21 @@ export default function HotspotProfiles() {
                     </button>
                     <Button
                         size="sm"
+                        variant="secondary"
+                        onClick={() => setShowBulkSetup(true)}
+                        disabled={!selectedRouterId || profiles.length === 0}
+                        title="Bulk setup harga + masa berlaku untuk semua profile sekaligus (cocok migrasi dari MikHMON eksternal)"
+                    >
+                        <ListPlus className="w-4 h-4 mr-1" />
+                        <span className="hidden sm:inline">Setup </span>Cepat
+                    </Button>
+                    <Button
+                        size="sm"
                         onClick={() => { setEditing(null); setModalMode('add'); }}
                         disabled={!selectedRouterId}
                     >
                         <Plus className="w-4 h-4 mr-1" />
-                        Tambah Profile
+                        <span className="hidden sm:inline">Tambah </span>Profile
                     </Button>
                 </div>
             </div>
@@ -595,23 +780,25 @@ export default function HotspotProfiles() {
             )}
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-sm min-w-[800px]">
+                    <table className="w-full text-sm min-w-[1000px]">
                         <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
                             <tr>
-                                <th className="text-left px-4 py-2.5">Name</th>
-                                <th className="text-left px-4 py-2.5">Rate Limit</th>
-                                <th className="text-left px-4 py-2.5">Shared</th>
-                                <th className="text-left px-4 py-2.5">Validity</th>
-                                <th className="text-left px-4 py-2.5">Harga</th>
-                                <th className="text-left px-4 py-2.5">MAC Cookie</th>
-                                <th className="text-right px-4 py-2.5">Aksi</th>
+                                <th className="text-left px-3 py-2.5">Nama</th>
+                                <th className="text-left px-3 py-2.5">Shared Users</th>
+                                <th className="text-left px-3 py-2.5">Rate Limit</th>
+                                <th className="text-left px-3 py-2.5">Mode Kedaluwarsa</th>
+                                <th className="text-left px-3 py-2.5">Masa Berlaku</th>
+                                <th className="text-right px-3 py-2.5">Harga Rp</th>
+                                <th className="text-right px-3 py-2.5">Harga Jual Rp</th>
+                                <th className="text-center px-3 py-2.5">Kunci Pengguna</th>
+                                <th className="text-right px-3 py-2.5">Aksi</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500 text-xs">
                                     {profiles.length === 0 ? 'Belum ada profile. Klik "Tambah Profile" untuk mulai.' : 'Tidak ada profile yang cocok.'}
                                 </td></tr>
                             ) : filtered.map((p) => {
@@ -619,7 +806,7 @@ export default function HotspotProfiles() {
                                 const managed = isMikhmonManaged(p);
                                 return (
                                 <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
-                                    <td className="px-4 py-2.5">
+                                    <td className="px-3 py-2.5">
                                         <div className="flex items-center gap-2 flex-wrap">
                                             <span className="font-semibold text-slate-200">{p.name}</span>
                                             {p.default && (
@@ -633,28 +820,49 @@ export default function HotspotProfiles() {
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{p.rateLimit || <span className="text-slate-600">unlimited</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{p.sharedUsers || '1'}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">
+                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300">{p.sharedUsers || (b?.sharedUsers ?? '1')}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300 max-w-[160px] truncate">{p.rateLimit || <span className="text-slate-600">unlimited</span>}</td>
+                                    <td className="px-3 py-2.5 text-xs">
+                                        <span className={clsx(
+                                            'inline-flex text-[10px] px-1.5 py-0.5 rounded border font-bold uppercase tracking-tight',
+                                            b?.expiredMode === 'Notice' ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' :
+                                            b?.expiredMode === 'Notice & Remove' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
+                                            'bg-slate-700/40 text-slate-300 border-slate-600/40'
+                                        )}>
+                                            {b?.expiredMode || 'Remove'}
+                                        </span>
+                                    </td>
+                                    <td className="px-3 py-2.5 font-mono text-xs">
                                         {b?.validity ? (
                                             <span className="text-emerald-300">{b.validity}</span>
                                         ) : (
                                             <span className="text-slate-600">—</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">
+                                    <td className="px-3 py-2.5 font-mono text-xs text-right">
                                         {b?.price && parseFloat(b.price) > 0 ? (
-                                            <span className="text-emerald-300">Rp {Number(b.price).toLocaleString('id-ID')}</span>
+                                            <span className="text-slate-300">{Number(b.price).toLocaleString('id-ID')}</span>
                                         ) : (
                                             <span className="text-slate-600">—</span>
                                         )}
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">
-                                        {p.addMacCookie ? (
-                                            <span className="text-emerald-400">{p.macCookieTimeout || 'yes'}</span>
-                                        ) : <span className="text-slate-600">no</span>}
+                                    <td className="px-3 py-2.5 font-mono text-xs text-right">
+                                        {b?.sellingPrice && parseFloat(b.sellingPrice) > 0 ? (
+                                            <span className="text-emerald-300">{Number(b.sellingPrice).toLocaleString('id-ID')}</span>
+                                        ) : b?.price && parseFloat(b.price) > 0 ? (
+                                            <span className="text-emerald-300">{Number(b.price).toLocaleString('id-ID')}</span>
+                                        ) : (
+                                            <span className="text-slate-600">—</span>
+                                        )}
                                     </td>
-                                    <td className="px-4 py-2.5 text-right">
+                                    <td className="px-3 py-2.5 text-center text-xs">
+                                        {b?.lockUser ? (
+                                            <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Enable</span>
+                                        ) : (
+                                            <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/40 text-slate-400 border border-slate-600/40">Disable</span>
+                                        )}
+                                    </td>
+                                    <td className="px-3 py-2.5 text-right">
                                         <div className="inline-flex items-center gap-1">
                                             {managed ? (
                                                 <button
@@ -730,6 +938,19 @@ export default function HotspotProfiles() {
                 defaultPrice={installing ? (resolveBilling(installing)?.price || '') : ''}
                 onSubmit={handleInstall}
                 isSubmitting={installMutation.isPending || upsertBillingMutation.isPending}
+            />
+
+            <BulkSetupModal
+                isOpen={showBulkSetup}
+                onClose={() => setShowBulkSetup(false)}
+                profiles={profiles}
+                currentRows={Object.fromEntries(profiles.map((p) => [p.name, resolveBilling(p) || {}]))}
+                onSubmit={(items) => {
+                    bulkBillingMutation.mutate(items, {
+                        onSuccess: () => setShowBulkSetup(false),
+                    });
+                }}
+                isSubmitting={bulkBillingMutation.isPending}
             />
 
             <DeleteConfirmationModal

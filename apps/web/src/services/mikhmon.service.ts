@@ -143,6 +143,7 @@ export const mikhmonApi = {
         get: (routerId, profileName) => get(`/mikhmon/${routerId}/billing/profiles/${encodeURIComponent(profileName)}`),
         upsert: (routerId, input) => apiClient.put(`/mikhmon/${routerId}/billing/profiles`, input).then((r) => r.data?.data),
         remove: (routerId, profileName) => del(`/mikhmon/${routerId}/billing/profiles/${encodeURIComponent(profileName)}`),
+        bulkUpsert: (routerId, items) => post(`/mikhmon/${routerId}/billing/profiles/bulk`, { items }),
     },
     scriptWizard: {
         install: (routerId, profileId, input) =>

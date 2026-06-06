@@ -27,11 +27,21 @@ export const mikhmonProfileSettings = pgTable('mikhmon_profile_settings', {
     routerId: uuid('router_id').notNull().references(() => routers.id, { onDelete: 'cascade' }),
     profileName: text('profile_name').notNull(),
 
-    /** Voucher price in Rupiah (price snapshot at config time). */
+    /** Operator cost in Rupiah (what operator pays to get the voucher). */
     price: numeric('price', { precision: 14, scale: 2 }).notNull().default('0'),
+    /** Selling price in Rupiah (what voucher is sold for — used by Reports income). */
+    sellingPrice: numeric('selling_price', { precision: 14, scale: 2 }).notNull().default('0'),
 
     /** RouterOS time string baked into the on-login script (e.g. "1d", "12h"). */
     validity: text('validity'),
+
+    /**
+     * MikHMON v3 "Expired Mode" — what to do when voucher validity ends.
+     *   Remove          — delete user + scheduler (default, most common)
+     *   Notice          — just log a notice, keep user
+     *   Notice & Remove — log notice THEN remove
+     */
+    expiredMode: text('expired_mode').notNull().default('Remove'),
 
     /** When true, the wizard's on-login script binds the user to their MAC after first login. */
     lockUser: boolean('lock_user').notNull().default(false),

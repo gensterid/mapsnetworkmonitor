@@ -1379,7 +1379,9 @@ router.delete(
 const profileSettingsSchema = z.object({
     profileName: z.string().min(1, 'profileName wajib'),
     price: z.union([z.number(), z.string()]).optional(),
+    sellingPrice: z.union([z.number(), z.string()]).optional(),
     validity: z.string().optional(),
+    expiredMode: z.enum(['Remove', 'Notice', 'Notice & Remove']).optional(),
     lockUser: z.boolean().optional(),
     sharedUsers: z.number().int().optional(),
 });
@@ -1421,6 +1423,40 @@ router.delete(
     asyncHandler(async (req, res) => {
         await deleteProfileSetting(paramStr(req.params.routerId), paramStr(req.params.profileName));
         res.json({ data: { deleted: true } });
+    })
+);
+
+/**
+ * POST /:routerId/billing/profiles/bulk
+ * Bulk upsert profile billing settings. Used by the "Setup Cepat" modal
+ * to migrate operators coming from MikHMON external (whose prices live
+ * in browser localStorage, not RouterOS) into our DB in one round-trip.
+ *
+ * Body: { items: ProfileSettingsInput[] }
+ */
+router.post(
+    '/:routerId/billing/profiles/bulk',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const tenantId = req.mtRouter?.tenantId;
+        if (!tenantId) throw new ApiError(400, 'tenant tidak terdeteksi');
+        const body = z.object({
+            items: z.array(profileSettingsSchema).min(1).max(200),
+        }).parse(req.body);
+
+        const routerId = paramStr(req.params.routerId);
+        const saved = [];
+        for (const item of body.items) {
+            try {
+                const row = await upsertProfileSetting(tenantId, routerId, item);
+                saved.push(row);
+            } catch (err: any) {
+                logger.warn({ err: err?.message, profile: item.profileName }, '[MikHMON] bulk upsert item failed');
+            }
+        }
+        // Bust the profiles cache so the table refreshes immediately
+        await cacheService.delete(`mikhmon:${routerId}:hotspot:profiles`).catch(() => {});
+        res.json({ data: { savedCount: saved.length, total: body.items.length } });
     })
 );
 

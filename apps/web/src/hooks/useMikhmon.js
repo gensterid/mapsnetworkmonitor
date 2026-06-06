@@ -560,8 +560,22 @@ export function useUpsertProfileBillingSetting(routerId) {
         onSuccess: () => {
             toast.success('Setting profile tersimpan');
             qc.invalidateQueries({ queryKey: mikhmonKeys.profileBilling(routerId) });
+            qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotProfiles(routerId) });
         },
         onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal simpan setting'),
+    });
+}
+
+export function useBulkUpsertProfileBillingSettings(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (items) => mikhmonApi.profileBilling.bulkUpsert(routerId, items),
+        onSuccess: (resp) => {
+            toast.success(`${resp?.savedCount ?? 0} profile tersimpan`);
+            qc.invalidateQueries({ queryKey: mikhmonKeys.profileBilling(routerId) });
+            qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotProfiles(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal bulk save'),
     });
 }
 
