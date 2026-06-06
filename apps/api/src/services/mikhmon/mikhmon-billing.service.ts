@@ -130,52 +130,196 @@ export async function deleteProfileSetting(routerId: string, profileName: string
 const MIKHMON_MARKER = '#mikhmon-managed';
 const MASTER_SCHEDULER_NAME = 'mikhmon-cleanup';
 
-/**
- * Build the on-login script body for a given validity string.
- * Format follows MikHMON v3 pattern with our own marker comment so the
- * Wizard can detect and refresh its own installations without clobbering
- * operator-written scripts that happen to share the same profile.
- */
-function buildOnLoginScript(validity: string, lockUser: boolean): string {
-    // Use `:put` for log visibility, then a :do block that:
-    //  - Reads current user comment
-    //  - If a per-user scheduler with name=$user doesn't exist, creates one
-    //  - The scheduler's on-event removes the user (RouterOS auto-cleans
-    //    its own scheduler row when the user is gone, via /system scheduler
-    //    remove [find name=$user] after we delete the user)
-    //
-    // Time math uses :totime with adding seconds. We compute validity in
-    // seconds upfront and embed it as a constant so the script doesn't
-    // need to parse RouterOS time strings at runtime.
-    const seconds = parseValidityToSeconds(validity);
-    if (!seconds || seconds < 60) throw new Error(`validity '${validity}' tidak valid (min 1m)`);
+export type ExpiredMode = 'Remove' | 'Notice' | 'Notice & Remove';
 
-    const lockMac = lockUser
-        ? '/ip hotspot user set mac-address=$mac [find name=$user];'
-        : '';
+export interface OnLoginOpts {
+    validity: string;           // "1d", "12h", "30m" — RouterOS time string, embedded literal
+    expiredMode: ExpiredMode;
+    price: number;              // operator cost
+    sellingPrice: number;       // voucher selling price
+    sharing: number;            // shared-users default for this profile
+    lockUser: boolean;
+    userMode: 'vc' | 'up';
+    nameLength: number;
+    prefix: string;
+    charType: string;           // 'lowcase' | 'upcase' | 'mix' | 'numbers'
+    serverName: string;         // hotspot server name (display only)
+    limitUptime?: string;       // optional cumulative uptime — separate from validity
+}
+
+/**
+ * Build the on-login script in MikHMON v3 reference format.
+ *
+ * Why every single :local declaration: MikHMON external + our own
+ * parseMikhmonProfileConfig look for these exact variable names in the
+ * on-login script body to display the values back in the User Profile
+ * table. Emitting them gives:
+ *   - Roundtrip parser fix (the bug operator reported)
+ *   - MikHMON external compatibility (operator can run external + ours
+ *     side-by-side and see identical values)
+ *
+ * Why the first-login detection via "exp:" comment marker (not
+ * scheduler-exists check): MikHMON v3 reference uses the comment as the
+ * source of truth so a manually-recreated scheduler doesn't double-fire.
+ * Our previous implementation checked /system scheduler find name=$user
+ * which would skip subsequent logins after the scheduler already fired,
+ * but missed the case where operator deleted the scheduler manually.
+ *
+ * The script body is intentionally readable RouterOS — no clever one-
+ * liners — so operators inspecting it via Winbox can follow what's
+ * happening.
+ */
+function buildOnLoginScript(opts: OnLoginOpts): string {
+    const lock = opts.lockUser ? 'Enable' : 'Disable';
+    const validity = opts.validity || '1d';
+
+    // Runtime parser inside RouterOS — handles 1d / 12h / 30m / 2h30m
+    const validityParser = `
+  :local v $validity
+  :local seconds 0
+  :local i 0
+  :local n ""
+  :while ($i < [:len $v]) do={
+    :local c [:pick $v $i]
+    :if ([:typeof [:tonum $c]] = "num") do={ :set n ($n . $c) } else={
+      :if ($c = "w") do={ :set seconds ($seconds + ([:tonum $n] * 604800)); :set n "" }
+      :if ($c = "d") do={ :set seconds ($seconds + ([:tonum $n] * 86400)); :set n "" }
+      :if ($c = "h") do={ :set seconds ($seconds + ([:tonum $n] * 3600)); :set n "" }
+      :if ($c = "m") do={ :set seconds ($seconds + ([:tonum $n] * 60)); :set n "" }
+      :if ($c = "s") do={ :set seconds ($seconds + [:tonum $n]); :set n "" }
+    }
+    :set i ($i + 1)
+  }
+  :if ($seconds = 0) do={ :set seconds 86400 }`;
+
+    // Expiry computation — adds $seconds to current clock, derives
+    // start-date and start-time for the scheduler. RouterOS :totime
+    // wraps within 24h so we manually carry the day overflow.
+    const expiryComputer = `
+  :local now [/system clock get date]
+  :local nowTime [/system clock get time]
+  :local nowSec [:tonsec $nowTime]
+  :local totalSec ($nowSec + $seconds)
+  :local dayCarry 0
+  :while ($totalSec >= 86400) do={ :set totalSec ($totalSec - 86400); :set dayCarry ($dayCarry + 1) }
+  :local expTime [:totime $totalSec]
+  :local expDate $now
+  :if ($dayCarry > 0) do={
+    :local mNames {"jan";"feb";"mar";"apr";"may";"jun";"jul";"aug";"sep";"oct";"nov";"dec"}
+    :local mDays {31;28;31;30;31;30;31;31;30;31;30;31}
+    :local mm [:pick $now 0 3]
+    :local dd [:tonum [:pick $now 4 6]]
+    :local yyyy [:tonum [:pick $now 7 11]]
+    :local mi 0
+    :foreach idx,name in=$mNames do={ :if ($name = $mm) do={ :set mi $idx } }
+    :local maxDays ($mDays->$mi)
+    :if (($mi = 1) && (($yyyy % 4) = 0)) do={ :set maxDays 29 }
+    :set dd ($dd + $dayCarry)
+    :while ($dd > $maxDays) do={
+      :set dd ($dd - $maxDays)
+      :set mi ($mi + 1)
+      :if ($mi >= 12) do={ :set mi 0; :set yyyy ($yyyy + 1) }
+      :set maxDays ($mDays->$mi)
+      :if (($mi = 1) && (($yyyy % 4) = 0)) do={ :set maxDays 29 }
+    }
+    :local ddStr [:tostr $dd]
+    :if ([:len $ddStr] = 1) do={ :set ddStr ("0" . $ddStr) }
+    :set expDate (($mNames->$mi) . "/" . $ddStr . "/" . [:tostr $yyyy])
+  }
+  :local expSec $totalSec`;
 
     return [
         MIKHMON_MARKER,
-        ':local validitySeconds ' + seconds + ';',
-        ':local now [/system clock get date];',
-        ':local nowTime [/system clock get time];',
-        ':local expSec ([:tonsec $nowTime] + $validitySeconds);',
-        ':local expDate $now;',
-        ':if ($expSec >= 86400) do={ :set expSec ($expSec - 86400); :set expDate ([:tostr ([:totime ([:tonsec $now] + 86400)])]); };',
-        ':local expTime [:totime $expSec];',
-        ':if ([:len [/system scheduler find name=$user]] = 0) do={',
-        '  /system scheduler add name=$user start-date=$expDate start-time=$expTime ' +
-        'on-event=("/ip hotspot user remove [find name=" . $user . "]; /system scheduler remove [find name=" . $user . "]");',
-        '};',
-        lockMac,
-        ':put ("[MIKHMON] login " . $user . " exp:" . $expDate . " " . $expTime);',
-    ].filter(Boolean).join('\n');
+        ':put e',
+        ':local content $""',
+        `:local validity "${validity}"`,
+        `:local sharing ${opts.sharing}`,
+        `:local price "${opts.price}"`,
+        `:local sellingPrice "${opts.sellingPrice}"`,
+        `:local userMode "${opts.userMode}"`,
+        `:local lockUser "${lock}"`,
+        `:local expiredMode "${opts.expiredMode}"`,
+        `:local nameLength ${opts.nameLength}`,
+        `:local prefix "${opts.prefix}"`,
+        `:local charType "${opts.charType}"`,
+        `:local serverName "${opts.serverName}"`,
+        opts.limitUptime ? `:local limitUptime "${opts.limitUptime}"` : ':local limitUptime ""',
+        '',
+        '# First-login detection — comment carries "exp:" marker once set',
+        ':local userComment [/ip hotspot user get [find where name=$user] comment]',
+        ':local firstLogin true',
+        ':if ([:typeof $userComment] = "str") do={',
+        '  :if ([:find $userComment "exp:"] >= 0) do={ :set firstLogin false }',
+        '}',
+        '',
+        ':if ($firstLogin) do={',
+        validityParser,
+        expiryComputer,
+        '',
+        '  # Stamp expiry into user comment for next-time detection',
+        '  /ip hotspot user set comment=("exp:" . $expDate . " " . $expTime . " ts:" . $expSec) [find where name=$user]',
+        '',
+        `  ${buildExpiredModeBranchBlock(opts.expiredMode)}`,
+        '',
+        '  :if ($lockUser = "Enable") do={',
+        '    /ip hotspot user set mac-address=$"mac-address" [find where name=$user]',
+        '  }',
+        '}',
+        '',
+        ':put ("[MIKHMON] login " . $user)',
+    ].join('\n');
 }
 
+/**
+ * Returns the RouterOS block that handles voucher expiry depending on
+ * the operator's chosen expiredMode. Called inside the firstLogin branch
+ * of buildOnLoginScript.
+ *
+ *   Remove           — schedule a hard delete at expiry
+ *   Notice           — only log; voucher stays but flagged in comment
+ *   Notice & Remove  — both — adds a notice marker AND schedules removal
+ */
+function buildExpiredModeBranchBlock(mode: ExpiredMode): string {
+    const removeScheduler = [
+        '  :if ([:len [/system scheduler find name=$user]] = 0) do={',
+        '    /system scheduler add name=$user start-date=$expDate start-time=$expTime ',
+        '      on-event=("/ip hotspot user remove [find name=\\"" . $user . "\\"]; /system scheduler remove [find name=\\"" . $user . "\\"]")',
+        '  }',
+    ].join('\n  ');
+
+    const noticeMark = [
+        '  :local cmt [/ip hotspot user get [find where name=$user] comment]',
+        '  /ip hotspot user set comment=($cmt . " notice:end") [find where name=$user]',
+        '  :log info ("MIKHMON notice queued for " . $user . " exp:" . $expDate . " " . $expTime)',
+    ].join('\n  ');
+
+    if (mode === 'Notice') return noticeMark;
+    if (mode === 'Notice & Remove') return noticeMark + '\n  ' + removeScheduler;
+    return removeScheduler; // 'Remove' default
+}
+
+/**
+ * Build the on-logout script — appends last-logout timestamp to the user
+ * comment for usage tracking. MikHMON external reads this to display
+ * "last seen" info in the active sessions tab.
+ *
+ * Idempotent for repeated logouts: strips any prior `logout:` marker
+ * before appending the new one, so the comment doesn't grow unbounded
+ * across many sessions.
+ */
 function buildOnLogoutScript(): string {
     return [
         MIKHMON_MARKER,
-        ':put ("[MIKHMON] logout " . $user);',
+        ':put e',
+        ':local cur [/ip hotspot user get [find where name=$user] comment]',
+        ':local stripped $cur',
+        ':if ([:typeof $cur] = "str") do={',
+        '  :local idx [:find $cur " logout:"]',
+        '  :if ($idx >= 0) do={ :set stripped [:pick $cur 0 $idx] }',
+        '}',
+        ':local stamp ([/system clock get date] . " " . [/system clock get time])',
+        '/ip hotspot user set comment=($stripped . " logout:" . $stamp) [find where name=$user]',
+        ':put ("[MIKHMON] logout " . $user . " at " . $stamp)',
     ].join('\n');
 }
 
@@ -200,18 +344,53 @@ export function parseValidityToSeconds(s: string): number {
     return total;
 }
 
+export interface InstallScriptsInput {
+    validity: string;
+    expiredMode?: ExpiredMode;
+    price?: number;
+    sellingPrice?: number;
+    sharing?: number;
+    lockUser?: boolean;
+    userMode?: 'vc' | 'up';
+    nameLength?: number;
+    prefix?: string;
+    charType?: string;
+    serverName?: string;
+    limitUptime?: string;
+}
+
 /**
  * Install or refresh the MikHMON-managed scripts on a hotspot user profile.
- * Idempotent — running twice with the same validity is a no-op upgrade.
+ *
+ * Sanity-check validity first so the wizard fails early with a clean
+ * error instead of writing a malformed script. The actual time math
+ * happens inside RouterOS at login time using the embedded :local
+ * validity string — we just validate the string here is parseable.
  */
 export async function installMikhmonScripts(
     api: any,
     profileId: string,
     profileName: string,
-    validity: string,
-    lockUser: boolean,
+    input: InstallScriptsInput,
 ): Promise<void> {
-    const onLogin = buildOnLoginScript(validity, lockUser);
+    const validity = (input.validity || '').trim();
+    const seconds = parseValidityToSeconds(validity);
+    if (!seconds || seconds < 60) throw new Error(`validity '${validity}' tidak valid (min 1m)`);
+
+    const onLogin = buildOnLoginScript({
+        validity,
+        expiredMode: input.expiredMode || 'Remove',
+        price: Number(input.price ?? 0),
+        sellingPrice: Number(input.sellingPrice ?? input.price ?? 0),
+        sharing: Number(input.sharing ?? 1),
+        lockUser: !!input.lockUser,
+        userMode: input.userMode || 'vc',
+        nameLength: Number(input.nameLength ?? 4),
+        prefix: input.prefix || '',
+        charType: input.charType || 'lowcase',
+        serverName: input.serverName || '',
+        limitUptime: input.limitUptime || undefined,
+    });
     const onLogout = buildOnLogoutScript();
     await setHotspotUserProfile(api, profileId, {
         onLogin,
@@ -222,7 +401,7 @@ export async function installMikhmonScripts(
     // start-date has passed but whose linked user was already deleted by
     // some other path (manual delete, kicked, etc).
     await ensureMasterScheduler(api);
-    logger.info({ profileId, profileName, validity, lockUser }, '[MikHMON] scripts installed');
+    logger.info({ profileId, profileName, validity, expiredMode: input.expiredMode }, '[MikHMON] scripts installed');
 }
 
 /**

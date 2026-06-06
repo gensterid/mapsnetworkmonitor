@@ -336,77 +336,156 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
 }
 
 // Inline modal for installing MikHMON v3 auto-expire scripts to a profile.
-// Validity dropdown mirrors the most common MikHMON external defaults;
-// operator can also paste custom RouterOS time strings.
-function InstallScriptsModal({ isOpen, onClose, profile, defaultValidity, defaultPrice, onSubmit, isSubmitting }) {
-    const [validity, setValidity] = useState(defaultValidity || '1d');
-    const [price, setPrice] = useState(defaultPrice || '');
-    const [lockUser, setLockUser] = useState(false);
+// All fields mirror the MikHMON v3 external profile form so the script
+// body emitted to RouterOS is byte-compatible — operator can switch
+// back and forth between this app and MikHMON external without losing
+// data on either side.
+function InstallScriptsModal({ isOpen, onClose, profile, defaults, onSubmit, isSubmitting }) {
+    const d = defaults || {};
+    const [validity, setValidity] = useState(d.validity || '1d');
+    const [expiredMode, setExpiredMode] = useState(d.expiredMode || 'Remove');
+    const [price, setPrice] = useState(d.price ?? '');
+    const [sellingPrice, setSellingPrice] = useState(d.sellingPrice ?? '');
+    const [sharing, setSharing] = useState(d.sharing ?? d.sharedUsers ?? 1);
+    const [lockUser, setLockUser] = useState(!!d.lockUser);
+    const [limitUptime, setLimitUptime] = useState(d.limitUptime || '');
+    const [showAdvanced, setShowAdvanced] = useState(false);
+    const [userMode, setUserMode] = useState(d.userMode || 'vc');
+    const [nameLength, setNameLength] = useState(d.nameLength ?? 4);
+    const [prefix, setPrefix] = useState(d.prefix || '');
+    const [charType, setCharType] = useState(d.charType || 'lowcase');
+    const [serverName, setServerName] = useState(d.serverName || '');
 
     useEffect(() => {
-        if (isOpen) {
-            setValidity(defaultValidity || '1d');
-            setPrice(defaultPrice || '');
-            setLockUser(false);
-        }
-    }, [isOpen, defaultValidity, defaultPrice]);
+        if (!isOpen) return;
+        setValidity(d.validity || '1d');
+        setExpiredMode(d.expiredMode || 'Remove');
+        setPrice(d.price ?? '');
+        setSellingPrice(d.sellingPrice ?? '');
+        setSharing(d.sharing ?? d.sharedUsers ?? 1);
+        setLockUser(!!d.lockUser);
+        setLimitUptime(d.limitUptime || '');
+        setUserMode(d.userMode || 'vc');
+        setNameLength(d.nameLength ?? 4);
+        setPrefix(d.prefix || '');
+        setCharType(d.charType || 'lowcase');
+        setServerName(d.serverName || '');
+        setShowAdvanced(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, profile?.id]);
 
     if (!isOpen || !profile) return null;
 
     const handleSubmit = (e) => {
         e.preventDefault();
         if (!validity?.trim()) return;
-        onSubmit({ validity: validity.trim(), lockUser, price: price ? Number(price) : 0 });
+        onSubmit({
+            validity: validity.trim(),
+            expiredMode,
+            price: price ? Number(price) : 0,
+            sellingPrice: sellingPrice ? Number(sellingPrice) : (price ? Number(price) : 0),
+            sharing: Number(sharing) || 1,
+            lockUser,
+            limitUptime: limitUptime?.trim() || undefined,
+            userMode,
+            nameLength: Number(nameLength) || 4,
+            prefix,
+            charType,
+            serverName,
+        });
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Install MikHMON Auto-Expire — ${profile.name}`} maxWidth="max-w-md">
+        <Modal isOpen={isOpen} onClose={onClose} title={`Install MikHMON v3 Scripts — ${profile.name}`} maxWidth="max-w-2xl">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="text-xs text-slate-400 leading-relaxed bg-slate-900/40 border border-slate-700/40 rounded-lg p-3">
-                    Patch profile <span className="font-mono text-slate-200">{profile.name}</span> dengan on-login / on-logout script MikHMON v3.
-                    Voucher yang pakai profile ini auto-expire <strong>X waktu setelah first login</strong>, bukan setelah cumulative uptime.
+                    Patch profile <span className="font-mono text-slate-200">{profile.name}</span> dengan on-login / on-logout script
+                    versi MikHMON v3. Field di bawah <strong>byte-kompatibel</strong> dengan MikHMON eksternal — operator yang switch
+                    bolak-balik akan lihat nilai persis sama.
                 </div>
 
-                <label className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Validity *</span>
-                    <div className="flex gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Masa Berlaku *</span>
+                        <div className="flex gap-2">
+                            <select
+                                value={['1h', '3h', '6h', '12h', '1d', '3d', '7d', '30d'].includes(validity) ? validity : 'custom'}
+                                onChange={(e) => { if (e.target.value !== 'custom') setValidity(e.target.value); }}
+                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-2 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            >
+                                <option value="1h">1h</option><option value="3h">3h</option><option value="6h">6h</option>
+                                <option value="12h">12h</option><option value="1d">1d</option><option value="3d">3d</option>
+                                <option value="7d">7d</option><option value="30d">30d</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            <input
+                                type="text"
+                                value={validity}
+                                onChange={(e) => setValidity(e.target.value)}
+                                placeholder="1d / 12h / 2h30m"
+                                className="flex-1 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                required
+                            />
+                        </div>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Mode Kedaluwarsa</span>
                         <select
-                            value={['1h', '3h', '6h', '12h', '1d', '3d', '7d', '30d'].includes(validity) ? validity : 'custom'}
-                            onChange={(e) => { if (e.target.value !== 'custom') setValidity(e.target.value); }}
+                            value={expiredMode}
+                            onChange={(e) => setExpiredMode(e.target.value)}
                             className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         >
-                            <option value="1h">1 jam</option>
-                            <option value="3h">3 jam</option>
-                            <option value="6h">6 jam</option>
-                            <option value="12h">12 jam</option>
-                            <option value="1d">1 hari</option>
-                            <option value="3d">3 hari</option>
-                            <option value="7d">7 hari</option>
-                            <option value="30d">30 hari</option>
-                            <option value="custom">Custom…</option>
+                            {EXPIRED_MODES.map((m) => <option key={m} value={m}>{m}</option>)}
                         </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Harga Rp</span>
+                        <input
+                            type="number"
+                            value={price}
+                            onChange={(e) => setPrice(e.target.value)}
+                            placeholder="0"
+                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Harga Jual Rp</span>
+                        <input
+                            type="number"
+                            value={sellingPrice}
+                            onChange={(e) => setSellingPrice(e.target.value)}
+                            placeholder="5000"
+                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                        <span className="text-[10px] text-slate-600 italic">Income di Reports</span>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Shared Users</span>
+                        <input
+                            type="number"
+                            min="1"
+                            value={sharing}
+                            onChange={(e) => setSharing(e.target.value)}
+                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Limit Uptime</span>
                         <input
                             type="text"
-                            value={validity}
-                            onChange={(e) => setValidity(e.target.value)}
-                            placeholder="1d / 12h / 2h30m"
-                            className="flex-1 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            required
+                            value={limitUptime}
+                            onChange={(e) => setLimitUptime(e.target.value)}
+                            placeholder="10h (opsional)"
+                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
-                    </div>
-                </label>
-
-                <label className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Harga (Rp)</span>
-                    <input
-                        type="number"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        placeholder="5000"
-                        className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                    />
-                    <span className="text-[10px] text-slate-600 italic">Dipakai di Reports untuk hitung income</span>
-                </label>
+                        <span className="text-[10px] text-slate-600 italic">Cumulative connect time — beda dengan Masa Berlaku</span>
+                    </label>
+                </div>
 
                 <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
                     <input
@@ -415,8 +494,57 @@ function InstallScriptsModal({ isOpen, onClose, profile, defaultValidity, defaul
                         onChange={(e) => setLockUser(e.target.checked)}
                         className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
                     />
-                    <span>Lock voucher ke MAC pertama yang login (mencegah voucher dipakai bareng-bareng)</span>
+                    <span><strong>Kunci Pengguna</strong> — lock voucher ke MAC pertama yang login</span>
                 </label>
+
+                <button
+                    type="button"
+                    onClick={() => setShowAdvanced((s) => !s)}
+                    className="text-xs text-slate-400 hover:text-slate-200 underline-offset-2 hover:underline"
+                >
+                    {showAdvanced ? '− Sembunyikan' : '+ Tampilkan'} field MikHMON v3 lanjutan (userMode, prefix, charType, serverName)
+                </button>
+
+                {showAdvanced && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">User Mode</span>
+                            <select value={userMode} onChange={(e) => setUserMode(e.target.value)}
+                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40">
+                                <option value="vc">vc — username = password</option>
+                                <option value="up">up — username + password berbeda</option>
+                            </select>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Char Type</span>
+                            <select value={charType} onChange={(e) => setCharType(e.target.value)}
+                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40">
+                                <option value="lowcase">lowcase</option>
+                                <option value="upcase">upcase</option>
+                                <option value="mix">mix</option>
+                                <option value="numbers">numbers</option>
+                            </select>
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Name Length</span>
+                            <input type="number" min="3" max="20" value={nameLength}
+                                onChange={(e) => setNameLength(e.target.value)}
+                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                        </label>
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Prefix</span>
+                            <input type="text" value={prefix}
+                                onChange={(e) => setPrefix(e.target.value)} placeholder=""
+                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                        </label>
+                        <label className="flex flex-col gap-1 sm:col-span-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Server Name (display)</span>
+                            <input type="text" value={serverName}
+                                onChange={(e) => setServerName(e.target.value)} placeholder=""
+                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40" />
+                        </label>
+                    </div>
+                )}
 
                 <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
@@ -834,17 +962,12 @@ export default function HotspotProfiles() {
 
     const handleInstall = (payload) => {
         if (!installing?.id) return;
-        // Save price separately (script wizard handles validity/lockUser inside its endpoint)
-        if (payload.price !== undefined) {
-            upsertBillingMutation.mutate({
-                profileName: installing.name,
-                price: payload.price,
-                validity: payload.validity,
-                lockUser: payload.lockUser,
-            });
-        }
+        // Pass the full MikHMON v3 payload to the install endpoint so it
+        // can bake every field into the on-login `:local` block. The
+        // backend also upserts to mikhmon_profile_settings so the DB row
+        // stays in sync — frontend doesn't need a separate upsert call.
         installMutation.mutate(
-            { profileId: installing.id, input: { validity: payload.validity, lockUser: payload.lockUser } },
+            { profileId: installing.id, input: payload },
             { onSuccess: () => setInstalling(null) },
         );
     };
@@ -878,6 +1001,57 @@ export default function HotspotProfiles() {
             return !hasPrice && !hasValidity;
         });
     }, [profiles, billingByName]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Detect profiles managed by an OUTDATED Phase A10 script template
+    // (carries `#mikhmon-managed` but missing the v3 reference :local
+    // declarations). Operator needs to re-install via the wizard to get
+    // the new template that is byte-compatible with MikHMON external.
+    const profilesOutdatedScript = useMemo(() => {
+        return profiles.filter((p) => {
+            if (p.default) return false;
+            const ol = String(p.onLogin || '');
+            if (!ol.includes('#mikhmon-managed')) return false;
+            // v3 reference must have :local validity "..." or :local sellingPrice
+            const hasV3Header = /:local\s+validity\s+"/.test(ol) || /:local\s+sellingPrice\s+"/.test(ol);
+            return !hasV3Header;
+        });
+    }, [profiles]);
+
+    const [reinstalling, setReinstalling] = useState(false);
+    const bulkReinstall = async () => {
+        if (profilesOutdatedScript.length === 0) return;
+        setReinstalling(true);
+        let ok = 0, fail = 0;
+        for (const p of profilesOutdatedScript) {
+            // Reuse billing settings + parsed mikhmonConfig as defaults
+            const b = resolveBilling(p) || {};
+            try {
+                await installMutation.mutateAsync({
+                    profileId: p.id,
+                    input: {
+                        validity: b.validity || '1d',
+                        expiredMode: b.expiredMode || 'Remove',
+                        price: b.price ? Number(b.price) : 0,
+                        sellingPrice: b.sellingPrice ? Number(b.sellingPrice) : (b.price ? Number(b.price) : 0),
+                        sharing: b.sharedUsers ?? b.sharing ?? 1,
+                        lockUser: !!b.lockUser,
+                        limitUptime: b.limitUptime || undefined,
+                        userMode: b.userMode || 'vc',
+                        nameLength: b.nameLength ?? 4,
+                        prefix: b.prefix || '',
+                        charType: b.charType || 'lowcase',
+                        serverName: b.serverName || '',
+                    },
+                });
+                ok++;
+            } catch {
+                fail++;
+            }
+        }
+        setReinstalling(false);
+        if (fail === 0) toast.success(`${ok} profile berhasil di-update ke MikHMON v3`);
+        else toast.error(`${ok} sukses, ${fail} gagal — cek koneksi router`);
+    };
 
     const handleAdd = (payload) => {
         // Extract MikHMON-only fields so the MikroTik /add call gets just
@@ -1009,6 +1183,34 @@ export default function HotspotProfiles() {
                 in browser localStorage, so existing setups land here with
                 empty fields and Reports income = Rp 0 until operator
                 clicks Setup Cepat. */}
+            {!isPending && profilesOutdatedScript.length > 0 && (
+                <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/10 p-4 flex items-start gap-3">
+                    <div className="shrink-0 w-9 h-9 rounded-lg bg-cyan-500/20 flex items-center justify-center text-xl">⚡</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-cyan-200">
+                            {profilesOutdatedScript.length} profile pakai script versi lama (pre-A11)
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                            Script on-login profile-profile ini perlu di-update ke MikHMON v3 reference template supaya
+                            kolom Validity / Harga / Mode Kedaluwarsa <strong>roundtrip jalan</strong> (tidak hilang setelah refresh),
+                            dan <strong>byte-compatible</strong> dengan MikHMON eksternal.
+                            <br /><br />
+                            <span className="text-amber-300">⚠ Backup script lama via Winbox export kalau ada customisasi manual sebelum klik Re-install.</span>
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={bulkReinstall}
+                            disabled={reinstalling || installMutation.isPending}
+                            loading={reinstalling}
+                            className="mt-3"
+                        >
+                            <Zap className="w-4 h-4 mr-1" />
+                            Re-install Semua ({profilesOutdatedScript.length})
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             {!isPending && profilesMissingBilling.length > 0 && (
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
                     <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-xl">⚠️</div>
@@ -1208,8 +1410,13 @@ export default function HotspotProfiles() {
                 isOpen={!!installing}
                 onClose={() => setInstalling(null)}
                 profile={installing}
-                defaultValidity={installing ? (resolveBilling(installing)?.validity || '') : ''}
-                defaultPrice={installing ? (resolveBilling(installing)?.price || '') : ''}
+                defaults={installing ? {
+                    ...(resolveBilling(installing) || {}),
+                    // mikhmonConfig (parsed from on-login) carries extra MikHMON
+                    // v3 fields like userMode/prefix/charType. Merge so the
+                    // modal pre-fills exactly what's currently in the script.
+                    ...(installing.mikhmonConfig || {}),
+                } : {}}
                 onSubmit={handleInstall}
                 isSubmitting={installMutation.isPending || upsertBillingMutation.isPending}
             />

@@ -1474,7 +1474,17 @@ router.post(
 
 const installScriptsSchema = z.object({
     validity: z.string().min(2, 'validity wajib (contoh: 1d, 12h)'),
+    expiredMode: z.enum(['Remove', 'Notice', 'Notice & Remove']).optional(),
+    price: z.union([z.number(), z.string()]).optional(),
+    sellingPrice: z.union([z.number(), z.string()]).optional(),
+    sharing: z.union([z.number(), z.string()]).optional(),
     lockUser: z.boolean().optional(),
+    userMode: z.enum(['vc', 'up']).optional(),
+    nameLength: z.union([z.number(), z.string()]).optional(),
+    prefix: z.string().optional(),
+    charType: z.string().optional(),
+    serverName: z.string().optional(),
+    limitUptime: z.string().optional(),
 });
 
 router.post(
@@ -1494,7 +1504,25 @@ router.post(
         const profileName = printed?.[0]?.name;
         if (!profileName) throw new ApiError(404, 'profile tidak ditemukan');
 
-        await installMikhmonScripts(req.mtConn, id, profileName, input.validity, !!input.lockUser);
+        const numOrDefault = (v: any, d: number) => {
+            const n = Number(v);
+            return Number.isFinite(n) ? n : d;
+        };
+
+        await installMikhmonScripts(req.mtConn, id, profileName, {
+            validity: input.validity,
+            expiredMode: input.expiredMode || 'Remove',
+            price: numOrDefault(input.price, 0),
+            sellingPrice: numOrDefault(input.sellingPrice, numOrDefault(input.price, 0)),
+            sharing: numOrDefault(input.sharing, 1),
+            lockUser: !!input.lockUser,
+            userMode: input.userMode || 'vc',
+            nameLength: numOrDefault(input.nameLength, 4),
+            prefix: input.prefix || '',
+            charType: input.charType || 'lowcase',
+            serverName: input.serverName || '',
+            limitUptime: input.limitUptime,
+        });
 
         // Sync settings row + flip scripts_installed flag
         const tenantId = req.mtRouter?.tenantId;
@@ -1502,6 +1530,11 @@ router.post(
             await upsertProfileSetting(tenantId, paramStr(req.params.routerId), {
                 profileName,
                 validity: input.validity,
+                limitUptime: input.limitUptime,
+                expiredMode: input.expiredMode || 'Remove',
+                price: numOrDefault(input.price, 0),
+                sellingPrice: numOrDefault(input.sellingPrice, numOrDefault(input.price, 0)),
+                sharedUsers: numOrDefault(input.sharing, 1),
                 lockUser: !!input.lockUser,
             });
             // Flip the install flag (upsertProfileSetting doesn't touch it)
