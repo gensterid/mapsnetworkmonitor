@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Plus, Pencil, Trash2, ShieldCheck, RefreshCw, Search, Zap, ZapOff, ListPlus, Save } from 'lucide-react';
+import { Plus, Pencil, Trash2, ShieldCheck, RefreshCw, Search, Zap, ZapOff, ListPlus, Save, Upload } from 'lucide-react';
+import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { useMikhmonContext } from '@/contexts/useMikhmonContext';
 import {
@@ -585,6 +586,203 @@ function BulkSetupModal({ isOpen, onClose, profiles, currentRows, onSubmit, isSu
     );
 }
 
+/**
+ * Import MikHMON external backup. MikHMON v3 external's
+ * Settings → Backup downloads localStorage as JSON. This modal lets
+ * the operator upload that file, the parser scans for profile entries
+ * (handles multiple MikHMON variants — flat array, nested object,
+ * key-prefixed maps), and we preview + bulk-import.
+ */
+function parseMikhmonBackup(rawJson) {
+    const result = [];
+    if (!rawJson) return result;
+
+    const numFromAny = (v) => {
+        if (v === undefined || v === null) return undefined;
+        const cleaned = String(v).replace(/[^\d.-]/g, '');
+        const n = parseFloat(cleaned);
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+
+    // A profile-shape detector — flexible to many MikHMON forks
+    const looksLikeProfile = (o) => o && typeof o === 'object' &&
+        (o.name || o.profile) &&
+        (o.validity !== undefined || o.price !== undefined || o.selling !== undefined ||
+         o.sellingPrice !== undefined || o.expmode !== undefined);
+
+    const pushProfile = (p) => {
+        const name = p.name || p.profile;
+        if (!name) return;
+        const expMode = p.expmode || p.expiredMode || p.expired_mode || p['expired-mode'];
+        const lockRaw = p.lock || p.lockUser || p.lock_user;
+        result.push({
+            profileName: String(name),
+            validity: p.validity || p.valid || undefined,
+            limitUptime: p.limitUptime || p.uptime || p.limit_uptime || undefined,
+            expiredMode: expMode || 'Remove',
+            price: numFromAny(p.price ?? p.cost ?? 0),
+            sellingPrice: numFromAny(p.selling ?? p.sellingPrice ?? p.sell ?? p.jual ?? p.price ?? 0),
+            lockUser: typeof lockRaw === 'string' ? /enable|true|yes|1/i.test(lockRaw) : !!lockRaw,
+            sharedUsers: parseInt(p.sharing ?? p.shared ?? p.sharedUsers ?? '1', 10) || 1,
+        });
+    };
+
+    // Strategy 1: top-level array of profiles
+    if (Array.isArray(rawJson)) {
+        for (const item of rawJson) if (looksLikeProfile(item)) pushProfile(item);
+    }
+
+    // Strategy 2: nested array under `profiles` / `profile` / `data.profiles`
+    if (result.length === 0 && typeof rawJson === 'object') {
+        const arrays = [rawJson.profiles, rawJson.profile, rawJson?.data?.profiles, rawJson?.data?.profile];
+        for (const arr of arrays) {
+            if (Array.isArray(arr)) for (const item of arr) if (looksLikeProfile(item)) pushProfile(item);
+        }
+    }
+
+    // Strategy 3: keys like "mikhmon-<site>-profile-<name>" (localStorage dump)
+    if (result.length === 0 && typeof rawJson === 'object' && !Array.isArray(rawJson)) {
+        for (const [key, value] of Object.entries(rawJson)) {
+            if (!/profile/i.test(key)) continue;
+            let parsed = value;
+            if (typeof value === 'string') {
+                try { parsed = JSON.parse(value); } catch { continue; }
+            }
+            if (Array.isArray(parsed)) {
+                for (const item of parsed) if (looksLikeProfile(item)) pushProfile(item);
+            } else if (looksLikeProfile(parsed)) {
+                pushProfile(parsed);
+            }
+        }
+    }
+
+    return result;
+}
+
+function ImportMikhmonModal({ isOpen, onClose, onSubmit, isSubmitting }) {
+    const [rawText, setRawText] = useState('');
+    const [parsed, setParsed] = useState([]);
+    const [error, setError] = useState(null);
+    const [fileName, setFileName] = useState('');
+
+    useEffect(() => {
+        if (!isOpen) { setRawText(''); setParsed([]); setError(null); setFileName(''); }
+    }, [isOpen]);
+
+    const handleFile = async (e) => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        setFileName(f.name);
+        try {
+            const text = await f.text();
+            setRawText(text);
+            doParse(text);
+        } catch (err) {
+            setError('Gagal baca file: ' + err.message);
+        }
+    };
+
+    const doParse = (text) => {
+        setError(null);
+        try {
+            const json = JSON.parse(text);
+            const items = parseMikhmonBackup(json);
+            if (items.length === 0) {
+                setError('Tidak ditemukan profile di file. Format MikHMON tidak dikenali.');
+                setParsed([]);
+            } else {
+                setParsed(items);
+            }
+        } catch (err) {
+            setError('JSON tidak valid: ' + err.message);
+            setParsed([]);
+        }
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Import dari MikHMON Backup" maxWidth="max-w-3xl">
+            <div className="space-y-4">
+                <div className="text-xs text-slate-300 bg-slate-900/40 border border-slate-700/40 rounded-lg p-3 leading-relaxed">
+                    <p className="font-semibold text-slate-200 mb-1">Cara dapat file backup:</p>
+                    <ol className="list-decimal list-inside space-y-0.5 text-slate-400">
+                        <li>Buka MikHMON eksternal Anda di browser yang sama dengan setup biasa</li>
+                        <li>Menu <strong>Settings → Backup → Backup Local Storage</strong></li>
+                        <li>Download file <code className="bg-slate-800 px-1 rounded text-[10px]">mikhmon-backup-*.json</code></li>
+                        <li>Upload file itu di sini</li>
+                    </ol>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                    <label className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-slate-700 hover:border-primary/40 hover:bg-slate-900/40 cursor-pointer transition-colors text-sm text-slate-300">
+                        <input type="file" accept=".json,application/json" onChange={handleFile} className="hidden" />
+                        <span>📁 {fileName || 'Pilih file JSON…'}</span>
+                    </label>
+
+                    <details className="text-xs text-slate-400">
+                        <summary className="cursor-pointer hover:text-slate-200">atau paste JSON langsung</summary>
+                        <textarea
+                            value={rawText}
+                            onChange={(e) => { setRawText(e.target.value); doParse(e.target.value); }}
+                            rows={6}
+                            placeholder='{"profiles":[{"name":"PAKET-1HARI","validity":"1d","price":"5000","selling":"5000"},...]}'
+                            className="mt-2 w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-[11px] font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                    </details>
+                </div>
+
+                {error && (
+                    <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-2">{error}</div>
+                )}
+
+                {parsed.length > 0 && (
+                    <div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-emerald-300 mb-2">
+                            Preview — {parsed.length} profile terdeteksi
+                        </div>
+                        <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden max-h-64 overflow-y-auto custom-scrollbar">
+                            <table className="w-full text-xs">
+                                <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky top-0">
+                                    <tr>
+                                        <th className="text-left px-3 py-2">Nama</th>
+                                        <th className="text-left px-3 py-2">Masa Berlaku</th>
+                                        <th className="text-left px-3 py-2">Uptime</th>
+                                        <th className="text-right px-3 py-2">Harga</th>
+                                        <th className="text-right px-3 py-2">Harga Jual</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/40">
+                                    {parsed.map((p) => (
+                                        <tr key={p.profileName}>
+                                            <td className="px-3 py-1.5 font-semibold text-slate-200">{p.profileName}</td>
+                                            <td className="px-3 py-1.5 font-mono text-emerald-300">{p.validity || '—'}</td>
+                                            <td className="px-3 py-1.5 font-mono text-cyan-300">{p.limitUptime || '—'}</td>
+                                            <td className="px-3 py-1.5 font-mono text-right text-slate-300">{p.price ? p.price.toLocaleString('id-ID') : '—'}</td>
+                                            <td className="px-3 py-1.5 font-mono text-right text-emerald-300">{p.sellingPrice ? p.sellingPrice.toLocaleString('id-ID') : '—'}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                    <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
+                    <Button
+                        type="button"
+                        onClick={() => onSubmit(parsed)}
+                        loading={isSubmitting}
+                        disabled={isSubmitting || parsed.length === 0}
+                    >
+                        <Save className="w-4 h-4 mr-1" />
+                        Import {parsed.length > 0 ? `${parsed.length} Profile` : ''}
+                    </Button>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
 export default function HotspotProfiles() {
     const { selectedRouterId } = useMikhmonContext();
     const { data: profiles = [], isPending, isError, refetch, isFetching } = useHotspotUserProfiles(selectedRouterId);
@@ -603,6 +801,7 @@ export default function HotspotProfiles() {
     const [installing, setInstalling] = useState(null);
     const [uninstallingConfirm, setUninstallingConfirm] = useState(null);
     const [showBulkSetup, setShowBulkSetup] = useState(false);
+    const [showImport, setShowImport] = useState(false);
     const [search, setSearch] = useState('');
 
     // Lookup by profile name. DB settings still merged via this map for
@@ -776,9 +975,19 @@ export default function HotspotProfiles() {
                     <Button
                         size="sm"
                         variant="secondary"
+                        onClick={() => setShowImport(true)}
+                        disabled={!selectedRouterId}
+                        title="Upload file backup MikHMON eksternal (JSON) → otomatis isi harga semua profile"
+                    >
+                        <Upload className="w-4 h-4 mr-1" />
+                        <span className="hidden sm:inline">Import </span>MikHMON
+                    </Button>
+                    <Button
+                        size="sm"
+                        variant="secondary"
                         onClick={() => setShowBulkSetup(true)}
                         disabled={!selectedRouterId || profiles.length === 0}
-                        title="Bulk setup harga + masa berlaku untuk semua profile sekaligus (cocok migrasi dari MikHMON eksternal)"
+                        title="Bulk setup harga + masa berlaku untuk semua profile sekaligus"
                     >
                         <ListPlus className="w-4 h-4 mr-1" />
                         <span className="hidden sm:inline">Setup </span>Cepat
@@ -1013,6 +1222,26 @@ export default function HotspotProfiles() {
                 onSubmit={(items) => {
                     bulkBillingMutation.mutate(items, {
                         onSuccess: () => setShowBulkSetup(false),
+                    });
+                }}
+                isSubmitting={bulkBillingMutation.isPending}
+            />
+
+            <ImportMikhmonModal
+                isOpen={showImport}
+                onClose={() => setShowImport(false)}
+                onSubmit={(items) => {
+                    // Filter to profiles that actually exist on this router so
+                    // we don't pollute settings with stale profile names from
+                    // the operator's old MikHMON setup.
+                    const existing = new Set(profiles.map((p) => p.name));
+                    const filtered = items.filter((it) => existing.has(it.profileName));
+                    if (filtered.length === 0) {
+                        toast.error('Tidak ada profile dalam backup yang cocok dengan router ini');
+                        return;
+                    }
+                    bulkBillingMutation.mutate(filtered, {
+                        onSuccess: () => setShowImport(false),
                     });
                 }}
                 isSubmitting={bulkBillingMutation.isPending}

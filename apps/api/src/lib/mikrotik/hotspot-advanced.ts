@@ -24,6 +24,7 @@ import { safeWrite } from './connection.js';
 export interface HotspotUserProfileFull {
     id: string;
     name: string;
+    comment?: string;
     sharedUsers?: string;
     rateLimit?: string;
     sessionTimeout?: string;
@@ -84,6 +85,7 @@ function mapProfile(p: any): HotspotUserProfileFull {
     return {
         id: p['.id'],
         name: p.name,
+        comment: p.comment,
         sharedUsers: p['shared-users'],
         rateLimit: p['rate-limit'],
         sessionTimeout: p['session-timeout'],

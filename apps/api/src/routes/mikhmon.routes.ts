@@ -98,6 +98,7 @@ import {
     uninstallMikhmonScripts,
     computeReports,
     parseMikhmonProfileConfig,
+    parseProfileCommentConfig,
     mergeMikhmonProfileSettings,
 } from '../services/mikhmon/mikhmon-billing.service.js';
 import {
@@ -219,7 +220,13 @@ router.get(
         for (const s of dbSettings) settingsByName.set(s.profileName, s);
 
         const enriched = profiles.map((p) => {
-            const parsed = parseMikhmonProfileConfig(p.onLogin);
+            const fromScript = parseMikhmonProfileConfig(p.onLogin);
+            const fromComment = parseProfileCommentConfig(p.comment);
+            // Combine script + comment parsers, script wins per-field
+            const parsed = fromScript || fromComment ? {
+                ...(fromComment || {}),
+                ...(fromScript || {}),
+            } : null;
             const merged = mergeMikhmonProfileSettings(settingsByName.get(p.name) || null, parsed);
             return {
                 ...p,

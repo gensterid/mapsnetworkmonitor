@@ -350,6 +350,74 @@ export function parseMikhmonProfileConfig(onLogin: string | undefined | null): P
 }
 
 /**
+ * Fallback parser for MikHMON forks that write profile metadata into
+ * the profile's `comment` field instead of (or in addition to) the
+ * on-login script. Common formats seen in the wild:
+ *
+ *   "1 | 5000 | catatan"                 — sharing | sellingPrice | note
+ *   "validity:1d|price:5000|lock:no"     — key:value pipe list
+ *   "1d | 5000"                          — validity | sellingPrice
+ *
+ * Returns the same ParsedMikhmonConfig shape so callers can treat it
+ * the same as the on-login parser. Returns null when no recognizable
+ * pattern is found.
+ */
+export function parseProfileCommentConfig(comment: string | undefined | null): ParsedMikhmonConfig | null {
+    if (!comment || typeof comment !== 'string') return null;
+    const trimmed = comment.trim();
+    if (!trimmed) return null;
+
+    const parsedNum = (s: string | undefined): number | undefined => {
+        if (s === undefined || s === null || s === '') return undefined;
+        const n = parseFloat(String(s).replace(/,/g, '').replace(/[^\d.-]/g, ''));
+        return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+
+    const out: ParsedMikhmonConfig = {};
+
+    // Try key:value pipe-list first (most explicit)
+    const kvMatches = trimmed.matchAll(/(\w+)\s*:\s*([^|;,]+)/gi);
+    let kvCount = 0;
+    for (const m of kvMatches) {
+        kvCount++;
+        const key = m[1].toLowerCase();
+        const value = m[2].trim();
+        if (key === 'validity' || key === 'valid') out.validity = value;
+        else if (key === 'price' || key === 'cost') out.price = parsedNum(value);
+        else if (key === 'selling' || key === 'sellingprice' || key === 'sell' || key === 'jual') out.sellingPrice = parsedNum(value);
+        else if (key === 'sharing' || key === 'shared') out.sharing = parseInt(value, 10) || undefined;
+        else if (key === 'lock' || key === 'lockuser') out.lockUser = /enable|true|yes|1/i.test(value);
+        else if (key === 'mode' || key === 'expiredmode') out.expiredMode = value;
+    }
+    if (kvCount >= 1 && (out.validity || out.price || out.sellingPrice)) return out;
+
+    // Pipe-separated positional (sharing | sellingPrice | note) OR
+    // (validity | sellingPrice). RouterOS profile name is the implicit
+    // first column from caller, so positional starts at sharing.
+    const parts = trimmed.split('|').map((s) => s.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+        // Heuristic: if the FIRST part looks like a number (sharing) and the
+        // SECOND looks numeric, treat as "sharing | sellingPrice"
+        // If the FIRST has letter (e.g. "1d"), treat as "validity | sellingPrice"
+        const a = parts[0];
+        const b = parts[1];
+        const aNum = parsedNum(a);
+        const bNum = parsedNum(b);
+        if (aNum !== undefined && bNum !== undefined && aNum < 100) {
+            // sharing | sellingPrice | note
+            out.sharing = parseInt(a, 10);
+            out.sellingPrice = bNum;
+        } else if (/^\d+[hdwms]/i.test(a) && bNum !== undefined) {
+            out.validity = a;
+            out.sellingPrice = bNum;
+        }
+        if (out.validity || out.sellingPrice) return out;
+    }
+
+    return null;
+}
+
+/**
  * Merge stored DB settings with parsed-script fallback. DB always wins
  * when present — operators who explicitly set values via the ⚡ button
  * should not be overridden by an old MikHMON external script.
@@ -475,20 +543,23 @@ export async function computeReports(
     // Per-profile "selling price" (Harga Jual) lookup with merge rules:
     //   1. DB row selling_price (operator set via ⚡ / bulk import)
     //   2. DB row price (legacy when only one field was filled)
-    //   3. Parsed `:local sellingPrice` from on-login script
-    //   4. Parsed `:local price` from on-login script
+    //   3. Parsed from on-login `:local sellingPrice/price` (MikHMON variants
+    //      that write to script)
+    //   4. Parsed from profile.comment (MikHMON variants that write there)
     //   5. 0 if none
-    // Reports income = SUM(sellingPrice across vouchers). Cost (price)
-    // is operator-side and not reflected in income — matches MikHMON
+    // Reports income = SUM(sellingPrice across vouchers). Matches MikHMON
     // external "Sales Report" semantic.
     const priceByProfile = new Map<string, number>();
     for (const row of profilesRaw || []) {
-        const parsed = parseMikhmonProfileConfig(row['on-login']);
-        const scriptPrice = parsed?.sellingPrice ?? parsed?.price ?? 0;
-        if (scriptPrice > 0) priceByProfile.set(row.name, scriptPrice);
+        const fromScript = parseMikhmonProfileConfig(row['on-login']);
+        const fromComment = parseProfileCommentConfig(row.comment);
+        const scriptPrice = fromScript?.sellingPrice ?? fromScript?.price ?? 0;
+        const commentPrice = fromComment?.sellingPrice ?? fromComment?.price ?? 0;
+        const v = scriptPrice > 0 ? scriptPrice : commentPrice;
+        if (v > 0) priceByProfile.set(row.name, v);
     }
-    // DB rows override the script fallback. Prefer selling_price; fall
-    // back to price for rows created before 0047 migration that only
+    // DB rows override the script/comment fallback. Prefer selling_price;
+    // fall back to price for rows created before 0047 migration that only
     // populated `price`.
     for (const p of prices) {
         const sell = parseFloat(String(p.sellingPrice ?? '0')) || 0;
