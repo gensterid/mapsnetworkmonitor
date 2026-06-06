@@ -650,6 +650,20 @@ export default function HotspotProfiles() {
         );
     }, [profiles, search]);
 
+    // Count profiles whose Harga Jual + Masa Berlaku is empty — these are
+    // the ones that need Setup Cepat for Reports income to compute. We
+    // skip the RouterOS-default profile (always there, never used for
+    // vouchers) so it doesn't pad the warning count.
+    const profilesMissingBilling = useMemo(() => {
+        return profiles.filter((p) => {
+            if (p.default) return false;
+            const b = resolveBilling(p);
+            const hasPrice = b?.sellingPrice && Number(b.sellingPrice) > 0;
+            const hasValidity = !!b?.validity;
+            return !hasPrice && !hasValidity;
+        });
+    }, [profiles, billingByName]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleAdd = (payload) => {
         // Extract MikHMON-only fields so the MikroTik /add call gets just
         // the RouterOS-native profile fields. mikhmon* fields are handled
@@ -762,6 +776,35 @@ export default function HotspotProfiles() {
             </div>
 
             {/* Search */}
+            {/* Setup banner — shows when there's at least one profile
+                without price/validity set. MikHMON external stores those
+                in browser localStorage, so existing setups land here with
+                empty fields and Reports income = Rp 0 until operator
+                clicks Setup Cepat. */}
+            {!isPending && profilesMissingBilling.length > 0 && (
+                <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 flex items-start gap-3">
+                    <div className="shrink-0 w-9 h-9 rounded-lg bg-amber-500/20 flex items-center justify-center text-xl">⚠️</div>
+                    <div className="flex-1 min-w-0">
+                        <div className="text-sm font-bold text-amber-200">
+                            {profilesMissingBilling.length} profile belum di-set Masa Berlaku / Harga Jual
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                            MikHMON eksternal simpan harga di <strong>browser localStorage</strong>, bukan di MikroTik.
+                            Jadi profile yang sudah ada perlu diisi sekali di app ini.
+                            Setelah disimpan, Reports income langsung muncul.
+                        </p>
+                        <Button
+                            size="sm"
+                            onClick={() => setShowBulkSetup(true)}
+                            className="mt-3"
+                        >
+                            <ListPlus className="w-4 h-4 mr-1" />
+                            Setup Cepat Sekarang
+                        </Button>
+                    </div>
+                </div>
+            )}
+
             <div className="relative">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
