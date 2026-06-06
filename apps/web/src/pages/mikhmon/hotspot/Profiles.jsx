@@ -46,6 +46,12 @@ const EMPTY_FORM = {
     incomingPacketMark: '',
     outgoingPacketMark: '',
     openStatusPage: '',
+    // MikHMON billing fields — only used in 'add' mode to bundle script
+    // install + price set into the same submit. Empty validity = skip
+    // wizard, operator can install later via the ⚡ button.
+    mikhmonValidity: '',
+    mikhmonPrice: '',
+    mikhmonLockUser: false,
 };
 
 function Field({ label, hint, children, span = 1 }) {
@@ -154,7 +160,7 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                 </div>
 
                 {/* MAC Cookie */}
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
                     <Field label="MAC Cookie Timeout" hint="auto-login dari MAC sama">
                         <TextInput value={form.macCookieTimeout} onChange={(v) => set('macCookieTimeout', v)} placeholder="3d" />
                     </Field>
@@ -166,6 +172,62 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                         />
                     </div>
                 </div>
+
+                {/* MikHMON Billing section — only meaningful in 'add' mode.
+                    Filling Validity here makes the parent auto-install the
+                    on-login script after the profile is created (1-step
+                    flow like MikHMON external). Skip = manual install via
+                    the ⚡ button later. */}
+                {mode === 'add' && (
+                    <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-3">
+                        <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                            <span>⚡</span>
+                            MikHMON Auto-Expire (opsional)
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                            Isi <span className="font-mono text-emerald-300">Validity</span> untuk auto-install script MikHMON v3 setelah profile dibuat.
+                            Voucher pakai profile ini akan auto-expire X waktu setelah <strong>first login</strong>.
+                            Kosongkan = skip script (bisa install belakangan via tombol ⚡).
+                        </p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <Field label="Validity" hint="contoh: 1d, 12h, 6h">
+                                <select
+                                    value={['1h', '3h', '6h', '12h', '1d', '3d', '7d', '30d', ''].includes(form.mikhmonValidity) ? form.mikhmonValidity : 'custom'}
+                                    onChange={(e) => { if (e.target.value !== 'custom') set('mikhmonValidity', e.target.value); }}
+                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                >
+                                    <option value="">(skip)</option>
+                                    <option value="1h">1 jam</option>
+                                    <option value="3h">3 jam</option>
+                                    <option value="6h">6 jam</option>
+                                    <option value="12h">12 jam</option>
+                                    <option value="1d">1 hari</option>
+                                    <option value="3d">3 hari</option>
+                                    <option value="7d">7 hari</option>
+                                    <option value="30d">30 hari</option>
+                                    <option value="custom">Custom…</option>
+                                </select>
+                            </Field>
+                            <Field label="Custom Validity">
+                                <TextInput value={form.mikhmonValidity} onChange={(v) => set('mikhmonValidity', v)} placeholder="2h30m / 5d / etc" />
+                            </Field>
+                            <Field label="Harga (Rp)" hint="dipakai di Reports">
+                                <input
+                                    type="number"
+                                    value={form.mikhmonPrice}
+                                    onChange={(e) => set('mikhmonPrice', e.target.value)}
+                                    placeholder="5000"
+                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                />
+                            </Field>
+                        </div>
+                        <CheckboxField
+                            label="Lock voucher ke MAC pertama yang login"
+                            checked={form.mikhmonLockUser}
+                            onChange={(v) => set('mikhmonLockUser', v)}
+                        />
+                    </div>
+                )}
 
                 {/* On Login / Logout script (MikHMON usage tracker biasanya tulis di sini) */}
                 <div className="grid grid-cols-1 gap-3">
@@ -404,8 +466,51 @@ export default function HotspotProfiles() {
     }, [profiles, search]);
 
     const handleAdd = (payload) => {
-        addMutation.mutate(payload, {
-            onSuccess: () => setModalMode(null),
+        // Extract MikHMON-only fields so the MikroTik /add call gets just
+        // the RouterOS-native profile fields. mikhmon* fields are handled
+        // after the profile is successfully created.
+        const { mikhmonValidity, mikhmonPrice, mikhmonLockUser, ...routerOsPayload } = payload;
+
+        addMutation.mutate(routerOsPayload, {
+            onSuccess: async (resp) => {
+                setModalMode(null);
+
+                const profileId = resp?.data?.id || resp?.id;
+                const profileName = routerOsPayload.name;
+                const wantsWizard = !!(mikhmonValidity || '').trim();
+
+                if (wantsWizard && profileId && profileName) {
+                    // 1) Save price + validity + lock to settings (so Reports
+                    //    can compute income for this profile right away).
+                    try {
+                        await upsertBillingMutation.mutateAsync({
+                            profileName,
+                            price: mikhmonPrice ? Number(mikhmonPrice) : 0,
+                            validity: mikhmonValidity.trim(),
+                            lockUser: !!mikhmonLockUser,
+                        });
+                    } catch { /* toast already shown by hook */ }
+
+                    // 2) Install the on-login/on-logout scripts via the
+                    //    Script Wizard. RouterOS scheduler `mikhmon-cleanup`
+                    //    master is ensured server-side.
+                    try {
+                        await installMutation.mutateAsync({
+                            profileId,
+                            input: { validity: mikhmonValidity.trim(), lockUser: !!mikhmonLockUser },
+                        });
+                    } catch { /* toast already shown by hook */ }
+                } else if (mikhmonPrice && Number(mikhmonPrice) > 0 && profileName) {
+                    // Validity skipped but price set — still persist price so
+                    // Reports can use it. No scripts installed.
+                    try {
+                        await upsertBillingMutation.mutateAsync({
+                            profileName,
+                            price: Number(mikhmonPrice),
+                        });
+                    } catch { /* noop */ }
+                }
+            },
         });
     };
 

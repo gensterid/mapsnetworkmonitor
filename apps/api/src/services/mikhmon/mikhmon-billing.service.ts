@@ -367,20 +367,22 @@ export async function computeReports(
         const status = classifyStatus(v);
         summary[status]++;
         const price = priceByProfile.get(v.profile) || 0;
-        // Income recognized only for vouchers that have been used at least
-        // once (or expired = used in some past moment). MikHMON convention.
-        const isIncome = status !== 'unused';
-        if (isIncome) summary.income += price;
+
+        // MikHMON external "Sold" semantic: income recognized at generation
+        // time (operator already collected money for the voucher when it
+        // was printed/sold), regardless of whether the end-user has
+        // logged in yet. Matches MikHMON v3 Reports tab behavior.
+        summary.income += price;
 
         const p = byProfile.get(v.profile) || { count: 0, income: 0 };
         p.count++;
-        if (isIncome) p.income += price;
+        p.income += price;
         byProfile.set(v.profile, p);
 
         const day = ymd(v.generatedAt);
         const d = byDay.get(day) || { count: 0, income: 0 };
         d.count++;
-        if (isIncome) d.income += price;
+        d.income += price;
         byDay.set(day, d);
     }
 
