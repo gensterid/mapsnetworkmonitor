@@ -36,6 +36,15 @@ export const mikhmonProfileSettings = pgTable('mikhmon_profile_settings', {
     validity: text('validity'),
 
     /**
+     * RouterOS `limit-uptime` baked into each generated voucher. Different
+     * from `validity` — limit-uptime counts cumulative connected time,
+     * validity counts wall clock from first login. Operators often
+     * combine both (e.g. "1d validity / 10h uptime" — expires whichever
+     * comes first).
+     */
+    limitUptime: text('limit_uptime'),
+
+    /**
      * MikHMON v3 "Expired Mode" — what to do when voucher validity ends.
      *   Remove          — delete user + scheduler (default, most common)
      *   Notice          — just log a notice, keep user

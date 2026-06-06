@@ -54,6 +54,7 @@ const EMPTY_FORM = {
     // install + price set into the same submit. Empty validity = skip
     // wizard, operator can install later via the ⚡ button.
     mikhmonValidity: '',
+    mikhmonLimitUptime: '',
     mikhmonExpiredMode: 'Remove',
     mikhmonPrice: '',
     mikhmonSellingPrice: '',
@@ -226,7 +227,9 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                             <Field label="Custom Validity (override)">
                                 <TextInput value={form.mikhmonValidity} onChange={(v) => set('mikhmonValidity', v)} placeholder="2h30m / 5d / etc" />
                             </Field>
-                            <div /> {/* spacer */}
+                            <Field label="Limit Uptime" hint="cumulative connect time · beda dengan Masa Berlaku · contoh: 10h, 5h30m">
+                                <TextInput value={form.mikhmonLimitUptime} onChange={(v) => set('mikhmonLimitUptime', v)} placeholder="10h" />
+                            </Field>
                             <Field label="Harga Rp" hint="biaya operator (opsional)">
                                 <input
                                     type="number"
@@ -445,6 +448,7 @@ function BulkSetupModal({ isOpen, onClose, profiles, currentRows, onSubmit, isSu
             init[p.name] = {
                 profileName: p.name,
                 validity: existing.validity || '1d',
+                limitUptime: existing.limitUptime || '',
                 expiredMode: existing.expiredMode || 'Remove',
                 price: existing.price || '',
                 sellingPrice: existing.sellingPrice || existing.price || '',
@@ -461,10 +465,11 @@ function BulkSetupModal({ isOpen, onClose, profiles, currentRows, onSubmit, isSu
     const handleSubmit = (e) => {
         e.preventDefault();
         const items = Object.values(rows)
-            .filter((r) => r.validity || r.price || r.sellingPrice)
+            .filter((r) => r.validity || r.limitUptime || r.price || r.sellingPrice)
             .map((r) => ({
                 profileName: r.profileName,
                 validity: r.validity || undefined,
+                limitUptime: r.limitUptime || undefined,
                 expiredMode: r.expiredMode || 'Remove',
                 price: r.price ? Number(r.price) : 0,
                 sellingPrice: r.sellingPrice ? Number(r.sellingPrice) : (r.price ? Number(r.price) : 0),
@@ -490,6 +495,7 @@ function BulkSetupModal({ isOpen, onClose, profiles, currentRows, onSubmit, isSu
                                     <th className="text-left px-3 py-2">Nama</th>
                                     <th className="text-left px-3 py-2 w-[140px]">Mode Kedaluwarsa</th>
                                     <th className="text-left px-3 py-2 w-[110px]">Masa Berlaku</th>
+                                    <th className="text-left px-3 py-2 w-[110px]">Limit Uptime</th>
                                     <th className="text-right px-3 py-2 w-[110px]">Harga Rp</th>
                                     <th className="text-right px-3 py-2 w-[110px]">Harga Jual Rp</th>
                                     <th className="text-center px-3 py-2 w-[90px]">Kunci User</th>
@@ -522,6 +528,16 @@ function BulkSetupModal({ isOpen, onClose, profiles, currentRows, onSubmit, isSu
                                                 <datalist id={`validity-presets-${p.name}`}>
                                                     {VALIDITY_PRESETS.filter(Boolean).map((v) => <option key={v} value={v} />)}
                                                 </datalist>
+                                            </td>
+                                            <td className="px-3 py-1.5">
+                                                <input
+                                                    type="text"
+                                                    value={r.limitUptime || ''}
+                                                    onChange={(e) => setRow(p.name, 'limitUptime', e.target.value)}
+                                                    placeholder="(opsional) 10h"
+                                                    title="Cumulative connect time. Beda dengan Masa Berlaku. Kosongkan kalau tidak pakai."
+                                                    className="w-full bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs font-mono rounded px-2 py-1"
+                                                />
                                             </td>
                                             <td className="px-3 py-1.5">
                                                 <input
@@ -670,6 +686,7 @@ export default function HotspotProfiles() {
         // after the profile is successfully created.
         const {
             mikhmonValidity,
+            mikhmonLimitUptime,
             mikhmonExpiredMode,
             mikhmonPrice,
             mikhmonSellingPrice,
@@ -685,6 +702,7 @@ export default function HotspotProfiles() {
                 const profileName = routerOsPayload.name;
                 const wantsWizard = !!(mikhmonValidity || '').trim();
                 const hasAnyBilling = wantsWizard
+                    || !!(mikhmonLimitUptime || '').trim()
                     || (mikhmonPrice && Number(mikhmonPrice) > 0)
                     || (mikhmonSellingPrice && Number(mikhmonSellingPrice) > 0);
 
@@ -698,6 +716,7 @@ export default function HotspotProfiles() {
                             price: mikhmonPrice ? Number(mikhmonPrice) : 0,
                             sellingPrice: mikhmonSellingPrice ? Number(mikhmonSellingPrice) : (mikhmonPrice ? Number(mikhmonPrice) : 0),
                             validity: wantsWizard ? mikhmonValidity.trim() : undefined,
+                            limitUptime: (mikhmonLimitUptime || '').trim() || undefined,
                             expiredMode: mikhmonExpiredMode || 'Remove',
                             lockUser: !!mikhmonLockUser,
                         });
@@ -876,11 +895,14 @@ export default function HotspotProfiles() {
                                         </span>
                                     </td>
                                     <td className="px-3 py-2.5 font-mono text-xs">
-                                        {b?.validity ? (
-                                            <span className="text-emerald-300">{b.validity}</span>
-                                        ) : (
-                                            <span className="text-slate-600">—</span>
-                                        )}
+                                        <div className="flex flex-col gap-0.5">
+                                            <span title="Masa Berlaku — sejak first login" className={b?.validity ? 'text-emerald-300' : 'text-slate-600'}>
+                                                {b?.validity || '—'}
+                                            </span>
+                                            <span title="Limit Uptime — cumulative connect time" className={b?.limitUptime ? 'text-cyan-300 text-[10px]' : 'text-slate-700 text-[10px]'}>
+                                                {b?.limitUptime ? `⏱ ${b.limitUptime}` : ''}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td className="px-3 py-2.5 font-mono text-xs text-right">
                                         {b?.price && parseFloat(b.price) > 0 ? (

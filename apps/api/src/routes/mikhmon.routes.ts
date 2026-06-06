@@ -1381,6 +1381,7 @@ const profileSettingsSchema = z.object({
     price: z.union([z.number(), z.string()]).optional(),
     sellingPrice: z.union([z.number(), z.string()]).optional(),
     validity: z.string().optional(),
+    limitUptime: z.string().optional(),
     expiredMode: z.enum(['Remove', 'Notice', 'Notice & Remove']).optional(),
     lockUser: z.boolean().optional(),
     sharedUsers: z.number().int().optional(),

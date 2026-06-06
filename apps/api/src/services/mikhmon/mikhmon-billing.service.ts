@@ -31,6 +31,7 @@ export interface ProfileSettingsInput {
     price?: number | string;
     sellingPrice?: number | string;
     validity?: string;
+    limitUptime?: string;
     expiredMode?: string;
     lockUser?: boolean;
     sharedUsers?: number;
@@ -76,6 +77,7 @@ export async function upsertProfileSetting(
         if (input.price !== undefined) update.price = String(input.price);
         if (input.sellingPrice !== undefined) update.sellingPrice = String(input.sellingPrice);
         if (input.validity !== undefined) update.validity = input.validity;
+        if (input.limitUptime !== undefined) update.limitUptime = input.limitUptime;
         if (input.expiredMode !== undefined) update.expiredMode = input.expiredMode;
         if (input.lockUser !== undefined) update.lockUser = input.lockUser;
         if (input.sharedUsers !== undefined) update.sharedUsers = input.sharedUsers;
@@ -90,6 +92,7 @@ export async function upsertProfileSetting(
         price: values.price ?? '0',
         sellingPrice: input.sellingPrice !== undefined ? String(input.sellingPrice) : (values.price ?? '0'),
         validity: input.validity ?? null,
+        limitUptime: input.limitUptime ?? null,
         expiredMode: input.expiredMode ?? 'Remove',
         lockUser: input.lockUser ?? false,
         sharedUsers: input.sharedUsers ?? 1,
@@ -361,6 +364,7 @@ export function mergeMikhmonProfileSettings(
     };
     return {
         validity: dbRow?.validity ?? parsed?.validity ?? null,
+        limitUptime: dbRow?.limitUptime ?? null,
         expiredMode: dbRow?.expiredMode ?? parsed?.expiredMode ?? 'Remove',
         // Price = cost, sellingPrice = revenue. When operator only filled
         // one of them (legacy 0046 schema or single-input UI), use it as

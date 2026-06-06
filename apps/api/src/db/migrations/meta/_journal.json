@@ -337,6 +337,13 @@
       "when": 1780910000000,
       "tag": "0047_mikhmon_profile_more_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1780920000000,
+      "tag": "0048_mikhmon_profile_limit_uptime",
+      "breakpoints": true
     }
   ]
 }

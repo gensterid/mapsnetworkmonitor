@@ -79,6 +79,22 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
         if (isOpen) setForm(EMPTY_FORM);
     }, [isOpen]);
 
+    // Auto-fill limitUptime from the selected profile's billing config
+    // (operator can still override). Updates only when the operator's
+    // current limitUptime is empty so we don't clobber a manual entry.
+    useEffect(() => {
+        if (!form.profile || !profiles?.length) return;
+        const p = profiles.find((x) => x.name === form.profile);
+        const billing = p?.billing;
+        if (!billing) return;
+        setForm((f) => {
+            const next = { ...f };
+            if (!f.limitUptime?.trim() && billing.limitUptime) next.limitUptime = billing.limitUptime;
+            return next;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form.profile, profiles]);
+
     const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
     const handleSubmit = (e) => {
