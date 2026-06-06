@@ -97,6 +97,8 @@ import {
     installMikhmonScripts,
     uninstallMikhmonScripts,
     computeReports,
+    parseMikhmonProfileConfig,
+    mergeMikhmonProfileSettings,
 } from '../services/mikhmon/mikhmon-billing.service.js';
 import {
     listSimpleQueues,
@@ -204,10 +206,31 @@ router.get(
             res.set('X-Cache', 'HIT');
             return res.json({ data: cached });
         }
-        const profiles = await listHotspotUserProfiles(req.mtConn);
-        await cacheService.set(cacheKey, profiles, cacheService.TTL.MIKHMON_STATIC);
+
+        // Read RouterOS profiles + DB settings in parallel, then merge so
+        // the UI sees one consistent shape. The parser reads MikHMON
+        // external's :local declarations from on-login so existing
+        // MikHMON setups light up the table without re-entry.
+        const [profiles, dbSettings] = await Promise.all([
+            listHotspotUserProfiles(req.mtConn),
+            listProfileSettings(routerId),
+        ]);
+        const settingsByName = new Map<string, any>();
+        for (const s of dbSettings) settingsByName.set(s.profileName, s);
+
+        const enriched = profiles.map((p) => {
+            const parsed = parseMikhmonProfileConfig(p.onLogin);
+            const merged = mergeMikhmonProfileSettings(settingsByName.get(p.name) || null, parsed);
+            return {
+                ...p,
+                mikhmonConfig: parsed,
+                billing: merged,
+            };
+        });
+
+        await cacheService.set(cacheKey, enriched, cacheService.TTL.MIKHMON_STATIC);
         res.set('X-Cache', 'MISS');
-        res.json({ data: profiles });
+        res.json({ data: enriched });
     })
 );
 

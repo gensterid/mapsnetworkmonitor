@@ -255,6 +255,118 @@ export function isProfileMikhmonManaged(profile: any): boolean {
     return a.includes(MIKHMON_MARKER);
 }
 
+/**
+ * Parse MikHMON v3 configuration embedded as RouterOS `:local` variables
+ * in a profile's on-login script.
+ *
+ * MikHMON external stores per-profile metadata (validity, price, sharing,
+ * lock, mode, prefix, etc.) by writing them to the top of the on-login
+ * script as :local declarations. This lets the config travel WITH the
+ * profile on the router itself — operators who later switch routers /
+ * browsers keep their setup. Example header MikHMON v3 emits:
+ *
+ *   :local validity "1d"
+ *   :local sharing 1
+ *   :local price "5000"
+ *   :local sellingPrice "5000"
+ *   :local userMode "vc"
+ *   :local lockUser "Disable"
+ *   :local nameLength 4
+ *   :local prefix ""
+ *   :local charType "lowcase"
+ *   :local serverName ""
+ *
+ * Returns null when the script doesn't contain a recognizable MikHMON
+ * config (so operator-written profiles aren't mis-identified).
+ */
+export interface ParsedMikhmonConfig {
+    validity?: string;
+    price?: number;
+    sellingPrice?: number;
+    sharing?: number;
+    lockUser?: boolean;
+    userMode?: string;
+    nameLength?: number;
+    prefix?: string;
+    charType?: string;
+    serverName?: string;
+}
+
+const MIKHMON_LOCAL_RE = /^\s*:local\s+(\w+)\s+(?:"([^"]*)"|(-?\d+(?:\.\d+)?)|(\S+))\s*;?\s*$/;
+
+export function parseMikhmonProfileConfig(onLogin: string | undefined | null): ParsedMikhmonConfig | null {
+    if (!onLogin || typeof onLogin !== 'string') return null;
+
+    const found: Record<string, string> = {};
+    for (const line of onLogin.split('\n')) {
+        const m = MIKHMON_LOCAL_RE.exec(line);
+        if (!m) continue;
+        const key = m[1];
+        const value = m[2] !== undefined ? m[2] : (m[3] !== undefined ? m[3] : m[4]);
+        found[key] = value;
+    }
+
+    // Heuristic: only treat as MikHMON config if at least one of the
+    // distinctive keys is present. This avoids false positives on
+    // operator scripts that happen to use :local for unrelated reasons.
+    const hasCore = ['validity', 'price', 'sellingPrice', 'userMode', 'lockUser'].some((k) => k in found);
+    if (!hasCore) return null;
+
+    const parsedNum = (s: string | undefined): number | undefined => {
+        if (s === undefined || s === null || s === '') return undefined;
+        const n = parseFloat(String(s).replace(/,/g, ''));
+        return Number.isFinite(n) ? n : undefined;
+    };
+    const parsedInt = (s: string | undefined): number | undefined => {
+        if (s === undefined || s === null || s === '') return undefined;
+        const n = parseInt(String(s), 10);
+        return Number.isFinite(n) ? n : undefined;
+    };
+
+    return {
+        validity: found.validity || undefined,
+        price: parsedNum(found.price),
+        sellingPrice: parsedNum(found.sellingPrice),
+        sharing: parsedInt(found.sharing),
+        // MikHMON v3 stores "Enable" / "Disable" strings
+        lockUser: found.lockUser ? /enable|true|yes|1/i.test(found.lockUser) : undefined,
+        userMode: found.userMode || undefined,
+        nameLength: parsedInt(found.nameLength),
+        prefix: found.prefix || undefined,
+        charType: found.charType || undefined,
+        serverName: found.serverName || undefined,
+    };
+}
+
+/**
+ * Merge stored DB settings with parsed-script fallback. DB always wins
+ * when present — operators who explicitly set values via the ⚡ button
+ * should not be overridden by an old MikHMON external script.
+ */
+export function mergeMikhmonProfileSettings(
+    dbRow: any | null,
+    parsed: ParsedMikhmonConfig | null,
+) {
+    const pickPrice = (a: any, b: any) => {
+        const aHas = a !== null && a !== undefined && a !== '' && Number(a) > 0;
+        return aHas ? a : (b ?? 0);
+    };
+    return {
+        validity: dbRow?.validity ?? parsed?.validity ?? null,
+        price: pickPrice(dbRow?.price, parsed?.sellingPrice ?? parsed?.price),
+        sellingPrice: pickPrice(dbRow?.price, parsed?.sellingPrice ?? parsed?.price),
+        sharedUsers: dbRow?.sharedUsers ?? parsed?.sharing ?? null,
+        lockUser: dbRow?.lockUser ?? parsed?.lockUser ?? false,
+        scriptsInstalled: !!dbRow?.scriptsInstalled,
+        // From parser only — operator-side info
+        userMode: parsed?.userMode ?? null,
+        prefix: parsed?.prefix ?? null,
+        charType: parsed?.charType ?? null,
+        nameLength: parsed?.nameLength ?? null,
+        serverName: parsed?.serverName ?? null,
+    };
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Reports
 //
@@ -335,13 +447,31 @@ export async function computeReports(
     routerId: string,
     range: { from?: Date; to?: Date } = {},
 ): Promise<ReportsSummary> {
-    const snapshot = await loadVoucherSnapshot(api);
-    const prices = await db
-        .select()
-        .from(mikhmonProfileSettings)
-        .where(eq(mikhmonProfileSettings.routerId, routerId));
+    const [snapshot, prices, profilesRaw] = await Promise.all([
+        loadVoucherSnapshot(api),
+        db.select().from(mikhmonProfileSettings).where(eq(mikhmonProfileSettings.routerId, routerId)),
+        safeWrite(api, '/ip/hotspot/user/profile/print'),
+    ]);
+
+    // Per-profile price lookup with the same merge rules as the UI:
+    //   1. DB row price (operator explicitly set it via ⚡ button)
+    //   2. Parsed `:local sellingPrice` from on-login script
+    //   3. Parsed `:local price` from on-login script
+    //   4. 0 if neither
+    // This is how vouchers from a MikHMON external setup (where prices
+    // live in the profile script) end up contributing real income to
+    // the Reports tab without the operator having to re-enter them.
     const priceByProfile = new Map<string, number>();
-    for (const p of prices) priceByProfile.set(p.profileName, parseFloat(String(p.price)) || 0);
+    for (const row of profilesRaw || []) {
+        const parsed = parseMikhmonProfileConfig(row['on-login']);
+        const scriptPrice = parsed?.sellingPrice ?? parsed?.price ?? 0;
+        if (scriptPrice > 0) priceByProfile.set(row.name, scriptPrice);
+    }
+    // DB rows override the script fallback
+    for (const p of prices) {
+        const v = parseFloat(String(p.price)) || 0;
+        if (v > 0) priceByProfile.set(p.profileName, v);
+    }
 
     const fromTs = range.from?.getTime() ?? 0;
     const toTs = range.to?.getTime() ?? Date.now() + 86400_000;

@@ -419,7 +419,9 @@ export default function HotspotProfiles() {
     const [uninstallingConfirm, setUninstallingConfirm] = useState(null);
     const [search, setSearch] = useState('');
 
-    // Lookup by profile name for quick badge + tooltip lookup
+    // Lookup by profile name. DB settings still merged via this map for
+    // legacy callers; primary display now reads p.billing emitted by the
+    // backend (which merges DB > parsed-from-script > null).
     const billingByName = useMemo(() => {
         const m = new Map();
         for (const b of billingSettings) m.set(b.profileName, b);
@@ -428,8 +430,21 @@ export default function HotspotProfiles() {
 
     const isMikhmonManaged = (p) => {
         if (typeof p.onLogin === 'string' && p.onLogin.includes('#mikhmon-managed')) return true;
+        if (p.billing?.scriptsInstalled) return true;
+        if (p.mikhmonConfig) return true; // existing MikHMON-external profile
         const b = billingByName.get(p.name);
         return !!(b?.scriptsInstalled);
+    };
+
+    // Resolve the displayed validity + price for a row. Priority:
+    //   1. Backend-merged `p.billing` (DB > parsed)
+    //   2. DB-only billingByName (older paths)
+    const resolveBilling = (p) => {
+        const fromBackend = p.billing;
+        if (fromBackend && (fromBackend.validity || (fromBackend.price && Number(fromBackend.price) > 0))) {
+            return fromBackend;
+        }
+        return billingByName.get(p.name) || null;
     };
 
     const handleInstall = (payload) => {
@@ -600,7 +615,7 @@ export default function HotspotProfiles() {
                                     {profiles.length === 0 ? 'Belum ada profile. Klik "Tambah Profile" untuk mulai.' : 'Tidak ada profile yang cocok.'}
                                 </td></tr>
                             ) : filtered.map((p) => {
-                                const b = billingByName.get(p.name);
+                                const b = resolveBilling(p);
                                 const managed = isMikhmonManaged(p);
                                 return (
                                 <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
@@ -711,8 +726,8 @@ export default function HotspotProfiles() {
                 isOpen={!!installing}
                 onClose={() => setInstalling(null)}
                 profile={installing}
-                defaultValidity={billingByName.get(installing?.name || '')?.validity}
-                defaultPrice={billingByName.get(installing?.name || '')?.price}
+                defaultValidity={installing ? (resolveBilling(installing)?.validity || '') : ''}
+                defaultPrice={installing ? (resolveBilling(installing)?.price || '') : ''}
                 onSubmit={handleInstall}
                 isSubmitting={installMutation.isPending || upsertBillingMutation.isPending}
             />
