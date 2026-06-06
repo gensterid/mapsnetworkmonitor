@@ -90,6 +90,15 @@ import {
     removeMikhmonVoucher,
 } from '../services/mikhmon/mikhmon-voucher.service.js';
 import {
+    listProfileSettings,
+    getProfileSetting,
+    upsertProfileSetting,
+    deleteProfileSetting,
+    installMikhmonScripts,
+    uninstallMikhmonScripts,
+    computeReports,
+} from '../services/mikhmon/mikhmon-billing.service.js';
+import {
     listSimpleQueues,
     addSimpleQueue,
     setSimpleQueue,
@@ -1337,6 +1346,156 @@ router.delete(
         await removeMikhmonVoucher(req.mtConn, id);
         await invalidateMikhmonVoucherCache(paramStr(req.params.routerId));
         res.json({ data: { id, deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// MikHMON Profile Settings (Phase A10.1) — price + validity per profile
+// ─────────────────────────────────────────────────────────────────────────
+
+const profileSettingsSchema = z.object({
+    profileName: z.string().min(1, 'profileName wajib'),
+    price: z.union([z.number(), z.string()]).optional(),
+    validity: z.string().optional(),
+    lockUser: z.boolean().optional(),
+    sharedUsers: z.number().int().optional(),
+});
+
+router.get(
+    '/:routerId/billing/profiles',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const routerId = paramStr(req.params.routerId);
+        const items = await listProfileSettings(routerId);
+        res.json({ data: items });
+    })
+);
+
+router.get(
+    '/:routerId/billing/profiles/:profileName',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const row = await getProfileSetting(paramStr(req.params.routerId), paramStr(req.params.profileName));
+        res.json({ data: row });
+    })
+);
+
+router.put(
+    '/:routerId/billing/profiles',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const tenantId = req.mtRouter?.tenantId;
+        if (!tenantId) throw new ApiError(400, 'tenant tidak terdeteksi');
+        const input = profileSettingsSchema.parse(req.body);
+        const saved = await upsertProfileSetting(tenantId, paramStr(req.params.routerId), input);
+        res.json({ data: saved });
+    })
+);
+
+router.delete(
+    '/:routerId/billing/profiles/:profileName',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        await deleteProfileSetting(paramStr(req.params.routerId), paramStr(req.params.profileName));
+        res.json({ data: { deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// MikHMON Script Wizard (Phase A10.2)
+// ─────────────────────────────────────────────────────────────────────────
+
+const installScriptsSchema = z.object({
+    validity: z.string().min(2, 'validity wajib (contoh: 1d, 12h)'),
+    lockUser: z.boolean().optional(),
+});
+
+router.post(
+    '/:routerId/hotspot/profiles/:id/install-scripts',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'profile id wajib');
+        const input = installScriptsSchema.parse(req.body);
+
+        // Look up the profile name from RouterOS so we can record it in
+        // mikhmon_profile_settings (the wizard records the validity/lock
+        // alongside the existing price entry if one exists).
+        const printed = await import('../lib/mikrotik/connection.js').then((m) =>
+            m.safeWrite(req.mtConn, ['/ip/hotspot/user/profile/print', `?.id=${id}`]),
+        );
+        const profileName = printed?.[0]?.name;
+        if (!profileName) throw new ApiError(404, 'profile tidak ditemukan');
+
+        await installMikhmonScripts(req.mtConn, id, profileName, input.validity, !!input.lockUser);
+
+        // Sync settings row + flip scripts_installed flag
+        const tenantId = req.mtRouter?.tenantId;
+        if (tenantId) {
+            await upsertProfileSetting(tenantId, paramStr(req.params.routerId), {
+                profileName,
+                validity: input.validity,
+                lockUser: !!input.lockUser,
+            });
+            // Flip the install flag (upsertProfileSetting doesn't touch it)
+            const { db } = await import('../db/index.js');
+            const { mikhmonProfileSettings } = await import('../db/schema/mikhmon.js');
+            const { and, eq } = await import('drizzle-orm');
+            await db.update(mikhmonProfileSettings)
+                .set({ scriptsInstalled: true, scriptsInstalledAt: new Date() })
+                .where(and(
+                    eq(mikhmonProfileSettings.routerId, paramStr(req.params.routerId)),
+                    eq(mikhmonProfileSettings.profileName, profileName),
+                ));
+        }
+
+        await cacheService.delete(`mikhmon:${paramStr(req.params.routerId)}:hotspot:profiles`).catch(() => {});
+        res.json({ data: { installed: true, profileName, validity: input.validity, lockUser: !!input.lockUser } });
+    })
+);
+
+router.post(
+    '/:routerId/hotspot/profiles/:id/uninstall-scripts',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const id = paramStr(req.params.id);
+        if (!id) throw new ApiError(400, 'profile id wajib');
+        await uninstallMikhmonScripts(req.mtConn, id);
+
+        // Flip scripts_installed flag back to false (lookup by profile name)
+        const printed = await import('../lib/mikrotik/connection.js').then((m) =>
+            m.safeWrite(req.mtConn, ['/ip/hotspot/user/profile/print', `?.id=${id}`]),
+        );
+        const profileName = printed?.[0]?.name;
+        if (profileName) {
+            const { db } = await import('../db/index.js');
+            const { mikhmonProfileSettings } = await import('../db/schema/mikhmon.js');
+            const { and, eq } = await import('drizzle-orm');
+            await db.update(mikhmonProfileSettings)
+                .set({ scriptsInstalled: false, scriptsInstalledAt: null })
+                .where(and(
+                    eq(mikhmonProfileSettings.routerId, paramStr(req.params.routerId)),
+                    eq(mikhmonProfileSettings.profileName, profileName),
+                ));
+        }
+
+        await cacheService.delete(`mikhmon:${paramStr(req.params.routerId)}:hotspot:profiles`).catch(() => {});
+        res.json({ data: { uninstalled: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// MikHMON Reports (Phase A10.3)
+// ─────────────────────────────────────────────────────────────────────────
+
+router.get(
+    '/:routerId/reports/sales',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+        const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+        const data = await computeReports(req.mtConn, paramStr(req.params.routerId), { from, to });
+        res.json({ data });
     })
 );
 

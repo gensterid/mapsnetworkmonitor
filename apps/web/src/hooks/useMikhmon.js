@@ -33,6 +33,8 @@ export const mikhmonKeys = {
     systemScheduler: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'scheduler'],
     backup: (routerId) => [...mikhmonKeys.all(routerId), 'system', 'backup'],
     vouchers: (routerId) => [...mikhmonKeys.all(routerId), 'vouchers'],
+    profileBilling: (routerId) => [...mikhmonKeys.all(routerId), 'billing', 'profiles'],
+    reports: (routerId, range) => [...mikhmonKeys.all(routerId), 'reports', range || {}],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -534,5 +536,75 @@ export function useDeleteMikhmonVoucher(routerId) {
             qc.invalidateQueries({ queryKey: mikhmonKeys.vouchers(routerId) });
         },
         onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal hapus voucher'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Profile Billing settings (A10.1) — price + validity per profile
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useProfileBillingSettings(routerId, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.profileBilling(routerId),
+        queryFn: () => mikhmonApi.profileBilling.list(routerId),
+        enabled: !!routerId,
+        staleTime: 30 * 1000,
+        ...options,
+    });
+}
+
+export function useUpsertProfileBillingSetting(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (input) => mikhmonApi.profileBilling.upsert(routerId, input),
+        onSuccess: () => {
+            toast.success('Setting profile tersimpan');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.profileBilling(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal simpan setting'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Script Wizard (A10.2)
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useInstallMikhmonScripts(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ profileId, input }) => mikhmonApi.scriptWizard.install(routerId, profileId, input),
+        onSuccess: () => {
+            toast.success('Script MikHMON terpasang — voucher akan auto-expire setelah first login');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotProfiles(routerId) });
+            qc.invalidateQueries({ queryKey: mikhmonKeys.profileBilling(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal install script'),
+    });
+}
+
+export function useUninstallMikhmonScripts(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (profileId) => mikhmonApi.scriptWizard.uninstall(routerId, profileId),
+        onSuccess: () => {
+            toast.success('Script MikHMON dilepas dari profile');
+            qc.invalidateQueries({ queryKey: mikhmonKeys.hotspotProfiles(routerId) });
+            qc.invalidateQueries({ queryKey: mikhmonKeys.profileBilling(routerId) });
+        },
+        onError: (err) => toast.error(err?.response?.data?.error || err?.message || 'Gagal uninstall'),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Reports (A10.3)
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useMikhmonReports(routerId, range = {}, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.reports(routerId, range),
+        queryFn: () => mikhmonApi.reports.sales(routerId, range),
+        enabled: !!routerId,
+        staleTime: 30 * 1000,
+        ...options,
     });
 }

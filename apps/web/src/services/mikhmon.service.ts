@@ -138,6 +138,26 @@ export const mikhmonApi = {
         generate: (routerId, input) => apiClient.post(`/mikhmon/${routerId}/vouchers/generate`, input).then((r) => r.data),
         remove: (routerId, id) => del(`/mikhmon/${routerId}/vouchers/${encodeURIComponent(id)}`),
     },
+    profileBilling: {
+        list: (routerId) => get(`/mikhmon/${routerId}/billing/profiles`),
+        get: (routerId, profileName) => get(`/mikhmon/${routerId}/billing/profiles/${encodeURIComponent(profileName)}`),
+        upsert: (routerId, input) => apiClient.put(`/mikhmon/${routerId}/billing/profiles`, input).then((r) => r.data?.data),
+        remove: (routerId, profileName) => del(`/mikhmon/${routerId}/billing/profiles/${encodeURIComponent(profileName)}`),
+    },
+    scriptWizard: {
+        install: (routerId, profileId, input) =>
+            post(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(profileId)}/install-scripts`, input),
+        uninstall: (routerId, profileId) =>
+            post(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(profileId)}/uninstall-scripts`),
+    },
+    reports: {
+        sales: (routerId, { from, to } = {}) => {
+            const params = {};
+            if (from) params.from = from;
+            if (to) params.to = to;
+            return get(`/mikhmon/${routerId}/reports/sales`, { params });
+        },
+    },
 };
 
 export default mikhmonApi;

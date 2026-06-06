@@ -19,4 +19,5 @@ export * from './router_backups.js';
 export * from './genieacs-backups.js';
 export * from './client-bandwidth.js';
 export * from './billing.js';
+export * from './mikhmon.js';
 export * from './netwatch-history.js';
