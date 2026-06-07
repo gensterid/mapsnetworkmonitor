@@ -220,7 +220,8 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
             maxWidth="max-w-3xl"
         >
             <form onSubmit={handleSubmit} className="space-y-4">
-                {/* IDENTITY */}
+                {/* IDENTITY — matches MikHMON external order: Name, Address
+                    Pool, Shared Users, Rate Limit, then Parent Queue. */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Nama" required>
                         <TextInput
@@ -239,6 +240,9 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                     </Field>
                     <Field label="Address Pool" hint="pool DHCP · none = pakai default">
                         <TextInput value={form.addressPool} onChange={(v) => set('addressPool', v)} placeholder="none" />
+                    </Field>
+                    <Field label="Parent Queue" hint="nama queue tree induk · none = tidak terhubung queue tree" span={2}>
+                        <TextInput value={form.parentQueue} onChange={(v) => set('parentQueue', v)} placeholder="none" />
                     </Field>
                 </div>
 
@@ -295,7 +299,6 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                             <div className="flex items-end pb-1">
                                 <CheckboxField label="Add MAC Cookie" checked={form.addMacCookie} onChange={(v) => set('addMacCookie', v)} />
                             </div>
-                            <Field label="Parent Queue"><TextInput value={form.parentQueue} onChange={(v) => set('parentQueue', v)} placeholder="none" /></Field>
                             <Field label="Address List"><TextInput value={form.addressList} onChange={(v) => set('addressList', v)} placeholder="" /></Field>
                             <Field label="Incoming Filter"><TextInput value={form.incomingFilter} onChange={(v) => set('incomingFilter', v)} placeholder="" /></Field>
                             <Field label="Outgoing Filter"><TextInput value={form.outgoingFilter} onChange={(v) => set('outgoingFilter', v)} placeholder="" /></Field>
