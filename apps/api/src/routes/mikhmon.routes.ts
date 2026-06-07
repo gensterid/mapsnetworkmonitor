@@ -1628,16 +1628,22 @@ router.get(
         // Cache for 30 seconds keyed by (routerId, range). Fetching 11k+
         // scripts from RouterOS takes 5-10s and Reports is opened/refreshed
         // multiple times in a session — caching avoids hammering the router.
+        // We DON'T cache empty results, so a failed/timed-out fetch doesn't
+        // poison the cache and hide subsequent successful retries.
         const routerId = paramStr(req.params.routerId);
         const cacheKey = `mikhmon:${routerId}:ledger:${ownerFilter || ''}:${from?.toISOString().slice(0, 10) || ''}:${to?.toISOString().slice(0, 10) || ''}`;
         const cached = await cacheService.get<any>(cacheKey);
-        if (cached) {
+        if (cached && Array.isArray(cached.entries) && cached.entries.length > 0) {
+            logger.info({ routerId, key: cacheKey, entries: cached.entries.length }, '[MikHMON ledger] cache HIT');
             res.set('X-Cache', 'HIT');
             return res.json({ data: cached });
         }
+        logger.info({ routerId, key: cacheKey }, '[MikHMON ledger] cache MISS — fetching');
 
         const data = await listSalesReport(req.mtConn, { ownerFilter, from, to });
-        await cacheService.set(cacheKey, data, 30); // 30s TTL
+        if (data.entries.length > 0) {
+            await cacheService.set(cacheKey, data, 30); // 30s TTL — only cache non-empty
+        }
         res.set('X-Cache', 'MISS');
         res.json({ data });
     })
