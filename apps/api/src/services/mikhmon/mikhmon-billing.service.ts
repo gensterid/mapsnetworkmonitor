@@ -1085,17 +1085,33 @@ export async function listSalesReport(
     opts: { ownerFilter?: string; from?: Date; to?: Date } = {},
 ): Promise<SalesReport> {
     // Fetch profiles in parallel — we cross-reference profile name → selling
-    // price because the ledger script name bakes COST price at position 3
-    // (per MikHMON v3 OS6/OS7 reference). MikHMON Reports always shows
-    // SELLING price as "Harga", computed via this lookup.
+    // price because the ledger script name bakes the per-voucher price at
+    // position 3. MikHMON Reports shows whatever's in the profile's :put
+    // header sellingPrice (falls back to the baked value when profile is
+    // gone or has no selling price set).
     //
-    // We fetch ALL scripts (no router-side ?comment=mikhmon filter) because
-    // some RouterOS versions / API wrappers don't apply that filter correctly
-    // and return 0 even when matching entries exist. Filtering in JS is
-    // reliable across versions; the extra bandwidth is acceptable since
-    // operators only open Reports occasionally.
+    // Script fetch strategy: when ownerFilter is set (e.g. operator clicked
+    // "Bulan ini"), use router-side ?owner=<value> query which is very
+    // selective on routers with thousands of entries (filters to ~hundreds
+    // of monthly entries instead of pulling 10k+). If the filter returns
+    // empty or no ownerFilter is set, fall back to fetching everything and
+    // filtering in JS — slower but works for "Semua" preset.
+    //
+    // proplist trims the response to the four fields we actually need —
+    // skips `source` which is the largest field per entry and we don't use.
+    const proplist = '=.proplist=.id,name,owner,comment';
+    const scriptFetch = opts.ownerFilter
+        ? safeWrite(api, ['/system/script/print', proplist, `?owner=${opts.ownerFilter}`])
+            .then(async (rows: any[]) => {
+                // Fallback in case the router-side owner filter returned nothing
+                // due to wrapper quirks (we've seen ?comment= behave that way).
+                if (Array.isArray(rows) && rows.length > 0) return rows;
+                return safeWrite(api, ['/system/script/print', proplist]);
+            })
+        : safeWrite(api, ['/system/script/print', proplist]);
+
     const [scripts, profilesRaw]: [any[], any[]] = await Promise.all([
-        safeWrite(api, '/system/script/print'),
+        scriptFetch,
         safeWrite(api, '/ip/hotspot/user/profile/print'),
     ]);
 

@@ -1621,9 +1621,23 @@ router.get(
     asyncHandler(async (req, res) => {
         const month = req.query.month ? String(req.query.month).toLowerCase() : undefined;
         const year = req.query.year ? String(req.query.year) : undefined;
-        const ownerFilter = (month && year) ? `${month}${year}` : undefined;
+        let ownerFilter = (month && year) ? `${month}${year}` : undefined;
         const from = req.query.from ? new Date(String(req.query.from)) : undefined;
         const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+
+        // When the requested range stays within one calendar month, derive
+        // ownerFilter automatically. This lets us push the filter to the
+        // router (selecting ~hundreds of entries instead of 10k+) without
+        // requiring the UI to send month/year explicitly. Critical on
+        // routers with large historical ledgers.
+        if (!ownerFilter && from && to) {
+            const sameMonth = from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth();
+            if (sameMonth) {
+                const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+                ownerFilter = `${months[from.getMonth()]}${from.getFullYear()}`;
+            }
+        }
+
         const data = await listSalesReport(req.mtConn, { ownerFilter, from, to });
         res.json({ data });
     })
