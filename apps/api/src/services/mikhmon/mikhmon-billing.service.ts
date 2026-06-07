@@ -1090,30 +1090,34 @@ export async function listSalesReport(
     // header sellingPrice (falls back to the baked value when profile is
     // gone or has no selling price set).
     //
-    // Script fetch strategy: when ownerFilter is set (e.g. operator clicked
-    // "Bulan ini"), use router-side ?owner=<value> query which is very
-    // selective on routers with thousands of entries (filters to ~hundreds
-    // of monthly entries instead of pulling 10k+). If the filter returns
-    // empty or no ownerFilter is set, fall back to fetching everything and
-    // filtering in JS — slower but works for "Semua" preset.
+    // Script fetch strategy with defensive logging because we've seen
+    // router-side query filters (?comment=, ?owner=) silently return 0
+    // even when matching entries exist. Always log so pm2 logs can
+    // pinpoint the failure (filter-no-match vs API-error vs parser).
     //
-    // proplist trims the response to the four fields we actually need —
-    // skips `source` which is the largest field per entry and we don't use.
-    const proplist = '=.proplist=.id,name,owner,comment';
-    const scriptFetch = opts.ownerFilter
-        ? safeWrite(api, ['/system/script/print', proplist, `?owner=${opts.ownerFilter}`])
-            .then(async (rows: any[]) => {
-                // Fallback in case the router-side owner filter returned nothing
-                // due to wrapper quirks (we've seen ?comment= behave that way).
-                if (Array.isArray(rows) && rows.length > 0) return rows;
-                return safeWrite(api, ['/system/script/print', proplist]);
-            })
-        : safeWrite(api, ['/system/script/print', proplist]);
+    // 1. If ownerFilter set, try router-side ?owner=<value> filter (fast).
+    // 2. If that returns 0 or errors, fall back to full /system/script/print.
+    // 3. JS-side filter by comment="mikhmon" handles both paths uniformly.
+    //
+    // No .proplist — some routerOS API client versions truncate or mishandle
+    // the proplist control word. Full row data is 5-10x larger but reliable
+    // across versions.
+    let scripts: any[] = [];
+    try {
+        if (opts.ownerFilter) {
+            scripts = await safeWrite(api, ['/system/script/print', `?owner=${opts.ownerFilter}`]);
+            logger.info({ ownerFilter: opts.ownerFilter, count: scripts?.length || 0 }, '[MikHMON ledger] owner-filtered fetch');
+        }
+        if (!Array.isArray(scripts) || scripts.length === 0) {
+            scripts = await safeWrite(api, ['/system/script/print']);
+            logger.info({ count: scripts?.length || 0 }, '[MikHMON ledger] full fetch');
+        }
+    } catch (e: any) {
+        logger.error({ err: e?.message || String(e) }, '[MikHMON ledger] fetch failed');
+        scripts = [];
+    }
 
-    const [scripts, profilesRaw]: [any[], any[]] = await Promise.all([
-        scriptFetch,
-        safeWrite(api, '/ip/hotspot/user/profile/print'),
-    ]);
+    const profilesRaw: any[] = await safeWrite(api, '/ip/hotspot/user/profile/print');
 
     const sellingByProfile = new Map<string, number>();
     for (const p of profilesRaw || []) {
@@ -1126,18 +1130,27 @@ export async function listSalesReport(
     const fromTs = opts.from?.getTime() ?? 0;
     const toTs = opts.to?.getTime() ?? Date.now() + 86_400_000;
 
+    // Per-stage drop counters so pm2 logs show where entries are getting
+    // filtered out — comment-mismatch, owner-mismatch, parse-fail, date-out-of-range.
+    let dropComment = 0, dropOwner = 0, dropParse = 0, dropDate = 0;
+    let sampleName = '';
+
     for (const s of scripts || []) {
         // JS-side filter: comment must be "mikhmon" (trimmed, case-insensitive).
         // Operator-written scripts that happen to have similar names but no
         // mikhmon comment are correctly skipped.
-        if (String(s.comment || '').trim().toLowerCase() !== 'mikhmon') continue;
+        if (String(s.comment || '').trim().toLowerCase() !== 'mikhmon') { dropComment++; continue; }
 
         const owner = String(s.owner || '');
-        if (opts.ownerFilter && owner.toLowerCase() !== opts.ownerFilter.toLowerCase()) continue;
-        const parsed = parseScriptName(String(s.name || ''));
-        if (!parsed) continue;
+        if (opts.ownerFilter && owner.toLowerCase() !== opts.ownerFilter.toLowerCase()) { dropOwner++; continue; }
+
+        const nameStr = String(s.name || '');
+        if (!sampleName) sampleName = nameStr;
+        const parsed = parseScriptName(nameStr);
+        if (!parsed) { dropParse++; continue; }
+
         const ts = routerDateToTimestamp(parsed.date, parsed.time);
-        if (ts && (ts < fromTs || ts > toTs)) continue;
+        if (ts && (ts < fromTs || ts > toTs)) { dropDate++; continue; }
 
         // Override ledger's COST price with profile's SELLING price when known.
         // If the profile no longer exists (deleted by operator after sale),
@@ -1153,6 +1166,14 @@ export async function listSalesReport(
     }
 
     entries.sort((a, b) => b.timestamp - a.timestamp);
+
+    logger.info({
+        fetched: scripts?.length || 0,
+        kept: entries.length,
+        dropped: { comment: dropComment, owner: dropOwner, parse: dropParse, date: dropDate },
+        sampleName: sampleName.slice(0, 200),
+        ownerFilter: opts.ownerFilter,
+    }, '[MikHMON ledger] parse summary');
 
     let total = 0;
     const byProfile = new Map<string, { count: number; income: number }>();
