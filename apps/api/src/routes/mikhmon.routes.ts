@@ -96,6 +96,7 @@ import {
     deleteProfileSetting,
     installMikhmonScripts,
     uninstallMikhmonScripts,
+    installExpireMonitor,
     computeReports,
     listSalesReport,
     parseMikhmonProfileConfig,
@@ -1597,6 +1598,18 @@ router.get(
         const to = req.query.to ? new Date(String(req.query.to)) : undefined;
         const data = await computeReports(req.mtConn, paramStr(req.params.routerId), { from, to });
         res.json({ data });
+    })
+);
+
+// Manually install the Expire-Monitor scheduler trio. Auto-installed
+// also runs on every install-scripts call, but this endpoint lets the
+// operator trigger it explicitly (e.g. after deleting schedulers).
+router.post(
+    '/:routerId/setup/expire-monitor',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        await installExpireMonitor(req.mtConn);
+        res.json({ data: { installed: true } });
     })
 );
 
