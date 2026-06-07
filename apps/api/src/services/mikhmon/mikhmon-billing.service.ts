@@ -475,24 +475,48 @@ const EXPIRE_MONITOR_NAME = 'Expire-Monitor';
 const RESET_EM_NAME = 'Reset-Expire-Monitor';
 const RESET_EM_DAILY_NAME = 'Reset-Expire-Monitor-Daily';
 
-const EXPIRE_MONITOR_SCRIPT = `:local expMonVer 2601049; :local expireMonitor [/certificate find where name="expireMonitor"]; :if ([:len $expireMonitor] > 1) do={ /certificate remove [find where name="expireMonitor"]; }; :delay 1; :if ([:len $expireMonitor] = 0) do={ /certificate add name="expireMonitor" unit="0#0#0#0#0#" days-valid=2 key-size=1024; :set expireMonitor [/certificate find where name="expireMonitor"]; }; :local dateint do={ :local montharray ( "jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec" ); :local days [ :pick $d 4 6 ]; :local month [ :pick $d 0 3 ]; :local year [ :pick $d 7 11 ];  :local monthint ([ :find $montharray $month]); :local month ($monthint + 1); :if ( [len $month] = 1) do={ :local zero ("0"); :return [:tonum ("$year$zero$month$days")]; } else={ :return [:tonum ("$year$month$days")]; } }; :local timeint do={ :local hours [ :pick $t 0 2 ]; :local minutes [ :pick $t 3 5 ]; :return ($hours * 60 + $minutes); }; :local convert do={ :local monthr {"jan";"feb";"mar";"apr";"may";"jun";"jul";"aug";"sep";"oct";"nov";"dec"}; :local dd [:pick $date 8 11]; :local yy [:tonum [:pick $date 0 4]]; :local mm [:tonum [:pick $date 5 7]]; :local mmm "$[:pick $monthr ($mm-1)]"; :local newdate "$mmm/$dd/$yy"; :return $newdate; }; :local getField do={ :local line $1; :local delimiter $2; :local index $3; :local start 0; :local end 0; :local count 0; :do { :set end [:find $line $delimiter $start]; :if ($end = -1) do={ :set end [:len $line]; }; :if ($count = $index) do={ :return [:pick $line $start $end]; }; :set start ($end + [:len $delimiter]); :set count ($count + 1); } while=($end < [:len $line]); :return ""; };    :local ldate [/system clock get date]; :local date [ /system clock get date ]; :if ([:pick $date 4 5] = "-" and [:pick $date 7 8] = "-" ) do={ :set date [$convert date=$date]; } else={ :set date $date; }; :local time [ /system clock get time ]; :local today [$dateint d=$date] ; :local curtime [$timeint t=$time]; :local tyear [ :pick $date 7 11 ]; :local lyear ($tyear-1); :local nyear ($tyear+1); :local statusValue [/certificate get $expireMonitor unit]; :local status [:tonum [$getField $statusValue "#" 0]]; :local start [:tonum [$getField $statusValue "#" 1]]; :local checkUsers [:tonum [$getField $statusValue "#" 2]]; :local lastRun [$getField $statusValue "#" 3]; :if ([($curtime - $start)] > 9 and $status = 1) do={ /certificate set $expireMonitor unit="0#$curtime#$totlogin#$time#$ldate#"; :delay 0.2; :local schowner [/sys sch get [find name=Expire-Monitor] owner]; /sys scr job rem [find where owner=$schowner]; }; :if ($status != 1) do={ :local userlogin [/ip hotspot user find where comment~"/$tyear" || comment~"/$lyear" || comment~"$tyear-" || comment~"$lyear-" || comment~"/$nyear" || comment~"$nyear-"]; :local totlogin [:len $userlogin]; /log warning "checking for expired $totlogin users..."; /certificate set $expireMonitor unit="1#$curtime#$totlogin#$time#$ldate#"; :delay 1; :local ca 0; :local cb 0; :local cc 0; :local cd 0;    :foreach i in $userlogin do={ :local comment [ /ip hotspot user get $i comment]; :local expdate ""; :local exptime ""; :if ([:pick $comment 4 5] = "-" and [:pick $comment 7 8] = "-") do={ :set expdate [$convert date=[:pick $comment 0 10]]; :set exptime [:pick $comment 11 [:len $comment]]; :set comment ($expdate . " " . $exptime); }; :local limit [ /ip hotspot user get $i limit-uptime];   :local name [ /ip hotspot user get $i name]; :local gettime [:pick $comment 12 20]; :if ([:pick $comment 3] = "/" and [:pick $comment 6] = "/") do={ :local expd [$dateint d=$comment]; :local expt [$timeint t=$gettime]; :if (($expd < $today and $expt < $curtime) or ($expd < $today and $expt > $curtime) or ($expd = $today and $expt < $curtime)) do={ :if ($limit != "00:00:01") do={ :if ([:pick $comment 21] = "N") do={ [ /ip hotspot user set limit-uptime=1s $i ]; [ /ip hotspot active remove [find where user=$name] ]; } else={ [ /ip hotspot user remove $i ]; [ /ip hotspot active remove [find where user=$name] ]; :set cd ($cc + 1); } } } }; :set cb ($ca + 1); :set ca $cb; :delay 0.2; }; :if ($totlogin = $cb) do={ /certificate set $expireMonitor unit="0#$curtime#$totlogin#$time#$ldate#"; :delay 1; /log warning "expire monitor done! | $cd removed"; };}`;
+// Verbatim from MikHMON v3 external (laksa19 community fork) version
+// 2603001 — operators comparing scripts side-by-side via Winbox should
+// see byte-identical content so there's no behavioral drift between
+// MikHMON external and our app. Differences from the older 2601049 we
+// previously embedded:
+//   - cert unit has 4 fields (status#start#users#time#) instead of 5
+//   - new validateTime helper repairs malformed time strings
+//   - two-pass collect-then-act algorithm with do/on-error wrapper
+//   - better N (notice) vs R (remove) split in logging
+const EXPIRE_MONITOR_SCRIPT = `:local expMonVer 2603001; :local expireMonitor [/certificate find where name="expireMonitor"]; :if ([:len $expireMonitor] > 1) do={ /certificate remove [find where name="expireMonitor"] }; :delay 1; :if ([:len $expireMonitor] = 0) do={ /certificate add name="expireMonitor" unit="0#0#0#0#" days-valid=2 key-size=1024; :set expireMonitor [/certificate find where name="expireMonitor"] }; :local dateint do={ :local montharray ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"); :local days [:pick $d 4 6]; :local month [:pick $d 0 3]; :local year [:pick $d 7 11]; :local monthint ([:find $montharray $month]); :local month ($monthint + 1); :if ([:len [:tostr $month]] = 1) do={ :local zero "0"; :return [:tonum ("$year$zero$month$days")] } else={ :return [:tonum ("$year$month$days")] } }; :local timeint do={ :local hours [:tonum [:pick $t 0 2]]; :local minutes [:tonum [:pick $t 3 5]]; :return ($hours * 60 + $minutes) }; :local convert do={ :local monthr {"jan";"feb";"mar";"apr";"may";"jun";"jul";"aug";"sep";"oct";"nov";"dec"}; :local dd [:pick $date 8 11]; :local yy [:tonum [:pick $date 0 4]]; :local mm [:tonum [:pick $date 5 7]]; :local mmm "$[:pick $monthr ($mm-1)]"; :local newdate "$mmm/$dd/$yy"; :return $newdate }; :local getField do={ :local line $1; :local delimiter $2; :local index $3; :local start 0; :local end 0; :local count 0; :do { :set end [:find $line $delimiter $start]; :if ($end = -1) do={ :set end [:len $line] }; :if ($count = $index) do={ :return [:pick $line $start $end] }; :set start ($end + [:len $delimiter]); :set count ($count + 1) } while=($end < [:len $line]); :return "" }; :local validateTime do={ :if ([:pick $time 2 3] = ":" and [:pick $time 5 6] = ":") do={ :return $time } else={ :local anomaloustime [:pick $time 5 7]; :set anomaloustime "$anomaloustime:59:59"; :return $anomaloustime } }; :local date [/system clock get date]; :local ldate $date; :if ([:pick $date 4 5] = "-" and [:pick $date 7 8] = "-") do={ :set date [$convert date=$date] } else={ :set date $date }; :local time [/system clock get time]; :local today [$dateint d=$date]; :local curtime [$timeint t=$time]; :local tyear [:pick $date 7 11]; :local lyear ($tyear-1); :local nyear ($tyear+1); :local statusValue [/certificate get $expireMonitor unit]; :local status [:tonum [$getField $statusValue "#" 0]]; :local start [:tonum [$getField $statusValue "#" 1]]; :local checkUsers [:tonum [$getField $statusValue "#" 2]]; :local lastRun [$getField $statusValue "#" 3]; :if ([($curtime - $start)] > 9 and $status = 1) do={ /certificate set $expireMonitor unit="0#$curtime#$checkUsers#$time#"; :delay 0.2; :local schowner [/sys sch get [find name=Expire-Monitor] owner]; /sys scr job rem [find where owner=$schowner] }; do { :if ($status != 1) do={ :local userlogin [/ip hotspot user find where comment~"/$tyear" || comment~"/$lyear" || comment~"$tyear-" || comment~"$lyear-" || comment~"/$nyear" || comment~"$nyear-"]; :local totlogin 0; :local expId ""; :foreach i in=$userlogin do={ :local userinfo [/ip hotspot user get $i]; :local comment ($userinfo -> "comment"); :local expdate ""; :local exptime ""; :local gettime ""; :if ([:pick $comment 4 5] = "-" and [:pick $comment 7 8] = "-") do={ :set expdate [$convert date=[:pick $comment 0 10]]; :set gettime [:pick $comment 11 20]; :set gettime [$validateTime time=$gettime]; :set exptime [$timeint t=$gettime] } else={ :set expdate [:pick $comment 0 11]; :set gettime [:pick $comment 12 20]; :set gettime [$validateTime time=$gettime]; :set exptime [$timeint t=$gettime] }; :if ([:pick $expdate 3] = "/" and [:pick $expdate 6] = "/") do={ :set totlogin ([:tonum $totlogin] + 1); :local expd [$dateint d=$expdate]; :if (($expd < $today) or ($expd = $today and $exptime < $curtime)) do={ :local limit ($userinfo -> "limit-uptime"); :local name ($userinfo -> "name"); :local mode ""; :if ($limit != "00:00:01") do={ :if ([:pick $comment 21] = "N") do={ :set mode "N" } else={ :set mode "R" }; :set expId "$expId,$i|$name|$mode" } } } }; /log warning "checking $totlogin users login..."; /certificate set $expireMonitor unit="1#$curtime#$totlogin#$time#"; :set expId [:toarray $expId]; :local totExpId [:len $expId]; :delay 0.2; :local removed 0; :local expired 0; :if ($totExpId > 0) do={ :local expiredN ""; :local expiredR ""; /log warning "about to expire $totExpId user(s)..."; :foreach i in=$expId do={ :local user [$getField $i "|" 0]; :local name [$getField $i "|" 1]; :local mode [$getField $i "|" 2]; :if ($mode = "N") do={ [/ip hotspot user set limit-uptime=1s $user]; [/ip hotspot active remove [find where user=$name]]; :set expired ($expired + 1); :set expiredN "| $expired expired" } else={ :set removed ($removed + 1); [/ip hotspot user remove $user]; [/ip hotspot active remove [find where user=$name]]; :set expiredR "| $removed removed" } }; /log warning "expire monitor done! $expiredR $expiredN"; } else={ /log warning "expire monitor done! no expired users found"; }; /certificate set $expireMonitor unit="0#$curtime#$totlogin#$time#" } } on-error={ /certificate set $expireMonitor unit="0#$curtime#$checkUsers#$time#"; :delay 0.2; /log warning "expire monitor error."; }`;
 
 const RESET_EM_SCRIPT = `:local certName "expireMonitor";:local data "";:do { :set data [/certificate get [find where name=$certName] unit] } on-error={:log warning ("restore-clock: cert $certName tidak ditemukan");:error "no-cert";};:if ([:len $data] = 0) do={ :log warning "restore-clock: field unit kosong"; :error "empty" };:local getField do={:local line $1; :local delimiter $2; :local index $3;:local start 0; :local end 0; :local count 0;:do {:set end [:find $line $delimiter $start];:if ($end = -1) do={ :set end [:len $line]; };:if ($count = $index) do={ :return [:pick $line $start $end]; };:set start ($end + [:len $delimiter]);:set count ($count + 1);} while=($end < [:len $line]);:return "";};:local time [$getField $data "#" 3];:local date [$getField $data "#" 4];:if ([:len $time] < 7 || [:len $date] < 8) do={:log warning ("restore-clock: format unit tidak valid: $data");:error "bad-format";};/system clock set time=$time date=$date;:log info ("restore-clock: clock diset dari cert -> time=$time date=$date");/system ntp client set enable=yes server=time.cloudflare.com;:delay 1; /certificate remove [find where name="expireMonitor"];`;
 
 const RESET_EM_DAILY_SCRIPT = `/certificate remove [find where name="expireMonitor"];`;
 
-async function schedulerExists(api: any, name: string): Promise<boolean> {
+async function findScheduler(api: any, name: string): Promise<any | null> {
     const list = await safeWrite(api, ['/system/scheduler/print', `?name=${name}`]);
-    return Array.isArray(list) && list.length > 0;
+    return Array.isArray(list) && list.length > 0 ? list[0] : null;
 }
+
+// Bumping this string forces the next ensureExpireMonitorTrio() call to
+// detect old installs and rewrite them with the new EXPIRE_MONITOR_SCRIPT.
+// Must match the `:local expMonVer <N>` at the top of EXPIRE_MONITOR_SCRIPT.
+const EXPIRE_MONITOR_VERSION = '2603001';
 
 /**
  * Install the three MikHMON v3 OS6/OS7 master schedulers. Idempotent —
- * skips any that already exist with the matching name. Without these,
- * vouchers won't auto-expire because there's no per-voucher scheduler.
+ * skips any that already exist AND are running the current version. If
+ * an older Expire-Monitor is found (different :local expMonVer literal),
+ * it's removed and recreated with the new script so operators upgrading
+ * don't get stuck on stale behavior.
+ *
+ * Reset-Expire-Monitor and Reset-Expire-Monitor-Daily aren't versioned
+ * the same way — their scripts are tiny and stable — so they're just
+ * created if missing.
  */
 async function ensureExpireMonitorTrio(api: any): Promise<void> {
-    if (!(await schedulerExists(api, EXPIRE_MONITOR_NAME))) {
+    const existing = await findScheduler(api, EXPIRE_MONITOR_NAME);
+    const currentVersionMarker = `:local expMonVer ${EXPIRE_MONITOR_VERSION}`;
+    const onEvent = String(existing?.['on-event'] || '');
+
+    if (!existing) {
         await safeWrite(api, [
             '/system/scheduler/add',
             `=name=${EXPIRE_MONITOR_NAME}`,
@@ -501,8 +525,21 @@ async function ensureExpireMonitorTrio(api: any): Promise<void> {
             `=on-event=${EXPIRE_MONITOR_SCRIPT}`,
             '=comment=mikhmon expire monitor',
         ]);
+    } else if (!onEvent.includes(currentVersionMarker)) {
+        // Older version present — replace with current.
+        await safeWrite(api, ['/system/scheduler/remove', `=.id=${existing['.id']}`]);
+        await safeWrite(api, [
+            '/system/scheduler/add',
+            `=name=${EXPIRE_MONITOR_NAME}`,
+            '=start-time=00:00:00',
+            '=interval=00:01:00',
+            `=on-event=${EXPIRE_MONITOR_SCRIPT}`,
+            '=comment=mikhmon expire monitor',
+        ]);
+        logger.info({ from: 'old', to: EXPIRE_MONITOR_VERSION }, '[MikHMON] Expire-Monitor upgraded');
     }
-    if (!(await schedulerExists(api, RESET_EM_NAME))) {
+
+    if (!(await findScheduler(api, RESET_EM_NAME))) {
         await safeWrite(api, [
             '/system/scheduler/add',
             `=name=${RESET_EM_NAME}`,
@@ -512,7 +549,7 @@ async function ensureExpireMonitorTrio(api: any): Promise<void> {
             '=comment=mikhmon clock restore on boot',
         ]);
     }
-    if (!(await schedulerExists(api, RESET_EM_DAILY_NAME))) {
+    if (!(await findScheduler(api, RESET_EM_DAILY_NAME))) {
         await safeWrite(api, [
             '/system/scheduler/add',
             `=name=${RESET_EM_DAILY_NAME}`,
