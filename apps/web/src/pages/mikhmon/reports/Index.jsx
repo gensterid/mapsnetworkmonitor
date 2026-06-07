@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { BarChart3, RefreshCw, TrendingUp, Ticket, Wallet, CheckCircle2, Circle } from 'lucide-react';
+import { BarChart3, RefreshCw, TrendingUp, Ticket, Wallet, CheckCircle2, Circle, ListChecks } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import clsx from 'clsx';
 import { useMikhmonContext } from '@/contexts/useMikhmonContext';
-import { useMikhmonReports } from '@/hooks/useMikhmon';
+import { useMikhmonReports, useMikhmonVouchers, useHotspotUserProfiles } from '@/hooks/useMikhmon';
 
 /**
  * MikHMON-equivalent Reports page.
@@ -74,6 +74,39 @@ export default function MikhmonReports() {
 
     const { data, isPending, isError, refetch, isFetching } = useMikhmonReports(selectedRouterId, range);
     const r = data || { total: 0, unused: 0, used: 0, expired: 0, income: 0, by: [], byDay: [] };
+
+    // Per-voucher list — same source as the Voucher page but read-only
+    // here. Filter by the date range and join with the profile selling
+    // price so each row shows what it sold for.
+    const { data: vouchersPayload, isFetching: vouchersFetching } = useMikhmonVouchers(selectedRouterId);
+    const { data: profilesPayload } = useHotspotUserProfiles(selectedRouterId);
+    const vouchers = vouchersPayload?.data || [];
+    const profiles = Array.isArray(profilesPayload) ? profilesPayload : [];
+    const priceByProfile = useMemo(() => {
+        const m = new Map();
+        for (const p of profiles) {
+            const b = p.billing || {};
+            const sell = b.sellingPrice && Number(b.sellingPrice) > 0 ? Number(b.sellingPrice)
+                : (b.price && Number(b.price) > 0 ? Number(b.price) : 0);
+            if (sell > 0) m.set(p.name, sell);
+        }
+        return m;
+    }, [profiles]);
+    const vouchersFiltered = useMemo(() => {
+        const fromTs = range.from ? new Date(range.from).getTime() : 0;
+        const toTs = range.to ? new Date(range.to).getTime() + 86400_000 : Date.now() + 86400_000;
+        return vouchers.filter((v) => {
+            if (!v.generatedAt) return true;
+            const t = new Date(v.generatedAt).getTime();
+            return t >= fromTs && t <= toTs;
+        });
+    }, [vouchers, range]);
+    const voucherStatus = (v) => {
+        const hasUptime = v.uptime && v.uptime !== '0s' && v.uptime !== '00:00:00';
+        // Heuristic mirroring backend computeReports
+        if (hasUptime) return 'used';
+        return 'unused';
+    };
 
     const pieData = [
         { name: 'unused', value: r.unused, color: PIE_COLORS.unused },
@@ -204,6 +237,71 @@ export default function MikhmonReports() {
                                             <td className="px-4 py-2 text-right font-mono text-xs text-emerald-300">{fmtRupiah(p.income)}</td>
                                         </tr>
                                     ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    {/* PER-VOUCHER LIST — mirror MikHMON external Reports tab.
+                        Shows every voucher in the date range with its profile
+                        price joined from billing settings. Sorted newest first. */}
+                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-2">
+                                <ListChecks className="w-3.5 h-3.5" />
+                                Daftar Voucher ({vouchersFiltered.length})
+                            </span>
+                            {vouchersFetching && <RefreshCw className="w-3 h-3 animate-spin text-slate-500" />}
+                        </div>
+                        <div className="overflow-x-auto custom-scrollbar max-h-[500px]">
+                            <table className="w-full text-sm min-w-[800px]">
+                                <thead className="bg-slate-900/30 text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky top-0">
+                                    <tr>
+                                        <th className="text-left px-3 py-2">Tanggal</th>
+                                        <th className="text-left px-3 py-2">Kode</th>
+                                        <th className="text-left px-3 py-2">Profile</th>
+                                        <th className="text-left px-3 py-2">Note</th>
+                                        <th className="text-right px-3 py-2">Uptime</th>
+                                        <th className="text-center px-3 py-2">Status</th>
+                                        <th className="text-right px-3 py-2">Harga Jual</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/40">
+                                    {vouchersFiltered.length === 0 ? (
+                                        <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">Belum ada voucher di rentang ini</td></tr>
+                                    ) : vouchersFiltered.map((v) => {
+                                        const status = voucherStatus(v);
+                                        const sellingPrice = priceByProfile.get(v.profile) || 0;
+                                        return (
+                                            <tr key={v.id} className="hover:bg-slate-800/30">
+                                                <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">
+                                                    {v.generatedAt ? new Date(v.generatedAt).toLocaleDateString('id-ID') : '—'}
+                                                </td>
+                                                <td className="px-3 py-1.5 font-mono text-xs text-slate-100 tracking-wider">{v.name}</td>
+                                                <td className="px-3 py-1.5">
+                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30 font-bold uppercase tracking-tight">
+                                                        {v.profile || '—'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-3 py-1.5 text-xs text-slate-400 max-w-[200px] truncate">{v.note || ''}</td>
+                                                <td className="px-3 py-1.5 font-mono text-xs text-slate-400 text-right">{v.uptime || ''}</td>
+                                                <td className="px-3 py-1.5 text-center">
+                                                    <span className={clsx(
+                                                        'text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight border',
+                                                        status === 'used' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
+                                                        'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+                                                    )}>{status}</span>
+                                                </td>
+                                                <td className="px-3 py-1.5 font-mono text-xs text-right">
+                                                    {sellingPrice > 0 ? (
+                                                        <span className="text-emerald-300">{fmtRupiah(sellingPrice)}</span>
+                                                    ) : (
+                                                        <span className="text-slate-600">—</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
