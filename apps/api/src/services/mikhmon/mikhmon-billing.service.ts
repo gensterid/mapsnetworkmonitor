@@ -260,6 +260,20 @@ function buildOnLoginScript(opts: OnLoginOpts): string {
         validityParser,
         expiryComputer,
         '',
+        '  # MikHMON v3 sales ledger — write a /system script entry whose name encodes',
+        '  # the full transaction (date-time-user-price-ip-mac-validity-profile-comment).',
+        '  # Reports tab reads /system script print where comment="mikhmon" to render',
+        '  # the sales report. Owner = "<mmm><yyyy>" (e.g. jun2026) for monthly grouping.',
+        '  :local profName [/ip hotspot user get [find where name=$user] profile]',
+        '  :local mmStr [:pick $now 0 3]',
+        '  :local yyyyStr [:pick $now 7 11]',
+        '  :local owner ($mmStr . $yyyyStr)',
+        '  :local mac $"mac-address"',
+        '  :local cmtTag $userComment',
+        '  :if ([:typeof $cmtTag] != "str") do={ :set cmtTag "" }',
+        '  :local ledgerName ($now . "-" . $nowTime . "-" . $user . "-" . $sellingPrice . "-" . $address . "-" . $mac . "-" . $validity . "-" . $profName . "-" . $cmtTag)',
+        '  :do { /system script add name=$ledgerName owner=$owner comment="mikhmon" source=":nothing" } on-error={}',
+        '',
         '  # Stamp expiry into user comment for next-time detection',
         '  /ip hotspot user set comment=("exp:" . $expDate . " " . $expTime . " ts:" . $expSec) [find where name=$user]',
         '',
@@ -821,4 +835,152 @@ export async function computeReports(
         .sort((a, b) => a.date.localeCompare(b.date));
 
     return summary;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Sales Ledger (MikHMON v3 reference behavior)
+//
+// MikHMON external (laksa19/Mikhmonv3) implements its "Laporan Penjualan"
+// tab by reading /system script print where comment="mikhmon". Each entry
+// has a name that encodes one voucher transaction:
+//
+//   <date>-<time>-<user>-<sellingPrice>-<ip>-<mac>-<validity>-<profile>-<originalComment>
+//   ex: jun/01/2026-00:22:25-bmxfde7-5000-10.31.31.76-EA:17:B5:F4:26:14-1d-PAKET-1HARI-vc-288-05.17.26-
+//
+// Owner is "<mmm><yyyy>" (e.g. "jun2026") for monthly grouping.
+// The script source is :nothing — the entry exists purely as a ledger
+// record. Our on-login script emits this entry once per voucher first
+// login (see buildOnLoginScript ledger block).
+//
+// We mirror this contract so operators who switch between our app and
+// MikHMON external see identical Reports data — they share the same
+// underlying ledger in RouterOS.
+// ─────────────────────────────────────────────────────────────────────────
+
+export interface SalesEntry {
+    date: string;        // 'jun/01/2026' — raw RouterOS date string
+    time: string;        // '00:22:25'
+    username: string;
+    price: number;
+    address: string;
+    macAddress: string;
+    validity: string;
+    profile: string;
+    comment: string;     // original voucher comment (vc-NNN-mm.dd.yy-note)
+    owner: string;       // 'jun2026' — the monthly group bucket
+    scriptId: string;
+    timestamp: number;   // unix ms — derived from date+time for client sort/filter
+}
+
+const MONTH_NAMES_LOWER = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+function routerDateToTimestamp(date: string, time: string): number {
+    // RouterOS 6 emits "jun/01/2026" / "00:22:25"
+    // RouterOS 7 emits "2026-06-01" / "00:22:25"
+    const dt = date.trim();
+    let y = 0, mo = 0, d = 0;
+    let m6 = /^([a-z]{3})\/(\d{1,2})\/(\d{4})$/i.exec(dt);
+    if (m6) {
+        mo = MONTH_NAMES_LOWER.indexOf(m6[1].toLowerCase());
+        d = parseInt(m6[2], 10);
+        y = parseInt(m6[3], 10);
+    } else {
+        const m7 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dt);
+        if (!m7) return 0;
+        y = parseInt(m7[1], 10);
+        mo = parseInt(m7[2], 10) - 1;
+        d = parseInt(m7[3], 10);
+    }
+    const tm = /^(\d{1,2}):(\d{1,2}):(\d{1,2})$/.exec(time.trim());
+    const hh = tm ? parseInt(tm[1], 10) : 0;
+    const mm = tm ? parseInt(tm[2], 10) : 0;
+    const ss = tm ? parseInt(tm[3], 10) : 0;
+    return new Date(y, mo, d, hh, mm, ss).getTime();
+}
+
+// Script names contain hyphens within the profile (e.g. "PAKET-1HARI") and
+// within the comment (e.g. "vc-288-05.17.26-"), so we can't naively split
+// by "-". Strategy: anchor on the well-defined leading fields (date, time,
+// username with no hyphens, numeric price, IPv4, MAC), then anchor on the
+// voucher comment marker (^vc-|^up-) at the END, and treat everything in
+// between as the profile name.
+function parseScriptName(name: string): Omit<SalesEntry, 'owner' | 'scriptId' | 'timestamp'> | null {
+    const datePart = /^([a-z]{3}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/i.exec(name);
+    if (!datePart) return null;
+    const re = /^([a-z]{3}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})-(\d{1,2}:\d{2}:\d{2})-([^-]+)-(\d+)-(\d{1,3}(?:\.\d{1,3}){3})-([0-9A-Fa-f]{2}(?::[0-9A-Fa-f]{2}){5})-(\d+[wdhms](?:\d+[wdhms])*)-(.+)$/;
+    const m = re.exec(name);
+    if (!m) return null;
+    const rest = m[8];
+
+    // Split rest into profile + comment. Comment starts at first occurrence
+    // of "vc-" or "up-" prefix (MikHMON voucher format). If no such marker
+    // exists, treat whole rest as profile with empty comment.
+    let profile = rest;
+    let comment = '';
+    const cm = /-((?:vc|up)-\d+-\d{2}\.\d{2}\.\d{2}.*)$/.exec(rest);
+    if (cm) {
+        profile = rest.slice(0, cm.index);
+        comment = cm[1];
+    }
+
+    return {
+        date: m[1],
+        time: m[2],
+        username: m[3],
+        price: parseInt(m[4], 10),
+        address: m[5],
+        macAddress: m[6],
+        validity: m[7],
+        profile,
+        comment,
+    };
+}
+
+export interface SalesReport {
+    entries: SalesEntry[];
+    total: number;          // total income (sum of price)
+    countByProfile: { profile: string; count: number; income: number }[];
+}
+
+/**
+ * Read the MikHMON v3 sales ledger from RouterOS.
+ *
+ * Pass `ownerFilter` like "jun2026" to scope to a single month; omit to
+ * return all entries the ledger contains.
+ */
+export async function listSalesReport(
+    api: any,
+    opts: { ownerFilter?: string; from?: Date; to?: Date } = {},
+): Promise<SalesReport> {
+    const scripts: any[] = await safeWrite(api, ['/system/script/print', '?comment=mikhmon']);
+    const entries: SalesEntry[] = [];
+    const fromTs = opts.from?.getTime() ?? 0;
+    const toTs = opts.to?.getTime() ?? Date.now() + 86_400_000;
+
+    for (const s of scripts || []) {
+        const owner = String(s.owner || '');
+        if (opts.ownerFilter && owner.toLowerCase() !== opts.ownerFilter.toLowerCase()) continue;
+        const parsed = parseScriptName(String(s.name || ''));
+        if (!parsed) continue;
+        const ts = routerDateToTimestamp(parsed.date, parsed.time);
+        if (ts && (ts < fromTs || ts > toTs)) continue;
+        entries.push({ ...parsed, owner, scriptId: s['.id'] || '', timestamp: ts });
+    }
+
+    entries.sort((a, b) => b.timestamp - a.timestamp);
+
+    let total = 0;
+    const byProfile = new Map<string, { count: number; income: number }>();
+    for (const e of entries) {
+        total += e.price;
+        const p = byProfile.get(e.profile) || { count: 0, income: 0 };
+        p.count++;
+        p.income += e.price;
+        byProfile.set(e.profile, p);
+    }
+    const countByProfile = Array.from(byProfile.entries())
+        .map(([profile, v]) => ({ profile, ...v }))
+        .sort((a, b) => b.income - a.income);
+
+    return { entries, total, countByProfile };
 }

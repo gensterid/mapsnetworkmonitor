@@ -35,6 +35,7 @@ export const mikhmonKeys = {
     vouchers: (routerId) => [...mikhmonKeys.all(routerId), 'vouchers'],
     profileBilling: (routerId) => [...mikhmonKeys.all(routerId), 'billing', 'profiles'],
     reports: (routerId, range) => [...mikhmonKeys.all(routerId), 'reports', range || {}],
+    ledger: (routerId, range) => [...mikhmonKeys.all(routerId), 'reports', 'ledger', range || {}],
 };
 
 /** Generic CRUD hook factory — keeps add/update/remove patterns identical
@@ -617,6 +618,18 @@ export function useMikhmonReports(routerId, range = {}, options = {}) {
     return useQuery({
         queryKey: mikhmonKeys.reports(routerId, range),
         queryFn: () => mikhmonApi.reports.sales(routerId, range),
+        enabled: !!routerId,
+        staleTime: 30 * 1000,
+        ...options,
+    });
+}
+
+// MikHMON v3 sales ledger — read from /system/script entries with comment=mikhmon.
+// Matches MikHMON external's "Laporan Penjualan" tab data source.
+export function useMikhmonSalesLedger(routerId, opts = {}, options = {}) {
+    return useQuery({
+        queryKey: mikhmonKeys.ledger(routerId, opts),
+        queryFn: () => mikhmonApi.reports.ledger(routerId, opts),
         enabled: !!routerId,
         staleTime: 30 * 1000,
         ...options,

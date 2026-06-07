@@ -97,6 +97,7 @@ import {
     installMikhmonScripts,
     uninstallMikhmonScripts,
     computeReports,
+    listSalesReport,
     parseMikhmonProfileConfig,
     parseProfileCommentConfig,
     mergeMikhmonProfileSettings,
@@ -1595,6 +1596,22 @@ router.get(
         const from = req.query.from ? new Date(String(req.query.from)) : undefined;
         const to = req.query.to ? new Date(String(req.query.to)) : undefined;
         const data = await computeReports(req.mtConn, paramStr(req.params.routerId), { from, to });
+        res.json({ data });
+    })
+);
+
+// MikHMON v3 sales ledger — sourced from /system script print where comment="mikhmon".
+// This is the canonical voucher transaction log that MikHMON external also reads.
+router.get(
+    '/:routerId/reports/ledger',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const month = req.query.month ? String(req.query.month).toLowerCase() : undefined;
+        const year = req.query.year ? String(req.query.year) : undefined;
+        const ownerFilter = (month && year) ? `${month}${year}` : undefined;
+        const from = req.query.from ? new Date(String(req.query.from)) : undefined;
+        const to = req.query.to ? new Date(String(req.query.to)) : undefined;
+        const data = await listSalesReport(req.mtConn, { ownerFilter, from, to });
         res.json({ data });
     })
 );

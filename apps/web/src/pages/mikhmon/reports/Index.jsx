@@ -5,20 +5,24 @@ import {
 } from 'recharts';
 import clsx from 'clsx';
 import { useMikhmonContext } from '@/contexts/useMikhmonContext';
-import { useMikhmonReports, useMikhmonVouchers, useHotspotUserProfiles } from '@/hooks/useMikhmon';
+import { useMikhmonReports, useMikhmonSalesLedger } from '@/hooks/useMikhmon';
 
 /**
  * MikHMON-equivalent Reports page.
  *
- * Aggregates voucher data LIVE from MikroTik (filtered by MikHMON v3
- * comment regex), joins with per-profile prices stored in
- * mikhmon_profile_settings, and renders:
- *  - 4 summary stat cards: total / unused / used / income
- *  - Status breakdown pie
- *  - Daily generated chart (count + income overlay)
- *  - Per-profile table sorted by income
+ * Two complementary data sources:
+ *  1. `useMikhmonReports` — computed aggregate from live /ip/hotspot/user
+ *     list (all vouchers, used + unused). Drives stat cards + charts +
+ *     per-profile table.
+ *  2. `useMikhmonSalesLedger` — read from /system/script/print where
+ *     comment="mikhmon". This is the canonical sales ledger MikHMON v3
+ *     external also uses. Drives the "Laporan Penjualan" table at the
+ *     bottom — one row per voucher FIRST LOGIN (= sold).
  *
- * Date range defaults to last 30 days; operator can override.
+ * The ledger is authoritative for income. A voucher only enters the
+ * ledger when its first session triggers our on-login script, which
+ * writes a /system script entry with name encoding the transaction:
+ *   <date>-<time>-<user>-<price>-<ip>-<mac>-<validity>-<profile>-<comment>
  */
 
 const RANGE_PRESETS = [
@@ -75,38 +79,13 @@ export default function MikhmonReports() {
     const { data, isPending, isError, refetch, isFetching } = useMikhmonReports(selectedRouterId, range);
     const r = data || { total: 0, unused: 0, used: 0, expired: 0, income: 0, by: [], byDay: [] };
 
-    // Per-voucher list — same source as the Voucher page but read-only
-    // here. Filter by the date range and join with the profile selling
-    // price so each row shows what it sold for.
-    const { data: vouchersPayload, isFetching: vouchersFetching } = useMikhmonVouchers(selectedRouterId);
-    const { data: profilesPayload } = useHotspotUserProfiles(selectedRouterId);
-    const vouchers = vouchersPayload?.data || [];
-    const profiles = Array.isArray(profilesPayload) ? profilesPayload : [];
-    const priceByProfile = useMemo(() => {
-        const m = new Map();
-        for (const p of profiles) {
-            const b = p.billing || {};
-            const sell = b.sellingPrice && Number(b.sellingPrice) > 0 ? Number(b.sellingPrice)
-                : (b.price && Number(b.price) > 0 ? Number(b.price) : 0);
-            if (sell > 0) m.set(p.name, sell);
-        }
-        return m;
-    }, [profiles]);
-    const vouchersFiltered = useMemo(() => {
-        const fromTs = range.from ? new Date(range.from).getTime() : 0;
-        const toTs = range.to ? new Date(range.to).getTime() + 86400_000 : Date.now() + 86400_000;
-        return vouchers.filter((v) => {
-            if (!v.generatedAt) return true;
-            const t = new Date(v.generatedAt).getTime();
-            return t >= fromTs && t <= toTs;
-        });
-    }, [vouchers, range]);
-    const voucherStatus = (v) => {
-        const hasUptime = v.uptime && v.uptime !== '0s' && v.uptime !== '00:00:00';
-        // Heuristic mirroring backend computeReports
-        if (hasUptime) return 'used';
-        return 'unused';
-    };
+    // Sales ledger from /system script — MikHMON v3 reference behavior.
+    // Same date range applied so the table aligns with the charts above.
+    const { data: ledgerPayload, isFetching: ledgerFetching, refetch: refetchLedger } = useMikhmonSalesLedger(
+        selectedRouterId,
+        range,
+    );
+    const ledger = ledgerPayload?.data || { entries: [], total: 0, countByProfile: [] };
 
     const pieData = [
         { name: 'unused', value: r.unused, color: PIE_COLORS.unused },
@@ -125,7 +104,7 @@ export default function MikhmonReports() {
                     </div>
                 </div>
                 <button
-                    onClick={() => refetch()}
+                    onClick={() => { refetch(); refetchLedger(); }}
                     disabled={isFetching}
                     className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                     title="Refresh"
@@ -167,7 +146,7 @@ export default function MikhmonReports() {
                         <StatCard icon={Ticket} label="Total Voucher" value={r.total} color="text-slate-100" />
                         <StatCard icon={Circle} label="Unused" value={r.unused} color="text-cyan-300" />
                         <StatCard icon={CheckCircle2} label="Used + Expired" value={r.used + r.expired} color="text-emerald-300" hint={`${r.used} aktif · ${r.expired} expired`} />
-                        <StatCard icon={Wallet} label="Income" value={fmtRupiah(r.income)} color="text-emerald-300" />
+                        <StatCard icon={Wallet} label="Income" value={fmtRupiah(ledger.total || r.income)} color="text-emerald-300" hint={ledger.entries.length > 0 ? `${ledger.entries.length} voucher terjual` : undefined} />
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -230,78 +209,75 @@ export default function MikhmonReports() {
                                 <tbody className="divide-y divide-slate-800/40">
                                     {r.by.length === 0 ? (
                                         <tr><td colSpan={3} className="px-4 py-8 text-center text-slate-500 text-xs">Belum ada data</td></tr>
-                                    ) : r.by.map((p) => (
-                                        <tr key={p.profile} className="hover:bg-slate-800/30">
-                                            <td className="px-4 py-2 font-semibold text-slate-200">{p.profile}</td>
-                                            <td className="px-4 py-2 text-right font-mono text-xs text-slate-300">{p.count}</td>
-                                            <td className="px-4 py-2 text-right font-mono text-xs text-emerald-300">{fmtRupiah(p.income)}</td>
-                                        </tr>
-                                    ))}
+                                    ) : r.by.map((p) => {
+                                        // Cross-reference with ledger so income matches the
+                                        // sold-only ledger view when both have data.
+                                        const lp = ledger.countByProfile.find((x) => x.profile === p.profile);
+                                        const income = lp?.income ?? p.income;
+                                        return (
+                                            <tr key={p.profile} className="hover:bg-slate-800/30">
+                                                <td className="px-4 py-2 font-semibold text-slate-200">{p.profile}</td>
+                                                <td className="px-4 py-2 text-right font-mono text-xs text-slate-300">{p.count}</td>
+                                                <td className="px-4 py-2 text-right font-mono text-xs text-emerald-300">{fmtRupiah(income)}</td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>
                     </div>
 
-                    {/* PER-VOUCHER LIST — mirror MikHMON external Reports tab.
-                        Shows every voucher in the date range with its profile
-                        price joined from billing settings. Sorted newest first. */}
+                    {/* Laporan Penjualan — sourced from /system script ledger.
+                        Mirrors MikHMON external "Laporan Penjualan" tab exactly:
+                        only sold vouchers (first login fired), columns match
+                        MikHMON's № Tanggal Waktu Username Profil Komentar Harga.
+                        Total at top right = sum of all sold prices in range. */}
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-2">
+                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2">
+                            <span className="flex items-center gap-2 text-slate-500">
                                 <ListChecks className="w-3.5 h-3.5" />
-                                Daftar Voucher ({vouchersFiltered.length})
+                                Laporan Penjualan ({ledger.entries.length})
                             </span>
-                            {vouchersFetching && <RefreshCw className="w-3 h-3 animate-spin text-slate-500" />}
+                            <span className="flex items-center gap-3">
+                                <span className="text-slate-500 normal-case font-normal">Total</span>
+                                <span className="text-emerald-300 text-sm font-bold tabular-nums">{fmtRupiah(ledger.total)}</span>
+                                {ledgerFetching && <RefreshCw className="w-3 h-3 animate-spin text-slate-500" />}
+                            </span>
                         </div>
-                        <div className="overflow-x-auto custom-scrollbar max-h-[500px]">
-                            <table className="w-full text-sm min-w-[800px]">
+                        <div className="overflow-x-auto custom-scrollbar max-h-[600px]">
+                            <table className="w-full text-sm min-w-[900px]">
                                 <thead className="bg-slate-900/30 text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky top-0">
                                     <tr>
+                                        <th className="text-right px-3 py-2 w-12">№</th>
                                         <th className="text-left px-3 py-2">Tanggal</th>
-                                        <th className="text-left px-3 py-2">Kode</th>
-                                        <th className="text-left px-3 py-2">Profile</th>
-                                        <th className="text-left px-3 py-2">Note</th>
-                                        <th className="text-right px-3 py-2">Uptime</th>
-                                        <th className="text-center px-3 py-2">Status</th>
-                                        <th className="text-right px-3 py-2">Harga Jual</th>
+                                        <th className="text-left px-3 py-2">Waktu</th>
+                                        <th className="text-left px-3 py-2">Username</th>
+                                        <th className="text-left px-3 py-2">Profil</th>
+                                        <th className="text-left px-3 py-2">Komentar</th>
+                                        <th className="text-right px-3 py-2">Harga</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/40">
-                                    {vouchersFiltered.length === 0 ? (
-                                        <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">Belum ada voucher di rentang ini</td></tr>
-                                    ) : vouchersFiltered.map((v) => {
-                                        const status = voucherStatus(v);
-                                        const sellingPrice = priceByProfile.get(v.profile) || 0;
-                                        return (
-                                            <tr key={v.id} className="hover:bg-slate-800/30">
-                                                <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">
-                                                    {v.generatedAt ? new Date(v.generatedAt).toLocaleDateString('id-ID') : '—'}
-                                                </td>
-                                                <td className="px-3 py-1.5 font-mono text-xs text-slate-100 tracking-wider">{v.name}</td>
-                                                <td className="px-3 py-1.5">
-                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30 font-bold uppercase tracking-tight">
-                                                        {v.profile || '—'}
-                                                    </span>
-                                                </td>
-                                                <td className="px-3 py-1.5 text-xs text-slate-400 max-w-[200px] truncate">{v.note || ''}</td>
-                                                <td className="px-3 py-1.5 font-mono text-xs text-slate-400 text-right">{v.uptime || ''}</td>
-                                                <td className="px-3 py-1.5 text-center">
-                                                    <span className={clsx(
-                                                        'text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight border',
-                                                        status === 'used' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
-                                                        'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
-                                                    )}>{status}</span>
-                                                </td>
-                                                <td className="px-3 py-1.5 font-mono text-xs text-right">
-                                                    {sellingPrice > 0 ? (
-                                                        <span className="text-emerald-300">{fmtRupiah(sellingPrice)}</span>
-                                                    ) : (
-                                                        <span className="text-slate-600">—</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                    {ledger.entries.length === 0 ? (
+                                        <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                            Belum ada voucher terjual di rentang ini.
+                                            <div className="text-[10px] mt-1 opacity-70">Ledger terisi otomatis saat voucher pertama kali login (on-login script).</div>
+                                        </td></tr>
+                                    ) : ledger.entries.map((e, idx) => (
+                                        <tr key={e.scriptId || idx} className="hover:bg-slate-800/30">
+                                            <td className="px-3 py-1.5 font-mono text-[11px] text-slate-500 text-right">{idx + 1}</td>
+                                            <td className="px-3 py-1.5 font-mono text-[11px] text-slate-300">{e.date}</td>
+                                            <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">{e.time}</td>
+                                            <td className="px-3 py-1.5 font-mono text-xs text-slate-100">{e.username}</td>
+                                            <td className="px-3 py-1.5">
+                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/15 text-primary border border-primary/30 font-bold uppercase tracking-tight">
+                                                    {e.profile || '—'}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400 max-w-[260px] truncate" title={e.comment}>{e.comment || ''}</td>
+                                            <td className="px-3 py-1.5 font-mono text-xs text-right text-emerald-300">{fmtRupiah(e.price)}</td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>

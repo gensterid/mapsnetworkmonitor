@@ -158,6 +158,14 @@ export const mikhmonApi = {
             if (to) params.to = to;
             return get(`/mikhmon/${routerId}/reports/sales`, { params });
         },
+        ledger: (routerId, { month, year, from, to } = {}) => {
+            const params = {};
+            if (month) params.month = month;
+            if (year) params.year = year;
+            if (from) params.from = from;
+            if (to) params.to = to;
+            return get(`/mikhmon/${routerId}/reports/ledger`, { params });
+        },
     },
 };
 
