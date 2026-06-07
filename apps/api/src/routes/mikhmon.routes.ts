@@ -588,9 +588,27 @@ router.post(
     resolveRouterContext({ connect: true }),
     asyncHandler(async (req, res) => {
         const input = hotspotUserAddSchema.parse(req.body);
-        const id = await addHotspotUser(req.mtConn, input);
-        await invalidateHotspotUserCache(paramStr(req.params.routerId));
-        res.status(201).json({ data: { id } });
+        try {
+            const id = await addHotspotUser(req.mtConn, input);
+            await invalidateHotspotUserCache(paramStr(req.params.routerId));
+            res.status(201).json({ data: { id } });
+        } catch (e: any) {
+            // RouterOS surfaces business-logic failures via the channel as
+            // "failure: <reason>". Translate the common ones to clear,
+            // actionable HTTP status codes so the UI can show the operator
+            // a meaningful toast instead of a generic 500.
+            const msg = String(e?.message || '').toLowerCase();
+            if (msg.includes('already have user with this name')) {
+                throw new ApiError(409, `Username '${input.name}' sudah ada di MikroTik. Pilih username lain.`);
+            }
+            if (msg.includes('no such item') || msg.includes('not found')) {
+                throw new ApiError(404, 'Profile / server hotspot tidak ditemukan di MikroTik.');
+            }
+            if (msg.includes('input does not match')) {
+                throw new ApiError(400, 'Nilai field tidak valid (cek profile, server, atau format MAC).');
+            }
+            throw e;
+        }
     })
 );
 
