@@ -43,34 +43,47 @@ import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal
 const EXPIRED_MODES = ['Remove', 'Notice', 'Remove & Record', 'Notice & Record'];
 
 /**
- * Color-code the profile name based on its on-login script type so an
- * operator can scan the list and tell at a glance which profiles have
- * which expiry strategy.
+ * Color-code the profile name based on its on-login script — matches
+ * MikHMON external behavior so operators see the same coloring across
+ * both apps:
  *
+ *   white  — no on-login script at all (untouched RouterOS profile)
+ *   yellow — has SOME script that isn't the current MikHMON template:
+ *            either operator-written custom RouterOS, or an OLDER
+ *            MikHMON variant whose :put header lacks the ",mikhmon,version,"
+ *            meta marker. Both cases mean "not auto-managed by MikHMON
+ *            in the recognizable way".
  *   green  — MikHMON Remove or Remove & Record (delete on expiry)
  *   blue   — MikHMON Notice or Notice & Record (kick but keep)
- *   yellow — has MikHMON :put header but mode code is unrecognized
- *            (operator probably edited the script after install)
- *   white  — no MikHMON-managed script at all
  *
- * Detection looks at the FIRST executable line only — operators often
- * add their own RouterOS code after the MikHMON template, and that
- * extension shouldn't change the color.
+ * Detection only inspects the FIRST executable line of the on-login —
+ * operators routinely paste extra notification / logging code after the
+ * MikHMON block, and that shouldn't downgrade the color tag.
  */
 function getProfileNameColor(profile) {
     const onLogin = String(profile?.onLogin || '').trim();
+    // No script — default RouterOS profile, untouched.
     if (!onLogin) return 'text-slate-200';
 
-    // Skip empty lines / pure comments to find the first executable line.
+    // Find the first executable line, skipping blank lines and comments.
     const firstExec = onLogin.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('#')) || '';
     const putMatch = /:put\s*\(\s*"([^"]*)"\s*\)/.exec(firstExec);
-    if (!putMatch) return 'text-slate-200';
-    const inner = putMatch[1];
-    if (!inner.includes('mikhmon')) return 'text-slate-200';
 
+    // Has SOME script but no :put header → operator-written custom code.
+    // MikHMON external treats this as yellow (script exists but isn't
+    // managed by MikHMON in any recognizable way).
+    if (!putMatch) return 'text-amber-400';
+
+    const inner = putMatch[1];
+    // :put header exists but without the ",mikhmon," meta token →
+    // older MikHMON variant or a hand-rolled :put. Still yellow.
+    if (!inner.includes('mikhmon')) return 'text-amber-400';
+
+    // Full new-format header — color by mode code.
     const code = inner.split(',')[1] || '';
     if (code === 'rem' || code === 'remc') return 'text-emerald-400';
     if (code === 'ntf' || code === 'ntfc') return 'text-sky-400';
+    // Recognized mikhmon marker but mode code we don't know → yellow.
     return 'text-amber-400';
 }
 
