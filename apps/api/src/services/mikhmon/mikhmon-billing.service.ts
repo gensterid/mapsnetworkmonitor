@@ -1088,8 +1088,14 @@ export async function listSalesReport(
     // price because the ledger script name bakes COST price at position 3
     // (per MikHMON v3 OS6/OS7 reference). MikHMON Reports always shows
     // SELLING price as "Harga", computed via this lookup.
+    //
+    // We fetch ALL scripts (no router-side ?comment=mikhmon filter) because
+    // some RouterOS versions / API wrappers don't apply that filter correctly
+    // and return 0 even when matching entries exist. Filtering in JS is
+    // reliable across versions; the extra bandwidth is acceptable since
+    // operators only open Reports occasionally.
     const [scripts, profilesRaw]: [any[], any[]] = await Promise.all([
-        safeWrite(api, ['/system/script/print', '?comment=mikhmon']),
+        safeWrite(api, '/system/script/print'),
         safeWrite(api, '/ip/hotspot/user/profile/print'),
     ]);
 
@@ -1105,6 +1111,11 @@ export async function listSalesReport(
     const toTs = opts.to?.getTime() ?? Date.now() + 86_400_000;
 
     for (const s of scripts || []) {
+        // JS-side filter: comment must be "mikhmon" (trimmed, case-insensitive).
+        // Operator-written scripts that happen to have similar names but no
+        // mikhmon comment are correctly skipped.
+        if (String(s.comment || '').trim().toLowerCase() !== 'mikhmon') continue;
+
         const owner = String(s.owner || '');
         if (opts.ownerFilter && owner.toLowerCase() !== opts.ownerFilter.toLowerCase()) continue;
         const parsed = parseScriptName(String(s.name || ''));

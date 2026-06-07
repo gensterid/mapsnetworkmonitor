@@ -25,11 +25,16 @@ import { useMikhmonReports, useMikhmonSalesLedger } from '@/hooks/useMikhmon';
  *   <date>-<time>-<user>-<price>-<ip>-<mac>-<validity>-<profile>-<comment>
  */
 
+// Preset semantics:
+//   days: number  → last N days back from today
+//   days: 0       → today only
+//   days: null    → no filter (all data)
+//   days: 'month' → current calendar month (1st → last day)
 const RANGE_PRESETS = [
     { label: 'Hari ini', days: 0 },
     { label: '7 hari', days: 7 },
     { label: '30 hari', days: 30 },
-    { label: '90 hari', days: 90 },
+    { label: 'Bulan ini', days: 'month' },
     { label: 'Semua', days: null },
 ];
 
@@ -69,6 +74,12 @@ export default function MikhmonReports() {
         if (presetDays === 0) {
             const today = ymd(new Date());
             return { from: today, to: today };
+        }
+        if (presetDays === 'month') {
+            const now = new Date();
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            return { from: ymd(first), to: ymd(last) };
         }
         const to = new Date();
         const from = new Date();
