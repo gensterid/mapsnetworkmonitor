@@ -100,11 +100,12 @@ export default function MikhmonReports() {
 
     // Sales ledger from /system script — MikHMON v3 reference behavior.
     // Same date range applied so the table aligns with the charts above.
-    const { data: ledgerPayload, isFetching: ledgerFetching, refetch: refetchLedger } = useMikhmonSalesLedger(
+    // Note: lib/api.get() already unwraps the { data: ... } response envelope,
+    // so the hook returns the SalesReport object directly — no second .data lookup.
+    const { data: ledger = { entries: [], total: 0, countByProfile: [] }, isFetching: ledgerFetching, refetch: refetchLedger } = useMikhmonSalesLedger(
         selectedRouterId,
         range,
     );
-    const ledger = ledgerPayload?.data || { entries: [], total: 0, countByProfile: [] };
 
     const pieData = [
         { name: 'unused', value: r.unused, color: PIE_COLORS.unused },
