@@ -1621,24 +1621,24 @@ router.get(
     asyncHandler(async (req, res) => {
         const month = req.query.month ? String(req.query.month).toLowerCase() : undefined;
         const year = req.query.year ? String(req.query.year) : undefined;
-        let ownerFilter = (month && year) ? `${month}${year}` : undefined;
+        const ownerFilter = (month && year) ? `${month}${year}` : undefined;
         const from = req.query.from ? new Date(String(req.query.from)) : undefined;
         const to = req.query.to ? new Date(String(req.query.to)) : undefined;
 
-        // When the requested range stays within one calendar month, derive
-        // ownerFilter automatically. This lets us push the filter to the
-        // router (selecting ~hundreds of entries instead of 10k+) without
-        // requiring the UI to send month/year explicitly. Critical on
-        // routers with large historical ledgers.
-        if (!ownerFilter && from && to) {
-            const sameMonth = from.getFullYear() === to.getFullYear() && from.getMonth() === to.getMonth();
-            if (sameMonth) {
-                const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
-                ownerFilter = `${months[from.getMonth()]}${from.getFullYear()}`;
-            }
+        // Cache for 30 seconds keyed by (routerId, range). Fetching 11k+
+        // scripts from RouterOS takes 5-10s and Reports is opened/refreshed
+        // multiple times in a session — caching avoids hammering the router.
+        const routerId = paramStr(req.params.routerId);
+        const cacheKey = `mikhmon:${routerId}:ledger:${ownerFilter || ''}:${from?.toISOString().slice(0, 10) || ''}:${to?.toISOString().slice(0, 10) || ''}`;
+        const cached = await cacheService.get<any>(cacheKey);
+        if (cached) {
+            res.set('X-Cache', 'HIT');
+            return res.json({ data: cached });
         }
 
         const data = await listSalesReport(req.mtConn, { ownerFilter, from, to });
+        await cacheService.set(cacheKey, data, 30); // 30s TTL
+        res.set('X-Cache', 'MISS');
         res.json({ data });
     })
 );

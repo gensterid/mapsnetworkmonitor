@@ -1013,6 +1013,29 @@ function routerDateToTimestamp(date: string, time: string): number {
     return new Date(y, mo, d, hh, mm, ss).getTime();
 }
 
+/**
+ * Normalize a RouterOS date string to ISO YYYY-MM-DD format.
+ * Returns empty string for invalid input so caller can drop the entry.
+ *
+ * Used for date-range filtering via lexicographic string comparison
+ * (avoids the timezone bugs we hit with Date.getTime() math on servers
+ * not running in UTC).
+ */
+function normalizeEntryDate(date: string): string {
+    const dt = String(date || '').trim();
+    const m6 = /^([a-z]{3})\/(\d{1,2})\/(\d{4})$/i.exec(dt);
+    if (m6) {
+        const moIdx = MONTH_NAMES_LOWER.indexOf(m6[1].toLowerCase());
+        if (moIdx < 0) return '';
+        const mm = String(moIdx + 1).padStart(2, '0');
+        const dd = m6[2].padStart(2, '0');
+        return `${m6[3]}-${mm}-${dd}`;
+    }
+    const m7 = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dt);
+    if (m7) return dt;
+    return '';
+}
+
 // MikHMON v3 OS6/OS7 reference uses "-|-" separator in /system script names
 // because profile names and voucher comments contain "-". This parser tries
 // "-|-" first (new format), then falls back to legacy "-" (old generator).
@@ -1090,28 +1113,16 @@ export async function listSalesReport(
     // header sellingPrice (falls back to the baked value when profile is
     // gone or has no selling price set).
     //
-    // Script fetch strategy with defensive logging because we've seen
-    // router-side query filters (?comment=, ?owner=) silently return 0
-    // even when matching entries exist. Always log so pm2 logs can
-    // pinpoint the failure (filter-no-match vs API-error vs parser).
-    //
-    // 1. If ownerFilter set, try router-side ?owner=<value> filter (fast).
-    // 2. If that returns 0 or errors, fall back to full /system/script/print.
-    // 3. JS-side filter by comment="mikhmon" handles both paths uniformly.
-    //
-    // No .proplist — some routerOS API client versions truncate or mishandle
-    // the proplist control word. Full row data is 5-10x larger but reliable
-    // across versions.
+    // Always full-fetch — owner-side filter (?owner=jun2026) was observed
+    // timing out after 30s on production routers with 11k+ scripts. The
+    // router applies the filter LATE in the response pipeline so it costs
+    // nearly as much as the full fetch but with a timeout ceiling. Doing
+    // the full fetch reliably succeeds in ~5-10s for 11k entries, then JS
+    // filters to ~hundreds per month in memory.
     let scripts: any[] = [];
     try {
-        if (opts.ownerFilter) {
-            scripts = await safeWrite(api, ['/system/script/print', `?owner=${opts.ownerFilter}`]);
-            logger.info({ ownerFilter: opts.ownerFilter, count: scripts?.length || 0 }, '[MikHMON ledger] owner-filtered fetch');
-        }
-        if (!Array.isArray(scripts) || scripts.length === 0) {
-            scripts = await safeWrite(api, ['/system/script/print']);
-            logger.info({ count: scripts?.length || 0 }, '[MikHMON ledger] full fetch');
-        }
+        scripts = await safeWrite(api, ['/system/script/print']);
+        logger.info({ count: scripts?.length || 0 }, '[MikHMON ledger] full fetch');
     } catch (e: any) {
         logger.error({ err: e?.message || String(e) }, '[MikHMON ledger] fetch failed');
         scripts = [];
@@ -1127,12 +1138,18 @@ export async function listSalesReport(
     }
 
     const entries: SalesEntry[] = [];
-    const fromTs = opts.from?.getTime() ?? 0;
-    const toTs = opts.to?.getTime() ?? Date.now() + 86_400_000;
+
+    // String-based date filter avoids timezone bugs we hit with timestamp
+    // math (server in +7 vs UTC date parsing). Frontend sends "YYYY-MM-DD"
+    // and entry dates parse to that same format — direct lexicographic
+    // comparison gives the right inclusive [from, to] window in local time.
+    const fromYmd = opts.from ? opts.from.toISOString().slice(0, 10) : '';
+    const toYmd = opts.to ? opts.to.toISOString().slice(0, 10) : '';
 
     // Per-stage drop counters so pm2 logs show where entries are getting
-    // filtered out — comment-mismatch, owner-mismatch, parse-fail, date-out-of-range.
-    let dropComment = 0, dropOwner = 0, dropParse = 0, dropDate = 0;
+    // filtered out — comment-mismatch, owner-mismatch, parse-fail, date-invalid,
+    // date-out-of-range.
+    let dropComment = 0, dropOwner = 0, dropParse = 0, dropDate = 0, dropBadDate = 0;
     let sampleName = '';
 
     for (const s of scripts || []) {
@@ -1149,8 +1166,16 @@ export async function listSalesReport(
         const parsed = parseScriptName(nameStr);
         if (!parsed) { dropParse++; continue; }
 
+        // Convert entry's mmm/dd/yyyy or YYYY-MM-DD to a normalized
+        // YYYY-MM-DD string for range comparison. If date doesn't match
+        // either format, the entry is malformed — drop it (the previous
+        // `if (ts && ...)` check let these slip through because ts was 0).
+        const entryYmd = normalizeEntryDate(parsed.date);
+        if (!entryYmd) { dropBadDate++; continue; }
+        if (fromYmd && entryYmd < fromYmd) { dropDate++; continue; }
+        if (toYmd && entryYmd > toYmd) { dropDate++; continue; }
+
         const ts = routerDateToTimestamp(parsed.date, parsed.time);
-        if (ts && (ts < fromTs || ts > toTs)) { dropDate++; continue; }
 
         // Override ledger's COST price with profile's SELLING price when known.
         // If the profile no longer exists (deleted by operator after sale),
@@ -1170,7 +1195,8 @@ export async function listSalesReport(
     logger.info({
         fetched: scripts?.length || 0,
         kept: entries.length,
-        dropped: { comment: dropComment, owner: dropOwner, parse: dropParse, date: dropDate },
+        dropped: { comment: dropComment, owner: dropOwner, parse: dropParse, badDate: dropBadDate, date: dropDate },
+        rangeFrom: fromYmd, rangeTo: toYmd,
         sampleName: sampleName.slice(0, 200),
         ownerFilter: opts.ownerFilter,
     }, '[MikHMON ledger] parse summary');
