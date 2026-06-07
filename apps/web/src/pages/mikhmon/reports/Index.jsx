@@ -38,8 +38,16 @@ const RANGE_PRESETS = [
     { label: 'Semua', days: null },
 ];
 
+// ymd returns "YYYY-MM-DD" in the USER'S LOCAL timezone. toISOString()
+// would round-trip via UTC and shift the date for browsers east/west of
+// UTC (e.g. WIB +7 turns 2026-06-01 00:00 local into 2026-05-31 17:00 UTC,
+// and toISOString().slice(0,10) gives "2026-05-31" — off by one day).
 function ymd(d) {
-    return new Date(d).toISOString().slice(0, 10);
+    const date = new Date(d);
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
 }
 
 function fmtRupiah(n) {
