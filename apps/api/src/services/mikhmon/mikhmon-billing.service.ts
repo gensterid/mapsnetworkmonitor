@@ -764,7 +764,11 @@ export function mergeMikhmonProfileSettings(
     return {
         validity: dbRow?.validity ?? parsed?.validity ?? null,
         limitUptime: dbRow?.limitUptime ?? null,
-        expiredMode: dbRow?.expiredMode ?? parsed?.expiredMode ?? 'Remove',
+        // Don't default to 'Remove' here — MikHMON external leaves the
+        // Mode Kedaluwarsa column blank when no script is installed. We
+        // want the table to mirror that exactly so operators can tell at
+        // a glance which profiles still need configuring.
+        expiredMode: dbRow?.expiredMode ?? parsed?.expiredMode ?? null,
         // Price = cost, sellingPrice = revenue. When operator only filled
         // one of them (legacy 0046 schema or single-input UI), use it as
         // both so the column displays meaningful values either way.

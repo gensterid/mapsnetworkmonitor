@@ -32,13 +32,47 @@ import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal
  */
 
 // MikHMON v3 external uses these 4 modes (matches Mode Kedaluwarsa
-// dropdown in the upstream profile form):
+// dropdown in the upstream profile form). The leading empty string
+// renders as "Select..." so the operator can intentionally leave a
+// profile without auto-expiry (matches MikHMON external behavior).
 //   Remove          — delete user when expired, no record entry
 //   Notice          — send notice, keep user
 //   Remove & Record — delete user + write a /log info "record" entry
 //                     so operator has a trail of expired vouchers
 //   Notice & Record — notice + record
 const EXPIRED_MODES = ['Remove', 'Notice', 'Remove & Record', 'Notice & Record'];
+
+/**
+ * Color-code the profile name based on its on-login script type so an
+ * operator can scan the list and tell at a glance which profiles have
+ * which expiry strategy.
+ *
+ *   green  — MikHMON Remove or Remove & Record (delete on expiry)
+ *   blue   — MikHMON Notice or Notice & Record (kick but keep)
+ *   yellow — has MikHMON :put header but mode code is unrecognized
+ *            (operator probably edited the script after install)
+ *   white  — no MikHMON-managed script at all
+ *
+ * Detection looks at the FIRST executable line only — operators often
+ * add their own RouterOS code after the MikHMON template, and that
+ * extension shouldn't change the color.
+ */
+function getProfileNameColor(profile) {
+    const onLogin = String(profile?.onLogin || '').trim();
+    if (!onLogin) return 'text-slate-200';
+
+    // Skip empty lines / pure comments to find the first executable line.
+    const firstExec = onLogin.split('\n').map(l => l.trim()).find(l => l && !l.startsWith('#')) || '';
+    const putMatch = /:put\s*\(\s*"([^"]*)"\s*\)/.exec(firstExec);
+    if (!putMatch) return 'text-slate-200';
+    const inner = putMatch[1];
+    if (!inner.includes('mikhmon')) return 'text-slate-200';
+
+    const code = inner.split(',')[1] || '';
+    if (code === 'rem' || code === 'remc') return 'text-emerald-400';
+    if (code === 'ntf' || code === 'ntfc') return 'text-sky-400';
+    return 'text-amber-400';
+}
 
 const EMPTY_FORM = {
     // RouterOS profile native fields
@@ -195,10 +229,17 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                     </Field>
                 </div>
 
-                {/* MIKHMON BILLING — same row layout as MikHMON v3 external */}
+                {/* MIKHMON BILLING — same row layout as MikHMON v3 external.
+                    User Mode / Name Length / Prefix / Char Type / Server Name
+                    intentionally NOT here — those are voucher-generator
+                    settings, not profile settings (matches MikHMON external). */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Mode Kedaluwarsa">
-                        <Select value={form.expiredMode} onChange={(v) => set('expiredMode', v)} options={EXPIRED_MODES} />
+                    <Field label="Mode Kedaluwarsa" hint="kosongkan = profile tanpa auto-expire">
+                        <Select
+                            value={form.expiredMode}
+                            onChange={(v) => set('expiredMode', v)}
+                            options={[{ value: '', label: 'Select...' }, ...EXPIRED_MODES.map(m => ({ value: m, label: m }))]}
+                        />
                     </Field>
                     <Field label="Masa Berlaku" hint="durasi setelah first login · contoh: 1d, 12h, 30m">
                         <TextInput value={form.validity} onChange={(v) => set('validity', v)} placeholder="1d" />
@@ -219,28 +260,6 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                             onChange={(v) => set('lockUser', v)}
                         />
                     </div>
-                </div>
-
-                {/* MIKHMON VOUCHER GENERATOR DEFAULTS (also MikHMON v3 ext) */}
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
-                    <Field label="User Mode">
-                        <Select value={form.userMode} onChange={(v) => set('userMode', v)} options={[
-                            { value: 'vc', label: 'vc (user=password)' },
-                            { value: 'up', label: 'up (terpisah)' },
-                        ]} />
-                    </Field>
-                    <Field label="Name Length">
-                        <NumberInput value={form.nameLength} onChange={(v) => set('nameLength', v)} min="3" max="20" />
-                    </Field>
-                    <Field label="Prefix">
-                        <TextInput value={form.prefix} onChange={(v) => set('prefix', v)} placeholder="" />
-                    </Field>
-                    <Field label="Char Type">
-                        <Select value={form.charType} onChange={(v) => set('charType', v)} options={['lowcase', 'upcase', 'mix', 'numbers']} />
-                    </Field>
-                    <Field label="Server Name" span={2}>
-                        <TextInput value={form.serverName} onChange={(v) => set('serverName', v)} placeholder="" />
-                    </Field>
                 </div>
 
                 {/* ROUTEROS PROFILE — collapsible advanced */}
@@ -379,7 +398,12 @@ export default function HotspotProfiles() {
     }, [profiles, search]);
 
     const installScriptsFor = async (profileId, payload) => {
-        if (!payload.validity?.toString().trim()) return; // no validity → skip script install
+        // Skip script install if operator left Mode Kedaluwarsa empty
+        // (matches MikHMON external — "Select..." means no auto-expire).
+        // Also skip when validity blank since the script can't compute
+        // an expiry time without it.
+        if (!payload.expiredMode?.trim()) return;
+        if (!payload.validity?.toString().trim()) return;
         await installMutation.mutateAsync({
             profileId,
             input: {
@@ -532,7 +556,7 @@ export default function HotspotProfiles() {
                                     <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="px-3 py-2.5">
                                             <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="font-semibold text-slate-200">{p.name}</span>
+                                                <span className={clsx('font-semibold', getProfileNameColor(p))}>{p.name}</span>
                                                 {p.default && (
                                                     <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded uppercase font-bold tracking-tight">default</span>
                                                 )}
