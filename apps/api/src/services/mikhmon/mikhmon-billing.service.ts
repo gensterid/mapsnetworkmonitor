@@ -812,9 +812,13 @@ export interface VoucherSnapshot {
 }
 
 async function loadVoucherSnapshot(api: any): Promise<VoucherSnapshot[]> {
+    // 60s timeout — /ip/hotspot/user/print can hold thousands of voucher
+    // users on busy routers and competes for the same MikroTik connection
+    // as the ledger fetch. Default 30s is too tight when both endpoints
+    // are hit concurrently from the Reports page.
     const [users, schedulers] = await Promise.all([
-        safeWrite(api, '/ip/hotspot/user/print'),
-        safeWrite(api, '/system/scheduler/print'),
+        safeWrite(api, '/ip/hotspot/user/print', 60_000),
+        safeWrite(api, '/system/scheduler/print', 60_000),
     ]);
     const schedNames = new Set<string>((schedulers || []).map((s: any) => s.name));
     const out: VoucherSnapshot[] = [];
