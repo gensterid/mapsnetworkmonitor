@@ -1116,12 +1116,19 @@ export async function listSalesReport(
     // Always full-fetch — owner-side filter (?owner=jun2026) was observed
     // timing out after 30s on production routers with 11k+ scripts. The
     // router applies the filter LATE in the response pipeline so it costs
-    // nearly as much as the full fetch but with a timeout ceiling. Doing
-    // the full fetch reliably succeeds in ~5-10s for 11k entries, then JS
-    // filters to ~hundreds per month in memory.
+    // nearly as much as the full fetch but with a timeout ceiling.
+    //
+    // Two optimizations to make the full fetch reliable on big ledgers:
+    //   1. .proplist=.id,name,owner,comment — trims response per entry to
+    //      ~80 bytes (vs ~400 with source field). Cuts total payload 5x.
+    //   2. timeout=120000 (2 min) — default safeWrite is 30s which isn't
+    //      enough on a router with 11k+ scripts when it's busy. 2 minutes
+    //      is generous enough to never block the Reports page unless
+    //      something is genuinely wrong.
     let scripts: any[] = [];
     try {
-        scripts = await safeWrite(api, ['/system/script/print']);
+        const proplist = '=.proplist=.id,name,owner,comment';
+        scripts = await safeWrite(api, ['/system/script/print', proplist], 120_000);
         logger.info({ count: scripts?.length || 0 }, '[MikHMON ledger] full fetch');
     } catch (e: any) {
         logger.error({ err: e?.message || String(e) }, '[MikHMON ledger] fetch failed');
