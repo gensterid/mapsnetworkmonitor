@@ -107,6 +107,42 @@ export default function MikhmonReports() {
         range,
     );
 
+    // Build per-day buckets from the ledger so the chart matches the
+    // Laporan Penjualan rows. Previously the chart used computeReports'
+    // byDay which only counts CURRENT /ip/hotspot/user vouchers — used
+    // and removed vouchers were missing, so days with high turnover
+    // showed as gaps. Using ledger gives every day with at least one
+    // sold voucher.
+    const ledgerByDay = useMemo(() => {
+        const map = new Map();
+        for (const e of ledger.entries) {
+            // entry.date is "mmm/dd/yyyy" (e.g. "jun/08/2026"); convert to
+            // ISO "YYYY-MM-DD" for sortable x-axis labels.
+            const m = /^([a-z]{3})\/(\d{1,2})\/(\d{4})$/i.exec(String(e.date || ''));
+            if (!m) continue;
+            const moIdx = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'].indexOf(m[1].toLowerCase());
+            if (moIdx < 0) continue;
+            const day = `${m[3]}-${String(moIdx + 1).padStart(2, '0')}-${m[2].padStart(2, '0')}`;
+            const cur = map.get(day) || { date: day, count: 0, income: 0 };
+            cur.count += 1;
+            cur.income += Number(e.price) || 0;
+            map.set(day, cur);
+        }
+        return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
+    }, [ledger.entries]);
+
+    // Bar-click handler — sets the custom date range to the clicked day
+    // so the table + cards narrow to that single day's sales. Click again
+    // on the same day's button row (or pick a preset) to clear.
+    const handleBarClick = (e) => {
+        const day = e?.activePayload?.[0]?.payload?.date;
+        if (day) {
+            setPresetDays(null);
+            setCustomFrom(day);
+            setCustomTo(day);
+        }
+    };
+
     const pieData = [
         { name: 'unused', value: r.unused, color: PIE_COLORS.unused },
         { name: 'used', value: r.used, color: PIE_COLORS.used },
@@ -188,17 +224,20 @@ export default function MikhmonReports() {
 
                         <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 lg:col-span-2">
                             <div className="flex items-center justify-between mb-3">
-                                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">Voucher per Hari</div>
+                                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                                    Voucher per Hari
+                                    <span className="ml-2 text-[10px] normal-case text-slate-600 font-normal">(klik bar untuk filter hari)</span>
+                                </div>
                                 <div className="flex items-center gap-3 text-[10px]">
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-cyan-400" /><span className="text-slate-400">Count</span></span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400" /><span className="text-slate-400">Income</span></span>
                                 </div>
                             </div>
-                            {r.byDay.length === 0 ? (
+                            {ledgerByDay.length === 0 ? (
                                 <div className="h-56 flex items-center justify-center text-xs text-slate-500">Tidak ada data</div>
                             ) : (
                                 <ResponsiveContainer width="100%" height={220}>
-                                    <BarChart data={r.byDay}>
+                                    <BarChart data={ledgerByDay} onClick={handleBarClick} style={{ cursor: 'pointer' }}>
                                         <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                                         <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 10 }} stroke="#334155" />
                                         <YAxis yAxisId="left" tick={{ fill: '#64748b', fontSize: 10 }} stroke="#334155" />
