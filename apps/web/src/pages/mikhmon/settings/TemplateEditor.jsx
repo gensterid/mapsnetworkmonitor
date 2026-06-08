@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { FileCode2, Save, RotateCcw, Eye } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -134,6 +134,22 @@ export default function TemplateEditor() {
         }
     }, [body, mockVars]);
 
+    // Live preview rendered inside a sandboxed iframe — gives the template
+    // its own document so <style> blocks get parsed as CSS (not as text)
+    // and operator sees the exact result as the print window. Without the
+    // iframe, browsers don't reliably apply <style> tags inserted via
+    // innerHTML into an arbitrary <div>.
+    const iframeRef = useRef(null);
+    useEffect(() => {
+        const iframe = iframeRef.current;
+        if (!iframe) return;
+        const doc = iframe.contentDocument;
+        if (!doc) return;
+        doc.open();
+        doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;font-family:system-ui,sans-serif;}</style></head><body>${previewHtml}</body></html>`);
+        doc.close();
+    }, [previewHtml]);
+
     const handleSave = () => {
         if (!body?.trim() || body.length < 10) {
             toast.error('Body template terlalu pendek');
@@ -247,7 +263,12 @@ export default function TemplateEditor() {
                                 (mock voucher: abc123 · PAKET-1HARI · 1Hari · Rp 5.000)
                             </span>
                         </div>
-                        <div className="p-4 bg-white text-black overflow-auto" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                        <iframe
+                            ref={iframeRef}
+                            title="Voucher Preview"
+                            className="w-full h-[360px] bg-white"
+                            sandbox="allow-same-origin"
+                        />
                     </div>
                 </div>
 
