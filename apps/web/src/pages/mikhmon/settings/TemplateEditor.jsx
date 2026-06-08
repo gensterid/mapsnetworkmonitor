@@ -101,7 +101,11 @@ export default function TemplateEditor() {
 
     useEffect(() => {
         if (tpl) {
-            setBody(tpl.body || '');
+            // Auto-decode any legacy &lt;/&gt; entities from rows saved
+            // before the sanitize-bypass fix — operator sees clean HTML
+            // and next save persists unescaped (because PUT now skips
+            // xss for this route).
+            setBody(unescapeHtmlEntities(tpl.body || ''));
             setQrEnabled(!!tpl.qrEnabled);
             setLogoEnabled(!!tpl.logoEnabled);
             setLogoFilename(tpl.logoFilename || '');
