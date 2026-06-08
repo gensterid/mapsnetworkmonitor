@@ -1,11 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { BarChart3, RefreshCw, TrendingUp, Ticket, Wallet, CheckCircle2, Circle, ListChecks } from 'lucide-react';
+import { BarChart3, RefreshCw, TrendingUp, Ticket, Wallet, CheckCircle2, Circle, ListChecks, Download, Printer, BarChart2, Trash2, Search } from 'lucide-react';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell,
 } from 'recharts';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 import { useMikhmonContext } from '@/contexts/useMikhmonContext';
-import { useMikhmonReports, useMikhmonSalesLedger } from '@/hooks/useMikhmon';
+import { useMikhmonReports, useMikhmonSalesLedger, useDeleteMikhmonLedger } from '@/hooks/useMikhmon';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { DeleteConfirmationModal } from '@/components/ui/DeleteConfirmationModal';
 
 /**
  * MikHMON-equivalent Reports page.
@@ -70,11 +74,28 @@ function StatCard({ icon: Icon, label, value, color, hint }) {
 
 const PIE_COLORS = { unused: '#22d3ee', used: '#10b981', expired: '#f59e0b' };
 
+// MikHMON external default scope is current-month — matches that.
+const DEFAULT_PRESET = 'month';
+
+const MONTHS_LC = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+
+function ownerFromRange(range) {
+    if (!range?.from || !range?.to) return null;
+    const f = new Date(range.from);
+    const t = new Date(range.to);
+    if (f.getFullYear() !== t.getFullYear() || f.getMonth() !== t.getMonth()) return null;
+    return `${MONTHS_LC[f.getMonth()]}${f.getFullYear()}`;
+}
+
 export default function MikhmonReports() {
     const { selectedRouterId } = useMikhmonContext();
-    const [presetDays, setPresetDays] = useState(30);
+    const [presetDays, setPresetDays] = useState(DEFAULT_PRESET);
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
+    const [search, setSearch] = useState('');
+    const [showRingkasan, setShowRingkasan] = useState(false);
+    const [confirmingDelete, setConfirmingDelete] = useState(null);
+    const deleteLedger = useDeleteMikhmonLedger(selectedRouterId);
 
     const range = useMemo(() => {
         if (customFrom && customTo) return { from: customFrom, to: customTo };
@@ -141,6 +162,108 @@ export default function MikhmonReports() {
             setCustomFrom(day);
             setCustomTo(day);
         }
+    };
+
+    // Search box filters the Laporan Penjualan rows in-memory (not a refetch).
+    // Operator scans for a specific username or note without changing the date range.
+    const entriesFiltered = useMemo(() => {
+        const q = search.trim().toLowerCase();
+        if (!q) return ledger.entries;
+        return ledger.entries.filter((e) =>
+            String(e.username || '').toLowerCase().includes(q) ||
+            String(e.profile || '').toLowerCase().includes(q) ||
+            String(e.comment || '').toLowerCase().includes(q),
+        );
+    }, [ledger.entries, search]);
+
+    // CSV export — same columns as the table.
+    const handleExportCSV = () => {
+        if (entriesFiltered.length === 0) {
+            toast.error('Tidak ada data untuk diekspor');
+            return;
+        }
+        const header = ['No', 'Tanggal', 'Waktu', 'Username', 'Profil', 'Komentar', 'Harga'];
+        const rows = entriesFiltered.map((e, i) => [
+            i + 1, e.date, e.time, e.username, e.profile, e.comment, e.price,
+        ]);
+        const escape = (s) => {
+            const v = String(s ?? '');
+            return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+        };
+        const csv = [header, ...rows].map((r) => r.map(escape).join(',')).join('\n');
+        const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const ownerTag = ownerFromRange(range) || ymd(new Date());
+        a.href = url;
+        a.download = `laporan-penjualan-${ownerTag}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`Diekspor ${entriesFiltered.length} baris`);
+    };
+
+    // Cetak — open print window with the visible entries formatted as a
+    // clean table (one big page, monospace, ready to send to a printer).
+    const handlePrint = () => {
+        if (entriesFiltered.length === 0) {
+            toast.error('Tidak ada data untuk dicetak');
+            return;
+        }
+        const ownerTag = ownerFromRange(range);
+        const title = ownerTag
+            ? `Laporan Penjualan ${ownerTag}`
+            : `Laporan Penjualan ${range.from || ''} s/d ${range.to || ''}`;
+        const w = window.open('', '_blank', 'width=900,height=700');
+        if (!w) return;
+        const rowsHtml = entriesFiltered.map((e, i) => `
+            <tr>
+                <td style="text-align:right">${i + 1}</td>
+                <td>${e.date}</td>
+                <td>${e.time}</td>
+                <td>${e.username}</td>
+                <td>${e.profile}</td>
+                <td>${e.comment || ''}</td>
+                <td style="text-align:right">${fmtRupiah(e.price)}</td>
+            </tr>
+        `).join('');
+        w.document.write(`<!doctype html>
+<html><head><title>${title}</title>
+<style>
+    @page { margin: 12mm; }
+    body { font-family: system-ui, -apple-system, sans-serif; font-size: 11px; color: #000; }
+    h1 { font-size: 14px; margin: 0 0 8px; }
+    .total { font-size: 12px; margin: 0 0 12px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 4px 6px; border-bottom: 1px solid #ddd; }
+    th { background: #f3f4f6; text-align: left; font-size: 10px; text-transform: uppercase; }
+</style></head>
+<body>
+    <h1>${title}</h1>
+    <div class="total"><strong>Total:</strong> ${fmtRupiah(ledger.total)} (${entriesFiltered.length} voucher)</div>
+    <table>
+        <thead><tr>
+            <th>No</th><th>Tanggal</th><th>Waktu</th><th>Username</th><th>Profil</th><th>Komentar</th><th>Harga</th>
+        </tr></thead>
+        <tbody>${rowsHtml}</tbody>
+    </table>
+    <script>setTimeout(() => window.print(), 200);</script>
+</body></html>`);
+        w.document.close();
+    };
+
+    // Owner button label like "Hapus jun2026" — only enabled when the
+    // range falls in a single month (otherwise no clean bucket to delete).
+    const ownerFilter = ownerFromRange(range);
+    const handleDeleteConfirmed = () => {
+        if (!ownerFilter) return;
+        deleteLedger.mutate(ownerFilter, {
+            onSuccess: (resp) => {
+                toast.success(`${resp?.data?.removed ?? 0} entries dihapus`);
+                setConfirmingDelete(null);
+                refetchLedger();
+            },
+            onError: (e) => toast.error(e?.response?.data?.message || 'Gagal hapus data'),
+        });
     };
 
     const pieData = [
@@ -290,18 +413,66 @@ export default function MikhmonReports() {
                         Mirrors MikHMON external "Laporan Penjualan" tab exactly:
                         only sold vouchers (first login fired), columns match
                         MikHMON's № Tanggal Waktu Username Profil Komentar Harga.
-                        Total at top right = sum of all sold prices in range. */}
+                        Total at top right = sum of all sold prices in range.
+                        Toolbar mirrors MikHMON external: Search · CSV · Ringkasan ·
+                        Cetak · Hapus data <owner>. */}
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2">
+                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2 flex-wrap">
                             <span className="flex items-center gap-2 text-slate-500">
                                 <ListChecks className="w-3.5 h-3.5" />
-                                Laporan Penjualan ({ledger.entries.length})
+                                Laporan Penjualan ({entriesFiltered.length}{entriesFiltered.length !== ledger.entries.length && ` / ${ledger.entries.length}`})
                             </span>
                             <span className="flex items-center gap-3">
                                 <span className="text-slate-500 normal-case font-normal">Total</span>
                                 <span className="text-emerald-300 text-sm font-bold tabular-nums">{fmtRupiah(ledger.total)}</span>
                                 {ledgerFetching && <RefreshCw className="w-3 h-3 animate-spin text-slate-500" />}
                             </span>
+                        </div>
+
+                        {/* Toolbar — Search + action buttons */}
+                        <div className="px-4 py-2 border-b border-slate-800/60 bg-slate-900/30 flex items-center gap-2 flex-wrap">
+                            <div className="relative flex-1 min-w-[200px]">
+                                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                                <input
+                                    value={search}
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    placeholder="Cari username / profil / komentar…"
+                                    className="w-full pl-8 pr-3 py-1.5 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                />
+                            </div>
+                            <button
+                                onClick={handleExportCSV}
+                                disabled={entriesFiltered.length === 0}
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 text-slate-300 hover:bg-white/5 disabled:opacity-40 normal-case"
+                                title="Download CSV"
+                            >
+                                <Download className="w-3.5 h-3.5" /> CSV
+                            </button>
+                            <button
+                                onClick={() => setShowRingkasan(true)}
+                                disabled={ledgerByDay.length === 0}
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 text-slate-300 hover:bg-white/5 disabled:opacity-40 normal-case"
+                                title="Ringkasan per hari"
+                            >
+                                <BarChart2 className="w-3.5 h-3.5" /> Ringkasan
+                            </button>
+                            <button
+                                onClick={handlePrint}
+                                disabled={entriesFiltered.length === 0}
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 text-slate-300 hover:bg-white/5 disabled:opacity-40 normal-case"
+                                title="Cetak laporan"
+                            >
+                                <Printer className="w-3.5 h-3.5" /> Cetak
+                            </button>
+                            <button
+                                onClick={() => setConfirmingDelete({ owner: ownerFilter, count: ledger.entries.length })}
+                                disabled={!ownerFilter || ledger.entries.length === 0}
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-red-500/30 text-red-300 hover:bg-red-500/10 disabled:opacity-40 normal-case"
+                                title={ownerFilter ? `Hapus seluruh ledger ${ownerFilter}` : 'Hanya tersedia untuk rentang 1 bulan'}
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {ownerFilter ? `Hapus data ${ownerFilter}` : 'Hapus data'}
+                            </button>
                         </div>
                         <div className="overflow-x-auto custom-scrollbar max-h-[600px]">
                             <table className="w-full text-sm min-w-[900px]">
@@ -317,12 +488,18 @@ export default function MikhmonReports() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/40">
-                                    {ledger.entries.length === 0 ? (
+                                    {entriesFiltered.length === 0 ? (
                                         <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">
-                                            Belum ada voucher terjual di rentang ini.
-                                            <div className="text-[10px] mt-1 opacity-70">Ledger terisi otomatis saat voucher pertama kali login (on-login script).</div>
+                                            {ledger.entries.length === 0 ? (
+                                                <>
+                                                    Belum ada voucher terjual di rentang ini.
+                                                    <div className="text-[10px] mt-1 opacity-70">Ledger terisi otomatis saat voucher pertama kali login (on-login script).</div>
+                                                </>
+                                            ) : (
+                                                <>Tidak ada baris cocok pencarian.</>
+                                            )}
                                         </td></tr>
-                                    ) : ledger.entries.map((e, idx) => (
+                                    ) : entriesFiltered.map((e, idx) => (
                                         <tr key={e.scriptId || idx} className="hover:bg-slate-800/30">
                                             <td className="px-3 py-1.5 font-mono text-[11px] text-slate-500 text-right">{idx + 1}</td>
                                             <td className="px-3 py-1.5 font-mono text-[11px] text-slate-300">{e.date}</td>
@@ -344,6 +521,58 @@ export default function MikhmonReports() {
 
                 </>
             )}
+
+            {/* Ringkasan — daily breakdown table popped from chart data. */}
+            <Modal
+                isOpen={showRingkasan}
+                onClose={() => setShowRingkasan(false)}
+                title={`Ringkasan ${ownerFilter ? ownerFilter : (range.from || '') + ' s/d ' + (range.to || '')}`}
+                maxWidth="max-w-xl"
+            >
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-400">Total Voucher Terjual</span>
+                        <span className="font-bold text-slate-100">{ledger.entries.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm border-b border-slate-800 pb-3">
+                        <span className="text-slate-400">Total Pendapatan</span>
+                        <span className="font-bold text-emerald-300 tabular-nums">{fmtRupiah(ledger.total)}</span>
+                    </div>
+                    <div className="overflow-y-auto max-h-[400px] custom-scrollbar">
+                        <table className="w-full text-sm">
+                            <thead className="bg-slate-900/30 text-[10px] font-bold uppercase tracking-wider text-slate-500 sticky top-0">
+                                <tr>
+                                    <th className="text-left px-3 py-2">Tanggal</th>
+                                    <th className="text-right px-3 py-2">Voucher</th>
+                                    <th className="text-right px-3 py-2">Pendapatan</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/40">
+                                {ledgerByDay.length === 0 ? (
+                                    <tr><td colSpan={3} className="px-3 py-6 text-center text-slate-500 text-xs">Tidak ada data</td></tr>
+                                ) : ledgerByDay.map((d) => (
+                                    <tr key={d.date} className="hover:bg-slate-800/30">
+                                        <td className="px-3 py-1.5 font-mono text-[11px] text-slate-300">{d.date}</td>
+                                        <td className="px-3 py-1.5 text-right font-mono text-xs text-slate-300">{d.count}</td>
+                                        <td className="px-3 py-1.5 text-right font-mono text-xs text-emerald-300">{fmtRupiah(d.income)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </Modal>
+
+            <DeleteConfirmationModal
+                isOpen={!!confirmingDelete}
+                onClose={() => setConfirmingDelete(null)}
+                onConfirm={handleDeleteConfirmed}
+                title={`Hapus Data Ledger ${confirmingDelete?.owner || ''}`}
+                message={`Anda akan menghapus ${confirmingDelete?.count ?? 0} entri ledger dari /system script untuk bulan ${confirmingDelete?.owner || ''}. Voucher di /ip/hotspot/user TIDAK ikut terhapus — hanya history Reports yang hilang. Operasi tidak bisa di-undo.`}
+                itemName={confirmingDelete?.owner || ''}
+                confirmText="Hapus Permanent"
+                isDeleting={deleteLedger.isPending}
+            />
         </div>
     );
 }

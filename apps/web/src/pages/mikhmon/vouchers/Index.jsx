@@ -133,8 +133,13 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Labels match MikHMON external 1:1 so operators don't relearn
+                    naming. Layout split into two visual groups:
+                      1. Identitas voucher — Qty/Server/User Mode/Profile
+                      2. Format kode — Name Length/Prefix/Char Type/Comment
+                      3. Limit RouterOS — Time Limit/Data Limit (optional override) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Field label="Count *" hint="berapa voucher di-generate (1-500)">
+                    <Field label="Qty *" hint="jumlah voucher di-generate (1-500)">
                         <input
                             type="number"
                             min={1}
@@ -145,35 +150,26 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             required
                         />
                     </Field>
-                    <Field label="Code Length" hint="panjang kode acak (3-20)">
-                        <input
-                            type="number"
-                            min={3}
-                            max={20}
-                            value={form.length}
-                            onChange={(e) => set('length', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        />
-                    </Field>
-                    <Field label="Charset">
-                        <select
-                            value={form.charset}
-                            onChange={(e) => set('charset', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        >
-                            {CHARSETS.map((c) => <option key={c.v} value={c.v}>{c.label}</option>)}
-                        </select>
-                    </Field>
-                    <Field label="Prefix" hint="opsional · ditambah di depan kode">
+                    <Field label="Server" hint="hotspot server · kosong = all">
                         <input
                             type="text"
-                            value={form.prefix}
-                            onChange={(e) => set('prefix', e.target.value)}
-                            placeholder=""
+                            value={form.server}
+                            onChange={(e) => set('server', e.target.value)}
+                            placeholder="all"
                             className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
-                    <Field label="Profile *" hint="paket dari User Profile">
+                    <Field label="User Mode" hint="vc = username = password (1 kode) · up = user + password terpisah">
+                        <select
+                            value={form.mode}
+                            onChange={(e) => set('mode', e.target.value)}
+                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        >
+                            <option value="vc">vc (single code)</option>
+                            <option value="up">up (user + password)</option>
+                        </select>
+                    </Field>
+                    <Field label="Profile *" hint="paket dari User Profile (validity + harga sudah di-set di sana)">
                         <select
                             value={form.profile}
                             onChange={(e) => set('profile', e.target.value)}
@@ -186,35 +182,47 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             ))}
                         </select>
                     </Field>
-                    <Field label="Server" hint="hotspot server · kosong = all">
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                    <Field label="Name Length" hint="3-20">
                         <input
-                            type="text"
-                            value={form.server}
-                            onChange={(e) => set('server', e.target.value)}
-                            placeholder="all"
+                            type="number"
+                            min={3}
+                            max={20}
+                            value={form.length}
+                            onChange={(e) => set('length', e.target.value)}
                             className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
-                    <Field label="Mode" hint="VC = username=password (1 kode) · UP = beda">
+                    <Field label="Prefix" hint="depan kode">
+                        <input
+                            type="text"
+                            value={form.prefix}
+                            onChange={(e) => set('prefix', e.target.value)}
+                            placeholder=""
+                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        />
+                    </Field>
+                    <Field label="Char Type" span={2}>
                         <select
-                            value={form.mode}
-                            onChange={(e) => set('mode', e.target.value)}
+                            value={form.charset}
+                            onChange={(e) => set('charset', e.target.value)}
                             className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         >
-                            <option value="vc">vc (single code)</option>
-                            <option value="up">up (user + password)</option>
+                            {CHARSETS.map((c) => <option key={c.v} value={c.v}>{c.label}</option>)}
                         </select>
                     </Field>
-                    <Field label="Note" hint="ditampilkan di comment · default = nama profile">
+                    <Field label="Comment" hint="muncul di comment field MikroTik · default = nama profile" span={2}>
                         <input
                             type="text"
                             value={form.noteOverride}
                             onChange={(e) => set('noteOverride', e.target.value)}
-                            placeholder="(profile)"
+                            placeholder="(default = nama profile)"
                             className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
-                    <Field label="Limit Uptime" hint="durasi maks per voucher · contoh: 1d, 12h">
+                    <Field label="Time Limit" hint="override durasi · contoh: 1d, 12h">
                         <input
                             type="text"
                             value={form.limitUptime}
@@ -223,7 +231,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
-                    <Field label="Limit Bytes Total" hint="quota total · contoh: 5G">
+                    <Field label="Data Limit" hint="override quota · contoh: 5G">
                         <input
                             type="text"
                             value={form.limitBytesTotal}

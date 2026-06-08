@@ -635,3 +635,16 @@ export function useMikhmonSalesLedger(routerId, opts = {}, options = {}) {
         ...options,
     });
 }
+
+// Wipe a month's worth of ledger entries (mirrors MikHMON external
+// "Hapus data jun2026" button). ownerFilter format: "<mmm><yyyy>"
+// lowercase, e.g. "jun2026".
+export function useDeleteMikhmonLedger(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (ownerFilter) => mikhmonApi.reports.deleteLedger(routerId, ownerFilter),
+        onSuccess: () => {
+            qc.invalidateQueries({ queryKey: [...mikhmonKeys.all(routerId), 'reports'] });
+        },
+    });
+}

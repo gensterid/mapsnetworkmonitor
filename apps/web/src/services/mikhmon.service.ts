@@ -166,6 +166,8 @@ export const mikhmonApi = {
             if (to) params.to = to;
             return get(`/mikhmon/${routerId}/reports/ledger`, { params });
         },
+        deleteLedger: (routerId, ownerFilter) =>
+            del(`/mikhmon/${routerId}/reports/ledger`, { params: { owner: ownerFilter } }),
     },
 };
 

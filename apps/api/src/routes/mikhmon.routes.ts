@@ -99,6 +99,7 @@ import {
     installExpireMonitor,
     computeReports,
     listSalesReport,
+    deleteSalesLedgerByOwner,
     parseMikhmonProfileConfig,
     parseProfileCommentConfig,
     mergeMikhmonProfileSettings,
@@ -1664,6 +1665,25 @@ router.get(
         }
         res.set('X-Cache', 'MISS');
         res.json({ data });
+    })
+);
+
+// Hapus seluruh entries ledger untuk satu owner bucket (mis. "jun2026").
+// Mirrors MikHMON external "Hapus data <month><year>" button.
+router.delete(
+    '/:routerId/reports/ledger',
+    resolveRouterContext({ connect: true }),
+    asyncHandler(async (req, res) => {
+        const ownerFilter = req.query.owner ? String(req.query.owner).toLowerCase() : '';
+        if (!ownerFilter) throw new ApiError(400, 'query param "owner" wajib (mis. owner=jun2026)');
+        const removed = await deleteSalesLedgerByOwner(req.mtConn, ownerFilter);
+
+        // Invalidate every cached ledger response for this router — easier
+        // than tracking which key the deleted entries fell into.
+        const routerId = paramStr(req.params.routerId);
+        await cacheService.invalidatePrefix(`mikhmon:${routerId}:ledger:`).catch(() => {});
+
+        res.json({ data: { removed, owner: ownerFilter } });
     })
 );
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import {
     LayoutDashboard, Wifi, Users, ScrollText, Activity, ShieldCheck, Network,
-    Gauge, FileBox, Server, Ticket, BarChart3, Menu, X,
+    Gauge, FileBox, Server, Ticket, BarChart3, Menu, X, Printer,
 } from 'lucide-react';
 import RouterSelector from '@/components/mikhmon/RouterSelector';
 import AutoRefreshSelect from '@/components/mikhmon/AutoRefreshSelect';
@@ -76,6 +76,7 @@ const SECTIONS = [
         hotspotOnly: true,
         items: [
             { path: 'vouchers', label: 'Voucher', icon: Ticket, ready: true },
+            { path: 'cetak-cepat', label: 'Cetak Cepat', icon: Printer, ready: true },
             { path: 'reports', label: 'Reports', icon: BarChart3, ready: true },
         ],
     },

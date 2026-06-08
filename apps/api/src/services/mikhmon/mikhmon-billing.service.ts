@@ -570,6 +570,34 @@ export async function installExpireMonitor(api: any): Promise<void> {
 }
 
 /**
+ * Delete all sales ledger entries (`/system script` with comment="mikhmon")
+ * for a given month-owner bucket. Mirrors MikHMON external "Hapus data
+ * jun2026" button — wipes the month's history in one shot.
+ *
+ * Owner format: "<mmm><yyyy>" lowercase, e.g. "jun2026". Returns the
+ * number of entries removed so the UI can confirm to the operator.
+ */
+export async function deleteSalesLedgerByOwner(api: any, ownerFilter: string): Promise<number> {
+    if (!ownerFilter || !ownerFilter.trim()) throw new Error('ownerFilter wajib (mis. "jun2026")');
+    const scripts: any[] = await safeWrite(api, ['/system/script/print']);
+    const matches = (scripts || []).filter((s) => {
+        if (String(s.comment || '').trim().toLowerCase() !== 'mikhmon') return false;
+        return String(s.owner || '').toLowerCase() === ownerFilter.toLowerCase();
+    });
+    if (matches.length === 0) return 0;
+    // RouterOS supports multi-id remove via comma-separated .id list.
+    // Batch in groups of 100 to keep command length manageable.
+    const ids = matches.map((s) => s['.id']).filter(Boolean);
+    const batchSize = 100;
+    for (let i = 0; i < ids.length; i += batchSize) {
+        const chunk = ids.slice(i, i + batchSize);
+        await safeWrite(api, ['/system/script/remove', `=.id=${chunk.join(',')}`]);
+    }
+    logger.info({ ownerFilter, removed: ids.length }, '[MikHMON ledger] deleted by owner');
+    return ids.length;
+}
+
+/**
  * Detect whether a profile already has MikHMON-managed scripts (used by
  * the UI to badge "MikHMON-managed" rows).
  *
