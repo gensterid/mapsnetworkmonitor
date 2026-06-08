@@ -52,6 +52,7 @@ export default function CetakCepat() {
 
     const [profileFilter, setProfileFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
+    const [commentFilter, setCommentFilter] = useState('all');
     const [search, setSearch] = useState('');
     const [template, setTemplate] = useState('medium');
     const [maxCount, setMaxCount] = useState(0); // 0 = no cap
@@ -60,6 +61,33 @@ export default function CetakCepat() {
     // vouchers that have already been redeemed by someone.
     const [onlyUnused, setOnlyUnused] = useState(true);
 
+    // Comments come in batches when operator generates vouchers — every
+    // generate-N call shares the same vc-NNN-mm.dd.yy-note tag. Group by
+    // that tag so the operator can print "voucher batch hari ini" with
+    // one click. Matches MikHMON external "Filter by Comment" dropdown.
+    const commentBuckets = useMemo(() => {
+        const map = new Map();
+        for (const v of items) {
+            const key = (v.note?.trim() || v.comment || '').trim();
+            if (!key) continue;
+            // Normalize: strip the trailing "-" some comments leave from
+            // empty note positions, so vc-925-02.04.26- and vc-925-02.04.26
+            // collapse into one bucket.
+            const norm = key.replace(/-+$/, '');
+            const cur = map.get(norm) || { key: norm, count: 0 };
+            cur.count++;
+            map.set(norm, cur);
+        }
+        // Sort newest first by date embedded in the comment tag if present
+        // (vc-XXX-mm.dd.yy-...), otherwise alphabetic.
+        return Array.from(map.values()).sort((a, b) => {
+            const da = /\d{2}\.\d{2}\.\d{2}/.exec(a.key)?.[0] || '';
+            const db = /\d{2}\.\d{2}\.\d{2}/.exec(b.key)?.[0] || '';
+            if (da && db) return db.localeCompare(da); // newest first
+            return a.key.localeCompare(b.key);
+        });
+    }, [items]);
+
     const filtered = useMemo(() => {
         const today = ymdLocal(new Date());
         const cutoff7 = new Date(); cutoff7.setDate(cutoff7.getDate() - 7);
@@ -67,6 +95,10 @@ export default function CetakCepat() {
         const q = search.trim().toLowerCase();
         return items.filter((v) => {
             if (profileFilter !== 'all' && v.profile !== profileFilter) return false;
+            if (commentFilter !== 'all') {
+                const key = (v.note?.trim() || v.comment || '').replace(/-+$/, '');
+                if (key !== commentFilter) return false;
+            }
             if (dateFilter !== 'all' && v.generatedAt) {
                 const d = new Date(v.generatedAt);
                 if (dateFilter === 'today' && ymdLocal(d) !== today) return false;
@@ -80,7 +112,7 @@ export default function CetakCepat() {
             }
             return true;
         });
-    }, [items, profileFilter, dateFilter, search, onlyUnused]);
+    }, [items, profileFilter, commentFilter, dateFilter, search, onlyUnused]);
 
     const toPrint = useMemo(() => {
         if (maxCount > 0) return filtered.slice(0, maxCount);
@@ -240,6 +272,22 @@ export default function CetakCepat() {
                                     className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2"
                                 >
                                     {DATE_FILTERS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+                                </select>
+                            </label>
+                            <label className="flex flex-col gap-1 sm:col-span-2">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                    Filter by Comment
+                                    <span className="text-slate-600 normal-case font-normal ml-1">— print per batch generation</span>
+                                </span>
+                                <select
+                                    value={commentFilter}
+                                    onChange={(e) => setCommentFilter(e.target.value)}
+                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2"
+                                >
+                                    <option value="all">Semua comment</option>
+                                    {commentBuckets.map((b) => (
+                                        <option key={b.key} value={b.key}>{b.key} [{b.count}]</option>
+                                    ))}
                                 </select>
                             </label>
                         </div>
