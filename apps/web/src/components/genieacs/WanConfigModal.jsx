@@ -256,7 +256,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                     </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-400 mb-1">Connection Type</label>
                         <select
@@ -294,7 +294,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-slate-400 mb-1">Service List</label>
                         <select
@@ -339,7 +339,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
 
                 {/* PPPoE Settings */}
                 {wanType === 'pppoe' && connectionMode === 'route' && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <label className="block text-sm font-medium text-slate-400 mb-1">PPPoE User</label>
                             <input
@@ -390,7 +390,7 @@ export default function WanConfigModal({ isOpen, onClose, device, routerId }) {
                         </div>
 
                         {addressingType === 'Static' && (
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-1">
                                     <label className="text-xs text-slate-400">IP Address</label>
                                     <input

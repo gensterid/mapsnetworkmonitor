@@ -232,7 +232,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                     <Input name="name" value={formData.name} onChange={handleChange} placeholder="Main OLT" required />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-300">IP Address</label>
                         <Input name="host" value={formData.host} onChange={handleChange} placeholder="192.168.100.1" required />
@@ -300,7 +300,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 </div>
 
                 {formData.useSnmp && (
-                    <div className="grid grid-cols-2 gap-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">SNMP Port</label>
                             <Input type="number" name="snmpPort" value={formData.snmpPort} onChange={handleChange} required={formData.useSnmp} />
@@ -314,7 +314,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
 
                 {formData.useWeb && (
                     <div className="space-y-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Protocol</label>
                                 <select
@@ -332,7 +332,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                                 <Input type="number" name="webPort" value={formData.webPort} onChange={handleChange} required={formData.useWeb} />
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-slate-300">Username</label>
                                 <Input name="webUsername" value={formData.webUsername} onChange={handleChange} placeholder="admin" />

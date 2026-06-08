@@ -229,7 +229,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     <Input name="name" value={formData.name} onChange={handleChange} placeholder="Main Router" required />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-300">IP Address</label>
                         <Input name="host" value={formData.host} onChange={handleChange} placeholder="192.168.88.1" required />
@@ -240,7 +240,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-slate-300">Username</label>
                         <Input name="username" value={formData.username} onChange={handleChange} placeholder="admin" required />
@@ -286,7 +286,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                         <Input name="location" value={formData.location} onChange={handleChange} placeholder="Data Center A, Building 2" />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-slate-300">
                                 Latitude <span className="text-slate-500 text-xs">(or paste lat, long)</span>
@@ -403,7 +403,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-300">ACS Username</label>
                                     <Input
@@ -442,7 +442,7 @@ export function RouterFormModal({ isOpen, onClose, onSuccess, router = null }) {
 
                     {formData.useSnmp && (
                         <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-2">
                                     <label className="text-sm font-medium text-slate-300">SNMP Community</label>
                                     <Input

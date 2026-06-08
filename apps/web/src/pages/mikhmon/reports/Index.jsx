@@ -346,12 +346,12 @@ export default function MikhmonReports() {
                         </div>
 
                         <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 lg:col-span-2">
-                            <div className="flex items-center justify-between mb-3">
-                                <div className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                            <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                                <div className="text-xs font-bold uppercase tracking-wider text-slate-500 min-w-0">
                                     Voucher per Hari
-                                    <span className="ml-2 text-[10px] normal-case text-slate-600 font-normal">(klik bar untuk filter hari)</span>
+                                    <span className="ml-2 text-[10px] normal-case text-slate-600 font-normal hidden sm:inline">(klik bar untuk filter hari)</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-[10px]">
+                                <div className="flex items-center gap-3 text-[10px] shrink-0">
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-cyan-400" /><span className="text-slate-400">Count</span></span>
                                     <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400" /><span className="text-slate-400">Income</span></span>
                                 </div>
