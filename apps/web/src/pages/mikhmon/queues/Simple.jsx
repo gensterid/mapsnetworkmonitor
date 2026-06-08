@@ -158,7 +158,7 @@ function QueueFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode
                 </button>
 
                 {showAdvanced && (
-                    <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
                         <Field label="Burst Limit (rx/tx)" hint="ceiling burst · contoh: 10M/5M">
                             <Input value={form.burstLimit} onChange={(v) => set('burstLimit', v)} placeholder="" />
                         </Field>
