@@ -130,7 +130,11 @@ function MikhmonShell() {
     const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
     return (
-        <div className="flex h-[calc(100vh-0px)] bg-slate-950">
+        // h-full (bukan h-screen) supaya MikhmonShell respect tinggi
+        // AppLayout content area. AppLayout punya BottomNav fixed di bawah
+        // (mobile only), kalau pakai h-screen di sini content MikHMON
+        // bocor ke belakang BottomNav dan baris terakhir tertutup ikon.
+        <div className="flex h-full min-h-0 bg-slate-950">
             {/* Sidebar — desktop */}
             <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-slate-800/60 bg-slate-900/40">
                 <div className="px-4 py-3 border-b border-slate-800/60">
@@ -177,8 +181,10 @@ function MikhmonShell() {
                     <AutoRefreshSelect />
                 </header>
 
-                {/* Page body */}
-                <main className="flex-1 overflow-y-auto p-4 md:p-6">
+                {/* Page body — pb-20 di bawah lg untuk reserve space
+                    BottomNav (64px) global app. Di lg+ BottomNav hidden,
+                    jadi padding biasa cukup. */}
+                <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 lg:pb-6">
                     {!selectedRouterId ? (
                         <div className="text-center text-slate-500 text-sm py-20">
                             <Wifi className="w-10 h-10 mx-auto mb-3 opacity-40" />
