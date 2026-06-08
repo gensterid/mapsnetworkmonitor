@@ -200,8 +200,12 @@ function MikhmonShell() {
 }
 
 function SidebarSections({ onNavigate }) {
+    // pb-20 lg:pb-3 — di < lg BottomNav global app (h-16, fixed bottom,
+    // z-50) menutupi 64px viewport bagian bawah. Tanpa padding tambahan,
+    // item terakhir nav (mis. Template Editor) tersembunyi di belakang
+    // ikon BottomNav. Di lg+ BottomNav hidden, padding biasa cukup.
     return (
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4 custom-scrollbar">
+        <nav className="flex-1 overflow-y-auto px-2 py-3 pb-20 lg:pb-3 space-y-4 custom-scrollbar">
             {SECTIONS.map((sec) => (
                 <div key={sec.group}>
                     <div className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
