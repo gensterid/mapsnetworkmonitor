@@ -204,6 +204,19 @@ export default function CetakCepat() {
             ? `${apiClient?.defaults?.baseURL || '/api'}/mikhmon/${selectedRouterId}/logos/${encodeURIComponent(tpl.logoFilename)}`
             : '';
 
+        // Extract <style> block from template once and put it in <head>.
+        // Otherwise rendering N cards puts N copies of the same style
+        // block in body — most browsers handle this OK, but some
+        // (notably mobile Safari) only apply the first one or behave
+        // unpredictably. One head-level <style> is unambiguous.
+        const cleanBody = unescapeHtmlEntities(tpl.body || '');
+        const styleBlocks = [];
+        const bodyTemplate = cleanBody.replace(/<style[^>]*>([\s\S]*?)<\/style>/gi, (_, css) => {
+            styleBlocks.push(css);
+            return '';
+        });
+        const extractedCss = styleBlocks.join('\n');
+
         // Fetch QR codes in parallel batches of 10 — keep server from
         // getting hammered with 200 concurrent QR generations.
         const qrCache = new Map();
@@ -238,7 +251,9 @@ export default function CetakCepat() {
                 num: i + 1,
                 usermode: v.mode === 'up' ? 'up' : 'vc',
             };
-            return `<div class="card">${renderTpl(tpl.body, vars)}</div>`;
+            // bodyTemplate has <style> stripped — render returns just the
+            // <table> markup ready to drop into a card.
+            return `<div class="card">${renderTpl(bodyTemplate, vars)}</div>`;
         }).join('');
 
         return `<!doctype html>
@@ -267,6 +282,7 @@ export default function CetakCepat() {
     }
     .card { break-inside: avoid; page-break-inside: avoid; }
     @media print { .noprint { display: none; } }
+${extractedCss}
 </style></head>
 <body>
     <div class="header">

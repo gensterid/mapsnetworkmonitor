@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { FileCode2, Save, RotateCcw, Eye } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
@@ -152,20 +152,17 @@ export default function TemplateEditor() {
         }
     }, [body, mockVars]);
 
-    // Live preview rendered inside a sandboxed iframe — gives the template
-    // its own document so <style> blocks get parsed as CSS (not as text)
-    // and operator sees the exact result as the print window. Without the
-    // iframe, browsers don't reliably apply <style> tags inserted via
-    // innerHTML into an arbitrary <div>.
-    const iframeRef = useRef(null);
-    useEffect(() => {
-        const iframe = iframeRef.current;
-        if (!iframe) return;
-        const doc = iframe.contentDocument;
-        if (!doc) return;
-        doc.open();
-        doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;font-family:system-ui,sans-serif;}</style></head><body>${previewHtml}</body></html>`);
-        doc.close();
+    // Live preview rendered inside an iframe via srcDoc — gives the
+    // template its own document so <style> blocks get parsed as CSS,
+    // exactly like the print window. We chose srcDoc over the
+    // contentDocument.write() approach because srcDoc is set as the
+    // iframe's source attribute, so the browser builds a fresh
+    // document with full HTML parsing (including style/script handling).
+    // contentDocument.write() AFTER React mounts the iframe sometimes
+    // races and the <style> inside the body doesn't get registered as
+    // a real <style> element in some browsers.
+    const previewDoc = useMemo(() => {
+        return `<!doctype html><html><head><meta charset="utf-8"><style>body{margin:0;padding:12px;font-family:system-ui,sans-serif;background:#fff;color:#000;}</style></head><body>${previewHtml}</body></html>`;
     }, [previewHtml]);
 
     const handleSave = () => {
@@ -282,10 +279,10 @@ export default function TemplateEditor() {
                             </span>
                         </div>
                         <iframe
-                            ref={iframeRef}
                             title="Voucher Preview"
                             className="w-full h-[360px] bg-white"
-                            sandbox="allow-same-origin"
+                            sandbox=""
+                            srcDoc={previewDoc}
                         />
                     </div>
                 </div>
