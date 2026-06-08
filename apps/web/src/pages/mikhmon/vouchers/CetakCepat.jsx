@@ -8,9 +8,23 @@ import { Button } from '@/components/ui/Button';
 import mikhmonApi from '@/services/mikhmon.service';
 import { apiClient } from '@/lib/api';
 
+// Reverse the xss-style HTML escaping the sanitize middleware used to
+// apply on PUT bodies before commit 2fc899b. Legacy templates have
+// `&lt;style&gt;` literally — this restores `<style>` so they render.
+function unescapeHtmlEntities(s) {
+    return String(s || '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
 // Browser-side Handlebars-style render. Mirrors backend mikhmon-template.service
 // so what shows in the Template Editor preview matches what gets printed here.
-function renderTpl(body, vars) {
+function renderTpl(bodyIn, vars) {
+    const body = unescapeHtmlEntities(bodyIn);
     const resolved = {
         ...vars,
         usermode_vc: vars.usermode === 'vc',

@@ -3,13 +3,35 @@ import xss from 'xss';
 import { logger } from '../lib/logger.js';
 
 /**
+ * Routes where the body intentionally carries HTML/CSS payload as data —
+ * sanitizing would corrupt it (<style> turns into &lt;style&gt;). The
+ * downstream handler is responsible for safely rendering this content
+ * (we use sandboxed iframes + Handlebars substitution only, no eval).
+ *
+ * Match is regex over `req.path`; keep entries narrow.
+ */
+const RAW_BODY_PATHS: RegExp[] = [
+    /^\/api\/mikhmon\/[^/]+\/voucher-template\/?$/,
+];
+
+function isRawBodyPath(path: string): boolean {
+    return RAW_BODY_PATHS.some((re) => re.test(path));
+}
+
+/**
  * Middleware to sanitize incoming request data to prevent XSS attacks.
  * It recursively sanitizes strings in req.body, req.query, and req.params.
  */
 export const sanitizeMiddleware = (req: Request, _res: Response, next: NextFunction) => {
     let sanitizedCount = 0;
 
-    if (req.body) {
+    // Skip body sanitization for endpoints where the body is the operator's
+    // HTML template — sanitizing would convert <style>/<script> tags to
+    // text and break the template engine. Query + params are still
+    // sanitized.
+    const skipBody = isRawBodyPath(req.path);
+
+    if (req.body && !skipBody) {
         const bodyBefore = JSON.stringify(req.body);
         const sanitizedBody = sanitizeObject(req.body);
         if (JSON.stringify(sanitizedBody) !== bodyBefore) {

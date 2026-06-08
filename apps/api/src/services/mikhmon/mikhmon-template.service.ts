@@ -120,8 +120,31 @@ export function formatTimelimitLabel(v: string | null | undefined): string {
     return `Durasi:${s}`;
 }
 
+/**
+ * Reverse the xss-style entity encoding the sanitize middleware used
+ * to do on PUT bodies for this route. Templates saved before commit
+ * 2fc899b have `&lt;style&gt;` literally — without this, those rows
+ * render as visible CSS text.
+ *
+ * Safe in all directions: real `&amp;` becomes `&`, `&lt;` becomes `<`.
+ * No double-unescape because all four entity forms produce raw chars
+ * that won't match the entity regex again.
+ */
+function unescapeHtmlEntities(s: string): string {
+    return s
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
 /** Render Handlebars-style template with the given vars. */
-export function renderTemplate(body: string, varsRaw: RenderVars): string {
+export function renderTemplate(bodyIn: string, varsRaw: RenderVars): string {
+    // Defensive: unescape entities so legacy rows saved with escaped HTML
+    // (before the sanitize-middleware bypass) still render correctly.
+    const body = unescapeHtmlEntities(bodyIn);
     const vars: Record<string, any> = {
         ...varsRaw,
         usermode_vc: varsRaw.usermode === 'vc',

@@ -47,10 +47,24 @@ const HELPERS = [
     { syntax: '{{#unless name}}...{{/unless}}', desc: 'Kebalikan dari #if' },
 ];
 
+// Reverse the xss-style HTML escaping the sanitize middleware used to
+// apply on PUT bodies before commit 2fc899b. Legacy templates have
+// `&lt;style&gt;` literally — this restores `<style>` so they render.
+function unescapeHtmlEntities(s) {
+    return String(s || '')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#x27;/g, "'")
+        .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&');
+}
+
 // Render Handlebars-style template in the BROWSER for live preview.
 // Mirrors the backend mikhmon-template.service exactly so what the
 // operator sees here is what gets printed.
-function renderTemplate(body, vars) {
+function renderTemplate(bodyIn, vars) {
+    const body = unescapeHtmlEntities(bodyIn);
     const resolved = {
         ...vars,
         usermode_vc: vars.usermode === 'vc',
