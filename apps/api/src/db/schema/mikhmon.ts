@@ -70,3 +70,41 @@ export const mikhmonProfileSettings = pgTable('mikhmon_profile_settings', {
 
 export type MikhmonProfileSetting = typeof mikhmonProfileSettings.$inferSelect;
 export type NewMikhmonProfileSetting = typeof mikhmonProfileSettings.$inferInsert;
+
+/**
+ * MikHMON voucher print templates. Per-router so operators with
+ * multiple sites can have different layouts (e.g. RT/RW site with logo
+ * + Indonesian labels vs corporate site with English). Body uses
+ * Handlebars-style placeholders ({{username}}, {{validity}}, etc.) so
+ * there's no PHP-eval-style code injection surface.
+ *
+ * `name` defaults to 'default' — the active template Cetak Cepat renders.
+ * Operators can save other templates under different names (future
+ * feature) but for now one template per router is enough.
+ */
+export const mikhmonVoucherTemplates = pgTable('mikhmon_voucher_templates', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    routerId: uuid('router_id').notNull().references(() => routers.id, { onDelete: 'cascade' }),
+    name: text('name').notNull().default('default'),
+
+    /** Handlebars-style HTML body. See mikhmon-template.service for variables. */
+    body: text('body').notNull(),
+
+    /** Toggle: whether to generate QR codes during render. Operator preference. */
+    qrEnabled: boolean('qr_enabled').notNull().default(true),
+    /** Toggle: whether to include the logo. Operator preference. */
+    logoEnabled: boolean('logo_enabled').notNull().default(true),
+    /** Which uploaded logo filename to render. Empty = first logo found. */
+    logoFilename: text('logo_filename'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+    tenantIdx: index('mikhmon_vt_tenant_idx').on(t.tenantId),
+    routerIdx: index('mikhmon_vt_router_idx').on(t.routerId),
+    uniqRouterName: uniqueIndex('mikhmon_vt_router_name_unq').on(t.routerId, t.name),
+}));
+
+export type MikhmonVoucherTemplate = typeof mikhmonVoucherTemplates.$inferSelect;
+export type NewMikhmonVoucherTemplate = typeof mikhmonVoucherTemplates.$inferInsert;

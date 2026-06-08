@@ -3,8 +3,58 @@ import { Printer, RefreshCw, Search, Filter } from 'lucide-react';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
 import { useMikhmonContext } from '@/contexts/useMikhmonContext';
-import { useMikhmonVouchers, useHotspotUserProfiles, useMikhmonInfo } from '@/hooks/useMikhmon';
+import { useMikhmonVouchers, useHotspotUserProfiles, useMikhmonInfo, useMikhmonVoucherTemplate } from '@/hooks/useMikhmon';
 import { Button } from '@/components/ui/Button';
+import mikhmonApi from '@/services/mikhmon.service';
+import { apiClient } from '@/lib/api';
+
+// Browser-side Handlebars-style render. Mirrors backend mikhmon-template.service
+// so what shows in the Template Editor preview matches what gets printed here.
+function renderTpl(body, vars) {
+    const resolved = {
+        ...vars,
+        usermode_vc: vars.usermode === 'vc',
+        usermode_up: vars.usermode === 'up',
+        has_logo: !!vars.logo,
+        has_qr: !!vars.qrcode,
+        has_validity: !!vars.validity,
+        has_timelimit: !!vars.timelimit,
+        has_datalimit: !!vars.datalimit,
+        has_price: !!vars.price && String(vars.price) !== '0',
+    };
+    let out = body;
+    out = out.replace(/\{\{#unless\s+(\w+)\s*\}\}([\s\S]*?)\{\{\/unless\}\}/g,
+        (_, n, inner) => (resolved[n] ? '' : inner));
+    out = out.replace(/\{\{#if\s+(\w+)\s*\}\}([\s\S]*?)\{\{\/if\}\}/g,
+        (_, n, inner) => (resolved[n] ? inner : ''));
+    out = out.replace(/\{\{\s*(\w+)\s*\}\}/g,
+        (_, n) => (resolved[n] == null ? '' : String(resolved[n])));
+    return out;
+}
+
+function fmtValidityLabel(v) {
+    if (!v) return '';
+    const s = String(v).trim();
+    const last = s.slice(-1);
+    const num = s.slice(0, -1);
+    if (last === 'd') return `Aktif:${num}Hari`;
+    if (last === 'h') return `Aktif:${num}Jam`;
+    if (last === 'm') return `Aktif:${num}Menit`;
+    if (last === 'w') return `Aktif:${parseInt(num, 10) * 7}Hari`;
+    return `Aktif:${s}`;
+}
+
+function fmtTimelimitLabel(v) {
+    if (!v) return '';
+    const s = String(v).trim();
+    const last = s.slice(-1);
+    const num = s.slice(0, -1);
+    if (last === 'd') return `Durasi:${num}Hari`;
+    if (last === 'h') return `Durasi:${num}Jam`;
+    if (last === 'm') return `Durasi:${num}Menit`;
+    if (last === 'w') return `Durasi:${parseInt(num, 10) * 7}Hari`;
+    return `Durasi:${s}`;
+}
 
 /**
  * MikHMON Cetak Cepat — quick voucher print page.
@@ -47,8 +97,10 @@ export default function CetakCepat() {
     const { data: info } = useMikhmonInfo(selectedRouterId);
     const { data: payload, isPending, refetch, isFetching } = useMikhmonVouchers(selectedRouterId);
     const { data: profiles = [] } = useHotspotUserProfiles(selectedRouterId);
+    const { data: tpl } = useMikhmonVoucherTemplate(selectedRouterId);
 
     const items = payload?.data || [];
+    const [printing, setPrinting] = useState(false);
 
     const [profileFilter, setProfileFilter] = useState('all');
     const [dateFilter, setDateFilter] = useState('all');
@@ -121,29 +173,61 @@ export default function CetakCepat() {
 
     const tplConfig = TEMPLATES.find((t) => t.id === template) || TEMPLATES[1];
 
-    const handlePrint = () => {
-        if (toPrint.length === 0) {
-            toast.error('Tidak ada voucher untuk dicetak');
-            return;
-        }
-        const w = window.open('', '_blank', 'width=1000,height=800');
-        if (!w) return;
+    // Build per-voucher render vars + optionally fetch QR for each.
+    // QR generation is server-side (one HTTP call per voucher) so the
+    // batch print of 200+ vouchers might take a few seconds — we show a
+    // loading state.
+    const buildPrintHtml = async () => {
+        if (!tpl) throw new Error('Template belum dimuat');
         const routerName = info?.router?.name || '';
-        const cardsHtml = toPrint.map((v) => `
-            <div class="card">
-                <div class="hdr">
-                    <span class="lbl">USER</span>
-                    <span class="profile">${v.profile || ''}</span>
-                </div>
-                <div class="code">${v.name}</div>
-                ${v.mode === 'up' ? `
-                    <div class="hdr"><span class="lbl">PASS</span></div>
-                    <div class="code">${v.password || ''}</div>
-                ` : ''}
-                <div class="meta">${v.note || ''}${v.limitUptime ? ' · ' + v.limitUptime : ''}</div>
-            </div>
-        `).join('');
-        w.document.write(`<!doctype html>
+        const dnsname = info?.router?.hotspotDns || routerName || 'wifi.local';
+        const profilePriceByName = {};
+        for (const p of profiles) {
+            const sp = p?.billing?.sellingPrice;
+            if (sp && Number(sp) > 0) profilePriceByName[p.name] = Number(sp);
+        }
+        const logoUrl = tpl.logoEnabled && tpl.logoFilename
+            ? `${apiClient?.defaults?.baseURL || '/api'}/mikhmon/${selectedRouterId}/logos/${encodeURIComponent(tpl.logoFilename)}`
+            : '';
+
+        // Fetch QR codes in parallel batches of 10 — keep server from
+        // getting hammered with 200 concurrent QR generations.
+        const qrCache = new Map();
+        if (tpl.qrEnabled) {
+            const batchSize = 10;
+            for (let i = 0; i < toPrint.length; i += batchSize) {
+                const chunk = toPrint.slice(i, i + batchSize);
+                const results = await Promise.all(chunk.map((v) =>
+                    mikhmonApi.voucherTemplate.qrcode(selectedRouterId, v.name).then((r) => r?.data?.dataUrl || '').catch(() => '')
+                ));
+                chunk.forEach((v, idx) => qrCache.set(v.name, results[idx]));
+            }
+        }
+
+        const cards = toPrint.map((v, i) => {
+            const sellingPrice = profilePriceByName[v.profile] || '';
+            const limitUptime = v.limitUptime || profiles.find((p) => p.name === v.profile)?.billing?.limitUptime || '';
+            const validityFromProfile = profiles.find((p) => p.name === v.profile)?.billing?.validity || '';
+            const vars = {
+                logo: logoUrl,
+                hotspotname: routerName,
+                username: v.name || '',
+                password: v.password || v.name || '',
+                validity: fmtValidityLabel(validityFromProfile),
+                timelimit: fmtTimelimitLabel(limitUptime),
+                datalimit: '',
+                price: sellingPrice ? String(sellingPrice) : '',
+                profile: v.profile || '',
+                comment: v.note || '',
+                dnsname,
+                qrcode: qrCache.get(v.name) || '',
+                num: i + 1,
+                usermode: v.mode === 'up' ? 'up' : 'vc',
+            };
+            return `<div class="card">${renderTpl(tpl.body, vars)}</div>`;
+        }).join('');
+
+        return `<!doctype html>
 <html><head><title>Voucher Print</title>
 <style>
     @page { margin: 8mm; size: A4; }
@@ -167,37 +251,7 @@ export default function CetakCepat() {
         grid-template-columns: repeat(${tplConfig.cols}, 1fr);
         gap: 4px;
     }
-    .card {
-        border: 1px dashed #444;
-        padding: ${tplConfig.padding}px;
-        break-inside: avoid;
-        page-break-inside: avoid;
-        font-size: ${tplConfig.fontSize}px;
-    }
-    .card .hdr {
-        display: flex;
-        justify-content: space-between;
-        align-items: baseline;
-        font-size: ${Math.max(tplConfig.fontSize - 2, 7)}px;
-        color: #777;
-        margin-bottom: 2px;
-    }
-    .card .profile { font-weight: 600; color: #333; }
-    .card .code {
-        font-family: ui-monospace, SF Mono, Menlo, monospace;
-        font-size: ${tplConfig.fontSize + 4}px;
-        font-weight: bold;
-        letter-spacing: 1px;
-        margin: 2px 0;
-    }
-    .card .meta {
-        font-size: ${Math.max(tplConfig.fontSize - 2, 7)}px;
-        color: #888;
-        margin-top: 2px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    .card { break-inside: avoid; page-break-inside: avoid; }
     @media print { .noprint { display: none; } }
 </style></head>
 <body>
@@ -205,10 +259,35 @@ export default function CetakCepat() {
         <span>${routerName} · ${toPrint.length} voucher</span>
         <span>${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
     </div>
-    <div class="grid">${cardsHtml}</div>
+    <div class="grid">${cards}</div>
     <script>setTimeout(() => window.print(), 200);</script>
-</body></html>`);
-        w.document.close();
+</body></html>`;
+    };
+
+    const handlePrint = async () => {
+        if (toPrint.length === 0) {
+            toast.error('Tidak ada voucher untuk dicetak');
+            return;
+        }
+        if (!tpl) {
+            toast.error('Template belum dimuat — coba refresh');
+            return;
+        }
+        try {
+            setPrinting(true);
+            const html = await buildPrintHtml();
+            const w = window.open('', '_blank', 'width=1000,height=800');
+            if (!w) {
+                toast.error('Browser blokir popup — izinkan popup untuk site ini');
+                return;
+            }
+            w.document.write(html);
+            w.document.close();
+        } catch (e) {
+            toast.error(e?.message || 'Gagal cetak');
+        } finally {
+            setPrinting(false);
+        }
     };
 
     const profileOptions = useMemo(() => {
@@ -237,7 +316,7 @@ export default function CetakCepat() {
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
                     </button>
-                    <Button onClick={handlePrint} disabled={toPrint.length === 0}>
+                    <Button onClick={handlePrint} disabled={toPrint.length === 0 || printing} loading={printing}>
                         <Printer className="w-4 h-4 mr-1" />
                         Cetak ({toPrint.length})
                     </Button>

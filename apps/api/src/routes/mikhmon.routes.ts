@@ -13,10 +13,24 @@
  */
 import { Router } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { resolveRouterContext } from '../services/mikhmon/mikhmon-router-context.js';
+import {
+    listLogos,
+    saveLogo,
+    deleteLogo,
+    readLogo,
+} from '../services/mikhmon/mikhmon-logo.service.js';
+import {
+    getOrCreateDefaultTemplate,
+    saveTemplate,
+    resetTemplate,
+    generateQrDataUrl,
+} from '../services/mikhmon/mikhmon-template.service.js';
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 import { getRouterResources } from '../lib/mikrotik/system.js';
 import {
     listHotspotUserProfiles,
@@ -1665,6 +1679,135 @@ router.get(
         }
         res.set('X-Cache', 'MISS');
         res.json({ data });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Logos — per-router voucher print logo storage (filesystem-backed)
+// ─────────────────────────────────────────────────────────────────────────
+
+const logoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 }, // 500 KB hard cap
+});
+
+router.get(
+    '/:routerId/logos',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const data = await listLogos(paramStr(req.params.routerId));
+        res.json({ data });
+    })
+);
+
+router.post(
+    '/:routerId/logos',
+    resolveRouterContext({ connect: false }),
+    logoUpload.single('file'),
+    asyncHandler(async (req, res) => {
+        if (!req.file) throw new ApiError(400, 'file wajib (multipart field "file")');
+        try {
+            const entry = await saveLogo(
+                paramStr(req.params.routerId),
+                req.file.originalname,
+                req.file.buffer,
+            );
+            res.status(201).json({ data: entry });
+        } catch (e: any) {
+            throw new ApiError(400, e?.message || 'Upload gagal');
+        }
+    })
+);
+
+// Public binary serve — used by the Logo manager + Cetak Cepat preview.
+// resolveRouterContext checks tenant ownership of routerId so authorized
+// operators can only fetch logos for routers they manage.
+router.get(
+    '/:routerId/logos/:filename',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        try {
+            const { buffer, mimeType } = await readLogo(
+                paramStr(req.params.routerId),
+                String(req.params.filename),
+            );
+            res.setHeader('Content-Type', mimeType);
+            res.setHeader('Cache-Control', 'private, max-age=300');
+            res.send(buffer);
+        } catch (e: any) {
+            if (e?.code === 'ENOENT') throw new ApiError(404, 'Logo tidak ditemukan');
+            throw e;
+        }
+    })
+);
+
+router.delete(
+    '/:routerId/logos/:filename',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        await deleteLogo(paramStr(req.params.routerId), String(req.params.filename));
+        res.json({ data: { deleted: true } });
+    })
+);
+
+// ─────────────────────────────────────────────────────────────────────────
+// Voucher Print Templates — Handlebars-style body stored per-router
+// ─────────────────────────────────────────────────────────────────────────
+
+const templateSaveSchema = z.object({
+    body: z.string().min(10),
+    qrEnabled: z.boolean().optional(),
+    logoEnabled: z.boolean().optional(),
+    logoFilename: z.string().nullable().optional(),
+});
+
+router.get(
+    '/:routerId/voucher-template',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const tenantId = getEffectiveTenantId(req);
+        const routerId = paramStr(req.params.routerId);
+        if (!tenantId) throw new ApiError(401, 'tenant context required');
+        const data = await getOrCreateDefaultTemplate(tenantId, routerId);
+        res.json({ data });
+    })
+);
+
+router.put(
+    '/:routerId/voucher-template',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const tenantId = getEffectiveTenantId(req);
+        const routerId = paramStr(req.params.routerId);
+        if (!tenantId) throw new ApiError(401, 'tenant context required');
+        const input = templateSaveSchema.parse(req.body);
+        const data = await saveTemplate(tenantId, routerId, input);
+        res.json({ data });
+    })
+);
+
+router.post(
+    '/:routerId/voucher-template/reset',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const tenantId = getEffectiveTenantId(req);
+        const routerId = paramStr(req.params.routerId);
+        if (!tenantId) throw new ApiError(401, 'tenant context required');
+        const data = await resetTemplate(tenantId, routerId);
+        res.json({ data });
+    })
+);
+
+// QR code data URL generator — Cetak Cepat batch-calls this once per
+// voucher when QR is enabled.
+router.post(
+    '/:routerId/voucher-template/qrcode',
+    resolveRouterContext({ connect: false }),
+    asyncHandler(async (req, res) => {
+        const payload = String(req.body?.payload || '').trim();
+        if (!payload) throw new ApiError(400, 'payload wajib');
+        const dataUrl = await generateQrDataUrl(payload);
+        res.json({ data: { dataUrl } });
     })
 );
 

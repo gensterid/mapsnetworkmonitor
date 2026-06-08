@@ -151,6 +151,25 @@ export const mikhmonApi = {
         uninstall: (routerId, profileId) =>
             post(`/mikhmon/${routerId}/hotspot/profiles/${encodeURIComponent(profileId)}/uninstall-scripts`),
     },
+    logos: {
+        list: (routerId) => get(`/mikhmon/${routerId}/logos`),
+        upload: (routerId, file) => {
+            const fd = new FormData();
+            fd.append('file', file);
+            // axios will set the multipart boundary header itself
+            return apiClient.post(`/mikhmon/${routerId}/logos`, fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            }).then((r) => r.data.data);
+        },
+        url: (routerId, filename) => `/api/mikhmon/${routerId}/logos/${encodeURIComponent(filename)}`,
+        remove: (routerId, filename) => del(`/mikhmon/${routerId}/logos/${encodeURIComponent(filename)}`),
+    },
+    voucherTemplate: {
+        get: (routerId) => get(`/mikhmon/${routerId}/voucher-template`),
+        save: (routerId, input) => apiClient.put(`/mikhmon/${routerId}/voucher-template`, input).then((r) => r.data.data),
+        reset: (routerId) => post(`/mikhmon/${routerId}/voucher-template/reset`, {}),
+        qrcode: (routerId, payload) => post(`/mikhmon/${routerId}/voucher-template/qrcode`, { payload }),
+    },
     reports: {
         sales: (routerId, { from, to } = {}) => {
             const params = {};

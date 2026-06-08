@@ -636,6 +636,64 @@ export function useMikhmonSalesLedger(routerId, opts = {}, options = {}) {
     });
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// Logos (filesystem-stored per router)
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useMikhmonLogos(routerId) {
+    return useQuery({
+        queryKey: [...mikhmonKeys.all(routerId), 'logos'],
+        queryFn: () => mikhmonApi.logos.list(routerId),
+        enabled: !!routerId,
+        staleTime: 30 * 1000,
+    });
+}
+
+export function useUploadMikhmonLogo(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (file) => mikhmonApi.logos.upload(routerId, file),
+        onSuccess: () => qc.invalidateQueries({ queryKey: [...mikhmonKeys.all(routerId), 'logos'] }),
+    });
+}
+
+export function useDeleteMikhmonLogo(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (filename) => mikhmonApi.logos.remove(routerId, filename),
+        onSuccess: () => qc.invalidateQueries({ queryKey: [...mikhmonKeys.all(routerId), 'logos'] }),
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+// Voucher Print Template
+// ─────────────────────────────────────────────────────────────────────────
+
+export function useMikhmonVoucherTemplate(routerId) {
+    return useQuery({
+        queryKey: [...mikhmonKeys.all(routerId), 'voucher-template'],
+        queryFn: () => mikhmonApi.voucherTemplate.get(routerId),
+        enabled: !!routerId,
+        staleTime: 60 * 1000,
+    });
+}
+
+export function useSaveMikhmonVoucherTemplate(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: (input) => mikhmonApi.voucherTemplate.save(routerId, input),
+        onSuccess: () => qc.invalidateQueries({ queryKey: [...mikhmonKeys.all(routerId), 'voucher-template'] }),
+    });
+}
+
+export function useResetMikhmonVoucherTemplate(routerId) {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: () => mikhmonApi.voucherTemplate.reset(routerId),
+        onSuccess: () => qc.invalidateQueries({ queryKey: [...mikhmonKeys.all(routerId), 'voucher-template'] }),
+    });
+}
+
 // Wipe a month's worth of ledger entries (mirrors MikHMON external
 // "Hapus data jun2026" button). ownerFilter format: "<mmm><yyyy>"
 // lowercase, e.g. "jun2026".
