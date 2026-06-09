@@ -25,17 +25,21 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
     return (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
             <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-                    <div>
-                        <h3 className="text-base font-bold text-white flex items-center gap-2">
-                            <Sparkles className="w-4 h-4 text-emerald-400" />
-                            Riwayat Perubahan IP
+                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-800">
+                    {/* min-w-0 + truncate di blok kiri — netwatch.name dan host
+                        (font-mono IPv4/IPv6) bisa panjang, tanpa ini "Heal Now"
+                        atau close X bisa terdorong keluar di 320-360px.
+                        shrink-0 di action group supaya tombol selalu terlihat. */}
+                    <div className="min-w-0 flex-1">
+                        <h3 className="text-base font-bold text-white flex items-center gap-2 min-w-0">
+                            <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
+                            <span className="truncate">Riwayat Perubahan IP</span>
                         </h3>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-xs text-slate-400 mt-0.5 truncate">
                             {netwatch.name || '—'} · IP saat ini: <span className="font-mono text-blue-400">{netwatch.host || '∅'}</span>
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                         {netwatch.linkedOnuId && (
                             <Button
                                 size="sm"
