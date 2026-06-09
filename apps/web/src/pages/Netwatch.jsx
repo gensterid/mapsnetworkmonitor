@@ -93,7 +93,7 @@ export default function Netwatch() {
                     <WifiOff className="w-3 h-3" /> Down
                 </span>;
             default:
-                return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-500/10 text-slate-400 border border-slate-500/20">
+                return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-slate-500/10 text-fg-muted border border-slate-500/20">
                     <Clock className="w-3 h-3" /> Unknown
                 </span>;
         }
@@ -113,11 +113,11 @@ export default function Netwatch() {
             <div className="p-6 border-b border-slate-800">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
-                        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                        <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
                             <Globe className="w-6 h-6 text-primary" />
                             Netwatch Monitor
                         </h1>
-                        <p className="text-slate-400 text-sm">Monitor network reachability across all routers</p>
+                        <p className="text-fg-muted text-sm">Monitor network reachability across all routers</p>
                     </div>
                     <Button onClick={() => refetch()} variant="outline" className="self-start sm:self-auto">
                         <RefreshCw className="w-4 h-4 mr-2" />
@@ -128,8 +128,8 @@ export default function Netwatch() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                     <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">{netwatchEntries.length}</div>
-                        <div className="text-xs text-slate-400">Total Hosts</div>
+                        <div className="text-2xl font-bold text-fg">{netwatchEntries.length}</div>
+                        <div className="text-xs text-fg-muted">Total Hosts</div>
                     </div>
                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
                         <div className="text-2xl font-bold text-emerald-400">{upCount}</div>
@@ -140,8 +140,8 @@ export default function Netwatch() {
                         <div className="text-xs text-red-400/70">Offline</div>
                     </div>
                     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-slate-400">{unknownCount}</div>
-                        <div className="text-xs text-slate-500">Unknown</div>
+                        <div className="text-2xl font-bold text-fg-muted">{unknownCount}</div>
+                        <div className="text-xs text-fg-muted">Unknown</div>
                     </div>
                 </div>
             </div>
@@ -149,19 +149,19 @@ export default function Netwatch() {
             {/* Filters */}
             <div className="p-4 border-b border-slate-800 flex gap-3 flex-wrap">
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                     <input
                         type="text"
                         placeholder="Search by name, host, or router..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                     />
                 </div>
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="all">All Status</option>
                     <option value="up">Online Only</option>
@@ -170,7 +170,7 @@ export default function Netwatch() {
                 <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="status">Sort: Status (Down First)</option>
                     <option value="name">Sort: Name A-Z</option>
@@ -184,10 +184,10 @@ export default function Netwatch() {
                 {filteredEntries.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
                         <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                            <Globe className="w-6 h-6 text-slate-500" />
+                            <Globe className="w-6 h-6 text-fg-muted" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">No netwatch entries found</h3>
-                        <p className="text-slate-400">Add netwatch entries to your routers to monitor them here</p>
+                        <h3 className="text-lg font-medium text-fg mb-1">No netwatch entries found</h3>
+                        <p className="text-fg-muted">Add netwatch entries to your routers to monitor them here</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -200,8 +200,8 @@ export default function Netwatch() {
                                 <CardContent className="p-4">
                                     <div className="flex items-start justify-between mb-3">
                                         <div>
-                                            <h3 className="font-medium text-white">{entry.name || entry.host}</h3>
-                                            <p className="text-xs text-slate-500">{entry.host}</p>
+                                            <h3 className="font-medium text-fg">{entry.name || entry.host}</h3>
+                                            <p className="text-xs text-fg-muted">{entry.host}</p>
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
                                             {getStatusBadge(entry.status)}
@@ -219,27 +219,27 @@ export default function Netwatch() {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-1 text-xs text-slate-400">
+                                    <div className="space-y-1 text-xs text-fg-muted">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-slate-500">Router:</span>
+                                            <span className="text-fg-muted">Router:</span>
                                             <span>{entry.routerName}</span>
                                         </div>
                                         {entry.location && (
                                             <div className="flex items-center gap-2">
-                                                <MapPin className="w-3 h-3 text-slate-500" />
+                                                <MapPin className="w-3 h-3 text-fg-muted" />
                                                 <span>{entry.location}</span>
                                             </div>
                                         )}
                                         {entry.deviceType && (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-slate-500">Type:</span>
+                                                <span className="text-fg-muted">Type:</span>
                                                 <span className="uppercase">{entry.deviceType}</span>
                                             </div>
                                         )}
                                         {(entry.latency !== undefined && entry.latency !== null) && (
                                             <div className="flex flex-col gap-1">
                                                 <div className="flex items-center gap-2">
-                                                    <span className="text-slate-500">Latency:</span>
+                                                    <span className="text-fg-muted">Latency:</span>
                                                     <span className={`font-mono font-bold ${Number(entry.latency) < 20 ? 'text-emerald-400' :
                                                         Number(entry.latency) < 100 ? 'text-yellow-400' : 'text-red-400'
                                                         }`}>
@@ -248,7 +248,7 @@ export default function Netwatch() {
                                                 </div>
                                                 {entry.packetLoss > 0 && (
                                                     <div className="flex items-center gap-2">
-                                                        <span className="text-slate-500">Packet Loss:</span>
+                                                        <span className="text-fg-muted">Packet Loss:</span>
                                                         <span className="font-mono font-bold text-red-400">
                                                             {entry.packetLoss}%
                                                         </span>

@@ -96,46 +96,46 @@ function CoordinatesModal({ session, onClose, onSave, isSaving }) {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-fg flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-primary" />
                         Set Lokasi PPPoE
                     </h3>
                     <button
                         onClick={onClose}
-                        className="text-slate-400 hover:text-white transition-colors"
+                        className="text-fg-muted hover:text-fg transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
                 <div className="mb-4 p-3 bg-slate-800 rounded-lg">
-                    <div className="text-sm text-slate-400">Username</div>
-                    <div className="font-medium text-white">{session?.name}</div>
+                    <div className="text-sm text-fg-muted">Username</div>
+                    <div className="font-medium text-fg">{session?.name}</div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <label className="block text-sm text-slate-400 mb-1">Latitude</label>
+                        <label className="block text-sm text-fg-muted mb-1">Latitude</label>
                         <input
                             type="text"
                             value={latitude}
                             onChange={(e) => setLatitude(e.target.value)}
                             placeholder="-6.2088"
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
                     <div>
-                        <label className="block text-sm text-slate-400 mb-1">Longitude</label>
+                        <label className="block text-sm text-fg-muted mb-1">Longitude</label>
                         <input
                             type="text"
                             value={longitude}
                             onChange={(e) => setLongitude(e.target.value)}
                             placeholder="106.8456"
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
 
-                    <div className="text-xs text-slate-500">
+                    <div className="text-xs text-fg-muted">
                         Tips: Anda bisa mendapatkan koordinat dari Google Maps dengan klik kanan pada lokasi.
                     </div>
 
@@ -266,11 +266,11 @@ export default function Pppoe() {
             <div className="p-3 sm:p-6 border-b border-slate-800">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div className="min-w-0">
-                        <h1 className="text-lg sm:text-2xl font-bold text-white flex items-center gap-2">
+                        <h1 className="text-lg sm:text-2xl font-bold text-fg flex items-center gap-2">
                             <PhoneCall className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
                             PPPoE Sessions
                         </h1>
-                        <p className="text-slate-400 text-xs sm:text-sm">Monitor active PPPoE connections across all routers</p>
+                        <p className="text-fg-muted text-xs sm:text-sm">Monitor active PPPoE connections across all routers</p>
                     </div>
                     <Button onClick={() => refetch()} variant="outline" size="sm" className="self-start sm:self-auto">
                         <RefreshCw className="w-4 h-4 mr-2" />
@@ -281,8 +281,8 @@ export default function Pppoe() {
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
                     <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
-                        <div className="text-2xl font-bold text-white">{pppoeEntries.length}</div>
-                        <div className="text-xs text-slate-400">Total Active</div>
+                        <div className="text-2xl font-bold text-fg">{pppoeEntries.length}</div>
+                        <div className="text-xs text-fg-muted">Total Active</div>
                     </div>
                     <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
                         <div className="text-2xl font-bold text-emerald-400">{routers.length}</div>
@@ -293,7 +293,7 @@ export default function Pppoe() {
                         <div className="text-xs text-primary/70">With Location</div>
                     </div>
                     <div className="col-span-2 bg-slate-900/50 border border-slate-800 rounded-lg p-3">
-                        <div className="text-xs text-slate-400 mb-1">Sessions per Router</div>
+                        <div className="text-xs text-fg-muted mb-1">Sessions per Router</div>
                         <div className="flex flex-wrap gap-2">
                             {routers.slice(0, 5).map(router => (
                                 <span key={router.id} className="text-xs bg-slate-800 px-2 py-1 rounded">
@@ -301,7 +301,7 @@ export default function Pppoe() {
                                 </span>
                             ))}
                             {routers.length > 5 && (
-                                <span className="text-xs text-slate-500">+{routers.length - 5} more</span>
+                                <span className="text-xs text-fg-muted">+{routers.length - 5} more</span>
                             )}
                         </div>
                     </div>
@@ -311,19 +311,19 @@ export default function Pppoe() {
             {/* Filters */}
             <div className="p-4 border-b border-slate-800 flex gap-3 flex-wrap">
                 <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                     <input
                         type="text"
                         placeholder="Search by username, IP, or caller ID..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                     />
                 </div>
                 <select
                     value={routerFilter}
                     onChange={(e) => setRouterFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="all">All Routers</option>
                     {routers.map(router => (
@@ -333,7 +333,7 @@ export default function Pppoe() {
                 <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="uptime">Sort: Longest Online</option>
                     <option value="name">Sort: Username A-Z</option>
@@ -346,10 +346,10 @@ export default function Pppoe() {
                 {filteredEntries.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
                         <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                            <PhoneCall className="w-6 h-6 text-slate-500" />
+                            <PhoneCall className="w-6 h-6 text-fg-muted" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">No active PPPoE sessions</h3>
-                        <p className="text-slate-400">There are no PPPoE users currently connected</p>
+                        <h3 className="text-lg font-medium text-fg mb-1">No active PPPoE sessions</h3>
+                        <p className="text-fg-muted">There are no PPPoE users currently connected</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -362,8 +362,8 @@ export default function Pppoe() {
                                                 <User className="w-4 h-4 text-primary" />
                                             </div>
                                             <div>
-                                                <h3 className="font-medium text-white text-sm">{entry.name}</h3>
-                                                <p className="text-xs text-slate-500">{entry.service || 'pppoe'}</p>
+                                                <h3 className="font-medium text-fg text-sm">{entry.name}</h3>
+                                                <p className="text-xs text-fg-muted">{entry.service || 'pppoe'}</p>
                                             </div>
                                         </div>
                                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
@@ -371,27 +371,27 @@ export default function Pppoe() {
                                         </span>
                                     </div>
 
-                                    <div className="space-y-2 text-xs text-slate-400">
+                                    <div className="space-y-2 text-xs text-fg-muted">
                                         {entry.address && (
                                             <div className="flex items-center gap-2">
-                                                <Network className="w-3 h-3 text-slate-500" />
+                                                <Network className="w-3 h-3 text-fg-muted" />
                                                 <span className="font-mono">{entry.address}</span>
                                             </div>
                                         )}
                                         {entry.callerId && (
                                             <div className="flex items-center gap-2">
-                                                <span className="text-slate-500">MAC:</span>
+                                                <span className="text-fg-muted">MAC:</span>
                                                 <span className="font-mono">{entry.callerId}</span>
                                             </div>
                                         )}
                                         {entry.uptime && (
                                             <div className="flex items-center gap-2">
-                                                <Timer className="w-3 h-3 text-slate-500" />
+                                                <Timer className="w-3 h-3 text-fg-muted" />
                                                 <span>{entry.uptime}</span>
                                             </div>
                                         )}
                                         <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
-                                            <span className="text-slate-500">Router:</span>
+                                            <span className="text-fg-muted">Router:</span>
                                             <span className="text-primary">{entry.routerName}</span>
                                         </div>
                                     </div>
@@ -404,7 +404,7 @@ export default function Pppoe() {
                                                 "w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors",
                                                 entry.latitude && entry.longitude
                                                     ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                                                    : "bg-slate-800 text-slate-400 hover:bg-slate-700"
+                                                    : "bg-slate-800 text-fg-muted hover:bg-slate-700"
                                             )}
                                         >
                                             <MapPin className="w-3 h-3" />

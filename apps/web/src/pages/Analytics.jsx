@@ -310,11 +310,11 @@ export default function Analytics() {
                     {/* Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div>
-                            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                            <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
                                 <BarChart3 className="w-7 h-7 text-primary" />
                                 Analytics Dashboard
                             </h1>
-                            <p className="text-slate-400 text-sm mt-1">
+                            <p className="text-fg-muted text-sm mt-1">
                                 Statistik dan analisis data monitoring jaringan
                             </p>
                         </div>

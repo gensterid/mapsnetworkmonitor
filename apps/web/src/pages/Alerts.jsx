@@ -163,7 +163,7 @@ export default function Alerts() {
             case 'critical': return 'bg-red-500/10 text-red-400 border-red-500/20';
             case 'warning': return 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20';
             case 'info': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-            default: return 'bg-slate-700 text-slate-300';
+            default: return 'bg-slate-700 text-fg';
         }
     };
 
@@ -172,8 +172,8 @@ export default function Alerts() {
             <div className="p-4 border-b border-slate-800 flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                        <h1 className="text-xl md:text-2xl font-bold text-white tracking-tight">Alerts</h1>
-                        <p className="text-slate-400 text-xs md:sm">Monitor connectivity events</p>
+                        <h1 className="text-xl md:text-2xl font-bold text-fg tracking-tight">Alerts</h1>
+                        <p className="text-fg-muted text-xs md:sm">Monitor connectivity events</p>
                     </div>
                 </div>
 
@@ -209,14 +209,14 @@ export default function Alerts() {
                             type="date"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg p-2 focus:ring-primary focus:border-primary flex-1 sm:w-auto font-mono"
+                            className="bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg p-2 focus:ring-primary focus:border-primary flex-1 sm:w-auto font-mono"
                         />
                         {dateFilter && (
                             <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setDateFilter('')}
-                                className="text-slate-400 hover:text-white shrink-0"
+                                className="text-fg-muted hover:text-fg shrink-0"
                             >
                                 <X className="w-4 h-4" />
                             </Button>
@@ -230,18 +230,18 @@ export default function Alerts() {
 
                 {/* Search Input */}
                 <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                     <input
                         type="text"
                         placeholder="Search alerts by title, message, type..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                     {searchQuery && (
                         <button
                             onClick={() => setSearchQuery('')}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg"
                         >
                             <X className="w-4 h-4" />
                         </button>
@@ -252,7 +252,7 @@ export default function Alerts() {
 
 
                 {searchQuery && (
-                    <p className="text-xs text-slate-500 mt-2">
+                    <p className="text-xs text-fg-muted mt-2">
                         Showing {filteredAlerts.length} of {alerts.length} alerts
                     </p>
                 )}
@@ -264,10 +264,10 @@ export default function Alerts() {
                         <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-4">
                             <CheckCircle className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">
+                        <h3 className="text-lg font-medium text-fg mb-1">
                             {searchQuery ? 'No matching alerts' : 'No active alerts'}
                         </h3>
-                        <p className="text-slate-400">
+                        <p className="text-fg-muted">
                             {searchQuery ? 'Try a different search term' : 'All systems are operating normally'}
                         </p>
                     </div>
@@ -280,9 +280,9 @@ export default function Alerts() {
                                         <div className="flex items-start gap-2 sm:gap-3 min-w-0 flex-1">
                                             <div className="shrink-0 mt-0.5">{getAlertIcon(alert)}</div>
                                             <div className="min-w-0 flex-1">
-                                                <h3 className="font-medium text-white text-sm sm:text-base leading-snug break-words">{alert.title}</h3>
-                                                <p className="text-xs sm:text-sm text-slate-400 mt-0.5 sm:mt-1 line-clamp-2 sm:line-clamp-none">{alert.message || alert.description}</p>
-                                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1 sm:mt-2 text-[10px] sm:text-xs text-slate-500">
+                                                <h3 className="font-medium text-fg text-sm sm:text-base leading-snug break-words">{alert.title}</h3>
+                                                <p className="text-xs sm:text-sm text-fg-muted mt-0.5 sm:mt-1 line-clamp-2 sm:line-clamp-none">{alert.message || alert.description}</p>
+                                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-1 sm:mt-2 text-[10px] sm:text-xs text-fg-muted">
                                                     <span className="flex items-center gap-1">
                                                         <Clock className="w-3 h-3" />
                                                         {formatAlertTime(alert.createdAt)}
@@ -314,7 +314,7 @@ export default function Alerts() {
                                                 <span className="hidden sm:inline">Acknowledge</span>
                                             </Button>
                                         ) : (
-                                            <div className="text-[10px] sm:text-xs text-slate-500 text-right shrink-0">
+                                            <div className="text-[10px] sm:text-xs text-fg-muted text-right shrink-0">
                                                 <div className="flex items-center justify-end gap-1 text-emerald-500 mb-0.5 sm:mb-1">
                                                     <CheckCircle className="w-3 h-3" />
                                                     <span className="hidden sm:inline">Acknowledged</span>
@@ -346,7 +346,7 @@ export default function Alerts() {
                         >
                             Previous
                         </Button>
-                        <span className="text-sm text-slate-400">
+                        <span className="text-sm text-fg-muted">
                             Page {meta.page} of {meta.totalPages} (Total {meta.total})
                         </span>
                         <Button

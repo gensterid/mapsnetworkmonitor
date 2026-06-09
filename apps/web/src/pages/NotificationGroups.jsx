@@ -84,7 +84,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
         <Modal isOpen={isOpen} onClose={onClose} title={isEditing ? "Edit Notification Group" : "New Notification Group"}>
             <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-300">Group Name</label>
+                    <label className="text-sm font-medium text-fg">Group Name</label>
                     <Input name="name" value={formData.name} onChange={handleChange} placeholder="e.g. NOC Team" required />
                 </div>
 
@@ -92,9 +92,9 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 <div className="border border-slate-800 rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <Send className="w-5 h-5 text-blue-400" />
-                        <h3 className="font-medium text-white">Telegram</h3>
+                        <h3 className="font-medium text-fg">Telegram</h3>
                         <label className="ml-auto flex items-center gap-2 cursor-pointer">
-                            <span className="text-xs text-slate-400">Enable</span>
+                            <span className="text-xs text-fg-muted">Enable</span>
                             <input
                                 type="checkbox"
                                 name="telegramEnabled"
@@ -108,16 +108,16 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                     {formData.telegramEnabled && (
                         <>
                             <div className="space-y-2">
-                                <label className="text-xs text-slate-400">Bot Token</label>
+                                <label className="text-xs text-fg-muted">Bot Token</label>
                                 <Input name="telegramBotToken" value={formData.telegramBotToken} onChange={handleChange} placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11" />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                    <label className="text-xs text-slate-400">Chat ID</label>
+                                    <label className="text-xs text-fg-muted">Chat ID</label>
                                     <Input name="telegramChatId" value={formData.telegramChatId} onChange={handleChange} placeholder="-1001234567890" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs text-slate-400">Thread ID (Topic)</label>
+                                    <label className="text-xs text-fg-muted">Thread ID (Topic)</label>
                                     <Input name="telegramThreadId" value={formData.telegramThreadId} onChange={handleChange} placeholder="Optional" />
                                 </div>
                             </div>
@@ -129,9 +129,9 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 <div className="border border-slate-800 rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <MessageCircle className="w-5 h-5 text-green-400" />
-                        <h3 className="font-medium text-white">WhatsApp</h3>
+                        <h3 className="font-medium text-fg">WhatsApp</h3>
                         <label className="ml-auto flex items-center gap-2 cursor-pointer">
-                            <span className="text-xs text-slate-400">Enable</span>
+                            <span className="text-xs text-fg-muted">Enable</span>
                             <input
                                 type="checkbox"
                                 name="whatsappEnabled"
@@ -145,16 +145,16 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                     {formData.whatsappEnabled && (
                         <>
                             <div className="space-y-2">
-                                <label className="text-xs text-slate-400">API URL (Base)</label>
+                                <label className="text-xs text-fg-muted">API URL (Base)</label>
                                 <Input name="whatsappUrl" value={formData.whatsappUrl} onChange={handleChange} placeholder="http://localhost:3000" />
                             </div>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 <div className="space-y-2">
-                                    <label className="text-xs text-slate-400">API Key (Optional)</label>
+                                    <label className="text-xs text-fg-muted">API Key (Optional)</label>
                                     <Input name="whatsappKey" value={formData.whatsappKey} onChange={handleChange} placeholder="Secret Key" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs text-slate-400">Target Number</label>
+                                    <label className="text-xs text-fg-muted">Target Number</label>
                                     <Input name="whatsappTo" value={formData.whatsappTo} onChange={handleChange} placeholder="628123456789" />
                                 </div>
                             </div>
@@ -166,11 +166,11 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 <div className="border border-slate-800 rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <Edit className="w-5 h-5 text-purple-400" />
-                        <h3 className="font-medium text-white">Message Template</h3>
+                        <h3 className="font-medium text-fg">Message Template</h3>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-xs text-slate-400">Customize notification format (optional)</label>
+                        <label className="text-xs text-fg-muted">Customize notification format (optional)</label>
                         <textarea
                             name="messageTemplate"
                             value={formData.messageTemplate || ''}
@@ -184,9 +184,9 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
 📌 *Location:* {{location}}
 🗺️ *Maps:* {{maps_link}}
 ⏰ *Time:* {{time}}`}
-                            className="w-full h-40 bg-slate-900 border border-slate-700 rounded-md p-2 text-white text-xs font-mono focus:ring-2 focus:ring-primary focus:border-transparent"
+                            className="w-full h-40 bg-slate-900 border border-slate-700 rounded-md p-2 text-fg text-xs font-mono focus:ring-2 focus:ring-primary focus:border-transparent"
                         />
-                        <div className="text-[10px] text-slate-500 space-y-1">
+                        <div className="text-[10px] text-fg-muted space-y-1">
                             <p>Available variables:</p>
                             <div className="flex flex-wrap gap-2">
                                 <code className="bg-slate-800 px-1 rounded">{"{{icon}}"}</code>
@@ -233,8 +233,8 @@ export default function NotificationGroups() {
         <div className="p-6 max-w-6xl mx-auto">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-2">Notification Groups</h1>
-                    <p className="text-slate-400">Manage notification channels for your routers</p>
+                    <h1 className="text-2xl font-bold text-fg mb-2">Notification Groups</h1>
+                    <p className="text-fg-muted">Manage notification channels for your routers</p>
                 </div>
                 <Button onClick={() => setIsModalOpen(true)} className="self-start sm:self-auto">
                     <Plus className="w-4 h-4 mr-2" />
@@ -251,7 +251,7 @@ export default function NotificationGroups() {
                                 <div className="flex gap-1">
                                     <button
                                         onClick={() => setEditingGroup(group)}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                                        className="p-1.5 hover:bg-slate-800 rounded text-fg-muted hover:text-fg transition-colors"
                                     >
                                         <Edit className="w-4 h-4" />
                                     </button>
@@ -261,7 +261,7 @@ export default function NotificationGroups() {
                                                 deleteMutation.mutate(group.id);
                                             }
                                         }}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-slate-400 hover:text-red-400 transition-colors"
+                                        className="p-1.5 hover:bg-slate-800 rounded text-fg-muted hover:text-red-400 transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -272,9 +272,9 @@ export default function NotificationGroups() {
                             <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-800/50">
                                 <div className="flex items-center gap-2">
                                     <Send className={`w-4 h-4 ${group.telegramEnabled ? 'text-blue-400' : 'text-slate-600'}`} />
-                                    <span className="text-sm text-slate-300">Telegram</span>
+                                    <span className="text-sm text-fg">Telegram</span>
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded ${group.telegramEnabled ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-500'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded ${group.telegramEnabled ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-fg-muted'}`}>
                                     {group.telegramEnabled ? 'On' : 'Off'}
                                 </span>
                             </div>
@@ -282,15 +282,15 @@ export default function NotificationGroups() {
                             <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-800/50">
                                 <div className="flex items-center gap-2">
                                     <MessageCircle className={`w-4 h-4 ${group.whatsappEnabled ? 'text-green-400' : 'text-slate-600'}`} />
-                                    <span className="text-sm text-slate-300">WhatsApp</span>
+                                    <span className="text-sm text-fg">WhatsApp</span>
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded ${group.whatsappEnabled ? 'bg-green-500/10 text-green-400' : 'bg-slate-800 text-slate-500'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded ${group.whatsappEnabled ? 'bg-green-500/10 text-green-400' : 'bg-slate-800 text-fg-muted'}`}>
                                     {group.whatsappEnabled ? 'On' : 'Off'}
                                 </span>
                             </div>
 
                             {(group.telegramEnabled || group.whatsappEnabled) && (
-                                <div className="pt-2 text-xs text-slate-500 flex gap-2">
+                                <div className="pt-2 text-xs text-fg-muted flex gap-2">
                                     {group.telegramThreadId && <span className="bg-slate-800 px-1.5 py-0.5 rounded">Topic: {group.telegramThreadId}</span>}
                                     {group.whatsappTo && <span className="bg-slate-800 px-1.5 py-0.5 rounded">WA: {group.whatsappTo}</span>}
                                 </div>
@@ -300,7 +300,7 @@ export default function NotificationGroups() {
                 ))}
 
                 {groups.length === 0 && !isLoading && (
-                    <div className="col-span-full py-12 text-center text-slate-500 border-2 border-dashed border-slate-800 rounded-xl">
+                    <div className="col-span-full py-12 text-center text-fg-muted border-2 border-dashed border-slate-800 rounded-xl">
                         No notification groups created yet.
                     </div>
                 )}
