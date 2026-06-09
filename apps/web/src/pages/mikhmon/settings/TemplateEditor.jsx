@@ -229,14 +229,14 @@ export default function TemplateEditor() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 {/* Editor + config */}
                 <div className="lg:col-span-2 space-y-3">
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 space-y-3">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-3 space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <label className="flex items-center gap-2 text-xs text-fg">
                                 <input
                                     type="checkbox"
                                     checked={qrEnabled}
                                     onChange={(e) => setQrEnabled(e.target.checked)}
-                                    className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                                    className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                                 />
                                 <span>Aktifkan QR Code</span>
                             </label>
@@ -245,7 +245,7 @@ export default function TemplateEditor() {
                                     type="checkbox"
                                     checked={logoEnabled}
                                     onChange={(e) => setLogoEnabled(e.target.checked)}
-                                    className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                                    className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                                 />
                                 <span>Tampilkan Logo</span>
                             </label>
@@ -253,7 +253,7 @@ export default function TemplateEditor() {
                                 value={logoFilename}
                                 onChange={(e) => setLogoFilename(e.target.value)}
                                 disabled={!logoEnabled || logos.length === 0}
-                                className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs rounded-lg px-2 py-1.5 disabled:opacity-50"
+                                className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-xs rounded-lg px-2 py-1.5 disabled:opacity-50"
                             >
                                 <option value="">— Pilih logo —</option>
                                 {logos.map((l) => <option key={l.filename} value={l.filename}>{l.filename}</option>)}
@@ -265,13 +265,13 @@ export default function TemplateEditor() {
                             value={body}
                             onChange={(e) => setBody(e.target.value)}
                             spellCheck={false}
-                            className="w-full h-[480px] font-mono text-xs bg-slate-950/80 border border-slate-700/60 text-slate-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="w-full h-[480px] font-mono text-xs bg-surface-darker/80 border border-slate-border/60 text-slate-200 rounded-lg p-3 resize-y focus:outline-none focus:ring-2 focus:ring-primary/40"
                             placeholder="<table>...</table>"
                         />
                     </div>
 
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-slate-border/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center gap-2">
                             <Eye className="w-3.5 h-3.5" />
                             Live Preview
                             <span className="ml-2 normal-case text-[10px] text-slate-600 font-normal">
@@ -289,7 +289,7 @@ export default function TemplateEditor() {
 
                 {/* Cheat sheet */}
                 <div className="space-y-3">
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-3">
                         <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-2">Variables</div>
                         <div className="space-y-1">
                             {VARIABLES.map((v) => (
@@ -307,7 +307,7 @@ export default function TemplateEditor() {
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-3">
                         <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-2">Block Helpers</div>
                         <div className="space-y-1.5">
                             {HELPERS.map((h) => (

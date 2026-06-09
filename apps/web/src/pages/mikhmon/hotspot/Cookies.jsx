@@ -61,7 +61,7 @@ export default function HotspotCookies() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari user atau MAC…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -71,10 +71,10 @@ export default function HotspotCookies() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">User</th>
                                 <th className="text-left px-4 py-2.5">MAC Address</th>
@@ -91,7 +91,7 @@ export default function HotspotCookies() {
                                     {cookies.length === 0 ? 'Belum ada cookie. Cookie dibuat otomatis saat user login dengan MAC cookie aktif.' : 'Tidak ada cookie cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((c) => (
-                                <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={c.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-4 py-2.5 font-semibold text-slate-200">{c.user || <span className="text-slate-600 italic">—</span>}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg">{c.macAddress || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{c.domain || <span className="text-slate-600">—</span>}</td>
@@ -113,7 +113,7 @@ export default function HotspotCookies() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== cookies.length && <> dari {cookies.length}</>}
                     </div>

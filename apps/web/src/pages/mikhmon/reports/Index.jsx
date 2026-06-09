@@ -61,7 +61,7 @@ function fmtRupiah(n) {
 
 function StatCard({ icon: Icon, label, value, color, hint }) {
     return (
-        <div className="rounded-xl border p-4 bg-slate-900/50 border-slate-800">
+        <div className="rounded-xl border p-4 bg-surface-dark/50 border-slate-border">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider font-bold text-fg-muted mb-2">
                 <Icon className={clsx('w-3.5 h-3.5', color || 'text-fg-muted')} />
                 {label}
@@ -301,16 +301,16 @@ export default function MikhmonReports() {
                             'text-xs px-3 py-1.5 rounded-lg border transition-colors',
                             presetDays === p.days && !customFrom
                                 ? 'bg-primary/15 text-primary border-primary/40'
-                                : 'border-slate-700/50 text-fg-muted hover:text-slate-200 hover:bg-white/5',
+                                : 'border-slate-border/50 text-fg-muted hover:text-slate-200 hover:bg-white/5',
                         )}
                     >
                         {p.label}
                     </button>
                 ))}
                 <span className="text-slate-700">|</span>
-                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs rounded-lg px-2.5 py-1.5" />
+                <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-xs rounded-lg px-2.5 py-1.5" />
                 <span className="text-fg-muted text-xs">s/d</span>
-                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs rounded-lg px-2.5 py-1.5" />
+                <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-xs rounded-lg px-2.5 py-1.5" />
             </div>
 
             {isError && (
@@ -329,7 +329,7 @@ export default function MikhmonReports() {
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-                        <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4">
+                        <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-4">
                             <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-3">Status Voucher</div>
                             {pieData.length === 0 ? (
                                 <div className="h-56 flex items-center justify-center text-xs text-fg-muted">Tidak ada data</div>
@@ -345,7 +345,7 @@ export default function MikhmonReports() {
                             )}
                         </div>
 
-                        <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 lg:col-span-2">
+                        <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-4 lg:col-span-2">
                             <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                                 <div className="text-xs font-bold uppercase tracking-wider text-fg-muted min-w-0">
                                     Voucher per Hari
@@ -374,14 +374,14 @@ export default function MikhmonReports() {
                         </div>
                     </div>
 
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center gap-2">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-slate-border/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center gap-2">
                             <TrendingUp className="w-3.5 h-3.5" />
                             Per Profile (urut by income)
                         </div>
                         <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full text-sm min-w-[500px]">
-                                <thead className="bg-slate-900/30 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                                <thead className="bg-surface-dark/30 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                                     <tr>
                                         <th className="text-left px-4 py-2">Profile</th>
                                         <th className="text-right px-4 py-2">Voucher</th>
@@ -397,7 +397,7 @@ export default function MikhmonReports() {
                                         const lp = ledger.countByProfile.find((x) => x.profile === p.profile);
                                         const income = lp?.income ?? p.income;
                                         return (
-                                            <tr key={p.profile} className="hover:bg-slate-800/30">
+                                            <tr key={p.profile} className="hover:bg-slate-surface/30">
                                                 <td className="px-4 py-2 font-semibold text-slate-200">{p.profile}</td>
                                                 <td className="px-4 py-2 text-right font-mono text-xs text-fg">{p.count}</td>
                                                 <td className="px-4 py-2 text-right font-mono text-xs text-emerald-300">{fmtRupiah(income)}</td>
@@ -416,8 +416,8 @@ export default function MikhmonReports() {
                         Total at top right = sum of all sold prices in range.
                         Toolbar mirrors MikHMON external: Search · CSV · Ringkasan ·
                         Cetak · Hapus data <owner>. */}
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2 flex-wrap">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-slate-border/60 text-xs font-bold uppercase tracking-wider flex items-center justify-between gap-2 flex-wrap">
                             <span className="flex items-center gap-2 text-fg-muted">
                                 <ListChecks className="w-3.5 h-3.5" />
                                 Laporan Penjualan ({entriesFiltered.length}{entriesFiltered.length !== ledger.entries.length && ` / ${ledger.entries.length}`})
@@ -430,20 +430,20 @@ export default function MikhmonReports() {
                         </div>
 
                         {/* Toolbar — Search + action buttons */}
-                        <div className="px-4 py-2 border-b border-slate-800/60 bg-slate-900/30 flex items-center gap-2 flex-wrap">
+                        <div className="px-4 py-2 border-b border-slate-border/60 bg-surface-dark/30 flex items-center gap-2 flex-wrap">
                             <div className="relative flex-1 min-w-[200px]">
                                 <Search className="w-3.5 h-3.5 text-fg-muted absolute left-2.5 top-1/2 -translate-y-1/2" />
                                 <input
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                     placeholder="Cari username / profil / komentar…"
-                                    className="w-full pl-8 pr-3 py-1.5 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                                    className="w-full pl-8 pr-3 py-1.5 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-xs rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                                 />
                             </div>
                             <button
                                 onClick={handleExportCSV}
                                 disabled={entriesFiltered.length === 0}
-                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 text-fg hover:bg-white/5 disabled:opacity-40 normal-case"
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-border/60 text-fg hover:bg-white/5 disabled:opacity-40 normal-case"
                                 title="Download CSV"
                             >
                                 <Download className="w-3.5 h-3.5" /> CSV
@@ -451,7 +451,7 @@ export default function MikhmonReports() {
                             <button
                                 onClick={() => setShowRingkasan(true)}
                                 disabled={ledgerByDay.length === 0}
-                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 text-fg hover:bg-white/5 disabled:opacity-40 normal-case"
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-border/60 text-fg hover:bg-white/5 disabled:opacity-40 normal-case"
                                 title="Ringkasan per hari"
                             >
                                 <BarChart2 className="w-3.5 h-3.5" /> Ringkasan
@@ -459,7 +459,7 @@ export default function MikhmonReports() {
                             <button
                                 onClick={handlePrint}
                                 disabled={entriesFiltered.length === 0}
-                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-700/60 text-fg hover:bg-white/5 disabled:opacity-40 normal-case"
+                                className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg border border-slate-border/60 text-fg hover:bg-white/5 disabled:opacity-40 normal-case"
                                 title="Cetak laporan"
                             >
                                 <Printer className="w-3.5 h-3.5" /> Cetak
@@ -476,7 +476,7 @@ export default function MikhmonReports() {
                         </div>
                         <div className="overflow-x-auto custom-scrollbar max-h-[600px]">
                             <table className="w-full text-sm min-w-[900px]">
-                                <thead className="bg-slate-900/30 text-[10px] font-bold uppercase tracking-wider text-fg-muted sticky top-0">
+                                <thead className="bg-surface-dark/30 text-[10px] font-bold uppercase tracking-wider text-fg-muted sticky top-0">
                                     <tr>
                                         <th className="text-right px-3 py-2 w-12">№</th>
                                         <th className="text-left px-3 py-2">Tanggal</th>
@@ -500,7 +500,7 @@ export default function MikhmonReports() {
                                             )}
                                         </td></tr>
                                     ) : entriesFiltered.map((e, idx) => (
-                                        <tr key={e.scriptId || idx} className="hover:bg-slate-800/30">
+                                        <tr key={e.scriptId || idx} className="hover:bg-slate-surface/30">
                                             <td className="px-3 py-1.5 font-mono text-[11px] text-fg-muted text-right">{idx + 1}</td>
                                             <td className="px-3 py-1.5 font-mono text-[11px] text-fg">{e.date}</td>
                                             <td className="px-3 py-1.5 font-mono text-[11px] text-fg-muted">{e.time}</td>
@@ -534,13 +534,13 @@ export default function MikhmonReports() {
                         <span className="text-fg-muted">Total Voucher Terjual</span>
                         <span className="font-bold text-slate-100">{ledger.entries.length}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm border-b border-slate-800 pb-3">
+                    <div className="flex items-center justify-between text-sm border-b border-slate-border pb-3">
                         <span className="text-fg-muted">Total Pendapatan</span>
                         <span className="font-bold text-emerald-300 tabular-nums">{fmtRupiah(ledger.total)}</span>
                     </div>
                     <div className="overflow-y-auto max-h-[400px] custom-scrollbar">
                         <table className="w-full text-sm">
-                            <thead className="bg-slate-900/30 text-[10px] font-bold uppercase tracking-wider text-fg-muted sticky top-0">
+                            <thead className="bg-surface-dark/30 text-[10px] font-bold uppercase tracking-wider text-fg-muted sticky top-0">
                                 <tr>
                                     <th className="text-left px-3 py-2">Tanggal</th>
                                     <th className="text-right px-3 py-2">Voucher</th>
@@ -551,7 +551,7 @@ export default function MikhmonReports() {
                                 {ledgerByDay.length === 0 ? (
                                     <tr><td colSpan={3} className="px-3 py-6 text-center text-fg-muted text-xs">Tidak ada data</td></tr>
                                 ) : ledgerByDay.map((d) => (
-                                    <tr key={d.date} className="hover:bg-slate-800/30">
+                                    <tr key={d.date} className="hover:bg-slate-surface/30">
                                         <td className="px-3 py-1.5 font-mono text-[11px] text-fg">{d.date}</td>
                                         <td className="px-3 py-1.5 text-right font-mono text-xs text-fg">{d.count}</td>
                                         <td className="px-3 py-1.5 text-right font-mono text-xs text-emerald-300">{fmtRupiah(d.income)}</td>

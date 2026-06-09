@@ -67,7 +67,7 @@ function CreateModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                                     'flex flex-col items-start gap-0.5 p-2.5 rounded-lg border text-left transition-colors',
                                     type === opt.v
                                         ? 'border-primary/40 bg-primary/10'
-                                        : 'border-slate-700/50 bg-slate-900/40 hover:bg-slate-800/40',
+                                        : 'border-slate-border/50 bg-surface-dark/40 hover:bg-slate-surface/40',
                                 )}
                             >
                                 <span className="text-xs font-bold text-slate-200">{opt.label}</span>
@@ -84,7 +84,7 @@ function CreateModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                         value={comment}
                         onChange={(e) => setComment(e.target.value)}
                         placeholder="contoh: sebelum upgrade firmware"
-                        className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                 </label>
 
@@ -92,7 +92,7 @@ function CreateModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                     Backup ditrigger di MikroTik, lalu file di-fetch ke server app. Untuk type <span className="font-mono text-fg">backup</span> dan <span className="font-mono text-fg">rsc</span> proses bisa 10-30 detik tergantung ukuran config.
                 </p>
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button type="submit" loading={isSubmitting} disabled={isSubmitting}>Buat Backup</Button>
                 </div>
@@ -162,7 +162,7 @@ export default function SystemBackup() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari filename atau comment…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -172,10 +172,10 @@ export default function SystemBackup() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Filename</th>
                                 <th className="text-left px-4 py-2.5">Type</th>
@@ -193,7 +193,7 @@ export default function SystemBackup() {
                                     {(!items || items.length === 0) ? 'Belum ada backup. Klik "Buat Backup" untuk mulai.' : 'Tidak ada backup cocok.'}
                                 </td></tr>
                             ) : filtered.map((b) => (
-                                <tr key={b.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={b.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-4 py-2.5 font-mono text-xs text-slate-200 max-w-[250px] truncate" title={b.filename}>{b.filename}</td>
                                     <td className="px-4 py-2.5">
                                         <span className={clsx(
@@ -231,7 +231,7 @@ export default function SystemBackup() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {(items && filtered.length !== items.length) && <> dari {items.length}</>}
                     </div>

@@ -356,7 +356,7 @@ ${extractedCss}
             {/* Filter & template — two columns layout */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div className="lg:col-span-2 space-y-3">
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 space-y-3">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-4 space-y-3">
                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fg-muted">
                             <Filter className="w-3.5 h-3.5" />
                             Filter Voucher
@@ -368,7 +368,7 @@ ${extractedCss}
                                 <select
                                     value={profileFilter}
                                     onChange={(e) => setProfileFilter(e.target.value)}
-                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2"
+                                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2"
                                 >
                                     {profileOptions.map((p) => <option key={p} value={p}>{p === 'all' ? 'Semua profile' : p}</option>)}
                                 </select>
@@ -378,7 +378,7 @@ ${extractedCss}
                                 <select
                                     value={dateFilter}
                                     onChange={(e) => setDateFilter(e.target.value)}
-                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2"
+                                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2"
                                 >
                                     {DATE_FILTERS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
                                 </select>
@@ -391,7 +391,7 @@ ${extractedCss}
                                 <select
                                     value={commentFilter}
                                     onChange={(e) => setCommentFilter(e.target.value)}
-                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2"
+                                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2"
                                 >
                                     <option value="all">Semua comment</option>
                                     {commentBuckets.map((b) => (
@@ -407,7 +407,7 @@ ${extractedCss}
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Cari kode / profile / note…"
-                                className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg"
+                                className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg"
                             />
                         </div>
 
@@ -420,7 +420,7 @@ ${extractedCss}
                                     value={maxCount}
                                     onChange={(e) => setMaxCount(parseInt(e.target.value, 10) || 0)}
                                     placeholder="0 = semua"
-                                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2"
+                                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2"
                                 />
                                 <span className="text-[10px] text-slate-600 italic">0 = cetak semua hasil filter</span>
                             </label>
@@ -429,7 +429,7 @@ ${extractedCss}
                                     type="checkbox"
                                     checked={onlyUnused}
                                     onChange={(e) => setOnlyUnused(e.target.checked)}
-                                    className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                                    className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                                 />
                                 <span>Hanya voucher yang belum dipakai</span>
                             </label>
@@ -437,8 +437,8 @@ ${extractedCss}
                     </div>
 
                     {/* Preview */}
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center justify-between">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
+                        <div className="px-4 py-2.5 border-b border-slate-border/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center justify-between">
                             <span>Preview ({toPrint.length} dari {filtered.length} hasil filter)</span>
                             <span className="normal-case text-[10px] text-slate-600">Template: {tplConfig.label}</span>
                         </div>
@@ -488,7 +488,7 @@ ${extractedCss}
 
                 {/* Template Selector — right column */}
                 <div className="space-y-3">
-                    <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 space-y-2">
+                    <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-4 space-y-2">
                         <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-2">Template</div>
                         {TEMPLATES.map((t) => (
                             <label
@@ -497,7 +497,7 @@ ${extractedCss}
                                     'flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors',
                                     template === t.id
                                         ? 'border-primary/50 bg-primary/10'
-                                        : 'border-slate-700/40 hover:bg-white/5',
+                                        : 'border-slate-border/40 hover:bg-white/5',
                                 )}
                             >
                                 <input
@@ -509,7 +509,7 @@ ${extractedCss}
                                 <span className="text-xs text-slate-200">{t.label}</span>
                             </label>
                         ))}
-                        <p className="text-[10px] text-slate-600 leading-relaxed pt-2 border-t border-slate-800/60">
+                        <p className="text-[10px] text-slate-600 leading-relaxed pt-2 border-t border-slate-border/60">
                             Kartu kecil cocok untuk banyak voucher per lembar A4 (cetak voucher harian). Kartu besar untuk paket bulanan / langganan yang dicetak satu-satu.
                         </p>
                     </div>

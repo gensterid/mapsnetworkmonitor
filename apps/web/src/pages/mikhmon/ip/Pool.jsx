@@ -35,7 +35,7 @@ function Input({ value, onChange, ...rest }) {
             type="text"
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
             {...rest}
         />
     );
@@ -87,7 +87,7 @@ function PoolFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode,
                     </Field>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button type="submit" loading={isSubmitting} disabled={isSubmitting || !form.name?.trim() || !form.ranges?.trim()}>
                         {mode === 'edit' ? 'Update' : 'Tambah'}
@@ -169,7 +169,7 @@ export default function IpPool() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari name, range, comment…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -179,10 +179,10 @@ export default function IpPool() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Name</th>
                                 <th className="text-left px-4 py-2.5">Ranges</th>
@@ -199,7 +199,7 @@ export default function IpPool() {
                                     {items.length === 0 ? 'Belum ada IP pool.' : 'Tidak ada pool cocok.'}
                                 </td></tr>
                             ) : filtered.map((p) => (
-                                <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={p.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-4 py-2.5 font-semibold text-slate-200">{p.name}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg break-all max-w-xs">{p.ranges || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{p.nextPool || <span className="text-slate-600">—</span>}</td>
@@ -228,7 +228,7 @@ export default function IpPool() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>

@@ -70,7 +70,7 @@ export default function SystemLog() {
                 <select
                     value={topic}
                     onChange={(e) => setTopic(e.target.value)}
-                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                     {COMMON_TOPICS.map((t) => (
                         <option key={t} value={t}>topic: {t}</option>
@@ -79,7 +79,7 @@ export default function SystemLog() {
                 <select
                     value={limit}
                     onChange={(e) => setLimit(parseInt(e.target.value, 10))}
-                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/40"
                 >
                     {[100, 200, 500, 1000, 2000].map((n) => (
                         <option key={n} value={n}>limit: {n}</option>
@@ -91,7 +91,7 @@ export default function SystemLog() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Filter message / topic…"
-                        className="w-full pl-9 pr-3 py-1.5 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full pl-9 pr-3 py-1.5 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                 </div>
             </div>
@@ -102,10 +102,10 @@ export default function SystemLog() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[700px] font-mono">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted font-sans">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted font-sans">
                             <tr>
                                 <th className="text-left px-3 py-2.5 w-[100px]">Time</th>
                                 <th className="text-left px-3 py-2.5 w-[160px]">Topics</th>
@@ -120,7 +120,7 @@ export default function SystemLog() {
                                     {entries.length === 0 ? 'Log buffer kosong / topic tidak punya entry.' : 'Tidak ada log cocok filter search.'}
                                 </td></tr>
                             ) : filtered.map((e) => (
-                                <tr key={e.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={e.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-3 py-1.5 text-[11px] text-fg-muted whitespace-nowrap align-top">{e.time || '—'}</td>
                                     <td className="px-3 py-1.5 text-[11px] align-top">
                                         <span className={clsx('break-all', topicColor(e.topics))}>{e.topics || '—'}</span>
@@ -132,7 +132,7 @@ export default function SystemLog() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Tampil: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== entries.length && <> dari {entries.length}</>}
                     </div>

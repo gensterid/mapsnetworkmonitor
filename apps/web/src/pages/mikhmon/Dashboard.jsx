@@ -13,7 +13,7 @@ import clsx from 'clsx';
 
 function StatTile({ icon: Icon, label, value, hint, color = 'text-slate-200' }) {
     return (
-        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+        <div className="bg-slate-900/50 border border-slate-border rounded-xl p-4">
             <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-fg-muted mb-2">
                 <Icon className="w-3.5 h-3.5" />
                 {label}

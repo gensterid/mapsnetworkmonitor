@@ -38,7 +38,7 @@ function Input({ value, onChange, ...rest }) {
             type="text"
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
             {...rest}
         />
     );
@@ -95,7 +95,7 @@ function SchedulerFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, 
                             onChange={(e) => set('onEvent', e.target.value)}
                             rows={6}
                             placeholder={"/system reboot"}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-xs font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-xs font-mono rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                             required
                         />
                     </Field>
@@ -109,12 +109,12 @@ function SchedulerFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, 
                         type="checkbox"
                         checked={!!form.disabled}
                         onChange={(e) => set('disabled', e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                        className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                     />
                     <span>Disabled</span>
                 </label>
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button
                         type="submit"
@@ -200,7 +200,7 @@ export default function SystemScheduler() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari name, comment, script…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -210,10 +210,10 @@ export default function SystemScheduler() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Name</th>
                                 <th className="text-left px-4 py-2.5">Start Time</th>
@@ -231,7 +231,7 @@ export default function SystemScheduler() {
                                     {items.length === 0 ? 'Belum ada scheduler.' : 'Tidak ada scheduler cocok.'}
                                 </td></tr>
                             ) : filtered.map((s) => (
-                                <tr key={s.id} className={clsx('hover:bg-slate-800/30 transition-colors', s.disabled && 'opacity-50')}>
+                                <tr key={s.id} className={clsx('hover:bg-slate-surface/30 transition-colors', s.disabled && 'opacity-50')}>
                                     <td className="px-4 py-2.5 font-semibold text-slate-200">{s.name}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg">{s.startTime || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg">{s.interval || <span className="text-slate-600">—</span>}</td>
@@ -261,7 +261,7 @@ export default function SystemScheduler() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>

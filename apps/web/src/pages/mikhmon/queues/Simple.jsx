@@ -83,7 +83,7 @@ function Input({ value, onChange, ...rest }) {
             type="text"
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
             {...rest}
         />
     );
@@ -158,7 +158,7 @@ function QueueFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode
                 </button>
 
                 {showAdvanced && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-lg bg-surface-dark/30 border border-slate-border/60">
                         <Field label="Burst Limit (rx/tx)" hint="ceiling burst · contoh: 10M/5M">
                             <Input value={form.burstLimit} onChange={(v) => set('burstLimit', v)} placeholder="" />
                         </Field>
@@ -179,12 +179,12 @@ function QueueFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode
                         type="checkbox"
                         checked={!!form.disabled}
                         onChange={(e) => set('disabled', e.target.checked)}
-                        className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                        className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                     />
                     <span>Disabled (queue dibuat tapi tidak aktif)</span>
                 </label>
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button
                         type="submit"
@@ -357,7 +357,7 @@ export default function SimpleQueues() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari name, target, atau comment…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -367,10 +367,10 @@ export default function SimpleQueues() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[800px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="w-8"></th>
                                 <th className="text-left px-4 py-2.5">Name</th>
@@ -396,7 +396,7 @@ export default function SimpleQueues() {
                                     <React.Fragment key={q.id}>
                                         <tr
                                             className={clsx(
-                                                'hover:bg-slate-800/30 transition-colors cursor-pointer',
+                                                'hover:bg-slate-surface/30 transition-colors cursor-pointer',
                                                 q.disabled && 'opacity-50',
                                                 q.dynamic && 'italic',
                                             )}
@@ -407,7 +407,7 @@ export default function SimpleQueues() {
                                             </td>
                                             <td className="px-4 py-2.5 font-semibold text-slate-200">
                                                 {q.name}
-                                                {q.dynamic && <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-fg-muted rounded uppercase">dynamic</span>}
+                                                {q.dynamic && <span className="ml-2 text-[9px] px-1.5 py-0.5 bg-slate-border/50 text-fg-muted rounded uppercase">dynamic</span>}
                                             </td>
                                             <td className="px-4 py-2.5 font-mono text-xs text-fg max-w-xs truncate">{q.target || <span className="text-slate-600">—</span>}</td>
                                             <td className="px-4 py-2.5 font-mono text-xs text-fg">{q.maxLimit || <span className="text-slate-600">unlimited</span>}</td>
@@ -447,7 +447,7 @@ export default function SimpleQueues() {
                                             </td>
                                         </tr>
                                         {isExpanded && (
-                                            <tr className="bg-slate-900/60">
+                                            <tr className="bg-surface-dark/60">
                                                 <td colSpan={7} className="px-4 py-4">
                                                     <QueueTrafficChart queueId={q.id} stats={stats} />
                                                 </td>
@@ -460,7 +460,7 @@ export default function SimpleQueues() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>

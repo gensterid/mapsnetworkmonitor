@@ -146,7 +146,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             max={500}
                             value={form.count}
                             onChange={(e) => set('count', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                             required
                         />
                     </Field>
@@ -156,14 +156,14 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             value={form.server}
                             onChange={(e) => set('server', e.target.value)}
                             placeholder="all"
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
                     <Field label="User Mode" hint="vc = username = password (1 kode) · up = user + password terpisah">
                         <select
                             value={form.mode}
                             onChange={(e) => set('mode', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         >
                             <option value="vc">vc (single code)</option>
                             <option value="up">up (user + password)</option>
@@ -173,7 +173,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                         <select
                             value={form.profile}
                             onChange={(e) => set('profile', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                             required
                         >
                             <option value="default">default</option>
@@ -184,7 +184,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                     </Field>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 p-3 rounded-lg bg-surface-dark/30 border border-slate-border/60">
                     <Field label="Name Length" hint="3-20">
                         <input
                             type="number"
@@ -192,7 +192,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             max={20}
                             value={form.length}
                             onChange={(e) => set('length', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
                     <Field label="Prefix" hint="depan kode">
@@ -201,14 +201,14 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             value={form.prefix}
                             onChange={(e) => set('prefix', e.target.value)}
                             placeholder=""
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
                     <Field label="Char Type" span={2}>
                         <select
                             value={form.charset}
                             onChange={(e) => set('charset', e.target.value)}
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         >
                             {CHARSETS.map((c) => <option key={c.v} value={c.v}>{c.label}</option>)}
                         </select>
@@ -219,7 +219,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             value={form.noteOverride}
                             onChange={(e) => set('noteOverride', e.target.value)}
                             placeholder="(default = nama profile)"
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
                     <Field label="Time Limit" hint="override durasi · contoh: 1d, 12h">
@@ -228,7 +228,7 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             value={form.limitUptime}
                             onChange={(e) => set('limitUptime', e.target.value)}
                             placeholder=""
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
                     <Field label="Data Limit" hint="override quota · contoh: 5G">
@@ -237,12 +237,12 @@ function GenerateModal({ isOpen, onClose, onSubmit, isSubmitting, profiles, mode
                             value={form.limitBytesTotal}
                             onChange={(e) => set('limitBytesTotal', e.target.value)}
                             placeholder=""
-                            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                     </Field>
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button type="submit" loading={isSubmitting} disabled={isSubmitting}>Generate</Button>
                 </div>
@@ -300,7 +300,7 @@ ${vouchers.map((v) => `
                 <p className="text-xs text-fg-muted">
                     Preview voucher yang akan dicetak. Klik <span className="font-bold">Print</span> untuk buka jendela print browser.
                 </p>
-                <div className="max-h-72 overflow-y-auto custom-scrollbar bg-slate-900/50 border border-slate-700/40 rounded-lg p-3">
+                <div className="max-h-72 overflow-y-auto custom-scrollbar bg-surface-dark/50 border border-slate-border/40 rounded-lg p-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {vouchers.map((v) => (
                             <div key={v.id || v.name} className="border border-dashed border-slate-600 p-2 rounded">
@@ -319,7 +319,7 @@ ${vouchers.map((v) => `
                         ))}
                     </div>
                 </div>
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button variant="ghost" onClick={onClose}>Tutup</Button>
                     <Button onClick={handlePrint}>
                         <Printer className="w-4 h-4 mr-1" />
@@ -482,13 +482,13 @@ export default function VouchersPage() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Cari kode, profile, atau note…"
-                        className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                 </div>
                 <select
                     value={commentFilter}
                     onChange={(e) => setCommentFilter(e.target.value)}
-                    className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 min-w-[220px] focus:outline-none focus:ring-2 focus:ring-primary/40"
                     title="Filter by Comment — grup voucher per batch generate"
                 >
                     <option value="all">Filter by Comment</option>
@@ -504,10 +504,10 @@ export default function VouchersPage() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[800px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="w-8 px-2 py-2.5">
                                     <input
@@ -517,7 +517,7 @@ export default function VouchersPage() {
                                             if (e.target.checked) setSelectedIds(new Set(filtered.map((v) => v.id)));
                                             else setSelectedIds(new Set());
                                         }}
-                                        className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                                        className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                                     />
                                 </th>
                                 <th className="text-left px-4 py-2.5">Code</th>
@@ -537,13 +537,13 @@ export default function VouchersPage() {
                                     {items.length === 0 ? 'Belum ada voucher. Klik "Generate" untuk mulai.' : 'Tidak ada voucher cocok.'}
                                 </td></tr>
                             ) : filtered.map((v) => (
-                                <tr key={v.id} className={clsx('hover:bg-slate-800/30 transition-colors', v.disabled && 'opacity-50')}>
+                                <tr key={v.id} className={clsx('hover:bg-slate-surface/30 transition-colors', v.disabled && 'opacity-50')}>
                                     <td className="px-2 py-2.5">
                                         <input
                                             type="checkbox"
                                             checked={selectedIds.has(v.id)}
                                             onChange={() => toggleSelect(v.id)}
-                                            className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                                            className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
                                         />
                                     </td>
                                     <td className="px-4 py-2.5">
@@ -562,7 +562,7 @@ export default function VouchersPage() {
                                         )}
                                     </td>
                                     <td className="px-4 py-2.5">
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/50 text-fg">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-border/50 text-fg">
                                             {v.mode}
                                         </span>
                                     </td>
@@ -593,7 +593,7 @@ export default function VouchersPage() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                         {selectedIds.size > 0 && <> · <span className="text-primary">{selectedIds.size} dipilih</span></>}

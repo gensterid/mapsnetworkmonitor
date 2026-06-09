@@ -136,8 +136,8 @@ function MikhmonShell() {
         // bocor ke belakang BottomNav dan baris terakhir tertutup ikon.
         <div className="flex h-full min-h-0 bg-slate-950">
             {/* Sidebar — desktop */}
-            <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-slate-800/60 bg-slate-900/40">
-                <div className="px-4 py-3 border-b border-slate-800/60">
+            <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-slate-border/60 bg-surface-dark/40">
+                <div className="px-4 py-3 border-b border-slate-border/60">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">Console</div>
                     <div className="text-sm font-bold text-slate-200">MikHMON</div>
                 </div>
@@ -147,8 +147,8 @@ function MikhmonShell() {
             {/* Sidebar — mobile drawer */}
             {mobileSidebarOpen && (
                 <div className="md:hidden fixed inset-0 z-40 flex">
-                    <div className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col">
-                        <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                    <div className="w-56 bg-surface-dark border-r border-slate-border flex flex-col">
+                        <div className="px-4 py-3 border-b border-slate-border flex items-center justify-between">
                             <div>
                                 <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">Console</div>
                                 <div className="text-sm font-bold text-slate-200">MikHMON</div>
@@ -166,7 +166,7 @@ function MikhmonShell() {
             {/* Main column */}
             <div className="flex-1 flex flex-col min-w-0">
                 {/* Top bar */}
-                <header className="h-14 shrink-0 border-b border-slate-800/60 bg-slate-900/40 flex items-center gap-3 px-3 md:px-4">
+                <header className="h-14 shrink-0 border-b border-slate-border/60 bg-surface-dark/40 flex items-center gap-3 px-3 md:px-4">
                     <button
                         onClick={() => setMobileSidebarOpen(true)}
                         className="md:hidden p-1 text-fg"

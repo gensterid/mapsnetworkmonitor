@@ -140,7 +140,7 @@ function TextInput({ value, onChange, ...rest }) {
             type="text"
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
             {...rest}
         />
     );
@@ -152,7 +152,7 @@ function NumberInput({ value, onChange, ...rest }) {
             type="number"
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
             {...rest}
         />
     );
@@ -163,7 +163,7 @@ function Select({ value, onChange, options, ...rest }) {
         <select
             value={value ?? ''}
             onChange={(e) => onChange(e.target.value)}
-            className="bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
+            className="bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary/40"
             {...rest}
         >
             {options.map((o) => (
@@ -182,7 +182,7 @@ function CheckboxField({ label, checked, onChange }) {
                 type="checkbox"
                 checked={!!checked}
                 onChange={(e) => onChange(e.target.checked)}
-                className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary/40"
+                className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary/40"
             />
             <span>{label}</span>
         </label>
@@ -289,7 +289,7 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                 </button>
 
                 {showAdvanced && (
-                    <div className="space-y-3 p-3 rounded-lg bg-slate-900/30 border border-slate-800/60">
+                    <div className="space-y-3 p-3 rounded-lg bg-surface-dark/30 border border-slate-border/60">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <Field label="Session Timeout"><TextInput value={form.sessionTimeout} onChange={(v) => set('sessionTimeout', v)} placeholder="" /></Field>
                             <Field label="Idle Timeout"><TextInput value={form.idleTimeout} onChange={(v) => set('idleTimeout', v)} placeholder="none" /></Field>
@@ -312,7 +312,7 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                     </div>
                 )}
 
-                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
+                <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-border/40">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Batal</Button>
                     <Button type="submit" loading={isSubmitting} disabled={isSubmitting || !form.name?.trim()}>
                         {mode === 'edit' ? 'Update' : 'Simpan'}
@@ -514,7 +514,7 @@ export default function HotspotProfiles() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari nama atau rate-limit…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -525,10 +525,10 @@ export default function HotspotProfiles() {
             )}
 
             {/* TABLE — columns match MikHMON v3 external */}
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[1000px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-3 py-2.5">Nama</th>
                                 <th className="text-left px-3 py-2.5">Shared Users</th>
@@ -569,12 +569,12 @@ export default function HotspotProfiles() {
                                     : (b.price && parseFloat(b.price) > 0 ? Number(b.price) : null);
                                 const priceVal = b.price && parseFloat(b.price) > 0 ? Number(b.price) : null;
                                 return (
-                                    <tr key={p.id} className="hover:bg-slate-800/30 transition-colors">
+                                    <tr key={p.id} className="hover:bg-slate-surface/30 transition-colors">
                                         <td className="px-3 py-2.5">
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className={clsx('font-semibold', getProfileNameColor(p))}>{p.name}</span>
                                                 {p.default && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-fg-muted rounded uppercase font-bold tracking-tight">default</span>
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-slate-border/50 text-fg-muted rounded uppercase font-bold tracking-tight">default</span>
                                                 )}
                                             </div>
                                         </td>
@@ -587,7 +587,7 @@ export default function HotspotProfiles() {
                                                     b.expiredMode === 'Notice' ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' :
                                                     b.expiredMode === 'Notice & Record' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
                                                     b.expiredMode === 'Remove & Record' ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' :
-                                                    'bg-slate-700/40 text-fg border-slate-600/40'
+                                                    'bg-slate-border/40 text-fg border-slate-600/40'
                                                 )}>
                                                     {b.expiredMode}
                                                 </span>
@@ -616,7 +616,7 @@ export default function HotspotProfiles() {
                                                 b.lockUser ? (
                                                     <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Enable</span>
                                                 ) : (
-                                                    <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/40 text-fg-muted border border-slate-600/40">Disable</span>
+                                                    <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-border/40 text-fg-muted border border-slate-600/40">Disable</span>
                                                 )
                                             ) : null}
                                         </td>
@@ -646,7 +646,7 @@ export default function HotspotProfiles() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== profiles.length && <> dari {profiles.length}</>}
                     </div>

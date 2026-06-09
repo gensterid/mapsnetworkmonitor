@@ -89,7 +89,7 @@ export default function HotspotHosts() {
                             'text-xs px-3 py-1.5 rounded-lg border transition-colors',
                             statusFilter === s
                                 ? 'bg-primary/15 text-primary border-primary/40'
-                                : 'border-slate-700/50 text-fg-muted hover:text-slate-200 hover:bg-white/5',
+                                : 'border-slate-border/50 text-fg-muted hover:text-slate-200 hover:bg-white/5',
                         )}
                     >
                         {s === 'all' ? 'Semua' : s}
@@ -102,7 +102,7 @@ export default function HotspotHosts() {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Cari MAC, IP, atau hostname…"
-                        className="w-full pl-9 pr-3 py-1.5 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                        className="w-full pl-9 pr-3 py-1.5 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                     />
                 </div>
             </div>
@@ -113,10 +113,10 @@ export default function HotspotHosts() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Status</th>
                                 <th className="text-left px-4 py-2.5">MAC</th>
@@ -135,7 +135,7 @@ export default function HotspotHosts() {
                                     {hosts.length === 0 ? 'Belum ada host terdeteksi.' : 'Tidak ada host cocok filter.'}
                                 </td></tr>
                             ) : filtered.map((h) => (
-                                <tr key={h.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={h.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-4 py-2.5"><StatusBadge host={h} /></td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg">{h.macAddress || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5 font-mono text-xs text-fg">{h.address || <span className="text-slate-600">—</span>}</td>
@@ -154,7 +154,7 @@ export default function HotspotHosts() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== hosts.length && <> dari {hosts.length}</>}
                     </div>

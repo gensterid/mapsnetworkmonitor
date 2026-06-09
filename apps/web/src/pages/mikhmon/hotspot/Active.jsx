@@ -76,7 +76,7 @@ export default function HotspotActive() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari server, user, IP, MAC, atau komentar…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -86,10 +86,10 @@ export default function HotspotActive() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[1200px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-center px-2 py-2.5 w-8"></th>
                                 <th className="text-left px-3 py-2.5">Server</th>
@@ -112,7 +112,7 @@ export default function HotspotActive() {
                                     {sessions.length === 0 ? 'Tidak ada session aktif.' : 'Tidak ada session cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((s) => (
-                                <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={s.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-2 py-2.5 text-center">
                                         <button
                                             onClick={() => setConfirming(s)}
@@ -141,7 +141,7 @@ export default function HotspotActive() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Active: <span className="text-emerald-400 font-bold">{filtered.length}</span>
                         {filtered.length !== sessions.length && <> dari {sessions.length}</>}
                     </div>

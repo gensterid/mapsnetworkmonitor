@@ -55,7 +55,7 @@ export default function PppActive() {
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="Cari user, IP, atau caller-id…"
-                    className="w-full pl-9 pr-3 py-2 bg-slate-900/60 border border-slate-700/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full pl-9 pr-3 py-2 bg-surface-dark/60 border border-slate-border/60 text-slate-200 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
             </div>
 
@@ -65,10 +65,10 @@ export default function PppActive() {
                 </div>
             )}
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
+                        <thead className="bg-surface-dark/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">User</th>
                                 <th className="text-left px-4 py-2.5">Service</th>
@@ -86,7 +86,7 @@ export default function PppActive() {
                                     {sessions.length === 0 ? 'Tidak ada PPP session aktif.' : 'Tidak ada session cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((s) => (
-                                <tr key={s.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={s.id} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="px-4 py-2.5">
                                         <div className="flex items-center gap-2">
                                             <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_4px_rgba(52,211,153,0.6)] shrink-0" />
@@ -94,7 +94,7 @@ export default function PppActive() {
                                         </div>
                                     </td>
                                     <td className="px-4 py-2.5">
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/50 text-fg">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-border/50 text-fg">
                                             {s.service || 'pppoe'}
                                         </span>
                                     </td>
@@ -118,7 +118,7 @@ export default function PppActive() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-border/40 text-[10px] uppercase tracking-wider text-fg-muted bg-surface-dark/30">
                         Active: <span className="text-emerald-400 font-bold">{filtered.length}</span>
                         {filtered.length !== sessions.length && <> dari {sessions.length}</>}
                     </div>

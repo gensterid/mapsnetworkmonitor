@@ -96,7 +96,7 @@ export default function UploadLogo() {
                 </button>
             </div>
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 space-y-3">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 p-4 space-y-3">
                 <div className="text-xs text-fg-muted">
                     Rekomendasi nama file: <span className="font-mono text-fg">{recommendedName}</span>
                 </div>
@@ -106,7 +106,7 @@ export default function UploadLogo() {
                         type="file"
                         accept={ACCEPTED.join(',')}
                         onChange={(e) => handleUpload(e.target.files?.[0])}
-                        className="flex-1 text-sm text-fg file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-slate-200 file:cursor-pointer hover:file:bg-slate-600"
+                        className="flex-1 text-sm text-fg file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-border file:text-slate-200 file:cursor-pointer hover:file:bg-slate-600"
                     />
                     <Button
                         onClick={() => fileInputRef.current?.click()}
@@ -122,8 +122,8 @@ export default function UploadLogo() {
                 </p>
             </div>
 
-            <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted">
+            <div className="rounded-xl border border-slate-border/60 bg-surface-dark/40 overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-border/60 text-xs font-bold uppercase tracking-wider text-fg-muted">
                     Daftar Logo ({logos.length})
                 </div>
                 <div className="divide-y divide-slate-800/40">
@@ -135,11 +135,11 @@ export default function UploadLogo() {
                             Belum ada logo. Upload file di atas.
                         </div>
                     ) : logos.map((logo) => (
-                        <div key={logo.filename} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-800/30 transition-colors">
+                        <div key={logo.filename} className="px-4 py-3 flex items-center gap-3 hover:bg-slate-surface/30 transition-colors">
                             <img
                                 src={logoUrl(logo.filename)}
                                 alt={logo.filename}
-                                className="w-12 h-12 object-contain bg-white/5 rounded border border-slate-700/40"
+                                className="w-12 h-12 object-contain bg-white/5 rounded border border-slate-border/40"
                             />
                             <div className="flex-1 min-w-0">
                                 <div className="font-mono text-sm text-slate-200 truncate">{logo.filename}</div>
