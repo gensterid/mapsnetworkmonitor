@@ -83,13 +83,13 @@ export default function UploadLogo() {
                     <Upload className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">Upload Logo</h1>
-                        <p className="text-xs text-slate-500">Logo untuk template cetak voucher. Per router.</p>
+                        <p className="text-xs text-fg-muted">Logo untuk template cetak voucher. Per router.</p>
                     </div>
                 </div>
                 <button
                     onClick={() => refetch()}
                     disabled={isFetching}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                    className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                     title="Refresh"
                 >
                     <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -97,8 +97,8 @@ export default function UploadLogo() {
             </div>
 
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 space-y-3">
-                <div className="text-xs text-slate-500">
-                    Rekomendasi nama file: <span className="font-mono text-slate-300">{recommendedName}</span>
+                <div className="text-xs text-fg-muted">
+                    Rekomendasi nama file: <span className="font-mono text-fg">{recommendedName}</span>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <input
@@ -106,7 +106,7 @@ export default function UploadLogo() {
                         type="file"
                         accept={ACCEPTED.join(',')}
                         onChange={(e) => handleUpload(e.target.files?.[0])}
-                        className="flex-1 text-sm text-slate-300 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-slate-200 file:cursor-pointer hover:file:bg-slate-600"
+                        className="flex-1 text-sm text-fg file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-slate-700 file:text-slate-200 file:cursor-pointer hover:file:bg-slate-600"
                     />
                     <Button
                         onClick={() => fileInputRef.current?.click()}
@@ -123,14 +123,14 @@ export default function UploadLogo() {
             </div>
 
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-slate-500">
+                <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted">
                     Daftar Logo ({logos.length})
                 </div>
                 <div className="divide-y divide-slate-800/40">
                     {isPending ? (
-                        <div className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</div>
+                        <div className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</div>
                     ) : logos.length === 0 ? (
-                        <div className="px-4 py-8 text-center text-slate-500 text-xs">
+                        <div className="px-4 py-8 text-center text-fg-muted text-xs">
                             <ImageIcon className="w-8 h-8 mx-auto mb-2 opacity-30" />
                             Belum ada logo. Upload file di atas.
                         </div>
@@ -143,7 +143,7 @@ export default function UploadLogo() {
                             />
                             <div className="flex-1 min-w-0">
                                 <div className="font-mono text-sm text-slate-200 truncate">{logo.filename}</div>
-                                <div className="text-[10px] text-slate-500">
+                                <div className="text-[10px] text-fg-muted">
                                     {fmtSize(logo.size)} · {new Date(logo.uploadedAt).toLocaleString('id-ID')}
                                 </div>
                             </div>

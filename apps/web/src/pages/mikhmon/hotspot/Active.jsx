@@ -56,14 +56,14 @@ export default function HotspotActive() {
                 <div className="flex items-center gap-3">
                     <Activity className="w-5 h-5 text-emerald-400" />
                     <div>
-                        <h1 className="text-xl font-bold text-slate-100">Hotspot Aktif <span className="text-xs text-slate-500 font-normal">· {sessions.length} items</span></h1>
-                        <p className="text-xs text-slate-500">User yang sedang login. Auto-refresh sesuai interval di top bar.</p>
+                        <h1 className="text-xl font-bold text-slate-100">Hotspot Aktif <span className="text-xs text-fg-muted font-normal">· {sessions.length} items</span></h1>
+                        <p className="text-xs text-fg-muted">User yang sedang login. Auto-refresh sesuai interval di top bar.</p>
                     </div>
                 </div>
                 <button
                     onClick={() => refetch()}
                     disabled={isFetching}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                    className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                     title="Refresh sekarang"
                 >
                     <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -71,7 +71,7 @@ export default function HotspotActive() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -89,7 +89,7 @@ export default function HotspotActive() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[1200px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-center px-2 py-2.5 w-8"></th>
                                 <th className="text-left px-3 py-2.5">Server</th>
@@ -106,9 +106,9 @@ export default function HotspotActive() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={11} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={11} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={11} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {sessions.length === 0 ? 'Tidak ada session aktif.' : 'Tidak ada session cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((s) => (
@@ -123,25 +123,25 @@ export default function HotspotActive() {
                                             <XIcon className="w-3.5 h-3.5" />
                                         </button>
                                     </td>
-                                    <td className="px-3 py-2.5 text-xs text-slate-300">{s.server || ''}</td>
+                                    <td className="px-3 py-2.5 text-xs text-fg">{s.server || ''}</td>
                                     <td className="px-3 py-2.5">
                                         <span className="font-semibold text-slate-200">{s.user || ''}</span>
                                     </td>
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300">{s.address || ''}</td>
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-400">{(s.macAddress || '').toUpperCase()}</td>
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300 text-right">{s.uptime || ''}</td>
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300 text-right">{s.bytesIn ? fmtBytes(s.bytesIn) : ''}</td>
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300 text-right">{s.bytesOut ? fmtBytes(s.bytesOut) : ''}</td>
-                                    <td className="px-3 py-2.5 font-mono text-xs text-slate-300 text-right">{s.sessionTimeoutLeft || ''}</td>
-                                    <td className="px-3 py-2.5 text-xs text-slate-300">{s.loginBy || ''}</td>
-                                    <td className="px-3 py-2.5 text-xs text-slate-400 max-w-[300px] truncate" title={s.comment}>{s.comment || ''}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-fg">{s.address || ''}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-fg-muted">{(s.macAddress || '').toUpperCase()}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-fg text-right">{s.uptime || ''}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-fg text-right">{s.bytesIn ? fmtBytes(s.bytesIn) : ''}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-fg text-right">{s.bytesOut ? fmtBytes(s.bytesOut) : ''}</td>
+                                    <td className="px-3 py-2.5 font-mono text-xs text-fg text-right">{s.sessionTimeoutLeft || ''}</td>
+                                    <td className="px-3 py-2.5 text-xs text-fg">{s.loginBy || ''}</td>
+                                    <td className="px-3 py-2.5 text-xs text-fg-muted max-w-[300px] truncate" title={s.comment}>{s.comment || ''}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
                         Active: <span className="text-emerald-400 font-bold">{filtered.length}</span>
                         {filtered.length !== sessions.length && <> dari {sessions.length}</>}
                     </div>

@@ -211,7 +211,7 @@ export default function TemplateEditor() {
                     <FileCode2 className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">Template Editor</h1>
-                        <p className="text-xs text-slate-500">Edit template HTML voucher pakai variable Handlebars <code className="text-slate-400">{'{{var}}'}</code>.</p>
+                        <p className="text-xs text-fg-muted">Edit template HTML voucher pakai variable Handlebars <code className="text-fg-muted">{'{{var}}'}</code>.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -231,7 +231,7 @@ export default function TemplateEditor() {
                 <div className="lg:col-span-2 space-y-3">
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3 space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <label className="flex items-center gap-2 text-xs text-slate-300">
+                            <label className="flex items-center gap-2 text-xs text-fg">
                                 <input
                                     type="checkbox"
                                     checked={qrEnabled}
@@ -240,7 +240,7 @@ export default function TemplateEditor() {
                                 />
                                 <span>Aktifkan QR Code</span>
                             </label>
-                            <label className="flex items-center gap-2 text-xs text-slate-300">
+                            <label className="flex items-center gap-2 text-xs text-fg">
                                 <input
                                     type="checkbox"
                                     checked={logoEnabled}
@@ -271,7 +271,7 @@ export default function TemplateEditor() {
                     </div>
 
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
+                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center gap-2">
                             <Eye className="w-3.5 h-3.5" />
                             Live Preview
                             <span className="ml-2 normal-case text-[10px] text-slate-600 font-normal">
@@ -290,7 +290,7 @@ export default function TemplateEditor() {
                 {/* Cheat sheet */}
                 <div className="space-y-3">
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
-                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Variables</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-2">Variables</div>
                         <div className="space-y-1">
                             {VARIABLES.map((v) => (
                                 <button
@@ -301,14 +301,14 @@ export default function TemplateEditor() {
                                     title="Klik untuk insert ke cursor"
                                 >
                                     <div className="font-mono text-[11px] text-primary">{`{{${v.name}}}`}</div>
-                                    <div className="text-[10px] text-slate-500 group-hover:text-slate-400">{v.desc}</div>
+                                    <div className="text-[10px] text-fg-muted group-hover:text-fg-muted">{v.desc}</div>
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-3">
-                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Block Helpers</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-2">Block Helpers</div>
                         <div className="space-y-1.5">
                             {HELPERS.map((h) => (
                                 <button
@@ -318,14 +318,14 @@ export default function TemplateEditor() {
                                     className="w-full text-left px-2 py-1.5 rounded hover:bg-white/5 transition-colors group"
                                 >
                                     <div className="font-mono text-[10px] text-amber-300 leading-tight">{h.syntax}</div>
-                                    <div className="text-[10px] text-slate-500 group-hover:text-slate-400 mt-0.5">{h.desc}</div>
+                                    <div className="text-[10px] text-fg-muted group-hover:text-fg-muted mt-0.5">{h.desc}</div>
                                 </button>
                             ))}
                         </div>
                     </div>
 
                     {isPending && (
-                        <div className="text-xs text-slate-500 text-center">Memuat template…</div>
+                        <div className="text-xs text-fg-muted text-center">Memuat template…</div>
                     )}
                 </div>
             </div>

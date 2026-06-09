@@ -334,14 +334,14 @@ ${extractedCss}
                     <Printer className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">Cetak Cepat</h1>
-                        <p className="text-xs text-slate-500">Cetak voucher dalam jumlah banyak — filter dulu, pilih template, lalu print.</p>
+                        <p className="text-xs text-fg-muted">Cetak voucher dalam jumlah banyak — filter dulu, pilih template, lalu print.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -357,14 +357,14 @@ ${extractedCss}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
                 <div className="lg:col-span-2 space-y-3">
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-fg-muted">
                             <Filter className="w-3.5 h-3.5" />
                             Filter Voucher
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label className="flex flex-col gap-1">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Profile</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Profile</span>
                                 <select
                                     value={profileFilter}
                                     onChange={(e) => setProfileFilter(e.target.value)}
@@ -374,7 +374,7 @@ ${extractedCss}
                                 </select>
                             </label>
                             <label className="flex flex-col gap-1">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Tanggal Generate</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Tanggal Generate</span>
                                 <select
                                     value={dateFilter}
                                     onChange={(e) => setDateFilter(e.target.value)}
@@ -384,7 +384,7 @@ ${extractedCss}
                                 </select>
                             </label>
                             <label className="flex flex-col gap-1 sm:col-span-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                                     Filter by Comment
                                     <span className="text-slate-600 normal-case font-normal ml-1">— print per batch generation</span>
                                 </span>
@@ -402,7 +402,7 @@ ${extractedCss}
                         </div>
 
                         <div className="relative">
-                            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                            <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                             <input
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
@@ -413,7 +413,7 @@ ${extractedCss}
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <label className="flex flex-col gap-1">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Maksimal Cetak</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Maksimal Cetak</span>
                                 <input
                                     type="number"
                                     min={0}
@@ -424,7 +424,7 @@ ${extractedCss}
                                 />
                                 <span className="text-[10px] text-slate-600 italic">0 = cetak semua hasil filter</span>
                             </label>
-                            <label className="flex items-end gap-2 text-xs text-slate-300 cursor-pointer pb-1">
+                            <label className="flex items-end gap-2 text-xs text-fg cursor-pointer pb-1">
                                 <input
                                     type="checkbox"
                                     checked={onlyUnused}
@@ -438,15 +438,15 @@ ${extractedCss}
 
                     {/* Preview */}
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
-                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                        <div className="px-4 py-2.5 border-b border-slate-800/60 text-xs font-bold uppercase tracking-wider text-fg-muted flex items-center justify-between">
                             <span>Preview ({toPrint.length} dari {filtered.length} hasil filter)</span>
                             <span className="normal-case text-[10px] text-slate-600">Template: {tplConfig.label}</span>
                         </div>
                         <div className="p-4 max-h-[400px] overflow-y-auto custom-scrollbar bg-white/3">
                             {isPending ? (
-                                <div className="text-center text-slate-500 text-xs py-10">Memuat voucher…</div>
+                                <div className="text-center text-fg-muted text-xs py-10">Memuat voucher…</div>
                             ) : toPrint.length === 0 ? (
-                                <div className="text-center text-slate-500 text-xs py-10">
+                                <div className="text-center text-fg-muted text-xs py-10">
                                     Tidak ada voucher cocok filter.
                                     <div className="mt-2 opacity-70">
                                         {items.length === 0
@@ -461,22 +461,22 @@ ${extractedCss}
                                 >
                                     {toPrint.slice(0, 30).map((v) => (
                                         <div key={v.id} className="border border-dashed border-slate-600 rounded p-1.5">
-                                            <div className="flex items-center justify-between text-[8px] uppercase text-slate-500">
+                                            <div className="flex items-center justify-between text-[8px] uppercase text-fg-muted">
                                                 <span>USER</span>
-                                                <span className="text-slate-400 font-semibold">{v.profile || ''}</span>
+                                                <span className="text-fg-muted font-semibold">{v.profile || ''}</span>
                                             </div>
                                             <div className="font-mono font-bold text-slate-100 text-[11px] tracking-wider truncate">{v.name}</div>
                                             {v.mode === 'up' && (
                                                 <>
-                                                    <div className="text-[8px] uppercase text-slate-500 mt-0.5">PASS</div>
+                                                    <div className="text-[8px] uppercase text-fg-muted mt-0.5">PASS</div>
                                                     <div className="font-mono font-bold text-slate-100 text-[11px] tracking-wider truncate">{v.password}</div>
                                                 </>
                                             )}
-                                            <div className="text-[8px] text-slate-500 truncate">{v.note || ''}</div>
+                                            <div className="text-[8px] text-fg-muted truncate">{v.note || ''}</div>
                                         </div>
                                     ))}
                                     {toPrint.length > 30 && (
-                                        <div className="col-span-full text-center text-[10px] text-slate-500 py-2">
+                                        <div className="col-span-full text-center text-[10px] text-fg-muted py-2">
                                             … +{toPrint.length - 30} voucher lain
                                         </div>
                                     )}
@@ -489,7 +489,7 @@ ${extractedCss}
                 {/* Template Selector — right column */}
                 <div className="space-y-3">
                     <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 p-4 space-y-2">
-                        <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Template</div>
+                        <div className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-2">Template</div>
                         {TEMPLATES.map((t) => (
                             <label
                                 key={t.id}

@@ -27,7 +27,7 @@ const SERVICES = ['any', 'pppoe', 'pptp', 'l2tp', 'ovpn', 'sstp'];
 function Field({ label, hint, children }) {
     return (
         <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">{label}</span>
             {children}
             {hint && <span className="text-[10px] text-slate-600 italic">{hint}</span>}
         </label>
@@ -100,7 +100,7 @@ function SecretFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mod
                             <button
                                 type="button"
                                 onClick={() => setShowPw((s) => !s)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg"
                                 tabIndex={-1}
                             >
                                 {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -133,7 +133,7 @@ function SecretFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mod
                     </Field>
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-fg cursor-pointer">
                     <input
                         type="checkbox"
                         checked={!!form.disabled}
@@ -205,14 +205,14 @@ export default function PppSecrets() {
                     <UsersIcon className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">PPP Secrets</h1>
-                        <p className="text-xs text-slate-500">User PPPoE/PPTP/L2TP yang terdaftar di router.</p>
+                        <p className="text-xs text-fg-muted">User PPPoE/PPTP/L2TP yang terdaftar di router.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -225,7 +225,7 @@ export default function PppSecrets() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -243,7 +243,7 @@ export default function PppSecrets() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Username</th>
                                 <th className="text-left px-4 py-2.5">Profile</th>
@@ -255,9 +255,9 @@ export default function PppSecrets() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {items.length === 0 ? 'Belum ada PPP secret.' : 'Tidak ada secret cocok.'}
                                 </td></tr>
                             ) : filtered.map((s) => (
@@ -268,14 +268,14 @@ export default function PppSecrets() {
                                             {s.profile || 'default'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{s.service || 'any'}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{s.lastLoggedOut || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 text-xs text-slate-300 max-w-xs truncate">{s.comment || ''}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{s.service || 'any'}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{s.lastLoggedOut || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 text-xs text-fg max-w-xs truncate">{s.comment || ''}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <div className="inline-flex items-center gap-1">
                                             <button
                                                 onClick={() => { setEditing(s); setModalMode('edit'); }}
-                                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                                className="p-1.5 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5"
                                                 title="Edit"
                                             >
                                                 <Pencil className="w-3.5 h-3.5" />
@@ -295,8 +295,8 @@ export default function PppSecrets() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>
                 )}

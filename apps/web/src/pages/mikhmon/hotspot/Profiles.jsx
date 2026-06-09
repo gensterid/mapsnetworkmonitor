@@ -125,7 +125,7 @@ const EMPTY_FORM = {
 function Field({ label, hint, children, span = 1, required }) {
     return (
         <label className={clsx('flex flex-col gap-1', span === 2 && 'sm:col-span-2')}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                 {label}{required && ' *'}
             </span>
             {children}
@@ -177,7 +177,7 @@ function Select({ value, onChange, options, ...rest }) {
 
 function CheckboxField({ label, checked, onChange }) {
     return (
-        <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+        <label className="flex items-center gap-2 text-xs text-fg cursor-pointer">
             <input
                 type="checkbox"
                 checked={!!checked}
@@ -283,7 +283,7 @@ function ProfileFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mo
                 <button
                     type="button"
                     onClick={() => setShowAdvanced((s) => !s)}
-                    className="text-xs text-slate-400 hover:text-slate-200 underline-offset-2 hover:underline"
+                    className="text-xs text-fg-muted hover:text-slate-200 underline-offset-2 hover:underline"
                 >
                     {showAdvanced ? '− Sembunyikan' : '+ Tampilkan'} field RouterOS lanjutan
                 </button>
@@ -484,14 +484,14 @@ export default function HotspotProfiles() {
                     <ShieldCheck className="w-5 h-5 text-primary" />
                     <div>
                         <h1 className="text-xl font-bold text-slate-100">User Profile</h1>
-                        <p className="text-xs text-slate-500">Paket hotspot (rate limit, validity, harga). Save = profile dibuat + script auto-expire ter-install.</p>
+                        <p className="text-xs text-fg-muted">Paket hotspot (rate limit, validity, harga). Save = profile dibuat + script auto-expire ter-install.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -509,7 +509,7 @@ export default function HotspotProfiles() {
 
             {/* SEARCH */}
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -528,7 +528,7 @@ export default function HotspotProfiles() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[1000px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-3 py-2.5">Nama</th>
                                 <th className="text-left px-3 py-2.5">Shared Users</th>
@@ -543,9 +543,9 @@ export default function HotspotProfiles() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={9} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={9} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={9} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {profiles.length === 0 ? 'Belum ada profile. Klik "Tambah Profile".' : 'Tidak ada profile yang cocok.'}
                                 </td></tr>
                             ) : filtered.map((p) => {
@@ -574,12 +574,12 @@ export default function HotspotProfiles() {
                                             <div className="flex items-center gap-2 flex-wrap">
                                                 <span className={clsx('font-semibold', getProfileNameColor(p))}>{p.name}</span>
                                                 {p.default && (
-                                                    <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded uppercase font-bold tracking-tight">default</span>
+                                                    <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-fg-muted rounded uppercase font-bold tracking-tight">default</span>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="px-3 py-2.5 font-mono text-xs text-slate-300">{p.sharedUsers || '1'}</td>
-                                        <td className="px-3 py-2.5 font-mono text-xs text-slate-300 max-w-[200px] truncate">{p.rateLimit || ''}</td>
+                                        <td className="px-3 py-2.5 font-mono text-xs text-fg">{p.sharedUsers || '1'}</td>
+                                        <td className="px-3 py-2.5 font-mono text-xs text-fg max-w-[200px] truncate">{p.rateLimit || ''}</td>
                                         <td className="px-3 py-2.5 text-xs">
                                             {hasMikhmonConfig && b.expiredMode ? (
                                                 <span className={clsx(
@@ -587,7 +587,7 @@ export default function HotspotProfiles() {
                                                     b.expiredMode === 'Notice' ? 'bg-yellow-500/15 text-yellow-300 border-yellow-500/30' :
                                                     b.expiredMode === 'Notice & Record' ? 'bg-orange-500/15 text-orange-300 border-orange-500/30' :
                                                     b.expiredMode === 'Remove & Record' ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30' :
-                                                    'bg-slate-700/40 text-slate-300 border-slate-600/40'
+                                                    'bg-slate-700/40 text-fg border-slate-600/40'
                                                 )}>
                                                     {b.expiredMode}
                                                 </span>
@@ -603,7 +603,7 @@ export default function HotspotProfiles() {
                                                 </div>
                                             ) : null}
                                         </td>
-                                        <td className="px-3 py-2.5 font-mono text-xs text-right text-slate-300">
+                                        <td className="px-3 py-2.5 font-mono text-xs text-right text-fg">
                                             {priceVal !== null ? priceVal.toLocaleString('id-ID') : ''}
                                         </td>
                                         <td className="px-3 py-2.5 font-mono text-xs text-right">
@@ -616,7 +616,7 @@ export default function HotspotProfiles() {
                                                 b.lockUser ? (
                                                     <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">Enable</span>
                                                 ) : (
-                                                    <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/40 text-slate-400 border border-slate-600/40">Disable</span>
+                                                    <span className="inline-flex text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/40 text-fg-muted border border-slate-600/40">Disable</span>
                                                 )
                                             ) : null}
                                         </td>
@@ -624,7 +624,7 @@ export default function HotspotProfiles() {
                                             <div className="inline-flex items-center gap-1">
                                                 <button
                                                     onClick={() => { setEditing(p); setModalMode('edit'); }}
-                                                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                                    className="p-1.5 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5"
                                                     title="Edit"
                                                 >
                                                     <Pencil className="w-3.5 h-3.5" />
@@ -646,8 +646,8 @@ export default function HotspotProfiles() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== profiles.length && <> dari {profiles.length}</>}
                     </div>
                 )}

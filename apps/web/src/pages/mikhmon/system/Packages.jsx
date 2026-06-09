@@ -25,13 +25,13 @@ export default function SystemPackages() {
                     <Server className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">RouterOS Packages</h1>
-                        <p className="text-xs text-slate-500">Package terinstall di router · read-only.</p>
+                        <p className="text-xs text-fg-muted">Package terinstall di router · read-only.</p>
                     </div>
                 </div>
                 <button
                     onClick={() => refetch()}
                     disabled={isFetching}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                    className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                     title="Refresh"
                 >
                     <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -39,7 +39,7 @@ export default function SystemPackages() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -57,7 +57,7 @@ export default function SystemPackages() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Name</th>
                                 <th className="text-left px-4 py-2.5">Version</th>
@@ -68,20 +68,20 @@ export default function SystemPackages() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={5} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={5} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {items.length === 0 ? 'Belum bisa baca package list.' : 'Tidak ada package cocok.'}
                                 </td></tr>
                             ) : filtered.map((p) => (
                                 <tr key={p.id} className={clsx('hover:bg-slate-800/30 transition-colors', p.disabled && 'opacity-50')}>
                                     <td className="px-4 py-2.5 font-semibold text-slate-200">{p.name}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{p.version || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{p.buildTime || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{p.scheduled || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg">{p.version || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{p.buildTime || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{p.scheduled || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5">
                                         {p.disabled ? (
-                                            <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-tight border bg-slate-500/15 text-slate-400 border-slate-500/30">disabled</span>
+                                            <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-tight border bg-slate-500/15 text-fg-muted border-slate-500/30">disabled</span>
                                         ) : (
                                             <span className="text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-tight border bg-emerald-500/15 text-emerald-300 border-emerald-500/30">active</span>
                                         )}
@@ -92,8 +92,8 @@ export default function SystemPackages() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>
                 )}

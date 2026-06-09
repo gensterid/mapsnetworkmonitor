@@ -14,12 +14,12 @@ import clsx from 'clsx';
 function StatTile({ icon: Icon, label, value, hint, color = 'text-slate-200' }) {
     return (
         <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
-            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-2">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-fg-muted mb-2">
                 <Icon className="w-3.5 h-3.5" />
                 {label}
             </div>
             <div className={clsx('text-2xl font-bold tabular-nums', color)}>{value}</div>
-            {hint && <div className="text-xs text-slate-500 mt-1">{hint}</div>}
+            {hint && <div className="text-xs text-fg-muted mt-1">{hint}</div>}
         </div>
     );
 }
@@ -55,12 +55,12 @@ export default function Dashboard() {
                         {info.data?.router?.name || 'Memuat…'}
                     </h1>
                     {info.data?.router?.host && (
-                        <span className="text-sm text-slate-400 font-mono">
+                        <span className="text-sm text-fg-muted font-mono">
                             {info.data.router.host}
                         </span>
                     )}
                 </div>
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-fg-muted mt-1">
                     MikHMON Console · pilih menu di sidebar untuk mulai operasi
                 </p>
             </div>
@@ -76,7 +76,7 @@ export default function Dashboard() {
                         <div className={clsx('text-sm font-bold uppercase tracking-tight', desc.text)}>
                             Mode: {desc.label}
                         </div>
-                        <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                        <p className="text-xs text-fg-muted mt-1 leading-relaxed">
                             {desc.tooltip}
                         </p>
                     </div>
@@ -96,7 +96,7 @@ export default function Dashboard() {
                 </div>
             ) : (
                 <div>
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                    <h2 className="text-xs font-bold uppercase tracking-wider text-fg-muted mb-3">
                         System Resource
                     </h2>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

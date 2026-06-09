@@ -27,7 +27,7 @@ const EMPTY = {
 function Field({ label, hint, children, span = 1 }) {
     return (
         <label className={clsx('flex flex-col gap-1', span === 2 && 'sm:col-span-2')}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">{label}</span>
             {children}
             {hint && <span className="text-[10px] text-slate-600 italic">{hint}</span>}
         </label>
@@ -169,14 +169,14 @@ export default function PppProfiles() {
                     <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">PPP Profile</h1>
-                        <p className="text-xs text-slate-500">Paket PPPoE (rate-limit, address pool, parent-queue).</p>
+                        <p className="text-xs text-fg-muted">Paket PPPoE (rate-limit, address pool, parent-queue).</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -189,7 +189,7 @@ export default function PppProfiles() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -207,7 +207,7 @@ export default function PppProfiles() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Name</th>
                                 <th className="text-left px-4 py-2.5">Rate Limit</th>
@@ -219,9 +219,9 @@ export default function PppProfiles() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {items.length === 0 ? 'Belum ada PPP profile.' : 'Tidak ada profile cocok.'}
                                 </td></tr>
                             ) : filtered.map((p) => (
@@ -230,24 +230,24 @@ export default function PppProfiles() {
                                         <div className="flex items-center gap-2">
                                             <span className="font-semibold text-slate-200">{p.name}</span>
                                             {isDefault(p) && (
-                                                <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-slate-400 rounded uppercase font-bold tracking-tight">default</span>
+                                                <span className="text-[9px] px-1.5 py-0.5 bg-slate-700/50 text-fg-muted rounded uppercase font-bold tracking-tight">default</span>
                                             )}
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{p.rateLimit || <span className="text-slate-600">unlimited</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg">{p.rateLimit || <span className="text-slate-600">unlimited</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">
                                         <div className="flex flex-col">
                                             <span>{p.localAddress || <span className="text-slate-600">—</span>}</span>
-                                            <span className="text-slate-500">{p.remoteAddress || ''}</span>
+                                            <span className="text-fg-muted">{p.remoteAddress || ''}</span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{p.onlyOne || 'default'}</td>
-                                    <td className="px-4 py-2.5 text-xs text-slate-300 max-w-xs truncate">{p.comment || ''}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{p.onlyOne || 'default'}</td>
+                                    <td className="px-4 py-2.5 text-xs text-fg max-w-xs truncate">{p.comment || ''}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <div className="inline-flex items-center gap-1">
                                             <button
                                                 onClick={() => { setEditing(p); setModalMode('edit'); }}
-                                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                                className="p-1.5 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5"
                                                 title="Edit"
                                             >
                                                 <Pencil className="w-3.5 h-3.5" />
@@ -268,8 +268,8 @@ export default function PppProfiles() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>
                 )}

@@ -49,7 +49,7 @@ const EMPTY_FORM = {
 function Field({ label, hint, children, span = 1 }) {
     return (
         <label className={clsx('flex flex-col gap-1', span === 2 && 'sm:col-span-2')}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">{label}</span>
             {children}
             {hint && <span className="text-[10px] text-slate-600 italic">{hint}</span>}
         </label>
@@ -297,24 +297,24 @@ ${vouchers.map((v) => `
     return (
         <Modal isOpen={isOpen} onClose={onClose} title={`Print ${vouchers.length} Voucher`} maxWidth="max-w-2xl">
             <div className="space-y-3">
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-fg-muted">
                     Preview voucher yang akan dicetak. Klik <span className="font-bold">Print</span> untuk buka jendela print browser.
                 </p>
                 <div className="max-h-72 overflow-y-auto custom-scrollbar bg-slate-900/50 border border-slate-700/40 rounded-lg p-3">
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {vouchers.map((v) => (
                             <div key={v.id || v.name} className="border border-dashed border-slate-600 p-2 rounded">
-                                <div className="text-[9px] uppercase tracking-wider text-slate-500 flex justify-between">
+                                <div className="text-[9px] uppercase tracking-wider text-fg-muted flex justify-between">
                                     <span>USER</span><span>{v.profile}</span>
                                 </div>
                                 <div className="font-mono font-bold text-slate-100 text-sm tracking-wider">{v.name}</div>
                                 {v.mode === 'up' && (
                                     <>
-                                        <div className="text-[9px] uppercase tracking-wider text-slate-500 mt-1">PASS</div>
+                                        <div className="text-[9px] uppercase tracking-wider text-fg-muted mt-1">PASS</div>
                                         <div className="font-mono font-bold text-slate-100 text-sm tracking-wider">{v.password}</div>
                                     </>
                                 )}
-                                <div className="text-[9px] text-slate-500 mt-1">{v.note || ''}{v.limitUptime ? ` · ${v.limitUptime}` : ''}</div>
+                                <div className="text-[9px] text-fg-muted mt-1">{v.note || ''}{v.limitUptime ? ` · ${v.limitUptime}` : ''}</div>
                             </div>
                         ))}
                     </div>
@@ -441,14 +441,14 @@ export default function VouchersPage() {
                     <Ticket className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">Voucher Hotspot</h1>
-                        <p className="text-xs text-slate-500">Generate voucher format MikHMON v3 langsung ke MikroTik.</p>
+                        <p className="text-xs text-fg-muted">Generate voucher format MikHMON v3 langsung ke MikroTik.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -471,13 +471,13 @@ export default function VouchersPage() {
                 <span className={clsx('w-2 h-2 rounded-full mt-1.5 shrink-0', desc.dot)} />
                 <div className="flex-1 text-xs">
                     <div className={clsx('font-bold uppercase tracking-tight', desc.text)}>Mode: {desc.label}</div>
-                    <p className="text-slate-400 mt-1 leading-relaxed">{desc.tooltip}</p>
+                    <p className="text-fg-muted mt-1 leading-relaxed">{desc.tooltip}</p>
                 </div>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -507,7 +507,7 @@ export default function VouchersPage() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[800px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="w-8 px-2 py-2.5">
                                     <input
@@ -531,9 +531,9 @@ export default function VouchersPage() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={8} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={8} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={8} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {items.length === 0 ? 'Belum ada voucher. Klik "Generate" untuk mulai.' : 'Tidak ada voucher cocok.'}
                                 </td></tr>
                             ) : filtered.map((v) => (
@@ -551,18 +551,18 @@ export default function VouchersPage() {
                                             <span className="font-mono font-bold text-slate-100 text-sm tracking-wider">{v.name}</span>
                                             <button
                                                 onClick={() => copyToClipboard(v.name)}
-                                                className="p-1 rounded text-slate-500 hover:text-slate-200 hover:bg-white/5"
+                                                className="p-1 rounded text-fg-muted hover:text-slate-200 hover:bg-white/5"
                                                 title="Copy code"
                                             >
                                                 <Copy className="w-3 h-3" />
                                             </button>
                                         </div>
                                         {v.mode === 'up' && v.password && (
-                                            <div className="text-[10px] text-slate-500 font-mono mt-0.5">pwd: {v.password}</div>
+                                            <div className="text-[10px] text-fg-muted font-mono mt-0.5">pwd: {v.password}</div>
                                         )}
                                     </td>
                                     <td className="px-4 py-2.5">
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/50 text-slate-300">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/50 text-fg">
                                             {v.mode}
                                         </span>
                                     </td>
@@ -571,11 +571,11 @@ export default function VouchersPage() {
                                             {v.profile || 'default'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-2.5 text-xs text-slate-400 max-w-[150px] truncate">{v.note || ''}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">
+                                    <td className="px-4 py-2.5 text-xs text-fg-muted max-w-[150px] truncate">{v.note || ''}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">
                                         {v.uptime || '0s'}{v.limitUptime ? ` / ${v.limitUptime}` : ''}
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-[10px] text-slate-500">
+                                    <td className="px-4 py-2.5 font-mono text-[10px] text-fg-muted">
                                         {v.generatedAt ? new Date(v.generatedAt).toLocaleDateString('id-ID') : '—'}
                                     </td>
                                     <td className="px-4 py-2.5 text-right">
@@ -593,8 +593,8 @@ export default function VouchersPage() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                         {selectedIds.size > 0 && <> · <span className="text-primary">{selectedIds.size} dipilih</span></>}
                     </div>

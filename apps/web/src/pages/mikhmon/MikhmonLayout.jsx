@@ -94,7 +94,7 @@ function SidebarLink({ item }) {
     const Icon = item.icon;
     if (!item.ready) {
         return (
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-500/70 cursor-not-allowed">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-fg-muted/70 cursor-not-allowed">
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className="text-xs flex-1">{item.label}</span>
                 <span className="text-[9px] uppercase tracking-wider opacity-60">Soon</span>
@@ -107,8 +107,8 @@ function SidebarLink({ item }) {
             className={({ isActive }) => clsx(
                 'flex items-center gap-3 px-3 py-2 rounded-lg transition-colors',
                 isActive
-                    ? 'bg-primary/10 text-white font-semibold'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-slate-200',
+                    ? 'bg-primary/10 text-fg font-semibold'
+                    : 'text-fg-muted hover:bg-white/5 hover:text-slate-200',
             )}
         >
             <Icon className="w-4 h-4 shrink-0" />
@@ -138,7 +138,7 @@ function MikhmonShell() {
             {/* Sidebar — desktop */}
             <aside className="hidden md:flex w-56 shrink-0 flex-col border-r border-slate-800/60 bg-slate-900/40">
                 <div className="px-4 py-3 border-b border-slate-800/60">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Console</div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">Console</div>
                     <div className="text-sm font-bold text-slate-200">MikHMON</div>
                 </div>
                 <SidebarSections />
@@ -150,10 +150,10 @@ function MikhmonShell() {
                     <div className="w-56 bg-slate-900 border-r border-slate-800 flex flex-col">
                         <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
                             <div>
-                                <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Console</div>
+                                <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">Console</div>
                                 <div className="text-sm font-bold text-slate-200">MikHMON</div>
                             </div>
-                            <button onClick={() => setMobileSidebarOpen(false)} className="p-1 text-slate-400">
+                            <button onClick={() => setMobileSidebarOpen(false)} className="p-1 text-fg-muted">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -169,7 +169,7 @@ function MikhmonShell() {
                 <header className="h-14 shrink-0 border-b border-slate-800/60 bg-slate-900/40 flex items-center gap-3 px-3 md:px-4">
                     <button
                         onClick={() => setMobileSidebarOpen(true)}
-                        className="md:hidden p-1 text-slate-300"
+                        className="md:hidden p-1 text-fg"
                         aria-label="Buka menu"
                     >
                         <Menu className="w-5 h-5" />
@@ -186,7 +186,7 @@ function MikhmonShell() {
                     jadi padding biasa cukup. */}
                 <main className="flex-1 overflow-y-auto p-4 md:p-6 pb-20 lg:pb-6">
                     {!selectedRouterId ? (
-                        <div className="text-center text-slate-500 text-sm py-20">
+                        <div className="text-center text-fg-muted text-sm py-20">
                             <Wifi className="w-10 h-10 mx-auto mb-3 opacity-40" />
                             <p>Pilih router di top bar untuk mulai.</p>
                         </div>
@@ -208,7 +208,7 @@ function SidebarSections({ onNavigate }) {
         <nav className="flex-1 overflow-y-auto px-2 py-3 pb-20 lg:pb-3 space-y-4 custom-scrollbar">
             {SECTIONS.map((sec) => (
                 <div key={sec.group}>
-                    <div className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    <div className="px-3 mb-1 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                         {sec.group}
                     </div>
                     <div className="space-y-0.5" onClick={onNavigate}>

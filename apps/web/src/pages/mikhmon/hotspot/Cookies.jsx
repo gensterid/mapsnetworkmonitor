@@ -42,13 +42,13 @@ export default function HotspotCookies() {
                     <FileBox className="w-5 h-5 text-primary" />
                     <div>
                         <h1 className="text-xl font-bold text-slate-100">Hotspot Cookies</h1>
-                        <p className="text-xs text-slate-500">Cookie auto-login per (MAC, user). Hapus untuk paksa user login lagi.</p>
+                        <p className="text-xs text-fg-muted">Cookie auto-login per (MAC, user). Hapus untuk paksa user login lagi.</p>
                     </div>
                 </div>
                 <button
                     onClick={() => refetch()}
                     disabled={isFetching}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                    className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                     title="Refresh"
                 >
                     <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -56,7 +56,7 @@ export default function HotspotCookies() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -74,7 +74,7 @@ export default function HotspotCookies() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">User</th>
                                 <th className="text-left px-4 py-2.5">MAC Address</th>
@@ -85,17 +85,17 @@ export default function HotspotCookies() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={5} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={5} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {cookies.length === 0 ? 'Belum ada cookie. Cookie dibuat otomatis saat user login dengan MAC cookie aktif.' : 'Tidak ada cookie cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((c) => (
                                 <tr key={c.id} className="hover:bg-slate-800/30 transition-colors">
                                     <td className="px-4 py-2.5 font-semibold text-slate-200">{c.user || <span className="text-slate-600 italic">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{c.macAddress || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{c.domain || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{c.expiresIn || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg">{c.macAddress || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{c.domain || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{c.expiresIn || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <Button
                                             size="sm"
@@ -113,8 +113,8 @@ export default function HotspotCookies() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== cookies.length && <> dari {cookies.length}</>}
                     </div>
                 )}

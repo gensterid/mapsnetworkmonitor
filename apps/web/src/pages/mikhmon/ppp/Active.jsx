@@ -36,13 +36,13 @@ export default function PppActive() {
                     <Activity className="w-5 h-5 text-emerald-400 shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">PPP Active</h1>
-                        <p className="text-xs text-slate-500">User PPPoE/PPTP/L2TP yang sedang terkoneksi.</p>
+                        <p className="text-xs text-fg-muted">User PPPoE/PPTP/L2TP yang sedang terkoneksi.</p>
                     </div>
                 </div>
                 <button
                     onClick={() => refetch()}
                     disabled={isFetching}
-                    className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                    className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                     title="Refresh"
                 >
                     <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -50,7 +50,7 @@ export default function PppActive() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -68,7 +68,7 @@ export default function PppActive() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[600px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">User</th>
                                 <th className="text-left px-4 py-2.5">Service</th>
@@ -80,9 +80,9 @@ export default function PppActive() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {sessions.length === 0 ? 'Tidak ada PPP session aktif.' : 'Tidak ada session cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((s) => (
@@ -94,13 +94,13 @@ export default function PppActive() {
                                         </div>
                                     </td>
                                     <td className="px-4 py-2.5">
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/50 text-slate-300">
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-tight bg-slate-700/50 text-fg">
                                             {s.service || 'pppoe'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{s.address || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{s.callerId || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{s.uptime || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg">{s.address || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{s.callerId || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg">{s.uptime || <span className="text-slate-600">—</span>}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <Button
                                             size="sm"
@@ -118,7 +118,7 @@ export default function PppActive() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
                         Active: <span className="text-emerald-400 font-bold">{filtered.length}</span>
                         {filtered.length !== sessions.length && <> dari {sessions.length}</>}
                     </div>

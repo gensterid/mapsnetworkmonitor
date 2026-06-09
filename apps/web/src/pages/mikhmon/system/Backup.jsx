@@ -52,7 +52,7 @@ function CreateModal({ isOpen, onClose, onSubmit, isSubmitting }) {
         <Modal isOpen={isOpen} onClose={onClose} title="Buat Backup" maxWidth="max-w-md">
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Type</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Type</span>
                     <div className="grid grid-cols-3 gap-2">
                         {[
                             { v: 'backup', label: 'binary .backup', hint: 'full state' },
@@ -71,14 +71,14 @@ function CreateModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                                 )}
                             >
                                 <span className="text-xs font-bold text-slate-200">{opt.label}</span>
-                                <span className="text-[10px] text-slate-500">{opt.hint}</span>
+                                <span className="text-[10px] text-fg-muted">{opt.hint}</span>
                             </button>
                         ))}
                     </div>
                 </div>
 
                 <label className="flex flex-col gap-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Comment (opsional)</span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Comment (opsional)</span>
                     <input
                         type="text"
                         value={comment}
@@ -88,8 +88,8 @@ function CreateModal({ isOpen, onClose, onSubmit, isSubmitting }) {
                     />
                 </label>
 
-                <p className="text-[11px] text-slate-500 italic leading-relaxed">
-                    Backup ditrigger di MikroTik, lalu file di-fetch ke server app. Untuk type <span className="font-mono text-slate-300">backup</span> dan <span className="font-mono text-slate-300">rsc</span> proses bisa 10-30 detik tergantung ukuran config.
+                <p className="text-[11px] text-fg-muted italic leading-relaxed">
+                    Backup ditrigger di MikroTik, lalu file di-fetch ke server app. Untuk type <span className="font-mono text-fg">backup</span> dan <span className="font-mono text-fg">rsc</span> proses bisa 10-30 detik tergantung ukuran config.
                 </p>
 
                 <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 pt-2 border-t border-slate-800/40">
@@ -137,14 +137,14 @@ export default function SystemBackup() {
                     <FileBox className="w-5 h-5 text-primary shrink-0" />
                     <div className="min-w-0">
                         <h1 className="text-xl font-bold text-slate-100">Backup</h1>
-                        <p className="text-xs text-slate-500">Backup file disimpan di server app. Klik download untuk ambil ke browser.</p>
+                        <p className="text-xs text-fg-muted">Backup file disimpan di server app. Klik download untuk ambil ke browser.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -157,7 +157,7 @@ export default function SystemBackup() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -175,7 +175,7 @@ export default function SystemBackup() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Filename</th>
                                 <th className="text-left px-4 py-2.5">Type</th>
@@ -187,9 +187,9 @@ export default function SystemBackup() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={6} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {(!items || items.length === 0) ? 'Belum ada backup. Klik "Buat Backup" untuk mulai.' : 'Tidak ada backup cocok.'}
                                 </td></tr>
                             ) : filtered.map((b) => (
@@ -198,14 +198,14 @@ export default function SystemBackup() {
                                     <td className="px-4 py-2.5">
                                         <span className={clsx(
                                             'text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-tight border',
-                                            TYPE_STYLES[b.type] || 'bg-slate-500/15 text-slate-400 border-slate-500/30',
+                                            TYPE_STYLES[b.type] || 'bg-slate-500/15 text-fg-muted border-slate-500/30',
                                         )}>
                                             {b.type || '—'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{fmtBytes(b.size)}</td>
-                                    <td className="px-4 py-2.5 text-xs text-slate-300 max-w-xs truncate">{b.comment || ''}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{b.createdAt ? formatShortDateTime(b.createdAt) : '—'}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{fmtBytes(b.size)}</td>
+                                    <td className="px-4 py-2.5 text-xs text-fg max-w-xs truncate">{b.comment || ''}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{b.createdAt ? formatShortDateTime(b.createdAt) : '—'}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <div className="inline-flex items-center gap-1">
                                             <a
@@ -231,8 +231,8 @@ export default function SystemBackup() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {(items && filtered.length !== items.length) && <> dari {items.length}</>}
                     </div>
                 )}

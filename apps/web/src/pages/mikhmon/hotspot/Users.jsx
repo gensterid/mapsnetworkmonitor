@@ -43,7 +43,7 @@ function fmtBytes(n) {
 function Field({ label, hint, children, span = 1 }) {
     return (
         <label className={clsx('flex flex-col gap-1', span === 2 && 'col-span-2')}>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{label}</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">{label}</span>
             {children}
             {hint && <span className="text-[10px] text-slate-600 italic">{hint}</span>}
         </label>
@@ -116,7 +116,7 @@ function UserFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode,
                             <button
                                 type="button"
                                 onClick={() => setShowPw((s) => !s)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg"
                                 tabIndex={-1}
                             >
                                 {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -152,7 +152,7 @@ function UserFormModal({ isOpen, onClose, initial, onSubmit, isSubmitting, mode,
                     </Field>
                 </div>
 
-                <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                <label className="flex items-center gap-2 text-xs text-fg cursor-pointer">
                     <input
                         type="checkbox"
                         checked={!!form.disabled}
@@ -225,14 +225,14 @@ export default function HotspotUsers() {
                     <UsersIcon className="w-5 h-5 text-primary" />
                     <div>
                         <h1 className="text-xl font-bold text-slate-100">Hotspot Users</h1>
-                        <p className="text-xs text-slate-500">User/voucher hotspot dengan paket (profile) dan quota.</p>
+                        <p className="text-xs text-fg-muted">User/voucher hotspot dengan paket (profile) dan quota.</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <button
                         onClick={() => refetch()}
                         disabled={isFetching}
-                        className="p-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
+                        className="p-2 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5 disabled:opacity-40"
                         title="Refresh"
                     >
                         <RefreshCw className={clsx('w-4 h-4', isFetching && 'animate-spin')} />
@@ -245,7 +245,7 @@ export default function HotspotUsers() {
             </div>
 
             <div className="relative">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-fg-muted absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -263,7 +263,7 @@ export default function HotspotUsers() {
             <div className="rounded-xl border border-slate-800/60 bg-slate-900/40 overflow-hidden">
                 <div className="overflow-x-auto custom-scrollbar">
                     <table className="w-full text-sm min-w-[700px]">
-                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        <thead className="bg-slate-900/70 text-[10px] font-bold uppercase tracking-wider text-fg-muted">
                             <tr>
                                 <th className="text-left px-4 py-2.5">Username</th>
                                 <th className="text-left px-4 py-2.5">Profile</th>
@@ -276,9 +276,9 @@ export default function HotspotUsers() {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {isPending ? (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">Memuat…</td></tr>
+                                <tr><td colSpan={7} className="px-4 py-8 text-center text-fg-muted text-xs">Memuat…</td></tr>
                             ) : filtered.length === 0 ? (
-                                <tr><td colSpan={7} className="px-4 py-8 text-center text-slate-500 text-xs">
+                                <tr><td colSpan={7} className="px-4 py-8 text-center text-fg-muted text-xs">
                                     {items.length === 0 ? 'Belum ada user. Klik "Tambah User" untuk mulai.' : 'Tidak ada user cocok pencarian.'}
                                 </td></tr>
                             ) : filtered.map((u) => (
@@ -289,20 +289,20 @@ export default function HotspotUsers() {
                                             {u.profile || 'default'}
                                         </span>
                                     </td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">{u.macAddress || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-300">{u.uptime || <span className="text-slate-600">—</span>}</td>
-                                    <td className="px-4 py-2.5 font-mono text-xs text-slate-400">
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">{u.macAddress || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg">{u.uptime || <span className="text-slate-600">—</span>}</td>
+                                    <td className="px-4 py-2.5 font-mono text-xs text-fg-muted">
                                         <div className="flex flex-col">
                                             <span>↓ {fmtBytes(u.bytesIn)}</span>
                                             <span>↑ {fmtBytes(u.bytesOut)}</span>
                                         </div>
                                     </td>
-                                    <td className="px-4 py-2.5 text-xs text-slate-300 max-w-xs truncate">{u.comment || ''}</td>
+                                    <td className="px-4 py-2.5 text-xs text-fg max-w-xs truncate">{u.comment || ''}</td>
                                     <td className="px-4 py-2.5 text-right">
                                         <div className="inline-flex items-center gap-1">
                                             <button
                                                 onClick={() => { setEditing(u); setModalMode('edit'); }}
-                                                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5"
+                                                className="p-1.5 rounded-lg text-fg-muted hover:text-slate-200 hover:bg-white/5"
                                                 title="Edit"
                                             >
                                                 <Pencil className="w-3.5 h-3.5" />
@@ -322,8 +322,8 @@ export default function HotspotUsers() {
                     </table>
                 </div>
                 {filtered.length > 0 && (
-                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-slate-500 bg-slate-900/30">
-                        Total: <span className="text-slate-300 font-bold">{filtered.length}</span>
+                    <div className="px-4 py-2 border-t border-slate-800/40 text-[10px] uppercase tracking-wider text-fg-muted bg-slate-900/30">
+                        Total: <span className="text-fg font-bold">{filtered.length}</span>
                         {filtered.length !== items.length && <> dari {items.length}</>}
                     </div>
                 )}
