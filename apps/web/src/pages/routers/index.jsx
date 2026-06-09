@@ -81,7 +81,7 @@ export default function Routers() {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-background-dark p-8 text-center">
                 <div className="text-red-400 mb-2">Error loading routers</div>
-                <p className="text-slate-500 text-sm">{error.message}</p>
+                <p className="text-fg-muted text-sm">{error.message}</p>
             </div>
         );
     }
@@ -89,21 +89,21 @@ export default function Routers() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-4 md:p-6 border-b border-slate-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="p-4 md:p-6 border-b border-slate-border flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-xl md:text-2xl font-bold text-white">Devices</h1>
-                    <p className="text-slate-400 text-xs md:sm">Manage your MikroTik routers</p>
+                    <h1 className="text-xl md:text-2xl font-bold text-fg">Devices</h1>
+                    <p className="text-fg-muted text-xs md:sm">Manage your MikroTik routers</p>
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
                     <div className="relative flex-1 sm:flex-none">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                         <input
                             type="text"
                             placeholder="Search devices..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-64"
+                            className="bg-surface-darker border border-slate-border text-fg text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-64"
                         />
                     </div>
 
@@ -112,16 +112,16 @@ export default function Routers() {
                             <select
                                 value={sortBy}
                                 onChange={(e) => setSortBy(e.target.value)}
-                                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full"
+                                className="bg-surface-darker border border-slate-border text-fg text-sm rounded-lg pl-3 pr-8 py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full"
                             >
                                 <option value="name">Sort by Name</option>
                                 <option value="host">Sort by IP</option>
                                 <option value="status">Status</option>
                             </select>
-                            <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                            <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted pointer-events-none" />
                         </div>
 
-                        <div className="hidden md:flex bg-slate-900 border border-slate-700 rounded-lg p-1">
+                        <div className="hidden md:flex bg-surface-darker border border-slate-border rounded-lg p-1">
                             <button
                                 onClick={() => {
                                     setViewMode('grid');
@@ -129,7 +129,7 @@ export default function Routers() {
                                 }}
                                 className={clsx(
                                     "p-1.5 rounded-md transition-colors",
-                                    viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white"
+                                    viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-fg-muted hover:text-fg"
                                 )}
                                 title="Grid View"
                             >
@@ -142,7 +142,7 @@ export default function Routers() {
                                 }}
                                 className={clsx(
                                     "p-1.5 rounded-md transition-colors",
-                                    viewMode === 'list' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white"
+                                    viewMode === 'list' ? "bg-primary text-[var(--on-primary)]" : "text-fg-muted hover:text-fg"
                                 )}
                                 title="List View"
                             >
@@ -187,12 +187,12 @@ export default function Routers() {
                 </div>
 
                 {routers.length > 0 && filteredRouters.length === 0 && (
-                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                        <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
+                        <div className="w-12 h-12 bg-slate-surface/50 text-fg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                             <Search className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">No matches found</h3>
-                        <p className="text-slate-400">No routers match your search "{searchQuery}"</p>
+                        <h3 className="text-lg font-medium text-fg mb-1">No matches found</h3>
+                        <p className="text-fg-muted">No routers match your search "{searchQuery}"</p>
                         <Button variant="ghost" className="mt-4" onClick={() => setSearchQuery('')}>
                             Clear Search
                         </Button>
@@ -200,12 +200,12 @@ export default function Routers() {
                 )}
 
                 {routers.length === 0 && (
-                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                        <div className="w-12 h-12 bg-slate-800/50 text-slate-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
+                        <div className="w-12 h-12 bg-slate-surface/50 text-fg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                             <RouterIcon className="w-6 h-6" />
                         </div>
-                        <h3 className="text-lg font-medium text-white mb-1">No routers found</h3>
-                        <p className="text-slate-400 mb-4">Start monitoring by adding your first MikroTik router</p>
+                        <h3 className="text-lg font-medium text-fg mb-1">No routers found</h3>
+                        <p className="text-fg-muted mb-4">Start monitoring by adding your first MikroTik router</p>
                         <Button onClick={() => setIsAddModalOpen(true)}>
                             Add your first router
                         </Button>

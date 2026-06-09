@@ -310,8 +310,8 @@ export default function Settings() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="p-6 border-b border-slate-800">
-                <h1 className="text-2xl font-bold text-white">Settings</h1>
-                <p className="text-slate-400 text-sm">Configure application settings</p>
+                <h1 className="text-2xl font-bold text-fg">Settings</h1>
+                <p className="text-fg-muted text-sm">Configure application settings</p>
             </div>
 
             {/* Tab Navigation */}
@@ -325,7 +325,7 @@ export default function Settings() {
                                 "flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 -mb-[2px] whitespace-nowrap",
                                 activeTab === tab.id
                                     ? "border-primary text-primary"
-                                    : "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                                    : "border-transparent text-fg-muted hover:text-fg hover:border-slate-border"
                             )}
                         >
                             <tab.icon className="w-4 h-4" />
@@ -459,9 +459,9 @@ export default function Settings() {
                     </div>
 
                     {selectedBackupFile && (
-                        <div className="text-slate-300 text-sm">
-                            <p>File selected: <span className="font-mono text-white bg-slate-800 px-1 rounded">{selectedBackupFile.name}</span></p>
-                            <p className="text-xs text-slate-500 mt-1">Size: {(selectedBackupFile.size / 1024).toFixed(2)} KB</p>
+                        <div className="text-fg text-sm">
+                            <p>File selected: <span className="font-mono text-fg bg-slate-800 px-1 rounded">{selectedBackupFile.name}</span></p>
+                            <p className="text-xs text-fg-muted mt-1">Size: {(selectedBackupFile.size / 1024).toFixed(2)} KB</p>
                         </div>
                     )}
 
@@ -505,8 +505,8 @@ export default function Settings() {
                         </div>
                     </div>
 
-                    <div className="text-slate-300 text-sm">
-                        <p>Restoring from: <span className="font-mono text-white bg-slate-800 px-1 rounded">{localBackupToRestore}</span></p>
+                    <div className="text-fg text-sm">
+                        <p>Restoring from: <span className="font-mono text-fg bg-slate-800 px-1 rounded">{localBackupToRestore}</span></p>
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">
@@ -541,8 +541,8 @@ export default function Settings() {
                 title="Delete Backup File"
             >
                 <div className="space-y-4">
-                    <p className="text-slate-300 text-sm">
-                        Are you sure you want to permanently delete the backup file <span className="font-mono text-white">{backupToDelete}</span> from the server?
+                    <p className="text-fg text-sm">
+                        Are you sure you want to permanently delete the backup file <span className="font-mono text-fg">{backupToDelete}</span> from the server?
                     </p>
 
                     <div className="flex justify-end gap-3 mt-6">
