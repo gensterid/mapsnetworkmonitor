@@ -47,8 +47,8 @@ function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-lg' }
         <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
             <div className={`w-full ${maxWidth} bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}>
                 <div className="flex items-center justify-between border-b border-slate-800 px-4 sm:px-5 py-3 shrink-0">
-                    <h3 className="font-semibold text-white text-sm sm:text-base">{title}</h3>
-                    <button onClick={onClose} aria-label="Close" className="text-slate-400 hover:text-white min-h-10 min-w-10 flex items-center justify-center -mr-2"><X className="w-5 h-5" /></button>
+                    <h3 className="font-semibold text-fg text-sm sm:text-base">{title}</h3>
+                    <button onClick={onClose} aria-label="Close" className="text-fg-muted hover:text-fg min-h-10 min-w-10 flex items-center justify-center -mr-2"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-1 min-h-0">{children}</div>
                 {footer && <div className="border-t border-slate-800 px-4 sm:px-5 py-3 flex flex-wrap justify-end gap-2 shrink-0">{footer}</div>}
@@ -61,12 +61,12 @@ function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-lg' }
 function Field({ label, children }) {
     return (
         <label className="block mb-3">
-            <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">{label}</span>
+            <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">{label}</span>
             {children}
         </label>
     );
 }
-const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-white text-sm focus:ring-1 focus:ring-primary';
+const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-fg text-sm focus:ring-1 focus:ring-primary';
 
 // ─── Pelanggan tab ─────────────────────────────────────────────────────────
 function CustomersTab() {
@@ -100,31 +100,31 @@ function CustomersTab() {
                 <CardTitle className="text-base flex items-center gap-2"><UsersIcon className="w-5 h-5 text-primary" /> Pelanggan</CardTitle>
                 <div className="flex gap-2 items-center">
                     <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/kode/HP…" className="bg-slate-900 border border-slate-700 text-white text-xs rounded pl-9 pr-3 py-1.5 w-full sm:w-56" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
+                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/kode/HP…" className="bg-slate-900 border border-slate-700 text-fg text-xs rounded pl-9 pr-3 py-1.5 w-full sm:w-56" />
                     </div>
                     <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>
                     <Button size="sm" onClick={() => { setEditing(null); setModalOpen(true); }}><Plus className="w-4 h-4 mr-1" /> Tambah</Button>
                 </div>
             </CardHeader>
             <CardContent className="p-0">
-                {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
+                {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Kode</th><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Alamat</th><th className="text-left px-4 py-2">PIN</th><th className="px-4 py-2 w-24"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {rows.length === 0 ? <tr><td colSpan={6} className="px-4 py-6 text-center text-slate-500">Belum ada pelanggan</td></tr> : rows.map(c => (
+                                {rows.length === 0 ? <tr><td colSpan={6} className="px-4 py-6 text-center text-fg-muted">Belum ada pelanggan</td></tr> : rows.map(c => (
                                     <tr key={c.id} className="hover:bg-slate-800/30">
-                                        <td className="px-4 py-2 font-mono text-slate-300">{c.code}</td>
-                                        <td className="px-4 py-2 text-white">{c.name}</td>
-                                        <td className="px-4 py-2 text-slate-400">{c.phone || '—'}</td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs max-w-xs truncate">{c.address || '—'}</td>
+                                        <td className="px-4 py-2 font-mono text-fg">{c.code}</td>
+                                        <td className="px-4 py-2 text-fg">{c.name}</td>
+                                        <td className="px-4 py-2 text-fg-muted">{c.phone || '—'}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs max-w-xs truncate">{c.address || '—'}</td>
                                         <td className="px-4 py-2 font-mono text-amber-400">{c.pinCode}</td>
                                         <td className="px-4 py-2 text-right space-x-1">
-                                            <button onClick={() => { setEditing(c); setModalOpen(true); }} className="text-slate-400 hover:text-primary"><Pencil className="w-4 h-4" /></button>
-                                            <button onClick={() => { if (confirm(`Hapus pelanggan ${c.name}?`)) del.mutate(c.id); }} className="text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={() => { setEditing(c); setModalOpen(true); }} className="text-fg-muted hover:text-primary"><Pencil className="w-4 h-4" /></button>
+                                            <button onClick={() => { if (confirm(`Hapus pelanggan ${c.name}?`)) del.mutate(c.id); }} className="text-fg-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -192,24 +192,24 @@ function PackagesTab() {
                 </div>
             </CardHeader>
             <CardContent className="p-0">
-                {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
+                {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Profile</th><th className="text-right px-4 py-2">Harga</th><th className="text-left px-4 py-2">Cycle</th><th className="text-center px-4 py-2">Aktif</th><th className="px-4 py-2 w-20"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">Belum ada paket</td></tr> : rows.map(p => (
+                                {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Belum ada paket</td></tr> : rows.map(p => (
                                     <tr key={p.id} className="hover:bg-slate-800/30">
-                                        <td className="px-4 py-2 text-white">{p.name}</td>
+                                        <td className="px-4 py-2 text-fg">{p.name}</td>
                                         <td className="px-4 py-2"><span className={clsx('text-xs px-2 py-0.5 rounded', p.type === 'pppoe' ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400')}>{p.type.toUpperCase()}</span></td>
-                                        <td className="px-4 py-2 font-mono text-slate-400 text-xs">{p.mikrotikProfile}</td>
+                                        <td className="px-4 py-2 font-mono text-fg-muted text-xs">{p.mikrotikProfile}</td>
                                         <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(p.price)}</td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{p.cycleType === 'monthly' ? `${p.cycleValue} bln` : `${p.cycleValue} dtk`}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{p.cycleType === 'monthly' ? `${p.cycleValue} bln` : `${p.cycleValue} dtk`}</td>
                                         <td className="px-4 py-2 text-center">{p.active ? '✓' : '—'}</td>
                                         <td className="px-4 py-2 text-right space-x-1">
-                                            <button onClick={() => { setEditing(p); setModalOpen(true); }} className="text-slate-400 hover:text-primary"><Pencil className="w-4 h-4" /></button>
-                                            <button onClick={() => { if (confirm(`Hapus paket ${p.name}?`)) del.mutate(p.id); }} className="text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                                            <button onClick={() => { setEditing(p); setModalOpen(true); }} className="text-fg-muted hover:text-primary"><Pencil className="w-4 h-4" /></button>
+                                            <button onClick={() => { if (confirm(`Hapus paket ${p.name}?`)) del.mutate(p.id); }} className="text-fg-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -239,7 +239,7 @@ function PackagesTab() {
                     </Field>
                     <Field label="MikroTik Profile (harus ada di router target)">
                         {routerForProfiles && pppProfilesLoading ? (
-                            <div className={inputCls + ' text-slate-500 flex items-center gap-2'}>
+                            <div className={inputCls + ' text-fg-muted flex items-center gap-2'}>
                                 <RefreshCw className="w-3 h-3 animate-spin" /> Memuat profile dari router…
                             </div>
                         ) : routerForProfiles && pppProfiles.length > 0 ? (
@@ -248,7 +248,7 @@ function PackagesTab() {
                                     <option value="">— pilih dari profile yang ada —</option>
                                     {pppProfiles.map(p => <option key={p.id} value={p.name}>{p.name} {p.rateLimit ? `(${p.rateLimit})` : ''}</option>)}
                                 </select>
-                                <p className="text-xs text-slate-500 mt-1">{pppProfiles.length} profile ditemukan di router</p>
+                                <p className="text-xs text-fg-muted mt-1">{pppProfiles.length} profile ditemukan di router</p>
                             </>
                         ) : routerForProfiles && pppProfilesError ? (
                             <>
@@ -276,7 +276,7 @@ function PackagesTab() {
                         </select>
                     </Field>
                     <Field label="Deskripsi"><textarea name="description" defaultValue={editing?.description || ''} className={inputCls} rows={2} /></Field>
-                    <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="active" defaultChecked={editing?.active !== false} /> Aktif</label>
+                    <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="active" defaultChecked={editing?.active !== false} /> Aktif</label>
                 </form>
             </Modal>
         </Card>
@@ -356,42 +356,42 @@ function SubscriptionsTab() {
                 </div>
             </CardHeader>
             <CardContent className="p-0">
-                {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
+                {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Paket</th><th className="text-left px-4 py-2">Router</th><th className="text-left px-4 py-2">Identitas / Pwd</th><th className="text-center px-4 py-2">Tgl Tagih</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Tagihan Berikut</th><th className="px-4 py-2"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {rows.length === 0 ? <tr><td colSpan={8} className="px-4 py-6 text-center text-slate-500">Belum ada subscription</td></tr> : rows.map(s => (
+                                {rows.length === 0 ? <tr><td colSpan={8} className="px-4 py-6 text-center text-fg-muted">Belum ada subscription</td></tr> : rows.map(s => (
                                     <tr key={s.id} className="hover:bg-slate-800/30">
-                                        <td className="px-4 py-2 text-white">{custMap[s.customerId]?.name || '—'}<div className="text-xs text-slate-500 font-mono">{custMap[s.customerId]?.code}</div></td>
-                                        <td className="px-4 py-2 text-slate-300">{pkgMap[s.packageId]?.name || '—'}</td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{routerMap[s.routerId]?.name || '—'}</td>
+                                        <td className="px-4 py-2 text-fg">{custMap[s.customerId]?.name || '—'}<div className="text-xs text-fg-muted font-mono">{custMap[s.customerId]?.code}</div></td>
+                                        <td className="px-4 py-2 text-fg">{pkgMap[s.packageId]?.name || '—'}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{routerMap[s.routerId]?.name || '—'}</td>
                                         <td className="px-4 py-2 font-mono text-xs">
                                             <div className="text-blue-400">{s.mikrotikIdentity}</div>
                                             <div className="flex items-center gap-1">
-                                                <span className="text-slate-500">{pwdShown[s.id] || '••••••'}</span>
-                                                <button onClick={() => showPwd(s.id)} className="text-slate-500 hover:text-amber-400"><Eye className="w-3 h-3" /></button>
+                                                <span className="text-fg-muted">{pwdShown[s.id] || '••••••'}</span>
+                                                <button onClick={() => showPwd(s.id)} className="text-fg-muted hover:text-amber-400"><Eye className="w-3 h-3" /></button>
                                             </div>
                                         </td>
-                                        <td className="px-4 py-2 text-center text-slate-400">{s.billingDay || '—'}</td>
+                                        <td className="px-4 py-2 text-center text-fg-muted">{s.billingDay || '—'}</td>
                                         <td className="px-4 py-2">
                                             <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
                                                 s.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
                                                 s.status === 'isolir' ? 'bg-red-500/20 text-red-400' :
                                                 s.status === 'expired' ? 'bg-amber-500/20 text-amber-400' :
-                                                'bg-slate-500/20 text-slate-400')}>{s.status}</span>
+                                                'bg-slate-500/20 text-fg-muted')}>{s.status}</span>
                                         </td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDate(s.nextDueAt)}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDate(s.nextDueAt)}</td>
                                         <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
                                             {s.status === 'active' ? (
-                                                <button title="Isolir" onClick={() => { if (confirm('Isolir subscription ini?')) isolir.mutate({ id: s.id, reason: 'manual' }); }} className="text-slate-400 hover:text-red-400"><Lock className="w-4 h-4" /></button>
+                                                <button title="Isolir" onClick={() => { if (confirm('Isolir subscription ini?')) isolir.mutate({ id: s.id, reason: 'manual' }); }} className="text-fg-muted hover:text-red-400"><Lock className="w-4 h-4" /></button>
                                             ) : s.status === 'isolir' ? (
-                                                <button title="Buka Isolir" onClick={() => unisolir.mutate(s.id)} className="text-slate-400 hover:text-emerald-400"><Unlock className="w-4 h-4" /></button>
+                                                <button title="Buka Isolir" onClick={() => unisolir.mutate(s.id)} className="text-fg-muted hover:text-emerald-400"><Unlock className="w-4 h-4" /></button>
                                             ) : null}
-                                            <button title="Edit" onClick={() => setEditingSub(s)} className="text-slate-400 hover:text-blue-400"><Pencil className="w-4 h-4" /></button>
-                                            <button title="Hapus" onClick={() => { if (confirm('Hapus subscription? PPPoE secret juga dihapus dari MikroTik.')) del.mutate(s.id); }} className="text-slate-400 hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                                            <button title="Edit" onClick={() => setEditingSub(s)} className="text-fg-muted hover:text-blue-400"><Pencil className="w-4 h-4" /></button>
+                                            <button title="Hapus" onClick={() => { if (confirm('Hapus subscription? PPPoE secret juga dihapus dari MikroTik.')) del.mutate(s.id); }} className="text-fg-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -429,8 +429,8 @@ function SubscriptionsTab() {
                         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 mb-3 space-y-2">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <div className="text-xs font-semibold text-slate-300 uppercase">Pilih dari MikroTik existing</div>
-                                    <p className="text-xs text-slate-500 mt-0.5">Adopt user PPPoE yang sudah ada di router. Username & password auto-isi.</p>
+                                    <div className="text-xs font-semibold text-fg uppercase">Pilih dari MikroTik existing</div>
+                                    <p className="text-xs text-fg-muted mt-0.5">Adopt user PPPoE yang sudah ada di router. Username & password auto-isi.</p>
                                 </div>
                                 <button type="button" onClick={() => setSubPickerOpen(p => !p)} className="text-xs text-primary hover:underline">
                                     {subPickerOpen ? 'Sembunyikan' : 'Buka picker'}
@@ -440,17 +440,17 @@ function SubscriptionsTab() {
                                 <>
                                     {!importLoading && importCandidates.length > 0 && (
                                         <div className="relative">
-                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
                                             <input
                                                 type="text"
                                                 value={pickerSearch}
                                                 onChange={(e) => setPickerSearch(e.target.value)}
                                                 placeholder={`Cari dari ${importCandidates.length} user (username, profile, comment)…`}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:ring-1 focus:ring-primary"
+                                                className="w-full bg-slate-900 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-xs text-fg placeholder-slate-500 focus:ring-1 focus:ring-primary"
                                                 autoFocus
                                             />
                                             {pickerSearch && (
-                                                <button type="button" onClick={() => setPickerSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                                                <button type="button" onClick={() => setPickerSearch('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg">
                                                     <X className="w-3.5 h-3.5" />
                                                 </button>
                                             )}
@@ -458,21 +458,21 @@ function SubscriptionsTab() {
                                     )}
                                     <div className="max-h-48 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
                                         {importLoading ? (
-                                            <div className="p-3 text-xs text-slate-500 text-center">Memuat dari router…</div>
+                                            <div className="p-3 text-xs text-fg-muted text-center">Memuat dari router…</div>
                                         ) : importCandidates.length === 0 ? (
-                                            <div className="p-3 text-xs text-slate-500 text-center">Tidak ada user PPPoE belum-bound, atau router timeout.</div>
+                                            <div className="p-3 text-xs text-fg-muted text-center">Tidak ada user PPPoE belum-bound, atau router timeout.</div>
                                         ) : filteredCandidates.length === 0 ? (
-                                            <div className="p-3 text-xs text-slate-500 text-center">Tidak ada hasil untuk "{pickerSearch}".</div>
+                                            <div className="p-3 text-xs text-fg-muted text-center">Tidak ada hasil untuk "{pickerSearch}".</div>
                                         ) : (
                                             <table className="w-full text-xs">
-                                                <thead className="bg-slate-900 sticky top-0 text-slate-500 uppercase">
+                                                <thead className="bg-slate-900 sticky top-0 text-fg-muted uppercase">
                                                     <tr><th className="text-left px-2 py-1">Username</th><th className="text-left px-2 py-1">Profile</th><th className="px-2 py-1"></th></tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-800">
                                                     {filteredCandidates.map((c) => (
                                                         <tr key={c.name} className={clsx('hover:bg-slate-800/50', c.disabled && 'opacity-50')}>
                                                             <td className="px-2 py-1 font-mono text-blue-400">{c.name}</td>
-                                                            <td className="px-2 py-1 text-slate-400">{c.profile || '—'}</td>
+                                                            <td className="px-2 py-1 text-fg-muted">{c.profile || '—'}</td>
                                                             <td className="px-2 py-1 text-right">
                                                                 <button type="button" onClick={() => {
                                                                     setSubIdentity(c.name);
@@ -489,7 +489,7 @@ function SubscriptionsTab() {
                                         )}
                                     </div>
                                     {!importLoading && pickerSearch && filteredCandidates.length > 0 && (
-                                        <p className="text-xs text-slate-500 text-right">{filteredCandidates.length} hasil dari {importCandidates.length}</p>
+                                        <p className="text-xs text-fg-muted text-right">{filteredCandidates.length} hasil dari {importCandidates.length}</p>
                                     )}
                                 </>
                             )}
@@ -551,7 +551,7 @@ function SubscriptionsTab() {
                         <Field label="Tanggal tagih (1-28)">
                             <input name="billingDay" type="number" min="1" max="28" defaultValue={editingSub.billingDay || ''} className={inputCls} />
                         </Field>
-                        <p className="text-xs text-slate-500 mt-2">
+                        <p className="text-xs text-fg-muted mt-2">
                             Perubahan paket / password langsung di-push ke MikroTik (profile + secret password). Tagihan berikut & tanggal isolir baru ter-update saat siklus tagihan berikutnya.
                         </p>
                     </form>
@@ -615,27 +615,27 @@ function InvoicesTab() {
                 </div>
             </CardHeader>
             <CardContent className="p-0">
-                {isLoading ? <div className="p-6 text-center text-slate-400">Memuat…</div> : (
+                {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">No. Invoice</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-left px-4 py-2">Jatuh Tempo</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Dibayar</th><th className="px-4 py-2"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">Tidak ada tagihan</td></tr> : rows.map(i => (
+                                {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Tidak ada tagihan</td></tr> : rows.map(i => (
                                     <tr key={i.id} className="hover:bg-slate-800/30">
                                         <td className="px-4 py-2 font-mono text-blue-400">{i.invoiceNumber}</td>
-                                        <td className="px-4 py-2 text-white">{custMap[i.customerId]?.name || '—'}</td>
+                                        <td className="px-4 py-2 text-fg">{custMap[i.customerId]?.name || '—'}</td>
                                         <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(i.amount)}</td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDate(i.dueAt)}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDate(i.dueAt)}</td>
                                         <td className="px-4 py-2">
                                             <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
                                                 i.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' :
                                                 i.status === 'overdue' ? 'bg-red-500/20 text-red-400' :
                                                 i.status === 'unpaid' ? 'bg-amber-500/20 text-amber-400' :
-                                                'bg-slate-500/20 text-slate-400')}>{i.status}</span>
+                                                'bg-slate-500/20 text-fg-muted')}>{i.status}</span>
                                         </td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(i.paidAt)}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(i.paidAt)}</td>
                                         <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
                                             {i.status !== 'paid' && i.status !== 'cancelled' && (
                                                 <>
@@ -643,7 +643,7 @@ function InvoicesTab() {
                                                     <Button size="sm" onClick={() => setPayTarget(i)}>Bayar Manual</Button>
                                                 </>
                                             )}
-                                            {i.status === 'unpaid' && <button onClick={() => { if (confirm('Batalkan tagihan?')) cancel.mutate(i.id); }} className="text-slate-400 hover:text-red-400 px-2"><X className="w-4 h-4" /></button>}
+                                            {i.status === 'unpaid' && <button onClick={() => { if (confirm('Batalkan tagihan?')) cancel.mutate(i.id); }} className="text-fg-muted hover:text-red-400 px-2"><X className="w-4 h-4" /></button>}
                                         </td>
                                     </tr>
                                 ))}
@@ -675,23 +675,23 @@ function InvoicesTab() {
                         <Field label="Return URL setelah bayar (opsional)">
                             <input name="returnUrl" type="url" className={inputCls} placeholder="https://genster.id/terima-kasih" />
                         </Field>
-                        <p className="text-xs text-slate-500">Pastikan gateway sudah dikonfigurasi di tab Pengaturan Router.</p>
+                        <p className="text-xs text-fg-muted">Pastikan gateway sudah dikonfigurasi di tab Pengaturan Router.</p>
                     </form>
                 ) : (
                     <div className="space-y-3">
                         <div className="bg-slate-800/50 border border-slate-700 rounded p-3">
-                            <div className="text-xs text-slate-400 mb-1">URL Pembayaran</div>
+                            <div className="text-xs text-fg-muted mb-1">URL Pembayaran</div>
                             <div className="flex items-center gap-2">
                                 <input readOnly value={linkResult.paymentUrl} className={inputCls + ' font-mono text-xs'} />
                                 <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(linkResult.paymentUrl); toast.success('Tersalin'); }}><Copy className="w-3.5 h-3.5" /></Button>
                                 <a href={linkResult.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1.5 rounded border border-slate-700"><ExternalLink className="w-3.5 h-3.5" /> Buka</a>
                             </div>
                         </div>
-                        <div className="text-xs text-slate-500">
-                            Gateway TXN ID: <span className="font-mono text-slate-300">{linkResult.gatewayTxnId}</span>
+                        <div className="text-xs text-fg-muted">
+                            Gateway TXN ID: <span className="font-mono text-fg">{linkResult.gatewayTxnId}</span>
                             {linkResult.expiresAt && <><br />Berlaku sampai: {fmtDateTime(linkResult.expiresAt)}</>}
                         </div>
-                        <p className="text-xs text-slate-500 mt-2">Status invoice akan otomatis terupdate ke "paid" saat customer berhasil membayar (lewat webhook gateway).</p>
+                        <p className="text-xs text-fg-muted mt-2">Status invoice akan otomatis terupdate ke "paid" saat customer berhasil membayar (lewat webhook gateway).</p>
                     </div>
                 )}
             </Modal>
@@ -766,16 +766,16 @@ function VouchersTab() {
                 </CardHeader>
                 <CardContent>
                     {!routerId ? (
-                        <div className="p-6 text-center text-slate-400 text-sm">Pilih router untuk melihat voucher.</div>
+                        <div className="p-6 text-center text-fg-muted text-sm">Pilih router untuk melihat voucher.</div>
                     ) : mode === 'disabled' ? (
-                        <div className="p-6 text-center text-slate-400 text-sm">
+                        <div className="p-6 text-center text-fg-muted text-sm">
                             Hotspot belum diaktifkan untuk router ini.
                             <br />
-                            <span className="text-xs text-slate-500">Buka tab "Pengaturan Router" → set "Mode Hotspot" → Native atau Mikhmon Bridge.</span>
+                            <span className="text-xs text-fg-muted">Buka tab "Pengaturan Router" → set "Mode Hotspot" → Native atau Mikhmon Bridge.</span>
                         </div>
                     ) : (
                         <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-xs text-slate-400">
+                            <div className="flex items-center gap-2 text-xs text-fg-muted">
                                 <span>Mode:</span>
                                 <span className={clsx('px-2 py-0.5 rounded font-mono', mode === 'native' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400')}>{mode}</span>
                                 <span>•</span>
@@ -784,7 +784,7 @@ function VouchersTab() {
 
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm min-w-[640px]">
-                                    <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                    <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                         <tr>
                                             <th className="text-left px-3 py-2">Kode</th>
                                             <th className="text-left px-3 py-2">Profile</th>
@@ -793,23 +793,23 @@ function VouchersTab() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
-                                        {items.length === 0 ? <tr><td colSpan={4} className="px-3 py-6 text-center text-slate-500">Belum ada voucher</td></tr> : items.slice(0, 200).map((it, i) => (
+                                        {items.length === 0 ? <tr><td colSpan={4} className="px-3 py-6 text-center text-fg-muted">Belum ada voucher</td></tr> : items.slice(0, 200).map((it, i) => (
                                             <tr key={i} className="hover:bg-slate-800/30">
                                                 <td className="px-3 py-2 font-mono text-blue-400">{it.code}</td>
-                                                <td className="px-3 py-2 text-slate-300 text-xs">{it.profile || '—'}</td>
+                                                <td className="px-3 py-2 text-fg text-xs">{it.profile || '—'}</td>
                                                 <td className="px-3 py-2 text-xs">
                                                     {mode === 'native' ? (
-                                                        <span className={clsx('px-2 py-0.5 rounded uppercase', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-slate-400')}>{it.status}</span>
+                                                        <span className={clsx('px-2 py-0.5 rounded uppercase', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-fg-muted')}>{it.status}</span>
                                                     ) : (
-                                                        <span className="text-slate-400">{it.billingPeriod || '—'}</span>
+                                                        <span className="text-fg-muted">{it.billingPeriod || '—'}</span>
                                                     )}
                                                 </td>
-                                                <td className="px-3 py-2 text-slate-400 text-xs">{fmtDate(it.createdAt || it.generatedAt)}</td>
+                                                <td className="px-3 py-2 text-fg-muted text-xs">{fmtDate(it.createdAt || it.generatedAt)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                                {items.length > 200 && <div className="text-xs text-slate-500 text-center mt-2">Menampilkan 200 dari {items.length}</div>}
+                                {items.length > 200 && <div className="text-xs text-fg-muted text-center mt-2">Menampilkan 200 dari {items.length}</div>}
                             </div>
                         </div>
                     )}
@@ -825,7 +825,7 @@ function VouchersTab() {
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm min-w-[640px]">
-                                <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                     <tr>
                                         <th className="text-left px-4 py-2">Tanggal</th>
                                         <th className="text-left px-4 py-2">Jumlah</th>
@@ -834,14 +834,14 @@ function VouchersTab() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-800">
-                                    {batches.length === 0 ? <tr><td colSpan={4} className="px-4 py-6 text-center text-slate-500">Belum ada batch</td></tr> : batches.map(b => (
+                                    {batches.length === 0 ? <tr><td colSpan={4} className="px-4 py-6 text-center text-fg-muted">Belum ada batch</td></tr> : batches.map(b => (
                                         <tr key={b.id} className="hover:bg-slate-800/30">
-                                            <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(b.generatedAt)}</td>
-                                            <td className="px-4 py-2 text-white">{b.count}</td>
-                                            <td className="px-4 py-2 text-slate-400 text-xs">{b.notes || '—'}</td>
+                                            <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(b.generatedAt)}</td>
+                                            <td className="px-4 py-2 text-fg">{b.count}</td>
+                                            <td className="px-4 py-2 text-fg-muted text-xs">{b.notes || '—'}</td>
                                             <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
                                                 <a href={`/billing/vouchers/print/${b.id}?layout=a4`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-slate-800"><Printer className="w-3.5 h-3.5" /> Cetak</a>
-                                                <button onClick={() => { if (confirm(`Hapus batch ini? ${b.count} voucher juga dihapus dari MikroTik.`)) delBatch.mutate(b.id); }} className="text-slate-400 hover:text-red-400 px-2"><Trash2 className="w-4 h-4" /></button>
+                                                <button onClick={() => { if (confirm(`Hapus batch ini? ${b.count} voucher juga dihapus dari MikroTik.`)) delBatch.mutate(b.id); }} className="text-fg-muted hover:text-red-400 px-2"><Trash2 className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
                                     ))}
@@ -909,41 +909,41 @@ function ReportsTab() {
         <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <Card><CardContent className="p-4">
-                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Pelanggan Aktif</div>
-                    <div className="text-2xl font-bold text-white">{ov?.active_customers ?? '—'}</div>
+                    <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Pelanggan Aktif</div>
+                    <div className="text-2xl font-bold text-fg">{ov?.active_customers ?? '—'}</div>
                 </CardContent></Card>
                 <Card><CardContent className="p-4">
-                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Subscription Aktif</div>
+                    <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Subscription Aktif</div>
                     <div className="text-2xl font-bold text-emerald-400">{ov?.active_subscriptions ?? '—'}</div>
-                    <div className="text-xs text-slate-500 mt-1">Isolir: {ov?.isolir_subscriptions ?? '—'}</div>
+                    <div className="text-xs text-fg-muted mt-1">Isolir: {ov?.isolir_subscriptions ?? '—'}</div>
                 </CardContent></Card>
                 <Card><CardContent className="p-4">
-                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Pendapatan Bulan Ini</div>
+                    <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Pendapatan Bulan Ini</div>
                     <div className="text-2xl font-bold text-emerald-400 font-mono">{fmtIDR(ov?.revenue_this_month)}</div>
-                    <div className="text-xs text-slate-500 mt-1">Bulan lalu: {fmtIDR(ov?.revenue_last_month)}</div>
+                    <div className="text-xs text-fg-muted mt-1">Bulan lalu: {fmtIDR(ov?.revenue_last_month)}</div>
                 </CardContent></Card>
                 <Card><CardContent className="p-4">
-                    <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Piutang (Outstanding)</div>
+                    <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Piutang (Outstanding)</div>
                     <div className="text-2xl font-bold text-amber-400 font-mono">{fmtIDR(ov?.receivables_total)}</div>
-                    <div className="text-xs text-slate-500 mt-1">Unpaid: {ov?.unpaid_invoices ?? 0} • Overdue: {ov?.overdue_invoices ?? 0}</div>
+                    <div className="text-xs text-fg-muted mt-1">Unpaid: {ov?.unpaid_invoices ?? 0} • Overdue: {ov?.overdue_invoices ?? 0}</div>
                 </CardContent></Card>
             </div>
 
             <Card>
                 <CardHeader><CardTitle className="text-base">Tren Pendapatan (12 bulan)</CardTitle></CardHeader>
                 <CardContent>
-                    {rev.length === 0 ? <div className="text-center text-slate-500 py-6">Belum ada data</div> : (
+                    {rev.length === 0 ? <div className="text-center text-fg-muted py-6">Belum ada data</div> : (
                         <div className="space-y-2">
                             {rev.map(r => {
                                 const pct = ((Number(r.revenue) || 0) / maxRev) * 100;
                                 return (
                                     <div key={r.month} className="flex items-center gap-3 text-sm">
-                                        <div className="w-20 text-slate-400 text-xs font-mono">{r.month}</div>
+                                        <div className="w-20 text-fg-muted text-xs font-mono">{r.month}</div>
                                         <div className="flex-1 h-6 bg-slate-800 rounded overflow-hidden relative">
                                             <div className="h-full bg-gradient-to-r from-emerald-500/40 to-emerald-500/80" style={{ width: `${pct}%` }} />
-                                            <div className="absolute inset-0 flex items-center justify-end pr-2 text-xs text-white font-mono">{fmtIDR(r.revenue)}</div>
+                                            <div className="absolute inset-0 flex items-center justify-end pr-2 text-xs text-fg font-mono">{fmtIDR(r.revenue)}</div>
                                         </div>
-                                        <div className="w-12 text-right text-xs text-slate-500">{r.invoices}x</div>
+                                        <div className="w-12 text-right text-xs text-fg-muted">{r.invoices}x</div>
                                     </div>
                                 );
                             })}
@@ -957,14 +957,14 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Aging (Piutang per umur)</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Bucket</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Jumlah</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {aging.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">Tidak ada piutang</td></tr> : aging.map((a, i) => (
+                                {aging.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-fg-muted">Tidak ada piutang</td></tr> : aging.map((a, i) => (
                                     <tr key={i}>
-                                        <td className="px-4 py-2 text-slate-300">{a.bucket === 'current' ? 'Belum jatuh tempo' : `${a.bucket} hari`}</td>
-                                        <td className="px-4 py-2 text-right text-white">{a.invoices}</td>
+                                        <td className="px-4 py-2 text-fg">{a.bucket === 'current' ? 'Belum jatuh tempo' : `${a.bucket} hari`}</td>
+                                        <td className="px-4 py-2 text-right text-fg">{a.invoices}</td>
                                         <td className="px-4 py-2 text-right text-amber-400 font-mono">{fmtIDR(a.amount)}</td>
                                     </tr>
                                 ))}
@@ -977,14 +977,14 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Top 10 Pelanggan (1 bulan)</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Total</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {top.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">Belum ada</td></tr> : top.map((t, i) => (
+                                {top.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-fg-muted">Belum ada</td></tr> : top.map((t, i) => (
                                     <tr key={i}>
-                                        <td className="px-4 py-2 text-white">{t.name} <span className="text-xs text-slate-500 font-mono">{t.code}</span></td>
-                                        <td className="px-4 py-2 text-right text-slate-300">{t.invoices_paid}</td>
+                                        <td className="px-4 py-2 text-fg">{t.name} <span className="text-xs text-fg-muted font-mono">{t.code}</span></td>
+                                        <td className="px-4 py-2 text-right text-fg">{t.invoices_paid}</td>
                                         <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(t.total_paid)}</td>
                                     </tr>
                                 ))}
@@ -999,14 +999,14 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Penjualan Voucher per Paket (1 bulan)</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Paket</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-right px-4 py-2">Pendapatan</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {vs.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-slate-500">Belum ada</td></tr> : vs.map((v, i) => (
+                                {vs.length === 0 ? <tr><td colSpan={3} className="px-4 py-4 text-center text-fg-muted">Belum ada</td></tr> : vs.map((v, i) => (
                                     <tr key={i}>
-                                        <td className="px-4 py-2 text-white">{v.package_name}</td>
-                                        <td className="px-4 py-2 text-right text-slate-300">{v.vouchers_sold}</td>
+                                        <td className="px-4 py-2 text-fg">{v.package_name}</td>
+                                        <td className="px-4 py-2 text-right text-fg">{v.vouchers_sold}</td>
                                         <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(v.revenue)}</td>
                                     </tr>
                                 ))}
@@ -1019,14 +1019,14 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Pembayaran Terbaru</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Tanggal</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Invoice</th><th className="text-right px-4 py-2">Jumlah</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {payments.length === 0 ? <tr><td colSpan={4} className="px-4 py-4 text-center text-slate-500">Belum ada</td></tr> : payments.map((p, i) => (
+                                {payments.length === 0 ? <tr><td colSpan={4} className="px-4 py-4 text-center text-fg-muted">Belum ada</td></tr> : payments.map((p, i) => (
                                     <tr key={i}>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(p.recorded_at)}</td>
-                                        <td className="px-4 py-2 text-white">{p.customer_name}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(p.recorded_at)}</td>
+                                        <td className="px-4 py-2 text-fg">{p.customer_name}</td>
                                         <td className="px-4 py-2 font-mono text-blue-400 text-xs">{p.invoice_number}</td>
                                         <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(p.amount)}</td>
                                     </tr>
@@ -1071,17 +1071,17 @@ function WaTab() {
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Provider</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Error</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
-                                {log.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-slate-500">Belum ada notifikasi terkirim</td></tr> : log.map(l => (
+                                {log.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Belum ada notifikasi terkirim</td></tr> : log.map(l => (
                                     <tr key={l.id} className="hover:bg-slate-800/30">
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{fmtDateTime(l.sent_at || l.created_at)}</td>
-                                        <td className="px-4 py-2 text-white">{l.customer_name || '—'} {l.customer_code && <span className="text-xs text-slate-500 font-mono">({l.customer_code})</span>}</td>
-                                        <td className="px-4 py-2 font-mono text-slate-400">{l.to_phone}</td>
-                                        <td className="px-4 py-2 text-xs"><span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 uppercase">{l.type}</span></td>
-                                        <td className="px-4 py-2 text-slate-400 text-xs">{l.provider}</td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(l.sent_at || l.created_at)}</td>
+                                        <td className="px-4 py-2 text-fg">{l.customer_name || '—'} {l.customer_code && <span className="text-xs text-fg-muted font-mono">({l.customer_code})</span>}</td>
+                                        <td className="px-4 py-2 font-mono text-fg-muted">{l.to_phone}</td>
+                                        <td className="px-4 py-2 text-xs"><span className="px-2 py-0.5 rounded bg-slate-800 text-fg uppercase">{l.type}</span></td>
+                                        <td className="px-4 py-2 text-fg-muted text-xs">{l.provider}</td>
                                         <td className="px-4 py-2">
                                             <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
                                                 l.status === 'sent' ? 'bg-emerald-500/20 text-emerald-400' :
@@ -1144,8 +1144,8 @@ function IsolirProfilePicker({ routerId, currentValue }) {
     return (
         <div>
             <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Profile Isolir</span>
-                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                <span className="text-xs font-semibold text-fg-muted uppercase tracking-wide">Profile Isolir</span>
+                <button type="button" onClick={() => refetch()} className="text-xs text-fg-muted hover:text-fg flex items-center gap-1">
                     <RefreshCw className={clsx('w-3 h-3', isRefetching && 'animate-spin')} /> {isLoading ? 'memuat…' : `${profiles.length} profile di router`}
                 </button>
             </div>
@@ -1160,7 +1160,7 @@ function IsolirProfilePicker({ routerId, currentValue }) {
 
             {creating && (
                 <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 mt-2 space-y-2" onClick={e => e.stopPropagation()}>
-                    <p className="text-xs text-slate-400">Sistem akan menjalankan <code>/ppp profile add</code> di router. Konfigurasi default sudah cocok untuk isolir umum.</p>
+                    <p className="text-xs text-fg-muted">Sistem akan menjalankan <code>/ppp profile add</code> di router. Konfigurasi default sudah cocok untuk isolir umum.</p>
                     <form onSubmit={handleCreate}>
                         <Field label="Nama Profile"><input name="name" defaultValue="pppoe-isolir" required className={inputCls} /></Field>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1200,18 +1200,18 @@ function CommentAuditCard({ routerId }) {
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
                 <div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase">Audit Comment di Router</div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs font-semibold text-fg-muted uppercase">Audit Comment di Router</div>
+                    <p className="text-xs text-fg-muted mt-0.5">
                         Deteksi typo / edit manual operator di winbox. Klik "Resync" untuk paksa sistem menulis ulang.
                     </p>
                 </div>
-                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                <button type="button" onClick={() => refetch()} className="text-xs text-fg-muted hover:text-fg flex items-center gap-1">
                     <RefreshCw className={clsx('w-3 h-3', isFetching && 'animate-spin')} /> scan
                 </button>
             </div>
 
             {data && (
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-fg-muted">
                     {data.totalSecrets} secret di router • {data.totalSubs} subscription di DB •{' '}
                     {issues.length === 0 ? (
                         <span className="text-emerald-400 font-semibold">semua konsisten ✓</span>
@@ -1224,7 +1224,7 @@ function CommentAuditCard({ routerId }) {
             {issues.length > 0 && (
                 <div className="max-h-60 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
                     <table className="w-full text-xs">
-                        <thead className="bg-slate-900 sticky top-0 text-slate-500 uppercase">
+                        <thead className="bg-slate-900 sticky top-0 text-fg-muted uppercase">
                             <tr>
                                 <th className="text-left px-2 py-1">Username</th>
                                 <th className="text-left px-2 py-1">Issue</th>
@@ -1240,13 +1240,13 @@ function CommentAuditCard({ routerId }) {
                                     <td className="px-2 py-1">
                                         <span className="bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">{labelFor(i.kind)}</span>
                                     </td>
-                                    <td className="px-2 py-1 font-mono text-slate-400">{i.current || '—'}</td>
+                                    <td className="px-2 py-1 font-mono text-fg-muted">{i.current || '—'}</td>
                                     <td className="px-2 py-1 font-mono text-emerald-400">{i.expected || '—'}</td>
                                     <td className="px-2 py-1 text-right">
                                         {i.subscriptionId ? (
                                             <button type="button" onClick={() => resync.mutate(i.subscriptionId)} className="text-primary hover:underline">Resync</button>
                                         ) : (
-                                            <span className="text-slate-500 text-[10px]">orphan</span>
+                                            <span className="text-fg-muted text-[10px]">orphan</span>
                                         )}
                                     </td>
                                 </tr>
@@ -1280,30 +1280,30 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
                 <div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase">Scheduler Auto-Isolir di Router</div>
-                    <p className="text-xs text-slate-500 mt-0.5">
+                    <div className="text-xs font-semibold text-fg-muted uppercase">Scheduler Auto-Isolir di Router</div>
+                    <p className="text-xs text-fg-muted mt-0.5">
                         1 scheduler entry yang scan semua /ppp secret tiap interval. Tetap jalan walau server aplikasi down.
                     </p>
                 </div>
-                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                <button type="button" onClick={() => refetch()} className="text-xs text-fg-muted hover:text-fg flex items-center gap-1">
                     <RefreshCw className={clsx('w-3 h-3', isFetching && 'animate-spin')} /> cek
                 </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                 <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
-                    <div className="text-slate-500 uppercase text-[10px]">Status</div>
-                    <div className={status?.present ? 'text-emerald-400 font-semibold' : 'text-slate-500'}>
+                    <div className="text-fg-muted uppercase text-[10px]">Status</div>
+                    <div className={status?.present ? 'text-emerald-400 font-semibold' : 'text-fg-muted'}>
                         {status?.present ? '✓ Terpasang' : '— Belum'}
                     </div>
                 </div>
                 <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
-                    <div className="text-slate-500 uppercase text-[10px]">Interval</div>
-                    <div className="text-slate-300">{status?.interval || '—'}</div>
+                    <div className="text-fg-muted uppercase text-[10px]">Interval</div>
+                    <div className="text-fg">{status?.interval || '—'}</div>
                 </div>
                 <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
-                    <div className="text-slate-500 uppercase text-[10px]">Run Count</div>
-                    <div className="text-slate-300">{status?.runCount || '—'}</div>
+                    <div className="text-fg-muted uppercase text-[10px]">Run Count</div>
+                    <div className="text-fg">{status?.runCount || '—'}</div>
                 </div>
             </div>
 
@@ -1317,7 +1317,7 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
                 {status?.present ? 'Update Scheduler di Router' : 'Pasang Scheduler di Router'}
             </Button>
 
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-fg-muted">
                 Scheduler akan baca <code className="text-blue-400">dn:YYYYMMDD</code> dari comment tiap PPP secret.
                 Sistem otomatis tulis comment ini saat buat/payment subscription dengan format
                 <code className="text-blue-400"> dn:20260606 due:jun/06/2026</code>.
@@ -1354,10 +1354,10 @@ function IsolirFirewallSetup({ routerId }) {
         <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
                 <div>
-                    <div className="text-xs font-semibold text-slate-400 uppercase">Firewall Isolir di MikroTik</div>
-                    <p className="text-xs text-slate-500 mt-0.5">Address-list, NAT redirect, dan walled-garden untuk redirect pelanggan isolir ke halaman tagihan.</p>
+                    <div className="text-xs font-semibold text-fg-muted uppercase">Firewall Isolir di MikroTik</div>
+                    <p className="text-xs text-fg-muted mt-0.5">Address-list, NAT redirect, dan walled-garden untuk redirect pelanggan isolir ke halaman tagihan.</p>
                 </div>
-                <button type="button" onClick={() => refetch()} className="text-xs text-slate-500 hover:text-slate-300">
+                <button type="button" onClick={() => refetch()} className="text-xs text-fg-muted hover:text-fg">
                     {isFetching ? 'cek…' : 'refresh'}
                 </button>
             </div>
@@ -1378,13 +1378,13 @@ function IsolirFirewallSetup({ routerId }) {
 
             {showSetup && (
                 <form onSubmit={handleSetup} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2 mt-2">
-                    <p className="text-xs text-slate-400">Sistem akan menjalankan command MikroTik untuk membuat: address-list, NAT dst-nat tcp/80, dan (opsional) filter walled-garden.</p>
+                    <p className="text-xs text-fg-muted">Sistem akan menjalankan command MikroTik untuk membuat: address-list, NAT dst-nat tcp/80, dan (opsional) filter walled-garden.</p>
                     <Field label="Nama Address List"><input name="listName" defaultValue="isolir" className={inputCls} /></Field>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         <Field label="IP halaman tagihan (di sisi LAN router)"><input name="redirectIp" required defaultValue="" placeholder="10.10.0.5" className={inputCls} /></Field>
                         <Field label="Port"><input name="redirectPort" type="number" defaultValue="80" className={inputCls} /></Field>
                     </div>
-                    <label className="flex items-center gap-2 text-xs text-slate-300">
+                    <label className="flex items-center gap-2 text-xs text-fg">
                         <input type="checkbox" name="walled" defaultChecked />
                         Tambah walled-garden (allow billing IP, drop traffic lain) — wajib supaya redirect bekerja
                     </label>
@@ -1402,7 +1402,7 @@ function FwBadge({ label, ok }) {
     return (
         <div className={clsx('rounded p-2 border text-center',
             ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
-                 'bg-slate-700/30 border-slate-700 text-slate-500')}>
+                 'bg-slate-700/30 border-slate-700 text-fg-muted')}>
             <div className="font-semibold uppercase text-[10px] tracking-wide">{label}</div>
             <div className="text-sm font-bold mt-0.5">{ok ? '✓ Ada' : '— Belum'}</div>
         </div>
@@ -1525,8 +1525,8 @@ function SettingsTab() {
                     <form key={`settings-${routerId}-${settings?.updatedAt || 'new'}`} onSubmit={save} className="space-y-4">
                         <div className="grid md:grid-cols-2 gap-4">
                             <div className="space-y-3">
-                                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">PPPoE</h4>
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="pppoeBillingEnabled" defaultChecked={settings?.pppoeBillingEnabled} /> Aktifkan billing PPPoE</label>
+                                <h4 className="text-sm font-semibold text-fg uppercase tracking-wide">PPPoE</h4>
+                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="pppoeBillingEnabled" defaultChecked={settings?.pppoeBillingEnabled} /> Aktifkan billing PPPoE</label>
                                 <IsolirProfilePicker
                                     routerId={routerId}
                                     currentValue={settings?.isolirProfile || 'pppoe-isolir'}
@@ -1540,7 +1540,7 @@ function SettingsTab() {
                             </div>
 
                             <div className="space-y-3">
-                                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Hotspot</h4>
+                                <h4 className="text-sm font-semibold text-fg uppercase tracking-wide">Hotspot</h4>
                                 <Field label="Mode">
                                     <select name="hotspotMode" defaultValue={settings?.hotspotMode || 'disabled'} className={inputCls}>
                                         <option value="disabled">Disabled</option>
@@ -1549,7 +1549,7 @@ function SettingsTab() {
                                     </select>
                                 </Field>
 
-                                <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide pt-2">Notifikasi WhatsApp</h4>
+                                <h4 className="text-sm font-semibold text-fg uppercase tracking-wide pt-2">Notifikasi WhatsApp</h4>
                                 <Field label="Provider WA">
                                     <select value={waProvider} onChange={(e) => setWaProvider(e.target.value)} className={inputCls}>
                                         <option value="none">— Nonaktif —</option>
@@ -1581,18 +1581,18 @@ function SettingsTab() {
                                                 <option value="PUT">PUT</option>
                                             </select>
                                         </Field>
-                                        <p className="text-xs text-slate-500">Body JSON: {`{ phone, message, type, invoiceId, subscriptionId }`}</p>
+                                        <p className="text-xs text-fg-muted">Body JSON: {`{ phone, message, type, invoiceId, subscriptionId }`}</p>
                                     </div>
                                 )}
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifHMinus1Enabled" defaultChecked={settings?.waNotifHMinus1Enabled !== false} /> H-1 jatuh tempo</label>
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifDueDayEnabled" defaultChecked={settings?.waNotifDueDayEnabled !== false} /> Hari-H jatuh tempo</label>
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifOverdueEnabled" defaultChecked={settings?.waNotifOverdueEnabled !== false} /> Saat overdue</label>
-                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="waNotifIsolirEnabled" defaultChecked={settings?.waNotifIsolirEnabled !== false} /> Saat isolir</label>
+                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="waNotifHMinus1Enabled" defaultChecked={settings?.waNotifHMinus1Enabled !== false} /> H-1 jatuh tempo</label>
+                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="waNotifDueDayEnabled" defaultChecked={settings?.waNotifDueDayEnabled !== false} /> Hari-H jatuh tempo</label>
+                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="waNotifOverdueEnabled" defaultChecked={settings?.waNotifOverdueEnabled !== false} /> Saat overdue</label>
+                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="waNotifIsolirEnabled" defaultChecked={settings?.waNotifIsolirEnabled !== false} /> Saat isolir</label>
                             </div>
                         </div>
 
                         <div className="space-y-3">
-                            <h4 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Payment Gateway</h4>
+                            <h4 className="text-sm font-semibold text-fg uppercase tracking-wide">Payment Gateway</h4>
                             {(() => {
                                 const tripayCfg = settings?.gatewayConfig?.tripay || {};
                                 const midtransCfg = settings?.gatewayConfig?.midtrans || {};
@@ -1601,9 +1601,9 @@ function SettingsTab() {
                                 return (
                                     <>
                                         <div className="flex flex-wrap gap-4">
-                                            <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={showTripay} onChange={e => setShowTripay(e.target.checked)} /> Tripay</label>
-                                            <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={showMidtrans} onChange={e => setShowMidtrans(e.target.checked)} /> Midtrans</label>
-                                            <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" checked={showXendit} onChange={e => setShowXendit(e.target.checked)} /> Xendit</label>
+                                            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={showTripay} onChange={e => setShowTripay(e.target.checked)} /> Tripay</label>
+                                            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={showMidtrans} onChange={e => setShowMidtrans(e.target.checked)} /> Midtrans</label>
+                                            <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" checked={showXendit} onChange={e => setShowXendit(e.target.checked)} /> Xendit</label>
                                         </div>
 
                                         {showTripay && (
@@ -1613,8 +1613,8 @@ function SettingsTab() {
                                                 <Field label="Private Key"><input name="tripayPrivateKey" defaultValue={tripayCfg.privateKey || ''} className={inputCls} type="password" /></Field>
                                                 <Field label="Merchant Code"><input name="tripayMerchantCode" defaultValue={tripayCfg.merchantCode || ''} className={inputCls} placeholder="T1234" /></Field>
                                                 <Field label="Default Method"><input name="tripayDefaultMethod" defaultValue={tripayCfg.defaultMethod || 'QRIS'} className={inputCls} placeholder="QRIS / BRIVA / BCAVA" /></Field>
-                                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="tripaySandbox" defaultChecked={!!tripayCfg.sandbox} /> Mode sandbox</label>
-                                                <p className="text-xs text-slate-500">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/tripay</code></p>
+                                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="tripaySandbox" defaultChecked={!!tripayCfg.sandbox} /> Mode sandbox</label>
+                                                <p className="text-xs text-fg-muted">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/tripay</code></p>
                                             </div>
                                         )}
 
@@ -1623,8 +1623,8 @@ function SettingsTab() {
                                                 <h5 className="text-xs font-semibold text-blue-400 uppercase">Midtrans</h5>
                                                 <Field label="Server Key"><input name="midtransServerKey" defaultValue={midtransCfg.serverKey || ''} className={inputCls} type="password" /></Field>
                                                 <Field label="Client Key (opsional)"><input name="midtransClientKey" defaultValue={midtransCfg.clientKey || ''} className={inputCls} /></Field>
-                                                <label className="flex items-center gap-2 text-sm text-slate-300"><input type="checkbox" name="midtransProduction" defaultChecked={!!midtransCfg.isProduction} /> Mode production (default sandbox)</label>
-                                                <p className="text-xs text-slate-500">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/midtrans</code> — set di Midtrans dashboard</p>
+                                                <label className="flex items-center gap-2 text-sm text-fg"><input type="checkbox" name="midtransProduction" defaultChecked={!!midtransCfg.isProduction} /> Mode production (default sandbox)</label>
+                                                <p className="text-xs text-fg-muted">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/midtrans</code> — set di Midtrans dashboard</p>
                                             </div>
                                         )}
 
@@ -1633,7 +1633,7 @@ function SettingsTab() {
                                                 <h5 className="text-xs font-semibold text-blue-400 uppercase">Xendit</h5>
                                                 <Field label="Secret Key"><input name="xenditSecretKey" defaultValue={xenditCfg.secretKey || ''} className={inputCls} type="password" /></Field>
                                                 <Field label="Callback Verification Token"><input name="xenditCallbackToken" defaultValue={xenditCfg.callbackToken || ''} className={inputCls} type="password" /></Field>
-                                                <p className="text-xs text-slate-500">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/xendit</code> — set di Xendit dashboard</p>
+                                                <p className="text-xs text-fg-muted">Webhook URL: <code className="text-blue-400">{baseUrl}/api/billing/webhook/xendit</code> — set di Xendit dashboard</p>
                                             </div>
                                         )}
                                     </>
@@ -1661,11 +1661,11 @@ export default function Billing() {
             <div className="px-6 pt-6 border-b border-slate-800 bg-slate-900/20">
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+                        <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
                             <Receipt className="w-7 h-7 text-primary" />
                             Billing & Manajemen Pelanggan
                         </h1>
-                        <p className="text-slate-400 text-sm">Pelanggan PPPoE & Hotspot, paket, tagihan, isolir otomatis</p>
+                        <p className="text-fg-muted text-sm">Pelanggan PPPoE & Hotspot, paket, tagihan, isolir otomatis</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -1674,7 +1674,7 @@ export default function Billing() {
                         return (
                             <button key={t.id} onClick={() => setTab(t.id)} className={clsx(
                                 'px-5 py-3 text-sm font-bold uppercase tracking-widest transition-all border-b-2 flex items-center gap-2',
-                                tab === t.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-slate-500 hover:text-slate-300'
+                                tab === t.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-fg-muted hover:text-fg'
                             )}>
                                 <Icon className="w-4 h-4" /> {t.label}
                             </button>

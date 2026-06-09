@@ -216,7 +216,7 @@ export default function RouterDetails() {
                         </Link>
                         <div>
                             <div className="flex items-center gap-3">
-                                <h1 className="text-xl sm:text-2xl font-bold text-white">{router?.name}</h1>
+                                <h1 className="text-xl sm:text-2xl font-bold text-fg">{router?.name}</h1>
                                 <span className={clsx(
                                     "px-2 py-0.5 rounded-full text-xs font-medium",
                                     router?.status === 'online'
@@ -232,19 +232,19 @@ export default function RouterDetails() {
                                             ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
                                             : router?.snmpStatus === 'error'
                                                 ? "bg-red-500/10 text-red-400 border-red-500/20"
-                                                : "bg-slate-500/10 text-slate-400 border-slate-500/20"
+                                                : "bg-slate-500/10 text-fg-muted border-slate-500/20"
                                     )}>
                                         SNMP: {router?.snmpStatus === 'online' ? 'OK' : (router?.snmpStatus === 'error' ? 'FAIL' : 'OFF')}
                                     </span>
                                 )}
                             </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-sm text-slate-400">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-1 text-sm text-fg-muted">
                                 <div className="flex items-center gap-1.5">
-                                    <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                                    <MapPin className="w-3.5 h-3.5 text-fg-muted" />
                                     <span>{router?.host}:{router?.port}</span>
                                 </div>
                                 <div className="hidden sm:block w-1 h-1 rounded-full bg-slate-700"></div>
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                <div className="flex items-center gap-1.5 text-xs text-fg-muted">
                                     <Clock className="w-3.5 h-3.5" />
                                     <span>Last Sync: {formatLastSync(router?.lastSeen || router?.updatedAt)}</span>
                                 </div>
@@ -259,7 +259,7 @@ export default function RouterDetails() {
                                     "w-2 h-2 rounded-full animate-pulse",
                                     isLiveMode ? "bg-red-500" : "bg-slate-500"
                                 )} />
-                                <span className="text-xs font-medium text-slate-300">Live Mode</span>
+                                <span className="text-xs font-medium text-fg">Live Mode</span>
                                 <button
                                     onClick={() => setIsLiveMode(!isLiveMode)}
                                     className={clsx(

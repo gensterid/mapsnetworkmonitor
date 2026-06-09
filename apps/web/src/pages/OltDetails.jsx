@@ -152,8 +152,8 @@ export default function OltDetails() {
                         <Activity className="w-5 h-5 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
                     </div>
                     <div className="text-center">
-                        <p className="text-sm font-bold text-white uppercase tracking-widest">Loading OLT</p>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-tight">Synchronizing data...</p>
+                        <p className="text-sm font-bold text-fg uppercase tracking-widest">Loading OLT</p>
+                        <p className="text-[10px] text-fg-muted uppercase tracking-tight">Synchronizing data...</p>
                     </div>
                 </div>
             </div>
@@ -168,11 +168,11 @@ export default function OltDetails() {
                         <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
                             <AlertCircle className="w-8 h-8 text-red-500" />
                         </div>
-                        <h2 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">OLT Access Failed</h2>
-                        <p className="text-slate-400 text-sm mb-8 leading-relaxed">The OLT you're looking for doesn't exist or has been disconnected from the network infrastructure.</p>
+                        <h2 className="text-xl font-bold text-fg mb-2 uppercase tracking-tight">OLT Access Failed</h2>
+                        <p className="text-fg-muted text-sm mb-8 leading-relaxed">The OLT you're looking for doesn't exist or has been disconnected from the network infrastructure.</p>
                         <Button 
                             onClick={() => navigate('/olts')}
-                            className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-6 rounded-xl transition-all shadow-lg"
+                            className="w-full bg-slate-800 hover:bg-slate-700 text-fg font-bold py-6 rounded-xl transition-all shadow-lg"
                         >
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             Return to OLT List
@@ -189,23 +189,23 @@ export default function OltDetails() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 backdrop-blur-md shadow-2xl">
                 <div className="flex items-center gap-5">
                     <Link to="/olts" className="p-3 bg-slate-950/50 border border-slate-800 hover:bg-slate-800 rounded-xl transition-all group shadow-inner">
-                        <ArrowLeft className="w-5 h-5 text-slate-400 group-hover:text-white transition-colors" />
+                        <ArrowLeft className="w-5 h-5 text-fg-muted group-hover:text-fg transition-colors" />
                     </Link>
                     <div>
                         <div className="flex items-center gap-3 mb-1">
-                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-white tracking-tight break-all leading-tight">{olt.name}</h1>
+                            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-fg tracking-tight break-all leading-tight">{olt.name}</h1>
                             <Badge variant={olt.status === 'online' ? 'success' : 'destructive'} size="md" className="font-black px-4 animate-pulse">
                                 {olt.status}
                             </Badge>
                         </div>
-                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-[10px] font-black uppercase tracking-[0.1em] text-slate-500">
+                        <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-[10px] font-black uppercase tracking-[0.1em] text-fg-muted">
                             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-950/50 border border-slate-800 rounded-md">
-                                <span className="text-white font-mono">{olt.host}</span>
+                                <span className="text-fg font-mono">{olt.host}</span>
                             </div>
                             <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-950/50 border border-slate-800 rounded-md">
                                 <span className={clsx("text-primary")}>{olt.type || 'Generic'}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-slate-400">
+                            <div className="flex items-center gap-1.5 text-fg-muted">
                                 <Clock className="w-3.5 h-3.5" />
                                 <span>Sync: {formatLastSync(olt.updatedAt)}</span>
                             </div>
@@ -219,7 +219,7 @@ export default function OltDetails() {
                         size="md"
                         onClick={handleRefresh}
                         disabled={refreshMutation.isPending || isLoadingOnus}
-                        className="bg-slate-950/50 border-slate-800 hover:bg-slate-800 text-white font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all shadow-lg hover:border-primary/50 group"
+                        className="bg-slate-950/50 border-slate-800 hover:bg-slate-800 text-fg font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all shadow-lg hover:border-primary/50 group"
                     >
                         <RefreshCw className={clsx("w-4 h-4 mr-2 transition-all", (refreshMutation.isPending || isLoadingOnus) ? "animate-spin" : "group-hover:rotate-180")} />
                         Refresh Drive
@@ -275,7 +275,7 @@ export default function OltDetails() {
                 <div className="xl:col-span-1 space-y-6">
                     <Card className="glass-panel border-slate-800/50 bg-slate-900/40 divide-y divide-slate-800/50 overflow-hidden shadow-2xl">
                         <CardHeader className="bg-slate-950/30">
-                            <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
+                            <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-fg-muted flex items-center gap-2">
                                 <Info className="w-4 h-4 text-primary" />
                                 Hardware Telemetry
                             </CardTitle>
@@ -288,9 +288,9 @@ export default function OltDetails() {
                                 { label: 'Cloud Sync Time', value: olt.updatedAt ? formatShortDateTime(olt.updatedAt, timezone) : 'Never' }
                             ].map((item, idx) => (
                                 <div key={idx} className="flex justify-between items-center px-6 py-4 hover:bg-slate-800/10 transition-colors">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">{item.label}</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-fg-muted">{item.label}</span>
                                     <span className={clsx(
-                                        "text-xs font-bold text-white",
+                                        "text-xs font-bold text-fg",
                                         item.mono && "font-mono tracking-tight text-primary",
                                         item.capitalize && "capitalize"
                                     )}>{item.value || '--'}</span>
@@ -317,8 +317,8 @@ export default function OltDetails() {
                                                     <Database className="w-4 h-4 text-blue-400" />
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-xs font-bold text-white uppercase tracking-tight">SNMP Layer</span>
-                                                    <span className="text-[9px] text-slate-500 font-bold uppercase">Port {olt.snmpPort}</span>
+                                                    <span className="text-xs font-bold text-fg uppercase tracking-tight">SNMP Layer</span>
+                                                    <span className="text-[9px] text-fg-muted font-bold uppercase">Port {olt.snmpPort}</span>
                                                 </div>
                                             </div>
                                             <Badge variant={olt.lastSnmpStatus === 'online' ? 'success' : 'destructive'} size="xs" className="font-black px-2">
@@ -333,8 +333,8 @@ export default function OltDetails() {
                                                     <Shield className="w-4 h-4 text-purple-400" />
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-xs font-bold text-white uppercase tracking-tight">Management API</span>
-                                                    <span className="text-[9px] text-slate-500 font-bold uppercase">{olt.webProtocol} Access</span>
+                                                    <span className="text-xs font-bold text-fg uppercase tracking-tight">Management API</span>
+                                                    <span className="text-[9px] text-fg-muted font-bold uppercase">{olt.webProtocol} Access</span>
                                                 </div>
                                             </div>
                                             <Badge variant={olt.lastWebStatus === 'online' ? 'success' : 'destructive'} size="xs" className="font-black px-2">
@@ -348,7 +348,7 @@ export default function OltDetails() {
                             {olt.description && (
                                 <div className="p-6 border-t border-slate-800/50 bg-slate-950/10">
                                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Administrator Notes</p>
-                                    <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800/50 text-xs text-slate-400 leading-relaxed font-medium italic">
+                                    <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800/50 text-xs text-fg-muted leading-relaxed font-medium italic">
                                         "{olt.description}"
                                     </div>
                                 </div>
