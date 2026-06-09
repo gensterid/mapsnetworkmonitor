@@ -41,11 +41,11 @@ export default function CekStatus() {
                     <p className="text-fg-muted text-sm">Masukkan username PPPoE / kode pelanggan dan 4 digit terakhir nomor HP Anda.</p>
                 </header>
 
-                <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 sm:p-6 space-y-4">
+                <form onSubmit={submit} className="bg-surface-dark/60 border border-slate-border rounded-xl p-4 sm:p-6 space-y-4">
                     <label className="block">
                         <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">Username PPPoE / Kode Pelanggan</span>
                         <input value={identity} onChange={(e) => setIdentity(e.target.value)} required
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary"
+                               className="w-full bg-slate-surface border border-slate-border rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary"
                                placeholder="contoh: budi-home atau CUST-0042"
                                autoComplete="username"
                                autoCapitalize="none"
@@ -56,7 +56,7 @@ export default function CekStatus() {
                     <label className="block">
                         <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">4 Digit Terakhir HP</span>
                         <input value={last4} onChange={(e) => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} required minLength={4} maxLength={4}
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary font-mono tracking-widest"
+                               className="w-full bg-slate-surface border border-slate-border rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary font-mono tracking-widest"
                                placeholder="1234"
                                inputMode="numeric"
                                autoComplete="off"
@@ -90,7 +90,7 @@ export default function CekStatus() {
                         </div>
 
                         {data.subscriptions.map((s, i) => (
-                            <div key={i} className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
+                            <div key={i} className="bg-surface-dark/60 border border-slate-border rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <div>
                                         <div className="text-xs text-fg-muted uppercase tracking-wide">{s.type}</div>

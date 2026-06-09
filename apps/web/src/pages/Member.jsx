@@ -81,11 +81,11 @@ function LoginForm({ onLogin }) {
                     <p className="text-fg-muted text-sm mt-1">Cek tagihan & bayar online.</p>
                 </div>
 
-                <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 sm:p-6 space-y-4">
+                <form onSubmit={submit} className="bg-surface-dark/60 border border-slate-border rounded-xl p-4 sm:p-6 space-y-4">
                     <label className="block">
                         <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">Username / Kode Pelanggan</span>
                         <input value={identity} onChange={(e) => setIdentity(e.target.value)} required autoFocus
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary"
+                               className="w-full bg-slate-surface border border-slate-border rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary"
                                placeholder="budi-home / CUST-0042"
                                autoComplete="username"
                                autoCapitalize="none"
@@ -96,7 +96,7 @@ function LoginForm({ onLogin }) {
                         <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">PIN</span>
                         <input value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 8))}
                                required minLength={4} maxLength={8} type="password"
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary font-mono tracking-widest"
+                               className="w-full bg-slate-surface border border-slate-border rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary font-mono tracking-widest"
                                placeholder="••••"
                                inputMode="numeric"
                                pattern="[0-9]*"
@@ -198,9 +198,9 @@ function Dashboard() {
                 <section className="space-y-3 mb-8">
                     <h2 className="text-sm font-semibold text-fg-muted uppercase tracking-wide flex items-center gap-2"><Wifi className="w-4 h-4" /> Layanan</h2>
                     {profile.subscriptions.length === 0 ? (
-                        <div className="text-sm text-fg-muted bg-slate-900/40 border border-slate-800 rounded-lg p-4">Belum ada layanan aktif.</div>
+                        <div className="text-sm text-fg-muted bg-surface-dark/40 border border-slate-border rounded-lg p-4">Belum ada layanan aktif.</div>
                     ) : profile.subscriptions.map(s => (
-                        <div key={s.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 sm:p-4">
+                        <div key={s.id} className="bg-surface-dark/60 border border-slate-border rounded-lg p-3 sm:p-4">
                             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                     <div className="text-xs text-fg-muted uppercase">{s.type}</div>
@@ -226,7 +226,7 @@ function Dashboard() {
                         <h2 className="text-sm font-semibold text-fg-muted uppercase tracking-wide flex items-center gap-2 mb-3"><Ticket className="w-4 h-4" /> Voucher Aktif</h2>
                         <div className="space-y-2">
                             {vouchers.map(v => (
-                                <div key={v.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 sm:p-4">
+                                <div key={v.id} className="bg-surface-dark/60 border border-slate-border rounded-lg p-3 sm:p-4">
                                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                         <div className="min-w-0 flex-1">
                                             <div className="text-xs text-fg-muted uppercase mb-1">Kode Voucher</div>
@@ -272,11 +272,11 @@ function Dashboard() {
                 <section>
                     <h2 className="text-sm font-semibold text-fg-muted uppercase tracking-wide flex items-center gap-2 mb-3"><Receipt className="w-4 h-4" /> Tagihan</h2>
                     {invoices.length === 0 ? (
-                        <div className="text-sm text-fg-muted bg-slate-900/40 border border-slate-800 rounded-lg p-4">Belum ada tagihan.</div>
+                        <div className="text-sm text-fg-muted bg-surface-dark/40 border border-slate-border rounded-lg p-4">Belum ada tagihan.</div>
                     ) : (
                         <div className="space-y-2">
                             {invoices.map(i => (
-                                <div key={i.id} className="bg-slate-900/60 border border-slate-800 rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                <div key={i.id} className="bg-surface-dark/60 border border-slate-border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                     <div className="min-w-0 flex-1">
                                         <div className="flex items-center gap-2">
                                             <span className="font-mono text-blue-400 text-sm">{i.invoiceNumber}</span>
@@ -305,14 +305,14 @@ function Dashboard() {
             {/* Payment link modal */}
             {linkTarget && (
                 <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => { setLinkTarget(null); setLinkResult(null); }}>
-                    <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
+                    <div className="bg-surface-dark border border-slate-border rounded-xl max-w-md w-full p-5" onClick={e => e.stopPropagation()}>
                         <h3 className="font-semibold text-fg mb-1">Bayar {linkTarget.invoiceNumber}</h3>
                         <p className="text-sm text-fg-muted mb-4">{fmtIDR(linkTarget.amount)}</p>
                         {!linkResult ? (
                             <form onSubmit={createLink} className="space-y-3">
                                 <label className="block">
                                     <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">Pilih Metode</span>
-                                    <select name="gateway" defaultValue="tripay" className="w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-fg">
+                                    <select name="gateway" defaultValue="tripay" className="w-full bg-slate-surface border border-slate-border rounded px-3 py-2 text-fg">
                                         <option value="tripay">Tripay (QRIS / VA / E-Wallet)</option>
                                         <option value="midtrans">Midtrans</option>
                                         <option value="xendit">Xendit</option>
@@ -327,9 +327,9 @@ function Dashboard() {
                             </form>
                         ) : (
                             <div className="space-y-3">
-                                <div className="bg-slate-800 rounded p-3">
+                                <div className="bg-slate-surface rounded p-3">
                                     <div className="text-xs text-fg-muted mb-1">URL Pembayaran</div>
-                                    <input readOnly value={linkResult.paymentUrl} className="w-full bg-slate-900 border border-slate-700 rounded px-2 py-1.5 text-xs font-mono" />
+                                    <input readOnly value={linkResult.paymentUrl} className="w-full bg-surface-dark border border-slate-border rounded px-2 py-1.5 text-xs font-mono" />
                                 </div>
                                 <div className="flex gap-2 justify-end">
                                     <button onClick={() => { navigator.clipboard.writeText(linkResult.paymentUrl); }} className="text-sm text-fg-muted hover:text-fg px-3 py-1.5 flex items-center gap-1"><Copy className="w-3.5 h-3.5" /> Copy</button>

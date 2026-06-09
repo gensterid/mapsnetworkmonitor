@@ -99,8 +99,8 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
 
     return (
         <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden">
-                <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-5 py-3">
+            <div className="w-full max-w-4xl bg-surface-dark border border-slate-border rounded-xl shadow-2xl overflow-hidden">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-border px-5 py-3">
                     {/* min-w-0 + truncate supaya identifier panjang (MAC 17 char,
                         IPv6 39 char, hostname panjang) tidak push close X
                         keluar viewport di lebar 320-360px. shrink-0 pada button
@@ -119,7 +119,7 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
 
                 <div className="p-5 space-y-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div className="flex gap-1 bg-slate-800/50 rounded-lg p-1">
+                        <div className="flex gap-1 bg-slate-surface/50 rounded-lg p-1">
                             {PERIOD_OPTIONS.map(p => (
                                 <button
                                     key={p.value}
@@ -147,7 +147,7 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
                         </div>
                     </div>
 
-                    <div className="h-72 bg-slate-950/50 rounded-lg p-2">
+                    <div className="h-72 bg-surface-darker/50 rounded-lg p-2">
                         {isLoading ? (
                             <div className="flex items-center justify-center h-full text-fg-muted">
                                 <RefreshCw className="w-5 h-5 animate-spin" />
@@ -265,17 +265,17 @@ function BandwidthTab({ routerId }) {
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 placeholder="Cari client…"
-                                className="bg-slate-900 border border-slate-700 text-fg text-xs rounded-lg pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary w-40"
+                                className="bg-surface-dark border border-slate-border text-fg text-xs rounded-lg pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary w-40"
                             />
                         </div>
                         <select
                             value={type}
                             onChange={e => setType(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-fg text-xs rounded-lg px-2 py-1.5"
+                            className="bg-surface-dark border border-slate-border text-fg text-xs rounded-lg px-2 py-1.5"
                         >
                             {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
-                        <div className="flex gap-1 bg-slate-800/50 rounded-lg p-1">
+                        <div className="flex gap-1 bg-slate-surface/50 rounded-lg p-1">
                             {PERIOD_OPTIONS.map(p => (
                                 <button
                                     key={p.value}
@@ -323,7 +323,7 @@ function BandwidthTab({ routerId }) {
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                                <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                     <tr>
                                         <th className="text-left px-4 py-2 w-10">#</th>
                                         <th className="text-left px-4 py-2">Client</th>
@@ -342,7 +342,7 @@ function BandwidthTab({ routerId }) {
                                             <tr
                                                 key={`${r.identifier}-${r.identifier_type}`}
                                                 onClick={() => setSelected({ identifier: r.identifier, identifierType: r.identifier_type })}
-                                                className="hover:bg-slate-800/30 cursor-pointer"
+                                                className="hover:bg-slate-surface/30 cursor-pointer"
                                             >
                                                 <td className="px-4 py-2 text-fg-muted">{idx + 1}</td>
                                                 <td className="px-4 py-2 font-mono text-fg">{r.identifier}</td>
@@ -353,7 +353,7 @@ function BandwidthTab({ routerId }) {
                                                 <td className="px-4 py-2 text-right text-emerald-400 font-mono">{formatBytes(r.rx_bytes)}</td>
                                                 <td className="px-4 py-2 text-right text-fg font-mono font-semibold">{formatBytes(total)}</td>
                                                 <td className="px-4 py-2 hidden md:table-cell">
-                                                    <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
+                                                    <div className="h-1.5 bg-slate-surface rounded overflow-hidden">
                                                         <div
                                                             className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded"
                                                             style={{ width: `${pct}%` }}

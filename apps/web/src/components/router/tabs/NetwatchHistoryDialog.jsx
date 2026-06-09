@@ -24,8 +24,8 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
 
     return (
         <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-slate-900 border border-slate-700 rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-800">
+            <div className="bg-surface-dark border border-slate-border rounded-xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-border">
                     {/* min-w-0 + truncate di blok kiri — netwatch.name dan host
                         (font-mono IPv4/IPv6) bisa panjang, tanpa ini "Heal Now"
                         atau close X bisa terdorong keluar di 320-360px.
@@ -75,7 +75,7 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                         </div>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead className="text-xs text-fg-muted uppercase border-b border-slate-800">
+                            <thead className="text-xs text-fg-muted uppercase border-b border-slate-border">
                                 <tr>
                                     <th className="text-left py-2 px-2">Waktu</th>
                                     <th className="text-left py-2 px-2">Sebelum</th>
@@ -89,7 +89,7 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                                     const cfg = REASON_LABEL[h.reason] || { label: h.reason, icon: RefreshCw, color: 'text-fg-muted' };
                                     const Icon = cfg.icon;
                                     return (
-                                        <tr key={h.id} className="hover:bg-slate-800/30">
+                                        <tr key={h.id} className="hover:bg-slate-surface/30">
                                             <td className="py-2 px-2 text-fg whitespace-nowrap">{formatWhen(h.changedAt)}</td>
                                             <td className="py-2 px-2 font-mono text-xs text-fg-muted">{h.oldHost || '∅'}</td>
                                             <td className="py-2 px-2 font-mono text-xs text-blue-400">{h.newHost}</td>
@@ -113,7 +113,7 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                     )}
                 </div>
 
-                <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-800 bg-slate-900/50">
+                <div className="flex justify-end gap-2 px-5 py-3 border-t border-slate-border bg-surface-dark/50">
                     <Button size="sm" variant="ghost" onClick={() => refetch()}>
                         <RefreshCw className="w-3.5 h-3.5 mr-1" />
                         Refresh

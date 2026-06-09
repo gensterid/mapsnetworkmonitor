@@ -192,7 +192,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         variant={filter === 'all' ? 'default' : 'ghost'}
                         size="sm"
                         onClick={() => setFilter('all')}
-                        className="h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 bg-slate-900/40 text-[10px] sm:text-[11px] font-bold"
+                        className="h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-border/50 bg-surface-dark/40 text-[10px] sm:text-[11px] font-bold"
                     >
                         <span>TOTAL: {stats.total}</span>
                     </Button>
@@ -201,7 +201,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={() => setFilter('up')}
                         className={clsx(
-                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
+                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-border/50 text-[10px] sm:text-[11px] font-bold",
                             filter === 'up' ? 'bg-emerald-600/20 text-emerald-400 border-emerald-500/20' : 'text-emerald-500 hover:bg-emerald-500/10'
                         )}
                     >
@@ -213,7 +213,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={() => setFilter('down')}
                         className={clsx(
-                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
+                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-border/50 text-[10px] sm:text-[11px] font-bold",
                             filter === 'down' ? 'bg-red-600/20 text-red-500 border-red-500/20' : 'text-red-500 hover:bg-red-500/10'
                         )}
                     >
@@ -225,8 +225,8 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={() => setFilter('disabled')}
                         className={clsx(
-                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
-                            filter === 'disabled' ? 'bg-slate-700/40 text-fg' : 'text-fg-muted hover:bg-slate-700/20'
+                            "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-border/50 text-[10px] sm:text-[11px] font-bold",
+                            filter === 'disabled' ? 'bg-slate-border/40 text-fg' : 'text-fg-muted hover:bg-slate-border/20'
                         )}
                     >
                         <span>{stats.disabled} DISABLED</span>
@@ -242,7 +242,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search host, name..."
-                            className="w-full h-9 pl-9 pr-4 bg-slate-900/40 border border-slate-700/50 rounded-md text-[11px] text-slate-200 placeholder:text-fg-muted focus:outline-none focus:border-primary/50 transition-colors"
+                            className="w-full h-9 pl-9 pr-4 bg-surface-dark/40 border border-slate-border/50 rounded-md text-[11px] text-slate-200 placeholder:text-fg-muted focus:outline-none focus:border-primary/50 transition-colors"
                         />
                     </div>
 
@@ -251,7 +251,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value)}
-                            className="w-full h-9 pl-3 pr-8 bg-slate-900/40 border border-slate-700/50 rounded-md text-[11px] text-slate-200 font-bold appearance-none cursor-pointer focus:outline-none focus:border-primary/50 transition-colors"
+                            className="w-full h-9 pl-3 pr-8 bg-surface-dark/40 border border-slate-border/50 rounded-md text-[11px] text-slate-200 font-bold appearance-none cursor-pointer focus:outline-none focus:border-primary/50 transition-colors"
                         >
                             <option value="status">Status</option>
                             <option value="name">Name</option>
@@ -266,7 +266,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="text-fg-muted hover:text-fg border border-slate-700/50 h-9 px-3"
+                        className="text-fg-muted hover:text-fg border border-slate-border/50 h-9 px-3"
                     >
                         <RefreshCw className={clsx("w-3.5 h-3.5 mr-2", isSyncing && "animate-spin")} />
                         Sync
@@ -282,11 +282,11 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                 </div>
             </div>
 
-            <Card className="glass-panel border-slate-800/50 overflow-hidden bg-[#0a0c10]/80">
+            <Card className="glass-panel border-slate-border/50 overflow-hidden bg-[#0a0c10]/80">
                 <div className="max-h-[calc(100vh-280px)] min-h-[400px] overflow-auto custom-scrollbar">
                     <table className="w-full text-[11px] min-w-[800px]">
                         <thead className="sticky top-0 z-10">
-                            <tr className="border-b border-slate-800">
+                            <tr className="border-b border-slate-border">
                                 <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">HOST</th>
                                 <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">NAME</th>
                                 <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">STATUS</th>
@@ -304,7 +304,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                 filteredNetwatch.map((nw) => (
                                     <tr key={nw.id} className={clsx(
                                         "group transition-all duration-150",
-                                        nw.disabled ? "bg-slate-900/40 opacity-50" : "hover:bg-slate-800/30"
+                                        nw.disabled ? "bg-surface-dark/40 opacity-50" : "hover:bg-slate-surface/30"
                                     )}>
                                         <td className="py-2.5 px-4 font-mono text-fg">
                                             {nw.host}
@@ -446,7 +446,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 text-fg-muted hover:text-fg hover:bg-slate-700/50"
+                                                    className="h-7 w-7 text-fg-muted hover:text-fg hover:bg-slate-border/50"
                                                     onClick={() => setFormModal({ open: true, netwatch: nw })}
                                                 >
                                                     <Edit className="w-3.5 h-3.5" />

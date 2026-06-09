@@ -75,14 +75,14 @@ export default function KioskView() {
                     <div className="flex items-center gap-2">
                         <button 
                             onClick={toggleFullscreen}
-                            className={`p-3 rounded-full transition-all border ${isFullscreen ? 'bg-primary/20 text-primary border-primary/30' : 'text-fg-muted hover:text-fg hover:bg-white/5 border-transparent hover:border-slate-800'}`}
+                            className={`p-3 rounded-full transition-all border ${isFullscreen ? 'bg-primary/20 text-primary border-primary/30' : 'text-fg-muted hover:text-fg hover:bg-white/5 border-transparent hover:border-slate-border'}`}
                             title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
                         >
                             <Maximize2 className="w-6 h-6" />
                         </button>
                         <button 
                             onClick={exitKiosk}
-                            className="p-3 hover:bg-white/5 rounded-full text-fg-muted hover:text-fg transition-all border border-transparent hover:border-slate-800"
+                            className="p-3 hover:bg-white/5 rounded-full text-fg-muted hover:text-fg transition-all border border-transparent hover:border-slate-border"
                         >
                             <X className="w-6 h-6" />
                         </button>
@@ -93,7 +93,7 @@ export default function KioskView() {
             <main className="kiosk-body">
                 <div className="kiosk-panel kiosk-map-container">
                     <div className="kiosk-scanline" />
-                    <div className="absolute top-8 left-8 z-20 bg-slate-900/40 backdrop-blur-xl p-6 rounded-2xl border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] overline decoration-primary/50">
+                    <div className="absolute top-8 left-8 z-20 bg-surface-dark/40 backdrop-blur-xl p-6 rounded-2xl border border-blue-500/30 shadow-[0_0_30px_rgba(59,130,246,0.15)] overline decoration-primary/50">
                         <div className="flex flex-col gap-1">
                             <span className="text-[9px] uppercase font-black text-blue-400 tracking-[0.3em] mb-1">Live Feed // Node Matrix</span>
                             <span className="text-2xl font-black text-fg tracking-tight">{routers.length} ACTIVE_NODES</span>
@@ -108,7 +108,7 @@ export default function KioskView() {
 
                         {/* NOC-Style Device Detail Popup */}
                         {selectedDevice && (
-                            <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-[1000] w-[calc(100%-1.5rem)] max-w-[20rem] sm:w-80 bg-slate-900/90 backdrop-blur-md border border-primary/30 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
+                            <div className="absolute top-3 left-3 sm:top-6 sm:left-6 z-[1000] w-[calc(100%-1.5rem)] max-w-[20rem] sm:w-80 bg-surface-dark/90 backdrop-blur-md border border-primary/30 rounded-lg shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-300">
                                 <div className="p-3 bg-primary/10 border-b border-primary/20 flex justify-between items-center">
                                     <div className="flex items-center gap-2">
                                         <div className={`w-2 h-2 rounded-full ${['online', 'up', 'active'].includes(selectedDevice.data.status?.toLowerCase()) ? 'bg-emerald-500 shadow-[0_0_8px_#10b981]' : 'bg-red-500 shadow-[0_0_8px_#ef4444]'}`} />
@@ -237,14 +237,14 @@ export default function KioskView() {
                                     </div>
                                 </div>
                             </div>
-                            <div className="p-4 rounded-lg bg-slate-800/30 border border-white/5">
+                            <div className="p-4 rounded-lg bg-slate-surface/30 border border-white/5">
                                 <div className="flex justify-between items-center mb-2">
                                     <span className="text-[10px] uppercase font-bold text-fg-muted">Resource Utilization</span>
                                     <span className="text-[10px] font-mono text-primary">
                                         CPU: {health?.stats?.avgCpuLoad || 0}%
                                     </span>
                                 </div>
-                                <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                                <div className="w-full h-2 bg-surface-dark rounded-full overflow-hidden">
                                     <div 
                                         className="h-full bg-primary transition-all duration-1000" 
                                         style={{ width: `${health?.stats?.avgCpuLoad || 0}%` }} 

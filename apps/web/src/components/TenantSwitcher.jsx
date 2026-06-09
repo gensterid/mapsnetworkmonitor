@@ -66,8 +66,8 @@ const TenantSwitcher = () => {
                 <button
                     onClick={() => setIsOpen(!isOpen)}
                     className={clsx(
-                        "w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-800/50 hover:bg-slate-800 border rounded-lg transition-all",
-                        isOpen ? "border-primary shadow-[0_0_10px_rgba(59,130,246,0.15)]" : "border-slate-700/50"
+                        "w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-surface/50 hover:bg-slate-surface border rounded-lg transition-all",
+                        isOpen ? "border-primary shadow-[0_0_10px_rgba(59,130,246,0.15)]" : "border-slate-border/50"
                     )}
                 >
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -82,7 +82,7 @@ const TenantSwitcher = () => {
                 </button>
 
                 {isOpen && (
-                    <div className="absolute z-50 w-full mt-2 py-1 bg-surface-dark border border-slate-700 rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2">
+                    <div className="absolute z-50 w-full mt-2 py-1 bg-surface-dark border border-slate-border rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2">
                         {/* Default Home Tenant Option */}
                         <div className="px-2 py-1">
                             <button
@@ -91,7 +91,7 @@ const TenantSwitcher = () => {
                                     "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors",
                                     (!localStorage.getItem('active-tenant-id') || localStorage.getItem('active-tenant-id') === currentUser?.tenantId)
                                         ? "bg-primary/10 text-primary font-bold"
-                                        : "text-fg hover:bg-slate-800 hover:text-fg"
+                                        : "text-fg hover:bg-slate-surface hover:text-fg"
                                 )}
                             >
                                 <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ const TenantSwitcher = () => {
                             </button>
                         </div>
 
-                        <div className="h-px bg-slate-800 my-1 mx-2" />
+                        <div className="h-px bg-slate-surface my-1 mx-2" />
 
                         {/* Other Tenants Map */}
                         <div className="max-h-60 overflow-y-auto px-2 py-1 custom-scrollbar">
@@ -116,7 +116,7 @@ const TenantSwitcher = () => {
                                         "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors mb-0.5",
                                         activeTenantId === tenant.id
                                             ? "bg-primary/10 text-primary font-bold"
-                                            : "text-fg hover:bg-slate-800 hover:text-fg"
+                                            : "text-fg hover:bg-slate-surface hover:text-fg"
                                     )}
                                 >
                                     <div className="flex items-center gap-2 truncate">

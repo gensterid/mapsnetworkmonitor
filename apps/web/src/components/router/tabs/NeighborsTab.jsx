@@ -65,11 +65,11 @@ function NeighborsTab({ routerId }) {
                     >
                         <Network className="w-5 h-5 text-primary" />
                         MNDP
-                        <span className="text-xs bg-slate-800 text-fg-muted px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-slate-surface text-fg-muted px-1.5 py-0.5 rounded-full">
                             {neighbors.length}
                         </span>
                     </button>
-                    <div className="w-px h-6 bg-slate-700 mx-1" />
+                    <div className="w-px h-6 bg-slate-border mx-1" />
                     <button
                         onClick={() => setSubTab('romon')}
                         className={clsx(
@@ -79,7 +79,7 @@ function NeighborsTab({ routerId }) {
                     >
                         <ShieldCheck className="w-5 h-5 text-primary" />
                         RoMON
-                        <span className="text-xs bg-slate-800 text-fg-muted px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-slate-surface text-fg-muted px-1.5 py-0.5 rounded-full">
                             {romonNeighbors.length}
                         </span>
                     </button>
@@ -92,7 +92,7 @@ function NeighborsTab({ routerId }) {
                             placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                            className="w-full pl-9 pr-4 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
                     <Button onClick={handleRefetch} variant="outline" size="sm" disabled={isRefetching}>
@@ -106,18 +106,18 @@ function NeighborsTab({ routerId }) {
                     {subTab === 'mndp' ? (
                         <table className="w-full text-sm min-w-[700px]">
                             <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-slate-800">
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Identity</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">IP Address</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">MAC Address</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Model / Version</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Interface</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Uptime</th>
+                                <tr className="border-b border-slate-border">
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Identity</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">IP Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">MAC Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Model / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Interface</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Uptime</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {filteredMndp.length > 0 ? filteredMndp.map((n, i) => (
-                                    <tr key={i} className="hover:bg-slate-800/30 transition-colors">
+                                    <tr key={i} className="hover:bg-slate-surface/30 transition-colors">
                                         <td className="py-3 px-4">
                                             <div className="text-fg font-medium">{n.identity || 'Unknown'}</div>
                                         </td>
@@ -142,17 +142,17 @@ function NeighborsTab({ routerId }) {
                     ) : (
                         <table className="w-full text-sm min-w-[700px]">
                             <thead className="sticky top-0 z-10">
-                                <tr className="border-b border-slate-800">
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Identity / RoMON ID</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Path</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Board / Version</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">MTU</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Action</th>
+                                <tr className="border-b border-slate-border">
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Identity / RoMON ID</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Path</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Board / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">MTU</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {filteredRomon.length > 0 ? filteredRomon.map((n, i) => (
-                                    <tr key={i} className="hover:bg-slate-800/30 transition-colors">
+                                    <tr key={i} className="hover:bg-slate-surface/30 transition-colors">
                                         <td className="py-3 px-4">
                                             <div className="text-fg font-medium">{n.identity || 'Unknown'}</div>
                                             <div className="text-[10px] text-fg-muted font-mono">{n.romonId || '-'}</div>

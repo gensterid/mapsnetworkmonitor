@@ -116,7 +116,7 @@ export default function BackupsTab({ routerId }) {
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
             {/* Create Backup Card */}
-            <Card className="border-primary/20 bg-slate-900/40">
+            <Card className="border-primary/20 bg-surface-dark/40">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-lg">
                         <Plus className="w-5 h-5 text-primary" />
@@ -134,7 +134,7 @@ export default function BackupsTab({ routerId }) {
                                         "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all pointer-events-none opacity-50",
                                         backupType === 'backup' 
                                             ? "bg-primary/20 border-primary text-primary" 
-                                            : "bg-slate-800/50 border-slate-700 text-fg-muted hover:border-slate-600"
+                                            : "bg-slate-surface/50 border-slate-border text-fg-muted hover:border-slate-600"
                                     )}
                                     title="Disabled: Requires OS v7 due to TLS truncation bugs."
                                 >
@@ -147,7 +147,7 @@ export default function BackupsTab({ routerId }) {
                                         "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all",
                                         backupType === 'rsc' 
                                             ? "bg-primary/20 border-primary text-primary" 
-                                            : "bg-slate-800/50 border-slate-700 text-fg-muted hover:border-slate-600"
+                                            : "bg-slate-surface/50 border-slate-border text-fg-muted hover:border-slate-600"
                                     )}
                                 >
                                     <FileText className="w-4 h-4" />
@@ -159,7 +159,7 @@ export default function BackupsTab({ routerId }) {
                                         "flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all shadow-[0_0_15px_rgba(34,197,94,0.1)]",
                                         backupType === 'json' 
                                             ? "bg-emerald-500/20 border-emerald-500 text-emerald-400" 
-                                            : "bg-slate-800/50 border-emerald-900/50 text-fg-muted hover:border-emerald-600/50"
+                                            : "bg-slate-surface/50 border-emerald-900/50 text-fg-muted hover:border-emerald-600/50"
                                     )}
                                     title="100% Reliable Native API Extraction"
                                 >
@@ -174,7 +174,7 @@ export default function BackupsTab({ routerId }) {
                                 placeholder="Purpose of this backup..."
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
-                                className="bg-slate-800/50 border-slate-700"
+                                className="bg-slate-surface/50 border-slate-border"
                             />
                         </div>
                         <div className="flex-1 space-y-2 w-full">
@@ -185,7 +185,7 @@ export default function BackupsTab({ routerId }) {
                                 max="300"
                                 value={delay}
                                 onChange={(e) => setDelay(e.target.value)}
-                                className="bg-slate-800/50 border-slate-700"
+                                className="bg-slate-surface/50 border-slate-border"
                             />
                         </div>
                         <Button 
@@ -213,7 +213,7 @@ export default function BackupsTab({ routerId }) {
             </Card>
 
             {/* Automated Email Backup Configuration */}
-            <Card className="bg-slate-900/50 border-slate-800 border-dashed">
+            <Card className="bg-surface-dark/50 border-slate-border border-dashed">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-fg flex items-center gap-2">
                         <Mail className="w-4 h-4 text-emerald-400" />
@@ -243,7 +243,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="e.g. smtp.gmail.com"
                                         value={emailConfig.server}
                                         onChange={(e) => setEmailConfig({...emailConfig, server: e.target.value})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -253,7 +253,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="587"
                                         value={emailConfig.port}
                                         onChange={(e) => setEmailConfig({...emailConfig, port: parseInt(e.target.value)})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -262,7 +262,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="Your email"
                                         value={emailConfig.user}
                                         onChange={(e) => setEmailConfig({...emailConfig, user: e.target.value})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -282,7 +282,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="Sandi Aplikasi 16 karakter"
                                         value={emailConfig.pass}
                                         onChange={(e) => setEmailConfig({...emailConfig, pass: e.target.value})}
-                                        className="bg-slate-800/50 border-slate-700 focus:ring-emerald-500"
+                                        className="bg-slate-surface/50 border-slate-border focus:ring-emerald-500"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -291,13 +291,13 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="Who gets the backup?"
                                         value={emailConfig.recipient}
                                         onChange={(e) => setEmailConfig({...emailConfig, recipient: e.target.value})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-xs font-medium text-fg-muted uppercase tracking-wider">Interval (Frequency)</label>
                                     <select 
-                                        className="w-full bg-slate-800/50 border border-slate-700 rounded-md p-2 text-sm text-fg focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                        className="w-full bg-slate-surface/50 border border-slate-border rounded-md p-2 text-sm text-fg focus:outline-none focus:ring-1 focus:ring-emerald-500"
                                         value={emailConfig.interval}
                                         onChange={(e) => setEmailConfig({...emailConfig, interval: e.target.value})}
                                     >
@@ -313,7 +313,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="e.g. 03:00:00 or startup"
                                         value={emailConfig.startTime}
                                         onChange={(e) => setEmailConfig({...emailConfig, startTime: e.target.value})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -323,7 +323,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="10"
                                         value={emailConfig.exportDelay}
                                         onChange={(e) => setEmailConfig({...emailConfig, exportDelay: parseInt(e.target.value)})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -333,7 +333,7 @@ export default function BackupsTab({ routerId }) {
                                         placeholder="30"
                                         value={emailConfig.cleanupDelay}
                                         onChange={(e) => setEmailConfig({...emailConfig, cleanupDelay: parseInt(e.target.value)})}
-                                        className="bg-slate-800/50 border-slate-700"
+                                        className="bg-slate-surface/50 border-slate-border"
                                     />
                                 </div>
                                 <div className="flex items-center gap-2 pt-6">
@@ -342,7 +342,7 @@ export default function BackupsTab({ routerId }) {
                                         id="email-tls"
                                         checked={emailConfig.tls}
                                         onChange={(e) => setEmailConfig({...emailConfig, tls: e.target.checked})}
-                                        className="w-4 h-4 rounded border-slate-700 bg-slate-800 text-emerald-500 focus:ring-emerald-500"
+                                        className="w-4 h-4 rounded border-slate-border bg-slate-surface text-emerald-500 focus:ring-emerald-500"
                                     />
                                     <label htmlFor="email-tls" className="text-xs font-medium text-fg-muted cursor-pointer">Use Start TLS (Port 587)</label>
                                 </div>
@@ -384,7 +384,7 @@ export default function BackupsTab({ routerId }) {
                 </div>
 
                 {backups.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 bg-slate-900/20 border border-dashed border-slate-700 rounded-xl gap-3">
+                    <div className="flex flex-col items-center justify-center py-16 bg-surface-dark/20 border border-dashed border-slate-border rounded-xl gap-3">
                         <HardDrive className="w-10 h-10 text-slate-700" />
                         <p className="text-fg-muted text-sm">No backups found for this router yet.</p>
                     </div>
@@ -393,7 +393,7 @@ export default function BackupsTab({ routerId }) {
                         {backups.map((bkp) => (
                             <div 
                                 key={bkp.id}
-                                className="group flex items-center justify-between p-4 bg-slate-800/30 border border-slate-700/50 rounded-xl hover:border-slate-600 transition-all hover:bg-slate-800/50"
+                                className="group flex items-center justify-between p-4 bg-slate-surface/30 border border-slate-border/50 rounded-xl hover:border-slate-600 transition-all hover:bg-slate-surface/50"
                             >
                                 <div className="flex items-center gap-4">
                                     <div className={clsx(
@@ -416,13 +416,13 @@ export default function BackupsTab({ routerId }) {
                                             <span>{formatLastSync(bkp.createdAt)}</span>
                                             {bkp.type !== 'email' && (
                                                 <>
-                                                    <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                                                    <span className="w-1 h-1 bg-slate-border rounded-full" />
                                                     <span>{formatBytes(bkp.size)}</span>
                                                 </>
                                             )}
                                             {bkp.comment && (
                                                 <>
-                                                    <span className="w-1 h-1 bg-slate-700 rounded-full" />
+                                                    <span className="w-1 h-1 bg-slate-border rounded-full" />
                                                     <span className="text-fg-muted italic">"{bkp.comment}"</span>
                                                 </>
                                             )}

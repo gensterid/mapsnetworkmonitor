@@ -68,7 +68,7 @@ function PppoeTab({ routerId }) {
                         <PhoneCall className="w-5 h-5 text-primary" />
                         PPPoE Active Sessions
                     </h2>
-                    <span className="text-xs bg-slate-800 text-fg-muted px-2 py-0.5 rounded-full border border-slate-700">
+                    <span className="text-xs bg-slate-surface text-fg-muted px-2 py-0.5 rounded-full border border-slate-border">
                         {sessions.length} Users
                     </span>
                 </div>
@@ -80,7 +80,7 @@ function PppoeTab({ routerId }) {
                             placeholder="Search by name, IP, caller..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                            className="w-full pl-9 pr-4 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
                     <Button onClick={() => refetch()} variant="outline" size="sm" disabled={isRefetching}>
@@ -93,18 +93,18 @@ function PppoeTab({ routerId }) {
                 <div className="max-h-[calc(100vh-280px)] min-h-[400px] overflow-auto custom-scrollbar">
                     <table className="w-full text-sm">
                         <thead className="sticky top-0 z-10">
-                            <tr className="border-b border-slate-800">
-                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">User</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Address</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Uptime</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Caller ID</th>
-                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Coordinates</th>
-                                <th className="text-right py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Action</th>
+                            <tr className="border-b border-slate-border">
+                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">User</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Address</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Uptime</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Caller ID</th>
+                                <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Coordinates</th>
+                                <th className="text-right py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-surface-dark/98 backdrop-blur-sm">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800">
                             {filteredSessions.length > 0 ? filteredSessions.map((s, i) => (
-                                <tr key={i} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={i} className="hover:bg-slate-surface/30 transition-colors">
                                     <td className="py-3 px-4">
                                         <div className="text-fg font-medium">{s.name}</div>
                                         <div className="text-[10px] text-fg-muted uppercase">{s.service}</div>

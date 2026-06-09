@@ -88,7 +88,7 @@ function DashboardTab({ router, metrics, interfaces }) {
                     <div className="overflow-x-auto">
                         <table className="w-full min-w-[640px]">
                             <thead>
-                                <tr className="border-b border-slate-700">
+                                <tr className="border-b border-slate-border">
                                     <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase">Name</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase">Type</th>
                                     <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase">Status</th>
@@ -100,7 +100,7 @@ function DashboardTab({ router, metrics, interfaces }) {
                             <tbody>
                                 {interfaces?.length > 0 ? (
                                     interfaces.map((iface) => (
-                                        <tr key={iface.id} className="border-b border-slate-800 hover:bg-slate-800/50">
+                                        <tr key={iface.id} className="border-b border-slate-border hover:bg-slate-surface/50">
                                             <td className="py-3 px-4 text-sm text-fg font-medium">
                                                 <div className="flex flex-col">
                                                     <span>{iface.name}</span>
@@ -113,7 +113,7 @@ function DashboardTab({ router, metrics, interfaces }) {
                                                     "px-2 py-0.5 rounded-full text-xs font-medium",
                                                     iface.running
                                                         ? "bg-emerald-500/10 text-emerald-400"
-                                                        : "bg-slate-700 text-fg-muted"
+                                                        : "bg-slate-border text-fg-muted"
                                                 )}>
                                                     {iface.running ? 'Running' : 'Down'}
                                                 </span>
