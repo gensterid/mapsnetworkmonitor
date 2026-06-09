@@ -6,7 +6,7 @@ import { useNetwatchHistory, useHealNetwatchNow } from '@/hooks/useNetwatchHisto
 const REASON_LABEL = {
     auto_heal_pppoe: { label: 'Auto-Heal (PPPoE)', icon: Sparkles, color: 'text-emerald-400' },
     auto_heal_acs: { label: 'Auto-Heal (ACS)', icon: Sparkles, color: 'text-cyan-400' },
-    manual_edit: { label: 'Manual Edit', icon: User, color: 'text-slate-300' },
+    manual_edit: { label: 'Manual Edit', icon: User, color: 'text-fg' },
     sync_correction: { label: 'Sync Correction', icon: RefreshCw, color: 'text-amber-400' },
 };
 
@@ -31,11 +31,11 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                         atau close X bisa terdorong keluar di 320-360px.
                         shrink-0 di action group supaya tombol selalu terlihat. */}
                     <div className="min-w-0 flex-1">
-                        <h3 className="text-base font-bold text-white flex items-center gap-2 min-w-0">
+                        <h3 className="text-base font-bold text-fg flex items-center gap-2 min-w-0">
                             <Sparkles className="w-4 h-4 text-emerald-400 shrink-0" />
                             <span className="truncate">Riwayat Perubahan IP</span>
                         </h3>
-                        <p className="text-xs text-slate-400 mt-0.5 truncate">
+                        <p className="text-xs text-fg-muted mt-0.5 truncate">
                             {netwatch.name || '—'} · IP saat ini: <span className="font-mono text-blue-400">{netwatch.host || '∅'}</span>
                         </p>
                     </div>
@@ -51,7 +51,7 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                                 Heal Now
                             </Button>
                         )}
-                        <button onClick={onClose} className="text-slate-400 hover:text-white p-1">
+                        <button onClick={onClose} className="text-fg-muted hover:text-fg p-1">
                             <X className="w-5 h-5" />
                         </button>
                     </div>
@@ -59,10 +59,10 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
 
                 <div className="flex-1 overflow-y-auto p-5">
                     {isLoading ? (
-                        <div className="text-center py-12 text-slate-500">Memuat riwayat…</div>
+                        <div className="text-center py-12 text-fg-muted">Memuat riwayat…</div>
                     ) : history.length === 0 ? (
                         <div className="text-center py-12">
-                            <p className="text-slate-500 text-sm">Belum ada perubahan IP yang tercatat.</p>
+                            <p className="text-fg-muted text-sm">Belum ada perubahan IP yang tercatat.</p>
                             {netwatch.linkedOnuId ? (
                                 <p className="text-xs text-slate-600 mt-2">
                                     Auto-heal aktif — IP akan otomatis disesuaikan saat customer reconnect dengan IP baru.
@@ -75,7 +75,7 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                         </div>
                     ) : (
                         <table className="w-full text-sm">
-                            <thead className="text-xs text-slate-500 uppercase border-b border-slate-800">
+                            <thead className="text-xs text-fg-muted uppercase border-b border-slate-800">
                                 <tr>
                                     <th className="text-left py-2 px-2">Waktu</th>
                                     <th className="text-left py-2 px-2">Sebelum</th>
@@ -86,12 +86,12 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                             </thead>
                             <tbody className="divide-y divide-slate-800/60">
                                 {history.map((h) => {
-                                    const cfg = REASON_LABEL[h.reason] || { label: h.reason, icon: RefreshCw, color: 'text-slate-400' };
+                                    const cfg = REASON_LABEL[h.reason] || { label: h.reason, icon: RefreshCw, color: 'text-fg-muted' };
                                     const Icon = cfg.icon;
                                     return (
                                         <tr key={h.id} className="hover:bg-slate-800/30">
-                                            <td className="py-2 px-2 text-slate-300 whitespace-nowrap">{formatWhen(h.changedAt)}</td>
-                                            <td className="py-2 px-2 font-mono text-xs text-slate-500">{h.oldHost || '∅'}</td>
+                                            <td className="py-2 px-2 text-fg whitespace-nowrap">{formatWhen(h.changedAt)}</td>
+                                            <td className="py-2 px-2 font-mono text-xs text-fg-muted">{h.oldHost || '∅'}</td>
                                             <td className="py-2 px-2 font-mono text-xs text-blue-400">{h.newHost}</td>
                                             <td className="py-2 px-2">
                                                 <span className={`inline-flex items-center gap-1 text-xs ${cfg.color}`}>
@@ -102,7 +102,7 @@ export default function NetwatchHistoryDialog({ open, onClose, routerId, netwatc
                                                     <div className="text-[10px] text-slate-600 font-mono mt-0.5">{h.pppoeUser}</div>
                                                 )}
                                             </td>
-                                            <td className="py-2 px-2 text-xs text-slate-400">
+                                            <td className="py-2 px-2 text-xs text-fg-muted">
                                                 {h.changedBy === 'system' ? <span className="text-emerald-500">sistem</span> : (h.changedBy ? <span className="font-mono text-[10px]">{h.changedBy.slice(0, 8)}</span> : '—')}
                                             </td>
                                         </tr>

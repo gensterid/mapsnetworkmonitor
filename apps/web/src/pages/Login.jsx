@@ -85,9 +85,9 @@ export default function Login() {
                 {/* Logo / Brand */}
                 <div className="text-center mb-8 animate-fade-in-up">
                     <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-blue-400 shadow-lg shadow-blue-500/20 mb-4 transform hover:scale-105 transition-transform duration-300">
-                        <Activity className="w-8 h-8 text-white relative z-10" />
+                        <Activity className="w-8 h-8 text-fg relative z-10" />
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">MikroTik Monitor</h1>
+                    <h1 className="text-2xl sm:text-3xl font-bold text-fg tracking-tight">MikroTik Monitor</h1>
                     <p className="text-blue-200/60 mt-2 text-sm">Secure Network Management System</p>
                 </div>
 
@@ -123,7 +123,7 @@ export default function Login() {
                                         }}
                                         onFocus={() => setFocusedInput('identifier')}
                                         onBlur={() => setFocusedInput(null)}
-                                        className="w-full bg-transparent border border-white/5 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-all duration-200"
+                                        className="w-full bg-transparent border border-white/5 rounded-xl pl-10 pr-4 py-3 text-fg placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-all duration-200"
                                         placeholder="admin"
                                         autoComplete="username"
                                         autoCapitalize="none"
@@ -154,7 +154,7 @@ export default function Login() {
                                         }}
                                         onFocus={() => setFocusedInput('password')}
                                         onBlur={() => setFocusedInput(null)}
-                                        className="w-full bg-transparent border border-white/5 rounded-xl pl-10 pr-12 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-all duration-200"
+                                        className="w-full bg-transparent border border-white/5 rounded-xl pl-10 pr-12 py-3 text-fg placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-all duration-200"
                                         placeholder="••••••••"
                                         autoComplete="current-password"
                                         required
@@ -162,7 +162,7 @@ export default function Login() {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-white rounded-lg hover:bg-white/5 transition-all"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-fg rounded-lg hover:bg-white/5 transition-all"
                                         tabIndex={-1}
                                     >
                                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -173,7 +173,7 @@ export default function Login() {
                             <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full relative group overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-medium py-3.5 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-background-dark disabled:opacity-70 disabled:cursor-not-allowed shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)] group-hover:shadow-[0_0_25px_-5px_rgba(59,130,246,0.6)] mt-2"
+                                className="w-full relative group overflow-hidden bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-fg font-medium py-3.5 rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-background-dark disabled:opacity-70 disabled:cursor-not-allowed shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)] group-hover:shadow-[0_0_25px_-5px_rgba(59,130,246,0.6)] mt-2"
                             >
                                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
                                 <div className="relative flex items-center justify-center gap-2">

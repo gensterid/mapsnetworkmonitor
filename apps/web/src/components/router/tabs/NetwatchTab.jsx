@@ -156,7 +156,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                     <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                         <span className="text-amber-300 font-semibold">{conflictCount} konflik sinkronisasi</span>
-                        <span className="text-slate-400 ml-1.5 sm:ml-2">
+                        <span className="text-fg-muted ml-1.5 sm:ml-2">
                             MikroTik dan aplikasi tidak setuju soal IP. Klik Resolve untuk memilih sumber kebenaran.
                         </span>
                     </div>
@@ -177,7 +177,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                     <Sparkles className="w-4 h-4 text-emerald-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                         <span className="text-emerald-300 font-semibold">Auto-Heal AKTIF</span>
-                        <span className="text-slate-400 ml-1.5 sm:ml-2">
+                        <span className="text-fg-muted ml-1.5 sm:ml-2">
                             <span className="hidden sm:inline">{linkedCount} entry tertaut ke ONU/Customer — IP otomatis disesuaikan saat customer reconnect dengan IP baru.</span>
                             <span className="sm:hidden">{linkedCount} entry auto-update IP saat reconnect</span>
                         </span>
@@ -226,7 +226,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         onClick={() => setFilter('disabled')}
                         className={clsx(
                             "h-7 sm:h-8 px-2.5 sm:px-4 gap-1.5 sm:gap-2 border border-slate-700/50 text-[10px] sm:text-[11px] font-bold",
-                            filter === 'disabled' ? 'bg-slate-700/40 text-slate-300' : 'text-slate-400 hover:bg-slate-700/20'
+                            filter === 'disabled' ? 'bg-slate-700/40 text-fg' : 'text-fg-muted hover:bg-slate-700/20'
                         )}
                     >
                         <span>{stats.disabled} DISABLED</span>
@@ -236,13 +236,13 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                     {/* Search Box */}
                     <div className="relative flex-1 sm:flex-none sm:min-w-[200px]">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted" />
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search host, name..."
-                            className="w-full h-9 pl-9 pr-4 bg-slate-900/40 border border-slate-700/50 rounded-md text-[11px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-primary/50 transition-colors"
+                            className="w-full h-9 pl-9 pr-4 bg-slate-900/40 border border-slate-700/50 rounded-md text-[11px] text-slate-200 placeholder:text-fg-muted focus:outline-none focus:border-primary/50 transition-colors"
                         />
                     </div>
 
@@ -258,7 +258,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                             <option value="ip">IP</option>
                             <option value="loc">Loc</option>
                         </select>
-                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 pointer-events-none" />
+                        <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-fg-muted pointer-events-none" />
                     </div>
 
                     <Button
@@ -266,7 +266,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                         size="sm"
                         onClick={handleSync}
                         disabled={isSyncing}
-                        className="text-slate-400 hover:text-white border border-slate-700/50 h-9 px-3"
+                        className="text-fg-muted hover:text-fg border border-slate-700/50 h-9 px-3"
                     >
                         <RefreshCw className={clsx("w-3.5 h-3.5 mr-2", isSyncing && "animate-spin")} />
                         Sync
@@ -274,7 +274,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                     <Button
                         size="sm"
                         onClick={() => setFormModal({ open: true, netwatch: null })}
-                        className="flex-1 sm:flex-none h-9 px-4 bg-primary hover:bg-primary/90 text-white font-bold"
+                        className="flex-1 sm:flex-none h-9 px-4 bg-primary hover:bg-primary/90 text-fg font-bold"
                     >
                         <Plus className="w-3.5 h-3.5 mr-2" />
                         Add Host
@@ -287,16 +287,16 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                     <table className="w-full text-[11px] min-w-[800px]">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-slate-800">
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">HOST</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">NAME</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">STATUS</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">SINCE</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">LOCATION</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">LATENCY</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">TRAFFIC (IN/OUT)</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">COORDS</th>
-                                <th className="text-left py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">LAST CHECK</th>
-                                <th className="text-right py-3 px-4 text-slate-400 uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">ACTIONS</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">HOST</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">NAME</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">STATUS</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">SINCE</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">LOCATION</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">LATENCY</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">TRAFFIC (IN/OUT)</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">COORDS</th>
+                                <th className="text-left py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">LAST CHECK</th>
+                                <th className="text-right py-3 px-4 text-fg-muted uppercase font-bold tracking-wider bg-[#0f1218]/98 backdrop-blur-sm">ACTIONS</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
@@ -306,11 +306,11 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                         "group transition-all duration-150",
                                         nw.disabled ? "bg-slate-900/40 opacity-50" : "hover:bg-slate-800/30"
                                     )}>
-                                        <td className="py-2.5 px-4 font-mono text-slate-300">
+                                        <td className="py-2.5 px-4 font-mono text-fg">
                                             {nw.host}
                                         </td>
                                         <td className="py-2.5 px-4">
-                                            <div className="text-slate-400 font-medium max-w-[150px] truncate">
+                                            <div className="text-fg-muted font-medium max-w-[150px] truncate">
                                                 {nw.name || nw.comment || '-'}
                                             </div>
                                         </td>
@@ -332,7 +332,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                         Down
                                                     </div>
                                                 ) : (
-                                                    <div className="flex items-center gap-1.5 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                                                    <div className="flex items-center gap-1.5 text-fg-muted font-bold uppercase tracking-wider text-[10px]">
                                                         <RefreshCw className="w-3 h-3" />
                                                         Unk
                                                     </div>
@@ -370,7 +370,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                         </td>
                                         <td className="py-2.5 px-4">
                                             <div className="flex flex-col">
-                                                <span className="text-slate-300 font-bold whitespace-nowrap">
+                                                <span className="text-fg font-bold whitespace-nowrap">
                                                     {formatNetwatchDate(nw.lastUp || nw.lastDown)}
                                                 </span>
                                                 <span className={clsx(
@@ -381,7 +381,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 </span>
                                             </div>
                                         </td>
-                                        <td className="py-2.5 px-4 text-slate-500">
+                                        <td className="py-2.5 px-4 text-fg-muted">
                                             {nw.location || '-'}
                                         </td>
                                         <td className="py-2.5 px-4">
@@ -412,7 +412,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 <span className="text-slate-700">-</span>
                                             )}
                                         </td>
-                                        <td className="py-2.5 px-4 text-slate-500">
+                                        <td className="py-2.5 px-4 text-fg-muted">
                                             {nw.latitude && nw.longitude ? (
                                                 <div className="flex items-center gap-1 group/coords cursor-help">
                                                     <Globe className="w-3 h-3 text-slate-600" />
@@ -424,7 +424,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 </Button>
                                             )}
                                         </td>
-                                        <td className="py-2.5 px-4 text-slate-300 font-medium">
+                                        <td className="py-2.5 px-4 text-fg font-medium">
                                             {formatTimeOnly(nw.lastCheck)}
                                         </td>
                                         <td className="py-2.5 px-4 text-right">
@@ -437,7 +437,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                                    className="h-7 w-7 text-fg-muted hover:text-emerald-400 hover:bg-emerald-500/10"
                                                     onClick={() => setHistoryModal({ open: true, netwatch: nw })}
                                                     title="Riwayat perubahan IP"
                                                 >
@@ -446,7 +446,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 text-slate-500 hover:text-white hover:bg-slate-700/50"
+                                                    className="h-7 w-7 text-fg-muted hover:text-fg hover:bg-slate-700/50"
                                                     onClick={() => setFormModal({ open: true, netwatch: nw })}
                                                 >
                                                     <Edit className="w-3.5 h-3.5" />
@@ -454,7 +454,7 @@ function NetwatchTab({ routerId, netwatch = [], onRefresh }) {
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-7 w-7 text-slate-500 hover:text-red-500 hover:bg-red-500/10"
+                                                    className="h-7 w-7 text-fg-muted hover:text-red-500 hover:bg-red-500/10"
                                                     onClick={() => handleDelete(nw)}
                                                 >
                                                     <Trash2 className="w-3.5 h-3.5" />

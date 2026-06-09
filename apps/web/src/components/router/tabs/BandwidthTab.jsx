@@ -106,13 +106,13 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
                         keluar viewport di lebar 320-360px. shrink-0 pada button
                         biar tombol selalu terlihat. */}
                     <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 text-white font-semibold min-w-0">
+                        <div className="flex items-center gap-2 text-fg font-semibold min-w-0">
                             <Activity className="w-4 h-4 text-primary shrink-0" />
                             <span className="font-mono truncate">{identifier}</span>
-                            <span className="text-xs text-slate-500 uppercase shrink-0">{identifierType}</span>
+                            <span className="text-xs text-fg-muted uppercase shrink-0">{identifierType}</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white shrink-0">
+                    <button onClick={onClose} className="text-fg-muted hover:text-fg shrink-0">
                         <X className="w-5 h-5" />
                     </button>
                 </div>
@@ -126,7 +126,7 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
                                     onClick={() => setPeriod(p.value)}
                                     className={clsx(
                                         'px-3 py-1 text-xs rounded transition-colors',
-                                        period === p.value ? 'bg-primary text-[var(--on-primary)]' : 'text-slate-400 hover:text-white'
+                                        period === p.value ? 'bg-primary text-[var(--on-primary)]' : 'text-fg-muted hover:text-fg'
                                     )}
                                 >
                                     {p.label}
@@ -136,24 +136,24 @@ function ClientHistoryDialog({ routerId, identifier, identifierType, onClose }) 
                         <div className="flex gap-4 text-xs">
                             <div className="flex items-center gap-1.5">
                                 <ArrowUp className="w-3.5 h-3.5 text-blue-400" />
-                                <span className="text-slate-400">Upload:</span>
-                                <span className="text-white font-mono">{formatBytes(totals.tx)}</span>
+                                <span className="text-fg-muted">Upload:</span>
+                                <span className="text-fg font-mono">{formatBytes(totals.tx)}</span>
                             </div>
                             <div className="flex items-center gap-1.5">
                                 <ArrowDown className="w-3.5 h-3.5 text-emerald-400" />
-                                <span className="text-slate-400">Download:</span>
-                                <span className="text-white font-mono">{formatBytes(totals.rx)}</span>
+                                <span className="text-fg-muted">Download:</span>
+                                <span className="text-fg font-mono">{formatBytes(totals.rx)}</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="h-72 bg-slate-950/50 rounded-lg p-2">
                         {isLoading ? (
-                            <div className="flex items-center justify-center h-full text-slate-500">
+                            <div className="flex items-center justify-center h-full text-fg-muted">
                                 <RefreshCw className="w-5 h-5 animate-spin" />
                             </div>
                         ) : chartData.length === 0 ? (
-                            <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+                            <div className="flex items-center justify-center h-full text-fg-muted text-sm">
                                 Belum ada data untuk periode ini
                             </div>
                         ) : (
@@ -227,26 +227,26 @@ function BandwidthTab({ routerId }) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <Card>
                     <CardContent className="p-4">
-                        <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Client Aktif (24j)</div>
-                        <div className="text-2xl font-bold text-white">{summary?.active_clients_24h ?? '—'}</div>
+                        <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Client Aktif (24j)</div>
+                        <div className="text-2xl font-bold text-fg">{summary?.active_clients_24h ?? '—'}</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4">
-                        <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Total Upload (24j)</div>
+                        <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Total Upload (24j)</div>
                         <div className="text-2xl font-bold text-blue-400 font-mono">{formatBytes(summary?.tx_bytes_24h)}</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4">
-                        <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Total Download (24j)</div>
+                        <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Total Download (24j)</div>
                         <div className="text-2xl font-bold text-emerald-400 font-mono">{formatBytes(summary?.rx_bytes_24h)}</div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardContent className="p-4">
-                        <div className="text-xs uppercase text-slate-500 tracking-wide mb-1">Sampel Polling</div>
-                        <div className="text-2xl font-bold text-white">{summary?.samples_24h ?? '—'}</div>
+                        <div className="text-xs uppercase text-fg-muted tracking-wide mb-1">Sampel Polling</div>
+                        <div className="text-2xl font-bold text-fg">{summary?.samples_24h ?? '—'}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -260,18 +260,18 @@ function BandwidthTab({ routerId }) {
                     </CardTitle>
                     <div className="flex flex-wrap items-center gap-2">
                         <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                             <input
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 placeholder="Cari client…"
-                                className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary w-40"
+                                className="bg-slate-900 border border-slate-700 text-fg text-xs rounded-lg pl-9 pr-3 py-1.5 focus:ring-1 focus:ring-primary w-40"
                             />
                         </div>
                         <select
                             value={type}
                             onChange={e => setType(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-white text-xs rounded-lg px-2 py-1.5"
+                            className="bg-slate-900 border border-slate-700 text-fg text-xs rounded-lg px-2 py-1.5"
                         >
                             {TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                         </select>
@@ -282,7 +282,7 @@ function BandwidthTab({ routerId }) {
                                     onClick={() => setPeriod(p.value)}
                                     className={clsx(
                                         'px-2.5 py-1 text-xs rounded transition-colors',
-                                        period === p.value ? 'bg-primary text-[var(--on-primary)]' : 'text-slate-400 hover:text-white'
+                                        period === p.value ? 'bg-primary text-[var(--on-primary)]' : 'text-fg-muted hover:text-fg'
                                     )}
                                 >
                                     {p.label}
@@ -311,19 +311,19 @@ function BandwidthTab({ routerId }) {
                 </CardHeader>
                 <CardContent className="p-0">
                     {isLoading ? (
-                        <div className="p-8 text-center text-slate-400">
+                        <div className="p-8 text-center text-fg-muted">
                             <RefreshCw className="w-6 h-6 mx-auto animate-spin mb-2" />
                             Memuat data…
                         </div>
                     ) : filtered.length === 0 ? (
-                        <div className="p-8 text-center text-slate-400 text-sm">
+                        <div className="p-8 text-center text-fg-muted text-sm">
                             Belum ada data bandwidth untuk periode ini.<br />
-                            <span className="text-xs text-slate-500">Pengumpulan data dimulai sejak deployment terakhir — beri waktu beberapa menit setelah polling pertama.</span>
+                            <span className="text-xs text-fg-muted">Pengumpulan data dimulai sejak deployment terakhir — beri waktu beberapa menit setelah polling pertama.</span>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm">
-                                <thead className="bg-slate-900/50 text-xs text-slate-500 uppercase">
+                                <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
                                     <tr>
                                         <th className="text-left px-4 py-2 w-10">#</th>
                                         <th className="text-left px-4 py-2">Client</th>
@@ -344,14 +344,14 @@ function BandwidthTab({ routerId }) {
                                                 onClick={() => setSelected({ identifier: r.identifier, identifierType: r.identifier_type })}
                                                 className="hover:bg-slate-800/30 cursor-pointer"
                                             >
-                                                <td className="px-4 py-2 text-slate-500">{idx + 1}</td>
-                                                <td className="px-4 py-2 font-mono text-white">{r.identifier}</td>
-                                                <td className="px-4 py-2 text-slate-400 text-xs uppercase hidden sm:table-cell">
+                                                <td className="px-4 py-2 text-fg-muted">{idx + 1}</td>
+                                                <td className="px-4 py-2 font-mono text-fg">{r.identifier}</td>
+                                                <td className="px-4 py-2 text-fg-muted text-xs uppercase hidden sm:table-cell">
                                                     {r.identifier_type === 'pppoe_user' ? 'PPPoE' : 'Queue'}
                                                 </td>
                                                 <td className="px-4 py-2 text-right text-blue-400 font-mono">{formatBytes(r.tx_bytes)}</td>
                                                 <td className="px-4 py-2 text-right text-emerald-400 font-mono">{formatBytes(r.rx_bytes)}</td>
-                                                <td className="px-4 py-2 text-right text-white font-mono font-semibold">{formatBytes(total)}</td>
+                                                <td className="px-4 py-2 text-right text-fg font-mono font-semibold">{formatBytes(total)}</td>
                                                 <td className="px-4 py-2 hidden md:table-cell">
                                                     <div className="h-1.5 bg-slate-800 rounded overflow-hidden">
                                                         <div

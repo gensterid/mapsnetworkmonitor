@@ -60,12 +60,12 @@ function NeighborsTab({ routerId }) {
                         onClick={() => setSubTab('mndp')}
                         className={clsx(
                             "text-lg font-semibold flex items-center gap-2 transition-colors",
-                            subTab === 'mndp' ? "text-white" : "text-slate-500 hover:text-slate-300"
+                            subTab === 'mndp' ? "text-fg" : "text-fg-muted hover:text-fg"
                         )}
                     >
                         <Network className="w-5 h-5 text-primary" />
                         MNDP
-                        <span className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-slate-800 text-fg-muted px-1.5 py-0.5 rounded-full">
                             {neighbors.length}
                         </span>
                     </button>
@@ -74,25 +74,25 @@ function NeighborsTab({ routerId }) {
                         onClick={() => setSubTab('romon')}
                         className={clsx(
                             "text-lg font-semibold flex items-center gap-2 transition-colors",
-                            subTab === 'romon' ? "text-white" : "text-slate-500 hover:text-slate-300"
+                            subTab === 'romon' ? "text-fg" : "text-fg-muted hover:text-fg"
                         )}
                     >
                         <ShieldCheck className="w-5 h-5 text-primary" />
                         RoMON
-                        <span className="text-xs bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-full">
+                        <span className="text-xs bg-slate-800 text-fg-muted px-1.5 py-0.5 rounded-full">
                             {romonNeighbors.length}
                         </span>
                     </button>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                     <div className="relative flex-1 sm:flex-none sm:w-64">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                         <input
                             type="text"
                             placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white text-sm focus:outline-none focus:border-primary"
+                            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
                     <Button onClick={handleRefetch} variant="outline" size="sm" disabled={isRefetching}>
@@ -107,32 +107,32 @@ function NeighborsTab({ routerId }) {
                         <table className="w-full text-sm min-w-[700px]">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-slate-800">
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Identity</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">IP Address</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">MAC Address</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Model / Version</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Interface</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Uptime</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Identity</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">IP Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">MAC Address</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Model / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Interface</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Uptime</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {filteredMndp.length > 0 ? filteredMndp.map((n, i) => (
                                     <tr key={i} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="py-3 px-4">
-                                            <div className="text-white font-medium">{n.identity || 'Unknown'}</div>
+                                            <div className="text-fg font-medium">{n.identity || 'Unknown'}</div>
                                         </td>
-                                        <td className="py-3 px-4 font-mono text-slate-300">{n.address || '-'}</td>
-                                        <td className="py-3 px-4 font-mono text-slate-300">{n.macAddress || '-'}</td>
+                                        <td className="py-3 px-4 font-mono text-fg">{n.address || '-'}</td>
+                                        <td className="py-3 px-4 font-mono text-fg">{n.macAddress || '-'}</td>
                                         <td className="py-3 px-4">
-                                            <div className="text-slate-300">{n.model || '-'}</div>
-                                            <div className="text-[10px] text-slate-500">{n.version || '-'}</div>
+                                            <div className="text-fg">{n.model || '-'}</div>
+                                            <div className="text-[10px] text-fg-muted">{n.version || '-'}</div>
                                         </td>
-                                        <td className="py-3 px-4 text-slate-400">{n.interface || '-'}</td>
-                                        <td className="py-3 px-4 text-slate-400">{n.uptime || '-'}</td>
+                                        <td className="py-3 px-4 text-fg-muted">{n.interface || '-'}</td>
+                                        <td className="py-3 px-4 text-fg-muted">{n.uptime || '-'}</td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={6} className="py-12 text-center text-slate-500">
+                                        <td colSpan={6} className="py-12 text-center text-fg-muted">
                                             No MNDP neighbors discovered
                                         </td>
                                     </tr>
@@ -143,26 +143,26 @@ function NeighborsTab({ routerId }) {
                         <table className="w-full text-sm min-w-[700px]">
                             <thead className="sticky top-0 z-10">
                                 <tr className="border-b border-slate-800">
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Identity / RoMON ID</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Path</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Board / Version</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">MTU</th>
-                                    <th className="text-left py-3 px-4 text-xs font-medium text-slate-400 uppercase bg-slate-900/98 backdrop-blur-sm">Action</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Identity / RoMON ID</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Path</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Board / Version</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">MTU</th>
+                                    <th className="text-left py-3 px-4 text-xs font-medium text-fg-muted uppercase bg-slate-900/98 backdrop-blur-sm">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {filteredRomon.length > 0 ? filteredRomon.map((n, i) => (
                                     <tr key={i} className="hover:bg-slate-800/30 transition-colors">
                                         <td className="py-3 px-4">
-                                            <div className="text-white font-medium">{n.identity || 'Unknown'}</div>
-                                            <div className="text-[10px] text-slate-500 font-mono">{n.romonId || '-'}</div>
+                                            <div className="text-fg font-medium">{n.identity || 'Unknown'}</div>
+                                            <div className="text-[10px] text-fg-muted font-mono">{n.romonId || '-'}</div>
                                         </td>
-                                        <td className="py-3 px-4 text-slate-300 font-mono text-xs">{n.path || '-'}</td>
+                                        <td className="py-3 px-4 text-fg font-mono text-xs">{n.path || '-'}</td>
                                         <td className="py-3 px-4">
-                                            <div className="text-slate-300">{n.board || '-'}</div>
-                                            <div className="text-[10px] text-slate-500">{n.version || '-'}</div>
+                                            <div className="text-fg">{n.board || '-'}</div>
+                                            <div className="text-[10px] text-fg-muted">{n.version || '-'}</div>
                                         </td>
-                                        <td className="py-3 px-4 text-slate-400">{n.mtu || '-'}</td>
+                                        <td className="py-3 px-4 text-fg-muted">{n.mtu || '-'}</td>
                                         <td className="py-3 px-4">
                                             <Button
                                                 size="sm"
@@ -179,7 +179,7 @@ function NeighborsTab({ routerId }) {
                                     <tr>
                                         <td colSpan={5} className="py-12 text-center">
                                             <ShieldCheck className="w-12 h-12 text-slate-700 mx-auto mb-3 opacity-20" />
-                                            <p className="text-slate-500">No RoMON neighbors discovered</p>
+                                            <p className="text-fg-muted">No RoMON neighbors discovered</p>
                                         </td>
                                     </tr>
                                 )}

@@ -47,7 +47,7 @@ const CustomTooltip = ({ active, payload, label }) => {
         
         return (
             <div className="bg-slate-900/95 border border-slate-800 p-2.5 rounded-lg shadow-2xl text-[10px] min-w-[140px] backdrop-blur-md">
-                <p className="text-slate-400 font-bold mb-2 pb-1 border-b border-slate-800/50">
+                <p className="text-fg-muted font-bold mb-2 pb-1 border-b border-slate-800/50">
                     {formatShortDateTime(label)}
                 </p>
                 <div className="space-y-1.5">
@@ -55,9 +55,9 @@ const CustomTooltip = ({ active, payload, label }) => {
                         <div key={index} className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: entry.color }} />
-                                <span className="text-slate-500 font-medium">{entry.name}:</span>
+                                <span className="text-fg-muted font-medium">{entry.name}:</span>
                             </div>
-                            <span className="text-white font-mono font-bold">
+                            <span className="text-fg font-mono font-bold">
                                 {entry.value !== null ? `${entry.value}${entry.unit || ''}` : '---'}
                             </span>
                         </div>
@@ -79,7 +79,7 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const CATEGORIES = [
-    { id: 'all', label: 'Semua', icon: History, color: 'text-slate-400' },
+    { id: 'all', label: 'Semua', icon: History, color: 'text-fg-muted' },
     { id: 'issues', label: 'Issues', icon: AlertTriangle, color: 'text-red-500' },
     { id: 'connectivity', label: 'Konektivitas', icon: Zap, color: 'text-amber-500' },
     { id: 'signal', label: 'Signal & Latency', icon: Wifi, color: 'text-blue-500' },
@@ -195,7 +195,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                 "px-6 py-1.5 rounded-lg text-[11px] font-black uppercase transition-all duration-300",
                                 timeframe === t 
                                     ? "bg-primary text-[var(--on-primary)] shadow-[0_0_15px_rgba(59,130,246,0.5)]"
-                                    : "text-slate-600 hover:text-slate-300"
+                                    : "text-slate-600 hover:text-fg"
                             )}
                         >
                             {t}
@@ -212,8 +212,8 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                             <AlertTriangle className="w-6 h-6" />
                         </div>
                         <div className="mt-1">
-                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Total Insiden</p>
-                            <p className="text-2xl font-black text-white tracking-tight">{totalAlerts}</p>
+                            <p className="text-fg-muted text-[10px] uppercase tracking-[0.2em] font-black pb-1">Total Insiden</p>
+                            <p className="text-2xl font-black text-fg tracking-tight">{totalAlerts}</p>
                         </div>
                     </CardContent>
                 </Card>
@@ -224,8 +224,8 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                             <Activity className="w-6 h-6" />
                         </div>
                         <div className="mt-1">
-                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Uptime Rate</p>
-                            <p className="text-2xl font-black text-white tracking-tight">
+                            <p className="text-fg-muted text-[10px] uppercase tracking-[0.2em] font-black pb-1">Uptime Rate</p>
+                            <p className="text-2xl font-black text-fg tracking-tight">
                                 {uptimeData?.[0] ? `${uptimeData[0].uptimePercentage}%` : '---'}
                             </p>
                         </div>
@@ -238,8 +238,8 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                             <Wifi className="w-6 h-6" />
                         </div>
                         <div className="mt-1">
-                            <p className="text-slate-500 text-[10px] uppercase tracking-[0.2em] font-black pb-1">Latency Avg</p>
-                            <p className="text-2xl font-black text-white tracking-tight">
+                            <p className="text-fg-muted text-[10px] uppercase tracking-[0.2em] font-black pb-1">Latency Avg</p>
+                            <p className="text-2xl font-black text-fg tracking-tight">
                                 {(() => {
                                     const validPoints = perfTrends?.filter(p => p.latency !== null) || [];
                                     if (validPoints.length === 0) return '--- ms';
@@ -258,7 +258,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                     <CardHeader className="p-5 border-b border-slate-900 flex flex-row items-center justify-between">
                         <div className="flex items-center gap-3">
                             <TrendingUp className="w-4 h-4 text-primary" />
-                            <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-[0.1em]">
+                            <CardTitle className="text-xs font-black text-fg-muted uppercase tracking-[0.1em]">
                                 ONU Performance History ({timeframe})
                             </CardTitle>
                         </div>
@@ -266,11 +266,11 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                         <div className="flex items-center gap-1.5 border-l border-slate-800 pl-6">
                             <div className="flex items-center gap-2">
                                 <div className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Latency</span>
+                                <span className="text-[10px] font-black text-fg-muted uppercase tracking-wider">Latency</span>
                             </div>
                             <div className="flex items-center gap-2 ml-4">
                                 <div className="w-2.5 h-2.5 rounded-full bg-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.5)]" />
-                                <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Rx Power</span>
+                                <span className="text-[10px] font-black text-fg-muted uppercase tracking-wider">Rx Power</span>
                             </div>
                         </div>
                     </CardHeader>
@@ -374,7 +374,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
             {(category === 'all' || category === 'issues') && (
                 <Card className="bg-slate-950 border-slate-800 overflow-hidden">
                     <CardHeader className="p-4 border-b border-slate-800">
-                        <CardTitle className="text-xs font-bold text-slate-400 flex items-center gap-2 uppercase tracking-tight">
+                        <CardTitle className="text-xs font-bold text-fg-muted flex items-center gap-2 uppercase tracking-tight">
                             <TrendingUp className="w-3.5 h-3.5 text-primary" />
                             Grafik Efektivitas Respon & Kejadian (14 Hari)
                         </CardTitle>
@@ -440,10 +440,10 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                         "flex items-center gap-2 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all whitespace-nowrap",
                                         category === cat.id
                                             ? "bg-primary text-[var(--on-primary)] shadow-lg shadow-primary/20"
-                                            : "bg-slate-800/50 text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+                                            : "bg-slate-800/50 text-fg-muted hover:bg-slate-800 hover:text-slate-200"
                                     )}
                                 >
-                                    <Icon className={clsx("w-3.5 h-3.5", category === cat.id ? "text-white" : cat.color)} />
+                                    <Icon className={clsx("w-3.5 h-3.5", category === cat.id ? "text-fg" : cat.color)} />
                                     {cat.label}
                                 </button>
                             );
@@ -456,7 +456,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                             onClick={handleRefresh}
                             className="h-8 w-8 p-0 hover:bg-slate-800"
                         >
-                            <RefreshCw className={clsx("w-4 h-4 text-slate-500", alertsLoading && "animate-spin")} />
+                            <RefreshCw className={clsx("w-4 h-4 text-fg-muted", alertsLoading && "animate-spin")} />
                         </Button>
                     </div>
                 </CardHeader>
@@ -467,7 +467,7 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                 <div className="p-3 rounded-full bg-slate-800 animate-pulse">
                                     <RefreshCw className="w-6 h-6 animate-spin text-primary/40" />
                                 </div>
-                                <p className="text-[11px] text-slate-500 font-medium">Sinkronisasi data riwayat...</p>
+                                <p className="text-[11px] text-fg-muted font-medium">Sinkronisasi data riwayat...</p>
                             </div>
                         ) : alerts.length > 0 ? (
                             <>
@@ -485,17 +485,17 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                                 <div className="flex items-start justify-between gap-4 mb-0.5">
                                                     <h4 className={clsx(
                                                         "text-[13px] font-bold truncate leading-tight",
-                                                        alert.resolved ? "text-slate-500" : "text-slate-100"
+                                                        alert.resolved ? "text-fg-muted" : "text-slate-100"
                                                     )}>
                                                         {alert.title}
                                                     </h4>
-                                                    <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap bg-slate-900 px-1.5 py-0.5 rounded">
+                                                    <span className="text-[10px] text-fg-muted font-mono whitespace-nowrap bg-slate-900 px-1.5 py-0.5 rounded">
                                                         {formatShortDateTime(alert.createdAt, timezone)}
                                                     </span>
                                                 </div>
                                                 <p className={clsx(
                                                     "text-[11px] leading-relaxed line-clamp-2 mb-2",
-                                                    alert.resolved ? "text-slate-600" : "text-slate-400"
+                                                    alert.resolved ? "text-slate-600" : "text-fg-muted"
                                                 )}>
                                                     {alert.message}
                                                 </p>
@@ -540,18 +540,18 @@ export default function HistoryTab({ routerId, deviceName, deviceHost, onuId }) 
                                 {/* Pagination */}
                                 <div className="p-3 border-t border-slate-800/50 flex items-center justify-between bg-slate-900/20">
                                     <button
-                                        className="px-3 py-1 text-[10px] font-bold bg-slate-800 text-slate-400 rounded hover:bg-slate-750 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-all flex items-center gap-1"
+                                        className="px-3 py-1 text-[10px] font-bold bg-slate-800 text-fg-muted rounded hover:bg-slate-750 hover:text-fg disabled:opacity-20 disabled:pointer-events-none transition-all flex items-center gap-1"
                                         onClick={() => setPage(p => Math.max(1, p - 1))}
                                         disabled={page === 1}
                                     >
                                         <span className="material-symbols-outlined text-[14px]">arrow_back</span>
                                         LAMA
                                     </button>
-                                    <div className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+                                    <div className="text-[10px] text-fg-muted font-bold tracking-widest uppercase">
                                         HLM <span className="text-primary">{page}</span> / {meta.totalPages || '?'}
                                     </div>
                                     <button
-                                        className="px-3 py-1 text-[10px] font-bold bg-slate-800 text-slate-400 rounded hover:bg-slate-750 hover:text-white disabled:opacity-20 disabled:pointer-events-none transition-all flex items-center gap-1"
+                                        className="px-3 py-1 text-[10px] font-bold bg-slate-800 text-fg-muted rounded hover:bg-slate-750 hover:text-fg disabled:opacity-20 disabled:pointer-events-none transition-all flex items-center gap-1"
                                         onClick={() => setPage(p => p + 1)}
                                         disabled={page >= (meta.totalPages || 1)}
                                     >

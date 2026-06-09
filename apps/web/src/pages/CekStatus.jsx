@@ -31,21 +31,21 @@ export default function CekStatus() {
     };
 
     return (
-        <div className="min-h-screen bg-[#020617] text-white">
+        <div className="min-h-screen bg-[#020617] text-fg">
             <div className="max-w-2xl mx-auto px-4 py-12">
                 <header className="text-center mb-10">
                     <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/20 border border-primary/30 mb-4">
                         <Wifi className="w-7 h-7 text-primary" />
                     </div>
                     <h1 className="text-2xl sm:text-3xl font-bold mb-2">Cek Status Layanan</h1>
-                    <p className="text-slate-400 text-sm">Masukkan username PPPoE / kode pelanggan dan 4 digit terakhir nomor HP Anda.</p>
+                    <p className="text-fg-muted text-sm">Masukkan username PPPoE / kode pelanggan dan 4 digit terakhir nomor HP Anda.</p>
                 </header>
 
                 <form onSubmit={submit} className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 sm:p-6 space-y-4">
                     <label className="block">
-                        <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Username PPPoE / Kode Pelanggan</span>
+                        <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">Username PPPoE / Kode Pelanggan</span>
                         <input value={identity} onChange={(e) => setIdentity(e.target.value)} required
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-primary"
+                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary"
                                placeholder="contoh: budi-home atau CUST-0042"
                                autoComplete="username"
                                autoCapitalize="none"
@@ -54,15 +54,15 @@ export default function CekStatus() {
                                autoFocus />
                     </label>
                     <label className="block">
-                        <span className="block text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">4 Digit Terakhir HP</span>
+                        <span className="block text-xs font-semibold text-fg-muted uppercase tracking-wide mb-1">4 Digit Terakhir HP</span>
                         <input value={last4} onChange={(e) => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} required minLength={4} maxLength={4}
-                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:ring-1 focus:ring-primary font-mono tracking-widest"
+                               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-fg focus:ring-1 focus:ring-primary font-mono tracking-widest"
                                placeholder="1234"
                                inputMode="numeric"
                                autoComplete="off"
                                pattern="[0-9]*" />
                     </label>
-                    <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-white py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2">
+                    <button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/90 disabled:opacity-60 text-fg py-2.5 rounded-lg font-semibold flex items-center justify-center gap-2">
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                         Cek Status
                     </button>
@@ -84,8 +84,8 @@ export default function CekStatus() {
                             <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                             <div>
                                 <div className="font-semibold text-emerald-300">Data ditemukan</div>
-                                <div className="text-sm text-slate-300">Pelanggan: <span className="font-semibold text-white">{data.customer.name}</span> ({data.customer.code})</div>
-                                {data.customer.phone && <div className="text-xs text-slate-400">HP: {data.customer.phone}</div>}
+                                <div className="text-sm text-fg">Pelanggan: <span className="font-semibold text-fg">{data.customer.name}</span> ({data.customer.code})</div>
+                                {data.customer.phone && <div className="text-xs text-fg-muted">HP: {data.customer.phone}</div>}
                             </div>
                         </div>
 
@@ -93,20 +93,20 @@ export default function CekStatus() {
                             <div key={i} className="bg-slate-900/60 border border-slate-800 rounded-lg p-4">
                                 <div className="flex items-center justify-between mb-2">
                                     <div>
-                                        <div className="text-xs text-slate-500 uppercase tracking-wide">{s.type}</div>
+                                        <div className="text-xs text-fg-muted uppercase tracking-wide">{s.type}</div>
                                         <div className="font-mono text-blue-400">{s.identity}</div>
                                     </div>
                                     <span className={`text-xs px-2.5 py-1 rounded uppercase font-semibold ${
                                         s.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
                                         s.status === 'isolir' ? 'bg-red-500/20 text-red-400' :
                                         s.status === 'expired' ? 'bg-amber-500/20 text-amber-400' :
-                                        'bg-slate-500/20 text-slate-400'
+                                        'bg-slate-500/20 text-fg-muted'
                                     }`}>{s.status}</span>
                                 </div>
-                                {s.packageName && <div className="text-sm text-slate-300">Paket: <span className="text-white font-semibold">{s.packageName}</span></div>}
+                                {s.packageName && <div className="text-sm text-fg">Paket: <span className="text-fg font-semibold">{s.packageName}</span></div>}
                                 {s.statusReason && <div className="text-xs text-amber-400 mt-1">Catatan: {s.statusReason}</div>}
-                                {s.expiresAt && <div className="text-xs text-slate-400 mt-1">Berakhir: {new Date(s.expiresAt).toLocaleString('id-ID')}</div>}
-                                {s.nextDueAt && <div className="text-xs text-slate-400 mt-1">Tagihan berikut: {new Date(s.nextDueAt).toLocaleDateString('id-ID')}</div>}
+                                {s.expiresAt && <div className="text-xs text-fg-muted mt-1">Berakhir: {new Date(s.expiresAt).toLocaleString('id-ID')}</div>}
+                                {s.nextDueAt && <div className="text-xs text-fg-muted mt-1">Tagihan berikut: {new Date(s.nextDueAt).toLocaleDateString('id-ID')}</div>}
                             </div>
                         ))}
 

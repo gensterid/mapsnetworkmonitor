@@ -59,7 +59,7 @@ const TenantSwitcher = () => {
 
     return (
         <div className="px-3 py-2" ref={dropdownRef}>
-            <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-1.5 px-1">
+            <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest mb-1.5 px-1">
                 Active Environment {isSuperAdmin ? '(Super Admin)' : ''}
             </div>
             <div className="relative">
@@ -74,11 +74,11 @@ const TenantSwitcher = () => {
                         <div className="p-1.5 bg-primary/20 text-primary rounded-md shrink-0">
                             {activeTenantId === currentUser?.tenantId ? <Globe className="w-4 h-4" /> : <Building className="w-4 h-4" />}
                         </div>
-                        <span className="text-sm font-bold text-white truncate">
+                        <span className="text-sm font-bold text-fg truncate">
                             {activeName}
                         </span>
                     </div>
-                    <ChevronDown className={clsx("w-4 h-4 text-slate-400 transition-transform", isOpen && "rotate-180")} />
+                    <ChevronDown className={clsx("w-4 h-4 text-fg-muted transition-transform", isOpen && "rotate-180")} />
                 </button>
 
                 {isOpen && (
@@ -91,7 +91,7 @@ const TenantSwitcher = () => {
                                     "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors",
                                     (!localStorage.getItem('active-tenant-id') || localStorage.getItem('active-tenant-id') === currentUser?.tenantId)
                                         ? "bg-primary/10 text-primary font-bold"
-                                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                                        : "text-fg hover:bg-slate-800 hover:text-fg"
                                 )}
                             >
                                 <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ const TenantSwitcher = () => {
                                         "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors mb-0.5",
                                         activeTenantId === tenant.id
                                             ? "bg-primary/10 text-primary font-bold"
-                                            : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                                            : "text-fg hover:bg-slate-800 hover:text-fg"
                                     )}
                                 >
                                     <div className="flex items-center gap-2 truncate">
@@ -129,7 +129,7 @@ const TenantSwitcher = () => {
                                 </button>
                             ))}
                             {tenants.length === 0 && !isLoading && (
-                                <div className="text-xs text-slate-500 text-center py-2">
+                                <div className="text-xs text-fg-muted text-center py-2">
                                     No other ISPs found.
                                 </div>
                             )}

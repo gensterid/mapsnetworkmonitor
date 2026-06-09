@@ -43,7 +43,7 @@ export default function SignUp() {
             <div className="w-full max-w-md bg-surface-dark border border-white/5 rounded-xl shadow-xl overflow-hidden backdrop-blur-sm">
                 <div className="p-5 sm:p-8">
                     <div className="text-center mb-8">
-                        <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
+                        <h1 className="text-2xl font-bold text-fg mb-2">Create Account</h1>
                         <p className="text-gray-400">Get started with NetMonitor</p>
                     </div>
 
@@ -63,7 +63,7 @@ export default function SignUp() {
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-fg placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="John Doe"
                                     autoComplete="name"
                                     required
@@ -79,7 +79,7 @@ export default function SignUp() {
                                     type="text"
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-fg placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="johndoe"
                                     autoComplete="username"
                                     autoCapitalize="none"
@@ -98,7 +98,7 @@ export default function SignUp() {
                                     type="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-fg placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="admin@example.com"
                                     autoComplete="email"
                                     autoCapitalize="none"
@@ -118,7 +118,7 @@ export default function SignUp() {
                                     type={showPassword ? 'text' : 'password'}
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-12 py-2.5 text-white placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
+                                    className="w-full bg-background-dark/50 border border-white/10 rounded-lg pl-10 pr-12 py-2.5 text-fg placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 transition-colors"
                                     placeholder="••••••••"
                                     autoComplete="new-password"
                                     required
@@ -136,7 +136,7 @@ export default function SignUp() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full bg-primary-600 hover:bg-primary-500 text-white font-medium py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-background-dark disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-primary-600 hover:bg-primary-500 text-fg font-medium py-2.5 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:ring-offset-background-dark disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {loading ? 'Create Account' : 'Sign Up'}
                         </button>
