@@ -13,23 +13,17 @@ export const Button = React.forwardRef(({
     asChild, // Destructure to prevent passing to DOM
     ...props
 }, ref) => {
-    // Variants ikut tema:
-    //   primary: bg-primary + text-on-primary (Daylight/Nordic punya
-    //     warna teks kontras yang beda dari putih). Shadow + border
-    //     dari --primary jadi konsisten dengan accent tema.
-    //   destructive: bg-danger / text-danger (per-tema, mis. Mission
-    //     pakai #ef4444, Daylight pakai #dc2626 yang lebih gelap).
-    //   secondary/ghost/outline: glass overlays — translucent white/black
-    //     yang tetap subtle di semua tema. Tidak diubah.
-    // text-white di secondary masih dipertahankan: glass overlays cocok
-    // dengan teks terang di tema gelap; ditangani lebih dalam saat
-    // sistem foreground token per-tema tersedia.
+    // Variants ikut tema. Foreground token (text-fg, text-fg-muted) bikin
+    // teks tetap kontras baik di tema gelap maupun terang (Daylight,
+    // Enterprise). Glass overlays bg-white/5 tetap dipakai untuk subtle
+    // background; di tema terang mereka jadi sangat tipis tapi border +
+    // teks fg tetap memberi struktur tombol.
     const variants = {
         primary: 'bg-primary text-on-primary shadow-lg shadow-primary/20 hover:bg-primary-dark hover:scale-[1.02] border-primary',
-        secondary: 'bg-white/5 hover:bg-white/10 text-white border border-white/10 glass-premium-light',
+        secondary: 'bg-white/5 hover:bg-white/10 text-fg border border-white/10 glass-premium-light',
         destructive: 'bg-danger/10 text-danger hover:bg-danger/20 border border-danger/30',
-        ghost: 'hover:bg-white/5 text-slate-400 hover:text-white',
-        outline: 'border border-white/10 bg-transparent hover:bg-white/5 text-slate-300 hover:text-white glass-premium-light'
+        ghost: 'hover:bg-white/5 text-fg-muted hover:text-fg',
+        outline: 'border border-white/10 bg-transparent hover:bg-white/5 text-fg hover:text-fg glass-premium-light'
     };
 
     const sizes = {

@@ -1,23 +1,21 @@
 import React from 'react';
 import clsx from 'clsx';
 
-// Variants ikut tema via @theme tokens:
-//   --primary, --success, --warning, --danger semua per-tema (mis. Mission
-//   pakai success #22c55e, Daylight pakai #16a34a yang lebih gelap untuk
-//   kontras di bg putih). Tanpa swap ini, success badge tetap emerald-500
-//   di semua tema — terlihat lepas dari palette tema.
-// `info` di-leave (#blue hardcode) karena --info belum di-define di tema.
-// Text light/dark di Daylight masih kurang kontras untuk default/secondary —
-// di luar scope Fase 2 (token foreground per-tema belum ada).
+// Variants ikut tema via @theme tokens. Default/secondary/ghost pakai
+// text-fg / text-fg-muted supaya kontras betul di tema gelap dan
+// tema terang (Daylight/Enterprise). Accent variants (primary/success/
+// warning/danger) tetap pakai accent color karena bg-nya tinted +
+// accent color sudah per-tema. `info` ditinggal blue hardcode — token
+// --info belum ada di tema.
 const variants = {
-  default: "bg-slate-surface text-slate-300 border-slate-border",
+  default: "bg-slate-surface text-fg border-slate-border",
   primary: "bg-primary/10 text-primary border-primary/20",
-  secondary: "bg-slate-surface/50 text-slate-300 border-slate-border/50",
+  secondary: "bg-slate-surface/50 text-fg border-slate-border/50",
   success: "bg-success/10 text-success border-success/20",
   warning: "bg-warning/10 text-warning border-warning/20",
   danger: "bg-danger/10 text-danger border-danger/20",
   info: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  ghost: "bg-transparent text-slate-400 border-transparent",
+  ghost: "bg-transparent text-fg-muted border-transparent",
 };
 
 const sizes = {

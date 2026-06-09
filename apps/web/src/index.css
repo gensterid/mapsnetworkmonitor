@@ -65,6 +65,13 @@
        in themes where --primary is white (text-white would disappear). */
     --on-primary: #ffffff;
 
+    /* Foreground tokens. --text-base = body text yang harus terbaca di atas
+       --slate-surface / --surface-dark / --background-dark. --text-muted = label,
+       subtitle, hint, placeholder. Tema terang (Daylight, Enterprise) override
+       supaya teks gelap di atas latar terang. */
+    --text-base: #f1f5f9;   /* slate-100 — terbaca di atas latar gelap */
+    --text-muted: #94a3b8;  /* slate-400 — muted di atas latar gelap */
+
     /* Device Colors Base */
     --color-orange: #F97316;
     --color-purple: #A855F7;
@@ -214,6 +221,10 @@
     /* Light theme: lighter OFF track so it isn't a dark blob on white card */
     --toggle-thumb: #ffffff;
     --toggle-off-bg: #94a3b8;
+
+    /* Light theme: teks gelap supaya terbaca di atas surface putih. */
+    --text-base: #0f172a;   /* slate-900 */
+    --text-muted: #64748b;  /* slate-500 */
 }
 
 /* Theme: Aurora */
@@ -266,6 +277,10 @@
     --on-primary: #ffffff;
     --toggle-thumb: #ffffff;
     --toggle-off-bg: #94a3b8;
+
+    /* Light theme: teks gelap supaya terbaca di atas surface putih. */
+    --text-base: #0f172a;   /* slate-900 */
+    --text-muted: #64748b;  /* slate-500 */
 }
 
 /* Theme: Nordic Calm */
@@ -298,6 +313,12 @@
     --color-warning: var(--warning);
     --color-slate-surface: var(--slate-surface);
     --color-slate-border: var(--slate-border);
+
+    /* Foreground tokens. Mapped ke prefix "fg" supaya utility-nya `text-fg` /
+       `text-fg-muted` — tidak collision dengan Tailwind font-size `text-base`.
+       Override --text-base/--text-muted per-tema di blok .theme-* terang. */
+    --color-fg: var(--text-base);
+    --color-fg-muted: var(--text-muted);
 
     /* Keep generic device colors static for now, or variables if needed */
     --color-orange: var(--color-orange);

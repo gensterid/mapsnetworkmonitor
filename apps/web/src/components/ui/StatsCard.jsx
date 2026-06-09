@@ -29,9 +29,9 @@ export function StatsCard({ icon: Icon, label, value, color = "blue", subValue, 
                         <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">{label}</p>
-                        <p className="text-xl font-bold text-white truncate leading-tight">{value}</p>
-                        {subValue && <p className="text-[10px] text-slate-500 mt-0.5 line-clamp-1">{subValue}</p>}
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-fg-muted mb-0.5">{label}</p>
+                        <p className="text-xl font-bold text-fg truncate leading-tight">{value}</p>
+                        {subValue && <p className="text-[10px] text-fg-muted mt-0.5 line-clamp-1">{subValue}</p>}
                     </div>
                 </div>
             </CardContent>

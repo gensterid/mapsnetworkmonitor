@@ -2,15 +2,13 @@ import React from 'react';
 import clsx from 'clsx';
 
 export const Card = ({ className, children, ...props }) => {
-    // Warna surface + border ikut tema via CSS vars yang sudah dipetakan di
-    // @theme block (--color-slate-surface, --color-slate-border). text-slate-100
-    // dipertahankan untuk sekarang — tema terang (Daylight) bakal kurang kontras
-    // di sini sampai sistem ada token foreground per-tema. Itu di luar scope
-    // Fase 2 (sesuai daftar variabel yang boleh dipakai).
+    // Surface + border + foreground ikut tema via CSS vars yang sudah
+    // dipetakan di @theme block. text-fg = slate-100 di tema gelap,
+    // slate-900 di tema terang (Daylight, Enterprise).
     return (
         <div
             className={clsx(
-                "rounded-xl border border-slate-border bg-slate-surface/40 text-slate-100 shadow-sm backdrop-blur-sm",
+                "rounded-xl border border-slate-border bg-slate-surface/40 text-fg shadow-sm backdrop-blur-sm",
                 className
             )}
             {...props}
@@ -39,7 +37,7 @@ export const CardContent = ({ className, children, ...props }) => (
 );
 
 export const CardDescription = ({ className, children, ...props }) => (
-    <p className={clsx("text-sm text-slate-400", className)} {...props}>
+    <p className={clsx("text-sm text-fg-muted", className)} {...props}>
         {children}
     </p>
 );
