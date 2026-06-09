@@ -423,10 +423,13 @@ export async function installMikhmonScripts(
     // these, vouchers won't auto-expire.
     await ensureExpireMonitorTrio(api);
 
-    // Legacy sweeper from old per-voucher scheduler era. Kept for
-    // backward compat — cleans orphan scheduler entries that earlier
-    // template versions left behind.
-    await ensureMasterScheduler(api);
+    // Security cleanup: hapus DANGEROUS sweeper yang kita install di era
+    // arsitektur lama. Body sweeper itu iterate ALL /system scheduler dan
+    // bisa hapus scheduler operator (backup harian, SNMP poll, dll).
+    // Lihat removeDangerousLegacySweeper() untuk detail. Operasi ini
+    // pakai exact-name match + signature verification — TIDAK menyentuh
+    // scheduler lain yang dipakai operator.
+    await removeDangerousLegacySweeper(api);
     logger.info({ profileId, profileName, validity, expiredMode: input.expiredMode }, '[MikHMON] scripts installed');
 }
 
@@ -449,17 +452,46 @@ export async function uninstallMikhmonScripts(api: any, profileId: string): Prom
     }
 }
 
-async function ensureMasterScheduler(api: any): Promise<void> {
+/**
+ * SECURITY FIX: hapus scheduler "mikhmon-cleanup" yang DULU kita install
+ * di era arsitektur per-voucher scheduler. Body-nya iterate SELURUH
+ * /system scheduler dan hapus scheduler yang nama-nya tidak match dengan
+ * hotspot user — ini SECARA TIDAK SENGAJA bisa hapus scheduler operator
+ * (backup harian, SNMP polling, custom notification, dll) karena
+ * nama-nya pasti tidak match dengan voucher hotspot.
+ *
+ * Filter penghapusan SANGAT KETAT — pakai exact name match "mikhmon-cleanup"
+ * via router-side query, plus VERIFIKASI on-event body mengandung pola
+ * spesifik (`:foreach s in=[/system scheduler find]`) sebelum hapus.
+ * Kalau operator (atau MikHMON external) kebetulan pakai nama
+ * "mikhmon-cleanup" untuk scheduler lain dengan body berbeda, kita
+ * BIARKAN supaya tidak rusak data mereka.
+ *
+ * MikHMON v3 OS6/OS7 yang sekarang kita install (Expire-Monitor trio)
+ * TIDAK butuh sweeper ini karena tidak bikin per-voucher scheduler.
+ * Old per-voucher scheduler (kalau ada di router operator) akan
+ * self-remove saat fire di expiry time-nya — tidak perlu sweeper
+ * pihak ketiga.
+ */
+async function removeDangerousLegacySweeper(api: any): Promise<void> {
     const list = await safeWrite(api, ['/system/scheduler/print', `?name=${MASTER_SCHEDULER_NAME}`]);
-    if (list?.length > 0) return;
-    await safeWrite(api, [
-        '/system/scheduler/add',
-        `=name=${MASTER_SCHEDULER_NAME}`,
-        '=start-time=startup',
-        '=interval=1d',
-        `=on-event=:foreach s in=[/system scheduler find ] do={ :local n [/system scheduler get $s name]; :if ([:len [/ip hotspot user find name=$n]] = 0 && $n != "${MASTER_SCHEDULER_NAME}") do={ /system scheduler remove $s; }; };`,
-        `=comment=${MIKHMON_MARKER} master cleanup`,
-    ]);
+    if (!Array.isArray(list) || list.length === 0) return;
+
+    for (const sched of list) {
+        const onEvent = String(sched['on-event'] || '');
+        // Signature pasti dari dangerous sweeper kita yang lama.
+        // Operator yang manual bikin scheduler bernama mikhmon-cleanup
+        // dengan body BERBEDA akan kita biarkan.
+        const isOurDangerousOne =
+            onEvent.includes(':foreach s in=[/system scheduler find')
+            && onEvent.includes('/system scheduler remove $s');
+        if (!isOurDangerousOne) {
+            logger.warn({ id: sched['.id'], name: sched.name }, '[MikHMON] scheduler "mikhmon-cleanup" punya body tidak dikenal — DIBIARKAN untuk safety');
+            continue;
+        }
+        await safeWrite(api, ['/system/scheduler/remove', `=.id=${sched['.id']}`]);
+        logger.info({ id: sched['.id'] }, '[MikHMON] removed dangerous legacy mikhmon-cleanup sweeper');
+    }
 }
 
 // MikHMON v3 OS6/OS7 reference Expire-Monitor script. Runs every minute,
