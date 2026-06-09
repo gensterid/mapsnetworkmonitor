@@ -32,7 +32,7 @@ export default function RebootOnuModal({
                     </div>
                 </div>
 
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 space-y-3">
+                <div className="bg-surface-dark/50 p-4 rounded-xl border border-slate-800 space-y-3">
                     <div className="flex justify-between items-center text-xs">
                         <span className="text-fg-muted font-bold uppercase tracking-widest">ONU ID</span>
                         <span className="text-fg font-mono">{onu.ponId}-{onu.onuId}</span>

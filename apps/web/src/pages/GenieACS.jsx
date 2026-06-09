@@ -203,7 +203,7 @@ export default function GenieACS() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="px-3 pt-3 sm:px-6 sm:pt-6 border-b border-slate-800 bg-slate-900/20">
+            <div className="px-3 pt-3 sm:px-6 sm:pt-6 border-b border-slate-border bg-surface-dark/20">
                 {/* Title row + router select inline (compact mobile layout) */}
                 <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
                     <h1 className="text-base sm:text-2xl font-bold text-fg flex items-center gap-2 min-w-0">
@@ -215,7 +215,7 @@ export default function GenieACS() {
                             <select
                                 value={selectedRouterId}
                                 onChange={(e) => setSelectedRouterId(e.target.value)}
-                                className="bg-slate-900 border border-slate-700 text-fg text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto sm:max-w-none"
+                                className="bg-surface-dark border border-slate-border text-fg text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto sm:max-w-none"
                             >
                                 {isAdmin && <option value="">Global ACS View</option>}
                                 {acsEnabledRouters.map(router => (
@@ -241,7 +241,7 @@ export default function GenieACS() {
                                 placeholder="Search serial, IP..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
+                                className="bg-surface-dark border border-slate-border text-fg text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
                             />
                         </div>
                         <Button
@@ -257,7 +257,7 @@ export default function GenieACS() {
                         <Button onClick={() => setShowPresetManager(true)} variant="secondary" size="sm">
                             <Database className="w-4 h-4 sm:mr-2" /> <span className="hidden sm:inline">Presets</span>
                         </Button>
-                        <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1 ml-auto sm:ml-0">
+                        <div className="flex bg-surface-dark border border-slate-border rounded-lg p-1 ml-auto sm:ml-0">
                             <button
                                 onClick={() => setViewMode('grid')}
                                 className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-fg-muted hover:text-fg")}
@@ -280,7 +280,7 @@ export default function GenieACS() {
                         onClick={() => setPageTab('dashboard')}
                         className={clsx(
                             "px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider sm:tracking-widest transition-all border-b-2",
-                            pageTab === 'dashboard' ? "border-primary text-primary bg-primary/5" : "border-transparent text-fg-muted hover:text-slate-300 hover:bg-slate-800/30"
+                            pageTab === 'dashboard' ? "border-primary text-primary bg-primary/5" : "border-transparent text-fg-muted hover:text-slate-300 hover:bg-slate-surface/30"
                         )}
                     >
                         Network Overview
@@ -289,7 +289,7 @@ export default function GenieACS() {
                         onClick={() => setPageTab('devices')}
                         className={clsx(
                             "px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider sm:tracking-widest transition-all border-b-2",
-                            pageTab === 'devices' ? "border-primary text-primary bg-primary/5" : "border-transparent text-fg-muted hover:text-slate-300 hover:bg-slate-800/30"
+                            pageTab === 'devices' ? "border-primary text-primary bg-primary/5" : "border-transparent text-fg-muted hover:text-slate-300 hover:bg-slate-surface/30"
                         )}
                     >
                         Device Management
@@ -364,8 +364,8 @@ export default function GenieACS() {
                                 />
                             )
                         ) : (
-                            <div className="h-full flex flex-col items-center justify-center py-20 bg-slate-900/20 border-2 border-dashed border-slate-800 rounded-3xl animate-in fade-in duration-500">
-                                <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 shadow-2xl border border-slate-800">
+                            <div className="h-full flex flex-col items-center justify-center py-20 bg-surface-dark/20 border-2 border-dashed border-slate-border rounded-3xl animate-in fade-in duration-500">
+                                <div className="w-20 h-20 bg-surface-dark rounded-3xl flex items-center justify-center mb-6 shadow-2xl border border-slate-border">
                                     <Monitor className="w-10 h-10 text-slate-600" />
                                 </div>
                                 <h3 className="text-xl font-bold text-fg mb-2">No Devices Found</h3>

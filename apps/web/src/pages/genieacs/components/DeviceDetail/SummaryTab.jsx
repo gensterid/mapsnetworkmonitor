@@ -8,7 +8,7 @@ export default function SummaryTab({ fullDevice }) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-left-2 duration-300">
       <div className="space-y-4">
-        <Card className="bg-slate-900/40 border-slate-800/80 hover:border-primary/20 transition-colors overflow-hidden">
+        <Card className="bg-surface-dark/40 border-slate-border/80 hover:border-primary/20 transition-colors overflow-hidden">
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row md:items-center gap-6 min-w-0">
               <div className="flex items-center gap-4 md:w-[28%] shrink-0 min-w-0">
@@ -20,7 +20,7 @@ export default function SummaryTab({ fullDevice }) {
                   <div className="text-[12px] text-fg font-mono break-all leading-tight">{fullDevice?._id}</div>
                 </div>
               </div>
-              <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-800/50 md:pl-6 py-1 min-w-0">
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-border/50 md:pl-6 py-1 min-w-0">
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Manufacturer</span>
                   <span className="text-sm text-slate-200 font-medium truncate">{fullDevice?._manufacturer || 'N/A'}</span>
@@ -38,7 +38,7 @@ export default function SummaryTab({ fullDevice }) {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/40 border-slate-800/80 hover:border-emerald-500/20 transition-colors overflow-hidden">
+        <Card className="bg-surface-dark/40 border-slate-border/80 hover:border-emerald-500/20 transition-colors overflow-hidden">
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row md:items-center gap-6 min-w-0">
               <div className="flex items-center gap-4 md:w-[28%] shrink-0 min-w-0">
@@ -53,7 +53,7 @@ export default function SummaryTab({ fullDevice }) {
                   </div>
                 </div>
               </div>
-              <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-800/50 md:pl-6 py-1 min-w-0">
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-border/50 md:pl-6 py-1 min-w-0">
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">System Uptime</span>
                   <span className="text-sm text-fg font-bold truncate">{fullDevice?._uptime || 'N/A'}</span>
@@ -71,7 +71,7 @@ export default function SummaryTab({ fullDevice }) {
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/40 border-slate-800/80 hover:border-purple-500/20 transition-colors overflow-hidden">
+        <Card className="bg-surface-dark/40 border-slate-border/80 hover:border-purple-500/20 transition-colors overflow-hidden">
           <CardContent className="p-4">
             <div className="flex flex-col md:flex-row md:items-center gap-6 min-w-0">
               <div className="flex items-center gap-4 md:w-[28%] shrink-0 min-w-0">
@@ -83,7 +83,7 @@ export default function SummaryTab({ fullDevice }) {
                   <div className="text-[11px] text-fg font-mono truncate">{fullDevice?._ip || '0.0.0.0'}</div>
                 </div>
               </div>
-              <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-800/50 md:pl-6 py-1 min-w-0">
+              <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-border/50 md:pl-6 py-1 min-w-0">
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">PPPoE Credentials</span>
                   <span className="text-sm text-primary font-bold truncate">{fullDevice?._pppoeUser || 'N/A'}</span>
@@ -109,7 +109,7 @@ export default function SummaryTab({ fullDevice }) {
         </Card>
       </div>
 
-      <div className="bg-slate-900/30 rounded-xl border border-slate-800 p-6">
+      <div className="bg-surface-dark/30 rounded-xl border border-slate-border p-6">
         <h3 className="text-sm font-bold text-fg mb-4 flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
           TR-069 Session Logs
@@ -117,12 +117,12 @@ export default function SummaryTab({ fullDevice }) {
         <div className="space-y-4">
           <div className="flex items-center gap-4 text-xs text-fg-muted">
             <div className="w-24 font-mono">Last Inform</div>
-            <div className="flex-1 bg-slate-800/50 h-0.5" />
+            <div className="flex-1 bg-slate-surface/50 h-0.5" />
             <div className="text-fg font-medium">{fullDevice?._lastInform ? formatShortDateTime(fullDevice._lastInform) : 'N/A'}</div>
           </div>
           <div className="flex items-center gap-4 text-xs text-fg-muted">
             <div className="w-24 font-mono">Last Boot</div>
-            <div className="flex-1 bg-slate-800/50 h-0.5" />
+            <div className="flex-1 bg-slate-surface/50 h-0.5" />
             <div className="text-fg">Synchronized via GenieACS</div>
           </div>
         </div>

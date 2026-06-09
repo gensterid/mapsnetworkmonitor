@@ -10,11 +10,11 @@ export default function DeviceFilters({
   deviceCount
 }) {
   return (
-    <div className="px-3 sm:px-6 py-2 sm:py-3 bg-slate-900/40 border-b border-slate-800 flex flex-wrap items-center gap-2 sm:gap-4">
+    <div className="px-3 sm:px-6 py-2 sm:py-3 bg-surface-dark/40 border-b border-slate-border flex flex-wrap items-center gap-2 sm:gap-4">
 
       <div className="flex items-center gap-2">
         <span className="text-[10px] text-fg-muted font-bold uppercase tracking-wider">Status:</span>
-        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+        <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-border">
           {['all', 'online', 'offline'].map(s => (
             <button
               key={s}
@@ -35,7 +35,7 @@ export default function DeviceFilters({
         <select
           value={vendorFilter}
           onChange={(e) => setVendorFilter(e.target.value)}
-          className="bg-slate-950 border border-slate-800 text-[10px] text-slate-300 font-bold rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
+          className="bg-slate-950 border border-slate-border text-[10px] text-slate-300 font-bold rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-primary appearance-none cursor-pointer"
         >
           <option value="all">ALL VENDORS</option>
           {vendors.map(v => (

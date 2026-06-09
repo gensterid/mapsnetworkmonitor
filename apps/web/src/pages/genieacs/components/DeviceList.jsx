@@ -44,28 +44,28 @@ export default function DeviceList({
   );
 
   return (
-    <div className="h-full flex flex-col bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
+    <div className="h-full flex flex-col bg-surface-dark/40 border border-slate-border rounded-xl overflow-hidden">
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 z-10 text-fg-muted text-[10px] uppercase font-bold tracking-wider">
             <tr>
-              <th className="px-4 py-3 w-8 bg-slate-800/98 backdrop-blur-sm">
+              <th className="px-4 py-3 w-8 bg-slate-surface/98 backdrop-blur-sm">
                 <input
                   type="checkbox"
-                  className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                  className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                   checked={devices.length > 0 && selectedIds.length === devices.length}
                   onChange={onToggleSelectAll}
                 />
               </th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Status</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Device / SN</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">VLAN</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Model / Type</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">MAC / IP Address</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Signal / Clients</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Suhu</th>
-              <th className="px-4 py-3 bg-slate-800/98 backdrop-blur-sm">Tags</th>
-              <th className="px-4 py-3 text-right bg-slate-800/98 backdrop-blur-sm">Actions</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">Status</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">Device / SN</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">VLAN</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">Model / Type</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">MAC / IP Address</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">Signal / Clients</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">Suhu</th>
+              <th className="px-4 py-3 bg-slate-surface/98 backdrop-blur-sm">Tags</th>
+              <th className="px-4 py-3 text-right bg-slate-surface/98 backdrop-blur-sm">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800">
@@ -77,14 +77,14 @@ export default function DeviceList({
                 <tr
                   key={dev._id}
                   className={clsx(
-                    "hover:bg-slate-800/30 transition-colors group h-16",
+                    "hover:bg-slate-surface/30 transition-colors group h-16",
                     selectedIds.includes(dev._id) && "bg-primary/5"
                   )}
                 >
                   <td className="px-4 py-3">
                     <input
                       type="checkbox"
-                      className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                      className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary h-4 w-4 cursor-pointer"
                       checked={selectedIds.includes(dev._id)}
                       onChange={() => onToggleSelect(dev._id)}
                     />
@@ -147,7 +147,7 @@ export default function DeviceList({
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1 max-w-[150px]">
                       {(dev._tags || []).map(tag => (
-                        <Badge key={tag} variant="outline" size="xs" className="text-[8px] bg-slate-950/30 border-slate-800 text-fg-muted px-1 font-bold">
+                        <Badge key={tag} variant="outline" size="xs" className="text-[8px] bg-slate-950/30 border-slate-border text-fg-muted px-1 font-bold">
                           {tag}
                         </Badge>
                       ))}
@@ -157,42 +157,42 @@ export default function DeviceList({
                     <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => onRefresh(dev._id)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-blue-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-blue-400 transition-colors"
                         title="Refresh"
                       >
                         <RefreshCw className={clsx("w-3.5 h-3.5", refreshPendingId === dev._id && "animate-spin")} />
                       </button>
                       <button
                         onClick={() => onOpenWifi(dev)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-emerald-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-emerald-400 transition-colors"
                         title="WiFi"
                       >
                         <Wifi className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onViewDetails(dev._id)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-primary transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-primary transition-colors"
                         title="Details"
                       >
                         <Info className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onBackup(dev._id)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-amber-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-amber-400 transition-colors"
                         title="Create Backup"
                       >
                         <Database className={clsx("w-3.5 h-3.5", backupPendingId === dev._id && "animate-pulse")} />
                       </button>
                       <button
                         onClick={() => onRestore(dev)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-purple-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-purple-400 transition-colors"
                         title="Restore Configuration"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onReboot(dev)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-red-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-red-400 transition-colors"
                         title="Reboot Device"
                       >
                         <Power className="w-3.5 h-3.5" />

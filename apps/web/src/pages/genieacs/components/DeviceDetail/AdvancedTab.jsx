@@ -31,7 +31,7 @@ export default function AdvancedTab({ fullDevice }) {
     }
 
     return (
-      <div key={path} className="flex flex-col py-1.5 border-b border-slate-800/50 last:border-0 hover:bg-slate-800/30 px-2 rounded group">
+      <div key={path} className="flex flex-col py-1.5 border-b border-slate-border/50 last:border-0 hover:bg-slate-800/30 px-2 rounded group">
         <div className="flex justify-between items-start gap-2">
           <span className="text-[10px] font-mono text-fg-muted break-all">{path}</span>
           <span className="text-[10px] font-mono text-primary bg-primary/5 px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
@@ -60,7 +60,7 @@ export default function AdvancedTab({ fullDevice }) {
           placeholder="Search TR-069 parameters..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-10 pr-4 py-2 text-sm text-fg focus:ring-1 focus:ring-primary outline-none"
+          className="w-full bg-surface-dark border border-slate-border rounded-lg pl-10 pr-4 py-2 text-sm text-fg focus:ring-1 focus:ring-primary outline-none"
         />
       </div>
       <div className="flex-1 bg-slate-950/50 rounded-xl border border-slate-900 p-2 custom-scrollbar overflow-auto">

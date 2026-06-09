@@ -82,8 +82,8 @@ export default function OnuTable({
     }
 
     return (
-        <div className="bg-slate-900/40 border-slate-800/50 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl">
-            <div className="p-4 border-b border-slate-800/50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900/40">
+        <div className="bg-surface-dark/40 border-slate-border/50 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl">
+            <div className="p-4 border-b border-slate-border/50 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface-dark/40">
                 <div className="flex items-center gap-3">
                     <div className="p-2 bg-primary/10 rounded-lg">
                         <Layers className="w-4 h-4 text-primary" />
@@ -95,7 +95,7 @@ export default function OnuTable({
                     <input
                         type="text"
                         placeholder="Search by SN, Name, ID..."
-                        className="w-full pl-9 pr-4 py-2 bg-slate-950/50 border border-slate-800 rounded-xl text-xs text-fg placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary transition-all font-bold"
+                        className="w-full pl-9 pr-4 py-2 bg-slate-950/50 border border-slate-border rounded-xl text-xs text-fg placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary transition-all font-bold"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -110,7 +110,7 @@ export default function OnuTable({
                 <div className="max-h-[calc(100vh-420px)] min-h-[380px] overflow-auto custom-scrollbar">
                     <table className="w-full border-collapse">
                         <thead className="sticky top-0 z-10">
-                            <tr className="border-b border-slate-800">
+                            <tr className="border-b border-slate-border">
                                 <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">PON / ID</th>
                                 <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">SN / Alias</th>
                                 <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">MAC Address</th>
@@ -124,7 +124,7 @@ export default function OnuTable({
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">
                             {filteredOnus.map((onu, index) => (
-                                <tr key={index} className="hover:bg-slate-800/20 transition-colors group">
+                                <tr key={index} className="hover:bg-slate-surface/20 transition-colors group">
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         <span className="text-xs font-bold text-fg font-mono">{formatOnuId(onu.ponId, onu.onuId)}</span>
                                     </td>
@@ -136,7 +136,7 @@ export default function OnuTable({
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         {onu.macAddress ? (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-950/50 text-fg-muted rounded border border-slate-800 font-mono tracking-widest">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-950/50 text-fg-muted rounded border border-slate-border font-mono tracking-widest">
                                                 {onu.macAddress}
                                             </span>
                                         ) : (
@@ -158,7 +158,7 @@ export default function OnuTable({
                                                     "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight",
                                                     onu.lastDownReason === 'Power Down' ? "bg-amber-500/10 text-amber-500 border border-amber-500/10" :
                                                         onu.lastDownReason === 'Optical Loss' ? "bg-orange-500/10 text-orange-500 border border-orange-500/10" :
-                                                            "bg-slate-800 text-fg-muted"
+                                                            "bg-slate-surface text-fg-muted"
                                                 )}>
                                                     {onu.lastDownReason}
                                                 </span>

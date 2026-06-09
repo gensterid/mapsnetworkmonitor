@@ -127,13 +127,13 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {/* Hardware Stats — always visible at top */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                <div className="bg-surface-dark/50 p-4 rounded-xl border border-slate-border">
                     <div className="flex items-center justify-between mb-2">
                         <h4 className="text-xs font-bold text-fg-muted uppercase tracking-widest">SSID Summary</h4>
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="h-7 px-2 text-[10px] font-bold uppercase gap-1 hover:bg-primary/10 hover:text-primary border border-slate-800"
+                            className="h-7 px-2 text-[10px] font-bold uppercase gap-1 hover:bg-primary/10 hover:text-primary border border-slate-border"
                             onClick={() => onOpenWifiConfig && onOpenWifiConfig(fullDevice)}
                         >
                             <Settings className="w-3 h-3" />
@@ -146,7 +146,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                     </div>
                 </div>
 
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                <div className="bg-surface-dark/50 p-4 rounded-xl border border-slate-border">
                     <h4 className="text-xs font-bold text-fg-muted uppercase tracking-widest mb-3">Hardware Stats</h4>
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
@@ -156,7 +156,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                     <span className="text-fg-muted">CPU Usage</span>
                                     <span className="text-fg">Low</span>
                                 </div>
-                                <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-1 bg-slate-surface rounded-full overflow-hidden">
                                     <div className="bg-emerald-500 h-full w-1/4" />
                                 </div>
                             </div>
@@ -174,7 +174,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
 
             {/* SSID list */}
             {wlans.length === 0 ? (
-                <div className="bg-slate-900/40 p-8 rounded-xl border border-slate-800 text-center">
+                <div className="bg-surface-dark/40 p-8 rounded-xl border border-slate-border text-center">
                     <WifiOff className="w-10 h-10 text-slate-700 mx-auto mb-2" />
                     <p className="text-sm text-fg-muted">No WLAN configurations found</p>
                     <p className="text-[10px] text-slate-600 mt-1">Try Refresh on the device to pull WiFi tree</p>
@@ -187,7 +187,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                             className={clsx(
                                 "p-4 rounded-xl border relative overflow-hidden transition-colors",
                                 w.enabled
-                                    ? "bg-slate-900/50 border-slate-800 hover:border-primary/30"
+                                    ? "bg-surface-dark/50 border-slate-border hover:border-primary/30"
                                     : "bg-slate-950/40 border-slate-900/60 opacity-60"
                             )}
                         >
@@ -204,7 +204,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                 </div>
                                 <span className={clsx(
                                     "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase",
-                                    w.enabled ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-fg-muted"
+                                    w.enabled ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-surface text-fg-muted"
                                 )}>
                                     {w.enabled ? 'On' : 'Off'}
                                 </span>
@@ -234,7 +234,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                 {w.clients.length > 0 && (
                                     <button
                                         onClick={() => toggleClients(w.index)}
-                                        className="flex items-center justify-between gap-2 text-[10px] pt-1.5 mt-1 border-t border-slate-800/50 w-full hover:text-primary transition-colors"
+                                        className="flex items-center justify-between gap-2 text-[10px] pt-1.5 mt-1 border-t border-slate-border/50 w-full hover:text-primary transition-colors"
                                     >
                                         <span className="flex items-center gap-1 text-fg-muted">
                                             <Users className="w-3 h-3" />
@@ -254,7 +254,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
 
                             {/* Expanded client list — sits inside the card so layout stays clean */}
                             {expandedClients === w.index && w.clients.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-slate-800/50 space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
+                                <div className="mt-3 pt-3 border-t border-slate-border/50 space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar">
                                     {w.clients.map((c, i) => (
                                         <div key={c.mac + i} className="bg-slate-950/60 rounded-md p-2 text-[10px] font-mono">
                                             <div className="flex justify-between items-center mb-0.5">

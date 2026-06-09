@@ -51,7 +51,7 @@ export default function DeviceDetailModal({
           </div>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="flex overflow-x-auto border-b border-slate-800 scrollbar-hide mb-4">
+            <div className="flex overflow-x-auto border-b border-slate-border scrollbar-hide mb-4">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
@@ -78,7 +78,7 @@ export default function DeviceDetailModal({
               />
             </div>
 
-            <div className="mt-6 flex justify-between items-center pt-4 border-t border-slate-800">
+            <div className="mt-6 flex justify-between items-center pt-4 border-t border-slate-border">
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" onClick={() => window.location.reload()}>
                   <RefreshCw className="w-3.5 h-3.5 mr-2" />

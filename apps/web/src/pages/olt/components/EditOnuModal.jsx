@@ -48,7 +48,7 @@ export default function EditOnuModal({
                     <input
                         name="name"
                         defaultValue={onu.name || ''}
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none transition-all"
                         placeholder="e.g. John Doe - Home"
                         autoFocus
                     />
@@ -59,7 +59,7 @@ export default function EditOnuModal({
                     <textarea
                         name="description"
                         defaultValue={onu.description || ''}
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none transition-all h-20 resize-none"
+                        className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none transition-all h-20 resize-none"
                         placeholder="Additional details about this ONU..."
                     />
                 </div>
@@ -69,13 +69,13 @@ export default function EditOnuModal({
                     <input
                         name="coordinates"
                         defaultValue={onu.latitude && onu.longitude ? `${onu.latitude}, ${onu.longitude}` : ''}
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg font-mono focus:ring-1 focus:ring-primary outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg font-mono focus:ring-1 focus:ring-primary outline-none transition-all"
                         placeholder="latitude, longitude (e.g. -6.123, 106.123)"
                     />
                     <p className="text-[9px] text-fg-muted italic">Format: latitude, longitude (copy-paste from Google Maps)</p>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/50">
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-border/50">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
                         Cancel
                     </Button>

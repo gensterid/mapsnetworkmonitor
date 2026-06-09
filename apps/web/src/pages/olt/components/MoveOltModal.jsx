@@ -57,13 +57,13 @@ export default function MoveOltModal({ isOpen, onClose, onu, currentOltId }) {
 
                 <div className="space-y-2">
                     <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">SN / Identitas ONU</label>
-                    <input value={onu.sn || '—'} disabled className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg-muted font-mono opacity-60" />
+                    <input value={onu.sn || '—'} disabled className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg-muted font-mono opacity-60" />
                 </div>
 
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-end">
                     <div className="space-y-2">
                         <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">PON Port Saat Ini</label>
-                        <input value={onu.ponPort || '—'} disabled className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg-muted font-mono opacity-60" />
+                        <input value={onu.ponPort || '—'} disabled className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg-muted font-mono opacity-60" />
                     </div>
                     <ArrowRight className="w-4 h-4 text-fg-muted mb-3" />
                     <div className="space-y-2">
@@ -71,7 +71,7 @@ export default function MoveOltModal({ isOpen, onClose, onu, currentOltId }) {
                         <input
                             value={targetPonPort}
                             onChange={(e) => setTargetPonPort(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg font-mono focus:ring-1 focus:ring-primary outline-none"
+                            className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg font-mono focus:ring-1 focus:ring-primary outline-none"
                             placeholder="0/1/3"
                         />
                     </div>
@@ -83,7 +83,7 @@ export default function MoveOltModal({ isOpen, onClose, onu, currentOltId }) {
                         value={targetOltId}
                         onChange={(e) => setTargetOltId(e.target.value)}
                         required
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none"
+                        className="w-full px-4 py-2.5 bg-surface-dark border border-slate-border rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none"
                     >
                         <option value="">Pilih OLT…</option>
                         {availableOlts.map((o) => (
@@ -94,7 +94,7 @@ export default function MoveOltModal({ isOpen, onClose, onu, currentOltId }) {
                     </select>
                 </div>
 
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/50">
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-border/50">
                     <Button type="button" variant="ghost" onClick={onClose} disabled={reassign.isPending}>
                         Batal
                     </Button>

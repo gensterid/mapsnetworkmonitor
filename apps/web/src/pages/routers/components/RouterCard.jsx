@@ -80,7 +80,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     onRefresh(router.id);
                                 }}
                                 disabled={isRefreshing}
-                                className="p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                className="p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-emerald-400 transition-colors disabled:opacity-50"
                                 title="Refresh connection"
                             >
                                 <RefreshCw className={clsx("w-4 h-4", isRefreshing && "animate-spin")} />
@@ -91,7 +91,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     e.stopPropagation();
                                     onEdit(router);
                                 }}
-                                className="p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-fg transition-colors"
+                                className="p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-fg transition-colors"
                                 title="Edit router"
                             >
                                 <Edit className="w-4 h-4" />
@@ -112,7 +112,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
 
                     {/* CPU, Memory, Uptime, Speed Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <div className="bg-surface-dark/50 p-2 rounded-lg border border-slate-border">
                             <div className="text-[10px] uppercase text-fg-muted font-bold tracking-wide mb-1">CPU</div>
                             <div className="text-fg truncate">
                                 {router.latestMetrics?.cpuLoad != null
@@ -120,7 +120,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     : '--'}
                             </div>
                         </div>
-                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <div className="bg-surface-dark/50 p-2 rounded-lg border border-slate-border">
                             <div className="text-[10px] uppercase text-fg-muted font-bold tracking-wide mb-1">Memory</div>
                             <div className="text-fg truncate">
                                 {router.latestMetrics?.totalMemory && router.latestMetrics?.usedMemory
@@ -128,7 +128,7 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     : '--'}
                             </div>
                         </div>
-                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <div className="bg-surface-dark/50 p-2 rounded-lg border border-slate-border">
                             <div className="text-[10px] uppercase text-fg-muted font-bold tracking-wide mb-1">Uptime</div>
                             <div className="text-fg truncate">
                                 {router.latestMetrics?.uptime
@@ -136,13 +136,13 @@ export function RouterCard({ router, onEdit, onDelete, onRefresh, isRefreshing }
                                     : '--'}
                             </div>
                         </div>
-                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <div className="bg-surface-dark/50 p-2 rounded-lg border border-slate-border">
                             <div className="text-[10px] uppercase text-fg-muted font-bold tracking-wide mb-1">Speed</div>
                             <div className="text-fg truncate">
                                 {router.maxInterfaceSpeed || '--'}
                             </div>
                         </div>
-                        <div className="bg-slate-900/50 p-2 rounded-lg border border-slate-800">
+                        <div className="bg-surface-dark/50 p-2 rounded-lg border border-slate-border">
                             <div className="text-[10px] uppercase text-fg-muted font-bold tracking-wide mb-1">Latency</div>
                             <div className={clsx(
                                 "text-sm font-mono font-bold truncate",

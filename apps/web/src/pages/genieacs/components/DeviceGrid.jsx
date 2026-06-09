@@ -53,7 +53,7 @@ export default function DeviceGrid({
             key={dev._id}
             className={clsx(
               "group transition-all duration-200 relative border overflow-hidden",
-              selectedIds.includes(dev._id) ? "border-primary bg-primary/5" : "border-slate-800 hover:border-slate-600"
+              selectedIds.includes(dev._id) ? "border-primary bg-primary/5" : "border-slate-border hover:border-slate-600"
             )}
           >
             {/* Top inform indicator bar */}
@@ -81,7 +81,7 @@ export default function DeviceGrid({
                 </div>
                 <input
                   type="checkbox"
-                  className="rounded border-slate-700 bg-slate-900 text-primary focus:ring-primary h-4 w-4 cursor-pointer shrink-0 mt-1"
+                  className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary h-4 w-4 cursor-pointer shrink-0 mt-1"
                   checked={selectedIds.includes(dev._id)}
                   onChange={() => onToggleSelect(dev._id)}
                   onClick={(e) => e.stopPropagation()}
@@ -146,7 +146,7 @@ export default function DeviceGrid({
               {dev._tags && dev._tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {dev._tags.slice(0, 4).map(tag => (
-                    <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-800/80 text-fg text-[9px] font-bold uppercase tracking-wider border border-slate-700/50">
+                    <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-surface/80 text-fg text-[9px] font-bold uppercase tracking-wider border border-slate-border/50">
                       {tag}
                     </span>
                   ))}
@@ -154,7 +154,7 @@ export default function DeviceGrid({
               )}
 
               {/* Action bar — always visible, compact horizontal */}
-              <div className="flex items-center justify-between gap-1 pt-2 border-t border-slate-800/60 -mx-1">
+              <div className="flex items-center justify-between gap-1 pt-2 border-t border-slate-border/60 -mx-1">
                 <button
                   onClick={(e) => { e.stopPropagation(); onViewDetails(dev._id); }}
                   className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-primary transition-colors"
