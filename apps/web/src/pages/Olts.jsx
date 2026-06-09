@@ -243,7 +243,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                             name="type"
                             value={formData.type}
                             onChange={handleChange}
-                            className="w-full bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
+                            className="w-full bg-surface-dark border border-slate-border text-fg text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
                         >
                             <option value="generic">Generic SNMP</option>
                             <option value="hsgq">HSGQ</option>
@@ -258,7 +258,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                         name="parentId"
                         value={formData.parentId}
                         onChange={handleChange}
-                        className="w-full bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
+                        className="w-full bg-surface-dark border border-slate-border text-fg text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
                     >
                         <option value="">-- Select Parent Router --</option>
                         {routers.map(router => (
@@ -282,7 +282,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                                 name="useSnmp"
                                 checked={formData.useSnmp}
                                 onChange={handleChange}
-                                className="w-4 h-4 rounded border-slate-700 bg-slate-900/50 text-primary focus:ring-primary focus:ring-offset-0"
+                                className="w-4 h-4 rounded border-slate-border bg-surface-dark/50 text-primary focus:ring-primary focus:ring-offset-0"
                             />
                             <span className="text-sm text-fg">Enable SNMP</span>
                         </label>
@@ -292,7 +292,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                                 name="useWeb"
                                 checked={formData.useWeb}
                                 onChange={handleChange}
-                                className="w-4 h-4 rounded border-slate-700 bg-slate-900/50 text-primary focus:ring-primary focus:ring-offset-0"
+                                className="w-4 h-4 rounded border-slate-border bg-surface-dark/50 text-primary focus:ring-primary focus:ring-offset-0"
                             />
                             <span className="text-sm text-fg">Enable Web/API</span>
                         </label>
@@ -300,7 +300,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 </div>
 
                 {formData.useSnmp && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-lg bg-surface-dark/30 border border-slate-border/50">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-fg">SNMP Port</label>
                             <Input type="number" name="snmpPort" value={formData.snmpPort} onChange={handleChange} required={formData.useSnmp} />
@@ -313,7 +313,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 )}
 
                 {formData.useWeb && (
-                    <div className="space-y-4 p-4 rounded-lg bg-slate-900/30 border border-slate-800/50">
+                    <div className="space-y-4 p-4 rounded-lg bg-surface-dark/30 border border-slate-border/50">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <label className="text-sm font-medium text-fg">Protocol</label>
@@ -321,7 +321,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                                     name="webProtocol"
                                     value={formData.webProtocol}
                                     onChange={handleChange}
-                                    className="w-full bg-slate-900/50 border border-slate-700 text-fg text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
+                                    className="w-full bg-surface-dark/50 border border-slate-border text-fg text-sm rounded-lg px-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary"
                                 >
                                     <option value="http">HTTP</option>
                                     <option value="https">HTTPS</option>
@@ -445,7 +445,7 @@ export default function Olts() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="p-6 border-b border-slate-border flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-fg">OLT Devices</h1>
                     <p className="text-fg-muted text-sm">Manage your GPON/EPON OLTs</p>
@@ -459,7 +459,7 @@ export default function Olts() {
                             placeholder="Search OLTs..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-64"
+                            className="bg-surface-dark border border-slate-border text-fg text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-64"
                         />
                     </div>
 
@@ -482,10 +482,10 @@ export default function Olts() {
                             onClick={() => navigate(`/olts/${olt.id}`)}
                         >
                             {(isAdmin || isOperator) && (
-                                <div className="absolute top-3 right-3 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10 bg-slate-900/80 backdrop-blur-sm rounded-lg p-1 border border-slate-700/50 shadow-sm">
+                                <div className="absolute top-3 right-3 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10 bg-surface-dark/80 backdrop-blur-sm rounded-lg p-1 border border-slate-border/50 shadow-sm">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setViewingOnusOlt(olt); }}
-                                        className="p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-blue-400 transition-colors"
+                                        className="p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-blue-400 transition-colors"
                                         title="View ONUs"
                                     >
                                         <Layers className="w-4 h-4" />
@@ -493,14 +493,14 @@ export default function Olts() {
                                     <button
                                         onClick={(e) => { e.stopPropagation(); refreshOlt.mutate(olt.id); }}
                                         disabled={refreshOlt.isPending && refreshOlt.variables === olt.id}
-                                        className="p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-emerald-400 transition-colors disabled:opacity-50"
+                                        className="p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-emerald-400 transition-colors disabled:opacity-50"
                                         title="Refresh status"
                                     >
                                         <RefreshCw className={clsx("w-4 h-4", refreshOlt.isPending && refreshOlt.variables === olt.id && "animate-spin")} />
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); setEditingOlt(olt); }}
-                                        className="p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-fg transition-colors"
+                                        className="p-1.5 rounded-md hover:bg-slate-border text-fg-muted hover:text-fg transition-colors"
                                         title="Edit OLT"
                                     >
                                         <Edit className="w-4 h-4" />
@@ -587,7 +587,7 @@ export default function Olts() {
                                 </div>
 
                                 {olt.description && (
-                                    <div className="mt-4 pt-3 border-t border-slate-800 text-xs text-fg-muted truncate">
+                                    <div className="mt-4 pt-3 border-t border-slate-border text-xs text-fg-muted truncate">
                                         {olt.description}
                                     </div>
                                 )}
@@ -596,8 +596,8 @@ export default function Olts() {
                     ))}
 
                     {olts.length === 0 && (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                            <div className="w-12 h-12 bg-slate-800/50 text-fg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                        <div className="col-span-full py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
+                            <div className="w-12 h-12 bg-slate-surface/50 text-fg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Server className="w-6 h-6" />
                             </div>
                             <h3 className="text-lg font-medium text-fg mb-1">No OLTs found</h3>

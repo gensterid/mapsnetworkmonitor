@@ -145,7 +145,7 @@ export default function OltDetails() {
 
     if (isLoadingOlt) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-950">
+            <div className="min-h-screen flex items-center justify-center bg-surface-darker">
                 <div className="flex flex-col items-center gap-4">
                     <div className="relative">
                         <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
@@ -162,8 +162,8 @@ export default function OltDetails() {
 
     if (oltError || !olt) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
-                <Card className="max-w-md w-full glass-panel border-red-500/20 bg-slate-900/60 backdrop-blur-xl transition-all hover:scale-[1.01] duration-500">
+            <div className="min-h-screen flex items-center justify-center bg-surface-darker p-6">
+                <Card className="max-w-md w-full glass-panel border-red-500/20 bg-surface-dark/60 backdrop-blur-xl transition-all hover:scale-[1.01] duration-500">
                     <CardContent className="pt-8 text-center px-8">
                         <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-red-500/20">
                             <AlertCircle className="w-8 h-8 text-red-500" />
@@ -172,7 +172,7 @@ export default function OltDetails() {
                         <p className="text-fg-muted text-sm mb-8 leading-relaxed">The OLT you're looking for doesn't exist or has been disconnected from the network infrastructure.</p>
                         <Button 
                             onClick={() => navigate('/olts')}
-                            className="w-full bg-slate-800 hover:bg-slate-700 text-fg font-bold py-6 rounded-xl transition-all shadow-lg"
+                            className="w-full bg-slate-surface hover:bg-slate-700 text-fg font-bold py-6 rounded-xl transition-all shadow-lg"
                         >
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             Return to OLT List
@@ -186,9 +186,9 @@ export default function OltDetails() {
     return (
         <div className="space-y-6 pb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-slate-900/40 p-6 rounded-2xl border border-slate-800/50 backdrop-blur-md shadow-2xl">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 bg-surface-dark/40 p-6 rounded-2xl border border-slate-border/50 backdrop-blur-md shadow-2xl">
                 <div className="flex items-center gap-5">
-                    <Link to="/olts" className="p-3 bg-slate-950/50 border border-slate-800 hover:bg-slate-800 rounded-xl transition-all group shadow-inner">
+                    <Link to="/olts" className="p-3 bg-surface-darker/50 border border-slate-border hover:bg-slate-surface rounded-xl transition-all group shadow-inner">
                         <ArrowLeft className="w-5 h-5 text-fg-muted group-hover:text-fg transition-colors" />
                     </Link>
                     <div>
@@ -199,10 +199,10 @@ export default function OltDetails() {
                             </Badge>
                         </div>
                         <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-[10px] font-black uppercase tracking-[0.1em] text-fg-muted">
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-950/50 border border-slate-800 rounded-md">
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-surface-darker/50 border border-slate-border rounded-md">
                                 <span className="text-fg font-mono">{olt.host}</span>
                             </div>
-                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-950/50 border border-slate-800 rounded-md">
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-surface-darker/50 border border-slate-border rounded-md">
                                 <span className={clsx("text-primary")}>{olt.type || 'Generic'}</span>
                             </div>
                             <div className="flex items-center gap-1.5 text-fg-muted">
@@ -219,7 +219,7 @@ export default function OltDetails() {
                         size="md"
                         onClick={handleRefresh}
                         disabled={refreshMutation.isPending || isLoadingOnus}
-                        className="bg-slate-950/50 border-slate-800 hover:bg-slate-800 text-fg font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all shadow-lg hover:border-primary/50 group"
+                        className="bg-surface-darker/50 border-slate-border hover:bg-slate-surface text-fg font-black uppercase tracking-widest text-[10px] h-11 px-6 rounded-xl transition-all shadow-lg hover:border-primary/50 group"
                     >
                         <RefreshCw className={clsx("w-4 h-4 mr-2 transition-all", (refreshMutation.isPending || isLoadingOnus) ? "animate-spin" : "group-hover:rotate-180")} />
                         Refresh Drive
@@ -273,8 +273,8 @@ export default function OltDetails() {
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* OLT Info Sidebar */}
                 <div className="xl:col-span-1 space-y-6">
-                    <Card className="glass-panel border-slate-800/50 bg-slate-900/40 divide-y divide-slate-800/50 overflow-hidden shadow-2xl">
-                        <CardHeader className="bg-slate-950/30">
+                    <Card className="glass-panel border-slate-border/50 bg-surface-dark/40 divide-y divide-slate-800/50 overflow-hidden shadow-2xl">
+                        <CardHeader className="bg-surface-darker/30">
                             <CardTitle className="text-xs font-black uppercase tracking-[0.2em] text-fg-muted flex items-center gap-2">
                                 <Info className="w-4 h-4 text-primary" />
                                 Hardware Telemetry
@@ -287,7 +287,7 @@ export default function OltDetails() {
                                 { label: 'Hardware Uptime', value: olt.uptime ? `${Math.floor(olt.uptime / 3600)}h ${Math.floor((olt.uptime % 3600) / 60)}m` : '--' },
                                 { label: 'Cloud Sync Time', value: olt.updatedAt ? formatShortDateTime(olt.updatedAt, timezone) : 'Never' }
                             ].map((item, idx) => (
-                                <div key={idx} className="flex justify-between items-center px-6 py-4 hover:bg-slate-800/10 transition-colors">
+                                <div key={idx} className="flex justify-between items-center px-6 py-4 hover:bg-slate-surface/10 transition-colors">
                                     <span className="text-[10px] font-black uppercase tracking-widest text-fg-muted">{item.label}</span>
                                     <span className={clsx(
                                         "text-xs font-bold text-fg",
@@ -307,11 +307,11 @@ export default function OltDetails() {
                                 </div>
                             )}
 
-                            <div className="p-6 bg-slate-950/20">
+                            <div className="p-6 bg-surface-darker/20">
                                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em] mb-4">Port Connectivity Status</p>
                                 <div className="space-y-4">
                                     {olt.useSnmp && (
-                                        <div className="flex items-center justify-between p-3.5 bg-slate-900/60 rounded-xl border border-slate-800/50 hover:border-blue-500/30 transition-colors">
+                                        <div className="flex items-center justify-between p-3.5 bg-surface-dark/60 rounded-xl border border-slate-border/50 hover:border-blue-500/30 transition-colors">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-blue-500/10 rounded-lg">
                                                     <Database className="w-4 h-4 text-blue-400" />
@@ -327,7 +327,7 @@ export default function OltDetails() {
                                         </div>
                                     )}
                                     {olt.useWeb && (
-                                        <div className="flex items-center justify-between p-3.5 bg-slate-900/60 rounded-xl border border-slate-800/50 hover:border-purple-500/30 transition-colors">
+                                        <div className="flex items-center justify-between p-3.5 bg-surface-dark/60 rounded-xl border border-slate-border/50 hover:border-purple-500/30 transition-colors">
                                             <div className="flex items-center gap-3">
                                                 <div className="p-2 bg-purple-500/10 rounded-lg">
                                                     <Shield className="w-4 h-4 text-purple-400" />
@@ -346,9 +346,9 @@ export default function OltDetails() {
                             </div>
 
                             {olt.description && (
-                                <div className="p-6 border-t border-slate-800/50 bg-slate-950/10">
+                                <div className="p-6 border-t border-slate-border/50 bg-surface-darker/10">
                                     <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Administrator Notes</p>
-                                    <div className="p-4 bg-slate-950/40 rounded-xl border border-slate-800/50 text-xs text-fg-muted leading-relaxed font-medium italic">
+                                    <div className="p-4 bg-surface-darker/40 rounded-xl border border-slate-border/50 text-xs text-fg-muted leading-relaxed font-medium italic">
                                         "{olt.description}"
                                     </div>
                                 </div>

@@ -45,13 +45,13 @@ function Modal({ open, onClose, title, children, footer, maxWidth = 'max-w-lg' }
     // to a scrolled content area instead of the viewport.
     return createPortal(
         <div className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4">
-            <div className={`w-full ${maxWidth} bg-slate-900 border border-slate-700 rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}>
-                <div className="flex items-center justify-between border-b border-slate-800 px-4 sm:px-5 py-3 shrink-0">
+            <div className={`w-full ${maxWidth} bg-surface-dark border border-slate-border rounded-xl shadow-2xl flex flex-col max-h-[90vh]`}>
+                <div className="flex items-center justify-between border-b border-slate-border px-4 sm:px-5 py-3 shrink-0">
                     <h3 className="font-semibold text-fg text-sm sm:text-base">{title}</h3>
                     <button onClick={onClose} aria-label="Close" className="text-fg-muted hover:text-fg min-h-10 min-w-10 flex items-center justify-center -mr-2"><X className="w-5 h-5" /></button>
                 </div>
                 <div className="p-4 sm:p-5 overflow-y-auto overscroll-contain flex-1 min-h-0">{children}</div>
-                {footer && <div className="border-t border-slate-800 px-4 sm:px-5 py-3 flex flex-wrap justify-end gap-2 shrink-0">{footer}</div>}
+                {footer && <div className="border-t border-slate-border px-4 sm:px-5 py-3 flex flex-wrap justify-end gap-2 shrink-0">{footer}</div>}
             </div>
         </div>,
         document.body
@@ -66,7 +66,7 @@ function Field({ label, children }) {
         </label>
     );
 }
-const inputCls = 'w-full bg-slate-800 border border-slate-700 rounded px-3 py-2 text-fg text-sm focus:ring-1 focus:ring-primary';
+const inputCls = 'w-full bg-slate-surface border border-slate-border rounded px-3 py-2 text-fg text-sm focus:ring-1 focus:ring-primary';
 
 // ─── Pelanggan tab ─────────────────────────────────────────────────────────
 function CustomersTab() {
@@ -101,7 +101,7 @@ function CustomersTab() {
                 <div className="flex gap-2 items-center">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
-                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/kode/HP…" className="bg-slate-900 border border-slate-700 text-fg text-xs rounded pl-9 pr-3 py-1.5 w-full sm:w-56" />
+                        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari nama/kode/HP…" className="bg-surface-dark border border-slate-border text-fg text-xs rounded pl-9 pr-3 py-1.5 w-full sm:w-56" />
                     </div>
                     <Button size="sm" variant="outline" onClick={() => refetch()}><RefreshCw className={clsx('w-4 h-4', isRefetching && 'animate-spin')} /></Button>
                     <Button size="sm" onClick={() => { setEditing(null); setModalOpen(true); }}><Plus className="w-4 h-4 mr-1" /> Tambah</Button>
@@ -111,12 +111,12 @@ function CustomersTab() {
                 {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Kode</th><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Alamat</th><th className="text-left px-4 py-2">PIN</th><th className="px-4 py-2 w-24"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {rows.length === 0 ? <tr><td colSpan={6} className="px-4 py-6 text-center text-fg-muted">Belum ada pelanggan</td></tr> : rows.map(c => (
-                                    <tr key={c.id} className="hover:bg-slate-800/30">
+                                    <tr key={c.id} className="hover:bg-slate-surface/30">
                                         <td className="px-4 py-2 font-mono text-fg">{c.code}</td>
                                         <td className="px-4 py-2 text-fg">{c.name}</td>
                                         <td className="px-4 py-2 text-fg-muted">{c.phone || '—'}</td>
@@ -195,12 +195,12 @@ function PackagesTab() {
                 {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Nama</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Profile</th><th className="text-right px-4 py-2">Harga</th><th className="text-left px-4 py-2">Cycle</th><th className="text-center px-4 py-2">Aktif</th><th className="px-4 py-2 w-20"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Belum ada paket</td></tr> : rows.map(p => (
-                                    <tr key={p.id} className="hover:bg-slate-800/30">
+                                    <tr key={p.id} className="hover:bg-slate-surface/30">
                                         <td className="px-4 py-2 text-fg">{p.name}</td>
                                         <td className="px-4 py-2"><span className={clsx('text-xs px-2 py-0.5 rounded', p.type === 'pppoe' ? 'bg-blue-500/20 text-blue-400' : 'bg-emerald-500/20 text-emerald-400')}>{p.type.toUpperCase()}</span></td>
                                         <td className="px-4 py-2 font-mono text-fg-muted text-xs">{p.mikrotikProfile}</td>
@@ -359,12 +359,12 @@ function SubscriptionsTab() {
                 {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Paket</th><th className="text-left px-4 py-2">Router</th><th className="text-left px-4 py-2">Identitas / Pwd</th><th className="text-center px-4 py-2">Tgl Tagih</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Tagihan Berikut</th><th className="px-4 py-2"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {rows.length === 0 ? <tr><td colSpan={8} className="px-4 py-6 text-center text-fg-muted">Belum ada subscription</td></tr> : rows.map(s => (
-                                    <tr key={s.id} className="hover:bg-slate-800/30">
+                                    <tr key={s.id} className="hover:bg-slate-surface/30">
                                         <td className="px-4 py-2 text-fg">{custMap[s.customerId]?.name || '—'}<div className="text-xs text-fg-muted font-mono">{custMap[s.customerId]?.code}</div></td>
                                         <td className="px-4 py-2 text-fg">{pkgMap[s.packageId]?.name || '—'}</td>
                                         <td className="px-4 py-2 text-fg-muted text-xs">{routerMap[s.routerId]?.name || '—'}</td>
@@ -426,7 +426,7 @@ function SubscriptionsTab() {
                     </Field>
 
                     {subRouterId && (
-                        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 mb-3 space-y-2">
+                        <div className="bg-slate-surface/30 border border-slate-border rounded-lg p-3 mb-3 space-y-2">
                             <div className="flex items-center justify-between">
                                 <div>
                                     <div className="text-xs font-semibold text-fg uppercase">Pilih dari MikroTik existing</div>
@@ -446,7 +446,7 @@ function SubscriptionsTab() {
                                                 value={pickerSearch}
                                                 onChange={(e) => setPickerSearch(e.target.value)}
                                                 placeholder={`Cari dari ${importCandidates.length} user (username, profile, comment)…`}
-                                                className="w-full bg-slate-900 border border-slate-700 rounded pl-8 pr-3 py-1.5 text-xs text-fg placeholder-slate-500 focus:ring-1 focus:ring-primary"
+                                                className="w-full bg-surface-dark border border-slate-border rounded pl-8 pr-3 py-1.5 text-xs text-fg placeholder-slate-500 focus:ring-1 focus:ring-primary"
                                                 autoFocus
                                             />
                                             {pickerSearch && (
@@ -456,7 +456,7 @@ function SubscriptionsTab() {
                                             )}
                                         </div>
                                     )}
-                                    <div className="max-h-48 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
+                                    <div className="max-h-48 overflow-y-auto border border-slate-border rounded bg-surface-dark/40">
                                         {importLoading ? (
                                             <div className="p-3 text-xs text-fg-muted text-center">Memuat dari router…</div>
                                         ) : importCandidates.length === 0 ? (
@@ -465,12 +465,12 @@ function SubscriptionsTab() {
                                             <div className="p-3 text-xs text-fg-muted text-center">Tidak ada hasil untuk "{pickerSearch}".</div>
                                         ) : (
                                             <table className="w-full text-xs">
-                                                <thead className="bg-slate-900 sticky top-0 text-fg-muted uppercase">
+                                                <thead className="bg-surface-dark sticky top-0 text-fg-muted uppercase">
                                                     <tr><th className="text-left px-2 py-1">Username</th><th className="text-left px-2 py-1">Profile</th><th className="px-2 py-1"></th></tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-slate-800">
                                                     {filteredCandidates.map((c) => (
-                                                        <tr key={c.name} className={clsx('hover:bg-slate-800/50', c.disabled && 'opacity-50')}>
+                                                        <tr key={c.name} className={clsx('hover:bg-slate-surface/50', c.disabled && 'opacity-50')}>
                                                             <td className="px-2 py-1 font-mono text-blue-400">{c.name}</td>
                                                             <td className="px-2 py-1 text-fg-muted">{c.profile || '—'}</td>
                                                             <td className="px-2 py-1 text-right">
@@ -618,12 +618,12 @@ function InvoicesTab() {
                 {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">No. Invoice</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-left px-4 py-2">Jatuh Tempo</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Dibayar</th><th className="px-4 py-2"></th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Tidak ada tagihan</td></tr> : rows.map(i => (
-                                    <tr key={i.id} className="hover:bg-slate-800/30">
+                                    <tr key={i.id} className="hover:bg-slate-surface/30">
                                         <td className="px-4 py-2 font-mono text-blue-400">{i.invoiceNumber}</td>
                                         <td className="px-4 py-2 text-fg">{custMap[i.customerId]?.name || '—'}</td>
                                         <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(i.amount)}</td>
@@ -679,12 +679,12 @@ function InvoicesTab() {
                     </form>
                 ) : (
                     <div className="space-y-3">
-                        <div className="bg-slate-800/50 border border-slate-700 rounded p-3">
+                        <div className="bg-slate-surface/50 border border-slate-border rounded p-3">
                             <div className="text-xs text-fg-muted mb-1">URL Pembayaran</div>
                             <div className="flex items-center gap-2">
                                 <input readOnly value={linkResult.paymentUrl} className={inputCls + ' font-mono text-xs'} />
                                 <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(linkResult.paymentUrl); toast.success('Tersalin'); }}><Copy className="w-3.5 h-3.5" /></Button>
-                                <a href={linkResult.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1.5 rounded border border-slate-700"><ExternalLink className="w-3.5 h-3.5" /> Buka</a>
+                                <a href={linkResult.paymentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1.5 rounded border border-slate-border"><ExternalLink className="w-3.5 h-3.5" /> Buka</a>
                             </div>
                         </div>
                         <div className="text-xs text-fg-muted">
@@ -784,7 +784,7 @@ function VouchersTab() {
 
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm min-w-[640px]">
-                                    <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                                    <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                         <tr>
                                             <th className="text-left px-3 py-2">Kode</th>
                                             <th className="text-left px-3 py-2">Profile</th>
@@ -794,7 +794,7 @@ function VouchersTab() {
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
                                         {items.length === 0 ? <tr><td colSpan={4} className="px-3 py-6 text-center text-fg-muted">Belum ada voucher</td></tr> : items.slice(0, 200).map((it, i) => (
-                                            <tr key={i} className="hover:bg-slate-800/30">
+                                            <tr key={i} className="hover:bg-slate-surface/30">
                                                 <td className="px-3 py-2 font-mono text-blue-400">{it.code}</td>
                                                 <td className="px-3 py-2 text-fg text-xs">{it.profile || '—'}</td>
                                                 <td className="px-3 py-2 text-xs">
@@ -825,7 +825,7 @@ function VouchersTab() {
                     <CardContent className="p-0">
                         <div className="overflow-x-auto">
                             <table className="w-full text-sm min-w-[640px]">
-                                <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                                <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                     <tr>
                                         <th className="text-left px-4 py-2">Tanggal</th>
                                         <th className="text-left px-4 py-2">Jumlah</th>
@@ -835,12 +835,12 @@ function VouchersTab() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-800">
                                     {batches.length === 0 ? <tr><td colSpan={4} className="px-4 py-6 text-center text-fg-muted">Belum ada batch</td></tr> : batches.map(b => (
-                                        <tr key={b.id} className="hover:bg-slate-800/30">
+                                        <tr key={b.id} className="hover:bg-slate-surface/30">
                                             <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(b.generatedAt)}</td>
                                             <td className="px-4 py-2 text-fg">{b.count}</td>
                                             <td className="px-4 py-2 text-fg-muted text-xs">{b.notes || '—'}</td>
                                             <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
-                                                <a href={`/billing/vouchers/print/${b.id}?layout=a4`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-slate-800"><Printer className="w-3.5 h-3.5" /> Cetak</a>
+                                                <a href={`/billing/vouchers/print/${b.id}?layout=a4`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 px-2 py-1 rounded hover:bg-slate-surface"><Printer className="w-3.5 h-3.5" /> Cetak</a>
                                                 <button onClick={() => { if (confirm(`Hapus batch ini? ${b.count} voucher juga dihapus dari MikroTik.`)) delBatch.mutate(b.id); }} className="text-fg-muted hover:text-red-400 px-2"><Trash2 className="w-4 h-4" /></button>
                                             </td>
                                         </tr>
@@ -939,7 +939,7 @@ function ReportsTab() {
                                 return (
                                     <div key={r.month} className="flex items-center gap-3 text-sm">
                                         <div className="w-20 text-fg-muted text-xs font-mono">{r.month}</div>
-                                        <div className="flex-1 h-6 bg-slate-800 rounded overflow-hidden relative">
+                                        <div className="flex-1 h-6 bg-slate-surface rounded overflow-hidden relative">
                                             <div className="h-full bg-gradient-to-r from-emerald-500/40 to-emerald-500/80" style={{ width: `${pct}%` }} />
                                             <div className="absolute inset-0 flex items-center justify-end pr-2 text-xs text-fg font-mono">{fmtIDR(r.revenue)}</div>
                                         </div>
@@ -957,7 +957,7 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Aging (Piutang per umur)</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Bucket</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Jumlah</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -977,7 +977,7 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Top 10 Pelanggan (1 bulan)</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Tagihan</th><th className="text-right px-4 py-2">Total</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -999,7 +999,7 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Penjualan Voucher per Paket (1 bulan)</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Paket</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-right px-4 py-2">Pendapatan</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -1019,7 +1019,7 @@ function ReportsTab() {
                     <CardHeader><CardTitle className="text-base">Pembayaran Terbaru</CardTitle></CardHeader>
                     <CardContent className="p-0">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Tanggal</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">Invoice</th><th className="text-right px-4 py-2">Jumlah</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
@@ -1071,16 +1071,16 @@ function WaTab() {
                 <CardContent className="p-0">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-slate-900/50 text-xs text-fg-muted uppercase">
+                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                 <tr><th className="text-left px-4 py-2">Waktu</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-left px-4 py-2">HP</th><th className="text-left px-4 py-2">Tipe</th><th className="text-left px-4 py-2">Provider</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Error</th></tr>
                             </thead>
                             <tbody className="divide-y divide-slate-800">
                                 {log.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Belum ada notifikasi terkirim</td></tr> : log.map(l => (
-                                    <tr key={l.id} className="hover:bg-slate-800/30">
+                                    <tr key={l.id} className="hover:bg-slate-surface/30">
                                         <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(l.sent_at || l.created_at)}</td>
                                         <td className="px-4 py-2 text-fg">{l.customer_name || '—'} {l.customer_code && <span className="text-xs text-fg-muted font-mono">({l.customer_code})</span>}</td>
                                         <td className="px-4 py-2 font-mono text-fg-muted">{l.to_phone}</td>
-                                        <td className="px-4 py-2 text-xs"><span className="px-2 py-0.5 rounded bg-slate-800 text-fg uppercase">{l.type}</span></td>
+                                        <td className="px-4 py-2 text-xs"><span className="px-2 py-0.5 rounded bg-slate-surface text-fg uppercase">{l.type}</span></td>
                                         <td className="px-4 py-2 text-fg-muted text-xs">{l.provider}</td>
                                         <td className="px-4 py-2">
                                             <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
@@ -1159,7 +1159,7 @@ function IsolirProfilePicker({ routerId, currentValue }) {
             </button>
 
             {creating && (
-                <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 mt-2 space-y-2" onClick={e => e.stopPropagation()}>
+                <div className="bg-slate-surface/50 border border-slate-border rounded-lg p-3 mt-2 space-y-2" onClick={e => e.stopPropagation()}>
                     <p className="text-xs text-fg-muted">Sistem akan menjalankan <code>/ppp profile add</code> di router. Konfigurasi default sudah cocok untuk isolir umum.</p>
                     <form onSubmit={handleCreate}>
                         <Field label="Nama Profile"><input name="name" defaultValue="pppoe-isolir" required className={inputCls} /></Field>
@@ -1197,7 +1197,7 @@ function CommentAuditCard({ routerId }) {
     };
 
     return (
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
+        <div className="bg-slate-surface/30 border border-slate-border rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
                 <div>
                     <div className="text-xs font-semibold text-fg-muted uppercase">Audit Comment di Router</div>
@@ -1222,9 +1222,9 @@ function CommentAuditCard({ routerId }) {
             )}
 
             {issues.length > 0 && (
-                <div className="max-h-60 overflow-y-auto border border-slate-700 rounded bg-slate-900/40">
+                <div className="max-h-60 overflow-y-auto border border-slate-border rounded bg-surface-dark/40">
                     <table className="w-full text-xs">
-                        <thead className="bg-slate-900 sticky top-0 text-fg-muted uppercase">
+                        <thead className="bg-surface-dark sticky top-0 text-fg-muted uppercase">
                             <tr>
                                 <th className="text-left px-2 py-1">Username</th>
                                 <th className="text-left px-2 py-1">Issue</th>
@@ -1235,7 +1235,7 @@ function CommentAuditCard({ routerId }) {
                         </thead>
                         <tbody className="divide-y divide-slate-800">
                             {issues.map((i, idx) => (
-                                <tr key={idx} className="hover:bg-slate-800/50">
+                                <tr key={idx} className="hover:bg-slate-surface/50">
                                     <td className="px-2 py-1 font-mono text-blue-400">{i.name}</td>
                                     <td className="px-2 py-1">
                                         <span className="bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded">{labelFor(i.kind)}</span>
@@ -1277,7 +1277,7 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
     };
 
     return (
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
+        <div className="bg-slate-surface/30 border border-slate-border rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
                 <div>
                     <div className="text-xs font-semibold text-fg-muted uppercase">Scheduler Auto-Isolir di Router</div>
@@ -1291,17 +1291,17 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-                <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
+                <div className="bg-surface-dark/50 border border-slate-border rounded p-2">
                     <div className="text-fg-muted uppercase text-[10px]">Status</div>
                     <div className={status?.present ? 'text-emerald-400 font-semibold' : 'text-fg-muted'}>
                         {status?.present ? '✓ Terpasang' : '— Belum'}
                     </div>
                 </div>
-                <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
+                <div className="bg-surface-dark/50 border border-slate-border rounded p-2">
                     <div className="text-fg-muted uppercase text-[10px]">Interval</div>
                     <div className="text-fg">{status?.interval || '—'}</div>
                 </div>
-                <div className="bg-slate-900/50 border border-slate-700 rounded p-2">
+                <div className="bg-surface-dark/50 border border-slate-border rounded p-2">
                     <div className="text-fg-muted uppercase text-[10px]">Run Count</div>
                     <div className="text-fg">{status?.runCount || '—'}</div>
                 </div>
@@ -1351,7 +1351,7 @@ function IsolirFirewallSetup({ routerId }) {
     if (!routerId) return null;
 
     return (
-        <div className="bg-slate-800/30 border border-slate-700 rounded-lg p-3 space-y-2">
+        <div className="bg-slate-surface/30 border border-slate-border rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
                 <div>
                     <div className="text-xs font-semibold text-fg-muted uppercase">Firewall Isolir di MikroTik</div>
@@ -1377,7 +1377,7 @@ function IsolirFirewallSetup({ routerId }) {
             )}
 
             {showSetup && (
-                <form onSubmit={handleSetup} className="bg-slate-900/50 border border-slate-700 rounded p-3 space-y-2 mt-2">
+                <form onSubmit={handleSetup} className="bg-surface-dark/50 border border-slate-border rounded p-3 space-y-2 mt-2">
                     <p className="text-xs text-fg-muted">Sistem akan menjalankan command MikroTik untuk membuat: address-list, NAT dst-nat tcp/80, dan (opsional) filter walled-garden.</p>
                     <Field label="Nama Address List"><input name="listName" defaultValue="isolir" className={inputCls} /></Field>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1402,7 +1402,7 @@ function FwBadge({ label, ok }) {
     return (
         <div className={clsx('rounded p-2 border text-center',
             ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' :
-                 'bg-slate-700/30 border-slate-700 text-fg-muted')}>
+                 'bg-slate-border/30 border-slate-border text-fg-muted')}>
             <div className="font-semibold uppercase text-[10px] tracking-wide">{label}</div>
             <div className="text-sm font-bold mt-0.5">{ok ? '✓ Ada' : '— Belum'}</div>
         </div>
@@ -1658,7 +1658,7 @@ export default function Billing() {
     const [tab, setTab] = useState('customers');
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            <div className="px-6 pt-6 border-b border-slate-800 bg-slate-900/20">
+            <div className="px-6 pt-6 border-b border-slate-border bg-surface-dark/20">
                 <div className="flex items-center justify-between mb-6">
                     <div>
                         <h1 className="text-2xl font-bold text-fg flex items-center gap-2">

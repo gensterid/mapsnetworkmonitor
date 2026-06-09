@@ -94,7 +94,7 @@ function CoordinatesModal({ session, onClose, onSave, isSaving }) {
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-900 border border-slate-700 rounded-xl p-6 w-full max-w-md">
+            <div className="bg-surface-dark border border-slate-border rounded-xl p-6 w-full max-w-md">
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-semibold text-fg flex items-center gap-2">
                         <MapPin className="w-5 h-5 text-primary" />
@@ -108,7 +108,7 @@ function CoordinatesModal({ session, onClose, onSave, isSaving }) {
                     </button>
                 </div>
 
-                <div className="mb-4 p-3 bg-slate-800 rounded-lg">
+                <div className="mb-4 p-3 bg-slate-surface rounded-lg">
                     <div className="text-sm text-fg-muted">Username</div>
                     <div className="font-medium text-fg">{session?.name}</div>
                 </div>
@@ -121,7 +121,7 @@ function CoordinatesModal({ session, onClose, onSave, isSaving }) {
                             value={latitude}
                             onChange={(e) => setLatitude(e.target.value)}
                             placeholder="-6.2088"
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
                     <div>
@@ -131,7 +131,7 @@ function CoordinatesModal({ session, onClose, onSave, isSaving }) {
                             value={longitude}
                             onChange={(e) => setLongitude(e.target.value)}
                             placeholder="106.8456"
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                         />
                     </div>
 
@@ -263,7 +263,7 @@ export default function Pppoe() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-3 sm:p-6 border-b border-slate-800">
+            <div className="p-3 sm:p-6 border-b border-slate-border">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 sm:mb-4">
                     <div className="min-w-0">
                         <h1 className="text-lg sm:text-2xl font-bold text-fg flex items-center gap-2">
@@ -280,7 +280,7 @@ export default function Pppoe() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
-                    <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                    <div className="bg-surface-dark/50 border border-slate-border rounded-lg p-3">
                         <div className="text-2xl font-bold text-fg">{pppoeEntries.length}</div>
                         <div className="text-xs text-fg-muted">Total Active</div>
                     </div>
@@ -292,11 +292,11 @@ export default function Pppoe() {
                         <div className="text-2xl font-bold text-primary">{sessionsWithLocation}</div>
                         <div className="text-xs text-primary/70">With Location</div>
                     </div>
-                    <div className="col-span-2 bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                    <div className="col-span-2 bg-surface-dark/50 border border-slate-border rounded-lg p-3">
                         <div className="text-xs text-fg-muted mb-1">Sessions per Router</div>
                         <div className="flex flex-wrap gap-2">
                             {routers.slice(0, 5).map(router => (
-                                <span key={router.id} className="text-xs bg-slate-800 px-2 py-1 rounded">
+                                <span key={router.id} className="text-xs bg-slate-surface px-2 py-1 rounded">
                                     {router.name}: <span className="text-primary font-bold">{routerStats[router.id] || 0}</span>
                                 </span>
                             ))}
@@ -309,7 +309,7 @@ export default function Pppoe() {
             </div>
 
             {/* Filters */}
-            <div className="p-4 border-b border-slate-800 flex gap-3 flex-wrap">
+            <div className="p-4 border-b border-slate-border flex gap-3 flex-wrap">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                     <input
@@ -317,13 +317,13 @@ export default function Pppoe() {
                         placeholder="Search by username, IP, or caller ID..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                     />
                 </div>
                 <select
                     value={routerFilter}
                     onChange={(e) => setRouterFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="all">All Routers</option>
                     {routers.map(router => (
@@ -333,7 +333,7 @@ export default function Pppoe() {
                 <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="uptime">Sort: Longest Online</option>
                     <option value="name">Sort: Username A-Z</option>
@@ -344,8 +344,8 @@ export default function Pppoe() {
             {/* Content */}
             <div className="flex-1 overflow-auto p-6">
                 {filteredEntries.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                        <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
+                        <div className="w-12 h-12 bg-slate-surface rounded-full flex items-center justify-center mb-4">
                             <PhoneCall className="w-6 h-6 text-fg-muted" />
                         </div>
                         <h3 className="text-lg font-medium text-fg mb-1">No active PPPoE sessions</h3>
@@ -354,7 +354,7 @@ export default function Pppoe() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {filteredEntries.map((entry, index) => (
-                            <Card key={`${entry.routerId}-${entry.name}-${index}`} className="border-slate-700/50 hover:border-primary/30 transition-colors">
+                            <Card key={`${entry.routerId}-${entry.name}-${index}`} className="border-slate-border/50 hover:border-primary/30 transition-colors">
                                 <CardContent className="p-4">
                                     <div className="flex items-start justify-between mb-3">
                                         <div className="flex items-center gap-2">
@@ -390,21 +390,21 @@ export default function Pppoe() {
                                                 <span>{entry.uptime}</span>
                                             </div>
                                         )}
-                                        <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
+                                        <div className="flex items-center gap-2 pt-1 border-t border-slate-border">
                                             <span className="text-fg-muted">Router:</span>
                                             <span className="text-primary">{entry.routerName}</span>
                                         </div>
                                     </div>
 
                                     {/* Location Button */}
-                                    <div className="mt-3 pt-3 border-t border-slate-800">
+                                    <div className="mt-3 pt-3 border-t border-slate-border">
                                         <button
                                             onClick={() => setSelectedSession(entry)}
                                             className={clsx(
                                                 "w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-xs transition-colors",
                                                 entry.latitude && entry.longitude
                                                     ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
-                                                    : "bg-slate-800 text-fg-muted hover:bg-slate-700"
+                                                    : "bg-slate-surface text-fg-muted hover:bg-slate-border"
                                             )}
                                         >
                                             <MapPin className="w-3 h-3" />

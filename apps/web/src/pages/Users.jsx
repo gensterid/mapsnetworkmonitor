@@ -18,7 +18,7 @@ function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onT
         ...(isSuperAdmin ? [{ value: 'superadmin', label: 'Super Admin', color: 'bg-purple-500/10 text-purple-400', desc: 'Multi-ISP access' }] : []),
         { value: 'admin', label: 'Admin', color: 'bg-red-500/10 text-red-400', desc: 'Full access', disabled: !isSuperAdmin },
         { value: 'operator', label: 'Operator', color: 'bg-yellow-500/10 text-yellow-400', desc: 'Manage routers' },
-        { value: 'user', label: 'User', color: 'bg-slate-700 text-fg', desc: 'View only' },
+        { value: 'user', label: 'User', color: 'bg-slate-border text-fg', desc: 'View only' },
     ];
 
     const handleRoleSelect = async (newRole) => {
@@ -71,7 +71,7 @@ function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onT
                         className="fixed inset-0 z-40"
                         onClick={() => onToggle(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-lg bg-slate-800 border border-slate-700 shadow-xl overflow-hidden">
+                    <div className="absolute right-0 top-full mt-2 z-50 w-48 rounded-lg bg-slate-surface border border-slate-border shadow-xl overflow-hidden">
                         <div className="p-1">
                             {roles.filter(r => !r.disabled).map((role) => (
                                 <button
@@ -79,7 +79,7 @@ function RoleSelector({ currentRole, userId, onRoleChange, disabled, isOpen, onT
                                     onClick={() => handleRoleSelect(role.value)}
                                     className={clsx(
                                         "w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors",
-                                        role.value === currentRole ? "bg-slate-700" : "hover:bg-slate-700/50"
+                                        role.value === currentRole ? "bg-slate-border" : "hover:bg-slate-border/50"
                                     )}
                                 >
                                     <div className="flex flex-col items-start">
@@ -190,7 +190,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                         name="name"
                         value={formData.name}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Enter name"
                         required
                     />
@@ -204,7 +204,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                             name="username"
                             value={formData.username}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="username (optional)"
                         />
                         <p className="text-xs text-fg-muted mt-1">Untuk login dengan username</p>
@@ -216,7 +216,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                             name="email"
                             value={formData.email}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="Enter email"
                             required
                         />
@@ -231,7 +231,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="Password"
                             required
                             minLength={8}
@@ -244,7 +244,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                             name="confirmPassword"
                             value={formData.confirmPassword}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="Confirm"
                             required
                         />
@@ -257,7 +257,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                         name="role"
                         value={formData.role}
                         onChange={handleChange}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg focus:outline-none focus:ring-2 focus:ring-primary"
                     >
                         <option value="user">User - View only</option>
                         <option value="operator">Operator - Manage routers</option>
@@ -273,7 +273,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                             name="tenantId"
                             value={formData.tenantId}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg focus:outline-none focus:ring-2 focus:ring-primary"
                         >
                             <option value="">Default (Follow current session)</option>
                             {tenants.map(t => (
@@ -287,9 +287,9 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                 {isSuperAdmin && (
                     <div className="space-y-2">
                         <label className="block text-sm font-medium text-fg">Additional ISP Access</label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-surface/50 border border-slate-border rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
                             {tenants.map(t => (
-                                <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
+                                <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-border/50 rounded cursor-pointer transition-colors group">
                                     <input
                                         type="checkbox"
                                         checked={formData.additionalTenantIds?.includes(t.id) || false}
@@ -302,7 +302,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
                                                     : prev.additionalTenantIds.filter(id => id !== t.id)
                                             }));
                                         }}
-                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary focus:ring-offset-slate-800"
+                                        className="w-4 h-4 rounded border-slate-600 bg-slate-border text-primary focus:ring-offset-slate-800"
                                     />
                                     <span className="text-sm text-fg group-hover:text-fg truncate">{t.name}</span>
                                 </label>
@@ -422,7 +422,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Enter name"
                         required
                     />
@@ -437,7 +437,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                             <select
                                 value={tenantId}
                                 onChange={(e) => setTenantId(e.target.value)}
-                                className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg focus:outline-none focus:ring-2 focus:ring-primary"
+                                className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg focus:outline-none focus:ring-2 focus:ring-primary"
                             >
                                 <option value="">No Tenant (Orphan)</option>
                                 {tenants.map(t => (
@@ -454,9 +454,9 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         <label className="block text-sm font-medium text-fg">
                             Additional ISP Access
                         </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-800/50 border border-slate-700 rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-3 bg-slate-surface/50 border border-slate-border rounded-lg max-h-40 overflow-y-auto custom-scrollbar">
                             {tenants.map(t => (
-                                <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-700/50 rounded cursor-pointer transition-colors group">
+                                <label key={t.id} className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-border/50 rounded cursor-pointer transition-colors group">
                                     <input
                                         type="checkbox"
                                         checked={additionalTenantIds?.includes(t.id) || false}
@@ -468,7 +468,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                                                     : prev.filter(id => id !== t.id)
                                             );
                                         }}
-                                        className="w-4 h-4 rounded border-slate-600 bg-slate-700 text-primary focus:ring-offset-slate-800"
+                                        className="w-4 h-4 rounded border-slate-600 bg-slate-border text-primary focus:ring-offset-slate-800"
                                     />
                                     <span className="text-sm text-fg group-hover:text-fg truncate">{t.name}</span>
                                 </label>
@@ -486,7 +486,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                             type="text"
                             value={username}
                             onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
-                            className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                            className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                             placeholder="username"
                         />
                         <p className="text-xs text-fg-muted mt-1">Untuk login dengan username</p>
@@ -499,12 +499,12 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                             type="email"
                             value={user.email}
                             disabled
-                            className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg-muted cursor-not-allowed"
+                            className="w-full px-3 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg-muted cursor-not-allowed"
                         />
                     </div>
                 </div>
 
-                <hr className="border-slate-700" />
+                <hr className="border-slate-border" />
 
                 <div>
                     <label className="block text-sm font-medium text-fg mb-1">
@@ -514,7 +514,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Masukkan password baru"
                         minLength={6}
                     />
@@ -528,7 +528,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full px-3 py-2 bg-slate-surface border border-slate-border rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="Konfirmasi password baru"
                     />
                 </div>
@@ -585,7 +585,7 @@ export default function Users() {
 
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden" onClick={() => setActiveDropdownId(null)}>
-            <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+            <div className="p-6 border-b border-slate-border flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold text-fg">Users</h1>
                     <p className="text-fg-muted text-sm">Manage user accounts and permissions</p>
@@ -604,8 +604,8 @@ export default function Users() {
 
             <div className="flex-1 overflow-auto p-6">
                 {users.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                        <div className="w-12 h-12 bg-slate-800/50 text-fg-muted rounded-full flex items-center justify-center mb-4">
+                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
+                        <div className="w-12 h-12 bg-slate-surface/50 text-fg-muted rounded-full flex items-center justify-center mb-4">
                             <UsersIcon className="w-6 h-6" />
                         </div>
                         <h3 className="text-lg font-medium text-fg mb-1">No users found</h3>
@@ -649,7 +649,7 @@ export default function Users() {
                                                 </div>
                                             )}
                                             {/* Action buttons */}
-                                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-800">
+                                            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-border">
                                                 <button
                                                     onClick={() => setEditingUser(user)}
                                                     disabled={
@@ -657,7 +657,7 @@ export default function Users() {
                                                         (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)
                                                     }
                                                     className={clsx(
-                                                        "flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-fg-muted hover:text-fg hover:bg-slate-800 rounded-md transition-colors",
+                                                        "flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-fg-muted hover:text-fg hover:bg-slate-surface rounded-md transition-colors",
                                                         ((user.role === 'superadmin' && !isSuperAdmin) || (user.role === 'admin' && currentUserRole === 'admin' && user.id !== currentUser?.id)) && "opacity-30 cursor-not-allowed"
                                                     )}
                                                 >
@@ -669,7 +669,7 @@ export default function Users() {
                                                 {(user.role === 'operator' || user.role === 'user') && (
                                                     <button
                                                         onClick={() => setAssigningUser(user)}
-                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-fg-muted hover:text-fg hover:bg-slate-800 rounded-md transition-colors"
+                                                        className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-fg-muted hover:text-fg hover:bg-slate-surface rounded-md transition-colors"
                                                     >
                                                         <RouterIcon className="w-3.5 h-3.5" />
                                                         Routers

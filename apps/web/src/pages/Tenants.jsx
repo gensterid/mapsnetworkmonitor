@@ -114,29 +114,29 @@ const Tenants = () => {
 
             {/* Stats Overview */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
-                <div className="bg-surface-dark/50 border border-slate-800/60 p-6 rounded-2xl backdrop-blur-sm">
+                <div className="bg-surface-dark/50 border border-slate-border/60 p-6 rounded-2xl backdrop-blur-sm">
                     <p className="text-fg-muted text-xs font-bold uppercase tracking-widest mb-2">Total ISP</p>
                     <p className="text-2xl sm:text-3xl font-bold text-fg tracking-tight">{tenants.length}</p>
                 </div>
-                <div className="bg-surface-dark/50 border border-slate-800/60 p-6 rounded-2xl backdrop-blur-sm">
+                <div className="bg-surface-dark/50 border border-slate-border/60 p-6 rounded-2xl backdrop-blur-sm">
                     <p className="text-fg-muted text-xs font-bold uppercase tracking-widest mb-2">Status Sistem</p>
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                         <p className="text-lg font-bold text-emerald-400">Multi-ISP Ready</p>
                     </div>
                 </div>
-                <div className="bg-surface-dark/50 border border-slate-800/60 p-6 rounded-2xl backdrop-blur-sm">
+                <div className="bg-surface-dark/50 border border-slate-border/60 p-6 rounded-2xl backdrop-blur-sm">
                     <p className="text-fg-muted text-xs font-bold uppercase tracking-widest mb-2">Isolasi Data</p>
                     <p className="text-lg font-bold text-blue-400">Hardware Level Secured</p>
                 </div>
             </div>
 
             {/* Content Table */}
-            <div className="bg-surface-dark/30 border border-slate-800/60 rounded-2xl overflow-hidden backdrop-blur-md">
+            <div className="bg-surface-dark/30 border border-slate-border/60 rounded-2xl overflow-hidden backdrop-blur-md">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left min-w-[640px]">
                         <thead>
-                            <tr className="border-b border-slate-800/60 bg-slate-900/40">
+                            <tr className="border-b border-slate-border/60 bg-surface-dark/40">
                                 <th className="px-6 py-4 text-xs font-bold text-fg-muted uppercase tracking-widest">Informasi ISP</th>
                                 <th className="px-6 py-4 text-xs font-bold text-fg-muted uppercase tracking-widest">Slug / ID</th>
                                 <th className="px-6 py-4 text-xs font-bold text-fg-muted uppercase tracking-widest">Tgl Dibuat</th>
@@ -145,10 +145,10 @@ const Tenants = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-800/40">
                             {tenants.map((tenant) => (
-                                <tr key={tenant.id} className="group hover:bg-slate-800/20 transition-colors">
+                                <tr key={tenant.id} className="group hover:bg-slate-surface/20 transition-colors">
                                     <td className="px-6 py-5">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 rounded-xl bg-slate-800/50 flex items-center justify-center text-fg font-bold group-hover:bg-primary/20 group-hover:text-primary transition-all duration-300">
+                                            <div className="w-10 h-10 rounded-xl bg-slate-surface/50 flex items-center justify-center text-fg font-bold group-hover:bg-primary/20 group-hover:text-primary transition-all duration-300">
                                                 {tenant.name.charAt(0).toUpperCase()}
                                             </div>
                                             <div>
@@ -158,7 +158,7 @@ const Tenants = () => {
                                         </div>
                                     </td>
                                     <td className="px-6 py-5">
-                                        <code className="text-xs px-2 py-1 bg-slate-800/50 rounded-md text-fg-muted font-mono">
+                                        <code className="text-xs px-2 py-1 bg-slate-surface/50 rounded-md text-fg-muted font-mono">
                                             {tenant.slug}
                                         </code>
                                     </td>
@@ -169,7 +169,7 @@ const Tenants = () => {
                                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button
                                                 onClick={() => handleOpenModal(tenant)}
-                                                className="p-2 text-fg-muted hover:text-fg hover:bg-slate-700/50 rounded-lg transition-all"
+                                                className="p-2 text-fg-muted hover:text-fg hover:bg-slate-border/50 rounded-lg transition-all"
                                                 title="Edit ISP"
                                             >
                                                 <Edit2 className="w-4 h-4" />
@@ -191,7 +191,7 @@ const Tenants = () => {
 
                 {tenants.length === 0 && (
                     <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
-                        <div className="p-4 bg-slate-800/30 rounded-full ring-1 ring-slate-700/50">
+                        <div className="p-4 bg-slate-surface/30 rounded-full ring-1 ring-slate-700/50">
                             <Building className="w-8 h-8 text-slate-600" />
                         </div>
                         <div>
@@ -206,8 +206,8 @@ const Tenants = () => {
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-                    <div className="bg-slate-900 border border-slate-700/50 rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto relative shadow-2xl animate-in zoom-in-95 duration-300">
-                        <div className="p-6 border-b border-slate-800/80 bg-slate-800/20">
+                    <div className="bg-surface-dark border border-slate-border/50 rounded-3xl w-full max-w-md max-h-[90vh] overflow-y-auto relative shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="p-6 border-b border-slate-border/80 bg-slate-surface/20">
                             <h3 className="text-xl font-bold text-fg flex items-center gap-3">
                                 <Layout className="w-5 h-5 text-primary" />
                                 {editingTenant ? 'Edit ISP' : 'Tambah ISP Baru'}
@@ -222,7 +222,7 @@ const Tenants = () => {
                                     required
                                     value={formData.name}
                                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full bg-slate-800/50 border border-slate-700 text-fg rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
+                                    className="w-full bg-slate-surface/50 border border-slate-border text-fg rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
                                     placeholder="Contoh: Media Link"
                                 />
                             </div>
@@ -234,7 +234,7 @@ const Tenants = () => {
                                     required
                                     value={formData.slug}
                                     onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/\s+/g, '-') })}
-                                    className="w-full bg-slate-800/50 border border-slate-700 text-fg rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-mono text-sm"
+                                    className="w-full bg-slate-surface/50 border border-slate-border text-fg rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all font-mono text-sm"
                                     placeholder="media-link"
                                     disabled={!!editingTenant} // Avoid breaking links if possible
                                 />
@@ -247,7 +247,7 @@ const Tenants = () => {
                                     rows={3}
                                     value={formData.description}
                                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full bg-slate-800/50 border border-slate-700 text-fg rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all resize-none text-sm"
+                                    className="w-full bg-slate-surface/50 border border-slate-border text-fg rounded-xl px-4 py-2.5 outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all resize-none text-sm"
                                     placeholder="Keterangan singkat mengenai ISP ini..."
                                 />
                             </div>
@@ -256,7 +256,7 @@ const Tenants = () => {
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 px-4 py-2.5 border border-slate-700 text-fg rounded-xl hover:bg-slate-800 transition-colors font-medium"
+                                    className="flex-1 px-4 py-2.5 border border-slate-border text-fg rounded-xl hover:bg-slate-surface transition-colors font-medium"
                                 >
                                     Batal
                                 </button>

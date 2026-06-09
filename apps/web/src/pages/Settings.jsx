@@ -309,13 +309,13 @@ export default function Settings() {
 
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            <div className="p-6 border-b border-slate-800">
+            <div className="p-6 border-b border-slate-border">
                 <h1 className="text-2xl font-bold text-fg">Settings</h1>
                 <p className="text-fg-muted text-sm">Configure application settings</p>
             </div>
 
             {/* Tab Navigation */}
-            <div className="px-6 border-b border-slate-800">
+            <div className="px-6 border-b border-slate-border">
                 <nav className="flex gap-1 overflow-x-auto">
                     {TABS.filter(tab => !tab.superadminOnly || currentUser?.role === 'superadmin').map((tab) => (
                         <button
@@ -460,7 +460,7 @@ export default function Settings() {
 
                     {selectedBackupFile && (
                         <div className="text-fg text-sm">
-                            <p>File selected: <span className="font-mono text-fg bg-slate-800 px-1 rounded">{selectedBackupFile.name}</span></p>
+                            <p>File selected: <span className="font-mono text-fg bg-slate-surface px-1 rounded">{selectedBackupFile.name}</span></p>
                             <p className="text-xs text-fg-muted mt-1">Size: {(selectedBackupFile.size / 1024).toFixed(2)} KB</p>
                         </div>
                     )}
@@ -506,7 +506,7 @@ export default function Settings() {
                     </div>
 
                     <div className="text-fg text-sm">
-                        <p>Restoring from: <span className="font-mono text-fg bg-slate-800 px-1 rounded">{localBackupToRestore}</span></p>
+                        <p>Restoring from: <span className="font-mono text-fg bg-slate-surface px-1 rounded">{localBackupToRestore}</span></p>
                     </div>
 
                     <div className="flex justify-end gap-3 mt-6">

@@ -96,7 +96,7 @@ export default function Issues() {
 
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            <div className="p-4 border-b border-slate-800 flex flex-col gap-4">
+            <div className="p-4 border-b border-slate-border flex flex-col gap-4">
                 <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
                         <h1 className="text-xl md:text-2xl font-bold text-fg tracking-tight">Issues</h1>
@@ -145,7 +145,7 @@ export default function Issues() {
                             type="date"
                             value={dateFilter}
                             onChange={(e) => setDateFilter(e.target.value)}
-                            className="bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg p-2 focus:ring-primary focus:border-primary flex-1 sm:w-auto font-mono"
+                            className="bg-surface-dark border border-slate-700 text-fg text-sm rounded-lg p-2 focus:ring-primary focus:border-primary flex-1 sm:w-auto font-mono"
                         />
                         {dateFilter && (
                             <Button
@@ -169,7 +169,7 @@ export default function Issues() {
                         placeholder="Search issues..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-10 pr-10 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                        className="w-full pl-10 pr-10 py-2 bg-surface-dark border border-slate-700 rounded-lg text-fg placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                     />
                     {searchQuery && (
                         <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-fg-muted hover:text-fg">
@@ -182,7 +182,7 @@ export default function Issues() {
 
             <div className="flex-1 overflow-auto p-6">
                 {filteredAlerts.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
+                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
                         <div className="w-12 h-12 bg-emerald-500/10 text-emerald-400 rounded-full flex items-center justify-center mb-4">
                             <CheckCircle className="w-6 h-6" />
                         </div>
@@ -240,7 +240,7 @@ export default function Issues() {
 
             {/* Pagination Controls */}
             {meta && meta.totalPages > 1 && (
-                <div className="p-4 border-t border-slate-800 flex items-center justify-between">
+                <div className="p-4 border-t border-slate-border flex items-center justify-between">
                     <Button
                         variant="outline"
                         size="sm"

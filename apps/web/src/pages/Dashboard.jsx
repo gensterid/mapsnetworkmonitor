@@ -246,7 +246,7 @@ function StatusDetailsModal({ type, isOpen, onClose }) {
                                 </div>
                                 <Link 
                                     to={`/routers/${item.routerId}`} 
-                                    className="p-2 rounded-lg bg-slate-800 text-fg-muted opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all hover:bg-slate-700 hover:text-fg"
+                                    className="p-2 rounded-lg bg-slate-surface text-fg-muted opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all hover:bg-slate-border hover:text-fg"
                                 >
                                     <ArrowRight className="w-4 h-4" />
                                 </Link>
@@ -295,7 +295,7 @@ function ActiveConnectionsTable({ routers }) {
 
     return (
         <div className="glass-panel rounded-xl flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-slate-700/30 flex items-center justify-between">
+            <div className="p-4 border-b border-slate-border/30 flex items-center justify-between">
                 <h3 className="text-base font-semibold text-fg">Active Connections</h3>
                 <Link to="/routers" className="text-xs text-primary hover:text-blue-400 font-medium tracking-wider uppercase">View All</Link>
             </div>
@@ -309,7 +309,7 @@ function ActiveConnectionsTable({ routers }) {
                         className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-fg-muted shadow-inner">
+                            <div className="w-10 h-10 rounded-lg bg-slate-surface flex items-center justify-center text-fg-muted shadow-inner">
                                 <RouterIcon className="w-5 h-5" />
                             </div>
                             <div className="flex flex-col">
@@ -335,7 +335,7 @@ function ActiveConnectionsTable({ routers }) {
             <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                        <tr className="bg-surface-dark/50 border-b border-slate-700/30 text-xs uppercase text-fg-muted font-semibold tracking-wider">
+                        <tr className="bg-surface-dark/50 border-b border-slate-border/30 text-xs uppercase text-fg-muted font-semibold tracking-wider">
                             <th className="px-6 py-4">Device Name</th>
                             <th className="px-6 py-4 hidden md:table-cell">IP Address</th>
                             <th className="px-6 py-4 hidden lg:table-cell">Location</th>
@@ -348,7 +348,7 @@ function ActiveConnectionsTable({ routers }) {
                             <tr key={router.id} className="group hover:bg-white/5 transition-colors">
                                 <td className="px-6 py-4">
                                     <Link to={`/routers/${router.id}`} className="flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded bg-slate-700/50 flex items-center justify-center text-fg-muted">
+                                        <div className="w-8 h-8 rounded bg-slate-border/50 flex items-center justify-center text-fg-muted">
                                             <RouterIcon className="w-4 h-4" />
                                         </div>
                                         <span className="font-medium text-fg hover:text-primary transition-colors">{router.name}</span>
@@ -376,7 +376,7 @@ function ActiveConnectionsTable({ routers }) {
 
             {routers.length === 0 && (
                 <div className="px-6 py-12 text-center flex flex-col items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-slate-800/50 flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-slate-surface/50 flex items-center justify-center">
                         <RouterIcon className="w-6 h-6 text-slate-600" />
                     </div>
                     <div>
@@ -558,7 +558,7 @@ export default function Dashboard() {
                                     Teks tetap literal slate-100/slate-400 — bukan text-fg —
                                     karena bg-nya fixed dark, text-fg (slate-900 di Daylight)
                                     akan jadi dark-on-dark. */}
-                                <div className="absolute top-4 left-4 z-[500] bg-slate-900/90 backdrop-blur border border-slate-700/50 px-3 py-1.5 rounded-lg shadow-lg flex items-center justify-between gap-2 pointer-events-auto">
+                                <div className="absolute top-4 left-4 z-[500] bg-slate-900/90 backdrop-blur border border-slate-border/50 px-3 py-1.5 rounded-lg shadow-lg flex items-center justify-between gap-2 pointer-events-auto">
                                     <div className="flex items-center gap-2 pointer-events-none">
                                         <span className="relative flex h-2 w-2">
                                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
@@ -566,7 +566,7 @@ export default function Dashboard() {
                                         </span>
                                         <span className="text-xs font-bold text-slate-100 uppercase tracking-wider">Live Map</span>
                                     </div>
-                                    <div className="w-px h-4 bg-slate-700 mx-2"></div>
+                                    <div className="w-px h-4 bg-slate-border mx-2"></div>
                                     <button
                                         onClick={() => setIsFullscreen(!isFullscreen)}
                                         className="text-slate-400 hover:text-slate-100 transition-colors"

@@ -206,7 +206,7 @@ export default function RouterDetails() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-3 sm:p-6 border-b border-slate-800">
+            <div className="p-3 sm:p-6 border-b border-slate-border">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-3 sm:gap-4">
                     <div className="flex items-center gap-4">
                         <Link to="/routers">
@@ -254,7 +254,7 @@ export default function RouterDetails() {
 
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         {/* Live Mode Toggle */}
-                        <div className="flex items-center gap-2 bg-slate-800/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
+                        <div className="flex items-center gap-2 bg-slate-surface/50 rounded-lg px-3 py-1.5 border border-slate-700/50 mr-2">
                                 <div className={clsx(
                                     "w-2 h-2 rounded-full animate-pulse",
                                     isLiveMode ? "bg-red-500" : "bg-slate-500"

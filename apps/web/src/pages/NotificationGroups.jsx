@@ -89,7 +89,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 </div>
 
                 {/* Telegram Section */}
-                <div className="border border-slate-800 rounded-lg p-4 space-y-4">
+                <div className="border border-slate-border rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <Send className="w-5 h-5 text-blue-400" />
                         <h3 className="font-medium text-fg">Telegram</h3>
@@ -126,7 +126,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 </div>
 
                 {/* WhatsApp Section */}
-                <div className="border border-slate-800 rounded-lg p-4 space-y-4">
+                <div className="border border-slate-border rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <MessageCircle className="w-5 h-5 text-green-400" />
                         <h3 className="font-medium text-fg">WhatsApp</h3>
@@ -163,7 +163,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 </div>
 
                 {/* Custom Message Template Section */}
-                <div className="border border-slate-800 rounded-lg p-4 space-y-4">
+                <div className="border border-slate-border rounded-lg p-4 space-y-4">
                     <div className="flex items-center gap-2 mb-2">
                         <Edit className="w-5 h-5 text-purple-400" />
                         <h3 className="font-medium text-fg">Message Template</h3>
@@ -184,23 +184,23 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
 📌 *Location:* {{location}}
 🗺️ *Maps:* {{maps_link}}
 ⏰ *Time:* {{time}}`}
-                            className="w-full h-40 bg-slate-900 border border-slate-700 rounded-md p-2 text-fg text-xs font-mono focus:ring-2 focus:ring-primary focus:border-transparent"
+                            className="w-full h-40 bg-surface-dark border border-slate-border rounded-md p-2 text-fg text-xs font-mono focus:ring-2 focus:ring-primary focus:border-transparent"
                         />
                         <div className="text-[10px] text-fg-muted space-y-1">
                             <p>Available variables:</p>
                             <div className="flex flex-wrap gap-2">
-                                <code className="bg-slate-800 px-1 rounded">{"{{icon}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{title}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{message}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{device}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{ip}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{location}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded text-emerald-400">{"{{coordinates}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded text-emerald-400">{"{{maps_link}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{time}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{severity}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{netwatch_host}}"}</code>
-                                <code className="bg-slate-800 px-1 rounded">{"{{netwatch_name}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{icon}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{title}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{message}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{device}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{ip}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{location}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded text-emerald-400">{"{{coordinates}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded text-emerald-400">{"{{maps_link}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{time}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{severity}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{netwatch_host}}"}</code>
+                                <code className="bg-slate-surface px-1 rounded">{"{{netwatch_name}}"}</code>
                             </div>
                         </div>
                     </div>
@@ -244,14 +244,14 @@ export default function NotificationGroups() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {groups.map(group => (
-                    <Card key={group.id} className="bg-surface-dark border-slate-800">
+                    <Card key={group.id} className="bg-surface-dark border-slate-border">
                         <CardHeader className="pb-3">
                             <CardTitle className="flex justify-between items-center text-lg">
                                 {group.name}
                                 <div className="flex gap-1">
                                     <button
                                         onClick={() => setEditingGroup(group)}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-fg-muted hover:text-fg transition-colors"
+                                        className="p-1.5 hover:bg-slate-surface rounded text-fg-muted hover:text-fg transition-colors"
                                     >
                                         <Edit className="w-4 h-4" />
                                     </button>
@@ -261,7 +261,7 @@ export default function NotificationGroups() {
                                                 deleteMutation.mutate(group.id);
                                             }
                                         }}
-                                        className="p-1.5 hover:bg-slate-800 rounded text-fg-muted hover:text-red-400 transition-colors"
+                                        className="p-1.5 hover:bg-slate-surface rounded text-fg-muted hover:text-red-400 transition-colors"
                                     >
                                         <Trash2 className="w-4 h-4" />
                                     </button>
@@ -269,30 +269,30 @@ export default function NotificationGroups() {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-800/50">
+                            <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-border/50">
                                 <div className="flex items-center gap-2">
                                     <Send className={`w-4 h-4 ${group.telegramEnabled ? 'text-blue-400' : 'text-slate-600'}`} />
                                     <span className="text-sm text-fg">Telegram</span>
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded ${group.telegramEnabled ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-fg-muted'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded ${group.telegramEnabled ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-surface text-fg-muted'}`}>
                                     {group.telegramEnabled ? 'On' : 'Off'}
                                 </span>
                             </div>
 
-                            <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-800/50">
+                            <div className="flex items-center justify-between p-2 rounded bg-background-dark/50 border border-slate-border/50">
                                 <div className="flex items-center gap-2">
                                     <MessageCircle className={`w-4 h-4 ${group.whatsappEnabled ? 'text-green-400' : 'text-slate-600'}`} />
                                     <span className="text-sm text-fg">WhatsApp</span>
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded ${group.whatsappEnabled ? 'bg-green-500/10 text-green-400' : 'bg-slate-800 text-fg-muted'}`}>
+                                <span className={`text-xs px-2 py-0.5 rounded ${group.whatsappEnabled ? 'bg-green-500/10 text-green-400' : 'bg-slate-surface text-fg-muted'}`}>
                                     {group.whatsappEnabled ? 'On' : 'Off'}
                                 </span>
                             </div>
 
                             {(group.telegramEnabled || group.whatsappEnabled) && (
                                 <div className="pt-2 text-xs text-fg-muted flex gap-2">
-                                    {group.telegramThreadId && <span className="bg-slate-800 px-1.5 py-0.5 rounded">Topic: {group.telegramThreadId}</span>}
-                                    {group.whatsappTo && <span className="bg-slate-800 px-1.5 py-0.5 rounded">WA: {group.whatsappTo}</span>}
+                                    {group.telegramThreadId && <span className="bg-slate-surface px-1.5 py-0.5 rounded">Topic: {group.telegramThreadId}</span>}
+                                    {group.whatsappTo && <span className="bg-slate-surface px-1.5 py-0.5 rounded">WA: {group.whatsappTo}</span>}
                                 </div>
                             )}
                         </CardContent>
@@ -300,7 +300,7 @@ export default function NotificationGroups() {
                 ))}
 
                 {groups.length === 0 && !isLoading && (
-                    <div className="col-span-full py-12 text-center text-fg-muted border-2 border-dashed border-slate-800 rounded-xl">
+                    <div className="col-span-full py-12 text-center text-fg-muted border-2 border-dashed border-slate-border rounded-xl">
                         No notification groups created yet.
                     </div>
                 )}

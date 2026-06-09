@@ -110,7 +110,7 @@ export default function Netwatch() {
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
-            <div className="p-6 border-b border-slate-800">
+            <div className="p-6 border-b border-slate-border">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
                         <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
@@ -127,7 +127,7 @@ export default function Netwatch() {
 
                 {/* Stats */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-                    <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                    <div className="bg-surface-dark/50 border border-slate-border rounded-lg p-3">
                         <div className="text-2xl font-bold text-fg">{netwatchEntries.length}</div>
                         <div className="text-xs text-fg-muted">Total Hosts</div>
                     </div>
@@ -139,7 +139,7 @@ export default function Netwatch() {
                         <div className="text-2xl font-bold text-red-400">{downCount}</div>
                         <div className="text-xs text-red-400/70">Offline</div>
                     </div>
-                    <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
+                    <div className="bg-slate-surface/50 border border-slate-border rounded-lg p-3">
                         <div className="text-2xl font-bold text-fg-muted">{unknownCount}</div>
                         <div className="text-xs text-fg-muted">Unknown</div>
                     </div>
@@ -147,7 +147,7 @@ export default function Netwatch() {
             </div>
 
             {/* Filters */}
-            <div className="p-4 border-b border-slate-800 flex gap-3 flex-wrap">
+            <div className="p-4 border-b border-slate-border flex gap-3 flex-wrap">
                 <div className="relative flex-1 max-w-md">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                     <input
@@ -155,13 +155,13 @@ export default function Netwatch() {
                         placeholder="Search by name, host, or router..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                        className="w-full pl-9 pr-4 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                     />
                 </div>
                 <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="all">All Status</option>
                     <option value="up">Online Only</option>
@@ -170,7 +170,7 @@ export default function Netwatch() {
                 <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
-                    className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
+                    className="px-3 py-2 bg-surface-dark border border-slate-border rounded-lg text-fg text-sm focus:outline-none focus:border-primary"
                 >
                     <option value="status">Sort: Status (Down First)</option>
                     <option value="name">Sort: Name A-Z</option>
@@ -182,8 +182,8 @@ export default function Netwatch() {
             {/* Content */}
             <div className="flex-1 overflow-auto p-6">
                 {filteredEntries.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                        <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mb-4">
+                    <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-slate-border rounded-xl">
+                        <div className="w-12 h-12 bg-slate-surface rounded-full flex items-center justify-center mb-4">
                             <Globe className="w-6 h-6 text-fg-muted" />
                         </div>
                         <h3 className="text-lg font-medium text-fg mb-1">No netwatch entries found</h3>
