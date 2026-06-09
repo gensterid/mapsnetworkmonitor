@@ -34,8 +34,8 @@ const NavItem = ({ path, icon: Icon, label, badge, badgeColor, isActive, onClose
         className={clsx(
             "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden mb-0.5",
             isActive
-                ? "bg-primary/10 text-white font-semibold"
-                : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+                ? "bg-primary/10 text-fg font-semibold"
+                : "text-fg-muted hover:bg-white/5 hover:text-fg"
         )}
     >
         {isActive && (
@@ -104,9 +104,13 @@ const Sidebar = ({ isOpen, onClose }) => {
                     "fixed lg:static inset-y-0 left-0 z-[2001] lg:z-40 w-72 flex flex-col justify-between transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none",
                     isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
                 )}>
-            <div className="flex flex-col h-full glass-premium border-r border-white/5">
+            {/* Surface adapt per-tema: bg-surface-darker/95 + backdrop-blur menggantikan
+                `glass-premium` yang alpha 0.4 — di tema terang (Daylight, Enterprise)
+                glass-premium bocor ke bg page sehingga sidebar jadi murky light.
+                Sekarang sidebar selalu solid sesuai surface tema. */}
+            <div className="flex flex-col h-full bg-surface-darker/95 backdrop-blur-xl border-r border-slate-border">
                 {/* Header */}
-                <div className="p-5 border-b border-slate-800/60 flex items-center justify-between">
+                <div className="p-5 border-b border-slate-border flex items-center justify-between">
                     <div className="flex gap-3 items-center" role="group" aria-label="User Profile">
                         <div
                             role="img"
@@ -116,10 +120,10 @@ const Sidebar = ({ isOpen, onClose }) => {
                         >
                         </div>
                         <div className="flex flex-col">
-                            <h1 className="text-white text-base font-bold leading-tight tracking-tight">
+                            <h1 className="text-fg text-base font-bold leading-tight tracking-tight">
                                 {settings?.appName || 'NetMonitor'}
                             </h1>
-                            <p className="text-slate-500 text-xs font-medium">{currentUser?.name || 'User'}</p>
+                            <p className="text-fg-muted text-xs font-medium">{currentUser?.name || 'User'}</p>
                         </div>
                     </div>
 
@@ -127,7 +131,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                     <button
                         onClick={onClose}
                         aria-label="Close sidebar"
-                        className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+                        className="lg:hidden p-2 text-fg-muted hover:text-fg transition-colors"
                     >
                         <X className="w-5 h-5" aria-hidden="true" />
                     </button>
@@ -137,14 +141,14 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <div className="flex flex-col gap-1.5 p-4 flex-1 overflow-y-auto custom-scrollbar" role="navigation" aria-label="Main Navigation">
                     <TenantSwitcher />
 
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2" aria-hidden="true">Main Menu</div>
+                    <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2" aria-hidden="true">Main Menu</div>
 
                     <NavItem path="/" icon={LayoutDashboard} label="Dashboard" isActive={isActive("/")} onClose={onClose} />
                     <NavItem path="/map" icon={MapIcon} label="Network Map" isActive={isActive("/map")} onClose={onClose} />
                     <NavItem path="/routers" icon={RouterIcon} label="Routers" badge={routers.length} isActive={isActive("/routers")} onClose={onClose} />
                     <NavItem path="/olts" icon={Server} label="OLTs" isActive={isActive("/olts")} onClose={onClose} />
 
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Monitoring</div>
+                    <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Monitoring</div>
 
                     <NavItem path="/genieacs" icon={Monitor} label="GenieACS" isActive={isActive("/genieacs")} onClose={onClose} />
                     <NavItem path="/alerts" icon={Bell} label="Alerts" badge={alertCount?.connectivity} badgeColor={alertCount?.connectivity > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : undefined} isActive={isActive("/alerts")} onClose={onClose} />
@@ -153,14 +157,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                     {(isAdmin || isOperator) && (
                         <>
-                            <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Bisnis</div>
+                            <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Bisnis</div>
                             <NavItem path="/billing" icon={Receipt} label="Billing" isActive={isActive("/billing")} onClose={onClose} />
                             <NavItem path="/mikhmon" icon={Wifi} label="MikHMON Console" isActive={isActive("/mikhmon")} onClose={onClose} />
                             <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />
                         </>
                     )}
 
-                    <div className="text-slate-500 text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Administrasi</div>
+                    <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Administrasi</div>
 
                     {isSuperAdmin && <NavItem path="/tenants" icon={Building} label="ISPs / Tenants" isActive={isActive("/tenants")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/users" icon={Users} label="Users" isActive={isActive("/users")} onClose={onClose} />}
@@ -169,7 +173,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="p-4 border-t border-slate-800/60 bg-black/20">
+                <div className="p-4 border-t border-slate-border bg-black/20">
                     <button
                         onClick={handleLogout}
                         aria-label="Logout from application"
