@@ -16,8 +16,8 @@ export default function RebootModal({ isOpen, onClose, device }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Reboot Device">
       <div className="space-y-4">
-        <p className="text-slate-300">
-          Are you sure you want to reboot <strong className="text-white">{device?._id}</strong>?
+        <p className="text-fg">
+          Are you sure you want to reboot <strong className="text-fg">{device?._id}</strong>?
           This will temporarily interrupt service for the customer.
         </p>
         <div className="flex justify-end gap-2">

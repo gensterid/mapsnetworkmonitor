@@ -194,7 +194,7 @@ export default function GenieACS() {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-background-dark p-8 text-center">
                 <div className="text-red-400 mb-2">Error loading devices</div>
-                <p className="text-slate-500 text-sm mb-4">{error.message}</p>
+                <p className="text-fg-muted text-sm mb-4">{error.message}</p>
                 <Button onClick={() => refetch()}>Try Again</Button>
             </div>
         );
@@ -206,7 +206,7 @@ export default function GenieACS() {
             <div className="px-3 pt-3 sm:px-6 sm:pt-6 border-b border-slate-800 bg-slate-900/20">
                 {/* Title row + router select inline (compact mobile layout) */}
                 <div className="flex items-center justify-between gap-2 mb-2 sm:mb-3">
-                    <h1 className="text-base sm:text-2xl font-bold text-white flex items-center gap-2 min-w-0">
+                    <h1 className="text-base sm:text-2xl font-bold text-fg flex items-center gap-2 min-w-0">
                         <Monitor className="w-5 h-5 sm:w-8 sm:h-8 text-primary shrink-0" />
                         <span className="truncate">GenieACS Management</span>
                     </h1>
@@ -215,7 +215,7 @@ export default function GenieACS() {
                             <select
                                 value={selectedRouterId}
                                 onChange={(e) => setSelectedRouterId(e.target.value)}
-                                className="bg-slate-900 border border-slate-700 text-white text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto sm:max-w-none"
+                                className="bg-slate-900 border border-slate-700 text-fg text-xs sm:text-sm rounded-lg pl-2 pr-7 sm:pl-3 sm:pr-8 py-1.5 sm:py-2 focus:ring-1 focus:ring-primary focus:border-primary appearance-none cursor-pointer w-full sm:w-auto sm:max-w-none"
                             >
                                 {isAdmin && <option value="">Global ACS View</option>}
                                 {acsEnabledRouters.map(router => (
@@ -224,24 +224,24 @@ export default function GenieACS() {
                                     </option>
                                 ))}
                             </select>
-                            <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-500 pointer-events-none" />
+                            <ChevronDown className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-fg-muted pointer-events-none" />
                         </div>
                     )}
                 </div>
 
-                <p className="hidden sm:block text-slate-400 text-sm mb-3 sm:mb-6">Unified TR-069 Monitoring & Orchestration</p>
+                <p className="hidden sm:block text-fg-muted text-sm mb-3 sm:mb-6">Unified TR-069 Monitoring & Orchestration</p>
 
                 {/* Action row: search + sync + presets + view toggle */}
                 {pageTab === 'devices' && (
                     <div className="flex flex-wrap gap-2 sm:gap-3 mb-3 sm:mb-6">
                         <div className="relative flex-1 min-w-[180px] sm:flex-none">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                             <input
                                 type="text"
                                 placeholder="Search serial, IP..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                className="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
+                                className="bg-slate-900 border border-slate-700 text-fg text-sm rounded-lg pl-9 pr-3 py-2 focus:ring-1 focus:ring-primary focus:border-primary w-full sm:w-48"
                             />
                         </div>
                         <Button
@@ -260,13 +260,13 @@ export default function GenieACS() {
                         <div className="flex bg-slate-900 border border-slate-700 rounded-lg p-1 ml-auto sm:ml-0">
                             <button
                                 onClick={() => setViewMode('grid')}
-                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white")}
+                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'grid' ? "bg-primary text-[var(--on-primary)]" : "text-fg-muted hover:text-fg")}
                             >
                                 <LayoutGrid className="w-4 h-4" />
                             </button>
                             <button
                                 onClick={() => setViewMode('list')}
-                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-[var(--on-primary)]" : "text-slate-400 hover:text-white")}
+                                className={clsx("p-1.5 rounded-md transition-all", viewMode === 'list' ? "bg-primary text-[var(--on-primary)]" : "text-fg-muted hover:text-fg")}
                             >
                                 <List className="w-4 h-4" />
                             </button>
@@ -280,7 +280,7 @@ export default function GenieACS() {
                         onClick={() => setPageTab('dashboard')}
                         className={clsx(
                             "px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider sm:tracking-widest transition-all border-b-2",
-                            pageTab === 'dashboard' ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
+                            pageTab === 'dashboard' ? "border-primary text-primary bg-primary/5" : "border-transparent text-fg-muted hover:text-slate-300 hover:bg-slate-800/30"
                         )}
                     >
                         Network Overview
@@ -289,7 +289,7 @@ export default function GenieACS() {
                         onClick={() => setPageTab('devices')}
                         className={clsx(
                             "px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-sm font-bold uppercase tracking-wider sm:tracking-widest transition-all border-b-2",
-                            pageTab === 'devices' ? "border-primary text-primary bg-primary/5" : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
+                            pageTab === 'devices' ? "border-primary text-primary bg-primary/5" : "border-transparent text-fg-muted hover:text-slate-300 hover:bg-slate-800/30"
                         )}
                     >
                         Device Management
@@ -368,8 +368,8 @@ export default function GenieACS() {
                                 <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center mb-6 shadow-2xl border border-slate-800">
                                     <Monitor className="w-10 h-10 text-slate-600" />
                                 </div>
-                                <h3 className="text-xl font-bold text-white mb-2">No Devices Found</h3>
-                                <p className="text-slate-500 max-w-sm text-center">
+                                <h3 className="text-xl font-bold text-fg mb-2">No Devices Found</h3>
+                                <p className="text-fg-muted max-w-sm text-center">
                                     We couldn't find any devices matching your current filters. Try adjusting your search criteria.
                                 </p>
                             </div>

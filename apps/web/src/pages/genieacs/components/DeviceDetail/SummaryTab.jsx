@@ -16,21 +16,21 @@ export default function SummaryTab({ fullDevice }) {
                   <Monitor className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Identity</div>
-                  <div className="text-[12px] text-white font-mono break-all leading-tight">{fullDevice?._id}</div>
+                  <div className="text-[10px] text-fg-muted uppercase font-black tracking-widest mb-1">Identity</div>
+                  <div className="text-[12px] text-fg font-mono break-all leading-tight">{fullDevice?._id}</div>
                 </div>
               </div>
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-800/50 md:pl-6 py-1 min-w-0">
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Manufacturer</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Manufacturer</span>
                   <span className="text-sm text-slate-200 font-medium truncate">{fullDevice?._manufacturer || 'N/A'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Product Class</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Product Class</span>
                   <span className="text-sm text-slate-200 font-medium truncate">{fullDevice?._productClass || 'N/A'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Serial Number</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Serial Number</span>
                   <span className="text-sm text-primary font-mono font-bold truncate">{fullDevice?._serialNumber || 'N/A'}</span>
                 </div>
               </div>
@@ -46,7 +46,7 @@ export default function SummaryTab({ fullDevice }) {
                   <Activity className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Status</div>
+                  <div className="text-[10px] text-fg-muted uppercase font-black tracking-widest mb-1">Status</div>
                   <div className="text-sm text-emerald-400 font-bold flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     Online
@@ -55,16 +55,16 @@ export default function SummaryTab({ fullDevice }) {
               </div>
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-800/50 md:pl-6 py-1 min-w-0">
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">System Uptime</span>
-                  <span className="text-sm text-white font-bold truncate">{fullDevice?._uptime || 'N/A'}</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">System Uptime</span>
+                  <span className="text-sm text-fg font-bold truncate">{fullDevice?._uptime || 'N/A'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Software Version</span>
-                  <span className="text-[11px] text-slate-300 font-mono truncate" title={fullDevice?._softwareVersion}>{fullDevice?._softwareVersion || 'N/A'}</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Software Version</span>
+                  <span className="text-[11px] text-fg font-mono truncate" title={fullDevice?._softwareVersion}>{fullDevice?._softwareVersion || 'N/A'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Hardware Revision</span>
-                  <span className="text-sm text-slate-300 font-medium truncate">{fullDevice?._hardwareVersion || 'N/A'}</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Hardware Revision</span>
+                  <span className="text-sm text-fg font-medium truncate">{fullDevice?._hardwareVersion || 'N/A'}</span>
                 </div>
               </div>
             </div>
@@ -79,21 +79,21 @@ export default function SummaryTab({ fullDevice }) {
                   <Globe className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-[10px] text-slate-500 uppercase font-black tracking-widest mb-1">Connection</div>
-                  <div className="text-[11px] text-white font-mono truncate">{fullDevice?._ip || '0.0.0.0'}</div>
+                  <div className="text-[10px] text-fg-muted uppercase font-black tracking-widest mb-1">Connection</div>
+                  <div className="text-[11px] text-fg font-mono truncate">{fullDevice?._ip || '0.0.0.0'}</div>
                 </div>
               </div>
               <div className="flex-1 grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3 md:border-l md:border-slate-800/50 md:pl-6 py-1 min-w-0">
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">PPPoE Credentials</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">PPPoE Credentials</span>
                   <span className="text-sm text-primary font-bold truncate">{fullDevice?._pppoeUser || 'N/A'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Session Type</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Session Type</span>
                   <span className="text-[11px] text-slate-200 font-medium truncate">{fullDevice?._isTr181 ? 'TR-181' : 'TR-098'}</span>
                 </div>
                 <div className="flex flex-col gap-0.5 min-w-0">
-                  <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">Optical Signal</span>
+                  <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">Optical Signal</span>
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-sm text-amber-400 font-bold font-mono shrink-0">{fullDevice?._rxPower ? `${fullDevice._rxPower} dBm` : 'N/A'}</span>
                     {fullDevice?._rxPower && (
@@ -110,20 +110,20 @@ export default function SummaryTab({ fullDevice }) {
       </div>
 
       <div className="bg-slate-900/30 rounded-xl border border-slate-800 p-6">
-        <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+        <h3 className="text-sm font-bold text-fg mb-4 flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
           TR-069 Session Logs
         </h3>
         <div className="space-y-4">
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+          <div className="flex items-center gap-4 text-xs text-fg-muted">
             <div className="w-24 font-mono">Last Inform</div>
             <div className="flex-1 bg-slate-800/50 h-0.5" />
-            <div className="text-white font-medium">{fullDevice?._lastInform ? formatShortDateTime(fullDevice._lastInform) : 'N/A'}</div>
+            <div className="text-fg font-medium">{fullDevice?._lastInform ? formatShortDateTime(fullDevice._lastInform) : 'N/A'}</div>
           </div>
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+          <div className="flex items-center gap-4 text-xs text-fg-muted">
             <div className="w-24 font-mono">Last Boot</div>
             <div className="flex-1 bg-slate-800/50 h-0.5" />
-            <div className="text-slate-300">Synchronized via GenieACS</div>
+            <div className="text-fg">Synchronized via GenieACS</div>
           </div>
         </div>
       </div>

@@ -47,7 +47,7 @@ export default function DeviceDetailModal({
         {isLoading ? (
           <div className="flex-1 flex flex-col items-center justify-center space-y-3">
             <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-slate-400 animate-pulse text-sm">Synchronizing with CPE...</p>
+            <p className="text-fg-muted animate-pulse text-sm">Synchronizing with CPE...</p>
           </div>
         ) : (
           <div className="flex flex-col h-full">
@@ -60,7 +60,7 @@ export default function DeviceDetailModal({
                     "flex items-center gap-2 px-3 sm:px-5 md:px-6 py-3 border-b-2 transition-all whitespace-nowrap text-xs sm:text-sm font-bold uppercase tracking-wider",
                     activeTab === tab.id
                       ? "border-primary text-primary bg-primary/5"
-                      : "border-transparent text-slate-500 hover:text-slate-300 hover:bg-slate-800/30"
+                      : "border-transparent text-fg-muted hover:text-fg hover:bg-slate-surface/30"
                   )}
                 >
                   <tab.icon className="w-4 h-4 shrink-0" />

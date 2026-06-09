@@ -72,8 +72,8 @@ export default function OnuTable({
         return (
             <div className="py-12 px-6 text-center border border-red-500/10 bg-red-500/5 rounded-xl m-4">
                 <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3 opacity-50" />
-                <p className="text-slate-300 font-bold mb-2">Failed to fetch ONUs</p>
-                <p className="text-xs text-slate-500 font-mono mb-6 break-all max-w-md mx-auto">{error.message}</p>
+                <p className="text-fg font-bold mb-2">Failed to fetch ONUs</p>
+                <p className="text-xs text-fg-muted font-mono mb-6 break-all max-w-md mx-auto">{error.message}</p>
                 <Button size="sm" variant="outline" onClick={refetch} className="border-red-500/20 hover:bg-red-500/10 text-red-400">
                     Retry Connection
                 </Button>
@@ -88,14 +88,14 @@ export default function OnuTable({
                     <div className="p-2 bg-primary/10 rounded-lg">
                         <Layers className="w-4 h-4 text-primary" />
                     </div>
-                    <h3 className="text-sm font-bold text-white uppercase tracking-wider">ONU Management Table</h3>
+                    <h3 className="text-sm font-bold text-fg uppercase tracking-wider">ONU Management Table</h3>
                 </div>
                 <div className="relative w-full max-w-xs">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-fg-muted" />
                     <input
                         type="text"
                         placeholder="Search by SN, Name, ID..."
-                        className="w-full pl-9 pr-4 py-2 bg-slate-950/50 border border-slate-800 rounded-xl text-xs text-white placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary transition-all font-bold"
+                        className="w-full pl-9 pr-4 py-2 bg-slate-950/50 border border-slate-800 rounded-xl text-xs text-fg placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-primary transition-all font-bold"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -103,7 +103,7 @@ export default function OnuTable({
             </div>
 
             {filteredOnus.length === 0 ? (
-                <div className="py-20 text-center text-slate-500 font-medium italic">
+                <div className="py-20 text-center text-fg-muted font-medium italic">
                     {searchTerm ? `No matches found for "${searchTerm}"` : 'No ONUs discovered on this device.'}
                 </div>
             ) : (
@@ -111,32 +111,32 @@ export default function OnuTable({
                     <table className="w-full border-collapse">
                         <thead className="sticky top-0 z-10">
                             <tr className="border-b border-slate-800">
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">PON / ID</th>
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">SN / Alias</th>
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">MAC Address</th>
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Note</th>
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Status / Reason</th>
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Last Activity</th>
-                                <th className="px-4 py-4 text-right text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Signal</th>
-                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Location</th>
-                                <th className="px-4 py-4 text-right text-[11px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Actions</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">PON / ID</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">SN / Alias</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">MAC Address</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Note</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Status / Reason</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Last Activity</th>
+                                <th className="px-4 py-4 text-right text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Signal</th>
+                                <th className="px-4 py-4 text-left text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Location</th>
+                                <th className="px-4 py-4 text-right text-[11px] sm:text-[10px] font-bold text-fg-muted uppercase tracking-wider sm:tracking-widest whitespace-nowrap bg-slate-950/98 backdrop-blur-sm">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/50">
                             {filteredOnus.map((onu, index) => (
                                 <tr key={index} className="hover:bg-slate-800/20 transition-colors group">
                                     <td className="px-4 py-4 whitespace-nowrap">
-                                        <span className="text-xs font-bold text-white font-mono">{formatOnuId(onu.ponId, onu.onuId)}</span>
+                                        <span className="text-xs font-bold text-fg font-mono">{formatOnuId(onu.ponId, onu.onuId)}</span>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="flex flex-col gap-0.5">
-                                            <span className="text-xs text-white font-bold font-mono tracking-tight group-hover:text-primary transition-colors">{onu.sn}</span>
-                                            {onu.name && <span className="text-[10px] text-slate-500 font-bold uppercase truncate max-w-[120px]" title={onu.name}>{onu.name}</span>}
+                                            <span className="text-xs text-fg font-bold font-mono tracking-tight group-hover:text-primary transition-colors">{onu.sn}</span>
+                                            {onu.name && <span className="text-[10px] text-fg-muted font-bold uppercase truncate max-w-[120px]" title={onu.name}>{onu.name}</span>}
                                         </div>
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         {onu.macAddress ? (
-                                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-950/50 text-slate-400 rounded border border-slate-800 font-mono tracking-widest">
+                                            <span className="text-[10px] font-bold px-2 py-0.5 bg-slate-950/50 text-fg-muted rounded border border-slate-800 font-mono tracking-widest">
                                                 {onu.macAddress}
                                             </span>
                                         ) : (
@@ -144,7 +144,7 @@ export default function OnuTable({
                                         )}
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap">
-                                        <span className="text-[10px] text-slate-500 font-medium italic truncate max-w-[150px] block" title={onu.description || ''}>
+                                        <span className="text-[10px] text-fg-muted font-medium italic truncate max-w-[150px] block" title={onu.description || ''}>
                                             {onu.description || '--'}
                                         </span>
                                     </td>
@@ -158,7 +158,7 @@ export default function OnuTable({
                                                     "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-tight",
                                                     onu.lastDownReason === 'Power Down' ? "bg-amber-500/10 text-amber-500 border border-amber-500/10" :
                                                         onu.lastDownReason === 'Optical Loss' ? "bg-orange-500/10 text-orange-500 border border-orange-500/10" :
-                                                            "bg-slate-800 text-slate-500"
+                                                            "bg-slate-800 text-fg-muted"
                                                 )}>
                                                     {onu.lastDownReason}
                                                 </span>
@@ -188,7 +188,7 @@ export default function OnuTable({
                                     </td>
                                     <td className="px-4 py-4 whitespace-nowrap text-xs">
                                         <div className="flex flex-col">
-                                            <span className="text-slate-300 font-medium">{onu.lastDownTime || '--'}</span>
+                                            <span className="text-fg font-medium">{onu.lastDownTime || '--'}</span>
                                             {onu.status === 'online' && onu.lastUpTime && (
                                                 <span className="text-emerald-500/60 text-[9px] font-bold uppercase">Uptime: {onu.lastUpTime}</span>
                                             )}

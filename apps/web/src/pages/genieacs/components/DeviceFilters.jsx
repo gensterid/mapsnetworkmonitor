@@ -13,7 +13,7 @@ export default function DeviceFilters({
     <div className="px-3 sm:px-6 py-2 sm:py-3 bg-slate-900/40 border-b border-slate-800 flex flex-wrap items-center gap-2 sm:gap-4">
 
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Status:</span>
+        <span className="text-[10px] text-fg-muted font-bold uppercase tracking-wider">Status:</span>
         <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
           {['all', 'online', 'offline'].map(s => (
             <button
@@ -21,7 +21,7 @@ export default function DeviceFilters({
               onClick={() => setStatusFilter(s)}
               className={clsx(
                 "px-3 py-1 text-[10px] font-bold rounded-md transition-all capitalize",
-                statusFilter === s ? "bg-primary text-[var(--on-primary)] shadow-lg shadow-primary/20" : "text-slate-500 hover:text-slate-300"
+                statusFilter === s ? "bg-primary text-[var(--on-primary)] shadow-lg shadow-primary/20" : "text-fg-muted hover:text-slate-300"
               )}
             >
               {s}
@@ -31,7 +31,7 @@ export default function DeviceFilters({
       </div>
 
       <div className="flex items-center gap-2">
-        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Vendor:</span>
+        <span className="text-[10px] text-fg-muted font-bold uppercase tracking-wider">Vendor:</span>
         <select
           value={vendorFilter}
           onChange={(e) => setVendorFilter(e.target.value)}
@@ -44,8 +44,8 @@ export default function DeviceFilters({
         </select>
       </div>
 
-      <div className="ml-auto text-[10px] text-slate-500 font-medium">
-        Found <span className="text-white font-bold">{deviceCount}</span> devices
+      <div className="ml-auto text-[10px] text-fg-muted font-medium">
+        Found <span className="text-fg font-bold">{deviceCount}</span> devices
       </div>
     </div>
   );

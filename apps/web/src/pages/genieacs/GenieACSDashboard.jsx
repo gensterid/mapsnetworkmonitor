@@ -37,8 +37,8 @@ function StatCard({ icon: Icon, label, value, color, delay }) {
             <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-sm font-medium text-slate-400 mb-1">{label}</p>
-                        <h3 className="text-2xl font-bold text-white tracking-tight">{value}</h3>
+                        <p className="text-sm font-medium text-fg-muted mb-1">{label}</p>
+                        <h3 className="text-2xl font-bold text-fg tracking-tight">{value}</h3>
                     </div>
                     <div className={clsx("p-3 rounded-xl border", colors[color] || colors.primary)}>
                         <Icon className="w-6 h-6" />
@@ -68,7 +68,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
         return (
             <div className="flex-1 flex flex-col items-center justify-center bg-background-dark space-y-4">
                 <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-slate-400 animate-pulse">Analyzing ACS Data...</p>
+                <p className="text-fg-muted animate-pulse">Analyzing ACS Data...</p>
             </div>
         );
     }
@@ -101,8 +101,8 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
         <div className="space-y-6 animate-in fade-in duration-500">
             {/* Dashboard Header / Status */}
             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-800/40 px-3 py-1.5 rounded-full border border-slate-700/50">
-                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                <div className="flex items-center gap-2 text-xs text-fg-muted bg-slate-800/40 px-3 py-1.5 rounded-full border border-slate-700/50">
+                    <Clock className="w-3.5 h-3.5 text-fg-muted" />
                     <span>Data Freshness: {formatDateWithTimezone(new Date(), timezone)}</span>
                 </div>
             </div>
@@ -144,7 +144,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                 {/* Device Status & Signal */}
                 <Card className="bg-slate-900/40 border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-500">
                     <div className="p-6 border-b border-slate-800">
-                        <h3 className="font-bold text-white flex items-center gap-2">
+                        <h3 className="font-bold text-fg flex items-center gap-2">
                             <Activity className="w-4 h-4 text-emerald-500" />
                             Signal Level Distribution
                         </h3>
@@ -176,7 +176,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-slate-500 italic">
+                            <div className="h-full flex items-center justify-center text-fg-muted italic">
                                 No signal data available for selected filters
                             </div>
                         )}
@@ -186,7 +186,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                 {/* Vendor Distribution */}
                 <Card className="bg-slate-900/40 border-slate-800 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-700">
                     <div className="p-6 border-b border-slate-800">
-                        <h3 className="font-bold text-white flex items-center gap-2">
+                        <h3 className="font-bold text-fg flex items-center gap-2">
                             <Server className="w-4 h-4 text-blue-500" />
                             Model Distribution (Top 5)
                         </h3>
@@ -208,7 +208,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                                 </ResponsiveContainer>
                             </div>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-slate-500 italic">
+                            <div className="h-full flex items-center justify-center text-fg-muted italic">
                                 No model data available
                             </div>
                         )}
@@ -219,7 +219,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
             {/* Recent Activity Table */}
             <Card className="bg-slate-900/40 border-slate-800 overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-700 delay-1000">
                 <div className="p-6 border-b border-slate-800 flex items-center justify-between">
-                    <h3 className="font-bold text-white flex items-center gap-2">
+                    <h3 className="font-bold text-fg flex items-center gap-2">
                         <Clock className="w-4 h-4 text-primary" />
                         Recent Device Inform (TR-069 Events)
                     </h3>
@@ -228,7 +228,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-slate-800/50 text-[10px] uppercase text-slate-500 font-bold tracking-wider">
+                            <tr className="bg-slate-800/50 text-[10px] uppercase text-fg-muted font-bold tracking-wider">
                                 <th className="px-6 py-4">Status</th>
                                 <th className="px-6 py-4">CPE ID / Serial</th>
                                 <th className="px-6 py-4">Model</th>
@@ -243,19 +243,19 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                                         <span className={clsx("w-2 h-2 rounded-full inline-block mr-2",
                                             new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000 ? "bg-emerald-500" : "bg-red-500"
                                         )} />
-                                        <span className="text-xs text-slate-400 uppercase font-medium">
+                                        <span className="text-xs text-fg-muted uppercase font-medium">
                                             {new Date(dev._lastInform).getTime() > Date.now() - 5 * 60 * 1000 ? "Active" : "Idle"}
                                         </span>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <div className="font-medium text-white text-sm">{dev._id}</div>
+                                        <div className="font-medium text-fg text-sm">{dev._id}</div>
                                         <div className="text-[10px] text-primary font-mono">{dev._serialNumber}</div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="text-sm text-slate-300">{dev._productClass}</div>
-                                        <div className="text-[10px] text-slate-500 font-bold uppercase">{dev._manufacturer}</div>
+                                        <div className="text-[10px] text-fg-muted font-bold uppercase">{dev._manufacturer}</div>
                                     </td>
-                                    <td className="px-6 py-4 text-[10px] text-slate-400 font-mono">
+                                    <td className="px-6 py-4 text-[10px] text-fg-muted font-mono">
                                         {formatDateWithTimezone(dev._lastInform, timezone)}
                                     </td>
                                     <td className="px-6 py-4 text-right">
@@ -267,7 +267,7 @@ export default function GenieACSDashboard({ selectedRouterId: propRouterId }) {
                             ))}
                             {dashboardData.recentActivity.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">
+                                    <td colSpan={5} className="px-6 py-12 text-center text-fg-muted italic">
                                         No recent activity detected.
                                     </td>
                                 </tr>

@@ -44,35 +44,35 @@ export default function EditOnuModal({
         >
             <form onSubmit={handleSubmit} className="space-y-5 py-2">
                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">ONU Name / Alias</label>
+                    <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">ONU Name / Alias</label>
                     <input
                         name="name"
                         defaultValue={onu.name || ''}
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:ring-1 focus:ring-primary outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none transition-all"
                         placeholder="e.g. John Doe - Home"
                         autoFocus
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Description / Note</label>
+                    <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">Description / Note</label>
                     <textarea
                         name="description"
                         defaultValue={onu.description || ''}
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:ring-1 focus:ring-primary outline-none transition-all h-20 resize-none"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none transition-all h-20 resize-none"
                         placeholder="Additional details about this ONU..."
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Maps Coordinates</label>
+                    <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">Maps Coordinates</label>
                     <input
                         name="coordinates"
                         defaultValue={onu.latitude && onu.longitude ? `${onu.latitude}, ${onu.longitude}` : ''}
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white font-mono focus:ring-1 focus:ring-primary outline-none transition-all"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg font-mono focus:ring-1 focus:ring-primary outline-none transition-all"
                         placeholder="latitude, longitude (e.g. -6.123, 106.123)"
                     />
-                    <p className="text-[9px] text-slate-500 italic">Format: latitude, longitude (copy-paste from Google Maps)</p>
+                    <p className="text-[9px] text-fg-muted italic">Format: latitude, longitude (copy-paste from Google Maps)</p>
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/50">

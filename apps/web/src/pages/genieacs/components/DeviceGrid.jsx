@@ -72,11 +72,11 @@ export default function DeviceGrid({
                   <Wifi className="w-4 h-4" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <h3 className="font-semibold text-white text-sm truncate" title={dev._id}>{dev._id}</h3>
+                  <h3 className="font-semibold text-fg text-sm truncate" title={dev._id}>{dev._id}</h3>
                   <div className="flex items-center gap-2 mt-0.5 text-[10px]">
                     <span className="text-primary font-mono truncate" title={dev._serialNumber}>{dev._serialNumber || 'No SN'}</span>
                     <span className="text-slate-600">·</span>
-                    <span className="text-slate-400 font-bold uppercase shrink-0">{dev._productClass || '?'}</span>
+                    <span className="text-fg-muted font-bold uppercase shrink-0">{dev._productClass || '?'}</span>
                   </div>
                 </div>
                 <input
@@ -91,21 +91,21 @@ export default function DeviceGrid({
               {/* Compact info grid — inline label:value, 2 cols */}
               <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px]">
                 <div className="flex justify-between gap-1 min-w-0">
-                  <span className="text-slate-500 shrink-0">IP</span>
+                  <span className="text-fg-muted shrink-0">IP</span>
                   <span className="text-slate-200 font-mono truncate" title={dev._ip}>{dev._ip || '—'}</span>
                 </div>
                 <div className="flex justify-between gap-1">
-                  <span className="text-slate-500 shrink-0">RX</span>
+                  <span className="text-fg-muted shrink-0">RX</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-white font-bold font-mono">{signalInfo.value}</span>
+                    <span className="text-fg font-bold font-mono">{signalInfo.value}</span>
                     <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", signalInfo.color)} />
                   </div>
                 </div>
                 <div className="flex justify-between gap-1">
-                  <span className="text-slate-500 shrink-0">Temp</span>
+                  <span className="text-fg-muted shrink-0">Temp</span>
                   {tempInfo ? (
                     <div className="flex items-center gap-1">
-                      <span className="text-white font-bold">{tempInfo.value}</span>
+                      <span className="text-fg font-bold">{tempInfo.value}</span>
                       <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", tempInfo.color)} />
                     </div>
                   ) : (
@@ -113,14 +113,14 @@ export default function DeviceGrid({
                   )}
                 </div>
                 <div className="flex justify-between gap-1">
-                  <span className="text-slate-500 shrink-0">Clients</span>
+                  <span className="text-fg-muted shrink-0">Clients</span>
                   <div className="flex items-center gap-1">
-                    <span className="text-white font-bold">{clientInfo.value}</span>
+                    <span className="text-fg font-bold">{clientInfo.value}</span>
                     <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", clientInfo.color)} />
                   </div>
                 </div>
                 <div className="flex justify-between gap-1 col-span-2 min-w-0">
-                  <span className="text-slate-500 shrink-0">VLAN</span>
+                  <span className="text-fg-muted shrink-0">VLAN</span>
                   <div className="flex flex-wrap gap-1 justify-end min-w-0">
                     {(dev._vlan || '').split(',').map(v => v.trim()).filter(Boolean).slice(0, 4).map(vlan => (
                       <span key={vlan} className="text-primary font-bold font-mono bg-primary/5 px-1 rounded border border-primary/10 text-[10px]">
@@ -131,13 +131,13 @@ export default function DeviceGrid({
                   </div>
                 </div>
                 <div className="flex justify-between gap-1 col-span-2 min-w-0">
-                  <span className="text-slate-500 shrink-0">SSID</span>
-                  <span className="text-slate-300 truncate text-right" title={dev._ssid}>{dev._ssid || '—'}</span>
+                  <span className="text-fg-muted shrink-0">SSID</span>
+                  <span className="text-fg truncate text-right" title={dev._ssid}>{dev._ssid || '—'}</span>
                 </div>
                 {dev._softwareVersion && (
                   <div className="flex justify-between gap-1 col-span-2 min-w-0">
-                    <span className="text-slate-500 shrink-0">FW</span>
-                    <span className="text-slate-400 truncate text-right text-[10px] font-mono" title={dev._softwareVersion}>{dev._softwareVersion}</span>
+                    <span className="text-fg-muted shrink-0">FW</span>
+                    <span className="text-fg-muted truncate text-right text-[10px] font-mono" title={dev._softwareVersion}>{dev._softwareVersion}</span>
                   </div>
                 )}
               </div>
@@ -146,7 +146,7 @@ export default function DeviceGrid({
               {dev._tags && dev._tags.length > 0 && (
                 <div className="flex flex-wrap gap-1">
                   {dev._tags.slice(0, 4).map(tag => (
-                    <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-300 text-[9px] font-bold uppercase tracking-wider border border-slate-700/50">
+                    <span key={tag} className="px-1.5 py-0.5 rounded bg-slate-800/80 text-fg text-[9px] font-bold uppercase tracking-wider border border-slate-700/50">
                       {tag}
                     </span>
                   ))}
@@ -157,49 +157,49 @@ export default function DeviceGrid({
               <div className="flex items-center justify-between gap-1 pt-2 border-t border-slate-800/60 -mx-1">
                 <button
                   onClick={(e) => { e.stopPropagation(); onViewDetails(dev._id); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-primary transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-primary transition-colors"
                   title="View Details"
                 >
                   <Info className="w-4 h-4 mx-auto" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onOpenWifi(dev); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-emerald-400 transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-emerald-400 transition-colors"
                   title="WiFi Settings"
                 >
                   <Wifi className="w-4 h-4 mx-auto" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onOpenWan(dev); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-blue-400 transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-blue-400 transition-colors"
                   title="WAN Settings"
                 >
                   <Globe className="w-4 h-4 mx-auto" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onRefresh(dev._id); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-blue-400 transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-blue-400 transition-colors"
                   title="Refresh (Summon)"
                 >
                   <RefreshCw className={clsx("w-4 h-4 mx-auto", refreshPendingId === dev._id && "animate-spin")} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onBackup(dev._id); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-amber-400 transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-amber-400 transition-colors"
                   title="Create Backup"
                 >
                   <Database className={clsx("w-4 h-4 mx-auto", backupPendingId === dev._id && "animate-pulse")} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onRestore(dev); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-purple-400 transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-purple-400 transition-colors"
                   title="Restore Config"
                 >
                   <RefreshCw className="w-4 h-4 mx-auto" />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); onReboot(dev); }}
-                  className="flex-1 p-1.5 rounded text-slate-400 hover:bg-slate-700/50 hover:text-red-400 transition-colors"
+                  className="flex-1 p-1.5 rounded text-fg-muted hover:bg-slate-700/50 hover:text-red-400 transition-colors"
                   title="Reboot Device"
                 >
                   <Power className="w-4 h-4 mx-auto" />

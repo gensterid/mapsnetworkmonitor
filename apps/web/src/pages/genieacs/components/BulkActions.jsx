@@ -39,7 +39,7 @@ export default function BulkActions({
 
   return (
     <div className="flex flex-wrap items-center gap-2 bg-slate-800 p-1.5 rounded-lg animate-in fade-in slide-in-from-top-2 border border-primary/20 shadow-lg shadow-primary/5">
-      <span className="text-xs text-white px-2 font-black uppercase tracking-widest">{selectedCount} Selected</span>
+      <span className="text-xs text-fg px-2 font-black uppercase tracking-widest">{selectedCount} Selected</span>
 
       <div className="hidden sm:block w-px h-4 bg-slate-700 mx-1" />
 

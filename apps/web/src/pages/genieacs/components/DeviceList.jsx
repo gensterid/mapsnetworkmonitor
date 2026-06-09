@@ -36,10 +36,10 @@ export default function DeviceList({
 
   const StatusBadge = ({ value, label, colorClass, icon: Icon }) => (
     <div className="flex items-center gap-1.5 min-w-fit">
-      {Icon && <Icon className="w-3 h-3 text-slate-400" />}
-      <span className="text-xs font-bold text-white whitespace-nowrap">{value}</span>
+      {Icon && <Icon className="w-3 h-3 text-fg-muted" />}
+      <span className="text-xs font-bold text-fg whitespace-nowrap">{value}</span>
       <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", colorClass)}></span>
-      <span className="text-[10px] text-slate-500 uppercase font-bold tracking-tight">{label}</span>
+      <span className="text-[10px] text-fg-muted uppercase font-bold tracking-tight">{label}</span>
     </div>
   );
 
@@ -47,7 +47,7 @@ export default function DeviceList({
     <div className="h-full flex flex-col bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden">
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 z-10 text-slate-400 text-[10px] uppercase font-bold tracking-wider">
+          <thead className="sticky top-0 z-10 text-fg-muted text-[10px] uppercase font-bold tracking-wider">
             <tr>
               <th className="px-4 py-3 w-8 bg-slate-800/98 backdrop-blur-sm">
                 <input
@@ -96,17 +96,17 @@ export default function DeviceList({
                           ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                           : "bg-red-500"
                       )}></span>
-                      <span className="text-[10px] text-slate-500 uppercase font-medium">
+                      <span className="text-[10px] text-fg-muted uppercase font-medium">
                         {isOnline ? "Active" : "Idle"}
                       </span>
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-sm font-bold text-white group-hover:text-primary transition-colors cursor-pointer" onClick={() => onViewDetails(dev._id)}>
+                    <div className="text-sm font-bold text-fg group-hover:text-primary transition-colors cursor-pointer" onClick={() => onViewDetails(dev._id)}>
                       {dev._id}
                     </div>
                     <div className="flex items-center gap-2 overflow-hidden">
-                      <div className="text-[10px] text-slate-500 font-mono truncate">
+                      <div className="text-[10px] text-fg-muted font-mono truncate">
                         SN: {dev._serialNumber || 'N/A'}
                       </div>
                       {dev._serialNumber && netwatchLookup.has(dev._serialNumber) && (
@@ -128,11 +128,11 @@ export default function DeviceList({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-xs font-bold text-slate-300">{dev._productClass || 'Unknown Model'}</div>
-                    <div className="text-[10px] text-slate-500 font-medium uppercase">{dev._hardwareVersion || 'Hardware N/A'}</div>
+                    <div className="text-xs font-bold text-fg">{dev._productClass || 'Unknown Model'}</div>
+                    <div className="text-[10px] text-fg-muted font-medium uppercase">{dev._hardwareVersion || 'Hardware N/A'}</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="text-[10px] text-slate-400 font-mono font-bold tracking-wider">{dev._mac || 'MAC N/A'}</div>
+                    <div className="text-[10px] text-fg-muted font-mono font-bold tracking-wider">{dev._mac || 'MAC N/A'}</div>
                     <div className="text-xs text-primary font-mono font-bold">{dev._ip || 'IP N/A'}</div>
                   </td>
                   <td className="px-4 py-3">
@@ -147,7 +147,7 @@ export default function DeviceList({
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1 max-w-[150px]">
                       {(dev._tags || []).map(tag => (
-                        <Badge key={tag} variant="outline" size="xs" className="text-[8px] bg-slate-950/30 border-slate-800 text-slate-400 px-1 font-bold">
+                        <Badge key={tag} variant="outline" size="xs" className="text-[8px] bg-slate-950/30 border-slate-800 text-fg-muted px-1 font-bold">
                           {tag}
                         </Badge>
                       ))}
@@ -157,42 +157,42 @@ export default function DeviceList({
                     <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => onRefresh(dev._id)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-blue-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-blue-400 transition-colors"
                         title="Refresh"
                       >
                         <RefreshCw className={clsx("w-3.5 h-3.5", refreshPendingId === dev._id && "animate-spin")} />
                       </button>
                       <button
                         onClick={() => onOpenWifi(dev)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-emerald-400 transition-colors"
                         title="WiFi"
                       >
                         <Wifi className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onViewDetails(dev._id)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-primary transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-primary transition-colors"
                         title="Details"
                       >
                         <Info className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onBackup(dev._id)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-amber-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-amber-400 transition-colors"
                         title="Create Backup"
                       >
                         <Database className={clsx("w-3.5 h-3.5", backupPendingId === dev._id && "animate-pulse")} />
                       </button>
                       <button
                         onClick={() => onRestore(dev)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-purple-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-purple-400 transition-colors"
                         title="Restore Configuration"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onReboot(dev)}
-                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-red-400 transition-colors"
+                        className="p-2 sm:p-1.5 rounded-md hover:bg-slate-700 text-fg-muted hover:text-red-400 transition-colors"
                         title="Reboot Device"
                       >
                         <Power className="w-3.5 h-3.5" />

@@ -54,7 +54,7 @@ function getAssociatedDevices(wlan) {
 }
 
 function rssiColor(rssi) {
-    if (rssi === null || rssi === undefined) return 'text-slate-500';
+    if (rssi === null || rssi === undefined) return 'text-fg-muted';
     if (rssi >= -55) return 'text-emerald-400';
     if (rssi >= -70) return 'text-yellow-400';
     if (rssi >= -80) return 'text-orange-400';
@@ -129,7 +129,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
                     <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">SSID Summary</h4>
+                        <h4 className="text-xs font-bold text-fg-muted uppercase tracking-widest">SSID Summary</h4>
                         <Button
                             variant="ghost"
                             size="sm"
@@ -141,20 +141,20 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                         </Button>
                     </div>
                     <div className="flex items-baseline gap-2 mt-2">
-                        <span className="text-2xl font-bold text-white">{enabledCount}</span>
-                        <span className="text-xs text-slate-500">of {wlans.length} active</span>
+                        <span className="text-2xl font-bold text-fg">{enabledCount}</span>
+                        <span className="text-xs text-fg-muted">of {wlans.length} active</span>
                     </div>
                 </div>
 
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800">
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Hardware Stats</h4>
+                    <h4 className="text-xs font-bold text-fg-muted uppercase tracking-widest mb-3">Hardware Stats</h4>
                     <div className="space-y-3">
                         <div className="flex items-center gap-3">
                             <Cpu className="w-4 h-4 text-orange-400 shrink-0" />
                             <div className="flex-1">
                                 <div className="flex justify-between text-[10px] mb-1">
-                                    <span className="text-slate-400">CPU Usage</span>
-                                    <span className="text-white">Low</span>
+                                    <span className="text-fg-muted">CPU Usage</span>
+                                    <span className="text-fg">Low</span>
                                 </div>
                                 <div className="h-1 bg-slate-800 rounded-full overflow-hidden">
                                     <div className="bg-emerald-500 h-full w-1/4" />
@@ -164,8 +164,8 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                         <div className="flex items-center gap-3">
                             <Thermometer className="w-4 h-4 text-red-400 shrink-0" />
                             <div className="flex-1 flex justify-between items-center">
-                                <span className="text-[10px] text-slate-400 uppercase font-bold">Temperature</span>
-                                <span className="text-sm font-bold text-white">{fullDevice?._temperature || 'N/A'}°C</span>
+                                <span className="text-[10px] text-fg-muted uppercase font-bold">Temperature</span>
+                                <span className="text-sm font-bold text-fg">{fullDevice?._temperature || 'N/A'}°C</span>
                             </div>
                         </div>
                     </div>
@@ -176,7 +176,7 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
             {wlans.length === 0 ? (
                 <div className="bg-slate-900/40 p-8 rounded-xl border border-slate-800 text-center">
                     <WifiOff className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-                    <p className="text-sm text-slate-500">No WLAN configurations found</p>
+                    <p className="text-sm text-fg-muted">No WLAN configurations found</p>
                     <p className="text-[10px] text-slate-600 mt-1">Try Refresh on the device to pull WiFi tree</p>
                 </div>
             ) : (
@@ -204,17 +204,17 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                 </div>
                                 <span className={clsx(
                                     "text-[9px] font-bold px-1.5 py-0.5 rounded uppercase",
-                                    w.enabled ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-slate-500"
+                                    w.enabled ? "bg-emerald-500/10 text-emerald-500" : "bg-slate-800 text-fg-muted"
                                 )}>
                                     {w.enabled ? 'On' : 'Off'}
                                 </span>
                             </div>
                             <div className="space-y-1.5">
                                 <div>
-                                    <div className="text-[9px] text-slate-500 uppercase tracking-wider mb-0.5">SSID</div>
+                                    <div className="text-[9px] text-fg-muted uppercase tracking-wider mb-0.5">SSID</div>
                                     <div className={clsx(
                                         "text-sm font-bold truncate",
-                                        w.enabled ? "text-white" : "text-slate-500",
+                                        w.enabled ? "text-fg" : "text-fg-muted",
                                         !w.advertised && "italic"
                                     )} title={w.ssid}>
                                         {w.ssid}
@@ -222,12 +222,12 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                     </div>
                                 </div>
                                 <div className="flex justify-between gap-2 text-[10px] pt-1">
-                                    <span className="text-slate-500">Channel</span>
-                                    <span className="text-slate-300 font-mono">{w.channel}</span>
+                                    <span className="text-fg-muted">Channel</span>
+                                    <span className="text-fg font-mono">{w.channel}</span>
                                 </div>
                                 <div className="flex justify-between gap-2 text-[10px]">
-                                    <span className="text-slate-500">Security</span>
-                                    <span className="text-slate-300 font-mono truncate" title={w.security}>{w.security}</span>
+                                    <span className="text-fg-muted">Security</span>
+                                    <span className="text-fg font-mono truncate" title={w.security}>{w.security}</span>
                                 </div>
 
                                 {/* Connected clients toggle — only if there are clients on this SSID */}
@@ -236,11 +236,11 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                         onClick={() => toggleClients(w.index)}
                                         className="flex items-center justify-between gap-2 text-[10px] pt-1.5 mt-1 border-t border-slate-800/50 w-full hover:text-primary transition-colors"
                                     >
-                                        <span className="flex items-center gap-1 text-slate-400">
+                                        <span className="flex items-center gap-1 text-fg-muted">
                                             <Users className="w-3 h-3" />
                                             Clients
                                         </span>
-                                        <span className="flex items-center gap-1 text-slate-300 font-mono">
+                                        <span className="flex items-center gap-1 text-fg font-mono">
                                             {w.clients.length}
                                             {expandedClients === w.index ? (
                                                 <ChevronDown className="w-3 h-3" />
@@ -263,12 +263,12 @@ export default function WifiTab({ fullDevice, onOpenWifiConfig }) {
                                                     {c.rssi !== null ? `${c.rssi} dBm` : '—'}
                                                 </span>
                                             </div>
-                                            <div className="flex justify-between text-slate-500">
+                                            <div className="flex justify-between text-fg-muted">
                                                 <span>{c.ip || '—'}</span>
                                                 <span>{c.width || ''}{c.rate ? ` · ${c.rate}` : ''}</span>
                                             </div>
                                             {c.hostName && (
-                                                <div className="text-slate-400 mt-0.5 truncate" title={c.hostName}>
+                                                <div className="text-fg-muted mt-0.5 truncate" title={c.hostName}>
                                                     {c.hostName}
                                                 </div>
                                             )}

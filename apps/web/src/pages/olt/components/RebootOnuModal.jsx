@@ -24,8 +24,8 @@ export default function RebootOnuModal({
                         <AlertCircle className="w-5 h-5 text-red-500" />
                     </div>
                     <div className="flex-1">
-                        <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-1">Confirm Reboot</h3>
-                        <p className="text-xs text-slate-400 leading-relaxed">
+                        <h3 className="text-sm font-bold text-fg uppercase tracking-wider mb-1">Confirm Reboot</h3>
+                        <p className="text-xs text-fg-muted leading-relaxed">
                             You are about to restart the ONU with SN <span className="text-red-400 font-mono font-bold">{onu.sn}</span>. 
                             This will temporarily disconnect all services for this client.
                         </p>
@@ -34,12 +34,12 @@ export default function RebootOnuModal({
 
                 <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-800 space-y-3">
                     <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-500 font-bold uppercase tracking-widest">ONU ID</span>
-                        <span className="text-white font-mono">{onu.ponId}-{onu.onuId}</span>
+                        <span className="text-fg-muted font-bold uppercase tracking-widest">ONU ID</span>
+                        <span className="text-fg font-mono">{onu.ponId}-{onu.onuId}</span>
                     </div>
                     {onu.name && (
                         <div className="flex justify-between items-center text-xs">
-                            <span className="text-slate-500 font-bold uppercase tracking-widest">Alias</span>
+                            <span className="text-fg-muted font-bold uppercase tracking-widest">Alias</span>
                             <span className="text-emerald-400 font-bold">{onu.name}</span>
                         </div>
                     )}

@@ -56,34 +56,34 @@ export default function MoveOltModal({ isOpen, onClose, onu, currentOltId }) {
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">SN / Identitas ONU</label>
-                    <input value={onu.sn || '—'} disabled className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-400 font-mono opacity-60" />
+                    <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">SN / Identitas ONU</label>
+                    <input value={onu.sn || '—'} disabled className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg-muted font-mono opacity-60" />
                 </div>
 
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-end">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PON Port Saat Ini</label>
-                        <input value={onu.ponPort || '—'} disabled className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-slate-400 font-mono opacity-60" />
+                        <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">PON Port Saat Ini</label>
+                        <input value={onu.ponPort || '—'} disabled className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg-muted font-mono opacity-60" />
                     </div>
-                    <ArrowRight className="w-4 h-4 text-slate-500 mb-3" />
+                    <ArrowRight className="w-4 h-4 text-fg-muted mb-3" />
                     <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">PON Port Baru</label>
+                        <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">PON Port Baru</label>
                         <input
                             value={targetPonPort}
                             onChange={(e) => setTargetPonPort(e.target.value)}
-                            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white font-mono focus:ring-1 focus:ring-primary outline-none"
+                            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg font-mono focus:ring-1 focus:ring-primary outline-none"
                             placeholder="0/1/3"
                         />
                     </div>
                 </div>
 
                 <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">OLT Tujuan</label>
+                    <label className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">OLT Tujuan</label>
                     <select
                         value={targetOltId}
                         onChange={(e) => setTargetOltId(e.target.value)}
                         required
-                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-white focus:ring-1 focus:ring-primary outline-none"
+                        className="w-full px-4 py-2.5 bg-slate-900 border border-slate-800 rounded-xl text-sm text-fg focus:ring-1 focus:ring-primary outline-none"
                     >
                         <option value="">Pilih OLT…</option>
                         {availableOlts.map((o) => (
