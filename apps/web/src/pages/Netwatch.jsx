@@ -111,7 +111,7 @@ export default function Netwatch() {
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             {/* Header */}
             <div className="p-6 border-b border-slate-800">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                     <div>
                         <h1 className="text-2xl font-bold text-white flex items-center gap-2">
                             <Globe className="w-6 h-6 text-primary" />
@@ -119,7 +119,7 @@ export default function Netwatch() {
                         </h1>
                         <p className="text-slate-400 text-sm">Monitor network reachability across all routers</p>
                     </div>
-                    <Button onClick={() => refetch()} variant="outline">
+                    <Button onClick={() => refetch()} variant="outline" className="self-start sm:self-auto">
                         <RefreshCw className="w-4 h-4 mr-2" />
                         Refresh
                     </Button>

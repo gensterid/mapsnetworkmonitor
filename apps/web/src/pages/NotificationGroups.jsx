@@ -231,12 +231,12 @@ export default function NotificationGroups() {
 
     return (
         <div className="p-6 max-w-6xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white mb-2">Notification Groups</h1>
                     <p className="text-slate-400">Manage notification channels for your routers</p>
                 </div>
-                <Button onClick={() => setIsModalOpen(true)}>
+                <Button onClick={() => setIsModalOpen(true)} className="self-start sm:self-auto">
                     <Plus className="w-4 h-4 mr-2" />
                     New Group
                 </Button>
