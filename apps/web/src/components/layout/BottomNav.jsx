@@ -33,7 +33,7 @@ function NavButton({ item }) {
             to={item.path}
             className={({ isActive }) => clsx(
                 'flex flex-col items-center gap-1 flex-1 min-w-0 transition-colors',
-                isActive ? 'text-primary' : 'text-slate-500 hover:text-slate-300'
+                isActive ? 'text-primary' : 'text-fg-muted hover:text-fg'
             )}
         >
             <Icon className="w-5 h-5" />
@@ -71,12 +71,12 @@ export default function BottomNav() {
 
     return (
         <>
-            <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-900/90 backdrop-blur-lg border-t border-slate-800 flex items-stretch justify-between px-1 z-50 pb-safe">
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-darker/95 backdrop-blur-lg border-t border-slate-border flex items-stretch justify-between px-1 z-50 pb-safe">
                 {visiblePrimary.map((item) => <NavButton key={item.path} item={item} />)}
                 <button
                     type="button"
                     onClick={() => setDrawerOpen(true)}
-                    className="flex flex-col items-center gap-1 flex-1 min-w-0 transition-colors text-slate-500 hover:text-slate-300"
+                    className="flex flex-col items-center gap-1 flex-1 min-w-0 transition-colors text-fg-muted hover:text-fg"
                     aria-label="More navigation"
                 >
                     <MoreHorizontal className="w-5 h-5" />
@@ -90,12 +90,12 @@ export default function BottomNav() {
                     onClick={() => setDrawerOpen(false)}
                 >
                     <div
-                        className="w-full bg-slate-900 border-t border-slate-700 rounded-t-2xl pb-safe"
+                        className="w-full bg-surface-dark border-t border-slate-border rounded-t-2xl pb-safe"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800">
-                            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Menu Lainnya</h3>
-                            <button onClick={() => setDrawerOpen(false)} className="text-slate-400 hover:text-white">
+                        <div className="flex items-center justify-between px-5 py-3 border-b border-slate-border">
+                            <h3 className="text-sm font-bold text-fg uppercase tracking-wider">Menu Lainnya</h3>
+                            <button onClick={() => setDrawerOpen(false)} className="text-fg-muted hover:text-fg">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
@@ -106,10 +106,10 @@ export default function BottomNav() {
                                     <button
                                         key={it.path}
                                         onClick={() => goto(it.path)}
-                                        className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 active:scale-95 transition"
+                                        className="flex flex-col items-center gap-2 p-3 rounded-lg bg-slate-surface/50 hover:bg-slate-surface active:scale-95 transition"
                                     >
                                         <Icon className="w-5 h-5 text-primary" />
-                                        <span className="text-xs text-slate-200 text-center leading-tight">{it.label}</span>
+                                        <span className="text-xs text-fg text-center leading-tight">{it.label}</span>
                                     </button>
                                 );
                             })}

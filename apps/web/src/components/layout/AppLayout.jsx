@@ -34,24 +34,26 @@ export default function AppLayout() {
             <div className="absolute top-0 right-0 h-1 w-24 bg-primary animate-scanner-pulse z-50 rounded-bl-full pointer-events-none opacity-40 shadow-[0_0_10px_var(--primary)] lg:block hidden" />
 
             <main className="flex-1 flex flex-col overflow-hidden relative w-full">
-                {/* Mobile Header (Glass Premium) */}
-                <div className="lg:hidden h-16 border-b border-white/5 flex items-center justify-between px-4 glass-premium z-40">
+                {/* Mobile Header — surface adapt per-tema. glass-premium alpha 0.4
+                    bocor ke bg page di tema terang; bg-surface-darker/95 solid
+                    sesuai tema. */}
+                <div className="lg:hidden h-16 border-b border-slate-border flex items-center justify-between px-4 bg-surface-darker/95 backdrop-blur-xl z-40">
                     <div className="flex items-center">
                         <button
                             onClick={() => setIsSidebarOpen(true)}
-                            className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                            className="p-2 -ml-2 rounded-xl text-fg-muted hover:text-fg hover:bg-white/5 transition-all"
                         >
                             <Menu className="w-6 h-6" />
                         </button>
-                        <span className="ml-3 font-bold text-white tracking-tight">NetMonitor</span>
+                        <span className="ml-3 font-bold text-fg tracking-tight">NetMonitor</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                         <div className={clsx(
                             "w-2 h-2 rounded-full",
                             isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500 animate-pulse"
                         )} />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        <span className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">
                             {isConnected ? 'LIVE' : 'SYNCING'}
                         </span>
                     </div>
