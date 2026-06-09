@@ -10,7 +10,11 @@ export const THEMES = {
     SLATE: 'theme-slate',
     SPACEX: 'theme-spacex',
     HOLOGRAPHIC: 'theme-holographic',
-    ENTERPRISE: 'theme-enterprise'
+    ENTERPRISE: 'theme-enterprise',
+    AURORA: 'theme-aurora',
+    MISSION: 'theme-mission',
+    DAYLIGHT: 'theme-daylight',
+    NORDIC: 'theme-nordic'
 };
 
 export const THEME_DETAILS = {
@@ -21,7 +25,11 @@ export const THEME_DETAILS = {
     [THEMES.SLATE]: { name: 'Professional Slate', color: '#94a3b8' },
     [THEMES.SPACEX]: { name: 'SpaceX Mission', color: '#000000' },
     [THEMES.HOLOGRAPHIC]: { name: 'Holographic Blue', color: '#00D4FF' },
-    [THEMES.ENTERPRISE]: { name: 'Enterprise White', color: '#F4F7FA' }
+    [THEMES.ENTERPRISE]: { name: 'Enterprise White', color: '#F4F7FA' },
+    [THEMES.AURORA]: { name: 'Aurora', color: '#6366f1' },
+    [THEMES.MISSION]: { name: 'Mission Control', color: '#22c55e' },
+    [THEMES.DAYLIGHT]: { name: 'Daylight', color: '#2563eb' },
+    [THEMES.NORDIC]: { name: 'Nordic Calm', color: '#88c0d0' }
 };
 
 export function ThemeProvider({ children }) {
