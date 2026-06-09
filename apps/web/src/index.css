@@ -288,6 +288,7 @@
 @theme {
     --color-primary: var(--primary);
     --color-primary-dark: var(--primary-dark);
+    --color-on-primary: var(--on-primary);
     --color-background-light: var(--background-light);
     --color-background-dark: var(--background-dark);
     --color-surface-dark: var(--surface-dark);

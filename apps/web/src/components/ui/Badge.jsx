@@ -1,13 +1,21 @@
 import React from 'react';
 import clsx from 'clsx';
 
+// Variants ikut tema via @theme tokens:
+//   --primary, --success, --warning, --danger semua per-tema (mis. Mission
+//   pakai success #22c55e, Daylight pakai #16a34a yang lebih gelap untuk
+//   kontras di bg putih). Tanpa swap ini, success badge tetap emerald-500
+//   di semua tema — terlihat lepas dari palette tema.
+// `info` di-leave (#blue hardcode) karena --info belum di-define di tema.
+// Text light/dark di Daylight masih kurang kontras untuk default/secondary —
+// di luar scope Fase 2 (token foreground per-tema belum ada).
 const variants = {
-  default: "bg-slate-800 text-slate-300 border-slate-700",
+  default: "bg-slate-surface text-slate-300 border-slate-border",
   primary: "bg-primary/10 text-primary border-primary/20",
-  secondary: "bg-slate-700/50 text-slate-300 border-slate-600/50",
-  success: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  warning: "bg-amber-500/10 text-amber-400 border-amber-500/20",
-  danger: "bg-red-500/10 text-red-400 border-red-500/20",
+  secondary: "bg-slate-surface/50 text-slate-300 border-slate-border/50",
+  success: "bg-success/10 text-success border-success/20",
+  warning: "bg-warning/10 text-warning border-warning/20",
+  danger: "bg-danger/10 text-danger border-danger/20",
   info: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   ghost: "bg-transparent text-slate-400 border-transparent",
 };
