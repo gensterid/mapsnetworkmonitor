@@ -321,9 +321,20 @@ httpServer.listen(Number(PORT), '0.0.0.0', async () => {
     await validateInfrastructure();
 
     // Run migrations (Drizzle versioned) - Non-blocking to prevent scheduler stall
-    runDrizzleMigrations().catch(err => {
-        logger.error({ err: err?.message || String(err) }, '⚠️ Drizzle Migration failed at startup.');
-    });
+    runDrizzleMigrations()
+        .then(async () => {
+            // After migrations, boot VPN connection manager (Phase 3.3).
+            // Late import supaya tidak load saat unit test atau migration-only run.
+            try {
+                const { vpnConnectionManager } = await import('./services/vpn/connection-manager.service.js');
+                await vpnConnectionManager.start();
+            } catch (err: any) {
+                logger.error({ err: err?.message || String(err) }, '⚠️ VPN connection manager failed to start');
+            }
+        })
+        .catch(err => {
+            logger.error({ err: err?.message || String(err) }, '⚠️ Drizzle Migration failed at startup.');
+        });
 
     // Start background scheduler in separate thread
     startSchedulerWorker();
@@ -345,10 +356,18 @@ const gracefulShutdown = async (signal: string) => {
             if (schedulerProcess) {
                 logger.info('🛑 Stopping scheduler worker...');
                 schedulerProcess.send('shutdown');
-                
+
                 // Fast-wait for worker to exit or force ignore after 2s
                 const workerExitPromise = new Promise(resolve => schedulerProcess!.on('exit', resolve));
                 await Promise.race([workerExitPromise, new Promise(resolve => setTimeout(resolve, 2000))]);
+            }
+
+            // 1b. Stop VPN connection manager (best-effort)
+            try {
+                const { vpnConnectionManager } = await import('./services/vpn/connection-manager.service.js');
+                await vpnConnectionManager.stop();
+            } catch (err: any) {
+                logger.warn({ err: err?.message || String(err) }, 'VPN manager stop failed during shutdown');
             }
 
             // 2. Stop Socket.io

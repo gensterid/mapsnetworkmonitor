@@ -336,10 +336,11 @@ class VpnServerService {
     }
 
     /**
-     * Connect/disconnect/reconnect placeholders. Real systemd integration
-     * di Phase 3.3. Untuk sekarang, hanya update status di DB + audit log.
+     * Connect/disconnect/reconnect — trigger connection-manager service.
+     * Connection manager handle systemd lifecycle: write config files,
+     * systemctl start/stop/restart, update status di DB via polling.
      *
-     * Endpoint return 202 Accepted — UI poll status untuk lihat hasil.
+     * Endpoint return 202 Accepted — UI poll /status untuk lihat hasil.
      */
     async requestConnect(id: string, userId: string): Promise<void> {
         const existing = await this.findByIdRaw(id);
@@ -347,8 +348,6 @@ class VpnServerService {
         if (!existing.enabled) {
             throw ApiError.badRequest('VPN server di-disable. Enable dulu sebelum connect.');
         }
-
-        await this.updateStatus(id, { status: 'connecting' });
 
         await auditRepository.create({
             userId,
@@ -358,15 +357,17 @@ class VpnServerService {
             details: { name: existing.name },
         });
 
-        // Phase 3.3: trigger connection-manager service di sini.
-        logger.info({ vpnServerId: id, userId }, 'VPN connect requested (Phase 3.3 will wire systemd)');
+        // Late import untuk hindari circular dependency (manager import service
+        // hanya via DB queries, tidak via export ini).
+        const { vpnConnectionManager } = await import('./vpn/connection-manager.service.js');
+        await vpnConnectionManager.connect(id);
+
+        logger.info({ vpnServerId: id, userId }, 'VPN connect triggered via connection-manager');
     }
 
     async requestDisconnect(id: string, userId: string): Promise<void> {
         const existing = await this.findByIdRaw(id);
         if (!existing) throw ApiError.notFound('VPN server tidak ditemukan');
-
-        await this.updateStatus(id, { status: 'disconnected', markDisconnected: true });
 
         await auditRepository.create({
             userId,
@@ -376,7 +377,31 @@ class VpnServerService {
             details: { name: existing.name },
         });
 
-        logger.info({ vpnServerId: id, userId }, 'VPN disconnect requested');
+        const { vpnConnectionManager } = await import('./vpn/connection-manager.service.js');
+        await vpnConnectionManager.disconnect(id);
+
+        logger.info({ vpnServerId: id, userId }, 'VPN disconnect triggered via connection-manager');
+    }
+
+    async requestReconnect(id: string, userId: string): Promise<void> {
+        const existing = await this.findByIdRaw(id);
+        if (!existing) throw ApiError.notFound('VPN server tidak ditemukan');
+        if (!existing.enabled) {
+            throw ApiError.badRequest('VPN server di-disable.');
+        }
+
+        await auditRepository.create({
+            userId,
+            action: 'reconnect_request',
+            entity: 'vpn_server',
+            entityId: id,
+            details: { name: existing.name },
+        });
+
+        const { vpnConnectionManager } = await import('./vpn/connection-manager.service.js');
+        await vpnConnectionManager.reconnect(id);
+
+        logger.info({ vpnServerId: id, userId }, 'VPN reconnect triggered via connection-manager');
     }
 
     /**

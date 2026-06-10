@@ -194,15 +194,14 @@ router.post(
 
 /**
  * POST /api/superadmin/vpn-servers/:id/reconnect
- * Disconnect + connect dalam 1 call.
+ * Restart unit via connection-manager — 1 systemctl restart call.
  */
 router.post(
     '/:id/reconnect',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const userId = req.user!.id;
-        await vpnServerService.requestDisconnect(id, userId);
-        await vpnServerService.requestConnect(id, userId);
+        await vpnServerService.requestReconnect(id, userId);
         res.status(202).json({ data: { status: 'connecting' } });
     })
 );
