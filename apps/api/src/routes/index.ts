@@ -24,6 +24,7 @@ import billingRoutes from './billing.routes.js';
 import portalRoutes from './portal.routes.js';
 import diagnosticsRoutes from './diagnostics.routes.js';
 import mikhmonRoutes from './mikhmon.routes.js';
+import vpnServerRoutes from './vpn-server.routes.js';
 
 const router = Router();
 
@@ -62,6 +63,7 @@ router.use('/billing', billingRoutes);
 router.use('/portal', portalRoutes);
 router.use('/diagnostics', diagnosticsRoutes);
 router.use('/mikhmon', mikhmonRoutes);
+router.use('/superadmin/vpn-servers', vpnServerRoutes);
 
 export default router;
 
