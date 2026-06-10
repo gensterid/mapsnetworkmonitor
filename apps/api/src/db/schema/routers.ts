@@ -16,6 +16,7 @@ import {
 import { routerGroups } from './groups.js';
 import { notificationGroups } from './notifications.js';
 import { tenants } from './tenants.js';
+import { vpnServers } from './vpn-servers.js';
 
 // Router status enum
 export const routerStatusEnum = pgEnum('router_status', [
@@ -107,6 +108,12 @@ export const routers = pgTable('routers', {
     emailSmtpExportDelay: integer('email_smtp_export_delay').default(10),
     emailSmtpCleanupDelay: integer('email_smtp_cleanup_delay').default(30),
 
+    // VPN context — router reachable via this VPN server's tunnel.
+    // Nullable: router yang langsung ke internet (no VPN) tetap valid.
+    vpnServerId: uuid('vpn_server_id').references(() => vpnServers.id, {
+        onDelete: 'set null',
+    }),
+
     // Timestamps
     lastSeen: timestamp('last_seen'),
     lastFullSync: timestamp('last_full_sync'),
@@ -118,6 +125,7 @@ export const routers = pgTable('routers', {
     statusIdx: index('routers_status_idx').on(table.status),
     groupIdIdx: index('routers_group_id_idx').on(table.groupId),
     tenantIdIdx: index('routers_tenant_id_idx').on(table.tenantId),
+    vpnServerIdIdx: index('routers_vpn_server_id_idx').on(table.vpnServerId),
 }));
 
 // Router interfaces table

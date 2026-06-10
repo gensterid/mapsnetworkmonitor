@@ -21,3 +21,4 @@ export * from './client-bandwidth.js';
 export * from './billing.js';
 export * from './mikhmon.js';
 export * from './netwatch-history.js';
+export * from './vpn-servers.js';
