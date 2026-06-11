@@ -189,6 +189,14 @@ export function GlobalSearchModal({ isOpen, onClose }) {
                             </div>
                         ) : !query ? (
                             <EmptyHelp />
+                        ) : !results ? (
+                            // Saat debouncedQuery >= MIN tapi response belum datang,
+                            // jangan render ResultsList (results undefined → crash).
+                            // Spinner sudah tampil di input area; di sini tampilkan
+                            // hint singkat supaya tidak kosong sepi.
+                            <div className="p-6 text-center text-sm text-fg-muted">
+                                Mencari…
+                            </div>
                         ) : showEmpty ? (
                             <div className="p-6 text-center text-sm text-fg-muted">
                                 Tidak ada hasil untuk &quot;{debouncedQuery}&quot;
@@ -220,6 +228,10 @@ export function GlobalSearchModal({ isOpen, onClose }) {
 }
 
 function ResultsList({ results, flatItems, activeIdx, onItemClick, onItemHover }) {
+    // Defense-in-depth: caller sudah filter undefined, tapi guard ekstra
+    // supaya komponen tidak pernah throw kalau dipakai di tempat lain.
+    if (!results) return null;
+
     let runningIdx = 0;
 
     return (
