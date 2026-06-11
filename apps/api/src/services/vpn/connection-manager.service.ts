@@ -177,6 +177,12 @@ class VpnConnectionManagerService {
 
         if (!VPN_SYSTEMD_DISABLED) {
             try {
+                // Defense-in-depth: kalau unit/config belum ada (mis. user pernah
+                // edit config dari luar atau file ke-rm), regenerate dulu sebelum
+                // systemctl restart. Tanpa ini, restart fail silent (systemctl
+                // exit non-zero tapi tidak ke-throw) karena unit not found.
+                await this.writeConfigFiles(row);
+                await daemonReload();
                 await restartUnit(getUnitName(vpnId));
             } catch (err: any) {
                 await this.updateDbStatus(vpnId, {

@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { StatsCard } from '@/components/ui/StatsCard';
-import { Plus, Network, Wifi, WifiOff, AlertCircle, Pencil, Trash2, RefreshCw, Search } from 'lucide-react';
-import { useVpnServers, useVpnServerSummary, useDeleteVpnServer, useReconnectVpnServer } from '@/hooks/useVpnServers';
+import { Plus, Network, Wifi, WifiOff, AlertCircle, Pencil, Trash2, RefreshCw, Power, Search } from 'lucide-react';
+import { useVpnServers, useVpnServerSummary, useDeleteVpnServer, useReconnectVpnServer, useConnectVpnServer } from '@/hooks/useVpnServers';
 import { VpnStatusBadge } from './VpnStatusBadge';
 import { VpnServerFormModal } from './VpnServerFormModal';
 import { VpnServerDrawer } from './VpnServerDrawer';
@@ -22,6 +22,7 @@ export default function VpnServersPage() {
     const { data: summary } = useVpnServerSummary();
     const deleteMutation = useDeleteVpnServer();
     const reconnectMutation = useReconnectVpnServer();
+    const connectMutation = useConnectVpnServer();
 
     const [formOpen, setFormOpen] = useState(false);
     const [editing, setEditing] = useState(null);            // VpnServer | null
@@ -70,8 +71,20 @@ export default function VpnServersPage() {
         }
     };
 
-    const handleReconnect = async (server) => {
-        await reconnectMutation.mutateAsync(server.id);
+    /**
+     * Smart action: kalau status disconnected/error/disabled → Connect (write
+     * config + start systemd). Kalau connected/connecting → Reconnect
+     * (restart unit). Hindari Reconnect ke unit yang belum ada — sebelumnya
+     * fail silent karena restart unit non-existent return error tapi tidak
+     * di-throw oleh systemctl.
+     */
+    const handleSmartAction = async (server) => {
+        const isLive = ['connected', 'connecting'].includes(server.status);
+        if (isLive) {
+            await reconnectMutation.mutateAsync(server.id);
+        } else {
+            await connectMutation.mutateAsync(server.id);
+        }
     };
 
     return (
@@ -207,16 +220,26 @@ export default function VpnServersPage() {
                                         </td>
                                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                                             <div className="flex items-center justify-end gap-1">
-                                                <button
-                                                    onClick={() => handleReconnect(server)}
-                                                    title="Reconnect"
-                                                    className="p-1.5 rounded-md hover:bg-slate-surface text-fg-muted hover:text-fg transition-colors"
-                                                >
-                                                    <RefreshCw className={clsx(
-                                                        "w-4 h-4",
-                                                        reconnectMutation.isPending && reconnectMutation.variables === server.id && "animate-spin"
-                                                    )} />
-                                                </button>
+                                                {(() => {
+                                                    const isLive = ['connected', 'connecting'].includes(server.status);
+                                                    const Icon = isLive ? RefreshCw : Power;
+                                                    const title = isLive ? 'Reconnect' : 'Connect';
+                                                    const pending =
+                                                        (reconnectMutation.isPending && reconnectMutation.variables === server.id) ||
+                                                        (connectMutation.isPending && connectMutation.variables === server.id);
+                                                    return (
+                                                        <button
+                                                            onClick={() => handleSmartAction(server)}
+                                                            title={title}
+                                                            className="p-1.5 rounded-md hover:bg-slate-surface text-fg-muted hover:text-fg transition-colors"
+                                                        >
+                                                            <Icon className={clsx(
+                                                                'w-4 h-4',
+                                                                pending && isLive && 'animate-spin'
+                                                            )} />
+                                                        </button>
+                                                    );
+                                                })()}
                                                 <button
                                                     onClick={() => handleEdit(server)}
                                                     title="Edit"
