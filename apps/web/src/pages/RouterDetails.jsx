@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import {
     useRouter,
     useRouterInterfaces,
@@ -49,10 +49,44 @@ import { formatLastSync } from '@/components/router/router-utils';
 
 const EMPTY_ARRAY = [];
 
+// Tab name yang valid — di-validate saat baca dari URL param supaya
+// random ?tab=xxx tidak bisa inject state aneh.
+const VALID_TABS = new Set([
+    'dashboard', 'history', 'netwatch', 'pppoe',
+    'bandwidth', 'neighbors', 'topology', 'backups', 'tools',
+]);
+
 export default function RouterDetails() {
     const { id } = useParams();
-    const [activeTab, setActiveTab] = useState('dashboard');
+    const [searchParams, setSearchParams] = useSearchParams();
+
+    // Initial tab dari URL query param (?tab=pppoe) — dipakai oleh
+    // Global Search saat navigate dari result PPPoE/Netwatch.
+    const initialTab = (() => {
+        const t = searchParams.get('tab');
+        return t && VALID_TABS.has(t) ? t : 'dashboard';
+    })();
+    const [activeTab, setActiveTab] = useState(initialTab);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+    // Sync URL ?tab= setiap activeTab berubah, supaya:
+    //  1. Operator bisa share link langsung ke tab spesifik
+    //  2. Refresh tetap stay di tab yang sama
+    //  3. Back button browser kerja sesuai harapan
+    useEffect(() => {
+        const current = searchParams.get('tab');
+        if (activeTab === 'dashboard') {
+            // Tab default tidak perlu di URL — keep URL clean
+            if (current) {
+                searchParams.delete('tab');
+                setSearchParams(searchParams, { replace: true });
+            }
+        } else if (current !== activeTab) {
+            searchParams.set('tab', activeTab);
+            setSearchParams(searchParams, { replace: true });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]);
 
     // SNMP Live Mode (WebSocket)
     const [isLiveMode, setIsLiveMode] = useState(false);

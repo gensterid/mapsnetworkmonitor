@@ -5,6 +5,7 @@ import {
     Search,
     Router as RouterIcon,
     Box as BoxIcon,
+    Server,
     User,
     Link as LinkIcon,
     Activity,
@@ -22,6 +23,7 @@ const DEBOUNCE_MS = 200;
 // Mapping icon per type
 const ICON_MAP = {
     router: RouterIcon,
+    olt: Server,
     onu: BoxIcon,
     customer: User,
     pppoe: LinkIcon,
@@ -30,13 +32,25 @@ const ICON_MAP = {
 
 const TYPE_LABEL = {
     router: 'Router',
+    olt: 'OLT',
     onu: 'ONU',
     customer: 'Customer',
     pppoe: 'PPPoE',
     netwatch: 'Netwatch',
 };
 
-const TYPE_ORDER = ['router', 'onu', 'customer', 'pppoe', 'netwatch'];
+// Warna badge per type — biar gampang skimming. Bukan accent kuat,
+// cuma tinted background supaya tidak overpower konten.
+const TYPE_BADGE_CLS = {
+    router: 'bg-blue-500/10 text-blue-400',
+    olt: 'bg-purple-500/10 text-purple-400',
+    onu: 'bg-amber-500/10 text-amber-400',
+    customer: 'bg-emerald-500/10 text-emerald-400',
+    pppoe: 'bg-cyan-500/10 text-cyan-400',
+    netwatch: 'bg-pink-500/10 text-pink-400',
+};
+
+const TYPE_ORDER = ['router', 'olt', 'onu', 'customer', 'pppoe', 'netwatch'];
 
 /**
  * Global Search Modal — Cmd+K / Ctrl+K trigger.
@@ -269,7 +283,17 @@ function ResultsList({ results, flatItems, activeIdx, onItemClick, onItemHover }
                                         <Icon className="w-4 h-4" />
                                     </div>
                                     <div className="min-w-0 flex-1">
-                                        <div className="text-sm font-semibold truncate">{item.label}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-sm font-semibold truncate">{item.label}</div>
+                                            {/* Type badge — visual cue tambahan supaya operator
+                                                tau tipe entity tanpa harus baca heading. */}
+                                            <span className={clsx(
+                                                'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0',
+                                                TYPE_BADGE_CLS[type] || 'bg-slate-surface text-fg-muted'
+                                            )}>
+                                                {TYPE_LABEL[type]}
+                                            </span>
+                                        </div>
                                         {item.subtitle && (
                                             <div className="text-xs text-fg-muted truncate">{item.subtitle}</div>
                                         )}
@@ -302,6 +326,7 @@ function EmptyHelp() {
             <p className="text-sm text-fg-muted">Cari cepat ke seluruh data:</p>
             <ul className="space-y-2 text-sm">
                 <Hint icon={RouterIcon} label="Router" desc="nama, IP, identity, model" />
+                <Hint icon={Server} label="OLT" desc="nama, host, deskripsi" />
                 <Hint icon={BoxIcon} label="ONU" desc="serial number, alias" />
                 <Hint icon={User} label="Customer" desc="nama, kode, telepon, email" />
                 <Hint icon={LinkIcon} label="PPPoE" desc="username session" />

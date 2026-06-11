@@ -6,6 +6,7 @@ import {
     customers,
     pppoeSessions,
     routerNetwatch,
+    olts,
 } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
 
@@ -39,6 +40,7 @@ export interface SearchResultItem {
 
 export interface SearchResults {
     router: SearchResultItem[];
+    olt: SearchResultItem[];
     onu: SearchResultItem[];
     customer: SearchResultItem[];
     pppoe: SearchResultItem[];
@@ -66,21 +68,60 @@ class SearchService {
         const pattern = `%${trimmed.replace(/[%_]/g, (m) => `\\${m}`)}%`;
 
         try {
-            const [router, onu, customer, pppoe, netwatch] = await Promise.all([
+            const [router, olt, onu, customer, pppoe, netwatch] = await Promise.all([
                 this.searchRouters(pattern, tenantId, perTypeLimit),
+                this.searchOlts(pattern, tenantId, perTypeLimit),
                 this.searchOnus(pattern, tenantId, perTypeLimit),
                 this.searchCustomers(pattern, tenantId, perTypeLimit),
                 this.searchPppoe(pattern, tenantId, perTypeLimit),
                 this.searchNetwatch(pattern, tenantId, perTypeLimit),
             ]);
 
-            const total = router.length + onu.length + customer.length + pppoe.length + netwatch.length;
+            const total =
+                router.length + olt.length + onu.length +
+                customer.length + pppoe.length + netwatch.length;
 
-            return { router, onu, customer, pppoe, netwatch, total, query: trimmed };
+            return { router, olt, onu, customer, pppoe, netwatch, total, query: trimmed };
         } catch (err: any) {
             logger.error({ err: err.message, query: trimmed, tenantId }, 'Global search failed');
             return this.emptyResult(trimmed);
         }
+    }
+
+    private async searchOlts(
+        pattern: string,
+        tenantId: string | undefined,
+        limit: number
+    ): Promise<SearchResultItem[]> {
+        const conditions = [
+            or(
+                ilike(olts.name, pattern),
+                ilike(olts.host, pattern),
+                ilike(olts.description, pattern),
+            )!,
+        ];
+        if (tenantId) conditions.push(eq(olts.tenantId, tenantId));
+
+        const rows = await db
+            .select({
+                id: olts.id,
+                name: olts.name,
+                host: olts.host,
+                type: olts.type,
+                status: olts.status,
+            })
+            .from(olts)
+            .where(and(...conditions))
+            .limit(limit);
+
+        return rows.map((o) => ({
+            id: o.id,
+            label: o.name,
+            subtitle: `${o.host} · ${o.type}`,
+            navigate: `/olts/${o.id}`,
+            badge: o.status ?? undefined,
+            icon: 'olt',
+        }));
     }
 
     private async searchRouters(
@@ -272,6 +313,7 @@ class SearchService {
     private emptyResult(query: string): SearchResults {
         return {
             router: [],
+            olt: [],
             onu: [],
             customer: [],
             pppoe: [],
