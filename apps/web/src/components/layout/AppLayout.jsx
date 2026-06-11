@@ -1,17 +1,23 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { Menu } from 'lucide-react';
+import { Menu, Search } from 'lucide-react';
 import Sidebar from '../Sidebar';
 import BottomNav from './BottomNav';
 import { useSSE } from '@/hooks';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import { GlobalSearchModal } from '../search/GlobalSearchModal';
+import { useGlobalSearchShortcut } from '../search/useGlobalSearch';
 
 export default function AppLayout() {
     // Initialize SSE connection for real-time alerts
     const { isConnected } = useSSE();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const location = useLocation();
+
+    // Global search shortcut Cmd+K / Ctrl+K — selalu accessible
+    // di mana pun di app. Modal mount di akhir component tree.
+    const { isOpen: searchOpen, open: openSearch, close: closeSearch } = useGlobalSearchShortcut();
 
     // Close sidebar on route change (mobile)
     React.useEffect(() => {
@@ -48,14 +54,25 @@ export default function AppLayout() {
                         <span className="ml-3 font-bold text-fg tracking-tight">NetMonitor</span>
                     </div>
 
-                    <div className="flex items-center gap-2">
-                        <div className={clsx(
-                            "w-2 h-2 rounded-full",
-                            isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500 animate-pulse"
-                        )} />
-                        <span className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">
-                            {isConnected ? 'LIVE' : 'SYNCING'}
-                        </span>
+                    <div className="flex items-center gap-3">
+                        {/* Search button mobile — Cmd+K equivalent untuk
+                            device tanpa keyboard. Trigger modal yang sama. */}
+                        <button
+                            onClick={openSearch}
+                            aria-label="Cari (Ctrl+K)"
+                            className="p-2 rounded-xl text-fg-muted hover:text-fg hover:bg-white/5 transition-all"
+                        >
+                            <Search className="w-5 h-5" />
+                        </button>
+                        <div className="flex items-center gap-2">
+                            <div className={clsx(
+                                "w-2 h-2 rounded-full",
+                                isConnected ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-red-500 animate-pulse"
+                            )} />
+                            <span className="text-[10px] font-bold text-fg-muted uppercase tracking-widest">
+                                {isConnected ? 'LIVE' : 'SYNCING'}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -76,6 +93,9 @@ export default function AppLayout() {
 
                 <BottomNav />
             </main>
+
+            {/* Global Search Modal — selalu mounted, control via state */}
+            <GlobalSearchModal isOpen={searchOpen} onClose={closeSearch} />
         </div>
     );
 }
