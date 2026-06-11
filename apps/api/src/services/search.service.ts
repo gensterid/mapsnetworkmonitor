@@ -232,7 +232,8 @@ class SearchService {
             id: c.id,
             label: c.name,
             subtitle: [c.code, c.phone, c.email].filter(Boolean).join(' · '),
-            navigate: `/billing?customer=${c.id}`,
+            // Customer 360° view (Phase 5) — all info in 1 page
+            navigate: `/customers/${c.id}/360`,
             icon: 'customer',
         }));
     }

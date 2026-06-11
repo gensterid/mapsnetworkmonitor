@@ -26,6 +26,7 @@ import diagnosticsRoutes from './diagnostics.routes.js';
 import mikhmonRoutes from './mikhmon.routes.js';
 import vpnServerRoutes from './vpn-server.routes.js';
 import searchRoutes from './search.routes.js';
+import customer360Routes from './customer-360.routes.js';
 
 const router = Router();
 
@@ -66,6 +67,7 @@ router.use('/diagnostics', diagnosticsRoutes);
 router.use('/mikhmon', mikhmonRoutes);
 router.use('/superadmin/vpn-servers', vpnServerRoutes);
 router.use('/search', searchRoutes);
+router.use('/customers', customer360Routes);
 
 export default router;
 

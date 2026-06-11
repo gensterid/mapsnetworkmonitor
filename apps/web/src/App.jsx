@@ -22,6 +22,7 @@ const Analytics = lazy(() => import('./pages/Analytics'));
 const AnimationDemo = lazy(() => import('./pages/AnimationDemo'));
 const Tenants = lazy(() => import('./pages/Tenants'));
 const VpnServers = lazy(() => import('./pages/settings/vpn-servers'));
+const Customer360 = lazy(() => import('./pages/Customer360'));
 const Billing = lazy(() => import('./pages/Billing'));
 const MikhmonLayout = lazy(() => import('./pages/mikhmon/MikhmonLayout'));
 const MikhmonDashboard = lazy(() => import('./pages/mikhmon/Dashboard'));
@@ -343,6 +344,7 @@ function App() {
                     <VpnServers />
                   </SuperAdminRoute>
                 } />
+                <Route path="customers/:id/360" element={<Customer360 />} />
               </Route>
               <Route path="/kiosk" element={
                 <ProtectedRoute>
