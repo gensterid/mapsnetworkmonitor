@@ -20,7 +20,8 @@ import {
     Building,
     Receipt,
     Wifi,
-    Network
+    Network,
+    History
 } from 'lucide-react';
 import clsx from 'clsx';
 import TenantSwitcher from './TenantSwitcher';
@@ -169,6 +170,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                     {isSuperAdmin && <NavItem path="/tenants" icon={Building} label="ISPs / Tenants" isActive={isActive("/tenants")} onClose={onClose} />}
                     {isSuperAdmin && <NavItem path="/settings/vpn-servers" icon={Network} label="VPN Servers" isActive={isActive("/settings/vpn-servers")} onClose={onClose} />}
+                    {isAdmin && <NavItem path="/audit-logs" icon={History} label="Audit Log" isActive={isActive("/audit-logs")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/users" icon={Users} label="Users" isActive={isActive("/users")} onClose={onClose} />}
                     {isAdmin && <NavItem path="/notification-groups" icon={MessageSquare} label="Notifications" isActive={isActive("/notification-groups")} onClose={onClose} />}
                     <NavItem path="/settings" icon={Settings} label="Settings" isActive={isActive("/settings")} onClose={onClose} />

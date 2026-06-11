@@ -1,6 +1,8 @@
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, sql, ilike, gte, lte, count } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import {
+    auditLogs,
+    users,
     type AppSetting,
     type AuditLog,
     type NewAuditLog,
@@ -180,6 +182,115 @@ export class SettingsService {
         limit = 100
     ): Promise<AuditLog[]> {
         return auditRepository.findAll({ entity, entityId, tenantId, limit });
+    }
+
+    /**
+     * Audit logs dengan filter lengkap + pagination + user.name join.
+     * Dipakai oleh UI Audit Log Viewer (Admin/SuperAdmin).
+     */
+    async getAuditLogsWithFilters(
+        tenantId: string | undefined,
+        filters: {
+            userId?: string;
+            entity?: string;
+            entityId?: string;
+            action?: string;
+            search?: string;
+            startDate?: Date;
+            endDate?: Date;
+        },
+        limit: number,
+        offset: number
+    ): Promise<{ logs: any[]; total: number }> {
+        const where: any[] = [];
+        if (tenantId) where.push(eq(auditLogs.tenantId, tenantId));
+        if (filters.userId) where.push(eq(auditLogs.userId, filters.userId));
+        if (filters.entity) where.push(eq(auditLogs.entity, filters.entity));
+        if (filters.entityId) where.push(eq(auditLogs.entityId, filters.entityId));
+        if (filters.action) where.push(eq(auditLogs.action, filters.action));
+        if (filters.startDate) where.push(gte(auditLogs.createdAt, filters.startDate));
+        if (filters.endDate) where.push(lte(auditLogs.createdAt, filters.endDate));
+        // Search by details JSON (cast to text + ILIKE)
+        if (filters.search) {
+            where.push(sql`${auditLogs.details}::text ILIKE ${'%' + filters.search + '%'}`);
+        }
+
+        const whereClause = where.length > 0 ? and(...where) : undefined;
+
+        const [rows, [countRow]] = await Promise.all([
+            db
+                .select({
+                    id: auditLogs.id,
+                    action: auditLogs.action,
+                    entity: auditLogs.entity,
+                    entityId: auditLogs.entityId,
+                    details: auditLogs.details,
+                    ipAddress: auditLogs.ipAddress,
+                    userAgent: auditLogs.userAgent,
+                    createdAt: auditLogs.createdAt,
+                    userId: auditLogs.userId,
+                    userName: users.name,
+                    userEmail: users.email,
+                    userRole: users.role,
+                })
+                .from(auditLogs)
+                .leftJoin(users, eq(auditLogs.userId, users.id))
+                .where(whereClause)
+                .orderBy(desc(auditLogs.createdAt))
+                .limit(limit)
+                .offset(offset),
+            db
+                .select({ count: count() })
+                .from(auditLogs)
+                .where(whereClause),
+        ]);
+
+        return {
+            logs: rows,
+            total: Number(countRow?.count ?? 0),
+        };
+    }
+
+    /**
+     * Distinct values untuk filter dropdown UI.
+     * Tenant-scoped: kalau tenantId disediakan, hanya return values yang
+     * pernah muncul di tenant tersebut.
+     */
+    async getAuditLogDistinctValues(tenantId?: string): Promise<{
+        entities: string[];
+        actions: string[];
+        users: Array<{ id: string; name: string; email: string | null }>;
+    }> {
+        const where = tenantId ? eq(auditLogs.tenantId, tenantId) : undefined;
+
+        const [entityRows, actionRows, userRows] = await Promise.all([
+            db
+                .selectDistinct({ value: auditLogs.entity })
+                .from(auditLogs)
+                .where(where)
+                .orderBy(auditLogs.entity),
+            db
+                .selectDistinct({ value: auditLogs.action })
+                .from(auditLogs)
+                .where(where)
+                .orderBy(auditLogs.action),
+            db
+                .selectDistinct({
+                    id: users.id,
+                    name: users.name,
+                    email: users.email,
+                })
+                .from(auditLogs)
+                .innerJoin(users, eq(auditLogs.userId, users.id))
+                .where(where)
+                .orderBy(users.name),
+        ]);
+
+        return {
+            entities: entityRows.map((r) => r.value).filter(Boolean) as string[],
+            actions: actionRows.map((r) => r.value).filter(Boolean) as string[],
+            users: userRows,
+        };
     }
 
     /**

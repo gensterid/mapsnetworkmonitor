@@ -42,16 +42,51 @@ router.get(
 
 /**
  * GET /api/settings/audit-logs
- * Get audit logs — must be declared before /:key to avoid Express matching it as a key param
- * Requires: Admin
+ * Get audit logs with filters + pagination + user name join.
+ * Filters: userId, entity, entityId, action, search (free text di details),
+ *          startDate, endDate.
+ * Pagination: limit (1-200, default 50), offset (default 0).
+ * Response: { data: AuditLogWithUser[], total: number }
+ * Requires: Admin (operator tidak boleh — forensic data).
  */
 router.get(
     '/audit-logs',
     requireAdmin,
     asyncHandler(async (req, res) => {
-        const limit = parseInt(req.query.limit as string) || 100;
-        const logs = await settingsService.getAuditLogs(getEffectiveTenantId(req), limit);
-        res.json({ data: logs });
+        const tenantId = getEffectiveTenantId(req);
+        const filters = {
+            userId: req.query.userId as string | undefined,
+            entity: req.query.entity as string | undefined,
+            entityId: req.query.entityId as string | undefined,
+            action: req.query.action as string | undefined,
+            search: req.query.search as string | undefined,
+            startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+            endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+        };
+        const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+        const offset = parseInt(req.query.offset as string) || 0;
+
+        const result = await settingsService.getAuditLogsWithFilters(
+            tenantId,
+            filters,
+            limit,
+            offset
+        );
+        res.json({ data: result.logs, total: result.total });
+    })
+);
+
+/**
+ * GET /api/settings/audit-logs/distinct
+ * Distinct values untuk filter dropdown UI.
+ */
+router.get(
+    '/audit-logs/distinct',
+    requireAdmin,
+    asyncHandler(async (req, res) => {
+        const tenantId = getEffectiveTenantId(req);
+        const data = await settingsService.getAuditLogDistinctValues(tenantId);
+        res.json({ data });
     })
 );
 
