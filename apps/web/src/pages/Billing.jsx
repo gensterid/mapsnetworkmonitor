@@ -1658,25 +1658,28 @@ export default function Billing() {
     const [tab, setTab] = useState('customers');
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
-            <div className="px-6 pt-6 border-b border-slate-border bg-surface-dark/20">
-                <div className="flex items-center justify-between mb-6">
+            <div className="px-4 sm:px-6 pt-4 sm:pt-6 border-b border-slate-border bg-surface-dark/20">
+                <div className="flex items-center justify-between mb-4 sm:mb-6">
                     <div>
-                        <h1 className="text-2xl font-bold text-fg flex items-center gap-2">
-                            <Receipt className="w-7 h-7 text-primary" />
+                        <h1 className="text-xl sm:text-2xl font-bold text-fg flex items-center gap-2">
+                            <Receipt className="w-6 h-6 sm:w-7 sm:h-7 text-primary" />
                             Billing & Manajemen Pelanggan
                         </h1>
-                        <p className="text-fg-muted text-sm">Pelanggan PPPoE & Hotspot, paket, tagihan, isolir otomatis</p>
+                        <p className="text-fg-muted text-xs sm:text-sm">Pelanggan PPPoE & Hotspot, paket, tagihan, isolir otomatis</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-1">
+                {/* Tabs container — overflow-x-auto supaya bisa di-scroll horizontal
+                    di mobile (8 tab tidak muat di lebar layar). shrink-0 di tiap
+                    button supaya tidak ke-shrink jadi 2 baris. */}
+                <div className="flex items-center gap-1 overflow-x-auto custom-scrollbar -mx-4 sm:-mx-6 px-4 sm:px-6">
                     {TABS.map(t => {
                         const Icon = t.icon;
                         return (
                             <button key={t.id} onClick={() => setTab(t.id)} className={clsx(
-                                'px-5 py-3 text-sm font-bold uppercase tracking-widest transition-all border-b-2 flex items-center gap-2',
+                                'shrink-0 px-3 sm:px-5 py-3 text-xs sm:text-sm font-bold uppercase tracking-wider transition-all border-b-2 flex items-center gap-1.5 sm:gap-2 whitespace-nowrap',
                                 tab === t.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-fg-muted hover:text-fg'
                             )}>
-                                <Icon className="w-4 h-4" /> {t.label}
+                                <Icon className="w-4 h-4 shrink-0" /> {t.label}
                             </button>
                         );
                     })}
