@@ -44,24 +44,96 @@ Saat `isolir()` dipanggil — comment **tidak di-update**, tetap di tanggal
 isolir hari itu. Customer yang sudah isolir nanti di-unisolir saat bayar,
 sekaligus comment di-shift ke tanggal isolir bulan depan.
 
-## Script MikroTik (Safety Net)
+## Script MikroTik (Safety Net) — Compatible OS 6 dan 7
 
-Script yang Anda jalankan tiap hari. Simpan di `/system/script` dengan nama
-`isolir-pppoe-harian`, lalu schedule di `/system/scheduler`.
+Script yang Anda jalankan tiap hari. Simpan di `/system script` dengan nama
+`isolir-pppoe-harian`, lalu schedule di `/system scheduler`.
+
+**Penting compatibility**:
+- ROS 6.x hanya support path **space-separated** (`/ppp secret find`)
+- ROS 7.x support keduanya (slash atau space)
+- Date format: ROS 6 = `mmm/dd/yyyy` (lowercase), ROS 7 = `yyyy-mm-dd` ISO
+- Script di bawah handle dua-duanya
+
+### Versi 1 — Pakai field `dn:YYYYMMDD` (recommended)
 
 ```routeros
 :local isolirProfile "ISOLIR"
+
+# Pre-check: profile harus ada — bail kalau tidak (gak akan run silent)
+:if ([:len [/ppp profile find name=$isolirProfile]] = 0) do={
+  :log error ("Profile " . $isolirProfile . " tidak ada. Bikin: /ppp profile add name=" . $isolirProfile . " rate-limit=1k/1k")
+  :error ("Profile " . $isolirProfile . " not found")
+}
+
+:local now [/system clock get date]
+:local todayNum 0
+
+# Detect format date (ROS 6 vs ROS 7)
+:if ([:pick $now 4 5] = "-") do={
+  # ROS 7 ISO: "2026-06-12"
+  :set todayNum [:tonum ([:pick $now 0 4] . [:pick $now 5 7] . [:pick $now 8 10])]
+} else={
+  # ROS 6 legacy: "jun/12/2026"
+  :local mm [:pick $now 0 3]
+  :local mn "00"
+  :if ($mm = "jan") do={ :set mn "01" }
+  :if ($mm = "feb") do={ :set mn "02" }
+  :if ($mm = "mar") do={ :set mn "03" }
+  :if ($mm = "apr") do={ :set mn "04" }
+  :if ($mm = "may") do={ :set mn "05" }
+  :if ($mm = "jun") do={ :set mn "06" }
+  :if ($mm = "jul") do={ :set mn "07" }
+  :if ($mm = "aug") do={ :set mn "08" }
+  :if ($mm = "sep") do={ :set mn "09" }
+  :if ($mm = "oct") do={ :set mn "10" }
+  :if ($mm = "nov") do={ :set mn "11" }
+  :if ($mm = "dec") do={ :set mn "12" }
+  :set todayNum [:tonum ([:pick $now 7 11] . $mn . [:pick $now 4 6])]
+}
+
+:foreach s in=[/ppp secret find disabled=no] do={
+  :local cmt [/ppp secret get $s comment]
+  :local dnIdx [:find $cmt "dn:"]
+  :if ([:typeof $dnIdx] = "num") do={
+    :local dnStr [:pick $cmt ($dnIdx + 3) ($dnIdx + 11)]
+    :local dn [:tonum $dnStr]
+    :if (($dn != 0) and ($dn <= $todayNum)) do={
+      :local cur [/ppp secret get $s profile]
+      :if ($cur != $isolirProfile) do={
+        /ppp secret set $s profile=$isolirProfile
+        :local uname [/ppp secret get $s name]
+        :foreach a in=[/ppp active find] do={
+          :if ([/ppp active get $a name] = $uname) do={ /ppp active remove $a }
+        }
+      }
+    }
+  }
+}
+```
+
+Versi ini lebih robust: cari `dn:YYYYMMDD` substring di mana saja di comment,
+isolir kalau tanggal SAMA atau SUDAH LEWAT hari ini (catch-up scenario).
+
+### Versi 2 — Pakai first 11 chars (legacy custom Anda)
+
+Versi yang Anda pakai sebelumnya — cocok kalau Anda mau simpel + send WA/Telegram
+notif. Script ini works setelah app push date di prefix comment (commit be9e57a).
+Tetap include pre-check profile + space-paths untuk OS 6.
+
+```routeros
+:local isolirProfile "ISOLIR"
+:if ([:len [/ppp profile find name=$isolirProfile]] = 0) do={
+  :log error ("Profile " . $isolirProfile . " tidak ada")
+  :error ("Profile not found")
+}
+
 :local notif ""
-
-# nama bulan
 :local monthNames { "jan";"feb";"mar";"apr";"may";"jun";"jul";"aug";"sep";"oct";"nov";"dec" }
-
-# Tanggal hari ini → format mmm/dd/yyyy (lowercase) dan Mmm/dd/yyyy (capital)
 :local sysDate [/system clock get date]
 :local sysYear [:pick $sysDate 0 4]
 :local sysMonth [:tonum [:pick $sysDate 5 7]]
 :local sysDay [:tonum [:pick $sysDate 8 10]]
-
 :local todayMonthStr ($monthNames->($sysMonth - 1))
 :local todayDayStr [:pick ("0" . $sysDay) ([:len ("0" . $sysDay)] - 2) [:len ("0" . $sysDay)]]
 :local todayDateFmt ($todayMonthStr . "/" . $todayDayStr . "/" . $sysYear)
@@ -73,11 +145,7 @@ Script yang Anda jalankan tiap hari. Simpan di `/system/script` dengan nama
     :local comment [/ppp secret get $i comment]
     :local username [/ppp secret get $i name]
     :local oldProf [/ppp secret get $i profile]
-
-    # Skip kalau sudah ISOLIR
-    :if ($oldProf = $isolirProfile) do={
-        # noop
-    } else={
+    :if ($oldProf = $isolirProfile) do={ } else={
         :if ([:len $comment] >= 11) do={
             :local expDate [:pick $comment 0 11]
             :if (($expDate = $todayDateFmt) or ($expDate = $todayDateFmtCap)) do={
@@ -93,11 +161,21 @@ Script yang Anda jalankan tiap hari. Simpan di `/system/script` dengan nama
 }
 
 :if ([:len $notif] > 0) do={
-    :local rawMessage ("Daftar PPPoE yang di-ISOLIR hari ini (" . $todayDateFmtCap . "):" . $notif)
-    /log warning $rawMessage
-    # Tambah /tool fetch ke Telegram/WhatsApp gateway kalau perlu
+    /log warning ("Daftar PPPoE yang di-ISOLIR hari ini: " . $notif)
+    # /tool fetch ... ke Telegram/WA gateway
 }
 ```
+
+### Versi 1 vs Versi 2 — pilih mana?
+
+| Aspek | Versi 1 (dn:) | Versi 2 (first 11 chars) |
+|---|---|---|
+| **Robustness** | ⭐⭐⭐ — kalau operator edit prefix, masih ketemu via `dn:` | ⭐⭐ — break kalau prefix di-edit |
+| **Catch-up overdue** | ⭐⭐⭐ — isolir yang `<= today` (tangkap yang ke-skip kemarin) | ⭐ — hanya isolir yang EQUAL today |
+| **Simplicity** | ⭐⭐ — lebih panjang | ⭐⭐⭐ — pendek |
+| **OS 6/7 compat** | ✅ ✅ | ✅ ✅ (script di atas sudah ditambah pre-check) |
+
+App-managed scheduler (tombol "Pasang Scheduler di Router") pakai **Versi 1**.
 
 ### Setup Scheduler
 

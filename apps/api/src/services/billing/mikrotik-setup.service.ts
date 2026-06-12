@@ -274,10 +274,22 @@ export const mikrotikSetupService = {
         const interval = opts.interval || '1h';
         const name = opts.schedulerName || 'billing-isolir-check';
 
-        // Build the on-event script. Detects the date format on the router
-        // (RouterOS 6.x = "name" mmm/dd/yyyy, 7.x default = "iso" yyyy-mm-dd)
-        // and converts to YYYYMMDD numeric for comparison.
-        const script = `:local now [/system clock get date]
+        // Build the on-event script. Uses SPACE-separated paths (/ppp secret find)
+        // bukan slash (/ppp/secret/find) supaya kompat dengan RouterOS 6.x.
+        // ROS 7 accept dua format, ROS 6 hanya space format. Pre-check profile
+        // existence di awal supaya bail dengan error message yang jelas kalau
+        // operator lupa bikin profile ISOLIR.
+        //
+        // Date format detection:
+        //   ROS 6.x default: mmm/dd/yyyy (e.g. "jun/06/2026")
+        //   ROS 7.x default: yyyy-mm-dd ISO (e.g. "2026-06-06")
+        // Script handle keduanya.
+        const script = `:local isolirProfile "${isolirProfile}"
+:if ([:len [/ppp profile find name=\$isolirProfile]] = 0) do={
+  :log error ("Profile " . \$isolirProfile . " tidak ada di router. Bikin dulu.")
+  :error ("Profile " . \$isolirProfile . " not found")
+}
+:local now [/system clock get date]
 :local todayNum 0
 :if ([:pick \$now 4 5] = "-") do={
   :set todayNum [:tonum ([:pick \$now 0 4] . [:pick \$now 5 7] . [:pick \$now 8 10])]
@@ -298,19 +310,19 @@ export const mikrotikSetupService = {
   :if (\$mm = "dec") do={ :set mn "12" }
   :set todayNum [:tonum ([:pick \$now 7 11] . \$mn . [:pick \$now 4 6])]
 }
-:foreach s in=[/ppp/secret/find disabled=no] do={
-  :local cmt [/ppp/secret/get \$s comment]
+:foreach s in=[/ppp secret find disabled=no] do={
+  :local cmt [/ppp secret get \$s comment]
   :local dnIdx [:find \$cmt "dn:"]
   :if ([:typeof \$dnIdx] = "num") do={
     :local dnStr [:pick \$cmt (\$dnIdx + 3) (\$dnIdx + 11)]
     :local dn [:tonum \$dnStr]
     :if ((\$dn != 0) and (\$dn <= \$todayNum)) do={
-      :local cur [/ppp/secret/get \$s profile]
-      :if (\$cur != "${isolirProfile}") do={
-        /ppp/secret/set \$s profile=${isolirProfile}
-        :local uname [/ppp/secret/get \$s name]
-        :foreach a in=[/ppp/active/find] do={
-          :if ([/ppp/active/get \$a name] = \$uname) do={ /ppp/active/remove \$a }
+      :local cur [/ppp secret get \$s profile]
+      :if (\$cur != \$isolirProfile) do={
+        /ppp secret set \$s profile=\$isolirProfile
+        :local uname [/ppp secret get \$s name]
+        :foreach a in=[/ppp active find] do={
+          :if ([/ppp active get \$a name] = \$uname) do={ /ppp active remove \$a }
         }
       }
     }
