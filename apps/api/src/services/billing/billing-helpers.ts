@@ -98,22 +98,39 @@ export function formatDateNumeric(d: Date): string {
 }
 
 /**
- * Build the canonical PPP secret comment used by our billing system. The
- * RouterOS-side scheduler reads `dn:` for the isolir decision; operators
- * see `due:` in winbox; `subscription:` is our DB tracking key.
+ * Build the canonical PPP secret comment used by our billing system.
+ *
+ * Format: "<isolirDate-mmm/dd/yyyy> subscription:<uuid> dn:<YYYYMMDD> paket:<name>"
+ *
+ * Tanggal isolir di prefix (11 char pertama) supaya kompatibel dengan
+ * scheduler MikroTik "isolir-pppoe-harian" yang baca [:pick $comment 0 11]
+ * sebagai mmm/dd/yyyy. Pattern ini bikin scheduler sisi MikroTik bisa jadi
+ * safety net kalau app down — dia tetap isolir customer yang due-nya jatuh
+ * hari ini, tanpa nunggu app naik.
+ *
+ * App scheduler tetap primary (jalan tiap jam, generate invoice + isolir +
+ * mark overdue). Scheduler MikroTik 1× sehari sebagai fallback — idempotent
+ * karena cek profile (skip kalau sudah ISOLIR).
+ *
+ * Comment harus di-update SETIAP nextDueAt bergeser:
+ *  - billing-scheduler.ts step 1 — invoice generated, nextDueAt +1 bulan
+ *  - billing.service.ts unisolir() — after payment, restore active profile
+ *
+ * Field `dn:` (YYYYMMDD) tetap dipertahankan untuk backward-compat —
+ * scheduler lain mungkin baca format itu untuk filtering.
  */
 export function buildSubscriptionComment(opts: {
     subscriptionId: string;
     isolirDate?: Date | null;
     packageName?: string | null;
 }): string {
+    const datePrefix = opts.isolirDate ? `${formatDateMikhmon(opts.isolirDate)} ` : '';
     const parts = [`subscription:${opts.subscriptionId}`];
     if (opts.isolirDate) {
-        parts.push(`due:${formatDateMikhmon(opts.isolirDate)}`);
         parts.push(`dn:${formatDateNumeric(opts.isolirDate)}`);
     }
     if (opts.packageName) parts.push(`paket:${opts.packageName.replace(/\s+/g, '_')}`);
-    return parts.join(' ');
+    return datePrefix + parts.join(' ');
 }
 
 /**

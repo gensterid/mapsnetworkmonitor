@@ -7,7 +7,15 @@ import {
 } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
 import { invoiceService, subscriptionService } from './billing.service.js';
-import { computeNextDueAt } from './billing-helpers.js';
+import {
+    computeNextDueAt,
+    computeIsolirDate,
+    buildSubscriptionComment,
+} from './billing-helpers.js';
+import { routerActionService } from '../router-action.service.js';
+import {
+    getPppSecretByName, updatePppSecret,
+} from '../../lib/mikrotik/billing.js';
 
 /**
  * Daily billing job:
@@ -87,6 +95,39 @@ export async function runBillingDailyJob(): Promise<{
                 await db.update(subscriptions)
                     .set({ nextDueAt: newNext, lastInvoicedAt: now, updatedAt: now })
                     .where(eq(subscriptions.id, sub.id));
+
+                // Push update comment ke MikroTik dengan isolirDate baru. Wajib
+                // supaya scheduler MikroTik safety net (yang baca first 11 chars
+                // sebagai mmm/dd/yyyy) baca tanggal isolir yang SUDAH bergeser
+                // bulan ini, bukan yang lama. Tanpa ini, fallback scheduler bisa
+                // isolir customer yang harusnya masih punya 1 bulan lagi.
+                if (sub.type === 'pppoe' && sub.mikrotikIdentity) {
+                    try {
+                        const [rs] = await db.select().from(billingRouterSettings)
+                            .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
+                        const graceDays = rs?.isolirGraceDays ?? 0;
+                        const newIsolir = computeIsolirDate(newNext, graceDays);
+                        const newComment = buildSubscriptionComment({
+                            subscriptionId: sub.id,
+                            isolirDate: newIsolir,
+                            packageName: pkg.name,
+                        });
+
+                        const api = await routerActionService.getRouterConnection(sub.routerId);
+                        const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
+                        if (secret) {
+                            await updatePppSecret(api, secret.id, { comment: newComment });
+                        }
+                    } catch (mkErr: any) {
+                        // Non-fatal: app schedule isolir tetap jalan, cuma
+                        // safety net MikroTik mungkin baca tanggal lama →
+                        // potensi false-positive isolir 1× sebelum di-correct
+                        // di cycle berikutnya. Catat warning untuk operator.
+                        logger.warn({
+                            err: mkErr?.message, subId: sub.id, routerId: sub.routerId
+                        }, 'Failed to push updated comment to MikroTik — safety scheduler may use stale date');
+                    }
+                }
             } catch (err: any) {
                 logger.error({ err: err?.message, subId: sub.id }, 'Failed to generate invoice for subscription');
             }
