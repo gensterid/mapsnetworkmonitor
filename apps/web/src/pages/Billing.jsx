@@ -1318,9 +1318,16 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
             </Button>
 
             <p className="text-xs text-fg-muted">
-                Scheduler akan baca <code className="text-blue-400">dn:YYYYMMDD</code> dari comment tiap PPP secret.
-                Sistem otomatis tulis comment ini saat buat/payment subscription dengan format
-                <code className="text-blue-400"> dn:20260606 due:jun/06/2026</code>.
+                Scheduler app-managed baca field <code className="text-blue-400">dn:YYYYMMDD</code> dari comment tiap PPP secret.
+                Sistem otomatis tulis comment ini saat buat / payment subscription dengan format:
+            </p>
+            <pre className="text-[10px] font-mono text-fg-muted bg-surface-darker border border-slate-border/40 rounded p-2 overflow-x-auto">
+{`jun/06/2026 subscription:<uuid> dn:20260606 paket:Paket-10Mbps
+└─11 char─┘                       └─8 digit─┘`}
+            </pre>
+            <p className="text-[10px] text-fg-muted">
+                Format ini juga kompatibel dengan scheduler custom yang baca <code className="text-blue-400">[:pick comment 0 11]</code> sebagai
+                tanggal mmm/dd/yyyy — bisa coexist tanpa konflik. Lihat <code>docs/PPPOE-ISOLIR-HYBRID.md</code> di repo untuk detail.
             </p>
         </div>
     );
