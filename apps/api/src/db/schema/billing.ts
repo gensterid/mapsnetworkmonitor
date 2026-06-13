@@ -290,6 +290,14 @@ export const billingRouterSettings = pgTable('billing_router_settings', {
     isolirRedirectUrl: text('isolir_redirect_url'),
     isolirGraceDays: integer('isolir_grace_days').notNull().default(0),
 
+    /** Jam mulai (0-23) untuk eksekusi cek isolir. App + scheduler MikroTik
+     * skip auto-isolir kalau hour-of-day di luar [start, end].
+     * Default 08:00-17:00 supaya tidak isolir tengah malam — customer komplain
+     * bangun pagi internet mati. Operator boleh ubah ke 18-23 kalau prefer
+     * isolir sore. */
+    isolirCheckStartHour: integer('isolir_check_start_hour').notNull().default(8),
+    isolirCheckEndHour: integer('isolir_check_end_hour').notNull().default(17),
+
     defaultBillingDay: integer('default_billing_day').notNull().default(1),
 
     waProvider: waProviderEnum('wa_provider').notNull().default('none'),

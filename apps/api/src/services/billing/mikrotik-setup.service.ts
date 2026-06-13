@@ -294,10 +294,14 @@ export const mikrotikSetupService = {
         isolirProfile?: string;
         interval?: string;            // RouterOS interval string, default "1h"
         schedulerName?: string;       // default "billing-isolir-check"
+        startHour?: number;           // 0-23, default 8
+        endHour?: number;             // 0-23, default 17
     } = {}): Promise<{ created: boolean; replaced: boolean; name: string }> {
         const isolirProfile = opts.isolirProfile || 'pppoe-isolir';
         const interval = opts.interval || '1h';
         const name = opts.schedulerName || 'billing-isolir-check';
+        const startHour = Math.max(0, Math.min(23, opts.startHour ?? 8));
+        const endHour = Math.max(0, Math.min(23, opts.endHour ?? 17));
 
         // Build the on-event script. Uses SPACE-separated paths (/ppp secret find)
         // bukan slash (/ppp/secret/find) supaya kompat dengan RouterOS 6.x.
@@ -310,9 +314,23 @@ export const mikrotikSetupService = {
         //   ROS 7.x default: yyyy-mm-dd ISO (e.g. "2026-06-06")
         // Script handle keduanya.
         const script = `:local isolirProfile "${isolirProfile}"
+:local startHour ${startHour}
+:local endHour ${endHour}
 :if ([:len [/ppp profile find name=\$isolirProfile]] = 0) do={
   :log error ("Profile " . \$isolirProfile . " tidak ada di router. Bikin dulu.")
   :error ("Profile " . \$isolirProfile . " not found")
+}
+:local timeNow [/system clock get time]
+:local hh [:tonum [:pick \$timeNow 0 2]]
+:local inWindow false
+:if (\$endHour >= \$startHour) do={
+  :if ((\$hh >= \$startHour) and (\$hh <= \$endHour)) do={ :set inWindow true }
+} else={
+  :if ((\$hh >= \$startHour) or (\$hh <= \$endHour)) do={ :set inWindow true }
+}
+:if (!\$inWindow) do={
+  :log info ("billing-isolir: skip, jam " . \$hh . " di luar window " . \$startHour . "-" . \$endHour)
+  :return
 }
 :local now [/system clock get date]
 :local todayNum 0

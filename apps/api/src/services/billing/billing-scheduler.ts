@@ -175,6 +175,18 @@ export async function runBillingDailyJob(): Promise<{
             isolirAfter.setDate(isolirAfter.getDate() + grace);
             if (now.getTime() < isolirAfter.getTime()) continue;
 
+            // Honor per-router isolir window. Default 08-17. Operator boleh
+            // ubah ke 18-23 kalau mau isolir sore, atau 0-23 kalau full day.
+            // Window cek: kalau end < start, dianggap wrap (mis. 22-04) — skip
+            // semua row di luar [start..23] U [0..end].
+            const startH = settings?.isolirCheckStartHour ?? 8;
+            const endH = settings?.isolirCheckEndHour ?? 17;
+            const hourNow = now.getHours();
+            const inWindow = endH >= startH
+                ? (hourNow >= startH && hourNow <= endH)
+                : (hourNow >= startH || hourNow <= endH);
+            if (!inWindow) continue;
+
             try {
                 await subscriptionService.isolir(sub.id, sub.tenantId, `Tagihan ${inv.invoiceNumber} lewat jatuh tempo`);
                 isolirApplied++;

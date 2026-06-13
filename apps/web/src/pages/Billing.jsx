@@ -1262,8 +1262,40 @@ function CommentAuditCard({ routerId }) {
     );
 }
 
+// ─── Field: window jam isolir ──────────────────────────────────────────────
+function IsolirWindowField({ defaultStart, defaultEnd }) {
+    const [start, setStart] = useState(defaultStart);
+    const [end, setEnd] = useState(defaultEnd);
+    const hours = Array.from({ length: 24 }, (_, i) => i);
+    const fmt = (h) => `${String(h).padStart(2, '0')}:00`;
+    const wraps = end < start;
+    return (
+        <div>
+            <label className="block text-xs font-medium text-fg-muted mb-1">
+                Window jam cek isolir
+            </label>
+            <div className="flex items-center gap-2">
+                <select name="isolirCheckStartHour" value={start} onChange={(e) => setStart(Number(e.target.value))}
+                    className={inputCls + ' flex-1'}>
+                    {hours.map(h => <option key={h} value={h}>{fmt(h)}</option>)}
+                </select>
+                <span className="text-fg-muted text-xs">sampai</span>
+                <select name="isolirCheckEndHour" value={end} onChange={(e) => setEnd(Number(e.target.value))}
+                    className={inputCls + ' flex-1'}>
+                    {hours.map(h => <option key={h} value={h}>{fmt(h)}</option>)}
+                </select>
+            </div>
+            <p className="text-[11px] text-fg-muted mt-1">
+                Customer hanya akan di-isolir kalau jam saat ini di antara <span className="text-fg">{fmt(start)}</span> dan <span className="text-fg">{fmt(end)}</span>.
+                {' '}Di luar window itu, scheduler skip (app & MikroTik). Default 08:00 – 17:00 supaya tidak isolir tengah malam.
+                {wraps && <span className="block text-amber-400 mt-0.5">Window wrap melewati tengah malam ({fmt(start)} – 23:00 lalu 00:00 – {fmt(end)}).</span>}
+            </p>
+        </div>
+    );
+}
+
 // ─── Master billing scheduler (resilient isolir) ───────────────────────────
-function BillingSchedulerCard({ routerId, isolirProfile }) {
+function BillingSchedulerCard({ routerId, isolirProfile, startHour, endHour }) {
     const { data: status, refetch, isFetching } = useBillingSchedulerStatus(routerId);
     const setup = useSetupBillingScheduler();
     const [interval, setInterval_] = useState('1h');
@@ -1275,9 +1307,11 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
             routerId,
             isolirProfile: isolirProfile || 'pppoe-isolir',
             interval,
+            startHour, endHour,
         });
         refetch();
     };
+    const fmtH = (h) => `${String(h ?? 0).padStart(2, '0')}:00`;
 
     return (
         <div className="bg-slate-surface/30 border border-slate-border rounded-lg p-3 space-y-2">
@@ -1319,6 +1353,13 @@ function BillingSchedulerCard({ routerId, isolirProfile }) {
             <Button size="sm" type="button" onClick={handleSetup} loading={setup.isPending}>
                 {status?.present ? 'Update Scheduler di Router' : 'Pasang Scheduler di Router'}
             </Button>
+
+            <div className="bg-blue-500/5 border border-blue-500/20 rounded p-2 text-[11px] text-fg-muted">
+                <span className="text-blue-400 font-semibold">Window jam saat ini: </span>
+                <span className="text-fg font-mono">{fmtH(startHour)} – {fmtH(endHour)}</span>
+                {' '}— scheduler hanya isolir kalau jam router di antara range itu.
+                Ubah di field <span className="text-fg">"Window jam cek isolir"</span> di atas, simpan, lalu klik Update Scheduler.
+            </div>
 
             <p className="text-xs text-fg-muted">
                 Scheduler app-managed baca field <code className="text-blue-400">dn:YYYYMMDD</code> dari comment tiap PPP secret.
@@ -1495,6 +1536,8 @@ function SettingsTab() {
             isolirProfile: f.get('isolirProfile'),
             isolirRedirectUrl: f.get('isolirRedirectUrl') || null,
             isolirGraceDays: Number(f.get('isolirGraceDays')) || 0,
+            isolirCheckStartHour: Number(f.get('isolirCheckStartHour') ?? 8),
+            isolirCheckEndHour: Number(f.get('isolirCheckEndHour') ?? 17),
             defaultBillingDay: Number(f.get('defaultBillingDay')) || 1,
             waProvider,
             waConfig,
@@ -1543,9 +1586,18 @@ function SettingsTab() {
                                 />
                                 <Field label="Redirect URL halaman tagihan"><input name="isolirRedirectUrl" defaultValue={settings?.isolirRedirectUrl || ''} className={inputCls} placeholder="https://genster.id/tagihan" /></Field>
                                 <IsolirFirewallSetup routerId={routerId} />
-                                <BillingSchedulerCard routerId={routerId} isolirProfile={settings?.isolirProfile || 'pppoe-isolir'} />
+                                <BillingSchedulerCard
+                                    routerId={routerId}
+                                    isolirProfile={settings?.isolirProfile || 'pppoe-isolir'}
+                                    startHour={settings?.isolirCheckStartHour ?? 8}
+                                    endHour={settings?.isolirCheckEndHour ?? 17}
+                                />
                                 <CommentAuditCard routerId={routerId} />
                                 <Field label="Grace days sebelum auto-isolir (0 = isolir hari saat lewat jatuh tempo)"><input name="isolirGraceDays" type="number" min="0" defaultValue={settings?.isolirGraceDays || 0} className={inputCls} /></Field>
+                                <IsolirWindowField
+                                    defaultStart={settings?.isolirCheckStartHour ?? 8}
+                                    defaultEnd={settings?.isolirCheckEndHour ?? 17}
+                                />
                                 <Field label="Default tanggal tagih (1-28, dipakai kalau pelanggan tidak set sendiri)"><input name="defaultBillingDay" type="number" min="1" max="28" defaultValue={settings?.defaultBillingDay || 1} className={inputCls} /></Field>
                             </div>
 

@@ -485,9 +485,22 @@ router.post('/mikrotik/:routerId/billing-scheduler-setup', requireTenant, requir
     const body = z.object({
         isolirProfile: z.string().optional(),
         interval: z.string().optional(),
+        startHour: z.number().int().min(0).max(23).optional(),
+        endHour: z.number().int().min(0).max(23).optional(),
     }).parse(req.body || {});
     try {
-        const result = await mikrotikSetupService.setupBillingScheduler(req.params.routerId, req._tenantId, body);
+        // Fallback: kalau startHour/endHour tidak dikirim dari body, ambil
+        // dari billing_router_settings supaya operator tidak perlu input ulang.
+        let startHour = body.startHour;
+        let endHour = body.endHour;
+        if (startHour === undefined || endHour === undefined) {
+            const settings = await billingSettingsService.getForRouter(req.params.routerId, req._tenantId);
+            startHour = startHour ?? settings?.isolirCheckStartHour ?? 8;
+            endHour = endHour ?? settings?.isolirCheckEndHour ?? 17;
+        }
+        const result = await mikrotikSetupService.setupBillingScheduler(req.params.routerId, req._tenantId, {
+            ...body, startHour, endHour,
+        });
         res.json({ data: result });
     } catch (e: any) {
         const msg = e?.message || 'Gagal setup scheduler';
@@ -644,6 +657,8 @@ router.put('/settings/router/:routerId', requireTenant, requireOperator, asyncHa
         isolirProfile: z.string().optional(),
         isolirRedirectUrl: z.string().optional().nullable(),
         isolirGraceDays: z.number().int().min(0).optional(),
+        isolirCheckStartHour: z.number().int().min(0).max(23).optional(),
+        isolirCheckEndHour: z.number().int().min(0).max(23).optional(),
         defaultBillingDay: z.number().int().min(1).max(28).optional(),
         waProvider: z.enum(['fonnte', 'wablas', 'webhook', 'none']).optional(),
         waConfig: z.any().optional(),
