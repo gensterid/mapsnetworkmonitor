@@ -14,6 +14,7 @@ import { voucherService } from '../services/billing/voucher.service.js';
 import { billingReportsService } from '../services/billing/billing-reports.service.js';
 import { sendWaNotification, buildMessage } from '../services/billing/wa-notification.service.js';
 import type { WaProviderConfig } from '../services/billing/wa-providers.js';
+import { driftDetectorService } from '../services/billing/drift-detector.service.js';
 
 /**
  * Billing routes — Phase B.2.
@@ -659,6 +660,30 @@ router.put('/settings/router/:routerId', requireTenant, requireOperator, asyncHa
     }).parse(req.body);
     const row = await billingSettingsService.upsert(req.params.routerId, req._tenantId, body);
     res.json({ data: row });
+}));
+
+// ─── Drift Detection (Phase 7 MVP) ─────────────────────────────────────────
+
+router.get('/drift/summary', requireTenant, asyncHandler(async (req: any, res) => {
+    const s = driftDetectorService.summary(req._tenantId);
+    res.json({ data: s || { count: 0, scannedAt: null, routersFailed: 0 } });
+}));
+
+router.post('/drift/scan', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const report = await driftDetectorService.scan(req._tenantId);
+    res.json({ data: report });
+}));
+
+router.post('/drift/resync/:subscriptionId', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        kickSession: z.boolean().optional(),
+    }).parse(req.body || {});
+    const result = await driftDetectorService.resyncToMikrotik(req._tenantId, req.params.subscriptionId, {
+        actorUserId: req.user?.id || null,
+        kickSession: body.kickSession,
+    });
+    if (!result.ok) return res.status(400).json({ error: result.message, data: result });
+    res.json({ data: result });
 }));
 
 export default router;

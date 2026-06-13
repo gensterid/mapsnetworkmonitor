@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send, CreditCard, Copy, ExternalLink } from 'lucide-react';
+import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send, CreditCard, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
+import DriftTab from './billing/DriftTab';
+import { useDriftSummary } from '@/hooks/useBillingDrift';
 import clsx from 'clsx';
 import {
     usePackages, useCreatePackage, useUpdatePackage, useDeletePackage,
@@ -31,6 +33,7 @@ const TABS = [
     { id: 'vouchers', label: 'Voucher Hotspot', icon: Ticket },
     { id: 'reports', label: 'Laporan', icon: BarChart3 },
     { id: 'wa', label: 'Notifikasi WA', icon: MessageSquare },
+    { id: 'drift', label: 'Drift Check', icon: AlertTriangle },
     { id: 'settings', label: 'Pengaturan Router', icon: SettingsIcon },
 ];
 
@@ -1663,6 +1666,7 @@ function SettingsTab() {
 // ─── Page root ─────────────────────────────────────────────────────────────
 export default function Billing() {
     const [tab, setTab] = useState('customers');
+    const { data: driftSummary } = useDriftSummary();
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="px-4 sm:px-6 pt-4 sm:pt-6 border-b border-slate-border bg-surface-dark/20">
@@ -1687,6 +1691,11 @@ export default function Billing() {
                                 tab === t.id ? 'border-primary text-primary bg-primary/5' : 'border-transparent text-fg-muted hover:text-fg'
                             )}>
                                 <Icon className="w-4 h-4 shrink-0" /> {t.label}
+                                {t.id === 'drift' && driftSummary?.count > 0 && (
+                                    <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                        {driftSummary.count}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -1700,6 +1709,7 @@ export default function Billing() {
                 {tab === 'vouchers' && <VouchersTab />}
                 {tab === 'reports' && <ReportsTab />}
                 {tab === 'wa' && <WaTab />}
+                {tab === 'drift' && <DriftTab />}
                 {tab === 'settings' && <SettingsTab />}
             </div>
         </div>

@@ -45,6 +45,7 @@ let routerSnmpInterval: ReturnType<typeof setInterval> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
 let autoBackupInterval: ReturnType<typeof setInterval> | null = null;
 let billingDailyInterval: ReturnType<typeof setInterval> | null = null;
+let driftScanInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAutoHealInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAlertSweepInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
@@ -707,6 +708,12 @@ export async function startScheduler(): Promise<void> {
     setTimeout(() => runBillingJobSafe(), 300000);
     billingDailyInterval = setInterval(() => runBillingJobSafe(), 60 * 60 * 1000);
 
+    // Drift detection — scan PPPoE drift antar DB ↔ MikroTik tiap 1 jam.
+    // Initial run 6 menit setelah startup (offset dari billing job 5 menit).
+    // Per-tenant scan; router yang offline di-skip, dicatat di routersFailed.
+    setTimeout(() => runDriftScanSafe(), 360000);
+    driftScanInterval = setInterval(() => runDriftScanSafe(), 60 * 60 * 1000);
+
     // Netwatch auto-heal — every 5 minutes, walk netwatch entries with
     // linkedOnuId and update host IP if PPPoE/ACS reports a different one.
     // Initial run after 90s so PPPoE polling has populated pppoe_sessions.
@@ -726,6 +733,24 @@ async function runBillingJobSafe() {
         await runBillingDailyJob();
     } catch (err) {
         logger.error({ err }, 'Billing daily job crashed');
+    }
+}
+
+async function runDriftScanSafe() {
+    try {
+        const { driftDetectorService } = await import('../services/billing/drift-detector.service.js');
+        const { db } = await import('../db/index.js');
+        const { tenants } = await import('../db/schema/index.js');
+        const rows = await db.select({ id: tenants.id }).from(tenants);
+        for (const t of rows) {
+            try {
+                await driftDetectorService.scan(t.id);
+            } catch (err: any) {
+                logger.warn({ err: err?.message, tenantId: t.id }, 'Drift scan failed for tenant');
+            }
+        }
+    } catch (err) {
+        logger.error({ err }, 'Drift scan cycle crashed');
     }
 }
 
@@ -772,6 +797,7 @@ export function stopScheduler(): void {
     if (cleanupInterval) { clearInterval(cleanupInterval); cleanupInterval = null; }
     if (autoBackupInterval) { clearInterval(autoBackupInterval); autoBackupInterval = null; }
     if (billingDailyInterval) { clearInterval(billingDailyInterval); billingDailyInterval = null; }
+    if (driftScanInterval) { clearInterval(driftScanInterval); driftScanInterval = null; }
     if (netwatchAutoHealInterval) { clearInterval(netwatchAutoHealInterval); netwatchAutoHealInterval = null; }
     if (netwatchAlertSweepInterval) { clearInterval(netwatchAlertSweepInterval); netwatchAlertSweepInterval = null; }
 

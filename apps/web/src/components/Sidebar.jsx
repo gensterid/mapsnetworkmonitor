@@ -2,6 +2,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut, useSession, useRole } from '../lib/auth-client';
 import { useRouters, useUnreadAlertCount, useSettings, useCurrentUser } from '@/hooks';
+import { useDriftSummary } from '@/hooks/useBillingDrift';
 import {
     LayoutDashboard,
     Map as MapIcon,
@@ -75,6 +76,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     const { user } = useSession(); // Access user profile
     const { isAdmin, isOperator, isSuperAdmin } = useRole();
     const { data: currentUser } = useCurrentUser();
+    const { data: driftSummary } = useDriftSummary({ enabled: isAdmin || isOperator });
 
 
     const isActive = (path) => location.pathname === path;
@@ -160,7 +162,15 @@ const Sidebar = ({ isOpen, onClose }) => {
                     {(isAdmin || isOperator) && (
                         <>
                             <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Bisnis</div>
-                            <NavItem path="/billing" icon={Receipt} label="Billing" isActive={isActive("/billing")} onClose={onClose} />
+                            <NavItem
+                                path="/billing"
+                                icon={Receipt}
+                                label="Billing"
+                                badge={driftSummary?.count}
+                                badgeColor={driftSummary?.count > 0 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : undefined}
+                                isActive={isActive("/billing")}
+                                onClose={onClose}
+                            />
                             <NavItem path="/mikhmon" icon={Wifi} label="MikHMON Console" isActive={isActive("/mikhmon")} onClose={onClose} />
                             <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />
                         </>
