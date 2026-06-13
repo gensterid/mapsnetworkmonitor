@@ -88,7 +88,7 @@ function cacheSet<T>(map: Map<string, CacheEntry<T>>, key: string, value: T): vo
  *
  * Closes the socket after fn finishes (or fails). Safe under load.
  */
-async function withDedicatedConn<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 20000): Promise<T> {
+async function withDedicatedConn<T>(routerId: string, tenantId: string | undefined, fn: (api: any) => Promise<T>, perAttemptMs: number = 45000): Promise<T> {
     const filters = [eq(routers.id, routerId)];
     if (tenantId) filters.push(eq(routers.tenantId, tenantId));
     const [router] = await db.select().from(routers).where(and(...filters));
@@ -100,7 +100,7 @@ async function withDedicatedConn<T>(routerId: string, tenantId: string | undefin
         port: router.port,
         user: router.username,
         password,
-        timeout: 30,
+        timeout: 60,                                       // socket timeout naik dari 30s ke 60s
         keepalive: false,
     });
 
@@ -117,8 +117,33 @@ async function withDedicatedConn<T>(routerId: string, tenantId: string | undefin
     }
 }
 
+/**
+ * Wrapper with one retry on timeout — pertama attempt 45s, kalau gagal
+ * coba sekali lagi dengan timeout 90s. Berguna untuk router via VPN
+ * yang latency 200ms+ atau sedang congested.
+ *
+ * Total worst-case: 45s + 5s gap + 90s = 140s. Tetap di bawah default
+ * nginx upstream_response_timeout (180s di banyak konfigurasi).
+ */
+async function withDedicatedConnRetry<T>(
+    routerId: string,
+    tenantId: string | undefined,
+    fn: (api: any) => Promise<T>
+): Promise<T> {
+    try {
+        return await withDedicatedConn(routerId, tenantId, fn, 45000);
+    } catch (err: any) {
+        const msg = String(err?.message || '');
+        if (!msg.includes('timed out')) throw err;
+        // First attempt timed out — wait 5s and retry with longer budget
+        await new Promise((r) => setTimeout(r, 5000));
+        return await withDedicatedConn(routerId, tenantId, fn, 90000);
+    }
+}
+
 // Backward-compat alias for existing call sites in this file.
-const withRetryFresh = withDedicatedConn;
+// Sekarang punya retry built-in — kalau pertama timeout di 45s, retry 90s.
+const withRetryFresh = withDedicatedConnRetry;
 
 export const mikrotikSetupService = {
     async listPppProfiles(routerId: string, tenantId?: string, force = false): Promise<PppProfile[]> {
