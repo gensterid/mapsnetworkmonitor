@@ -8,6 +8,7 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+--> statement-breakpoint
 
 ALTER TABLE "billing_subscriptions"
     ADD COLUMN IF NOT EXISTS "billing_mode" "billing_subscription_mode" NOT NULL DEFAULT 'anchor_day';

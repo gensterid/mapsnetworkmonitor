@@ -6,11 +6,14 @@ DO $$ BEGIN
 EXCEPTION
     WHEN duplicate_object THEN null;
 END $$;
+--> statement-breakpoint
 
 -- Tambah tipe WA notif untuk reminder promise (H-1 dan H+0).
 -- PostgreSQL: ALTER TYPE ADD VALUE bisa di-skip kalau sudah ada via IF NOT EXISTS (PG >=9.6 syntax works).
 ALTER TYPE "billing_wa_notif_type" ADD VALUE IF NOT EXISTS 'promise_reminder_h1';
+--> statement-breakpoint
 ALTER TYPE "billing_wa_notif_type" ADD VALUE IF NOT EXISTS 'promise_reminder_d0';
+--> statement-breakpoint
 
 CREATE TABLE IF NOT EXISTS "billing_promise_to_pay" (
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -28,9 +31,14 @@ CREATE TABLE IF NOT EXISTS "billing_promise_to_pay" (
     "created_at" timestamp NOT NULL DEFAULT now(),
     "updated_at" timestamp NOT NULL DEFAULT now()
 );
+--> statement-breakpoint
 
 CREATE INDEX IF NOT EXISTS "billing_promise_tenant_idx" ON "billing_promise_to_pay" ("tenant_id");
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "billing_promise_subscription_idx" ON "billing_promise_to_pay" ("subscription_id");
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "billing_promise_invoice_idx" ON "billing_promise_to_pay" ("invoice_id");
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "billing_promise_status_idx" ON "billing_promise_to_pay" ("status");
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "billing_promise_promised_for_idx" ON "billing_promise_to_pay" ("promised_for");
