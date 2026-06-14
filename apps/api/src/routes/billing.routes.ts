@@ -168,6 +168,7 @@ const subscriptionCreateSchema = z.object({
     mikrotikIdentity: z.string().min(1),
     plainPassword: z.string().min(1),
     billingDay: z.number().int().min(1).max(28).optional(),
+    billingMode: z.enum(['anchor_day', 'anniversary']).optional(),
     activateNow: z.boolean().optional(),
 });
 
@@ -197,6 +198,7 @@ router.patch('/subscriptions/:id', requireTenant, requireOperator, asyncHandler(
         packageId: z.string().uuid().optional(),
         plainPassword: z.string().optional(),
         billingDay: z.number().int().min(1).max(28).optional(),
+        billingMode: z.enum(['anchor_day', 'anniversary']).optional(),
         status: z.enum(['active', 'isolir', 'expired', 'cancelled', 'suspended']).optional(),
         statusReason: z.string().optional(),
     }).parse(req.body);

@@ -9,6 +9,7 @@ import { logger } from '../../lib/logger.js';
 import { invoiceService, subscriptionService } from './billing.service.js';
 import {
     computeNextDueAt,
+    computeNextDueByMode,
     computeIsolirDate,
     buildSubscriptionComment,
 } from './billing-helpers.js';
@@ -90,8 +91,15 @@ export async function runBillingDailyJob(): Promise<{
                     invoicesGenerated++;
                 }
 
-                // Shift next_due_at forward.
-                const newNext = computeNextDueAt(sub.billingDay || 1, periodStart);
+                // Shift next_due_at forward — dispatch by billing_mode.
+                // anchor_day  → next billingDay di kalender (mis. tgl 1 berikutnya)
+                // anniversary → +cycleValue bulan dari periodStart (mis. 12 Mei → 12 Jun)
+                const newNext = computeNextDueByMode({
+                    mode: (sub as any).billingMode || 'anchor_day',
+                    from: periodStart,
+                    billingDay: sub.billingDay,
+                    cycleMonths: pkg.cycleValue || 1,
+                });
                 await db.update(subscriptions)
                     .set({ nextDueAt: newNext, lastInvoicedAt: now, updatedAt: now })
                     .where(eq(subscriptions.id, sub.id));

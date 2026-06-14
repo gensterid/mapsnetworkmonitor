@@ -286,6 +286,52 @@ function PackagesTab() {
     );
 }
 
+// ─── Billing Mode picker (anchor_day vs anniversary) ──────────────────────
+function BillingModePicker({ defaultMode = 'anchor_day', defaultBillingDay = '' }) {
+    const [mode, setMode] = useState(defaultMode);
+    return (
+        <div className="space-y-2">
+            <label className="block text-xs font-medium text-fg-muted uppercase tracking-wider">Cara tagihan</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <label className={clsx(
+                    'cursor-pointer border rounded-lg p-3 transition-colors',
+                    mode === 'anchor_day' ? 'border-primary bg-primary/5' : 'border-slate-border hover:bg-white/5'
+                )}>
+                    <input type="radio" name="billingMode" value="anchor_day"
+                        checked={mode === 'anchor_day'} onChange={() => setMode('anchor_day')}
+                        className="sr-only" />
+                    <div className="text-sm font-semibold text-fg">Tanggal Anchor</div>
+                    <div className="text-[11px] text-fg-muted mt-0.5">
+                        Tagihan setiap tanggal sama di bulan (mis. 1, 5, 13). Semua customer bisa ditagih bersama.
+                    </div>
+                </label>
+                <label className={clsx(
+                    'cursor-pointer border rounded-lg p-3 transition-colors',
+                    mode === 'anniversary' ? 'border-primary bg-primary/5' : 'border-slate-border hover:bg-white/5'
+                )}>
+                    <input type="radio" name="billingMode" value="anniversary"
+                        checked={mode === 'anniversary'} onChange={() => setMode('anniversary')}
+                        className="sr-only" />
+                    <div className="text-sm font-semibold text-fg">Anniversary</div>
+                    <div className="text-[11px] text-fg-muted mt-0.5">
+                        Tagihan tiap 1 bulan sejak pembayaran terakhir. Bayar 12 Mei → due 12 Jun.
+                    </div>
+                </label>
+            </div>
+            {mode === 'anchor_day' && (
+                <Field label="Tanggal tagih (1–28, kosong = 1)">
+                    <input name="billingDay" type="number" min="1" max="28" defaultValue={defaultBillingDay} className={inputCls} />
+                </Field>
+            )}
+            {mode === 'anniversary' && (
+                <p className="text-[11px] text-fg-muted bg-blue-500/5 border border-blue-500/20 rounded p-2">
+                    Tanggal tagih akan mengikuti tanggal pembayaran. Cycle pertama dihitung dari tanggal aktivasi.
+                </p>
+            )}
+        </div>
+    );
+}
+
 // ─── Subscription tab ──────────────────────────────────────────────────────
 function SubscriptionsTab() {
     const [modalOpen, setModalOpen] = useState(false);
@@ -329,13 +375,15 @@ function SubscriptionsTab() {
     const handleSubmit = async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
+        const mode = f.get('billingMode') || 'anchor_day';
         await create.mutateAsync({
             customerId: f.get('customerId'),
             packageId: f.get('packageId'),
             routerId: subRouterId || f.get('routerId'),
             mikrotikIdentity: subIdentity || f.get('mikrotikIdentity'),
             plainPassword: subPassword || f.get('plainPassword'),
-            billingDay: Number(f.get('billingDay')) || undefined,
+            billingMode: mode,
+            billingDay: mode === 'anchor_day' ? (Number(f.get('billingDay')) || undefined) : undefined,
         });
         setModalOpen(false);
         resetSubForm();
@@ -505,7 +553,7 @@ function SubscriptionsTab() {
                     <Field label="Password">
                         <input name="plainPassword" value={subPassword} onChange={(e) => setSubPassword(e.target.value)} required className={inputCls} />
                     </Field>
-                    <Field label="Tanggal tagih (1-28, kosong = 1)"><input name="billingDay" type="number" min="1" max="28" className={inputCls} /></Field>
+                    <BillingModePicker />
                 </form>
             </Modal>
 
@@ -524,10 +572,14 @@ function SubscriptionsTab() {
                         onSubmit={async (e) => {
                             e.preventDefault();
                             const f = new FormData(e.target);
+                            const mode = f.get('billingMode') || editingSub.billingMode || 'anchor_day';
                             const patch = {
                                 id: editingSub.id,
                                 packageId: f.get('packageId') || undefined,
-                                billingDay: f.get('billingDay') ? Number(f.get('billingDay')) : undefined,
+                                billingMode: mode,
+                                billingDay: mode === 'anchor_day' && f.get('billingDay')
+                                    ? Number(f.get('billingDay'))
+                                    : undefined,
                             };
                             const newPwd = f.get('plainPassword');
                             if (newPwd && String(newPwd).trim()) patch.plainPassword = String(newPwd).trim();
@@ -551,9 +603,7 @@ function SubscriptionsTab() {
                         <Field label="Password baru (kosongkan jika tidak diubah)">
                             <input name="plainPassword" type="text" placeholder="••••••" className={inputCls} />
                         </Field>
-                        <Field label="Tanggal tagih (1-28)">
-                            <input name="billingDay" type="number" min="1" max="28" defaultValue={editingSub.billingDay || ''} className={inputCls} />
-                        </Field>
+                        <BillingModePicker defaultMode={editingSub.billingMode || 'anchor_day'} defaultBillingDay={editingSub.billingDay || ''} />
                         <p className="text-xs text-fg-muted mt-2">
                             Perubahan paket / password langsung di-push ke MikroTik (profile + secret password). Tagihan berikut & tanggal isolir baru ter-update saat siklus tagihan berikutnya.
                         </p>

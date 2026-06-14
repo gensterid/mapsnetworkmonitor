@@ -40,6 +40,15 @@ export const cycleTypeEnum = pgEnum('billing_cycle_type', ['monthly', 'duration'
 export const subscriptionStatusEnum = pgEnum('billing_subscription_status', [
     'active', 'isolir', 'expired', 'cancelled', 'suspended',
 ]);
+export const billingModeEnum = pgEnum('billing_subscription_mode', [
+    /** Tagihan setiap tanggal `billing_day` (mis. 1, 13, 25) — semua customer ditagih
+     *  pada tanggal yang sama. Cocok kalau operator mau cohort billing bersamaan. */
+    'anchor_day',
+    /** Tagihan berbasis anniversary — tiap N bulan sejak pembayaran terakhir.
+     *  Customer baru join 12 Mei → ditagih 12 Jun, 12 Jul, dst. Cocok kalau customer
+     *  ingin siklus pribadi tanpa harus mundur ke awal bulan. */
+    'anniversary',
+]);
 export const invoiceStatusEnum = pgEnum('billing_invoice_status', [
     'unpaid', 'paid', 'overdue', 'cancelled',
 ]);
@@ -137,8 +146,14 @@ export const subscriptions = pgTable('billing_subscriptions', {
     /** encrypted via lib/encryption (same key as router credentials) */
     mikrotikPasswordEncrypted: text('mikrotik_password_encrypted'),
 
-    /** day of month (1-28) when invoice is generated; only meaningful for cycleType=monthly */
+    /** day of month (1-28) when invoice is generated; only meaningful for cycleType=monthly
+     *  AND billing_mode='anchor_day'. Ignored in anniversary mode. */
     billingDay: integer('billing_day'),
+
+    /** How nextDueAt is computed at each cycle:
+     *  - anchor_day  → next billing_day in calendar (existing behavior, default)
+     *  - anniversary → activatedAt/lastInvoicedAt + cycle_months bulan kalender */
+    billingMode: billingModeEnum('billing_mode').notNull().default('anchor_day'),
 
     activatedAt: timestamp('activated_at'),
     /** for hotspot duration packages — when access expires */

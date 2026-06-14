@@ -56,6 +56,35 @@ export function computeNextDueAt(billingDay: number, from: Date = new Date()): D
 }
 
 /**
+ * Anniversary mode — shift `cycleMonths` bulan kalender dari reference date.
+ *   from=12 Mei, cycle=1 → 12 Jun
+ *   from=31 Jan, cycle=1 → 28 Feb (clamp ke last day kalau bulan tujuan pendek)
+ */
+export function computeNextDueAtAnniversary(from: Date, cycleMonths: number = 1): Date {
+    const cycles = Math.max(1, cycleMonths);
+    const target = new Date(from);
+    const srcDay = target.getDate();
+    target.setMonth(target.getMonth() + cycles);
+    if (target.getDate() !== srcDay) target.setDate(0);
+    return target;
+}
+
+/**
+ * Dispatch ke compute helper sesuai billing mode subscription.
+ */
+export function computeNextDueByMode(opts: {
+    mode: 'anchor_day' | 'anniversary';
+    from: Date;
+    billingDay?: number | null;
+    cycleMonths?: number | null;
+}): Date {
+    if (opts.mode === 'anniversary') {
+        return computeNextDueAtAnniversary(opts.from, opts.cycleMonths || 1);
+    }
+    return computeNextDueAt(opts.billingDay || 1, opts.from);
+}
+
+/**
  * Get or create the billing settings row for a router (one-to-one).
  */
 export async function getOrCreateRouterSettings(routerId: string, tenantId: string) {

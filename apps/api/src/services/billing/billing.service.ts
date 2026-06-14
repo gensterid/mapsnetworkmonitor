@@ -16,7 +16,7 @@ import {
     getPppSecretByName,
 } from '../../lib/mikrotik/billing.js';
 import {
-    generateInvoiceNumber, generateCustomerCode, computeNextDueAt,
+    generateInvoiceNumber, generateCustomerCode, computeNextDueAt, computeNextDueByMode,
     defaultPinForCustomer, buildSubscriptionComment, computeIsolirDate,
 } from './billing-helpers.js';
 
@@ -188,15 +188,27 @@ export const subscriptionService = {
         mikrotikIdentity: string;
         plainPassword: string;
         billingDay?: number;
+        billingMode?: 'anchor_day' | 'anniversary';
         activateNow?: boolean;
     }): Promise<Subscription> {
         const pkg = await packageService.findById(input.packageId, tenantId);
         if (!pkg) throw new Error('Package not found');
 
         const billingDay = input.billingDay ?? 1;
+        const billingMode = input.billingMode || 'anchor_day';
         const now = new Date();
         const activatedAt = input.activateNow !== false ? now : null;
-        const nextDueAt = pkg.cycleType === 'monthly' ? computeNextDueAt(billingDay, now) : null;
+        // Compute initial nextDueAt:
+        //   anchor_day  → tanggal billingDay terdekat (existing)
+        //   anniversary → activatedAt + cycleValue bulan (mis. aktif 12 Mei → due 12 Jun)
+        const nextDueAt = pkg.cycleType === 'monthly'
+            ? computeNextDueByMode({
+                mode: billingMode,
+                from: activatedAt || now,
+                billingDay,
+                cycleMonths: pkg.cycleValue || 1,
+            })
+            : null;
 
         const [row] = await db.insert(subscriptions).values({
             tenantId,
@@ -207,6 +219,7 @@ export const subscriptionService = {
             mikrotikIdentity: input.mikrotikIdentity,
             mikrotikPasswordEncrypted: encrypt(input.plainPassword),
             billingDay,
+            billingMode,
             activatedAt,
             nextDueAt,
             status: 'active',
@@ -273,6 +286,7 @@ export const subscriptionService = {
         packageId?: string;
         plainPassword?: string;
         billingDay?: number;
+        billingMode?: 'anchor_day' | 'anniversary';
         status?: 'active' | 'isolir' | 'expired' | 'cancelled' | 'suspended';
         statusReason?: string;
     }): Promise<Subscription | null> {
@@ -291,6 +305,7 @@ export const subscriptionService = {
         }
         if (patch.plainPassword) updates.mikrotikPasswordEncrypted = encrypt(patch.plainPassword);
         if (patch.billingDay !== undefined) updates.billingDay = patch.billingDay;
+        if (patch.billingMode !== undefined) updates.billingMode = patch.billingMode;
         if (patch.status) {
             updates.status = patch.status;
             updates.statusReason = patch.statusReason ?? null;
@@ -380,9 +395,15 @@ export const subscriptionService = {
         if (!pkg) return null;
 
         // Advance the next-due forward one cycle (typically called after payment).
-        // Comment on MikroTik gets the new isolir date so the on-router scheduler
-        // re-evaluates against the new period.
-        const nextDueAt = computeNextDueAt(sub.billingDay || 1, new Date());
+        // Anniversary mode: shift dari HARI INI (tanggal payment) supaya siklus
+        // baru relatif ke pembayaran terakhir, bukan nextDueAt lama. Anchor mode:
+        // jump ke billingDay terdekat dari sekarang.
+        const nextDueAt = computeNextDueByMode({
+            mode: (sub as any).billingMode || 'anchor_day',
+            from: new Date(),
+            billingDay: sub.billingDay,
+            cycleMonths: pkg.cycleValue || 1,
+        });
 
         if (sub.type === 'pppoe') {
             try {
