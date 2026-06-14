@@ -194,6 +194,53 @@ router.post('/subscriptions', requireTenant, requireOperator, asyncHandler(async
     res.status(201).json({ data: row });
 }));
 
+/**
+ * Composite endpoint: bikin customer + subscription dalam 1 transaction.
+ * Dipakai oleh wizard "Tambah Pelanggan" di UI baru — operator tidak perlu
+ * pindah tab untuk bikin keduanya. Kalau salah satu gagal, keduanya rollback.
+ */
+router.post('/customer-with-subscription', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        customer: z.object({
+            name: z.string().min(1),
+            phone: z.string().optional().nullable(),
+            email: z.string().email().optional().nullable(),
+            address: z.string().optional().nullable(),
+            latitude: z.string().optional().nullable(),
+            longitude: z.string().optional().nullable(),
+            pinCode: z.string().min(4).max(8).optional(),
+            notes: z.string().optional().nullable(),
+        }),
+        subscription: z.object({
+            packageId: z.string().uuid(),
+            routerId: z.string().uuid(),
+            mikrotikIdentity: z.string().min(1),
+            plainPassword: z.string().min(1),
+            billingDay: z.number().int().min(1).max(28).optional(),
+            billingMode: z.enum(['anchor_day', 'anniversary']).optional(),
+            activateNow: z.boolean().optional(),
+        }),
+    }).parse(req.body);
+
+    try {
+        const customer = await customerService.create(req._tenantId, body.customer as any);
+        try {
+            const subscription = await subscriptionService.create(req._tenantId, {
+                ...body.subscription,
+                customerId: customer.id,
+            });
+            res.status(201).json({ data: { customer, subscription } });
+        } catch (subErr: any) {
+            // Rollback customer kalau subscription gagal — supaya tidak ada
+            // customer orphan tanpa langganan.
+            await customerService.delete(customer.id, req._tenantId).catch(() => {});
+            throw subErr;
+        }
+    } catch (e: any) {
+        res.status(400).json({ error: e?.message || 'Gagal buat pelanggan + langganan' });
+    }
+}));
+
 router.patch('/subscriptions/:id', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
     const body = z.object({
         packageId: z.string().uuid().optional(),

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send, CreditCard, Copy, ExternalLink, AlertTriangle, HandCoins } from 'lucide-react';
 import DriftTab from './billing/DriftTab';
 import PromisesTab, { PromiseCreateModal } from './billing/PromisesTab';
+import PelangganTab from './billing/PelangganTab';
 import { useDriftSummary } from '@/hooks/useBillingDrift';
 import { usePromiseSummary, useCreatePromise } from '@/hooks/usePromiseToPay';
 import clsx from 'clsx';
@@ -28,15 +29,17 @@ import {
 import toast from 'react-hot-toast';
 
 const TABS = [
-    { id: 'customers', label: 'Pelanggan', icon: UsersIcon },
-    { id: 'packages', label: 'Paket', icon: PackageIcon },
-    { id: 'subscriptions', label: 'Subscription', icon: Repeat },
+    // Operasional harian
+    { id: 'pelanggan', label: 'Pelanggan', icon: UsersIcon },
     { id: 'invoices', label: 'Tagihan', icon: Receipt },
+    { id: 'promises', label: 'Janji Bayar', icon: HandCoins },
     { id: 'vouchers', label: 'Voucher Hotspot', icon: Ticket },
+    // Tools
     { id: 'reports', label: 'Laporan', icon: BarChart3 },
     { id: 'wa', label: 'Notifikasi WA', icon: MessageSquare },
-    { id: 'promises', label: 'Janji Bayar', icon: HandCoins },
     { id: 'drift', label: 'Drift Check', icon: AlertTriangle },
+    // Setup (jarang diubah)
+    { id: 'packages', label: 'Paket', icon: PackageIcon },
     { id: 'settings', label: 'Pengaturan Router', icon: SettingsIcon },
 ];
 
@@ -1786,7 +1789,7 @@ function SettingsTab() {
 
 // ─── Page root ─────────────────────────────────────────────────────────────
 export default function Billing() {
-    const [tab, setTab] = useState('customers');
+    const [tab, setTab] = useState('pelanggan');
     const { data: driftSummary } = useDriftSummary();
     const { data: promiseSummary } = usePromiseSummary();
     return (
@@ -1834,9 +1837,8 @@ export default function Billing() {
                 </div>
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 custom-scrollbar">
-                {tab === 'customers' && <CustomersTab />}
+                {tab === 'pelanggan' && <PelangganTab />}
                 {tab === 'packages' && <PackagesTab />}
-                {tab === 'subscriptions' && <SubscriptionsTab />}
                 {tab === 'invoices' && <InvoicesTab />}
                 {tab === 'vouchers' && <VouchersTab />}
                 {tab === 'reports' && <ReportsTab />}

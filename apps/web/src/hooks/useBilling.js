@@ -435,6 +435,27 @@ export function useResyncComment() {
 }
 
 /**
+ * Composite create: customer + subscription dalam 1 transaction.
+ * Dipakai oleh wizard Tambah Pelanggan di UI baru — operator tidak perlu
+ * pindah tab untuk bikin keduanya.
+ */
+export function useCreateCustomerWithSubscription() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: async (input) => {
+            const res = await apiClient.post(`${API}/customer-with-subscription`, input);
+            return res.data?.data;
+        },
+        onSuccess: () => {
+            toast.success('Pelanggan + langganan tercatat');
+            qc.invalidateQueries({ queryKey: ['billing-customers'] });
+            qc.invalidateQueries({ queryKey: ['billing-subscriptions'] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
+/**
  * List user MikroTik (PPPoE secret atau Hotspot user) yang BELUM ter-import
  * ke subscription/voucher di sistem. Untuk fitur "adopt existing".
  */
