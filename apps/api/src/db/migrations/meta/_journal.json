@@ -372,6 +372,13 @@
       "when": 1781400000000,
       "tag": "0052_billing_mode_dual",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1781500000000,
+      "tag": "0053_billing_promise_to_pay",
+      "breakpoints": true
     }
   ]
 }

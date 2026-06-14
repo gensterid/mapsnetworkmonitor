@@ -15,6 +15,7 @@ import { billingReportsService } from '../services/billing/billing-reports.servi
 import { sendWaNotification, buildMessage } from '../services/billing/wa-notification.service.js';
 import type { WaProviderConfig } from '../services/billing/wa-providers.js';
 import { driftDetectorService } from '../services/billing/drift-detector.service.js';
+import { promiseToPayService } from '../services/billing/promise-to-pay.service.js';
 
 /**
  * Billing routes — Phase B.2.
@@ -701,6 +702,54 @@ router.post('/drift/resync/:subscriptionId', requireTenant, requireOperator, asy
     });
     if (!result.ok) return res.status(400).json({ error: result.message, data: result });
     res.json({ data: result });
+}));
+
+// ─── Promise to Pay (Janji Bayar) ──────────────────────────────────────────
+
+router.get('/promises', requireTenant, asyncHandler(async (req: any, res) => {
+    const rows = await promiseToPayService.list(req._tenantId, {
+        status: req.query.status as any,
+        limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    res.json({ data: rows });
+}));
+
+router.get('/promises/summary', requireTenant, asyncHandler(async (req: any, res) => {
+    const s = await promiseToPayService.summary(req._tenantId);
+    res.json({ data: s });
+}));
+
+router.post('/promises', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        invoiceId: z.string().uuid(),
+        promisedFor: z.string().datetime().or(z.string().min(8)),
+        notes: z.string().optional(),
+        autoIsolirIfBroken: z.boolean().optional(),
+    }).parse(req.body);
+    try {
+        const row = await promiseToPayService.create(req._tenantId, {
+            invoiceId: body.invoiceId,
+            promisedFor: new Date(body.promisedFor),
+            notes: body.notes,
+            autoIsolirIfBroken: body.autoIsolirIfBroken,
+            createdBy: req.user?.id || null,
+        });
+        res.status(201).json({ data: row });
+    } catch (e: any) {
+        res.status(400).json({ error: e?.message || 'Gagal buat janji bayar' });
+    }
+}));
+
+router.post('/promises/:id/fulfill', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const row = await promiseToPayService.fulfill(req.params.id, req._tenantId, req.user?.id || null);
+    if (!row) return res.status(404).json({ error: 'Janji bayar tidak ditemukan atau sudah resolved' });
+    res.json({ data: row });
+}));
+
+router.post('/promises/:id/cancel', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const row = await promiseToPayService.cancel(req.params.id, req._tenantId, req.user?.id || null);
+    if (!row) return res.status(404).json({ error: 'Janji bayar tidak ditemukan atau sudah resolved' });
+    res.json({ data: row });
 }));
 
 export default router;

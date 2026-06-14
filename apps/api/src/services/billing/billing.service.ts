@@ -575,6 +575,21 @@ export const invoiceService = {
                 }
             }
 
+            // Auto-fulfill semua pending promise yang link ke invoice ini —
+            // customer sudah bayar, promise tidak relevan lagi. Idempotent.
+            try {
+                const { db: _db } = await import('../../db/index.js');
+                const { promiseToPay: _promiseTable } = await import('../../db/schema/index.js');
+                await _db.update(_promiseTable)
+                    .set({ status: 'fulfilled', resolvedAt: new Date(), updatedAt: new Date() })
+                    .where(and(
+                        eq(_promiseTable.invoiceId, id),
+                        eq(_promiseTable.status, 'pending'),
+                    ));
+            } catch (e: any) {
+                logger.warn({ err: e?.message, invoiceId: id }, 'auto-fulfill promise after payment failed');
+            }
+
             // Payment received WA notification (best-effort)
             try {
                 const { sendOneOff, buildMessage } = await import('./wa-notification.service.js');

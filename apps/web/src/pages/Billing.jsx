@@ -2,9 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send, CreditCard, Copy, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings as SettingsIcon, Plus, RefreshCw, Search, Lock, Unlock, Trash2, Pencil, Eye, X, Ticket, Printer, BarChart3, MessageSquare, Send, CreditCard, Copy, ExternalLink, AlertTriangle, HandCoins } from 'lucide-react';
 import DriftTab from './billing/DriftTab';
+import PromisesTab, { PromiseCreateModal } from './billing/PromisesTab';
 import { useDriftSummary } from '@/hooks/useBillingDrift';
+import { usePromiseSummary, useCreatePromise } from '@/hooks/usePromiseToPay';
 import clsx from 'clsx';
 import {
     usePackages, useCreatePackage, useUpdatePackage, useDeletePackage,
@@ -33,6 +35,7 @@ const TABS = [
     { id: 'vouchers', label: 'Voucher Hotspot', icon: Ticket },
     { id: 'reports', label: 'Laporan', icon: BarChart3 },
     { id: 'wa', label: 'Notifikasi WA', icon: MessageSquare },
+    { id: 'promises', label: 'Janji Bayar', icon: HandCoins },
     { id: 'drift', label: 'Drift Check', icon: AlertTriangle },
     { id: 'settings', label: 'Pengaturan Router', icon: SettingsIcon },
 ];
@@ -620,11 +623,13 @@ function InvoicesTab() {
     const [payTarget, setPayTarget] = useState(null);
     const [linkTarget, setLinkTarget] = useState(null);
     const [linkResult, setLinkResult] = useState(null);
+    const [promiseTarget, setPromiseTarget] = useState(null);
     const { data: rows = [], isLoading, refetch, isRefetching } = useInvoices({ status: filter || undefined });
     const { data: customers = [] } = useCustomers();
     const pay = usePayInvoice();
     const cancel = useCancelInvoice();
     const createLink = useCreatePaymentLink();
+    const createPromise = useCreatePromise();
     const custMap = useMemo(() => Object.fromEntries(customers.map(c => [c.id, c])), [customers]);
 
     const handleCreateLink = async (e) => {
@@ -692,6 +697,7 @@ function InvoicesTab() {
                                         <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
                                             {i.status !== 'paid' && i.status !== 'cancelled' && (
                                                 <>
+                                                    <Button size="sm" variant="outline" onClick={() => setPromiseTarget(i)} title="Defer dengan janji bayar"><HandCoins className="w-3.5 h-3.5 mr-1" /> Janji Bayar</Button>
                                                     <Button size="sm" variant="outline" onClick={() => { setLinkTarget(i); setLinkResult(null); }}><CreditCard className="w-3.5 h-3.5 mr-1" /> Link Bayar</Button>
                                                     <Button size="sm" onClick={() => setPayTarget(i)}>Bayar Manual</Button>
                                                 </>
@@ -769,6 +775,19 @@ function InvoicesTab() {
                     </form>
                 )}
             </Modal>
+
+            <PromiseCreateModal
+                invoice={promiseTarget}
+                customerName={promiseTarget ? (custMap[promiseTarget.customerId]?.name || '—') : ''}
+                onClose={() => setPromiseTarget(null)}
+                onSubmit={async (payload) => {
+                    try {
+                        await createPromise.mutateAsync(payload);
+                        setPromiseTarget(null);
+                    } catch { /* toast handled by hook */ }
+                }}
+                loading={createPromise.isPending}
+            />
         </Card>
     );
 }
@@ -1769,6 +1788,7 @@ function SettingsTab() {
 export default function Billing() {
     const [tab, setTab] = useState('customers');
     const { data: driftSummary } = useDriftSummary();
+    const { data: promiseSummary } = usePromiseSummary();
     return (
         <div className="flex flex-col h-full bg-background-dark overflow-hidden">
             <div className="px-4 sm:px-6 pt-4 sm:pt-6 border-b border-slate-border bg-surface-dark/20">
@@ -1798,6 +1818,16 @@ export default function Billing() {
                                         {driftSummary.count}
                                     </span>
                                 )}
+                                {t.id === 'promises' && promiseSummary?.pending > 0 && (
+                                    <span className={clsx(
+                                        'ml-1 text-[10px] px-1.5 py-0.5 rounded border',
+                                        promiseSummary.overdue > 0
+                                            ? 'bg-red-500/20 text-red-400 border-red-500/30'
+                                            : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                                    )}>
+                                        {promiseSummary.pending}{promiseSummary.overdue > 0 ? ` (${promiseSummary.overdue} lewat)` : ''}
+                                    </span>
+                                )}
                             </button>
                         );
                     })}
@@ -1811,6 +1841,7 @@ export default function Billing() {
                 {tab === 'vouchers' && <VouchersTab />}
                 {tab === 'reports' && <ReportsTab />}
                 {tab === 'wa' && <WaTab />}
+                {tab === 'promises' && <PromisesTab />}
                 {tab === 'drift' && <DriftTab />}
                 {tab === 'settings' && <SettingsTab />}
             </div>

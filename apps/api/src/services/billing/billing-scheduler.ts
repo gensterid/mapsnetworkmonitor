@@ -195,6 +195,17 @@ export async function runBillingDailyJob(): Promise<{
                 : (hourNow >= startH || hourNow <= endH);
             if (!inWindow) continue;
 
+            // Skip kalau ada pending Janji Bayar yang promised_for masih di masa depan.
+            // Sweeper terpisah akan mark broken + isolir kalau lewat tanpa pelunasan
+            // (dengan auto_isolir_if_broken=true).
+            try {
+                const { promiseToPayService } = await import('./promise-to-pay.service.js');
+                const hasActive = await promiseToPayService.hasActivePromiseForSubscription(sub.tenantId, sub.id, now);
+                if (hasActive) continue;
+            } catch (err: any) {
+                logger.warn({ err: err?.message, subId: sub.id }, 'Failed to check active promise — proceeding with isolir');
+            }
+
             try {
                 await subscriptionService.isolir(sub.id, sub.tenantId, `Tagihan ${inv.invoiceNumber} lewat jatuh tempo`);
                 isolirApplied++;
@@ -213,6 +224,20 @@ export async function runBillingDailyJob(): Promise<{
         logger.info({ wa: r }, 'WA reminder sweep done');
     } catch (err: any) {
         logger.error({ err: err?.message }, 'billing job: wa reminder step failed');
+    }
+
+    // ─── 5. Promise to Pay sweeper ───────────────────────────────────────
+    // Mark promise yang lewat → broken (+ auto-isolir kalau di-set).
+    // Send WA reminder H-1 & H+0. Idempotent — pakai field sent_at supaya
+    // tidak double-send walau scheduler jalan tiap jam.
+    try {
+        const { promiseToPayService } = await import('./promise-to-pay.service.js');
+        const r = await promiseToPayService.runSweeper();
+        if (r.broken > 0 || r.remindersSent > 0 || r.isolirTriggered > 0) {
+            logger.info({ promise: r }, 'Promise sweeper done');
+        }
+    } catch (err: any) {
+        logger.error({ err: err?.message }, 'billing job: promise sweeper failed');
     }
 
     logger.info({ invoicesGenerated, isolirApplied, overdueMarked }, 'Billing daily job completed');

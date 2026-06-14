@@ -40,6 +40,9 @@ export const cycleTypeEnum = pgEnum('billing_cycle_type', ['monthly', 'duration'
 export const subscriptionStatusEnum = pgEnum('billing_subscription_status', [
     'active', 'isolir', 'expired', 'cancelled', 'suspended',
 ]);
+export const promiseStatusEnum = pgEnum('billing_promise_status', [
+    'pending', 'fulfilled', 'broken', 'cancelled',
+]);
 export const billingModeEnum = pgEnum('billing_subscription_mode', [
     /** Tagihan setiap tanggal `billing_day` (mis. 1, 13, 25) — semua customer ditagih
      *  pada tanggal yang sama. Cocok kalau operator mau cohort billing bersamaan. */
@@ -66,6 +69,8 @@ export const waProviderEnum = pgEnum('billing_wa_provider', [
 ]);
 export const waNotifTypeEnum = pgEnum('billing_wa_notif_type', [
     'h_minus_1', 'due_day', 'overdue', 'isolir', 'voucher_expiry', 'payment_received', 'manual',
+    /** Janji bayar — reminder otomatis H-1 dan H+0 dari `promised_for` */
+    'promise_reminder_h1', 'promise_reminder_d0',
 ]);
 export const waNotifStatusEnum = pgEnum('billing_wa_notif_status', [
     'queued', 'sent', 'failed',
@@ -371,6 +376,57 @@ export const waNotificationsLog = pgTable('billing_wa_notifications_log', {
 }));
 
 // ─────────────────────────────────────────────────────────────────────────
+// promise_to_pay (Janji Bayar)
+// ─────────────────────────────────────────────────────────────────────────
+/**
+ * Track operator's "kebijakan defer" — customer minta tunda bayar ke tanggal X.
+ * Sebelum entity ini ada, kebijakan defer cuma di kepala operator → sering lupa
+ * → invoice tidak tertagih.
+ *
+ * Workflow:
+ *   1. Invoice jatuh tempo → operator klik "Janji Bayar" → input tanggal target
+ *   2. App skip auto-isolir selama ada promise pending yang promised_for >= now()
+ *   3. H-1 + H+0 → WA reminder ke customer otomatis
+ *   4. H+1 → kalau auto_isolir_if_broken=true → isolir + status broken
+ *      kalau false → notif operator manual
+ *   5. Operator klik "Tunaikan" saat customer bayar → status fulfilled
+ *
+ * Constraint: max 2x promise per invoice (configurable via business logic, not DB).
+ */
+export const promiseToPay = pgTable('billing_promise_to_pay', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    subscriptionId: uuid('subscription_id').notNull().references(() => subscriptions.id, { onDelete: 'cascade' }),
+    invoiceId: uuid('invoice_id').notNull().references(() => invoices.id, { onDelete: 'cascade' }),
+
+    /** Tanggal customer berjanji akan bayar (date saja, 00:00:00) */
+    promisedFor: timestamp('promised_for').notNull(),
+    /** Catatan operator: alasan, kondisi, dll. */
+    notes: text('notes'),
+    /** Kalau true: app auto-isolir di H+1 kalau belum bayar. Kalau false: notif operator. */
+    autoIsolirIfBroken: boolean('auto_isolir_if_broken').notNull().default(false),
+
+    status: promiseStatusEnum('status').notNull().default('pending'),
+
+    /** User yang create promise — untuk audit trail */
+    createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+    /** Timestamp saat status berubah ke fulfilled/broken/cancelled */
+    resolvedAt: timestamp('resolved_at'),
+    /** Tracker WA reminder agar tidak double-send */
+    reminderHMinus1SentAt: timestamp('reminder_h_minus_1_sent_at'),
+    reminderHZeroSentAt: timestamp('reminder_h_zero_sent_at'),
+
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+    tenantIdx: index('billing_promise_tenant_idx').on(t.tenantId),
+    subscriptionIdx: index('billing_promise_subscription_idx').on(t.subscriptionId),
+    invoiceIdx: index('billing_promise_invoice_idx').on(t.invoiceId),
+    statusIdx: index('billing_promise_status_idx').on(t.status),
+    promisedForIdx: index('billing_promise_promised_for_idx').on(t.promisedFor),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────
 // Type exports
 // ─────────────────────────────────────────────────────────────────────────
 export type Package = typeof packages.$inferSelect;
@@ -389,5 +445,7 @@ export type VoucherBatch = typeof voucherBatches.$inferSelect;
 export type NewVoucherBatch = typeof voucherBatches.$inferInsert;
 export type BillingRouterSetting = typeof billingRouterSettings.$inferSelect;
 export type NewBillingRouterSetting = typeof billingRouterSettings.$inferInsert;
+export type PromiseToPay = typeof promiseToPay.$inferSelect;
+export type NewPromiseToPay = typeof promiseToPay.$inferInsert;
 export type WaNotificationLog = typeof waNotificationsLog.$inferSelect;
 export type NewWaNotificationLog = typeof waNotificationsLog.$inferInsert;
