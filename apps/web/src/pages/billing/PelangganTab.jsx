@@ -198,13 +198,8 @@ export default function PelangganTab() {
                                                             sub={s} cust={cust} pkg={pkg} router={router}
                                                             onEdit={() => setEditingSub(s)}
                                                             onIsolir={() => {
-                                                                // eslint-disable-next-line no-console
-                                                                console.log('[Click Isolir] sub:', s, 'id:', s?.id);
-                                                                if (!s?.id) {
-                                                                    toast.error('Bug: subscription id hilang. Refresh halaman (Ctrl+Shift+R).');
-                                                                    return;
-                                                                }
-                                                                isolir.mutate(s.id);
+                                                                if (!s?.id) return toast.error('Subscription id hilang');
+                                                                isolir.mutate({ id: s.id, reason: 'manual' });
                                                             }}
                                                             onUnisolir={() => {
                                                                 if (!s?.id) return toast.error('Subscription id hilang');
