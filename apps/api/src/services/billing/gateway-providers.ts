@@ -25,6 +25,11 @@ export interface CreatePaymentInput {
         invoiceNumber: string;
         amount: number;
         notes?: string | null;
+        /** Optional reference yang dikirim ke gateway sebagai merchant_ref /
+         *  order_id / external_id. Kalau tidak diisi, fallback ke invoiceNumber.
+         *  Pakai ini untuk include router code supaya Midtrans dashboard
+         *  langsung bisa identify router dari order_id (mis. INV-ADY27-202606-0001). */
+        merchantRef?: string;
     };
     customer: {
         id: string;
@@ -99,9 +104,22 @@ interface TripayCfg {
 
 const TRIPAY_BASE = (sandbox: boolean) => sandbox ? 'https://tripay.co.id/api-sandbox' : 'https://tripay.co.id/api';
 
+/**
+ * Recover invoice number dari gateway reference. Format:
+ *   New (with router): INV-{ROUTER}-YYYYMM-NNNN[-suffix]
+ *   Old (no router):   INV-YYYYMM-NNNN[-suffix]
+ * Regex match pattern INV-(maybe router)-YYYYMM-NNNN
+ */
+function recoverInvoiceNumber(ref: string): string {
+    const m = String(ref || '').match(/INV-(?:[A-Z0-9]+-)?(\d{6})-(\d+)/);
+    if (m) return `INV-${m[1]}-${m[2]}`;
+    // Fallback: ambil 3 part pertama (backward compat).
+    return String(ref || '').split('-').slice(0, 3).join('-');
+}
+
 async function tripayCreate(cfg: TripayCfg, input: CreatePaymentInput): Promise<CreatePaymentResult> {
     if (!cfg.apiKey || !cfg.privateKey || !cfg.merchantCode) throw new Error('Tripay credentials incomplete');
-    const merchantRef = input.invoice.invoiceNumber;
+    const merchantRef = input.invoice.merchantRef || input.invoice.invoiceNumber;
     const amount = Math.round(input.invoice.amount);
     const signature = hmacSha256(cfg.privateKey, `${cfg.merchantCode}${merchantRef}${amount}`);
     const method = input.options?.method || cfg.defaultMethod || 'QRIS';
@@ -166,7 +184,7 @@ function tripayVerify(cfg: TripayCfg, rawBody: string, headers: Record<string, a
         status,
         gatewayTxnId: payload.reference,
         amount: payload.total_amount,
-        invoiceNumber: payload.merchant_ref,
+        invoiceNumber: recoverInvoiceNumber(payload.merchant_ref),
         raw: payload,
     };
 }
@@ -185,7 +203,8 @@ const MIDTRANS_BASE = (production: boolean) => production ? 'https://app.midtran
 async function midtransCreate(cfg: MidtransCfg, input: CreatePaymentInput): Promise<CreatePaymentResult> {
     if (!cfg.serverKey) throw new Error('Midtrans serverKey missing');
     const isProd = cfg.isProduction ?? !cfg.sandbox;
-    const orderId = `${input.invoice.invoiceNumber}-${Date.now()}`;
+    const ref = input.invoice.merchantRef || input.invoice.invoiceNumber;
+    const orderId = `${ref}-${Date.now()}`;
     const auth = Buffer.from(`${cfg.serverKey}:`).toString('base64');
 
     const body = {
@@ -244,9 +263,9 @@ function midtransVerify(cfg: MidtransCfg, rawBody: string, _headers: Record<stri
     else if (t === 'expire') status = 'expired';
     else if (t === 'cancel' || t === 'deny' || t === 'failure') status = 'failed';
 
-    // order_id format: INV-YYYYMM-NNNN-<timestamp>; recover invoice number
+    // order_id format: INV[-ROUTER]-YYYYMM-NNNN-<timestamp>; recover invoice number
     const orderId = String(payload.order_id || '');
-    const invoiceNumber = orderId.split('-').slice(0, 3).join('-');
+    const invoiceNumber = recoverInvoiceNumber(orderId);
 
     return {
         valid: true,
@@ -270,7 +289,8 @@ interface XenditCfg {
 async function xenditCreate(cfg: XenditCfg, input: CreatePaymentInput): Promise<CreatePaymentResult> {
     if (!cfg.secretKey) throw new Error('Xendit secretKey missing');
     const auth = Buffer.from(`${cfg.secretKey}:`).toString('base64');
-    const externalId = `${input.invoice.invoiceNumber}-${Date.now()}`;
+    const ref = input.invoice.merchantRef || input.invoice.invoiceNumber;
+    const externalId = `${ref}-${Date.now()}`;
 
     const body = {
         external_id: externalId,
@@ -320,7 +340,7 @@ function xenditVerify(cfg: XenditCfg, rawBody: string, headers: Record<string, a
     else if (xs === 'FAILED') status = 'failed';
 
     const externalId = String(payload.external_id || '');
-    const invoiceNumber = externalId.split('-').slice(0, 3).join('-');
+    const invoiceNumber = recoverInvoiceNumber(externalId);
 
     return {
         valid: true,

@@ -1,7 +1,7 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
-    invoices, customers, billingRouterSettings, payments, appSettings,
+    invoices, customers, billingRouterSettings, payments, appSettings, routers,
 } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
 import { gatewayCreatePayment, gatewayVerifyWebhook, type GatewayName } from './gateway-providers.js';
@@ -99,6 +99,17 @@ export const gatewayService = {
         const cfg = resolved.config;
         logger.debug({ routerId: inv.routerId, gateway: input.gateway, source: resolved.source }, 'Gateway config resolved');
 
+        // Build merchant reference dengan router code di tengah supaya
+        // dashboard gateway (Midtrans/Tripay/Xendit) bisa langsung lihat
+        // transaksi ini dari router mana. Format: INV-{ROUTERCODE}-YYYYMM-NNNN
+        // Webhook parser handle backward-compat untuk invoice lama tanpa code.
+        const [routerRow] = await db.select({ name: routers.name }).from(routers)
+            .where(eq(routers.id, inv.routerId)).limit(1);
+        const safeRouterCode = (routerRow?.name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+        const merchantRef = safeRouterCode
+            ? `INV-${safeRouterCode}-${inv.invoiceNumber.replace(/^INV-/, '')}`
+            : inv.invoiceNumber;
+
         const [cust] = await db.select().from(customers).where(eq(customers.id, inv.customerId)).limit(1);
         if (!cust) throw new Error('Customer not found');
 
@@ -108,6 +119,7 @@ export const gatewayService = {
                 invoiceNumber: inv.invoiceNumber,
                 amount: Number(inv.amount),
                 notes: inv.notes,
+                merchantRef,
             },
             customer: {
                 id: cust.id,
@@ -158,10 +170,11 @@ export const gatewayService = {
         try { payload = JSON.parse(input.rawBody); } catch { return { status: 400, body: { error: 'invalid json' } }; }
 
         // Try to identify the invoice. Each gateway uses a different field.
-        const invoiceNumber =
-            payload.merchant_ref ||
-            payload.external_id?.split('-').slice(0, 3).join('-') ||
-            payload.order_id?.split('-').slice(0, 3).join('-');
+        // Format ref: INV[-ROUTER]-YYYYMM-NNNN[-timestamp].
+        // Extract pakai regex yang match optional router code di tengah.
+        const rawRef = payload.merchant_ref || payload.external_id || payload.order_id || '';
+        const m = String(rawRef).match(/INV-(?:[A-Z0-9]+-)?(\d{6})-(\d+)/);
+        const invoiceNumber = m ? `INV-${m[1]}-${m[2]}` : '';
 
         if (!invoiceNumber) return { status: 400, body: { error: 'invoice number not found in payload' } };
 
