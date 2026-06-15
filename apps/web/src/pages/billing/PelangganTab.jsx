@@ -321,9 +321,13 @@ function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, savin
     const [mode, setMode] = useState(sub.billingMode || 'anchor_day');
     const [overrideDate, setOverrideDate] = useState('');
     const shiftDue = useShiftSubscriptionDue();
+    const updateCustomer = useUpdateCustomer();
+
     const handle = async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
+
+        // Patch subscription (paket, password, mode, billingDay)
         const patch = {
             packageId: f.get('packageId') || undefined,
             billingMode: mode,
@@ -331,12 +335,25 @@ function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, savin
         };
         const newPwd = f.get('plainPassword');
         if (newPwd && String(newPwd).trim()) patch.plainPassword = String(newPwd).trim();
+
+        // Patch customer (nama, HP, alamat) — hanya kirim field yang BERUBAH
+        // supaya tidak overwrite field lain yang tidak ditampilkan di modal.
+        const newName = String(f.get('name') || '').trim();
+        const newPhone = String(f.get('phone') || '').trim();
+        const newAddress = String(f.get('address') || '').trim();
+        const custPatch = {};
+        if (newName && newName !== (cust?.name || '')) custPatch.name = newName;
+        if (newPhone !== (cust?.phone || '')) custPatch.phone = newPhone || null;
+        if (newAddress !== (cust?.address || '')) custPatch.address = newAddress || null;
+        if (Object.keys(custPatch).length > 0 && cust?.id) {
+            await updateCustomer.mutateAsync({ id: cust.id, ...custPatch });
+        }
+
         await onSave(patch);
-        // Lakukan shift-due SETELAH save patch. Kirim date STRING (YYYY-MM-DD)
-        // langsung — backend interpret sebagai midnight di tenant TZ. JANGAN
-        // konversi via new Date().toISOString() karena browser TZ ≠ backend TZ
-        // → user pick 15 Jun di browser WITA jadi 14 Jun 16:00 UTC, lalu
-        // backend Jakarta TZ interpret jadi 14 Jun 23:00 WIB → comment salah.
+
+        // Shift-due SETELAH save patch. Kirim date STRING (YYYY-MM-DD) langsung
+        // — backend interpret sebagai midnight di tenant TZ. Jangan konversi
+        // via toISOString() karena browser TZ ≠ backend TZ.
         if (overrideDate) {
             await shiftDue.mutateAsync({ id: sub.id, nextDueAt: overrideDate });
         }
@@ -360,6 +377,22 @@ function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, savin
                 <Field label="Router / Username">
                     <input value={`${router?.name || '—'} / ${sub.mikrotikIdentity}`} disabled className={inputCls + ' opacity-60'} />
                 </Field>
+
+                <div className="bg-surface-darker/40 border border-slate-border/40 rounded-lg p-3 mb-3 space-y-2">
+                    <div className="text-[10px] uppercase text-fg-muted font-bold tracking-wider mb-1">Data Pelanggan</div>
+                    <Field label="Nama">
+                        <input name="name" defaultValue={cust?.name || ''} className={inputCls} placeholder="Nama pelanggan" />
+                    </Field>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Field label="HP">
+                            <input name="phone" defaultValue={cust?.phone || ''} className={inputCls} placeholder="0812-xxx" />
+                        </Field>
+                        <Field label="Alamat">
+                            <input name="address" defaultValue={cust?.address || ''} className={inputCls} placeholder="Jl. ..." />
+                        </Field>
+                    </div>
+                </div>
+
                 <Field label="Paket">
                     <select name="packageId" defaultValue={sub.packageId} className={inputCls}>
                         {pkgs.filter(p => p.active || p.id === sub.packageId).map(p => (
@@ -625,6 +658,7 @@ function TambahPelangganWizard({ onClose, routers, pkgs }) {
                             <input type="number" min="1" max="28" value={billingDay} onChange={e => setBillingDay(e.target.value)} className={inputCls} />
                         </Field>
                     )}
+                    <PreviewNextDue mode={mode} billingDay={billingDay} />
                 </div>
             </form>
 
@@ -636,6 +670,36 @@ function TambahPelangganWizard({ onClose, routers, pkgs }) {
                 />
             )}
         </Modal>
+    );
+}
+
+// Hitung preview tanggal jatuh tempo di sisi client. Logic sama dengan
+// backend computeNextDueByMode tapi pakai browser local TZ (untuk display).
+// Backend tetap recompute di tenant TZ saat save — preview ini cuma estimasi
+// visual untuk operator.
+function computePreviewNextDue(mode, billingDay, today = new Date()) {
+    if (mode === 'anniversary') {
+        const d = new Date(today);
+        const srcDay = d.getDate();
+        d.setMonth(d.getMonth() + 1);
+        // Clamp ke last day kalau bulan tujuan lebih pendek (mis. 31 Jan → 28 Feb)
+        if (d.getDate() !== srcDay) d.setDate(0);
+        return d;
+    }
+    const day = Math.max(1, Math.min(28, Number(billingDay) || 1));
+    const d = new Date(today.getFullYear(), today.getMonth(), day);
+    if (d.getTime() <= today.getTime()) d.setMonth(d.getMonth() + 1);
+    return d;
+}
+
+function PreviewNextDue({ mode, billingDay }) {
+    const preview = useMemo(() => computePreviewNextDue(mode, billingDay), [mode, billingDay]);
+    return (
+        <div className="mt-2 bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-2.5 flex items-baseline gap-2">
+            <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 shrink-0">Tagihan Pertama:</span>
+            <span className="text-fg font-medium">{fmtDate(preview)}</span>
+            <span className="text-[11px] text-fg-muted ml-auto">{mode === 'anniversary' ? '(hari ini + 1 bulan)' : `(tanggal ${Math.max(1, Math.min(28, Number(billingDay) || 1))} berikutnya)`}</span>
+        </div>
     );
 }
 
