@@ -166,7 +166,18 @@ function partsInTZ(d: Date, tz: string = BILLING_TZ): TZParts {
  * Trick: build candidate UTC date, see what wall-clock it produces in tz,
  * compute offset diff, adjust. Iterates at most 2× to handle DST edge cases.
  */
-function makeDateAtMidnightInTZ(year: number, month: number, day: number, tz: string = BILLING_TZ): Date {
+/** Parse "YYYY-MM-DD" sebagai midnight di tz. Dipakai untuk shift nextDueAt
+ *  override — operator pick calendar date di UI, backend store sebagai
+ *  midnight di tenant TZ (bukan browser TZ). Tanpa ini, browser di WITA
+ *  yang pick "15 Jun" akan kirim 14 Jun 16:00 UTC ke backend Jakarta TZ. */
+export function parseDateInTZ(dateStr: string, tz: string = BILLING_TZ): Date {
+    const datePart = dateStr.split('T')[0];
+    const [y, m, d] = datePart.split('-').map(Number);
+    if (!y || !m || !d) throw new Error(`Invalid date format: ${dateStr} (expected YYYY-MM-DD)`);
+    return makeDateAtMidnightInTZ(y, m, d, tz);
+}
+
+export function makeDateAtMidnightInTZ(year: number, month: number, day: number, tz: string = BILLING_TZ): Date {
     let utcMs = Date.UTC(year, month - 1, day, 0, 0, 0);
     for (let i = 0; i < 3; i++) {
         const probe = new Date(utcMs);

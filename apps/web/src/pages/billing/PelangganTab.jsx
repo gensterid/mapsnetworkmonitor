@@ -332,11 +332,13 @@ function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, savin
         const newPwd = f.get('plainPassword');
         if (newPwd && String(newPwd).trim()) patch.plainPassword = String(newPwd).trim();
         await onSave(patch);
-        // Lakukan shift-due SETELAH save patch supaya nextDueAt tidak ter-override
-        // oleh perubahan billingMode (mode change kadang re-compute nextDueAt).
+        // Lakukan shift-due SETELAH save patch. Kirim date STRING (YYYY-MM-DD)
+        // langsung — backend interpret sebagai midnight di tenant TZ. JANGAN
+        // konversi via new Date().toISOString() karena browser TZ ≠ backend TZ
+        // → user pick 15 Jun di browser WITA jadi 14 Jun 16:00 UTC, lalu
+        // backend Jakarta TZ interpret jadi 14 Jun 23:00 WIB → comment salah.
         if (overrideDate) {
-            const iso = new Date(overrideDate + 'T00:00:00').toISOString();
-            await shiftDue.mutateAsync({ id: sub.id, nextDueAt: iso });
+            await shiftDue.mutateAsync({ id: sub.id, nextDueAt: overrideDate });
         }
     };
 

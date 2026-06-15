@@ -16,7 +16,7 @@ import {
     getPppSecretByName,
 } from '../../lib/mikrotik/billing.js';
 import {
-    generateInvoiceNumber, generateCustomerCode, computeNextDueAt, computeNextDueByMode, getTenantBillingTimezone,
+    generateInvoiceNumber, generateCustomerCode, computeNextDueAt, computeNextDueByMode, getTenantBillingTimezone, parseDateInTZ,
     defaultPinForCustomer, buildSubscriptionComment, computeIsolirDate,
 } from './billing-helpers.js';
 
@@ -351,11 +351,20 @@ export const subscriptionService = {
      * Push comment baru ke MikroTik supaya scheduler MikroTik (safety net)
      * juga update tanggal isolir. Audit log untuk traceability.
      */
-    async shiftNextDue(id: string, tenantId: string, newNextDueAt: Date): Promise<Subscription | null> {
+    async shiftNextDue(id: string, tenantId: string, newNextDue: Date | string): Promise<Subscription | null> {
         const sub = await subscriptionService.findById(id, tenantId);
         if (!sub) return null;
         const pkg = await packageService.findById(sub.packageId, tenantId);
         if (!pkg) throw new Error('Package not found');
+
+        // Resolve tenant TZ dulu — dipakai untuk parse date string + format comment.
+        const tz = await getTenantBillingTimezone(tenantId);
+
+        // Kalau caller kirim string (YYYY-MM-DD dari UI), interpret sebagai
+        // midnight di tenant TZ. Kalau Date object, pakai apa adanya.
+        const newNextDueAt = typeof newNextDue === 'string'
+            ? parseDateInTZ(newNextDue, tz)
+            : newNextDue;
 
         const [row] = await db.update(subscriptions)
             .set({ nextDueAt: newNextDueAt, updatedAt: new Date() })
@@ -364,7 +373,6 @@ export const subscriptionService = {
 
         if (sub.type === 'pppoe' && sub.mikrotikIdentity) {
             try {
-                const tz = await getTenantBillingTimezone(tenantId);
                 const [settings] = await db.select().from(billingRouterSettings)
                     .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
                 const graceDays = settings?.isolirGraceDays ?? 0;

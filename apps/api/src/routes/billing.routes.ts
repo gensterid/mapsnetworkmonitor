@@ -279,11 +279,12 @@ router.post('/subscriptions/:id/reveal-password', requireTenant, requireOperator
 
 router.post('/subscriptions/:id/shift-due', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
     const body = z.object({
-        nextDueAt: z.string().datetime().or(z.string().min(8)),
+        // YYYY-MM-DD diutamakan (UI date picker). ISO datetime juga accept untuk
+        // programmatic call. Service akan parse string sebagai midnight di
+        // tenant TZ supaya tidak salah TZ dari browser.
+        nextDueAt: z.string().regex(/^\d{4}-\d{2}-\d{2}(T|$)/, 'Format wajib YYYY-MM-DD'),
     }).parse(req.body);
-    const date = new Date(body.nextDueAt);
-    if (isNaN(date.getTime())) return res.status(400).json({ error: 'Tanggal tidak valid' });
-    const row = await subscriptionService.shiftNextDue(req.params.id, req._tenantId, date);
+    const row = await subscriptionService.shiftNextDue(req.params.id, req._tenantId, body.nextDueAt);
     if (!row) return res.status(404).json({ error: 'Subscription tidak ditemukan' });
     res.json({ data: row });
 }));
