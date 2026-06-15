@@ -16,7 +16,7 @@ import {
     getPppSecretByName,
 } from '../../lib/mikrotik/billing.js';
 import {
-    generateInvoiceNumber, generateCustomerCode, computeNextDueAt, computeNextDueByMode,
+    generateInvoiceNumber, generateCustomerCode, computeNextDueAt, computeNextDueByMode, getTenantBillingTimezone,
     defaultPinForCustomer, buildSubscriptionComment, computeIsolirDate,
 } from './billing-helpers.js';
 
@@ -198,6 +198,7 @@ export const subscriptionService = {
         const billingMode = input.billingMode || 'anchor_day';
         const now = new Date();
         const activatedAt = input.activateNow !== false ? now : null;
+        const tz = await getTenantBillingTimezone(tenantId);
         // Compute initial nextDueAt:
         //   anchor_day  → tanggal billingDay terdekat (existing)
         //   anniversary → activatedAt + cycleValue bulan (mis. aktif 12 Mei → due 12 Jun)
@@ -207,6 +208,7 @@ export const subscriptionService = {
                 from: activatedAt || now,
                 billingDay,
                 cycleMonths: pkg.cycleValue || 1,
+                tz,
             })
             : null;
 
@@ -236,11 +238,12 @@ export const subscriptionService = {
                 const [settings] = await _db.select().from(billingRouterSettings)
                     .where(eq(billingRouterSettings.routerId, input.routerId)).limit(1);
                 const graceDays = settings?.isolirGraceDays ?? 0;
-                const isolirDate = computeIsolirDate(nextDueAt, graceDays);
+                const isolirDate = computeIsolirDate(nextDueAt, graceDays, tz);
                 const comment = buildSubscriptionComment({
                     subscriptionId: row.id,
                     isolirDate,
                     packageName: pkg.name,
+                    tz,
                 });
 
                 await withFreshConnRetry(input.routerId, async (api) => {
@@ -361,14 +364,16 @@ export const subscriptionService = {
 
         if (sub.type === 'pppoe' && sub.mikrotikIdentity) {
             try {
+                const tz = await getTenantBillingTimezone(tenantId);
                 const [settings] = await db.select().from(billingRouterSettings)
                     .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
                 const graceDays = settings?.isolirGraceDays ?? 0;
-                const isolirDate = computeIsolirDate(newNextDueAt, graceDays);
+                const isolirDate = computeIsolirDate(newNextDueAt, graceDays, tz);
                 const comment = buildSubscriptionComment({
                     subscriptionId: sub.id,
                     isolirDate,
                     packageName: pkg.name,
+                    tz,
                 });
                 await withFreshConnRetry(sub.routerId, async (api) => {
                     const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
@@ -443,11 +448,13 @@ export const subscriptionService = {
         // Anniversary mode: shift dari HARI INI (tanggal payment) supaya siklus
         // baru relatif ke pembayaran terakhir, bukan nextDueAt lama. Anchor mode:
         // jump ke billingDay terdekat dari sekarang.
+        const tz = await getTenantBillingTimezone(tenantId);
         const nextDueAt = computeNextDueByMode({
             mode: (sub as any).billingMode || 'anchor_day',
             from: new Date(),
             billingDay: sub.billingDay,
             cycleMonths: pkg.cycleValue || 1,
+            tz,
         });
 
         if (sub.type === 'pppoe') {
@@ -457,11 +464,12 @@ export const subscriptionService = {
                 const [settings] = await _db.select().from(billingRouterSettings)
                     .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
                 const graceDays = settings?.isolirGraceDays ?? 0;
-                const isolirDate = computeIsolirDate(nextDueAt, graceDays);
+                const isolirDate = computeIsolirDate(nextDueAt, graceDays, tz);
                 const comment = buildSubscriptionComment({
                     subscriptionId: sub.id,
                     isolirDate,
                     packageName: pkg.name,
+                    tz,
                 });
 
                 await withFreshConnRetry(sub.routerId, async (api) => {

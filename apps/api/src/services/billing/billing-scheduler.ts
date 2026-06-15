@@ -12,6 +12,7 @@ import {
     computeNextDueByMode,
     computeIsolirDate,
     buildSubscriptionComment,
+    getTenantBillingTimezone,
 } from './billing-helpers.js';
 import { routerActionService } from '../router-action.service.js';
 import {
@@ -91,14 +92,16 @@ export async function runBillingDailyJob(): Promise<{
                     invoicesGenerated++;
                 }
 
-                // Shift next_due_at forward — dispatch by billing_mode.
+                // Shift next_due_at forward — dispatch by billing_mode + tenant TZ.
                 // anchor_day  → next billingDay di kalender (mis. tgl 1 berikutnya)
                 // anniversary → +cycleValue bulan dari periodStart (mis. 12 Mei → 12 Jun)
+                const tz = await getTenantBillingTimezone(sub.tenantId);
                 const newNext = computeNextDueByMode({
                     mode: (sub as any).billingMode || 'anchor_day',
                     from: periodStart,
                     billingDay: sub.billingDay,
                     cycleMonths: pkg.cycleValue || 1,
+                    tz,
                 });
                 await db.update(subscriptions)
                     .set({ nextDueAt: newNext, lastInvoicedAt: now, updatedAt: now })
@@ -114,11 +117,12 @@ export async function runBillingDailyJob(): Promise<{
                         const [rs] = await db.select().from(billingRouterSettings)
                             .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
                         const graceDays = rs?.isolirGraceDays ?? 0;
-                        const newIsolir = computeIsolirDate(newNext, graceDays);
+                        const newIsolir = computeIsolirDate(newNext, graceDays, tz);
                         const newComment = buildSubscriptionComment({
                             subscriptionId: sub.id,
                             isolirDate: newIsolir,
                             packageName: pkg.name,
+                            tz,
                         });
 
                         const api = await routerActionService.getRouterConnection(sub.routerId);

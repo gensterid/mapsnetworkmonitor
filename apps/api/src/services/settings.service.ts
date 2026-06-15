@@ -137,6 +137,14 @@ export class SettingsService {
                 tenantId,
                 description
             });
+            // Invalidate billing TZ cache kalau key yang di-update billing_timezone.
+            // Tanpa ini, billing-helpers tetap pakai cached value selama 5 menit.
+            if (key === 'billing_timezone') {
+                try {
+                    const { invalidateTenantBillingTimezone } = await import('./billing/billing-helpers.js');
+                    invalidateTenantBillingTimezone(tenantId);
+                } catch { /* non-fatal */ }
+            }
             return ok(setting);
         } catch (error) {
             logger.error({ key, tenantId, err: error }, '[Settings] Failed to set setting');

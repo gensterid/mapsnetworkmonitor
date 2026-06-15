@@ -152,7 +152,11 @@ export default function GeneralSettings({
                             <option value="Asia/Hong_Kong">Hong Kong (UTC+8)</option>
                             <option value="UTC">UTC (UTC+0)</option>
                         </select>
-                        <p className="text-xs text-slate-500">Pilih zona waktu untuk menampilkan waktu yang tepat</p>
+                        <p className="text-xs text-slate-500">
+                            Pilih zona waktu untuk menampilkan waktu yang tepat.
+                            Setting ini juga dipakai untuk perhitungan tanggal billing (nextDueAt, isolir date, comment MikroTik).
+                            Setting per-user — admin pertama di tenant jadi default untuk billing scheduler.
+                        </p>
                     </div>
                     <div className="flex items-center gap-2">
                         <Button

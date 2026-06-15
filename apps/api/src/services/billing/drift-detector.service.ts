@@ -11,7 +11,7 @@ import {
     type PppSecret,
 } from '../../lib/mikrotik/billing.js';
 import {
-    buildSubscriptionComment, computeIsolirDate,
+    buildSubscriptionComment, computeIsolirDate, getTenantBillingTimezone,
 } from './billing-helpers.js';
 import { auditRepository } from '../../repositories/audit.repository.js';
 
@@ -75,14 +75,15 @@ function normalizeComment(s: string | undefined | null): string {
     return (s || '').trim().replace(/\s+/g, ' ');
 }
 
-function computeExpectedFor(sub: Subscription, pkg: Package, isolirProfileSetting: string, graceDays: number): DriftItem['expected'] {
+function computeExpectedFor(sub: Subscription, pkg: Package, isolirProfileSetting: string, graceDays: number, tz: string): DriftItem['expected'] {
     const isIsolir = sub.status === 'isolir';
     const profile = isIsolir ? isolirProfileSetting : pkg.mikrotikProfile;
-    const isolirDate = computeIsolirDate(sub.nextDueAt, graceDays);
+    const isolirDate = computeIsolirDate(sub.nextDueAt, graceDays, tz);
     const comment = buildSubscriptionComment({
         subscriptionId: sub.id,
         isolirDate,
         packageName: pkg.name,
+        tz,
     });
     const disabled = sub.status === 'cancelled' || sub.status === 'suspended';
     return { profile, comment, disabled };
@@ -104,6 +105,7 @@ export const driftDetectorService = {
      */
     async scan(tenantId: string): Promise<DriftReport> {
         const t0 = Date.now();
+        const tz = await getTenantBillingTimezone(tenantId);
         const rows = await db.select({
             sub: subscriptions,
             pkg: packages,
@@ -158,7 +160,7 @@ export const driftDetectorService = {
                 report.subscriptionsChecked++;
                 const isolirProfileSetting = settings?.isolirProfile || 'pppoe-isolir';
                 const graceDays = settings?.isolirGraceDays ?? 0;
-                const expected = computeExpectedFor(sub, pkg, isolirProfileSetting, graceDays);
+                const expected = computeExpectedFor(sub, pkg, isolirProfileSetting, graceDays, tz);
                 const secret = secretByName.get(sub.mikrotikIdentity);
                 const fields = compareSecret(expected, secret);
                 if (fields.length === 0) continue;
@@ -247,7 +249,8 @@ export const driftDetectorService = {
 
         const isolirProfileSetting = settings?.isolirProfile || 'pppoe-isolir';
         const graceDays = settings?.isolirGraceDays ?? 0;
-        const expected = computeExpectedFor(sub, pkg, isolirProfileSetting, graceDays);
+        const tz = await getTenantBillingTimezone(tenantId);
+        const expected = computeExpectedFor(sub, pkg, isolirProfileSetting, graceDays, tz);
 
         try {
             const api = await routerActionService.getRouterConnection(sub.routerId, tenantId);

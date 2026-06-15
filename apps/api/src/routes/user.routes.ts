@@ -268,6 +268,18 @@ router.put(
             throw ApiError.notFound('User not found');
         }
 
+        // Invalidate billing TZ cache kalau timezone berubah — supaya billing
+        // helpers fetch fresh value tanpa nunggu TTL 5 menit. Hanya user yang
+        // affect tenant timezone cache yang perlu invalidate (user di tenant
+        // yang sama).
+        if (userData.timezone !== undefined && (user.tenantId || targetUser.tenantId)) {
+            try {
+                const { invalidateTenantBillingTimezone } = await import('../services/billing/billing-helpers.js');
+                const tid = (user.tenantId || targetUser.tenantId) as string;
+                invalidateTenantBillingTimezone(tid);
+            } catch { /* non-fatal */ }
+        }
+
         // Handle additional tenants (Superadmin only)
         if (additionalTenantIds !== undefined && req.user?.role === 'superadmin') {
             await userService.updateTenantAccesses(id, additionalTenantIds);
