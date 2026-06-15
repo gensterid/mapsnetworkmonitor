@@ -197,9 +197,21 @@ export default function PelangganTab() {
                                                         <ExpandedDetail
                                                             sub={s} cust={cust} pkg={pkg} router={router}
                                                             onEdit={() => setEditingSub(s)}
-                                                            onIsolir={() => isolir.mutate(s.id)}
-                                                            onUnisolir={() => unisolir.mutate(s.id)}
+                                                            onIsolir={() => {
+                                                                // eslint-disable-next-line no-console
+                                                                console.log('[Click Isolir] sub:', s, 'id:', s?.id);
+                                                                if (!s?.id) {
+                                                                    toast.error('Bug: subscription id hilang. Refresh halaman (Ctrl+Shift+R).');
+                                                                    return;
+                                                                }
+                                                                isolir.mutate(s.id);
+                                                            }}
+                                                            onUnisolir={() => {
+                                                                if (!s?.id) return toast.error('Subscription id hilang');
+                                                                unisolir.mutate(s.id);
+                                                            }}
                                                             onDelete={() => {
+                                                                if (!s?.id) return toast.error('Subscription id hilang');
                                                                 if (confirm(`Hapus subscription ${cust?.name || s.mikrotikIdentity}?`)) {
                                                                     deleteSub.mutate(s.id);
                                                                     setExpandedId(null);
