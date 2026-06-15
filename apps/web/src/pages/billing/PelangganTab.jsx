@@ -146,7 +146,15 @@ export default function PelangganTab() {
                             <tbody className="divide-y divide-slate-800">
                                 {rows.length === 0 ? (
                                     <tr><td colSpan={7} className="px-3 py-8 text-center text-fg-muted">Belum ada pelanggan. Klik <span className="text-fg">Tambah Pelanggan</span> untuk mulai.</td></tr>
-                                ) : rows.map(s => {
+                                ) : rows.map((s, idx) => {
+                                    // Defensive: kalau subscription tidak punya id (data corrupt /
+                                    // bug dari endpoint), log + skip baris supaya operator tidak
+                                    // klik tombol yang akan kirim "undefined" ke backend dan 500.
+                                    if (!s?.id) {
+                                        // eslint-disable-next-line no-console
+                                        console.error('[PelangganTab] Subscription tanpa id di rows[' + idx + ']:', s);
+                                        return null;
+                                    }
                                     const cust = custMap[s.customerId];
                                     const pkg = pkgMap[s.packageId];
                                     const router = routerMap[s.routerId];
