@@ -121,41 +121,34 @@ function daysInMonth(year: number, month: number): number {
 }
 
 /** Get Y/M/D/H/M/S of a Date as observed in `tz`. Default ke BILLING_TZ.
- *  Caller boleh override per-tenant via getTenantBillingTimezone(tenantId).
  *
- *  CRITICAL: Beberapa versi Node.js (V8 < 11.x dan default ICU) return
- *  hour="24" + day=N untuk midnight, alih-alih hour="00" + day=N+1. Bug ini
- *  bikin tanggal off-by-one untuk Date yang persis jatuh di midnight di tz
- *  tertentu. Kasus konkret: 2026-06-14T17:00:00Z (= 15 Jun 00:00 WIB) bisa
- *  return day=14 hour=24, lalu kode ambil day=14 → comment MikroTik salah.
- *  Fix: normalize hour 24→0 + carry over ke day (+1), handle month/year
- *  rollover. */
+ *  CRITICAL midnight handling: kalau formatter request date + time bareng,
+ *  beberapa V8 version return hour="24" dengan day field yang inconsistent
+ *  antar versi (kadang day=N, kadang day=N-1). Workaround: pakai 2 formatter
+ *  TERPISAH — date formatter tidak punya hour quirk karena hour bukan output.
+ *  Time formatter masih bisa return hour=24, kita normalize ke 0. */
 function partsInTZ(d: Date, tz: string = BILLING_TZ): TZParts {
-    const fmt = new Intl.DateTimeFormat('en-CA', {
-        timeZone: tz,
-        year: 'numeric', month: '2-digit', day: '2-digit',
-        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    const dateFmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit',
     });
-    const parts = fmt.formatToParts(d);
-    const get = (t: string) => +parts.find(p => p.type === t)!.value;
-    let year = get('year');
-    let month = get('month');
-    let day = get('day');
-    let hour = get('hour');
-    if (hour === 24) {
-        hour = 0;
-        day += 1;
-        const dim = daysInMonth(year, month);
-        if (day > dim) {
-            day = 1;
-            month += 1;
-            if (month > 12) { month = 1; year += 1; }
-        }
-    }
+    const timeFmt = new Intl.DateTimeFormat('en-GB', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const dParts = dateFmt.formatToParts(d);
+    const tParts = timeFmt.formatToParts(d);
+    const get = (parts: Intl.DateTimeFormatPart[], type: string): number => {
+        const p = parts.find(x => x.type === type);
+        return p ? +p.value : 0;
+    };
+    let hour = get(tParts, 'hour');
+    if (hour === 24) hour = 0;
     return {
-        year, month, day, hour,
-        minute: get('minute'),
-        second: get('second'),
+        year: get(dParts, 'year'),
+        month: get(dParts, 'month'),
+        day: get(dParts, 'day'),
+        hour,
+        minute: get(tParts, 'minute'),
+        second: get(tParts, 'second'),
     };
 }
 
