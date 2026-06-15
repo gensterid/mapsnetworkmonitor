@@ -115,8 +115,21 @@ interface TZParts {
     second: number;
 }
 
+/** Number of days in (year, month). month is 1-12. */
+function daysInMonth(year: number, month: number): number {
+    return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
 /** Get Y/M/D/H/M/S of a Date as observed in `tz`. Default ke BILLING_TZ.
- *  Caller boleh override per-tenant via getTenantBillingTimezone(tenantId). */
+ *  Caller boleh override per-tenant via getTenantBillingTimezone(tenantId).
+ *
+ *  CRITICAL: Beberapa versi Node.js (V8 < 11.x dan default ICU) return
+ *  hour="24" + day=N untuk midnight, alih-alih hour="00" + day=N+1. Bug ini
+ *  bikin tanggal off-by-one untuk Date yang persis jatuh di midnight di tz
+ *  tertentu. Kasus konkret: 2026-06-14T17:00:00Z (= 15 Jun 00:00 WIB) bisa
+ *  return day=14 hour=24, lalu kode ambil day=14 → comment MikroTik salah.
+ *  Fix: normalize hour 24→0 + carry over ke day (+1), handle month/year
+ *  rollover. */
 function partsInTZ(d: Date, tz: string = BILLING_TZ): TZParts {
     const fmt = new Intl.DateTimeFormat('en-CA', {
         timeZone: tz,
@@ -125,19 +138,25 @@ function partsInTZ(d: Date, tz: string = BILLING_TZ): TZParts {
     });
     const parts = fmt.formatToParts(d);
     const get = (t: string) => +parts.find(p => p.type === t)!.value;
+    let year = get('year');
+    let month = get('month');
+    let day = get('day');
+    let hour = get('hour');
+    if (hour === 24) {
+        hour = 0;
+        day += 1;
+        const dim = daysInMonth(year, month);
+        if (day > dim) {
+            day = 1;
+            month += 1;
+            if (month > 12) { month = 1; year += 1; }
+        }
+    }
     return {
-        year: get('year'),
-        month: get('month'),
-        day: get('day'),
-        hour: get('hour') % 24,   // some TZs report 24 instead of 0 for midnight
+        year, month, day, hour,
         minute: get('minute'),
         second: get('second'),
     };
-}
-
-/** Number of days in (year, month). month is 1-12. */
-function daysInMonth(year: number, month: number): number {
-    return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 /**
