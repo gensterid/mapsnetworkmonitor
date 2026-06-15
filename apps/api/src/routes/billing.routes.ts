@@ -15,6 +15,8 @@ import { billingReportsService } from '../services/billing/billing-reports.servi
 import { sendWaNotification, buildMessage } from '../services/billing/wa-notification.service.js';
 import type { WaProviderConfig } from '../services/billing/wa-providers.js';
 import { driftDetectorService } from '../services/billing/drift-detector.service.js';
+import { transactionService } from '../services/billing/transaction.service.js';
+import { resolveGatewayConfig } from '../services/billing/gateway.service.js';
 import { promiseToPayService } from '../services/billing/promise-to-pay.service.js';
 
 /**
@@ -737,6 +739,81 @@ router.put('/settings/router/:routerId', requireTenant, requireOperator, asyncHa
     }).parse(req.body);
     const row = await billingSettingsService.upsert(req.params.routerId, req._tenantId, body);
     res.json({ data: row });
+}));
+
+// ─── Transactions / Payments ───────────────────────────────────────────────
+
+router.get('/transactions', requireTenant, asyncHandler(async (req: any, res) => {
+    const q = req.query;
+    const result = await transactionService.list(req._tenantId, {
+        method: q.method,
+        status: q.status,
+        routerId: q.routerId,
+        customerId: q.customerId,
+        search: q.search,
+        startDate: q.startDate ? new Date(q.startDate) : undefined,
+        endDate: q.endDate ? new Date(q.endDate) : undefined,
+        limit: q.limit ? Number(q.limit) : 50,
+        offset: q.offset ? Number(q.offset) : 0,
+    });
+    res.json({ data: result.rows, meta: { total: result.total } });
+}));
+
+router.get('/transactions/summary', requireTenant, asyncHandler(async (req: any, res) => {
+    const q = req.query;
+    const data = await transactionService.summary(req._tenantId, {
+        startDate: q.startDate ? new Date(q.startDate) : undefined,
+        endDate: q.endDate ? new Date(q.endDate) : undefined,
+    });
+    res.json({ data });
+}));
+
+// ─── Tenant-level Payment Gateway defaults ─────────────────────────────────
+
+router.get('/settings/gateway-defaults', requireTenant, asyncHandler(async (req: any, res) => {
+    const { appSettings } = await import('../db/schema/index.js');
+    const { db } = await import('../db/index.js');
+    const { and, eq } = await import('drizzle-orm');
+    const [row] = await db.select().from(appSettings)
+        .where(and(eq(appSettings.tenantId, req._tenantId), eq(appSettings.key, 'billing_gateway_defaults')))
+        .limit(1);
+    res.json({ data: row?.value || null });
+}));
+
+router.put('/settings/gateway-defaults', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        tripayEnabled: z.boolean().optional(),
+        midtransEnabled: z.boolean().optional(),
+        xenditEnabled: z.boolean().optional(),
+        config: z.object({
+            tripay: z.any().optional(),
+            midtrans: z.any().optional(),
+            xendit: z.any().optional(),
+        }).optional(),
+    }).parse(req.body);
+    const { settingsService } = await import('../services/index.js');
+    const result = await settingsService.setSetting(
+        'billing_gateway_defaults',
+        body,
+        req._tenantId,
+        'Default payment gateway untuk semua router di tenant. Per-router setting jadi override.',
+    );
+    if (!result.ok) return res.status(500).json({ error: 'Gagal simpan' });
+    res.json({ data: result.value });
+}));
+
+router.get('/settings/gateway-resolved/:routerId/:gateway', requireTenant, asyncHandler(async (req: any, res) => {
+    const resolved = await resolveGatewayConfig(
+        req._tenantId,
+        req.params.routerId,
+        req.params.gateway as any,
+    );
+    // Jangan return credential mentah — cuma flags
+    res.json({ data: {
+        enabled: resolved.enabled,
+        source: resolved.source,
+        hasConfig: !!resolved.config,
+    }});
 }));
 
 // ─── Drift Detection (Phase 7 MVP) ─────────────────────────────────────────

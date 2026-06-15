@@ -1,11 +1,72 @@
 import { and, eq } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
-    invoices, customers, billingRouterSettings, payments,
+    invoices, customers, billingRouterSettings, payments, appSettings,
 } from '../../db/schema/index.js';
 import { logger } from '../../lib/logger.js';
 import { gatewayCreatePayment, gatewayVerifyWebhook, type GatewayName } from './gateway-providers.js';
 import { invoiceService } from './billing.service.js';
+
+/**
+ * Resolve gateway config dengan fallback chain:
+ *   1. Router-level setting (billing_router_settings.gateway_*) — kalau enabled
+ *      di router itu + ada cfg
+ *   2. Tenant-level default (app_settings key='billing_gateway_defaults') —
+ *      kalau gateway enabled di tenant default + ada cfg
+ *   3. Disabled / null
+ *
+ * Tenant-level value shape:
+ *   {
+ *     tripayEnabled: boolean,
+ *     midtransEnabled: boolean,
+ *     xenditEnabled: boolean,
+ *     config: { tripay: {...}, midtrans: {...}, xendit: {...} }
+ *   }
+ *
+ * Operator setup tenant default sekali → semua router auto-pakai.
+ * Router boleh override per-instance kalau perlu credential beda.
+ */
+export async function resolveGatewayConfig(tenantId: string, routerId: string, gateway: GatewayName): Promise<{
+    enabled: boolean;
+    config: any;
+    source: 'router' | 'tenant' | null;
+}> {
+    // Step 1: router-level
+    const [routerSettings] = await db.select().from(billingRouterSettings)
+        .where(eq(billingRouterSettings.routerId, routerId)).limit(1);
+
+    if (routerSettings) {
+        const enabledByRouter = (
+            (gateway === 'tripay' && routerSettings.gatewayTripayEnabled) ||
+            (gateway === 'midtrans' && routerSettings.gatewayMidtransEnabled) ||
+            (gateway === 'xendit' && routerSettings.gatewayXenditEnabled)
+        );
+        const routerCfg = (routerSettings.gatewayConfig as any)?.[gateway];
+        if (enabledByRouter && routerCfg) {
+            return { enabled: true, config: routerCfg, source: 'router' };
+        }
+    }
+
+    // Step 2: tenant-level default
+    const [tenantRow] = await db.select().from(appSettings)
+        .where(and(eq(appSettings.tenantId, tenantId), eq(appSettings.key, 'billing_gateway_defaults')))
+        .limit(1);
+
+    const tenantCfg = tenantRow?.value as any;
+    if (tenantCfg) {
+        const enabledByTenant = (
+            (gateway === 'tripay' && tenantCfg.tripayEnabled) ||
+            (gateway === 'midtrans' && tenantCfg.midtransEnabled) ||
+            (gateway === 'xendit' && tenantCfg.xenditEnabled)
+        );
+        const cfg = tenantCfg.config?.[gateway];
+        if (enabledByTenant && cfg) {
+            return { enabled: true, config: cfg, source: 'tenant' };
+        }
+    }
+
+    return { enabled: false, config: null, source: null };
+}
 
 /**
  * Gateway orchestration. The provider files do the HTTP/crypto work; this
@@ -32,20 +93,11 @@ export const gatewayService = {
         if (inv.status === 'paid') throw new Error('Invoice already paid');
         if (!inv.routerId) throw new Error('Invoice has no router context');
 
-        const [settings] = await db.select().from(billingRouterSettings)
-            .where(eq(billingRouterSettings.routerId, inv.routerId)).limit(1);
-        if (!settings) throw new Error('Billing settings not configured for router');
-
-        const enabled = (
-            (input.gateway === 'tripay' && settings.gatewayTripayEnabled) ||
-            (input.gateway === 'midtrans' && settings.gatewayMidtransEnabled) ||
-            (input.gateway === 'xendit' && settings.gatewayXenditEnabled)
-        );
-        if (!enabled) throw new Error(`Gateway ${input.gateway} disabled for router`);
-
-        const gatewayCfgRaw = (settings.gatewayConfig as any) || {};
-        const cfg = gatewayCfgRaw[input.gateway];
-        if (!cfg) throw new Error(`Gateway ${input.gateway} credentials not configured`);
+        const resolved = await resolveGatewayConfig(input.tenantId, inv.routerId, input.gateway);
+        if (!resolved.enabled) throw new Error(`Gateway ${input.gateway} disabled (router & tenant default)`);
+        if (!resolved.config) throw new Error(`Gateway ${input.gateway} credentials not configured`);
+        const cfg = resolved.config;
+        logger.debug({ routerId: inv.routerId, gateway: input.gateway, source: resolved.source }, 'Gateway config resolved');
 
         const [cust] = await db.select().from(customers).where(eq(customers.id, inv.customerId)).limit(1);
         if (!cust) throw new Error('Customer not found');
@@ -119,12 +171,10 @@ export const gatewayService = {
         if (!inv) return { status: 404, body: { error: 'invoice not found' } };
         if (!inv.routerId) return { status: 400, body: { error: 'invoice has no router' } };
 
-        const [settings] = await db.select().from(billingRouterSettings)
-            .where(eq(billingRouterSettings.routerId, inv.routerId)).limit(1);
-        if (!settings) return { status: 400, body: { error: 'router billing settings missing' } };
-
-        const cfg = (settings.gatewayConfig as any)?.[input.gateway];
-        if (!cfg) return { status: 400, body: { error: `${input.gateway} not configured for router` } };
+        // Resolve gateway config dengan router → tenant fallback.
+        const resolved = await resolveGatewayConfig(inv.tenantId, inv.routerId, input.gateway);
+        if (!resolved.config) return { status: 400, body: { error: `${input.gateway} not configured (router & tenant default)` } };
+        const cfg = resolved.config;
 
         // Verify signature with the right key
         const verify = gatewayVerifyWebhook(input.gateway, cfg, input.rawBody, input.headers);

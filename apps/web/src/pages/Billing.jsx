@@ -6,6 +6,8 @@ import { Receipt, Users as UsersIcon, Package as PackageIcon, Repeat, Settings a
 import DriftTab from './billing/DriftTab';
 import PromisesTab, { PromiseCreateModal } from './billing/PromisesTab';
 import PelangganTab from './billing/PelangganTab';
+import TransaksiTab from './billing/TransaksiTab';
+import GatewayDefaultsCard from './billing/GatewayDefaultsCard';
 import { useDriftSummary } from '@/hooks/useBillingDrift';
 import { usePromiseSummary, useCreatePromise } from '@/hooks/usePromiseToPay';
 import clsx from 'clsx';
@@ -32,6 +34,7 @@ const TABS = [
     // Operasional harian
     { id: 'pelanggan', label: 'Pelanggan', icon: UsersIcon },
     { id: 'invoices', label: 'Tagihan', icon: Receipt },
+    { id: 'transaksi', label: 'Transaksi', icon: CreditCard },
     { id: 'promises', label: 'Janji Bayar', icon: HandCoins },
     { id: 'vouchers', label: 'Voucher Hotspot', icon: Ticket },
     // Tools
@@ -1628,6 +1631,8 @@ function SettingsTab() {
     const cfg = settings?.waConfig || {};
 
     return (
+        <>
+        <GatewayDefaultsCard />
         <Card>
             <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2"><SettingsIcon className="w-5 h-5 text-primary" /> Pengaturan Billing per Router</CardTitle>
@@ -1784,6 +1789,7 @@ function SettingsTab() {
                 )}
             </CardContent>
         </Card>
+        </>
     );
 }
 
@@ -1840,6 +1846,7 @@ export default function Billing() {
                 {tab === 'pelanggan' && <PelangganTab />}
                 {tab === 'packages' && <PackagesTab />}
                 {tab === 'invoices' && <InvoicesTab />}
+                {tab === 'transaksi' && <TransaksiTab />}
                 {tab === 'vouchers' && <VouchersTab />}
                 {tab === 'reports' && <ReportsTab />}
                 {tab === 'wa' && <WaTab />}
