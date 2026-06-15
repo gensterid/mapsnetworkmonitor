@@ -18,6 +18,7 @@ import {
     useImportCandidates,
     useRouters,
     useCreateCustomerWithSubscription,
+    useShiftSubscriptionDue,
 } from '@/hooks';
 import { useCreatePromise } from '@/hooks/usePromiseToPay';
 
@@ -318,6 +319,8 @@ function ExpandedDetail({ sub, cust, pkg, router, onEdit, onIsolir, onUnisolir, 
 // ─── Edit subscription modal (lebih ringkas dari yg lama) ──────────────────
 function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, saving }) {
     const [mode, setMode] = useState(sub.billingMode || 'anchor_day');
+    const [overrideDate, setOverrideDate] = useState('');
+    const shiftDue = useShiftSubscriptionDue();
     const handle = async (e) => {
         e.preventDefault();
         const f = new FormData(e.target);
@@ -329,13 +332,27 @@ function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, savin
         const newPwd = f.get('plainPassword');
         if (newPwd && String(newPwd).trim()) patch.plainPassword = String(newPwd).trim();
         await onSave(patch);
+        // Lakukan shift-due SETELAH save patch supaya nextDueAt tidak ter-override
+        // oleh perubahan billingMode (mode change kadang re-compute nextDueAt).
+        if (overrideDate) {
+            const iso = new Date(overrideDate + 'T00:00:00').toISOString();
+            await shiftDue.mutateAsync({ id: sub.id, nextDueAt: iso });
+        }
     };
+
+    // Pre-fill input dengan nextDueAt saat ini supaya operator bisa edit incremental
+    const currentDueStr = sub.nextDueAt
+        ? new Date(sub.nextDueAt).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+        : '—';
+    const currentDueISODate = sub.nextDueAt
+        ? new Date(sub.nextDueAt).toISOString().slice(0, 10)
+        : '';
 
     return (
         <Modal open onClose={onClose} title={`Edit — ${cust?.name || sub.mikrotikIdentity}`}
             footer={<>
                 <Button variant="ghost" onClick={onClose}>Batal</Button>
-                <Button form="sub-edit-form-merged" type="submit" loading={saving}>Simpan</Button>
+                <Button form="sub-edit-form-merged" type="submit" loading={saving || shiftDue.isPending}>Simpan</Button>
             </>}>
             <form id="sub-edit-form-merged" onSubmit={handle}>
                 <Field label="Router / Username">
@@ -374,8 +391,28 @@ function EditSubscriptionModal({ sub, cust, router, pkgs, onClose, onSave, savin
                         </Field>
                     )}
                 </div>
-                <p className="text-xs text-fg-muted mt-2">
-                    Perubahan paket & password langsung di-push ke MikroTik. Tagihan berikut diperbarui di siklus berikutnya.
+
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 mt-3 space-y-2">
+                    <div className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Geser Tanggal Tagihan (Override)</div>
+                    <div className="text-xs text-fg-muted">
+                        Tanggal berikutnya saat ini: <span className="text-fg font-medium">{currentDueStr}</span>
+                    </div>
+                    <Field label="Geser ke (kosongkan kalau tidak diubah)">
+                        <input
+                            type="date"
+                            value={overrideDate}
+                            onChange={e => setOverrideDate(e.target.value)}
+                            placeholder={currentDueISODate}
+                            className={inputCls}
+                        />
+                    </Field>
+                    <p className="text-[11px] text-fg-muted">
+                        Tanggal ini akan jadi <code>nextDueAt</code> baru. Comment di MikroTik (prefix + <code>dn:</code>) juga di-update otomatis supaya scheduler MikroTik baca tanggal yang sama.
+                    </p>
+                </div>
+
+                <p className="text-xs text-fg-muted mt-3">
+                    Perubahan paket & password langsung di-push ke MikroTik. Tanpa override tanggal, tagihan berikut diperbarui di siklus berikutnya.
                 </p>
             </form>
         </Modal>

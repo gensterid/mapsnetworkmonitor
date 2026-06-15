@@ -277,6 +277,17 @@ router.post('/subscriptions/:id/reveal-password', requireTenant, requireOperator
     res.json({ data: { password: pwd } });
 }));
 
+router.post('/subscriptions/:id/shift-due', requireTenant, requireOperator, asyncHandler(async (req: any, res) => {
+    const body = z.object({
+        nextDueAt: z.string().datetime().or(z.string().min(8)),
+    }).parse(req.body);
+    const date = new Date(body.nextDueAt);
+    if (isNaN(date.getTime())) return res.status(400).json({ error: 'Tanggal tidak valid' });
+    const row = await subscriptionService.shiftNextDue(req.params.id, req._tenantId, date);
+    if (!row) return res.status(404).json({ error: 'Subscription tidak ditemukan' });
+    res.json({ data: row });
+}));
+
 // ─── Invoices ──────────────────────────────────────────────────────────────
 
 const invoiceCreateSchema = z.object({

@@ -338,6 +338,51 @@ export const subscriptionService = {
      * Move subscription to isolir profile + kick active session so the change
      * takes effect immediately.
      */
+    /**
+     * Manual shift nextDueAt — operator override tanggal tagihan berikutnya.
+     * Dipakai untuk:
+     *  - Fix selisih hari karena timezone bug lama
+     *  - Operator kasih diskon "extend 1 minggu gratis"
+     *  - Customer minta geser anchor ke tanggal lain
+     *
+     * Push comment baru ke MikroTik supaya scheduler MikroTik (safety net)
+     * juga update tanggal isolir. Audit log untuk traceability.
+     */
+    async shiftNextDue(id: string, tenantId: string, newNextDueAt: Date): Promise<Subscription | null> {
+        const sub = await subscriptionService.findById(id, tenantId);
+        if (!sub) return null;
+        const pkg = await packageService.findById(sub.packageId, tenantId);
+        if (!pkg) throw new Error('Package not found');
+
+        const [row] = await db.update(subscriptions)
+            .set({ nextDueAt: newNextDueAt, updatedAt: new Date() })
+            .where(and(eq(subscriptions.id, id), eq(subscriptions.tenantId, tenantId)))
+            .returning();
+
+        if (sub.type === 'pppoe' && sub.mikrotikIdentity) {
+            try {
+                const [settings] = await db.select().from(billingRouterSettings)
+                    .where(eq(billingRouterSettings.routerId, sub.routerId)).limit(1);
+                const graceDays = settings?.isolirGraceDays ?? 0;
+                const isolirDate = computeIsolirDate(newNextDueAt, graceDays);
+                const comment = buildSubscriptionComment({
+                    subscriptionId: sub.id,
+                    isolirDate,
+                    packageName: pkg.name,
+                });
+                await withFreshConnRetry(sub.routerId, async (api) => {
+                    const secret = await getPppSecretByName(api, sub.mikrotikIdentity);
+                    if (secret) {
+                        await updatePppSecret(api, secret.id, { comment });
+                    }
+                });
+            } catch (err: any) {
+                logger.warn({ err: err?.message, subId: id }, 'shiftNextDue: MikroTik push failed (non-fatal)');
+            }
+        }
+        return row;
+    },
+
     async isolir(id: string, tenantId: string, reason: string = 'overdue invoice'): Promise<Subscription | null> {
         const sub = await subscriptionService.findById(id, tenantId);
         if (!sub) return null;

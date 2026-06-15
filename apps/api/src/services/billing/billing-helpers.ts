@@ -45,28 +45,111 @@ export async function generateCustomerCode(tenantId: string): Promise<string> {
 }
 
 /**
- * Compute the next billing-day timestamp from an anchor day. If today's day
- * has already passed for the current month, jump to next month.
+ * Timezone billing — semua operasi tanggal di billing pakai TZ ini.
+ *
+ * Default Asia/Jakarta (WIB) — operator + customer di Indonesia. Server boleh
+ * run di UTC, tapi tanggal jatuh tempo, isolir date, dan comment MikroTik
+ * harus konsisten dengan wall-clock operator. Tanpa ini, server UTC bikin
+ * operator daftarkan customer jam 23:55 WIB → comment tertulis 14 Jul tapi
+ * UI tampil 15 Jul (selisih 1 hari).
+ *
+ * Env override: set BILLING_TZ untuk operator non-WIB (mis. WITA/WIT).
  */
-export function computeNextDueAt(billingDay: number, from: Date = new Date()): Date {
-    const day = Math.max(1, Math.min(28, billingDay));
-    const next = new Date(from.getFullYear(), from.getMonth(), day, 0, 0, 0, 0);
-    if (next.getTime() <= from.getTime()) next.setMonth(next.getMonth() + 1);
-    return next;
+const BILLING_TZ = process.env.BILLING_TZ || 'Asia/Jakarta';
+
+interface TZParts {
+    year: number;
+    month: number;   // 1-12
+    day: number;     // 1-31
+    hour: number;
+    minute: number;
+    second: number;
+}
+
+/** Get Y/M/D/H/M/S of a Date as observed in `tz`. */
+function partsInTZ(d: Date, tz: string = BILLING_TZ): TZParts {
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: tz,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+    });
+    const parts = fmt.formatToParts(d);
+    const get = (t: string) => +parts.find(p => p.type === t)!.value;
+    return {
+        year: get('year'),
+        month: get('month'),
+        day: get('day'),
+        hour: get('hour') % 24,   // some TZs report 24 instead of 0 for midnight
+        minute: get('minute'),
+        second: get('second'),
+    };
+}
+
+/** Number of days in (year, month). month is 1-12. */
+function daysInMonth(year: number, month: number): number {
+    return new Date(Date.UTC(year, month, 0)).getUTCDate();
 }
 
 /**
- * Anniversary mode — shift `cycleMonths` bulan kalender dari reference date.
- *   from=12 Mei, cycle=1 → 12 Jun
+ * Build a Date that represents the given wall-clock (y/m/d 00:00:00) in `tz`.
+ * Hard part: JS Date constructor is in local TZ. We use UTC then correct.
+ *
+ * Trick: build candidate UTC date, see what wall-clock it produces in tz,
+ * compute offset diff, adjust. Iterates at most 2× to handle DST edge cases.
+ */
+function makeDateAtMidnightInTZ(year: number, month: number, day: number, tz: string = BILLING_TZ): Date {
+    let utcMs = Date.UTC(year, month - 1, day, 0, 0, 0);
+    // Find the offset by comparing wall-clock vs target
+    for (let i = 0; i < 3; i++) {
+        const probe = new Date(utcMs);
+        const p = partsInTZ(probe, tz);
+        if (p.year === year && p.month === month && p.day === day && p.hour === 0 && p.minute === 0) {
+            return probe;
+        }
+        // Diff between what we got and what we want, in ms
+        const wantUTC = Date.UTC(year, month - 1, day, 0, 0, 0);
+        const gotUTC = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
+        utcMs += (wantUTC - gotUTC);
+    }
+    return new Date(utcMs);
+}
+
+/**
+ * Compute the next billing-day timestamp from an anchor day, TZ-aware.
+ * If today's day in `tz` has already passed (or is current), jump to next month.
+ *
+ * Returns a Date pointing to 00:00:00 in BILLING_TZ.
+ */
+export function computeNextDueAt(billingDay: number, from: Date = new Date()): Date {
+    const day = Math.max(1, Math.min(28, billingDay));
+    const p = partsInTZ(from);
+    let targetYear = p.year;
+    let targetMonth = p.month;
+    let targetDay = day;
+    const candidate = makeDateAtMidnightInTZ(targetYear, targetMonth, targetDay);
+    if (candidate.getTime() <= from.getTime()) {
+        targetMonth += 1;
+        if (targetMonth > 12) { targetMonth = 1; targetYear += 1; }
+        return makeDateAtMidnightInTZ(targetYear, targetMonth, targetDay);
+    }
+    return candidate;
+}
+
+/**
+ * Anniversary mode — shift `cycleMonths` bulan kalender dari reference date, TZ-aware.
+ *   from=12 Mei (WIB), cycle=1 → 12 Jun 00:00 WIB
  *   from=31 Jan, cycle=1 → 28 Feb (clamp ke last day kalau bulan tujuan pendek)
+ *   from=15 Jun 06:55 WIB (= 14 Jun 23:55 UTC), cycle=1 → 15 Jul 00:00 WIB ✓
+ *     (sebelumnya: 14 Jul karena getDate UTC = 14)
  */
 export function computeNextDueAtAnniversary(from: Date, cycleMonths: number = 1): Date {
     const cycles = Math.max(1, cycleMonths);
-    const target = new Date(from);
-    const srcDay = target.getDate();
-    target.setMonth(target.getMonth() + cycles);
-    if (target.getDate() !== srcDay) target.setDate(0);
-    return target;
+    const p = partsInTZ(from);
+    let targetMonth = p.month + cycles;
+    let targetYear = p.year;
+    while (targetMonth > 12) { targetMonth -= 12; targetYear += 1; }
+    const targetDay = Math.min(p.day, daysInMonth(targetYear, targetMonth));
+    return makeDateAtMidnightInTZ(targetYear, targetMonth, targetDay);
 }
 
 /**
@@ -110,20 +193,22 @@ export function defaultPinForCustomer(c: { phone?: string | null; code: string }
 
 const MONTH_NAMES_EN = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
-/** Mikhmon-style date "jun/06/2026" (lowercase month, zero-padded day, 4-digit year). */
+/** Mikhmon-style date "jun/06/2026" (lowercase month, zero-padded day, 4-digit year),
+ *  TZ-aware. Format mengacu ke wall-clock di BILLING_TZ (default Asia/Jakarta) supaya
+ *  comment di MikroTik konsisten dengan tanggal yang dilihat operator + customer. */
 export function formatDateMikhmon(d: Date): string {
-    const mm = MONTH_NAMES_EN[d.getMonth()];
-    const dd = String(d.getDate()).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    return `${mm}/${dd}/${yyyy}`;
+    const p = partsInTZ(d);
+    const mm = MONTH_NAMES_EN[p.month - 1];
+    const dd = String(p.day).padStart(2, '0');
+    return `${mm}/${dd}/${p.year}`;
 }
 
-/** Numeric "YYYYMMDD" for fast string-as-number comparison in RouterOS scripts. */
+/** Numeric "YYYYMMDD" for fast string-as-number comparison in RouterOS scripts, TZ-aware. */
 export function formatDateNumeric(d: Date): string {
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${yyyy}${mm}${dd}`;
+    const p = partsInTZ(d);
+    const mm = String(p.month).padStart(2, '0');
+    const dd = String(p.day).padStart(2, '0');
+    return `${p.year}${mm}${dd}`;
 }
 
 /**
@@ -170,7 +255,21 @@ export function buildSubscriptionComment(opts: {
  */
 export function computeIsolirDate(nextDueAt: Date | null | undefined, graceDays: number = 0): Date | null {
     if (!nextDueAt) return null;
-    const d = new Date(nextDueAt);
-    d.setDate(d.getDate() + Math.max(0, graceDays));
-    return d;
+    const g = Math.max(0, graceDays);
+    if (g === 0) return nextDueAt;
+    // Add days in BILLING_TZ supaya hasil = wall-clock yang benar.
+    // getDate()/setDate() di server TZ UTC bisa shift 1 hari kalau nextDueAt
+    // jatuh di tengah malam WIB (= 17:00 UTC).
+    const p = partsInTZ(nextDueAt);
+    let targetYear = p.year;
+    let targetMonth = p.month;
+    let targetDay = p.day + g;
+    let dim = daysInMonth(targetYear, targetMonth);
+    while (targetDay > dim) {
+        targetDay -= dim;
+        targetMonth += 1;
+        if (targetMonth > 12) { targetMonth = 1; targetYear += 1; }
+        dim = daysInMonth(targetYear, targetMonth);
+    }
+    return makeDateAtMidnightInTZ(targetYear, targetMonth, targetDay);
 }

@@ -151,6 +151,25 @@ export async function revealSubscriptionPassword(id) {
     return res.data?.data?.password ?? null;
 }
 
+/**
+ * Override tanggal tagihan berikutnya (nextDueAt). Operator pakai untuk:
+ *  - Geser anchor ke tanggal lain
+ *  - Kasih diskon "extend gratis seminggu"
+ *  - Fix selisih hari karena TZ bug lama
+ */
+export function useShiftSubscriptionDue() {
+    const qc = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, nextDueAt }) =>
+            apiClient.post(`${API}/subscriptions/${id}/shift-due`, { nextDueAt }).then(r => r.data?.data),
+        onSuccess: () => {
+            toast.success('Tanggal tagihan digeser & comment MikroTik di-update');
+            qc.invalidateQueries({ queryKey: ['billing-subscriptions'] });
+        },
+        onError: (e) => toast.error(handle(e)),
+    });
+}
+
 // ─── Invoices ──────────────────────────────────────────────────────────────
 export function useInvoices(params = {}) {
     const search = new URLSearchParams();
