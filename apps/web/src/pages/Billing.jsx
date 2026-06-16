@@ -1552,7 +1552,7 @@ function VoucherJualUrlCard({ routers, routerId, hotspotMode }) {
     const url = `${origin}/beli/${slug}`;
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
 
-    const supportsOnline = hotspotMode === 'native';
+    const supportsOnline = hotspotMode && hotspotMode !== 'disabled';
 
     const copy = () => {
         navigator.clipboard.writeText(url);
@@ -1595,8 +1595,7 @@ function VoucherJualUrlCard({ routers, routerId, hotspotMode }) {
                         </>
                     ) : (
                         <p className="text-xs text-fg-muted">
-                            Pembelian online butuh hotspot mode <code>native</code>. Saat ini router pakai mode <code>{hotspotMode || 'belum di-set'}</code>.
-                            Ubah di section <strong>Hotspot</strong> di bawah lalu Simpan.
+                            Hotspot di-nonaktifkan untuk router ini. Aktifkan di section <strong>Hotspot</strong> di bawah (mode <code>native</code> atau <code>mikhmon_bridge</code>) lalu Simpan.
                         </p>
                     )}
                 </div>

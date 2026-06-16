@@ -86,11 +86,14 @@ export const voucherPurchaseService = {
         purchaseId: string;
         gateway: GatewayName;
     }> {
-        // Validate router hotspot mode = native
+        // Validate router hotspot tidak disabled. Mode `native` dan `mikhmon_bridge`
+        // sama-sama bisa: voucher selalu push ke MikroTik + record di DB. Operator
+        // di mode bridge tetap bisa lihat voucher via parser comment (format yang
+        // kita generate via generateMikhmonComment = compatible).
         const [settings] = await db.select().from(billingRouterSettings)
             .where(eq(billingRouterSettings.routerId, input.routerId)).limit(1);
-        if (settings?.hotspotMode !== 'native') {
-            throw new Error('Router tidak support pembelian online (hotspot mode bukan native)');
+        if (!settings || settings.hotspotMode === 'disabled') {
+            throw new Error('Hotspot di-nonaktifkan untuk router ini. Operator perlu enable di Pengaturan Router.');
         }
 
         // Validate package = hotspot type + belongs to tenant

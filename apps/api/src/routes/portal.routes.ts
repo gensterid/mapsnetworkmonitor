@@ -132,10 +132,10 @@ router.get('/voucher-purchase/router/:slug', asyncHandler(async (req, res) => {
         return res.status(404).json({ error: 'Router tidak ditemukan atau URL ambigu' });
     }
 
-    // Cek hotspot mode + gateway availability untuk router ini
+    // Cek hotspot tidak disabled (native + mikhmon_bridge sama-sama support).
     const [settings] = await db.select().from(billingRouterSettings)
         .where(eq(billingRouterSettings.routerId, router_.id)).limit(1);
-    const supportsOnline = settings?.hotspotMode === 'native';
+    const supportsOnline = settings && settings.hotspotMode !== 'disabled';
 
     // List paket hotspot yang aktif + bisa di-assign ke router ini.
     // Paket dengan routerId=null adalah global (semua router), kalau ada
@@ -159,7 +159,7 @@ router.get('/voucher-purchase/router/:slug', asyncHandler(async (req, res) => {
         router: { id: router_.id, name: router_.name, slug: slugifyRouterName(router_.name) },
         packages: filtered,
         supportsOnline,
-        unsupportedReason: !supportsOnline ? 'Router ini tidak mendukung pembelian online. Silakan hubungi operator.' : null,
+        unsupportedReason: !supportsOnline ? 'Hotspot belum diaktifkan untuk router ini. Silakan hubungi operator.' : null,
     }});
 }));
 
