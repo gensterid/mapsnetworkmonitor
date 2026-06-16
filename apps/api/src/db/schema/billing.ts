@@ -64,6 +64,9 @@ export const voucherStatusEnum = pgEnum('billing_voucher_status', [
 export const hotspotModeEnum = pgEnum('billing_hotspot_mode', [
     'native', 'mikhmon_bridge', 'disabled',
 ]);
+export const voucherPurchaseStatusEnum = pgEnum('billing_voucher_purchase_status', [
+    'pending', 'paid', 'fulfilled', 'failed', 'expired',
+]);
 export const waProviderEnum = pgEnum('billing_wa_provider', [
     'fonnte', 'wablas', 'webhook', 'none',
 ]);
@@ -427,6 +430,40 @@ export const promiseToPay = pgTable('billing_promise_to_pay', {
 }));
 
 // ─────────────────────────────────────────────────────────────────────────
+// voucher_purchases — public-facing voucher online purchase tracking
+// ─────────────────────────────────────────────────────────────────────────
+// Lifecycle: pending (link bayar dibuat) → paid (webhook confirm) →
+//            fulfilled (voucher generated + pushed ke MikroTik).
+// Buyer anonymous (tidak attach ke billing_customers). Invoice attach ke
+// per-tenant "__voucher_buyer__" system customer untuk satisfy FK.
+export const voucherPurchases = pgTable('billing_voucher_purchases', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    routerId: uuid('router_id').notNull().references(() => routers.id, { onDelete: 'cascade' }),
+    packageId: uuid('package_id').notNull().references(() => packages.id, { onDelete: 'restrict' }),
+    invoiceId: uuid('invoice_id').notNull().references(() => invoices.id, { onDelete: 'cascade' }),
+    voucherId: uuid('voucher_id').references(() => vouchers.id, { onDelete: 'set null' }),
+    /** Random UUID untuk akses halaman sukses tanpa login. Customer terima link
+     * /beli/sukses/<accessToken> setelah create — polling endpoint pakai ini. */
+    accessToken: text('access_token').notNull(),
+    /** Optional phone untuk WA delivery setelah voucher di-generate. */
+    buyerPhone: text('buyer_phone'),
+    status: voucherPurchaseStatusEnum('status').notNull().default('pending'),
+    paidAt: timestamp('paid_at'),
+    fulfilledAt: timestamp('fulfilled_at'),
+    /** Error message kalau voucher generation gagal (untuk operator debug). */
+    errorMessage: text('error_message'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+}, (t) => ({
+    tenantIdx: index('billing_vp_tenant_idx').on(t.tenantId),
+    routerIdx: index('billing_vp_router_idx').on(t.routerId),
+    invoiceIdx: index('billing_vp_invoice_idx').on(t.invoiceId),
+    statusIdx: index('billing_vp_status_idx').on(t.status),
+    accessTokenUnq: uniqueIndex('billing_vp_access_token_unq').on(t.accessToken),
+}));
+
+// ─────────────────────────────────────────────────────────────────────────
 // Type exports
 // ─────────────────────────────────────────────────────────────────────────
 export type Package = typeof packages.$inferSelect;
@@ -449,3 +486,5 @@ export type PromiseToPay = typeof promiseToPay.$inferSelect;
 export type NewPromiseToPay = typeof promiseToPay.$inferInsert;
 export type WaNotificationLog = typeof waNotificationsLog.$inferSelect;
 export type NewWaNotificationLog = typeof waNotificationsLog.$inferInsert;
+export type VoucherPurchase = typeof voucherPurchases.$inferSelect;
+export type NewVoucherPurchase = typeof voucherPurchases.$inferInsert;

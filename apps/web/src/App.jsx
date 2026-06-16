@@ -54,6 +54,8 @@ const MikhmonTemplateEditor = lazy(() => import('./pages/mikhmon/settings/Templa
 const VoucherPrint = lazy(() => import('./pages/VoucherPrint'));
 const CekStatus = lazy(() => import('./pages/CekStatus'));
 const Member = lazy(() => import('./pages/Member'));
+const BeliVoucher = lazy(() => import('./pages/BeliVoucher'));
+const BeliVoucherSukses = lazy(() => import('./pages/BeliVoucherSukses'));
 const KioskView = lazy(() => import('./pages/KioskView'));
 
 import { useSession, useRole } from './lib/auth-client';
@@ -255,6 +257,8 @@ function App() {
               <Route path="/animation-demo" element={<AnimationDemo />} />
               <Route path="/cekstatus" element={<CekStatus />} />
               <Route path="/member" element={<Member />} />
+              <Route path="/beli/sukses/:accessToken" element={<BeliVoucherSukses />} />
+              <Route path="/beli/:routerSlug" element={<BeliVoucher />} />
 
               <Route
                 path="/"

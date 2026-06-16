@@ -213,6 +213,23 @@ export const gatewayService = {
                     notes: `paid via ${input.gateway}`,
                 });
                 logger.info({ gateway: input.gateway, invoiceNumber, amount: verify.amount }, 'gateway webhook → invoice marked paid');
+
+                // Phase V1: kalau invoice ini dari voucher online purchase,
+                // trigger fulfillment (generate voucher + push MikroTik + WA).
+                // Best-effort: kalau fail, status purchase = failed dan operator
+                // alert di tab Transaksi. Webhook tetap return 200 supaya
+                // gateway tidak retry.
+                try {
+                    const { voucherPurchaseService } = await import('./voucher-purchase.service.js');
+                    const result = await voucherPurchaseService.fulfill(inv.id);
+                    if (result.fulfilled) {
+                        logger.info({ invoiceId: inv.id }, 'voucher purchase fulfilled via webhook');
+                    } else if (result.reason !== 'not_a_voucher_purchase') {
+                        logger.warn({ invoiceId: inv.id, reason: result.reason }, 'voucher purchase fulfillment skipped/failed');
+                    }
+                } catch (vpErr: any) {
+                    logger.error({ err: vpErr?.message, invoiceId: inv.id }, 'voucher purchase fulfill threw — operator should investigate');
+                }
             } catch (err: any) {
                 if (String(err?.message || '').includes('unique')) {
                     // Already recorded by a previous duplicate webhook

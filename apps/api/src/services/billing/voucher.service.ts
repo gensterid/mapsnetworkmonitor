@@ -159,6 +159,90 @@ export const voucherService = {
      * voucher is rolled back from the DB but the rest of the batch
      * continues. Caller receives a partial-success report.
      */
+    /**
+     * Generate satu voucher tanpa batch (untuk online purchase flow).
+     * Berbeda dari generateBatch: tidak buat voucher_batch row, dipakai langsung
+     * dari voucher_purchases.fulfill().
+     *
+     * Default code = lowercase 6 char, mode='vc' (code juga password).
+     * Boleh override via opts kalau perlu.
+     */
+    async generateOne(input: {
+        tenantId: string;
+        routerId: string;
+        packageId: string;
+        codeMode?: VoucherMode;
+        charsetMode?: CharsetMode;
+        codeLength?: number;
+        prefix?: string;
+        note?: string;
+        /** Retry attempts kalau code collision (default 5) */
+        maxRetries?: number;
+    }): Promise<Voucher> {
+        const codeMode: VoucherMode = input.codeMode || 'vc';
+        const charsetMode: CharsetMode = input.charsetMode || 'lower';
+        const codeLength = input.codeLength || 6;
+        const maxRetries = input.maxRetries ?? 5;
+
+        const [pkg] = await db.select().from(packages)
+            .where(and(eq(packages.id, input.packageId), eq(packages.tenantId, input.tenantId))).limit(1);
+        if (!pkg) throw new Error('Package not found');
+        if (pkg.type !== 'hotspot') throw new Error('Package is not a hotspot package');
+
+        const api = await routerActionService.getRouterConnection(input.routerId);
+
+        let limitUptime: string | undefined;
+        if (pkg.cycleType === 'duration' && pkg.cycleValue > 0) {
+            limitUptime = `${pkg.cycleValue}s`;
+        }
+
+        let lastErr: any = null;
+        for (let attempt = 0; attempt < maxRetries; attempt++) {
+            const code = (input.prefix || '') + generateVoucherCode(charsetMode, codeLength);
+            const password = codeMode === 'vc' ? code : generateVoucherCode(charsetMode, codeLength);
+            const comment = generateMikhmonComment(codeMode, input.note || pkg.name);
+
+            let voucherRow: Voucher | null = null;
+            try {
+                const [row] = await db.insert(vouchers).values({
+                    tenantId: input.tenantId,
+                    routerId: input.routerId,
+                    packageId: input.packageId,
+                    batchId: null,
+                    code,
+                    pinCode: codeMode === 'up' ? password : null,
+                    profile: pkg.mikrotikProfile,
+                    price: pkg.price,
+                    expiresAt: null,
+                    status: 'unused',
+                }).returning();
+                voucherRow = row;
+            } catch (err: any) {
+                if (String(err?.message || '').includes('unique')) {
+                    lastErr = err;
+                    continue;
+                }
+                throw err;
+            }
+
+            try {
+                await addHotspotUser(api, {
+                    name: code,
+                    password,
+                    profile: pkg.mikrotikProfile,
+                    limitUptime,
+                    comment,
+                });
+                return voucherRow;
+            } catch (err: any) {
+                logger.warn({ err: err?.message, code }, 'voucher push to MikroTik failed — rolling back local row');
+                await db.delete(vouchers).where(eq(vouchers.id, voucherRow.id));
+                throw new Error(`Push voucher ke MikroTik gagal: ${err?.message || 'unknown'}`);
+            }
+        }
+        throw new Error(`Generate voucher gagal setelah ${maxRetries} percobaan (code collision): ${lastErr?.message || 'unknown'}`);
+    },
+
     async generateBatch(input: {
         tenantId: string;
         routerId: string;

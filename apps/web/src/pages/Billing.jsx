@@ -1536,6 +1536,75 @@ function FwBadge({ label, ok }) {
 }
 
 // ─── Settings tab ──────────────────────────────────────────────────────────
+// ─── Voucher Jual URL Card (Phase V1) ──────────────────────────────────────
+//
+// Tampilkan URL public untuk pembelian voucher online di router ini.
+// Operator copy link ke flyer / cetak QR code untuk dipasang di lokasi.
+function VoucherJualUrlCard({ routers, routerId, hotspotMode }) {
+    const router = routers.find(r => r.id === routerId);
+    if (!router) return null;
+
+    const slug = String(router.name || '').toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 64);
+    const origin = window.location.origin;
+    const url = `${origin}/beli/${slug}`;
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
+
+    const supportsOnline = hotspotMode === 'native';
+
+    const copy = () => {
+        navigator.clipboard.writeText(url);
+        toast.success('URL Jual disalin');
+    };
+
+    return (
+        <div className={clsx(
+            'mb-4 rounded-lg p-3 border',
+            supportsOnline ? 'bg-emerald-500/5 border-emerald-500/30' : 'bg-amber-500/5 border-amber-500/30'
+        )}>
+            <div className="flex items-start gap-3 flex-wrap">
+                <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold uppercase tracking-wider mb-1 flex items-center gap-2"
+                        style={{ color: supportsOnline ? '#34d399' : '#fbbf24' }}>
+                        <Ticket className="w-4 h-4" />
+                        URL Jual Voucher Online
+                    </div>
+                    {supportsOnline ? (
+                        <>
+                            <div className="font-mono text-xs text-fg break-all bg-surface-darker/40 rounded px-2 py-1.5 mb-2">{url}</div>
+                            <div className="flex gap-2 flex-wrap">
+                                <button type="button" onClick={copy}
+                                    className="text-xs px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400">
+                                    <Copy className="w-3 h-3 inline mr-1" /> Salin URL
+                                </button>
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                    className="text-xs px-2 py-1 rounded bg-blue-500/10 hover:bg-blue-500/20 text-blue-400">
+                                    <ExternalLink className="w-3 h-3 inline mr-1" /> Buka Preview
+                                </a>
+                                <a href={qrUrl} target="_blank" rel="noopener noreferrer"
+                                    className="text-xs px-2 py-1 rounded bg-purple-500/10 hover:bg-purple-500/20 text-purple-400">
+                                    <ExternalLink className="w-3 h-3 inline mr-1" /> Download QR
+                                </a>
+                            </div>
+                            <p className="text-[11px] text-fg-muted mt-2">
+                                Bagikan URL atau cetak QR untuk dipasang di lokasi. Customer scan/akses → pilih paket → bayar via gateway → terima kode voucher.
+                                {' '}Pastikan payment gateway aktif (tenant default atau per-router).
+                            </p>
+                        </>
+                    ) : (
+                        <p className="text-xs text-fg-muted">
+                            Pembelian online butuh hotspot mode <code>native</code>. Saat ini router pakai mode <code>{hotspotMode || 'belum di-set'}</code>.
+                            Ubah di section <strong>Hotspot</strong> di bawah lalu Simpan.
+                        </p>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
 function SettingsTab() {
     const { data: routers = [] } = useRouters();
     const [routerId, setRouterId] = useState('');
@@ -1646,6 +1715,8 @@ function SettingsTab() {
                         </select>
                     </Field>
                 </div>
+
+                {routerId && <VoucherJualUrlCard routers={routers} routerId={routerId} hotspotMode={settings?.hotspotMode} />}
 
                 {routerId && (
                     // key remounts the form when settings change so defaultChecked /

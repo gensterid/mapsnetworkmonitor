@@ -379,6 +379,13 @@
       "when": 1781500000000,
       "tag": "0053_billing_promise_to_pay",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1781600000000,
+      "tag": "0054_voucher_purchases",
+      "breakpoints": true
     }
   ]
 }
