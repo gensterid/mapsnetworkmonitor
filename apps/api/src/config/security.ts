@@ -90,6 +90,13 @@ export const csrfProtection = (req: express.Request, res: express.Response, next
         if (req.originalUrl?.startsWith('/api/auth') || req.originalUrl?.includes('/api/router-backups/upload')) {
             return next();
         }
+        // Public webhooks dari payment gateway (Midtrans, Tripay, Xendit) datang
+        // dari server gateway dengan signature verification — tidak punya browser
+        // Origin atau X-Requested-With. Skip CSRF check di sini. Signature/HMAC
+        // verify ditangani di webhook handler.
+        if (req.originalUrl?.startsWith('/api/billing/webhook/')) {
+            return next();
+        }
 
         const hasCustomHeader = req.get('X-Requested-With') || req.get('X-CSRF-Token') || req.get('x-requested-with');
         const origin = req.get('Origin');
