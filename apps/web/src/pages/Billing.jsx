@@ -1536,6 +1536,106 @@ function FwBadge({ label, ok }) {
 }
 
 // ─── Settings tab ──────────────────────────────────────────────────────────
+// ─── Hotspot Mode Picker (Polish UI) ───────────────────────────────────────
+//
+// Card-based selection dengan icon + deskripsi setiap mode. Form submission
+// tetap pakai FormData (parent form punya name="hotspotMode" via hidden input
+// + radio inputs).
+function HotspotModePicker({ initial, routerId }) {
+    const [mode, setMode] = useState(initial);
+    React.useEffect(() => { setMode(initial); }, [initial, routerId]);
+
+    const options = [
+        {
+            v: 'disabled',
+            label: 'Disabled',
+            icon: '⛔',
+            color: 'border-slate-border',
+            activeColor: 'border-slate-500 bg-slate-500/10',
+            desc: 'Hotspot off untuk router ini. Tidak bisa jualan voucher online. Cocok untuk router yang cuma layani PPPoE.',
+        },
+        {
+            v: 'native',
+            label: 'Native',
+            icon: '🏠',
+            color: 'border-slate-border hover:border-emerald-500/40',
+            activeColor: 'border-emerald-500 bg-emerald-500/10',
+            desc: 'Voucher di-track di DB sistem ini. Tab Voucher tampilkan dari DB. Cocok kalau Anda full pakai aplikasi ini untuk voucher.',
+            badge: { text: 'Recommended', color: 'bg-emerald-500/20 text-emerald-400' },
+        },
+        {
+            v: 'mikhmon_bridge',
+            label: 'Mikhmon Bridge',
+            icon: '🔗',
+            color: 'border-slate-border hover:border-blue-500/40',
+            activeColor: 'border-blue-500 bg-blue-500/10',
+            desc: 'Voucher di-baca langsung dari MikroTik (parser comment Mikhmon v3). Cocok kalau Anda masih pakai MikHMON external untuk generate voucher manual.',
+        },
+    ];
+
+    return (
+        <div>
+            <label className="block text-xs font-medium text-fg-muted mb-1.5">Mode Hotspot</label>
+            <div className="space-y-2">
+                {options.map(o => (
+                    <label key={o.v} className={clsx(
+                        'cursor-pointer border rounded-lg p-3 transition-all block',
+                        mode === o.v ? o.activeColor : o.color
+                    )}>
+                        <input type="radio" name="hotspotMode" value={o.v}
+                            checked={mode === o.v}
+                            onChange={() => setMode(o.v)}
+                            className="sr-only" />
+                        <div className="flex items-start gap-2.5">
+                            <span className="text-xl shrink-0 leading-none mt-0.5">{o.icon}</span>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-semibold text-fg text-sm">{o.label}</span>
+                                    {o.badge && (
+                                        <span className={clsx('text-[10px] px-1.5 py-0.5 rounded font-bold', o.badge.color)}>
+                                            {o.badge.text}
+                                        </span>
+                                    )}
+                                    {mode === o.v && (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-fg/10 text-fg ml-auto">DIPILIH</span>
+                                    )}
+                                </div>
+                                <p className="text-[11px] text-fg-muted mt-0.5 leading-relaxed">{o.desc}</p>
+                            </div>
+                        </div>
+                    </label>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+// ─── Hotspot Packages Hint ─────────────────────────────────────────────────
+//
+// Tampilkan warning kalau hotspot mode aktif (native/bridge) tapi belum ada
+// paket hotspot di tenant. Kasih shortcut untuk buka tab Paket.
+function HotspotPackagesHint({ routerId, hotspotMode }) {
+    const { data: allPkgs = [] } = usePackages({ type: 'hotspot' });
+    if (!routerId || !hotspotMode || hotspotMode === 'disabled') return null;
+    // Paket hotspot yang bisa dipakai router ini: routerId null (global) atau match
+    const usablePkgs = allPkgs.filter(p => p.active && (!p.routerId || p.routerId === routerId));
+    if (usablePkgs.length > 0) return null;
+
+    return (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+            <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-amber-400 mb-1">Belum Ada Paket Hotspot</div>
+                    <p className="text-[11px] text-fg-muted leading-relaxed">
+                        Hotspot aktif tapi belum ada paket. Customer tidak akan bisa beli voucher online sampai ada minimal 1 paket. Buka tab <strong>Paket</strong> di atas → klik <strong>+ Paket Baru</strong> → pilih Tipe <code>hotspot</code> → set harga + Profile MikroTik.
+                    </p>
+                </div>
+            </div>
+        </div>
+    );
+}
+
 // ─── Voucher Jual URL Card (Phase V1) ──────────────────────────────────────
 //
 // Tampilkan URL public untuk pembelian voucher online di router ini.
@@ -1750,13 +1850,8 @@ function SettingsTab() {
 
                             <div className="space-y-3">
                                 <h4 className="text-sm font-semibold text-fg uppercase tracking-wide">Hotspot</h4>
-                                <Field label="Mode">
-                                    <select name="hotspotMode" defaultValue={settings?.hotspotMode || 'disabled'} className={inputCls}>
-                                        <option value="disabled">Disabled</option>
-                                        <option value="native">Native (sistem ini)</option>
-                                        <option value="mikhmon_bridge">Mikhmon Bridge (baca dari MikroTik)</option>
-                                    </select>
-                                </Field>
+                                <HotspotModePicker initial={settings?.hotspotMode || 'disabled'} routerId={routerId} />
+                                <HotspotPackagesHint routerId={routerId} hotspotMode={settings?.hotspotMode} />
 
                                 <h4 className="text-sm font-semibold text-fg uppercase tracking-wide pt-2">Notifikasi WhatsApp</h4>
                                 <Field label="Provider WA">
