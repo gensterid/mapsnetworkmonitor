@@ -24,6 +24,9 @@ import {
     useCreatePaymentLink,
     useMikrotikPppProfiles, useCreatePppProfile, useIsolirFirewallStatus, useSetupIsolirFirewall,
     useBillingSchedulerStatus, useSetupBillingScheduler,
+} from '@/hooks';
+import { useHotspotUserProfiles } from '@/hooks/useMikhmon';
+import {
     useCommentAudit, useResyncComment,
     useImportCandidates,
     useRouters,
@@ -168,12 +171,30 @@ function PackagesTab() {
     const [editing, setEditing] = useState(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [routerForProfiles, setRouterForProfiles] = useState('');
+    const [pkgType, setPkgType] = useState('pppoe');
+    // Sync pkgType saat modal dibuka: edit existing → ikut tipenya, new → reset ke pppoe
+    React.useEffect(() => {
+        if (modalOpen) {
+            setPkgType(editing?.type || 'pppoe');
+            if (editing?.routerId) setRouterForProfiles(editing.routerId);
+        }
+    }, [modalOpen, editing]);
     const { data: rows = [], isLoading, refetch, isRefetching } = usePackages();
     const create = useCreatePackage();
     const update = useUpdatePackage();
     const del = useDeletePackage();
     const { data: routers = [] } = useRouters();
-    const { data: pppProfiles = [], isLoading: pppProfilesLoading, isError: pppProfilesError } = useMikrotikPppProfiles(routerForProfiles);
+    const { data: pppProfiles = [], isLoading: pppProfilesLoading, isError: pppProfilesError } = useMikrotikPppProfiles(
+        pkgType === 'pppoe' ? routerForProfiles : ''
+    );
+    const { data: hsProfiles = [], isLoading: hsProfilesLoading, isError: hsProfilesError } = useHotspotUserProfiles(
+        pkgType === 'hotspot' ? routerForProfiles : ''
+    );
+    // Aktifkan dispatch berdasar tipe — pakai variabel umum untuk render
+    const profileList = pkgType === 'hotspot' ? hsProfiles : pppProfiles;
+    const profileLoading = pkgType === 'hotspot' ? hsProfilesLoading : pppProfilesLoading;
+    const profileError = pkgType === 'hotspot' ? hsProfilesError : pppProfilesError;
+    const profileKind = pkgType === 'hotspot' ? 'Hotspot' : 'PPPoE';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -238,7 +259,7 @@ function PackagesTab() {
                 <form id="pkg-form" onSubmit={handleSubmit}>
                     <Field label="Nama Paket"><input name="name" defaultValue={editing?.name} required className={inputCls} /></Field>
                     <Field label="Tipe">
-                        <select name="type" defaultValue={editing?.type || 'pppoe'} className={inputCls}>
+                        <select name="type" value={pkgType} onChange={(e) => setPkgType(e.target.value)} className={inputCls}>
                             <option value="pppoe">PPPoE</option>
                             <option value="hotspot">Hotspot</option>
                         </select>
@@ -249,23 +270,23 @@ function PackagesTab() {
                             {routers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                         </select>
                     </Field>
-                    <Field label="MikroTik Profile (harus ada di router target)">
-                        {routerForProfiles && pppProfilesLoading ? (
+                    <Field label={`MikroTik Profile ${profileKind} (harus ada di router target)`}>
+                        {routerForProfiles && profileLoading ? (
                             <div className={inputCls + ' text-fg-muted flex items-center gap-2'}>
-                                <RefreshCw className="w-3 h-3 animate-spin" /> Memuat profile dari router…
+                                <RefreshCw className="w-3 h-3 animate-spin" /> Memuat profile {profileKind} dari router…
                             </div>
-                        ) : routerForProfiles && pppProfiles.length > 0 ? (
+                        ) : routerForProfiles && profileList.length > 0 ? (
                             <>
                                 <select name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls}>
                                     <option value="">— pilih dari profile yang ada —</option>
-                                    {pppProfiles.map(p => <option key={p.id} value={p.name}>{p.name} {p.rateLimit ? `(${p.rateLimit})` : ''}</option>)}
+                                    {profileList.map(p => <option key={p.id || p.name} value={p.name}>{p.name} {p.rateLimit ? `(${p.rateLimit})` : ''}</option>)}
                                 </select>
-                                <p className="text-xs text-fg-muted mt-1">{pppProfiles.length} profile ditemukan di router</p>
+                                <p className="text-xs text-fg-muted mt-1">{profileList.length} profile {profileKind} ditemukan di router</p>
                             </>
-                        ) : routerForProfiles && pppProfilesError ? (
+                        ) : routerForProfiles && profileError ? (
                             <>
-                                <input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder="contoh: pppoe-home-10m" />
-                                <p className="text-xs text-amber-400 mt-1">⚠ Tidak bisa baca profile dari router (timeout). Ketik manual nama profile.</p>
+                                <input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder={pkgType === 'hotspot' ? 'contoh: 1jam' : 'contoh: pppoe-home-10m'} />
+                                <p className="text-xs text-amber-400 mt-1">⚠ Tidak bisa baca profile {profileKind} dari router (timeout). Ketik manual nama profile.</p>
                             </>
                         ) : (
                             <input name="mikrotikProfile" defaultValue={editing?.mikrotikProfile} required className={inputCls} placeholder="contoh: pppoe-home-10m" />
