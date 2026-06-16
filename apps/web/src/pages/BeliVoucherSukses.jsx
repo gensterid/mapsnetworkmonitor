@@ -160,7 +160,7 @@ export default function BeliVoucherSukses() {
                         <div className="text-xs uppercase text-slate-500 mb-1">Paket</div>
                         <div className="text-fg font-semibold">{data.package.name}</div>
                         <div className="flex justify-between mt-1 text-sm text-slate-400">
-                            <span>Durasi: {cycleLabel(data.package.cycleType, data.package.cycleValue)}</span>
+                            <span>Profile: <span className="font-mono">{voucher.profile}</span></span>
                             <span>{fmtIDR(data.package.price)}</span>
                         </div>
                     </div>
@@ -211,8 +211,7 @@ function StatusCard({ tone, icon, title, description, pkg }) {
                     <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3 text-left text-sm">
                         <div className="text-xs uppercase text-slate-500 mb-0.5">Paket</div>
                         <div className="text-white font-semibold">{pkg.name}</div>
-                        <div className="flex justify-between mt-1 text-slate-400">
-                            <span>{cycleLabel(pkg.cycleType, pkg.cycleValue)}</span>
+                        <div className="flex justify-end mt-1 text-slate-400">
                             <span>{fmtIDR(pkg.price)}</span>
                         </div>
                     </div>

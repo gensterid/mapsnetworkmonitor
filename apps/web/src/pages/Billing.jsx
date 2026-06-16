@@ -293,15 +293,29 @@ function PackagesTab() {
                         )}
                     </Field>
                     <Field label="Harga (IDR)"><input name="price" type="number" min="0" defaultValue={editing?.price || 0} required className={inputCls} /></Field>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <Field label="Cycle Type">
-                            <select name="cycleType" defaultValue={editing?.cycleType || 'monthly'} className={inputCls}>
-                                <option value="monthly">Bulanan</option>
-                                <option value="duration">Durasi (detik)</option>
-                            </select>
-                        </Field>
-                        <Field label="Cycle Value"><input name="cycleValue" type="number" min="1" defaultValue={editing?.cycleValue || 1} required className={inputCls} /></Field>
-                    </div>
+                    {pkgType === 'pppoe' ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <Field label="Cycle Type">
+                                <select name="cycleType" defaultValue={editing?.cycleType || 'monthly'} className={inputCls}>
+                                    <option value="monthly">Bulanan</option>
+                                    <option value="duration">Durasi (detik)</option>
+                                </select>
+                            </Field>
+                            <Field label="Cycle Value"><input name="cycleValue" type="number" min="1" defaultValue={editing?.cycleValue || 1} required className={inputCls} /></Field>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Hidden defaults — backend butuh field ini, tapi untuk hotspot
+                                durasi ditangani profile MikHMON, jadi nilai disini diabaikan
+                                oleh voucher generator. */}
+                            <input type="hidden" name="cycleType" value="monthly" />
+                            <input type="hidden" name="cycleValue" value="1" />
+                            <div className="bg-blue-500/5 border border-blue-500/20 rounded p-2.5 text-xs text-fg-muted">
+                                💡 <span className="text-fg">Durasi voucher ditangani oleh profile MikHMON</span> di MikroTik.
+                                Validity time (<code>:local validity</code>) di-set di script profile, bukan di paket.
+                            </div>
+                        </>
+                    )}
                     <Field label="Khusus Router (opsional)">
                         <select name="routerId" defaultValue={editing?.routerId || ''} className={inputCls}>
                             <option value="">Semua router tenant</option>

@@ -128,9 +128,6 @@ export default function BeliVoucher() {
                                 {pkg.description && <p className="text-sm text-slate-400 mt-0.5">{pkg.description}</p>}
                                 <div className="flex items-center gap-3 mt-2 text-xs text-slate-300">
                                     <span className="flex items-center gap-1">
-                                        <Clock className="w-3 h-3" /> {cycleLabel(pkg.cycleType, pkg.cycleValue)}
-                                    </span>
-                                    <span className="flex items-center gap-1">
                                         <Tag className="w-3 h-3" /> {pkg.mikrotikProfile}
                                     </span>
                                 </div>
@@ -157,8 +154,8 @@ export default function BeliVoucher() {
                             <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
                                 <div className="text-sm text-slate-400">Paket</div>
                                 <div className="font-bold text-white">{selectedPackage.name}</div>
-                                <div className="flex justify-between mt-2 text-sm">
-                                    <span className="text-slate-400">Durasi: {cycleLabel(selectedPackage.cycleType, selectedPackage.cycleValue)}</span>
+                                <div className="flex justify-between mt-2 text-sm items-baseline">
+                                    <span className="text-slate-400">Profile: <span className="font-mono text-slate-300">{selectedPackage.mikrotikProfile}</span></span>
                                     <span className="text-xl font-bold text-blue-400">{fmtIDR(selectedPackage.price)}</span>
                                 </div>
                             </div>
