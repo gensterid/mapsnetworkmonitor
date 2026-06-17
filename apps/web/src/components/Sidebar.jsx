@@ -1,100 +1,309 @@
-import React from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { signOut, useSession, useRole } from '../lib/auth-client';
-import { useRouters, useUnreadAlertCount, useSettings, useCurrentUser } from '@/hooks';
+import {
+    useRouters,
+    useUnreadAlertCount,
+    useSettings,
+    useCurrentUser,
+} from '@/hooks';
 import { useDriftSummary } from '@/hooks/useBillingDrift';
 import {
-    LayoutDashboard,
     Map as MapIcon,
-    Router as RouterIcon,
-    Server,
     Bell,
-    Users,
-    Settings,
+    Router as RouterIcon,
+    Settings as SettingsIcon,
     LogOut,
-    MessageSquare,
-    Globe,
     X,
+    LayoutDashboard,
     BarChart3,
-    Activity,
-    Monitor,
-    Building,
     Receipt,
     Wifi,
+    Monitor,
+    Server,
+    Activity,
+    Globe,
+    Users,
+    History,
+    MessageSquare,
+    Building,
     Network,
-    History
+    ChevronRight,
 } from 'lucide-react';
 import clsx from 'clsx';
 import TenantSwitcher from './TenantSwitcher';
 
-// NavItem component moved outside Sidebar to prevent re-creation on every render
-const NavItem = ({ path, icon: Icon, label, badge, badgeColor, isActive, onClose }) => (
-    <Link
-        to={path}
-        onClick={() => onClose && onClose()}
-        aria-current={isActive ? 'page' : undefined}
-        aria-label={label}
-        className={clsx(
-            "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-300 group relative overflow-hidden mb-0.5",
-            isActive
-                ? "bg-primary/10 text-fg font-semibold"
-                : "text-fg-muted hover:bg-white/5 hover:text-fg"
-        )}
-    >
-        {isActive && (
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-transparent animate-pulse opacity-50" />
-        )}
-        
-        {isActive && (
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1.5 h-6 bg-primary rounded-r-full shadow-[0_0_15px_rgba(59,130,246,0.8)] z-20" />
-        )}
+/**
+ * Sidebar — Slim icon-only (56px) di desktop, overlay di mobile.
+ *
+ * Brief:
+ *   - 4 main nav: Map → Alert → Router → Settings
+ *   - Settings click → opens flyout panel dengan semua sub-menu lain
+ *   - Map jadi pusat perhatian — sidebar hanya 56px, tidak ngambil banyak space
+ *
+ * Sub-menu di flyout (categorized):
+ *   - Overview: Dashboard, Analytics
+ *   - Bisnis: Billing, MikHMON Console
+ *   - Monitoring: GenieACS, OLTs, System Issues, Service Health
+ *   - Administrasi: Users, Audit Log, Notifications, Tenants, VPN Servers
+ *   - App: Pengaturan Aplikasi
+ *
+ * Reference: docs/REFACTORING-PLAN.md Part D + brief user "max 4 nav item"
+ */
 
-        <Icon
-            className={clsx(
-                "w-5 h-5 transition-all duration-300 z-10",
-                isActive ? "text-primary scale-110" : "group-hover:text-primary group-hover:scale-110"
+const MAIN_NAV = [
+    { path: '/map', icon: MapIcon, label: 'Map' },
+    { path: '/alerts', icon: Bell, label: 'Alert', badgeKey: 'alerts' },
+    { path: '/routers', icon: RouterIcon, label: 'Router', badgeKey: 'routers' },
+];
+
+const SETTINGS_GROUPS = [
+    {
+        title: 'Overview',
+        items: [
+            { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
+            { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'operator'] },
+        ],
+    },
+    {
+        title: 'Bisnis',
+        items: [
+            { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'operator'], badgeKey: 'drift' },
+            { path: '/mikhmon', icon: Wifi, label: 'MikHMON Console', roles: ['admin', 'operator'] },
+        ],
+    },
+    {
+        title: 'Monitoring',
+        items: [
+            { path: '/genieacs', icon: Monitor, label: 'GenieACS' },
+            { path: '/olts', icon: Server, label: 'OLTs' },
+            { path: '/issues', icon: Activity, label: 'System Issues', badgeKey: 'issues' },
+            { path: '/netwatch', icon: Globe, label: 'Service Health', roles: ['admin'] },
+        ],
+    },
+    {
+        title: 'Administrasi',
+        items: [
+            { path: '/users', icon: Users, label: 'Users', roles: ['admin'] },
+            { path: '/audit-logs', icon: History, label: 'Audit Log', roles: ['admin'] },
+            { path: '/notification-groups', icon: MessageSquare, label: 'Notifications', roles: ['admin'] },
+            { path: '/tenants', icon: Building, label: 'Tenants / ISPs', roles: ['superadmin'] },
+            { path: '/settings/vpn-servers', icon: Network, label: 'VPN Servers', roles: ['superadmin'] },
+        ],
+    },
+    {
+        title: 'Aplikasi',
+        items: [
+            { path: '/settings', icon: SettingsIcon, label: 'Pengaturan Aplikasi' },
+        ],
+    },
+];
+
+function canAccess(item, roles) {
+    if (!item.roles) return true;
+    const { isAdmin, isOperator, isSuperAdmin } = roles;
+    if (item.roles.includes('superadmin')) return isSuperAdmin;
+    if (item.roles.includes('admin')) return isAdmin || isSuperAdmin;
+    if (item.roles.includes('operator')) return isAdmin || isOperator || isSuperAdmin;
+    return true;
+}
+
+function NavIconButton({ to, icon: Icon, label, isActive, badge, badgeColor, onClick }) {
+    const className = clsx(
+        'group relative flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200',
+        isActive
+            ? 'bg-primary/15 text-primary'
+            : 'text-fg-muted hover:bg-white/5 hover:text-fg',
+    );
+
+    const content = (
+        <>
+            {isActive && (
+                <span
+                    className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1.5 w-1 h-6 bg-primary rounded-r-full shadow-[0_0_8px_var(--primary)]"
+                    aria-hidden="true"
+                />
             )}
-        />
-        <span className="text-sm z-10">{label}</span>
-        {badge !== undefined && badge > 0 && (
-            <span className={clsx(
-                "ml-auto text-[10px] font-bold px-2 py-0.5 rounded-lg shadow-sm z-10",
-                badgeColor || "bg-slate-800 text-slate-300"
-            )}>
-                {badge}
+            <Icon className={clsx('w-5 h-5 transition-transform group-hover:scale-110', isActive && 'scale-110')} aria-hidden="true" />
+            {badge !== undefined && badge > 0 && (
+                <span
+                    className={clsx(
+                        'absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full text-[9px] font-bold flex items-center justify-center ring-2 ring-surface-darker',
+                        badgeColor || 'bg-primary text-white',
+                    )}
+                    aria-label={`${badge} ${label.toLowerCase()}`}
+                >
+                    {badge > 99 ? '99+' : badge}
+                </span>
+            )}
+            {/* Tooltip kanan saat hover */}
+            <span
+                role="tooltip"
+                className="pointer-events-none absolute left-full ml-3 px-2.5 py-1.5 rounded-md bg-surface-dark border border-slate-border text-xs font-medium text-fg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 shadow-xl z-50"
+            >
+                {label}
             </span>
-        )}
-    </Link>
-);
+        </>
+    );
 
-const Sidebar = ({ isOpen, onClose }) => {
+    if (onClick) {
+        return (
+            <button type="button" onClick={onClick} className={className} aria-label={label}>
+                {content}
+            </button>
+        );
+    }
+    return (
+        <Link to={to} className={className} aria-label={label} aria-current={isActive ? 'page' : undefined}>
+            {content}
+        </Link>
+    );
+}
+
+function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) {
+    const panelRef = useRef(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const onKey = (e) => {
+            if (e.key === 'Escape') onClose();
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [isOpen, onClose]);
+
+    if (!isOpen) return null;
+
+    const handleNav = (path) => {
+        navigate(path);
+        onClose();
+    };
+
+    return (
+        <>
+            <div
+                className="fixed inset-0 z-[1990] bg-black/40 backdrop-blur-sm dl-backdrop-in"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+            <div
+                ref={panelRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Menu Settings"
+                className={clsx(
+                    'fixed z-[2000] bg-surface-dark border border-slate-border shadow-2xl flex flex-col dl-card-in',
+                    'inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh]',
+                    'lg:left-16 lg:inset-y-4 lg:right-auto lg:w-72 lg:rounded-2xl lg:max-h-none',
+                )}
+            >
+                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-border">
+                    <h3 className="text-sm font-bold text-fg uppercase tracking-wider">Menu</h3>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Tutup menu"
+                        className="p-1.5 rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+                    >
+                        <X className="w-4 h-4" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4">
+                    {SETTINGS_GROUPS.map((group) => {
+                        const visible = group.items.filter((it) => canAccess(it, roles));
+                        if (visible.length === 0) return null;
+                        return (
+                            <div key={group.title}>
+                                <h4 className="px-2 py-1.5 text-[10px] font-bold uppercase tracking-widest text-fg-muted">
+                                    {group.title}
+                                </h4>
+                                <div className="flex flex-col gap-0.5">
+                                    {visible.map((it) => {
+                                        const Icon = it.icon;
+                                        const isActive = location.pathname === it.path;
+                                        const badge = it.badgeKey ? badges[it.badgeKey] : undefined;
+                                        return (
+                                            <button
+                                                key={it.path}
+                                                type="button"
+                                                onClick={() => handleNav(it.path)}
+                                                aria-current={isActive ? 'page' : undefined}
+                                                className={clsx(
+                                                    'group flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-colors',
+                                                    isActive
+                                                        ? 'bg-primary/10 text-primary'
+                                                        : 'text-fg-muted hover:bg-white/5 hover:text-fg',
+                                                )}
+                                            >
+                                                <Icon className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+                                                <span className="text-sm font-medium flex-1">{it.label}</span>
+                                                {badge !== undefined && badge > 0 && (
+                                                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-status-issue/15 text-status-issue">
+                                                        {badge > 99 ? '99+' : badge}
+                                                    </span>
+                                                )}
+                                                <ChevronRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" aria-hidden="true" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+
+                <div className="px-3 py-3 border-t border-slate-border">
+                    <TenantSwitcher />
+                </div>
+            </div>
+        </>
+    );
+}
+
+function Sidebar({ isOpen, onClose }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { data: routers = [] } = useRouters();
     const { data: alertCount } = useUnreadAlertCount();
     const { data: settings } = useSettings();
-    const { user } = useSession(); // Access user profile
     const { isAdmin, isOperator, isSuperAdmin } = useRole();
     const { data: currentUser } = useCurrentUser();
     const { data: driftSummary } = useDriftSummary({ enabled: isAdmin || isOperator });
 
+    const [settingsOpen, setSettingsOpen] = useState(false);
 
-    const isActive = (path) => location.pathname === path;
+    // Close settings flyout saat route berubah
+    useEffect(() => {
+        setSettingsOpen(false);
+    }, [location.pathname]);
 
-    const handleLogout = async () => {
+    const handleLogout = useCallback(async () => {
         try {
             await signOut();
         } catch {
-            // Even if signOut API call fails, force redirect to clear client state
+            // signOut bisa gagal kalau session sudah expired di server
         }
-        // Use hard redirect instead of navigate() to fully clear all in-memory state
-        // (React Query cache, Better Auth session cache, etc.)
         window.location.href = '/login';
+    }, []);
+
+    const isMainActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+
+    const badges = {
+        alerts: alertCount?.connectivity ?? 0,
+        routers: routers.length,
+        issues: alertCount?.issues ?? 0,
+        drift: driftSummary?.count ?? 0,
     };
+
+    // Settings dianggap "active" kalau current route ada di mana pun di SETTINGS_GROUPS
+    const isSettingsActive = SETTINGS_GROUPS.some((g) =>
+        g.items.some((it) => location.pathname === it.path || location.pathname.startsWith(`${it.path}/`)),
+    );
 
     return (
         <>
-            {/* Backdrop overlay — only when sidebar is open on mobile/tablet */}
+            {/* Backdrop mobile saat drawer terbuka */}
             {isOpen && (
                 <div
                     className="fixed inset-0 z-[2000] bg-black/60 backdrop-blur-sm lg:hidden"
@@ -102,107 +311,167 @@ const Sidebar = ({ isOpen, onClose }) => {
                     aria-hidden="true"
                 />
             )}
+
             <aside
                 aria-label="Sidebar Navigation"
                 className={clsx(
-                    "fixed lg:static inset-y-0 left-0 z-[2001] lg:z-40 w-72 flex flex-col justify-between transition-all duration-500 ease-in-out shadow-2xl lg:shadow-none",
-                    isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-                )}>
-            {/* Surface adapt per-tema: bg-surface-darker/95 + backdrop-blur menggantikan
-                `glass-premium` yang alpha 0.4 — di tema terang (Daylight, Enterprise)
-                glass-premium bocor ke bg page sehingga sidebar jadi murky light.
-                Sekarang sidebar selalu solid sesuai surface tema. */}
-            <div className="flex flex-col h-full bg-surface-darker/95 backdrop-blur-xl border-r border-slate-border">
-                {/* Header */}
-                <div className="p-5 border-b border-slate-border flex items-center justify-between">
-                    <div className="flex gap-3 items-center" role="group" aria-label="User Profile">
-                        <div
-                            role="img"
-                            aria-label={`Profile picture of ${currentUser?.name || 'User'}`}
-                            className="bg-center bg-no-repeat bg-cover rounded-full size-11 ring-2 ring-primary/30 shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-scanner-pulse"
-                            style={{ backgroundImage: `url("${currentUser?.image || 'https://lh3.googleusercontent.com/aida-public/AB6AXuC1XHZMAnwPDnl7XWDZTj6Fo5vz7tTYbe25rFl6RD5z5dbMYjPsgmj5EZYVGlNUcrblJmUFusaH1lZNUdSs98aMvJZZ2d2NcHmmbIFilw69mwIv5nKCWhOMx92t1dhoxq5djsd0kT1EP29FXVBiiY4NR3ExJa9rIS2O6QKmCxq6f5nDyDdaSKWgiDbh7AIhd9xvJUAnIwme70MpVL9eGWFGZtJ3R2wd61KiqrJ2hMOff1lm1ZUFtw_fI7TTg8Nj7-acAhqr3IOSNOet'}")` }}
-                        >
-                        </div>
-                        <div className="flex flex-col">
-                            <h1 className="text-fg text-base font-bold leading-tight tracking-tight">
-                                {settings?.appName || 'NetMonitor'}
-                            </h1>
-                            <p className="text-fg-muted text-xs font-medium">{currentUser?.name || 'User'}</p>
-                        </div>
+                    // Mobile: drawer 240px slide-in
+                    'fixed inset-y-0 left-0 z-[2001] flex flex-col bg-surface-darker/95 backdrop-blur-xl border-r border-slate-border transition-transform duration-300',
+                    'w-60 lg:w-16',
+                    isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+                    // Desktop: permanent slim 64px, normal layout
+                    'lg:static lg:z-40 lg:shadow-none',
+                )}
+            >
+                {/* Top: avatar / brand */}
+                <div className="flex items-center justify-center h-16 border-b border-slate-border lg:px-2 px-4">
+                    <div
+                        role="img"
+                        aria-label={`Profile ${currentUser?.name || 'User'}`}
+                        title={settings?.appName || 'NetMonitor'}
+                        className="w-10 h-10 rounded-lg bg-cover bg-center ring-2 ring-primary/30 shadow-[0_0_10px_rgba(59,130,246,0.25)]"
+                        style={{
+                            backgroundImage: currentUser?.image
+                                ? `url("${currentUser.image}")`
+                                : 'linear-gradient(135deg, var(--primary), var(--primary-dark))',
+                        }}
+                    />
+                    {/* Mobile only: app name + close button */}
+                    <div className="lg:hidden ml-3 flex-1 min-w-0">
+                        <div className="text-sm font-bold text-fg truncate">{settings?.appName || 'NetMonitor'}</div>
+                        <div className="text-xs text-fg-muted truncate">{currentUser?.name || 'User'}</div>
                     </div>
-
-                    {/* Mobile Close Button */}
                     <button
+                        type="button"
                         onClick={onClose}
-                        aria-label="Close sidebar"
-                        className="lg:hidden p-2 text-fg-muted hover:text-fg transition-colors"
+                        aria-label="Tutup sidebar"
+                        className="lg:hidden p-2 text-fg-muted hover:text-fg"
                     >
                         <X className="w-5 h-5" aria-hidden="true" />
                     </button>
                 </div>
 
-                {/* Navigation */}
-                <div className="flex flex-col gap-1.5 p-4 flex-1 overflow-y-auto custom-scrollbar" role="navigation" aria-label="Main Navigation">
-                    <TenantSwitcher />
+                {/* Main 4 nav items */}
+                <nav
+                    role="navigation"
+                    aria-label="Main Navigation"
+                    className="flex-1 flex flex-col items-center gap-1.5 py-4 lg:px-2 px-3 overflow-y-auto custom-scrollbar"
+                >
+                    {/* Mobile: TenantSwitcher di atas nav */}
+                    <div className="w-full lg:hidden mb-3">
+                        <TenantSwitcher />
+                    </div>
 
-                    <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-2" aria-hidden="true">Main Menu</div>
+                    {MAIN_NAV.map((item) => {
+                        const isActive = isMainActive(item.path);
+                        const badge = item.badgeKey ? badges[item.badgeKey] : undefined;
+                        // Badge color: alerts/issues pakai status warna, lain default
+                        const badgeColor =
+                            item.badgeKey === 'alerts' && badge > 0
+                                ? 'bg-status-offline text-white'
+                                : item.badgeKey === 'issues' && badge > 0
+                                  ? 'bg-status-issue text-black'
+                                  : undefined;
+                        return (
+                            <div key={item.path} className="lg:w-auto w-full">
+                                {/* Desktop: icon only */}
+                                <div className="hidden lg:block">
+                                    <NavIconButton
+                                        to={item.path}
+                                        icon={item.icon}
+                                        label={item.label}
+                                        isActive={isActive}
+                                        badge={badge}
+                                        badgeColor={badgeColor}
+                                    />
+                                </div>
+                                {/* Mobile: icon + label horizontal */}
+                                <Link
+                                    to={item.path}
+                                    onClick={onClose}
+                                    aria-current={isActive ? 'page' : undefined}
+                                    className={clsx(
+                                        'lg:hidden flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors',
+                                        isActive
+                                            ? 'bg-primary/15 text-primary'
+                                            : 'text-fg-muted hover:bg-white/5 hover:text-fg',
+                                    )}
+                                >
+                                    <item.icon className="w-5 h-5" aria-hidden="true" />
+                                    <span className="text-sm font-medium flex-1">{item.label}</span>
+                                    {badge !== undefined && badge > 0 && (
+                                        <span
+                                            className={clsx(
+                                                'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                                                badgeColor || 'bg-primary text-white',
+                                            )}
+                                        >
+                                            {badge > 99 ? '99+' : badge}
+                                        </span>
+                                    )}
+                                </Link>
+                            </div>
+                        );
+                    })}
 
-                    <NavItem path="/" icon={LayoutDashboard} label="Dashboard" isActive={isActive("/")} onClose={onClose} />
-                    <NavItem path="/map" icon={MapIcon} label="Network Map" isActive={isActive("/map")} onClose={onClose} />
-                    <NavItem path="/routers" icon={RouterIcon} label="Routers" badge={routers.length} isActive={isActive("/routers")} onClose={onClose} />
-                    <NavItem path="/olts" icon={Server} label="OLTs" isActive={isActive("/olts")} onClose={onClose} />
-
-                    <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Monitoring</div>
-
-                    <NavItem path="/genieacs" icon={Monitor} label="GenieACS" isActive={isActive("/genieacs")} onClose={onClose} />
-                    <NavItem path="/alerts" icon={Bell} label="Alerts" badge={alertCount?.connectivity} badgeColor={alertCount?.connectivity > 0 ? "bg-red-500/10 text-red-400 border border-red-500/20" : undefined} isActive={isActive("/alerts")} onClose={onClose} />
-                    <NavItem path="/issues" icon={Activity} label="System Issues" badge={alertCount?.issues} badgeColor={alertCount?.issues > 0 ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" : undefined} isActive={isActive("/issues")} onClose={onClose} />
-                    {isAdmin && <NavItem path="/netwatch" icon={Globe} label="Service Health" isActive={isActive("/netwatch")} onClose={onClose} />}
-
-                    {(isAdmin || isOperator) && (
-                        <>
-                            <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Bisnis</div>
-                            <NavItem
-                                path="/billing"
-                                icon={Receipt}
-                                label="Billing"
-                                badge={driftSummary?.count}
-                                badgeColor={driftSummary?.count > 0 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : undefined}
-                                isActive={isActive("/billing")}
-                                onClose={onClose}
+                    {/* Settings — opens flyout */}
+                    <div className="lg:w-auto w-full lg:mt-auto mt-4">
+                        <div className="hidden lg:block">
+                            <NavIconButton
+                                icon={SettingsIcon}
+                                label="Menu"
+                                isActive={settingsOpen || isSettingsActive}
+                                onClick={() => setSettingsOpen((v) => !v)}
                             />
-                            <NavItem path="/mikhmon" icon={Wifi} label="MikHMON Console" isActive={isActive("/mikhmon")} onClose={onClose} />
-                            <NavItem path="/analytics" icon={BarChart3} label="Analytics" isActive={isActive("/analytics")} onClose={onClose} />
-                        </>
-                    )}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setSettingsOpen(true)}
+                            className={clsx(
+                                'lg:hidden flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors',
+                                isSettingsActive
+                                    ? 'bg-primary/15 text-primary'
+                                    : 'text-fg-muted hover:bg-white/5 hover:text-fg',
+                            )}
+                        >
+                            <SettingsIcon className="w-5 h-5" aria-hidden="true" />
+                            <span className="text-sm font-medium flex-1 text-left">Menu</span>
+                            <ChevronRight className="w-4 h-4" aria-hidden="true" />
+                        </button>
+                    </div>
+                </nav>
 
-                    <div className="text-fg-muted text-[10px] font-bold uppercase tracking-widest px-3 py-2 mt-6" aria-hidden="true">Administrasi</div>
-
-                    {isSuperAdmin && <NavItem path="/tenants" icon={Building} label="ISPs / Tenants" isActive={isActive("/tenants")} onClose={onClose} />}
-                    {isSuperAdmin && <NavItem path="/settings/vpn-servers" icon={Network} label="VPN Servers" isActive={isActive("/settings/vpn-servers")} onClose={onClose} />}
-                    {isAdmin && <NavItem path="/audit-logs" icon={History} label="Audit Log" isActive={isActive("/audit-logs")} onClose={onClose} />}
-                    {isAdmin && <NavItem path="/users" icon={Users} label="Users" isActive={isActive("/users")} onClose={onClose} />}
-                    {isAdmin && <NavItem path="/notification-groups" icon={MessageSquare} label="Notifications" isActive={isActive("/notification-groups")} onClose={onClose} />}
-                    <NavItem path="/settings" icon={Settings} label="Settings" isActive={isActive("/settings")} onClose={onClose} />
-                </div>
-
-                {/* Footer Actions */}
-                <div className="p-4 border-t border-slate-border bg-black/20">
+                {/* Bottom: logout */}
+                <div className="border-t border-slate-border lg:p-2 p-3">
+                    <div className="hidden lg:block">
+                        <NavIconButton
+                            icon={LogOut}
+                            label="Logout"
+                            onClick={handleLogout}
+                        />
+                    </div>
                     <button
+                        type="button"
                         onClick={handleLogout}
-                        aria-label="Logout from application"
-                        className="flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-all duration-200 group"
+                        className="lg:hidden flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-status-offline hover:bg-status-offline/10 transition-colors"
+                        aria-label="Logout"
                     >
-                        <LogOut className="w-5 h-5 group-hover:translate-x-1 transition-transform" aria-hidden="true" />
+                        <LogOut className="w-5 h-5" aria-hidden="true" />
                         <span className="text-sm font-medium">Logout</span>
                     </button>
                 </div>
-            </div>
             </aside>
+
+            <SettingsFlyout
+                isOpen={settingsOpen}
+                onClose={() => setSettingsOpen(false)}
+                navigate={navigate}
+                location={location}
+                roles={{ isAdmin, isOperator, isSuperAdmin }}
+                badges={badges}
+            />
         </>
     );
-};
+}
 
 export default Sidebar;
-
-
