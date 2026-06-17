@@ -43,18 +43,19 @@
 }
 
 :root {
-    /* Default Theme (Midnight Glow) */
-    --primary: #3B82F6;
-    --primary-dark: #2563EB;
+    /* Default Theme (Midnight Glow → refined ke Dark Luxury direction).
+       Lihat docs/DESIGN-SYSTEM.md untuk principles + component patterns. */
+    --primary: #3B82F6;             /* blue-500 — sole accent untuk semua CTA */
+    --primary-dark: #2563EB;        /* blue-600 — hover state primary */
     --background-light: #f5f7f8;
-    --background-dark: #0F172A;
-    --surface-dark: #1E293B;
-    --surface-darker: #020617;
-    --success: #10B981;
-    --danger: #EF4444;
-    --warning: #F59E0B;
-    --slate-surface: #1E293B;
-    --slate-border: #334155;
+    --background-dark: #020617;     /* slate-950 — deepest base (was 0F172A) */
+    --surface-dark: #0F172A;        /* slate-900 — card primary (was 1E293B) */
+    --surface-darker: #020617;      /* slate-950 — header/sidebar overlay */
+    --success: #10B981;             /* emerald-500 */
+    --danger: #EF4444;              /* red-500 */
+    --warning: #F59E0B;             /* amber-500 */
+    --slate-surface: #1E293B;       /* slate-800 — nested card / modal body */
+    --slate-border: #1F2937;        /* slate-800/50 vibe — subtle border (was 334155) */
 
     /* Toggle (Switch) — overridden per theme where the default would render
        low-contrast. White thumb works against every non-white --primary. */
