@@ -16,7 +16,14 @@ export const MapControls = ({
     isFullscreen,
     onToggleFullscreen,
     isPlacementModeOpen,
-    setIsPlacementModeOpen
+    setIsPlacementModeOpen,
+    // Performance toggles — dipindah ke sini dari MapLegend (single source of truth).
+    enableAnimation,
+    setEnableAnimation,
+    enableClustering,
+    setEnableClustering,
+    lowPerfMode,
+    setLowPerfMode,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -246,6 +253,65 @@ export const MapControls = ({
                             </span>
                             {isSyncing ? '...' : 'Sync'}
                         </button>
+
+                        {/* Performance toggles — dipindah dari MapLegend.
+                            Single source of truth: animasi / cluster / mode hemat CPU. */}
+                        {typeof setEnableAnimation === 'function' && (
+                            <button
+                                onClick={() => setEnableAnimation(!enableAnimation)}
+                                title={enableAnimation ? 'Matikan animasi peta' : 'Aktifkan animasi peta'}
+                                aria-label={enableAnimation ? 'Matikan animasi peta' : 'Aktifkan animasi peta'}
+                                aria-pressed={enableAnimation}
+                                className={`px-1.5 py-1 text-[10px] rounded flex items-center justify-center gap-1 transition-colors border ${
+                                    enableAnimation
+                                        ? 'bg-emerald-600/20 text-emerald-300 border-emerald-500/40'
+                                        : 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
+                                    animation
+                                </span>
+                                {enableAnimation ? 'Animasi' : 'Off'}
+                            </button>
+                        )}
+
+                        {typeof setEnableClustering === 'function' && (
+                            <button
+                                onClick={() => setEnableClustering(!enableClustering)}
+                                title={enableClustering ? 'Matikan pengelompokan marker (cluster)' : 'Aktifkan pengelompokan marker (cluster)'}
+                                aria-label={enableClustering ? 'Matikan cluster' : 'Aktifkan cluster'}
+                                aria-pressed={enableClustering}
+                                className={`px-1.5 py-1 text-[10px] rounded flex items-center justify-center gap-1 transition-colors border ${
+                                    enableClustering
+                                        ? 'bg-blue-600/20 text-blue-300 border-blue-500/40'
+                                        : 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
+                                    group_work
+                                </span>
+                                {enableClustering ? 'Cluster' : 'Off'}
+                            </button>
+                        )}
+
+                        {typeof setLowPerfMode === 'function' && (
+                            <button
+                                onClick={() => setLowPerfMode(!lowPerfMode)}
+                                title={lowPerfMode ? 'Matikan mode hemat CPU' : 'Aktifkan mode hemat CPU (untuk laptop tua / banyak marker)'}
+                                aria-label={lowPerfMode ? 'Matikan mode hemat' : 'Aktifkan mode hemat'}
+                                aria-pressed={lowPerfMode}
+                                className={`col-span-2 px-1.5 py-1 text-[10px] rounded flex items-center justify-center gap-1 transition-colors border ${
+                                    lowPerfMode
+                                        ? 'bg-amber-600/20 text-amber-300 border-amber-500/40'
+                                        : 'bg-slate-700 text-slate-400 border-slate-600 hover:bg-slate-600'
+                                }`}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 13 }} aria-hidden="true">
+                                    monitor_heart
+                                </span>
+                                {lowPerfMode ? 'Mode Hemat ON' : 'Mode Hemat OFF'}
+                            </button>
+                        )}
 
                         <button
                             onClick={onToggleFullscreen}

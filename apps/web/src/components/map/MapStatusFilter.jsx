@@ -32,7 +32,7 @@ export function MapStatusFilter({ value = 'all', onChange, counts }) {
         <div
             role="radiogroup"
             aria-label="Filter status marker"
-            className="absolute top-4 left-4 z-[1000] flex items-center gap-1 bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl p-1"
+            className="absolute top-4 left-16 z-[1000] flex items-center gap-1 bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl p-1"
         >
             {FILTERS.map((f) => {
                 const isActive = value === f.value;
