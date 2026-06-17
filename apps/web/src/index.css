@@ -537,6 +537,23 @@
         animation: ping-slow 2s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
 
+    /* Dark Luxury — modal enter animations.
+       Subtle 200ms ease-out, no bounce. Lihat docs/DESIGN-SYSTEM.md. */
+    @keyframes dl-fade-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    @keyframes dl-zoom-in {
+        from { opacity: 0; transform: scale(0.96) translateY(8px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .dl-backdrop-in {
+        animation: dl-fade-in 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .dl-card-in {
+        animation: dl-zoom-in 220ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
     /* Bounce animation for down/offline devices */
     @keyframes marker-bounce {
 
