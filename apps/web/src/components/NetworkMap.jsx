@@ -5,8 +5,9 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone } from '@/hooks';
+import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
 import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
+import { mapToStatus, STATUS } from '@/constants/status';
 import '@/lib/GoogleMutant';
 import { computeOdpDerivedStatus } from '@/lib/odpStatus';
 import { toast } from 'react-hot-toast';
@@ -50,6 +51,8 @@ import {
     MapToolbar,
     MapLegend,
     MapControls,
+    FloatingStatusCounter,
+    MapStatusFilter,
     DeviceModal,
     DeleteDeviceDialog,
     createDeviceIcon,
@@ -185,6 +188,23 @@ const NetworkMap = ({
     const stableOnusMapData = useDeepCompareMemoize(onusMapData);
     const stableRealtimeTraffic = useDeepCompareMemoize(realtimeTraffic);
 
+    // Unread alert count untuk FloatingStatusCounter.
+    const { data: alertCount } = useUnreadAlertCount();
+
+    // Router status counts — tenant-wide (TIDAK terpengaruh filteredRouterId).
+    // Konsumsi oleh FloatingStatusCounter + MapStatusFilter.
+    const routerStatusCounts = useMemo(() => {
+        const counts = { online: 0, offline: 0, issue: 0 };
+        if (!Array.isArray(stableRoutersData)) return counts;
+        stableRoutersData.forEach((r) => {
+            const s = mapToStatus(r.status);
+            if (s === STATUS.ONLINE) counts.online += 1;
+            else if (s === STATUS.OFFLINE) counts.offline += 1;
+            else if (s === STATUS.ISSUE) counts.issue += 1;
+        });
+        return counts;
+    }, [stableRoutersData]);
+
     // UI & Interactive State (Moved to top to prevent ReferenceError)
     const [mapType, setMapType] = useState(() => {
         const saved = localStorage.getItem('map_type_preference');
@@ -194,6 +214,9 @@ const NetworkMap = ({
         try { const saved = localStorage.getItem('map_show_labels'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true; } catch { return true; }
     });
     const [searchQuery, setSearchQuery] = useState('');
+    // Status filter chip — 'all' | 'online' | 'offline' | 'issue'.
+    // Affect router + netwatch marker visibility only (PPPoE & ONU tetap visible).
+    const [statusFilter, setStatusFilter] = useState('all');
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalInitialTab, setModalInitialTab] = useState('settings');
@@ -764,6 +787,9 @@ const NetworkMap = ({
             // Apply filtering
             if (filteredRouterId && router.id !== filteredRouterId) return;
 
+            // Status filter (chip kiri atas) — hide router yang tidak match status.
+            if (statusFilter !== 'all' && mapToStatus(router.status) !== statusFilter) return;
+
             // Robust coordinate processing for routers
             const lat = parseFloat(router.latitude);
             const lng = parseFloat(router.longitude);
@@ -792,6 +818,10 @@ const NetworkMap = ({
 
             if (nwGroup.entries) {
                 nwGroup.entries.forEach((entry) => {
+                    // Status filter chip — hide netwatch host yang tidak match status.
+                    // 'up' → online, 'down' → offline (via mapToStatus).
+                    if (statusFilter !== 'all' && mapToStatus(entry.status) !== statusFilter) return;
+
                     let lat = null, lng = null;
                     if (entry.latitude && entry.longitude &&
                         !isNaN(parseFloat(entry.latitude)) && !isNaN(parseFloat(entry.longitude)) &&
@@ -1030,7 +1060,7 @@ const NetworkMap = ({
         });
 
         return { routers: routerNodes, nodes, lines, pppoeNodes: pppoeNodesList };
-    }, [stableRoutersData, stableNetwatchData, stablePppoeData, stableOnusMapData, filteredRouterId, showRoutersOnly]);
+    }, [stableRoutersData, stableNetwatchData, stablePppoeData, stableOnusMapData, filteredRouterId, showRoutersOnly, statusFilter]);
 
     const defaultCenter = [-8.8742173, 120.7290947];
     const center = useMemo(() => {
@@ -1858,6 +1888,23 @@ const NetworkMap = ({
                         )
                     }
 
+                    {/* Floating Status Counter (Top-Right) — total tenant router + alert */}
+                    {!showRoutersOnly && !selectedUnplacedDevice && (
+                        <FloatingStatusCounter
+                            routerCounts={routerStatusCounts}
+                            alertCount={alertCount?.connectivity ?? 0}
+                        />
+                    )}
+
+                    {/* Floating Status Filter Chip (Top-Left) — filter marker by status */}
+                    {!showRoutersOnly && !selectedUnplacedDevice && (
+                        <MapStatusFilter
+                            value={statusFilter}
+                            onChange={setStatusFilter}
+                            counts={routerStatusCounts}
+                        />
+                    )}
+
                     {/* Map Controls (Right Panel) */}
                     {!showRoutersOnly && !selectedUnplacedDevice && (
                         <MapControls
@@ -1909,28 +1956,14 @@ const NetworkMap = ({
                         />
                     )}
 
-                    {/* Legend (With Performance Controls) */}
+                    {/* Legend — cuma warna + show labels. 3 toggle performa
+                        (animation/cluster/lowPerf) sudah pindah ke MapControls. */}
                     {!showRoutersOnly && !selectedUnplacedDevice && (
                         <MapLegend
                             showLabels={showLabels}
                             onToggleLabels={handleToggleLabels}
                             isHeatmapMode={isHeatmapMode}
                             mapColors={mapColors}
-                            enableAnimation={enableAnimation}
-                            setEnableAnimation={(val) => {
-                                setEnableAnimation(val);
-                                localStorage.setItem('map_animation_enabled', JSON.stringify(val));
-                            }}
-                            enableClustering={enableClustering}
-                            setEnableClustering={(val) => {
-                                setEnableClustering(val);
-                                localStorage.setItem('map_clustering_enabled', JSON.stringify(val));
-                            }}
-                            lowPerfMode={lowPerfMode}
-                            setLowPerfMode={(val) => {
-                                setLowPerfMode(val);
-                                localStorage.setItem('map_low_perf_enabled', JSON.stringify(val));
-                            }}
                         />
                     )}
 

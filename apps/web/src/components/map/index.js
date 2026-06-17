@@ -8,6 +8,8 @@ export { default as DeleteDeviceDialog } from './DeleteDeviceDialog';
 export { default as MapFAB } from './MapFAB';
 export { default as MapToolbar } from './MapToolbar';
 export { default as MapLegend } from './MapLegend';
+export { default as FloatingStatusCounter } from './FloatingStatusCounter';
+export { default as MapStatusFilter } from './MapStatusFilter';
 export { default as RouterTooltip } from './RouterTooltip';
 export { MapControls } from './MapControls';
 export { default as UnplacedDevicesDrawer } from './UnplacedDevicesDrawer';
