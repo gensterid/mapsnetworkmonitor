@@ -181,8 +181,10 @@ function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) 
 
     return (
         <>
+            {/* Backdrop + panel z-index harus di atas Sidebar mobile drawer (z-2001)
+                supaya flyout tidak tertutupi drawer. */}
             <div
-                className="fixed inset-0 z-[1990] bg-black/40 backdrop-blur-sm dl-backdrop-in"
+                className="fixed inset-0 z-[2050] bg-black/50 backdrop-blur-sm dl-backdrop-in"
                 onClick={onClose}
                 aria-hidden="true"
             />
@@ -192,7 +194,7 @@ function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) 
                 aria-modal="true"
                 aria-label="Menu Settings"
                 className={clsx(
-                    'fixed z-[2000] bg-surface-dark border border-slate-border shadow-2xl flex flex-col dl-card-in',
+                    'fixed z-[2060] bg-surface-dark border border-slate-border shadow-2xl flex flex-col dl-card-in',
                     'inset-x-0 bottom-0 rounded-t-2xl max-h-[85vh]',
                     'lg:left-16 lg:inset-y-4 lg:right-auto lg:w-72 lg:rounded-2xl lg:max-h-none',
                 )}
@@ -426,7 +428,12 @@ function Sidebar({ isOpen, onClose }) {
                         </div>
                         <button
                             type="button"
-                            onClick={() => setSettingsOpen(true)}
+                            onClick={() => {
+                                // Mobile: tutup drawer dulu, lalu buka flyout sebagai
+                                // bottom sheet — supaya flyout tidak tertutupi drawer.
+                                onClose();
+                                setSettingsOpen(true);
+                            }}
                             className={clsx(
                                 'lg:hidden flex items-center gap-3 w-full px-3 py-2.5 rounded-lg transition-colors',
                                 isSettingsActive
