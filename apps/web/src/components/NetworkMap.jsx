@@ -8,6 +8,7 @@ import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
 import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import { mapToStatus, STATUS } from '@/constants/status';
+import { AlertPanel } from '@/components/panels';
 import '@/lib/GoogleMutant';
 import { computeOdpDerivedStatus } from '@/lib/odpStatus';
 import { toast } from 'react-hot-toast';
@@ -217,6 +218,10 @@ const NetworkMap = ({
     // Status filter chip — 'all' | 'online' | 'offline' | 'issue'.
     // Affect router + netwatch marker visibility only (PPPoE & ONU tetap visible).
     const [statusFilter, setStatusFilter] = useState('all');
+    // Single panel state — sesuai brief "panel tidak menumpuk".
+    // Nilai: null | 'alert' | 'router' | 'netwatch'.
+    // Step 4a cuma support 'alert'. Step 4b tambah 'router' + 'netwatch'.
+    const [activePanel, setActivePanel] = useState(null);
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalInitialTab, setModalInitialTab] = useState('settings');
@@ -1888,11 +1893,13 @@ const NetworkMap = ({
                         )
                     }
 
-                    {/* Floating Status Counter (Top-Right) — total tenant router + alert */}
+                    {/* Floating Status Counter (Top-Right) — total tenant router + alert.
+                        Alert row klik → open AlertPanel quick view (read-only). */}
                     {!showRoutersOnly && !selectedUnplacedDevice && (
                         <FloatingStatusCounter
                             routerCounts={routerStatusCounts}
                             alertCount={alertCount?.connectivity ?? 0}
+                            onAlertClick={() => setActivePanel('alert')}
                         />
                     )}
 
@@ -1997,6 +2004,13 @@ const NetworkMap = ({
                             />
                         </>
                     )}
+
+                    {/* Quick-view panels — single panel state (panel tidak menumpuk).
+                        Step 4a: AlertPanel. Step 4b nanti tambah Router/Netwatch panel. */}
+                    <AlertPanel
+                        isOpen={activePanel === 'alert'}
+                        onClose={() => setActivePanel(null)}
+                    />
 
                     {/* Trash confirmation — 3 options (ONU only / Netwatch only / Both) */}
                     <DeleteDeviceDialog

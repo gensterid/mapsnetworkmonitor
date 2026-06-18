@@ -44,7 +44,7 @@ function StatusPill({ status, count }) {
     );
 }
 
-export function FloatingStatusCounter({ routerCounts, alertCount = 0 }) {
+export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertClick }) {
     const [collapsed, setCollapsed] = useState(() => {
         try {
             return localStorage.getItem('map_counter_collapsed') === 'true';
@@ -116,22 +116,43 @@ export function FloatingStatusCounter({ routerCounts, alertCount = 0 }) {
                     {/* Divider */}
                     <div className="h-px bg-slate-border" aria-hidden="true" />
 
-                    {/* Alert row — klik → /alerts */}
-                    <Link
-                        to="/alerts"
-                        className={clsx(
-                            'flex items-center gap-2 px-3 py-2.5 transition-colors',
-                            alertCount > 0
-                                ? 'text-status-offline hover:bg-status-offline/10'
-                                : 'text-fg-muted hover:bg-white/5',
-                        )}
-                        aria-label={`${alertCount} alert ${alertCount > 0 ? 'belum dibaca' : 'tidak ada'}`}
-                    >
-                        <Bell className={clsx('w-4 h-4', alertCount > 0 && 'animate-pulse')} aria-hidden="true" />
-                        <span className="text-xs font-bold flex-1">
-                            {alertCount > 0 ? `${alertCount} Alert Unread` : 'Tidak ada alert'}
-                        </span>
-                    </Link>
+                    {/* Alert row — kalau onAlertClick di-pass parent (NetworkMap),
+                        jadi button buka AlertPanel quick view. Kalau tidak,
+                        fallback Link ke /alerts page. */}
+                    {onAlertClick ? (
+                        <button
+                            type="button"
+                            onClick={onAlertClick}
+                            className={clsx(
+                                'flex items-center gap-2 px-3 py-2.5 transition-colors w-full text-left',
+                                alertCount > 0
+                                    ? 'text-status-offline hover:bg-status-offline/10'
+                                    : 'text-fg-muted hover:bg-white/5',
+                            )}
+                            aria-label={`${alertCount} alert ${alertCount > 0 ? 'belum dibaca, klik untuk lihat' : 'tidak ada'}`}
+                        >
+                            <Bell className={clsx('w-4 h-4', alertCount > 0 && 'animate-pulse')} aria-hidden="true" />
+                            <span className="text-xs font-bold flex-1">
+                                {alertCount > 0 ? `${alertCount} Alert Unread` : 'Tidak ada alert'}
+                            </span>
+                        </button>
+                    ) : (
+                        <Link
+                            to="/alerts"
+                            className={clsx(
+                                'flex items-center gap-2 px-3 py-2.5 transition-colors',
+                                alertCount > 0
+                                    ? 'text-status-offline hover:bg-status-offline/10'
+                                    : 'text-fg-muted hover:bg-white/5',
+                            )}
+                            aria-label={`${alertCount} alert ${alertCount > 0 ? 'belum dibaca' : 'tidak ada'}`}
+                        >
+                            <Bell className={clsx('w-4 h-4', alertCount > 0 && 'animate-pulse')} aria-hidden="true" />
+                            <span className="text-xs font-bold flex-1">
+                                {alertCount > 0 ? `${alertCount} Alert Unread` : 'Tidak ada alert'}
+                            </span>
+                        </Link>
+                    )}
                 </>
             )}
         </div>
