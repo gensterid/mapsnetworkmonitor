@@ -1894,8 +1894,10 @@ const NetworkMap = ({
                     }
 
                     {/* Floating Status Counter (Top-Right) — total tenant router + alert.
-                        Alert row klik → open AlertPanel quick view (read-only). */}
-                    {!showRoutersOnly && !selectedUnplacedDevice && (
+                        Alert row klik → open AlertPanel quick view (read-only).
+                        HIDE saat activePanel terbuka — SidePanel di right side overlap
+                        dengan posisi counter. */}
+                    {!showRoutersOnly && !selectedUnplacedDevice && !activePanel && (
                         <FloatingStatusCounter
                             routerCounts={routerStatusCounts}
                             alertCount={alertCount?.connectivity ?? 0}
@@ -1903,7 +1905,8 @@ const NetworkMap = ({
                         />
                     )}
 
-                    {/* Floating Status Filter Chip (Top-Left) — filter marker by status */}
+                    {/* Floating Status Filter Chip (Top-Left) — filter marker by status.
+                        Posisi top-left, tidak overlap dengan SidePanel right — tetap visible. */}
                     {!showRoutersOnly && !selectedUnplacedDevice && (
                         <MapStatusFilter
                             value={statusFilter}
@@ -1912,8 +1915,9 @@ const NetworkMap = ({
                         />
                     )}
 
-                    {/* Map Controls (Right Panel) */}
-                    {!showRoutersOnly && !selectedUnplacedDevice && (
+                    {/* Map Controls (Right Panel) — HIDE saat activePanel terbuka,
+                        karena posisi top-right overlap dengan SidePanel. */}
+                    {!showRoutersOnly && !selectedUnplacedDevice && !activePanel && (
                         <MapControls
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}

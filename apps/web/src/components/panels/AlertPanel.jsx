@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import clsx from 'clsx';
-import { Bell, ExternalLink, AlertTriangle, AlertCircle, Info, AlertOctagon } from 'lucide-react';
+import { Bell, ExternalLink, AlertCircle, Info, AlertOctagon, AlertTriangle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
 import { useAlerts } from '@/hooks';
@@ -30,26 +30,28 @@ import { severityToStatus, STATUS_CLASSES } from '@/constants/status';
  *   info     → online
  */
 
-const SEVERITY_FILTERS = [
-    { value: 'all', label: 'Semua', icon: Bell },
-    { value: 'critical', label: 'Critical', icon: AlertOctagon },
-    { value: 'high', label: 'High', icon: AlertTriangle },
-    { value: 'medium', label: 'Medium', icon: AlertCircle },
-    { value: 'low', label: 'Low', icon: Info },
-];
-
-const SEVERITY_ICONS = {
-    critical: AlertOctagon,
-    high: AlertTriangle,
-    medium: AlertCircle,
-    low: Info,
-    info: Info,
+/**
+ * Severity label + icon untuk berbagai naming convention yang dipakai backend.
+ * Kalau backend pakai severity baru yang tidak ada di sini, chip tetap muncul
+ * dengan label uppercase + icon Info default (lihat severityMeta() di bawah).
+ */
+const SEVERITY_META = {
+    critical: { label: 'Critical', icon: AlertOctagon },
+    high: { label: 'High', icon: AlertTriangle },
+    warning: { label: 'Warning', icon: AlertTriangle },
+    medium: { label: 'Medium', icon: AlertCircle },
+    low: { label: 'Low', icon: Info },
+    info: { label: 'Info', icon: Info },
 };
+
+function severityMeta(sev) {
+    return SEVERITY_META[sev] || { label: sev?.toUpperCase() || 'UNKNOWN', icon: Info };
+}
 
 function AlertRow({ alert, timezone }) {
     const status = severityToStatus(alert.severity);
     const colors = STATUS_CLASSES[status];
-    const SevIcon = SEVERITY_ICONS[alert.severity?.toLowerCase()] || Info;
+    const SevIcon = severityMeta(alert.severity?.toLowerCase()).icon;
 
     return (
         <div className="px-5 py-3 border-b border-slate-border/50 hover:bg-white/[0.02] transition-colors">
@@ -122,14 +124,27 @@ export function AlertPanel({ isOpen, onClose }) {
         );
     }, [allAlerts, severityFilter]);
 
-    // Hitung count per severity untuk badge di chip
-    const counts = useMemo(() => {
-        const result = { all: allAlerts.length, critical: 0, high: 0, medium: 0, low: 0 };
+    // Severity chip dynamic — generate dari data real, jadi backend pakai naming
+    // apapun (critical/high/warning/medium/low/info), chip-nya muncul.
+    // Sebelumnya hardcoded critical/high/medium/low — kalau data pakai 'warning'
+    // (yang umum di MikroTik netwatch), chip-nya kosong padahal data ada.
+    const severityChips = useMemo(() => {
+        const counts = new Map();
         allAlerts.forEach((a) => {
             const sev = (a.severity || '').toLowerCase();
-            if (sev in result) result[sev] += 1;
+            if (!sev) return;
+            counts.set(sev, (counts.get(sev) || 0) + 1);
         });
-        return result;
+        // Sort: severity yang lebih kritis di kiri (critical > high > warning > medium > low > info)
+        const order = ['critical', 'high', 'warning', 'medium', 'low', 'info'];
+        return Array.from(counts.entries()).sort((a, b) => {
+            const ia = order.indexOf(a[0]);
+            const ib = order.indexOf(b[0]);
+            if (ia === -1 && ib === -1) return a[0].localeCompare(b[0]);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+        });
     }, [allAlerts]);
 
     return (
@@ -151,16 +166,40 @@ export function AlertPanel({ isOpen, onClose }) {
                 </Link>
             }
         >
-            {/* Severity filter chip row */}
+            {/* Severity filter chip row — dynamic dari data real */}
             <div className="sticky top-0 z-10 bg-surface-dark border-b border-slate-border px-3 py-2.5 flex items-center gap-1 overflow-x-auto custom-scrollbar">
-                {SEVERITY_FILTERS.map((f) => {
-                    const isActive = severityFilter === f.value;
-                    const count = counts[f.value] ?? 0;
+                {/* "Semua" chip selalu ada */}
+                <button
+                    type="button"
+                    onClick={() => setSeverityFilter('all')}
+                    aria-pressed={severityFilter === 'all'}
+                    className={clsx(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
+                        severityFilter === 'all'
+                            ? 'bg-primary text-white'
+                            : 'text-fg-muted hover:text-fg hover:bg-white/5',
+                    )}
+                >
+                    Semua
+                    <span
+                        className={clsx(
+                            'px-1 rounded text-[9px]',
+                            severityFilter === 'all' ? 'bg-white/20' : 'bg-slate-surface',
+                        )}
+                    >
+                        {allAlerts.length}
+                    </span>
+                </button>
+
+                {/* Dynamic chips per severity yang muncul di data */}
+                {severityChips.map(([sev, count]) => {
+                    const isActive = severityFilter === sev;
+                    const meta = severityMeta(sev);
                     return (
                         <button
-                            key={f.value}
+                            key={sev}
                             type="button"
-                            onClick={() => setSeverityFilter(f.value)}
+                            onClick={() => setSeverityFilter(sev)}
                             aria-pressed={isActive}
                             className={clsx(
                                 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors whitespace-nowrap',
@@ -169,17 +208,15 @@ export function AlertPanel({ isOpen, onClose }) {
                                     : 'text-fg-muted hover:text-fg hover:bg-white/5',
                             )}
                         >
-                            {f.label}
-                            {count > 0 && (
-                                <span
-                                    className={clsx(
-                                        'px-1 rounded text-[9px]',
-                                        isActive ? 'bg-white/20' : 'bg-slate-surface',
-                                    )}
-                                >
-                                    {count}
-                                </span>
-                            )}
+                            {meta.label}
+                            <span
+                                className={clsx(
+                                    'px-1 rounded text-[9px]',
+                                    isActive ? 'bg-white/20' : 'bg-slate-surface',
+                                )}
+                            >
+                                {count}
+                            </span>
                         </button>
                     );
                 })}
