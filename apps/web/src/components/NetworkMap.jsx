@@ -1915,10 +1915,12 @@ const NetworkMap = ({
                         />
                     )}
 
-                    {/* Map Controls (Right Panel) — HIDE saat activePanel terbuka,
-                        karena posisi top-right overlap dengan SidePanel. */}
-                    {!showRoutersOnly && !selectedUnplacedDevice && !activePanel && (
+                    {/* Map Controls (Right Panel) — TETAP visible saat AlertPanel
+                        terbuka, tapi geser posisi via prop panelOpen supaya tidak
+                        overlap dengan SidePanel (Settings shift ke kiri AlertPanel). */}
+                    {!showRoutersOnly && !selectedUnplacedDevice && (
                         <MapControls
+                            panelOpen={!!activePanel}
                             searchQuery={searchQuery}
                             setSearchQuery={setSearchQuery}
                             mapType={mapType}

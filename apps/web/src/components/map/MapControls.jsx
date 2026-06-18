@@ -24,6 +24,9 @@ export const MapControls = ({
     setEnableClustering,
     lowPerfMode,
     setLowPerfMode,
+    // Saat SidePanel kanan terbuka, geser Settings ke kiri AlertPanel
+    // supaya tetap accessible (tidak tertutup panel).
+    panelOpen = false,
 }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(() => {
@@ -80,10 +83,14 @@ export const MapControls = ({
             </button>
 
 
-            {/* Controls Container */}
+            {/* Controls Container.
+                Saat panelOpen=true (AlertPanel/SidePanel terbuka di kanan),
+                geser posisi Settings ke kiri (right-[26rem] = 416px dari kanan)
+                supaya tetap visible + accessible tanpa tertutup panel. */}
             <div className={`
-                absolute top-16 right-4 sm:top-4 sm:right-4 z-[1001] 
+                absolute top-16 sm:top-4 z-[1001]
                 transition-all duration-200 origin-top-right
+                ${panelOpen ? 'right-[26rem]' : 'right-4'}
                 ${isOpen ? 'scale-100 opacity-100' : 'scale-0 opacity-0 sm:scale-100 sm:opacity-100'}
             `}>
                 <div 
