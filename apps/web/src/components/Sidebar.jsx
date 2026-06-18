@@ -211,6 +211,16 @@ function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) 
                     </button>
                 </div>
 
+                {/* TenantSwitcher — di TOP supaya:
+                    1. Dropdown options tidak cut off di bawah viewport
+                    2. UX: operator switch tenant DULU baru pilih menu */}
+                <div className="px-3 py-3 border-b border-slate-border bg-surface-darker/40">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-fg-muted px-1 mb-1.5">
+                        Active Environment
+                    </div>
+                    <TenantSwitcher />
+                </div>
+
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4">
                     {SETTINGS_GROUPS.map((group) => {
                         const visible = group.items.filter((it) => canAccess(it, roles));
@@ -253,10 +263,6 @@ function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) 
                             </div>
                         );
                     })}
-                </div>
-
-                <div className="px-3 py-3 border-t border-slate-border">
-                    <TenantSwitcher />
                 </div>
             </div>
         </>
