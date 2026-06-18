@@ -36,8 +36,7 @@ apiClient.interceptors.response.use(
 
         // Handle 401 unauthorized - redirect to login
         if (error.response?.status === 401) {
-            if (!window.location.pathname.startsWith('/login') &&
-                !window.location.pathname.startsWith('/signup')) {
+            if (!window.location.pathname.startsWith('/login')) {
                 window.location.href = '/login';
             }
         }
