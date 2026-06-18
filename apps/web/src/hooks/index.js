@@ -65,16 +65,6 @@ export {
     alertKeys,
 } from './useAlerts';
 
-// Group hooks
-export {
-    useGroups,
-    useGroup,
-    useCreateGroup,
-    useUpdateGroup,
-    useDeleteGroup,
-    groupKeys,
-} from './useGroups';
-
 // Settings hooks
 export {
     useSettings,
@@ -97,7 +87,9 @@ export { useSSE } from './useSSE';
 export * from './useOlts';
 export * from './useGenieACS';
 export * from './useBackup';
-export * from './useSocket';
+// `useSocket` star export dihapus — redundant dengan explicit named export
+// `useRealtimeTraffic, useAllRoutersTraffic` di bawah. Hook getSocket dipakai
+// internal di useSocket.js saja, tidak perlu di-bundle ke @/hooks.
 export * from './useAI';
 export * from './useBandwidth';
 export * from './useBilling';
