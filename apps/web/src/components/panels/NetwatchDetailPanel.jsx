@@ -187,6 +187,7 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
                                 accent="primary"
                             />
                         </div>
+                        {(netwatch.sn || netwatch.oltName) && (
                         <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3 space-y-2.5 mb-4">
                             {netwatch.sn && (
                                 <div className="flex items-start justify-between gap-3">
@@ -210,6 +211,7 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
                                 </div>
                             )}
                         </div>
+                        )}
                     </>
                 )}
 
