@@ -10,3 +10,5 @@
  */
 export { SidePanel, default as SidePanelDefault } from './SidePanel';
 export { AlertPanel } from './AlertPanel';
+export { RouterDetailPanel } from './RouterDetailPanel';
+export { NetwatchDetailPanel } from './NetwatchDetailPanel';

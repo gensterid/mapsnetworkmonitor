@@ -8,7 +8,7 @@ import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
 import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import { mapToStatus, STATUS } from '@/constants/status';
-import { AlertPanel } from '@/components/panels';
+import { AlertPanel, RouterDetailPanel, NetwatchDetailPanel } from '@/components/panels';
 import '@/lib/GoogleMutant';
 import { computeOdpDerivedStatus } from '@/lib/odpStatus';
 import { toast } from 'react-hot-toast';
@@ -220,8 +220,10 @@ const NetworkMap = ({
     const [statusFilter, setStatusFilter] = useState('all');
     // Single panel state — sesuai brief "panel tidak menumpuk".
     // Nilai: null | 'alert' | 'router' | 'netwatch'.
-    // Step 4a cuma support 'alert'. Step 4b tambah 'router' + 'netwatch'.
     const [activePanel, setActivePanel] = useState(null);
+    // Device object yang lagi di-quick-view (router atau netwatch).
+    // null kalau panel alert atau tidak ada panel terbuka.
+    const [quickViewDevice, setQuickViewDevice] = useState(null);
     const [selectedDevice, setSelectedDevice] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalInitialTab, setModalInitialTab] = useState('settings');
@@ -1105,6 +1107,49 @@ const NetworkMap = ({
         setIsPickingCoordinate(false);
     }, []);
 
+    /**
+     * Quick-view handler: klik marker → buka SidePanel quick view (read-only).
+     * Panel lama otomatis tutup karena single activePanel state.
+     * Tombol "Detail Lengkap / Edit" di panel → re-route ke handleDeviceClick
+     * (DeviceModal lama) untuk full edit.
+     *
+     * @param {object} device — node dari marker click
+     * @param {'router' | 'netwatch'} type
+     */
+    const handleQuickView = useCallback((device, type) => {
+        if (type !== 'router' && type !== 'netwatch') return;
+        setQuickViewDevice(device);
+        setActivePanel(type);
+    }, []);
+
+    const handleCloseQuickView = useCallback(() => {
+        setActivePanel(null);
+        setQuickViewDevice(null);
+    }, []);
+
+    /**
+     * Bridge: klik "Detail Lengkap" di SidePanel → tutup panel + buka DeviceModal
+     * existing. Tidak ubah DeviceModal logic — preserve edit/save/delete flow.
+     */
+    const handleQuickViewEditFull = useCallback((device) => {
+        const type = activePanel === 'router' ? 'router' : 'netwatch';
+        setActivePanel(null);
+        setQuickViewDevice(null);
+        setSelectedDevice({ ...device, type });
+        setModalInitialTab('settings');
+        setIsModalOpen(true);
+    }, [activePanel]);
+
+    /**
+     * Hitung netwatch host count untuk router yang lagi di-quick-view.
+     * Dipakai oleh RouterDetailPanel sebagai prop.
+     */
+    const quickViewNetwatchCount = useMemo(() => {
+        if (activePanel !== 'router' || !quickViewDevice?.id) return 0;
+        const group = stableNetwatchData?.find?.((g) => g.routerId === quickViewDevice.id);
+        return Array.isArray(group?.entries) ? group.entries.length : 0;
+    }, [activePanel, quickViewDevice, stableNetwatchData]);
+
     const handlePickCoordinate = useCallback((pos) => {
         if (!selectedDevice) return;
 
@@ -1451,7 +1496,7 @@ const NetworkMap = ({
                     />
                     <DevicePopup
                         node={{ ...router, deviceType: 'router' }}
-                        onEdit={(node, tab) => handleDeviceClick(node, 'router', tab)}
+                        onEdit={(node) => handleQuickView(node, 'router')}
                         onQuickPing={handleQuickPing}
                     />
                 </MemoizedSmartMarker>
@@ -1549,7 +1594,7 @@ const NetworkMap = ({
                     <DevicePopup
                         node={node}
                         line={line}
-                        onEdit={(n, tab) => handleDeviceClick(n, n.deviceType || 'netwatch', tab)}
+                        onEdit={(n) => handleQuickView(n, n.deviceType === 'router' ? 'router' : 'netwatch')}
                         onArchive={handleArchiveOnu}
                         onQuickPing={handleQuickPing}
                     />
@@ -1614,6 +1659,7 @@ const NetworkMap = ({
         showLabels,
         isEditMode,
         handleDeviceClick,
+        handleQuickView,
         handlePppoeDragEnd,
         updateNetwatchMutation,
         timezone,
@@ -2012,10 +2058,24 @@ const NetworkMap = ({
                     )}
 
                     {/* Quick-view panels — single panel state (panel tidak menumpuk).
-                        Step 4a: AlertPanel. Step 4b nanti tambah Router/Netwatch panel. */}
+                        Klik marker router/netwatch → buka SidePanel.
+                        Tombol "Detail Lengkap" di panel → tutup panel + buka DeviceModal lama. */}
                     <AlertPanel
                         isOpen={activePanel === 'alert'}
                         onClose={() => setActivePanel(null)}
+                    />
+                    <RouterDetailPanel
+                        isOpen={activePanel === 'router'}
+                        onClose={handleCloseQuickView}
+                        router={activePanel === 'router' ? quickViewDevice : null}
+                        netwatchCount={quickViewNetwatchCount}
+                        onEditFull={handleQuickViewEditFull}
+                    />
+                    <NetwatchDetailPanel
+                        isOpen={activePanel === 'netwatch'}
+                        onClose={handleCloseQuickView}
+                        netwatch={activePanel === 'netwatch' ? quickViewDevice : null}
+                        onEditFull={handleQuickViewEditFull}
                     />
 
                     {/* Trash confirmation — 3 options (ONU only / Netwatch only / Both) */}
