@@ -1118,7 +1118,9 @@ const NetworkMap = ({
      */
     const handleQuickView = useCallback((device, type) => {
         if (type !== 'router' && type !== 'netwatch') return;
-        setQuickViewDevice(device);
+        // Stamp deviceType ke device supaya handleQuickViewEditFull bisa derive
+        // type konsisten dari data (per H1 fix — tidak depend ke activePanel state).
+        setQuickViewDevice({ ...device, deviceType: type });
         setActivePanel(type);
     }, []);
 
@@ -1130,15 +1132,20 @@ const NetworkMap = ({
     /**
      * Bridge: klik "Detail Lengkap" di SidePanel → tutup panel + buka DeviceModal
      * existing. Tidak ubah DeviceModal logic — preserve edit/save/delete flow.
+     *
+     * Per code-review H1: derive `type` dari `device.deviceType` (data) bukan
+     * `activePanel` state — supaya tidak stale closure saat panel transition
+     * (race condition antara close + click button).
      */
     const handleQuickViewEditFull = useCallback((device) => {
-        const type = activePanel === 'router' ? 'router' : 'netwatch';
+        if (!device) return;
+        const type = device.deviceType === 'router' ? 'router' : 'netwatch';
         setActivePanel(null);
         setQuickViewDevice(null);
         setSelectedDevice({ ...device, type });
         setModalInitialTab('settings');
         setIsModalOpen(true);
-    }, [activePanel]);
+    }, []);
 
     /**
      * Hitung netwatch host count untuk router yang lagi di-quick-view.

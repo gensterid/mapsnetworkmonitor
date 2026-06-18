@@ -9,6 +9,7 @@
  *   - Panel tidak menumpuk (parent state manage single active panel)
  */
 export { SidePanel, default as SidePanelDefault } from './SidePanel';
+export { MetricCard } from './MetricCard';
 export { AlertPanel } from './AlertPanel';
 export { RouterDetailPanel } from './RouterDetailPanel';
 export { NetwatchDetailPanel } from './NetwatchDetailPanel';

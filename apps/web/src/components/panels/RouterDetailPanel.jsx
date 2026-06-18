@@ -3,7 +3,8 @@ import clsx from 'clsx';
 import { Router, Cpu, MemoryStick, Clock, Activity, Users, Edit, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
-import { useRouterMetrics, useRouterPppActive, useAppTimezone } from '@/hooks';
+import MetricCard from './MetricCard';
+import { useRouterMetrics, useRouterPppActive } from '@/hooks';
 import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
 
 /**
@@ -28,46 +29,36 @@ import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
  */
 
 /**
- * @param {{ label: string, value: string | number, sub?: string, icon: React.ComponentType, accent?: 'primary' | 'online' | 'offline' | 'issue' }} props
+ * Format detik uptime jadi tampilan ringkas Bahasa Indonesia.
+ * Per code-review M2: pakai label konsisten (hari/jam/menit) supaya tidak
+ * ambigu dengan suffix "h" yang bisa salah baca sebagai "hours".
  */
-function MetricCard({ label, value, sub, icon: Icon, accent = 'primary' }) {
-    const colorMap = {
-        primary: 'text-primary bg-primary/10',
-        online: 'text-status-online bg-status-online/10',
-        offline: 'text-status-offline bg-status-offline/10',
-        issue: 'text-status-issue bg-status-issue/10',
-    };
-    return (
-        <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1.5">
-                <div className={clsx('w-6 h-6 rounded flex items-center justify-center', colorMap[accent])}>
-                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">{label}</span>
-            </div>
-            <div className="text-xl font-bold text-fg">{value}</div>
-            {sub && <div className="text-xs text-fg-muted mt-0.5">{sub}</div>}
-        </div>
-    );
-}
-
 function formatUptime(seconds) {
     if (!seconds || seconds < 0) return '—';
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    if (days > 0) return `${days}h ${hours}j`;
-    if (hours > 0) return `${hours}j ${minutes}m`;
-    return `${minutes}m`;
+    if (days > 0) return `${days} hari ${hours} jam`;
+    if (hours > 0) return `${hours} jam ${minutes} menit`;
+    return `${minutes} menit`;
 }
 
+/**
+ * Parse string uptime MikroTik "1w2d3h4m5s" jadi detik.
+ * Per code-review M1: pakai anchor ^...$ + reject pattern yang semua group
+ * kosong. Sebelumnya regex tanpa anchor match string apapun jadi "0m".
+ */
 function parseUptimeString(uptime) {
     if (typeof uptime === 'number') return uptime;
     if (typeof uptime !== 'string') return null;
-    // MikroTik format: "1w2d3h4m5s" — parse roughly
-    const match = uptime.match(/(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/);
+    const trimmed = uptime.trim();
+    if (!trimmed) return null;
+    const match = trimmed.match(/^(?:(\d+)w)?(?:(\d+)d)?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
     if (!match) return null;
-    const [, w = 0, d = 0, h = 0, m = 0, s = 0] = match.map((v) => (v ? Number(v) : 0));
+    // Kalau semua capture group undefined, berarti input tidak match format.
+    const groups = match.slice(1);
+    if (groups.every((v) => v === undefined)) return null;
+    const [w = 0, d = 0, h = 0, m = 0, s = 0] = groups.map((v) => (v ? Number(v) : 0));
     return w * 604800 + d * 86400 + h * 3600 + m * 60 + s;
 }
 

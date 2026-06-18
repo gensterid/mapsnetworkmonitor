@@ -3,6 +3,7 @@ import clsx from 'clsx';
 import { Wifi, Activity, Clock, AlertTriangle, Edit, Router as RouterIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
+import MetricCard from './MetricCard';
 import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
 import { useAppTimezone } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
@@ -25,31 +26,6 @@ import { formatShortDateTime } from '@/lib/timezone';
  *   - netwatch prop berisi semua field yang dibutuhkan dari NetworkMap parent
  *   - Tidak fetch sendiri (low-frequency data, sudah ada di stableNetwatchData)
  */
-
-/**
- * @param {{ label: string, value: string | number, icon: React.ComponentType, accent?: string, sub?: string }} props
- */
-function MetricCard({ label, value, icon: Icon, accent = 'primary', sub }) {
-    const colorMap = {
-        primary: 'text-primary bg-primary/10',
-        online: 'text-status-online bg-status-online/10',
-        offline: 'text-status-offline bg-status-offline/10',
-        issue: 'text-status-issue bg-status-issue/10',
-        unknown: 'text-status-unknown bg-status-unknown/10',
-    };
-    return (
-        <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3">
-            <div className="flex items-center gap-2 mb-1.5">
-                <div className={clsx('w-6 h-6 rounded flex items-center justify-center', colorMap[accent])}>
-                    <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">{label}</span>
-            </div>
-            <div className="text-xl font-bold text-fg">{value}</div>
-            {sub && <div className="text-xs text-fg-muted mt-0.5">{sub}</div>}
-        </div>
-    );
-}
 
 function latencyAccent(latencyMs) {
     if (latencyMs === null || latencyMs === undefined) return 'unknown';
