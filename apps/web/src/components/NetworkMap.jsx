@@ -1137,13 +1137,13 @@ const NetworkMap = ({
      * `activePanel` state — supaya tidak stale closure saat panel transition
      * (race condition antara close + click button).
      */
-    const handleQuickViewEditFull = useCallback((device) => {
+    const handleQuickViewEditFull = useCallback((device, initialTab = 'settings') => {
         if (!device) return;
         const type = device.deviceType === 'router' ? 'router' : 'netwatch';
         setActivePanel(null);
         setQuickViewDevice(null);
         setSelectedDevice({ ...device, type });
-        setModalInitialTab('settings');
+        setModalInitialTab(initialTab);
         setIsModalOpen(true);
     }, []);
 
@@ -1503,7 +1503,7 @@ const NetworkMap = ({
                     />
                     <DevicePopup
                         node={{ ...router, deviceType: 'router' }}
-                        onEdit={(node) => handleQuickView(node, 'router')}
+                        onEdit={() => handleQuickView({ ...router, deviceType: 'router' }, 'router')}
                         onQuickPing={handleQuickPing}
                     />
                 </MemoizedSmartMarker>
