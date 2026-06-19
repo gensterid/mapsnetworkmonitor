@@ -91,6 +91,10 @@ import { calculatePathLength, formatDistance } from '@/lib/geo';
 
 
 
+// Status string yang considered "down" untuk cluster refresh hash.
+// Set untuk O(1) lookup vs Array.includes O(n) (perf audit L-2).
+const DOWN_STATUSES = new Set(['down', 'offline', 'lost', 'power_down', 'dying_gasp']);
+
 /**
  * Walk up parent chain via connectedToId untuk find inherited interface.
  * Top-level function (M-3): sebelumnya inline closure di dalam mapData
@@ -1138,12 +1142,15 @@ const NetworkMap = ({
         ...(mapData.pppoeNodes || [])
     ], [mapData.routers, mapData.nodes, mapData.pppoeNodes]);
 
-    // Force cluster refresh when down counts change
+    // Force cluster refresh when down counts change.
+    // Per perf audit L-2: pakai Set untuk O(1) lookup vs Array.includes O(n).
+    // Marginal tapi nyata di 500+ marker × 5-status array per iteration.
     const downHash = useMemo(() => {
-        return allMarkers.reduce((acc, m) => {
-            const isDown = ['down', 'offline', 'lost', 'power_down', 'dying_gasp'].includes(m.status);
-            return acc + (isDown ? 1 : 0);
-        }, 0);
+        let count = 0;
+        for (const m of allMarkers) {
+            if (DOWN_STATUSES.has(m.status)) count++;
+        }
+        return count;
     }, [allMarkers]);
 
     // Handlers
@@ -1878,8 +1885,14 @@ const NetworkMap = ({
             const rxRateThrottled = stats?.rx || line.rxRate || 0;
 
             return (
+                // Key sengaja TIDAK include enableAnimation (per perf audit H-3).
+                // Sebelumnya force REMOUNT (Leaflet polyline destroyed + recreated
+                // + flash visual) tiap toggle animation. enableAnimation di-pass
+                // sebagai prop biasa → MemoizedNetworkLine RE-RENDER (preserve
+                // polyline element, update style). areLinesEqual line 269 sudah
+                // compare enableAnimation jadi memo tetap kerja correct.
                 <MemoizedNetworkLine
-                    key={`line-${line.id}-${enableAnimation}`}
+                    key={`line-${line.id}`}
                     line={line}
                     txRate={txRateThrottled}
                     rxRate={rxRateThrottled}
