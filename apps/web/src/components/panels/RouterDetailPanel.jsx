@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import clsx from 'clsx';
-import { Router, Cpu, MemoryStick, Clock, Activity, Users, Edit, ExternalLink } from 'lucide-react';
+import { Router, Cpu, MemoryStick, Clock, Activity, Users, Edit, ExternalLink, Wifi, Bell, AlertCircle, AlertOctagon, AlertTriangle, Info } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
 import MetricCard from './MetricCard';
-import { useRouterMetrics, useRouterPppActive } from '@/hooks';
-import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
+import { useRouterMetrics, useRouterPppActive, useRouterHotspotActive, useAlerts, useAppTimezone } from '@/hooks';
+import { formatShortDateTime } from '@/lib/timezone';
+import { mapToStatus, STATUS_CLASSES, STATUS_LABELS, severityToStatus } from '@/constants/status';
 
 /**
  * RouterDetailPanel — Quick view router stats saat klik marker di map.
@@ -62,10 +63,35 @@ function parseUptimeString(uptime) {
     return w * 604800 + d * 86400 + h * 3600 + m * 60 + s;
 }
 
+// Severity → icon mapping untuk Recent Alerts list (consistent dengan AlertPanel).
+const SEVERITY_ICONS = {
+    critical: AlertOctagon,
+    high: AlertTriangle,
+    warning: AlertTriangle,
+    medium: AlertCircle,
+    low: Info,
+    info: Info,
+};
+
+function severityIconFor(sev) {
+    return SEVERITY_ICONS[String(sev || '').toLowerCase()] || Info;
+}
+
 export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, onEditFull }) {
     const routerId = router?.id;
+    const timezone = useAppTimezone();
     const { data: metrics } = useRouterMetrics(routerId, { enabled: isOpen && !!routerId });
     const { data: pppActive } = useRouterPppActive(routerId, { enabled: isOpen && !!routerId });
+    const { data: hotspotActive } = useRouterHotspotActive(routerId, {
+        enabled: isOpen && !!routerId,
+        refetchInterval: false, // panel quick-view, no polling
+    });
+    // Recent alerts: ambil 50 terbaru lalu filter by routerId client-side.
+    // useAlerts cached + polling 30s — share cache dengan AlertPanel (kalau pernah dibuka).
+    const { data: alertsResp } = useAlerts(
+        { limit: 50, sortOrder: 'desc' },
+        { enabled: isOpen && !!routerId },
+    );
 
     const status = mapToStatus(router?.status);
     const statusLabel = STATUS_LABELS[status];
@@ -93,6 +119,20 @@ export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, 
     }, [metrics, router]);
 
     const pppActiveCount = Array.isArray(pppActive) ? pppActive.length : 0;
+    const hotspotActiveCount = Array.isArray(hotspotActive) ? hotspotActive.length : 0;
+
+    // Filter alerts untuk router ini + ambil 3 paling baru
+    const recentAlerts = useMemo(() => {
+        if (!routerId) return [];
+        const raw = Array.isArray(alertsResp)
+            ? alertsResp
+            : Array.isArray(alertsResp?.data)
+              ? alertsResp.data
+              : Array.isArray(alertsResp?.alerts)
+                ? alertsResp.alerts
+                : [];
+        return raw.filter((a) => a.routerId === routerId).slice(0, 3);
+    }, [alertsResp, routerId]);
 
     if (!router) return null;
 
@@ -186,7 +226,7 @@ export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, 
 
                 {/* Connected entities */}
                 <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-2">Konektivitas</div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 mb-4">
                     <MetricCard
                         label="Netwatch Host"
                         value={netwatchCount}
@@ -201,7 +241,79 @@ export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, 
                         icon={Users}
                         accent="online"
                     />
+                    <MetricCard
+                        label="Hotspot Aktif"
+                        value={hotspotActiveCount}
+                        sub={hotspotActiveCount > 0 ? 'connected' : null}
+                        icon={Wifi}
+                        accent={hotspotActiveCount > 0 ? 'online' : 'unknown'}
+                    />
                 </div>
+
+                {/* Recent Alerts — tampil kalau ada alert untuk router ini */}
+                {recentAlerts.length > 0 && (
+                    <>
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">
+                                Alert Terkini
+                            </div>
+                            <Link
+                                to={`/alerts?routerId=${router.id}`}
+                                onClick={onClose}
+                                className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline"
+                            >
+                                Lihat Semua →
+                            </Link>
+                        </div>
+                        <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3 space-y-2.5">
+                            {recentAlerts.map((alert, idx) => {
+                                const status = severityToStatus(alert.severity);
+                                const colors = STATUS_CLASSES[status];
+                                const SevIcon = severityIconFor(alert.severity);
+                                return (
+                                    <div
+                                        key={alert.id ?? `${alert.title}-${idx}`}
+                                        className={clsx(
+                                            'flex items-start gap-2.5',
+                                            idx > 0 && 'pt-2.5 border-t border-slate-border/40',
+                                        )}
+                                    >
+                                        <div
+                                            className={clsx(
+                                                'w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0',
+                                                colors.bg,
+                                            )}
+                                        >
+                                            <SevIcon className={clsx('w-3.5 h-3.5', colors.text)} aria-hidden="true" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-start gap-2">
+                                                <p className="text-xs font-semibold text-fg leading-tight flex-1 line-clamp-2">
+                                                    {alert.title || alert.message || 'Alert tanpa judul'}
+                                                </p>
+                                                <span
+                                                    className={clsx(
+                                                        'text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0',
+                                                        colors.bg,
+                                                        colors.text,
+                                                    )}
+                                                >
+                                                    {alert.severity || 'info'}
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-1 text-[10px] text-fg-muted">
+                                                <Bell className="w-2.5 h-2.5" aria-hidden="true" />
+                                                <time dateTime={alert.createdAt}>
+                                                    {alert.createdAt ? formatShortDateTime(alert.createdAt, timezone) : '—'}
+                                                </time>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </>
+                )}
             </div>
         </SidePanel>
     );
