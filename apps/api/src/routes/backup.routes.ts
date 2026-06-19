@@ -14,23 +14,46 @@ const router = Router();
 router.use(authMiddleware);
 
 /**
- * Log audit entry untuk backup operation. Best-effort — kalau write
- * gagal, JANGAN block actual operation. Operator superadmin tetap
- * dapat hasil action, hanya audit trail yang missing untuk entry itu.
+ * Log audit entry untuk backup operation.
  *
- * Per code-review note: backup destructive ops (restore, delete,
- * trigger, export) butuh tamper-evident trail untuk forensic /
- * incident investigation. logger.info (pino) bukan audit store.
+ * Best-effort: kalau write fail, JANGAN block actual operation.
+ * Pino structured log catat outcome destructive ops sebagai
+ * tamper-evident fallback di file system (di luar DB).
+ *
+ * Convention action:
+ *   'create' / 'restore' / 'delete' / 'export'           — success
+ *   'create.failed' / 'restore.failed' / 'delete.failed' — failure
+ *   ('export.failed' tidak di-log — failure terjadi sebelum response,
+ *    pino logger.error sudah catat)
+ *
+ * Design notes:
+ * - `tenantId` SENGAJA tidak di-set: backup ops cross-tenant (superadmin
+ *   scope). Filtering by single tenant tidak applicable.
+ * - Same-DB audit storage limitation: kalau restore success overwrite
+ *   ke backup older yang tidak include audit entry itu, trail-nya
+ *   hilang dari `audit_logs` table. Pino stream `Restore completed`
+ *   di file system tetap ada sebagai forensic fallback (assuming
+ *   pino log file tidak juga di-overwrite).
+ * - req.ip baca X-Forwarded-For[0] karena `app.set('trust proxy', 1)`
+ *   di index.ts. Nginx deployment required untuk reliability — kalau
+ *   deploy direct (no proxy), req.ip bisa di-spoof. Per project deploy
+ *   doc (Nginx + PM2 di VPS), assumption valid.
  */
 async function logBackupAudit(
     req: Request,
-    action: 'create' | 'restore' | 'delete' | 'export',
+    action:
+        | 'create'
+        | 'restore'
+        | 'delete'
+        | 'export'
+        | 'create.failed'
+        | 'restore.failed'
+        | 'delete.failed',
     details: Record<string, unknown> = {},
 ): Promise<void> {
     try {
-        const userId = (req as any).user?.id ?? null;
         await auditRepository.create({
-            userId,
+            userId: req.user?.id ?? null,
             action,
             entity: 'backup',
             details,
@@ -145,6 +168,11 @@ router.post('/import', uploadLimiter, requireRole('superadmin'), upload.single('
         res.json({ message: 'Database restored successfully' });
     } catch (error) {
         logger.error({ err: error }, 'Import error');
+        await logBackupAudit(req, 'restore.failed', {
+            source: 'upload',
+            filename: file.originalname,
+            size: file.size,
+        });
         res.status(500).json({ error: 'Failed to restore database' });
     }
 });
@@ -172,6 +200,7 @@ router.post('/trigger-manual', requireRole('superadmin'), async (req, res) => {
     } catch (error: any) {
         // Sama dengan /export — error message bisa leak DATABASE_URL ke client.
         logger.error({ err: error }, 'Manual trigger error');
+        await logBackupAudit(req, 'create.failed', {});
         res.status(500).json({ error: 'Failed to trigger backup' });
     }
 });
@@ -185,6 +214,7 @@ router.delete('/:filename', requireRole('superadmin'), async (req, res) => {
         res.json({ message: 'Backup deleted successfully' });
     } catch (error: any) {
         logger.error({ err: error, filename }, 'Delete backup error');
+        await logBackupAudit(req, 'delete.failed', { filename });
         res.status(500).json({ error: 'Failed to delete backup' });
     }
 });
@@ -200,6 +230,7 @@ router.post('/restore-local/:filename', requireRole('superadmin'), async (req, r
         // Sama dengan /export — error message bisa leak DATABASE_URL atau path
         // structure internal. Log detail server-side, return generic.
         logger.error({ err: error, filename }, 'Restore local error');
+        await logBackupAudit(req, 'restore.failed', { source: 'local', filename });
         res.status(500).json({ error: 'Failed to restore database' });
     }
 });
