@@ -625,6 +625,15 @@ const NetworkMap = ({
         },
     });
 
+    // Stable ref untuk mutate function (perf review C-1 follow-up).
+    // Sebelumnya updatePppoeMutation di handlePppoeDragEnd deps → handler
+    // identity flap tiap render → pppoeMarkers recompute tiap render meski
+    // data tidak ganti. Sama pattern dengan updateNetwatchMutateRef (M-1).
+    const updatePppoeMutateRef = useRef(updatePppoeMutation.mutate);
+    useEffect(() => {
+        updatePppoeMutateRef.current = updatePppoeMutation.mutate;
+    });
+
     // Mutation for archiving ONU (soft-delete). Auto-restored if SN reappears in OLT polling.
     const archiveOnuMutation = useMutation({
         mutationFn: async ({ oltId, onuId }) => {
@@ -1482,16 +1491,16 @@ const NetworkMap = ({
     };
 
     const handlePppoeDragEnd = useCallback((pppoe, newPos) => {
-        // Update local cache or optimistically update?
-        // Better to trigger mutation
-        updatePppoeMutation.mutate({
+        // Better to trigger mutation. Pakai ref (perf review C-1 follow-up)
+        // supaya identity stable + pppoeMarkers tidak recompute spurious.
+        updatePppoeMutateRef.current({
             pppoeId: pppoe.id,
             data: {
                 latitude: String(newPos[0]),
                 longitude: String(newPos[1])
             }
         });
-    }, [updatePppoeMutation]);
+    }, []);
 
     const handleToggleLabels = useCallback(() => {
         setShowLabels(prev => {
