@@ -32,7 +32,11 @@ export function MapStatusFilter({ value = 'all', onChange, counts }) {
         <div
             role="radiogroup"
             aria-label="Filter status marker"
-            className="absolute top-4 left-16 right-4 lg:right-auto z-[1000] flex items-center gap-1 bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl p-1 overflow-x-auto custom-scrollbar"
+            // Mobile: end at right-24 (96px) untuk beri ruang Fullscreen
+            // (right-14 w-9) + Hamburger (right-4 w-9) MapControls — kalau
+            // tidak, filter overlap tombol-tombol itu dan chip "Issue" ke-cut.
+            // Desktop (lg+): right-auto, container auto-width sesuai isi.
+            className="absolute top-4 left-16 right-24 lg:right-auto z-[1000] flex items-center gap-1 bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl p-1 overflow-x-auto custom-scrollbar"
         >
             {FILTERS.map((f) => {
                 const isActive = value === f.value;

@@ -77,7 +77,11 @@ export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertCli
         <div
             role="status"
             aria-label="Router status counter"
-            className="absolute top-4 right-4 z-[1000] bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl overflow-hidden"
+            // Mobile: top-16 right-4 → render di BARIS 2 supaya tidak overlap
+            // dengan tombol Fullscreen + Hamburger di top-4 right-4/right-14
+            // (sebelumnya Counter ketutup hamburger karena z-index sama).
+            // Desktop: top-4 right-4 normal (sidebar slim 64px, ruang luas).
+            className="absolute top-16 right-4 lg:top-4 z-[1000] bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl overflow-hidden"
             style={{ minWidth: collapsed ? '0' : '200px' }}
         >
             {/* Collapsed mode: cuma summary 1 baris kecil */}
