@@ -602,7 +602,9 @@ svg.leaflet-zoom-animated {
 }
 
 .map-fab__item-btn--odp {
-    background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%);
+    /* ODP brand orange (mapColors.odp = #f97316) — sebelumnya pakai amber-500
+       yang kena replace_all status color refactor. Restore ke brand orange. */
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
 }
 
 .map-fab__item-btn--client {
