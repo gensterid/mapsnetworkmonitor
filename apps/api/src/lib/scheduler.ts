@@ -612,27 +612,29 @@ async function cleanupOldMetrics(): Promise<void> {
             logger.info({ tenantId: tenant.id }, '✅ Tenant database maintenance complete');
         }
 
-        // 7. Global audit log cleanup (cross-tenant entries dengan tenantId=NULL).
-        // Backup ops (export/restore/delete/create) di-audit dengan tenantId=NULL
-        // karena scope superadmin. Per-tenant retention loop di atas SKIP entries
-        // ini (`eq(tenantId, tenant.id)` filter). Tanpa cleanup terpisah → tabel
-        // grow unbounded. Default retention sama dengan per-tenant default (365d).
+        // Post-loop: Global audit log cleanup (cross-tenant entries dengan
+        // tenantId=NULL). Backup ops (export/restore/delete/create) di-audit
+        // dengan tenantId=NULL karena scope superadmin. Per-tenant retention
+        // loop di atas SKIP entries ini (`eq(tenantId, tenant.id)` filter).
+        // Tanpa cleanup terpisah → tabel grow unbounded. Default retention
+        // sama dengan per-tenant default (365d).
+        //
+        // Pattern match per-tenant delete di atas (line 585): TIDAK pakai
+        // `.returning()` untuk avoid memory spike kalau ada banyak row
+        // ke-delete (per code-review e2b52f0 finding MEDIUM).
         const globalAuditRetention = Number(process.env.GLOBAL_AUDIT_RETENTION_DAYS) || 365;
         const globalAuCutoff = new Date();
         globalAuCutoff.setDate(globalAuCutoff.getDate() - globalAuditRetention);
 
-        const globalDeleted = await db.delete(auditLogs)
-            .where(and(isNull(auditLogs.tenantId), lt(auditLogs.createdAt, globalAuCutoff)))
-            .returning({ id: auditLogs.id });
+        await db.delete(auditLogs)
+            .where(and(isNull(auditLogs.tenantId), lt(auditLogs.createdAt, globalAuCutoff)));
 
-        if (globalDeleted.length > 0) {
-            logger.info(
-                { count: globalDeleted.length, retentionDays: globalAuditRetention },
-                '✅ Global (cross-tenant) audit logs cleaned up',
-            );
-        }
+        logger.info(
+            { retentionDays: globalAuditRetention },
+            '✅ Global (cross-tenant) audit logs cleanup ran',
+        );
 
-        // 8. Ensure future partitions exist
+        // Ensure future partitions exist
         await partitionService.ensurePartitionsExist();
     } catch (error) {
         logger.error({ err: error }, 'Database maintenance cleanup error');
