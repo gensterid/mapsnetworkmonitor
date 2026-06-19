@@ -1,4 +1,4 @@
-import React, { useEffect, useId } from 'react';
+import React, { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { X } from 'lucide-react';
@@ -16,9 +16,12 @@ import { X } from 'lucide-react';
  *   - Portal ke document.body (escape ancestor transform/overflow)
  *   - ESC key + backdrop click → close (toggleable via dismissible)
  *   - Body scroll lock saat open
- *   - Focus trap untuk a11y (browser default tab cycle dalam modal area)
  *   - Optional footer slot (sticky bottom dengan border-top)
  *   - Size variants (sm/md/lg/xl/fullscreen) atau custom maxWidth
+ *
+ * A11y note: focus trap TIDAK di-implement (browser default tab cycle bisa
+ * keluar dari modal). Untuk modal kritis dengan banyak focusable element,
+ * pertimbangkan tambah focus-trap-react atau focus management manual.
  *
  * Props:
  *   isOpen: boolean — control visibility
@@ -68,11 +71,21 @@ export const Modal = ({
     const titleId = useId();
     const visible = isOpen ?? open ?? false;
 
+    // Stale closure fix (per code-review HIGH): wrap onClose di ref supaya
+    // tidak masuk effect deps. Sebelumnya `[visible, dismissible, onClose]`
+    // → setiap parent re-render (umumnya inline arrow), effect tear down
+    // + re-attach + prevOverflow re-capture jadi 'hidden' alih-alih nilai
+    // asli → body scroll terkunci permanen setelah modal close.
+    const onCloseRef = useRef(onClose);
+    useEffect(() => {
+        onCloseRef.current = onClose;
+    });
+
     useEffect(() => {
         if (!visible) return;
 
         const handleEscape = (e) => {
-            if (e.key === 'Escape' && dismissible) onClose();
+            if (e.key === 'Escape' && dismissible) onCloseRef.current();
         };
         document.addEventListener('keydown', handleEscape);
         // Lock body scroll
@@ -83,15 +96,19 @@ export const Modal = ({
             document.removeEventListener('keydown', handleEscape);
             document.body.style.overflow = prevOverflow;
         };
-    }, [visible, dismissible, onClose]);
+    }, [visible, dismissible]);
 
     if (!visible) return null;
 
     const widthClass = maxWidth || SIZE_CLASSES[size] || SIZE_CLASSES.md;
 
     return createPortal(
+        // z-[1200] supaya di ATAS SidePanel (z-1110) + AlertPanel.
+        // Di BAWAH Sidebar mobile drawer (z-2001) + SettingsFlyout (z-2060)
+        // — kalau Sidebar drawer terbuka, user harus close itu dulu untuk
+        // buka Modal. Hindari deadlock visual.
         <div
-            className="fixed inset-0 z-[1000] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm dl-backdrop-in"
+            className="fixed inset-0 z-[1200] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm dl-backdrop-in"
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
