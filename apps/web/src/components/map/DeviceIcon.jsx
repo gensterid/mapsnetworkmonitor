@@ -215,11 +215,18 @@ export const createEditHandleIcon = (isNew = false) => {
     });
 };
 
-// Helper to escape HTML
+// Helper to escape HTML — lookup table replace alih-alih
+// document.createElement (per perf audit H-2: eliminates 500 DOM allocs
+// per polling cycle saat marker icon re-compute).
+const HTML_ESCAPE_MAP = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+};
 function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    return String(str == null ? '' : str).replace(/[&<>"']/g, (c) => HTML_ESCAPE_MAP[c]);
 }
 
 export default {

@@ -6,7 +6,6 @@ import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
-import useDeepCompareMemoize from '@/hooks/useDeepCompareMemoize';
 import { mapToStatus, STATUS } from '@/constants/status';
 import { AlertPanel, RouterDetailPanel, NetwatchDetailPanel } from '@/components/panels';
 import '@/lib/GoogleMutant';
@@ -91,6 +90,28 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { calculatePathLength, formatDistance } from '@/lib/geo';
 
 
+
+/**
+ * Walk up parent chain via connectedToId untuk find inherited interface.
+ * Top-level function (M-3): sebelumnya inline closure di dalam mapData
+ * useMemo hot loop → recreated per node × per recomputation. Top-level
+ * pure function: stable identity, no allocation overhead.
+ *
+ * Plus tambah visited Set untuk cycle guard — kalau ada circular
+ * connectedToId di config (mis. A → B → A), sebelumnya stack overflow.
+ */
+function findInheritedInterfaceFor(node, deviceMap, visited = new Set()) {
+    if (!node || visited.has(node.id)) return null;
+    visited.add(node.id);
+    if (node.targetInterface) {
+        return { iface: node.targetInterface, device: node.name || node.host };
+    }
+    if (node.connectionType === 'client' && node.connectedToId) {
+        const parent = deviceMap.get(node.connectedToId);
+        if (parent) return findInheritedInterfaceFor(parent, deviceMap, visited);
+    }
+    return null;
+}
 
 const NetworkMap = ({
     routerId: filteredRouterId = null,
@@ -183,11 +204,22 @@ const NetworkMap = ({
     });
 
     // Stable Data Memoization
-    const stableRoutersData = useDeepCompareMemoize(routersData);
-    const stableNetwatchData = useDeepCompareMemoize(netwatchOverride || netwatchData);
-    const stablePppoeData = useDeepCompareMemoize(pppoeData);
-    const stableOnusMapData = useDeepCompareMemoize(onusMapData);
-    const stableRealtimeTraffic = useDeepCompareMemoize(realtimeTraffic);
+    // Per perf audit H-1: hapus `useDeepCompareMemoize` (5× O(n) deep walks
+    // per render). TanStack Query v5 default `structuralSharing: true`
+    // sudah preserve referential identity saat data unchanged via JSON
+    // diff at query layer. Wrapping di sini cuma duplicate effort + jadi
+    // bottleneck saat 1000+ entries (netwatch).
+    //
+    // `netwatchOverride || netwatchData` di useMemo supaya fallback tidak
+    // bikin new identity tiap render.
+    const stableRoutersData = routersData;
+    const stableNetwatchData = useMemo(
+        () => netwatchOverride || netwatchData,
+        [netwatchOverride, netwatchData],
+    );
+    const stablePppoeData = pppoeData;
+    const stableOnusMapData = onusMapData;
+    const stableRealtimeTraffic = realtimeTraffic;
 
     // Unread alert count untuk FloatingStatusCounter.
     const { data: alertCount } = useUnreadAlertCount();
@@ -493,6 +525,15 @@ const NetworkMap = ({
             queryClient.invalidateQueries({ queryKey: ['netwatch-all'] });
             toast.success('Device configuration saved successfully.');
         },
+    });
+
+    // Stable ref ke mutate function — per perf audit M-1.
+    // updateNetwatchMutation object identity berubah tiap render → masuk
+    // ke `markers` useMemo deps bikin recompute semua marker (500+) tiap
+    // render, bukan cuma saat data berubah.
+    const updateNetwatchMutateRef = useRef(updateNetwatchMutation.mutate);
+    useEffect(() => {
+        updateNetwatchMutateRef.current = updateNetwatchMutation.mutate;
     });
 
     // Mutation for updating router
@@ -1019,18 +1060,14 @@ const NetworkMap = ({
                 let trafficSourceDevice = null;
 
                 if (!trafficInterface && node.type !== 'pppoe') {
-                    const findInheritedInterface = (currentNode) => {
-                        if (currentNode.targetInterface) return { iface: currentNode.targetInterface, device: currentNode.name || currentNode.host };
-                        if (currentNode.connectionType === 'client' && currentNode.connectedToId) {
-                            const parent = deviceMap.get(currentNode.connectedToId);
-                            if (parent) return findInheritedInterface(parent);
-                        }
-                        return null;
-                    };
+                    // Per perf audit M-3: closure was being recreated per
+                    // node iteration. Use top-level walk dengan visited
+                    // Set untuk cycle guard (kalau ada circular connectedToId
+                    // di config bermasalah, sebelumnya stack overflow).
                     if (node.connectionType === 'client' && node.connectedToId) {
                         const parent = deviceMap.get(node.connectedToId);
                         if (parent) {
-                            const result = findInheritedInterface(parent);
+                            const result = findInheritedInterfaceFor(parent, deviceMap);
                             if (result) {
                                 trafficInterface = result.iface;
                                 trafficSourceDevice = result.device;
@@ -1148,14 +1185,29 @@ const NetworkMap = ({
     }, []);
 
     /**
+     * Index netwatch group by routerId — Map untuk O(1) lookup.
+     * Per perf audit M-2: sebelumnya `.find()` di quickViewNetwatchCount
+     * dijalankan O(n) tiap render → mahal saat 50+ router groups dengan
+     * 100+ entries per group, especially saat hoverTick fires (traffic
+     * update tiap detik kalau live mode on).
+     */
+    const netwatchByRouterId = useMemo(() => {
+        const m = new Map();
+        (stableNetwatchData || []).forEach((g) => {
+            if (g?.routerId) m.set(g.routerId, g);
+        });
+        return m;
+    }, [stableNetwatchData]);
+
+    /**
      * Hitung netwatch host count untuk router yang lagi di-quick-view.
      * Dipakai oleh RouterDetailPanel sebagai prop.
      */
     const quickViewNetwatchCount = useMemo(() => {
         if (activePanel !== 'router' || !quickViewDevice?.id) return 0;
-        const group = stableNetwatchData?.find?.((g) => g.routerId === quickViewDevice.id);
+        const group = netwatchByRouterId.get(quickViewDevice.id);
         return Array.isArray(group?.entries) ? group.entries.length : 0;
-    }, [activePanel, quickViewDevice, stableNetwatchData]);
+    }, [activePanel, quickViewDevice, netwatchByRouterId]);
 
     const handlePickCoordinate = useCallback((pos) => {
         if (!selectedDevice) return;
@@ -1551,7 +1603,7 @@ const NetworkMap = ({
                         // only relocate the ODP itself — the linked ONU stays where the
                         // technician installed it. Same for any non-ONU netwatch entry.
                         if (node.deviceType === 'odp' || node.deviceType === 'client' || node.deviceType === 'pppoe') {
-                            updateNetwatchMutation.mutate({
+                            updateNetwatchMutateRef.current({
                                 routerId: node.routerId,
                                 netwatchId: node.id,
                                 data: payload
@@ -1579,7 +1631,7 @@ const NetworkMap = ({
 
                         // Fallback for any other non-passive netwatch row.
                         if (!node.isPassive && node.deviceType !== 'onu') {
-                            updateNetwatchMutation.mutate({
+                            updateNetwatchMutateRef.current({
                                 routerId: node.routerId,
                                 netwatchId: node.id,
                                 data: payload
@@ -1668,7 +1720,10 @@ const NetworkMap = ({
         handleDeviceClick,
         handleQuickView,
         handlePppoeDragEnd,
-        updateNetwatchMutation,
+        // updateNetwatchMutation dihapus dari deps (M-1): pakai
+        // updateNetwatchMutateRef.current di JSX inline. Sebelumnya
+        // mutation identity berubah tiap render → markers recompute
+        // spurious meski data tidak ganti.
         timezone,
         isHeatmapMode,
         linesByNetwatchId,
