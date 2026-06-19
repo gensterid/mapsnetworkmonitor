@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import clsx from 'clsx';
-import { Bell, ExternalLink, AlertCircle, Info, AlertOctagon, AlertTriangle } from 'lucide-react';
+import { Bell, ExternalLink, AlertCircle, Info, AlertOctagon, AlertTriangle, CheckCheck, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
-import { useAlerts } from '@/hooks';
+import { useAlerts, useAcknowledgeAlert } from '@/hooks';
 import { useAppTimezone } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
 import { severityToStatus, STATUS_CLASSES } from '@/constants/status';
@@ -48,10 +48,11 @@ function severityMeta(sev) {
     return SEVERITY_META[sev] || { label: sev?.toUpperCase() || 'UNKNOWN', icon: Info };
 }
 
-function AlertRow({ alert, timezone }) {
+function AlertRow({ alert, timezone, onAcknowledge, acknowledging }) {
     const status = severityToStatus(alert.severity);
     const colors = STATUS_CLASSES[status];
     const SevIcon = severityMeta(alert.severity?.toLowerCase()).icon;
+    const isAcked = !!alert.acknowledged;
 
     return (
         <div className="px-5 py-3 border-b border-slate-border/50 hover:bg-white/[0.02] transition-colors">
@@ -61,7 +62,12 @@ function AlertRow({ alert, timezone }) {
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-start gap-2 mb-1">
-                        <h4 className="text-sm font-semibold text-fg flex-1 min-w-0 leading-tight">
+                        <h4
+                            className={clsx(
+                                'text-sm font-semibold flex-1 min-w-0 leading-tight',
+                                isAcked ? 'text-fg-muted line-through' : 'text-fg',
+                            )}
+                        >
                             {alert.title || alert.message || 'Alert tanpa judul'}
                         </h4>
                         <span
@@ -79,18 +85,47 @@ function AlertRow({ alert, timezone }) {
                             {alert.message}
                         </p>
                     )}
-                    <div className="flex items-center gap-2 text-[10px] text-fg-muted">
-                        {alert.routerName && (
-                            <>
-                                <span className="font-medium">{alert.routerName}</span>
-                                <span aria-hidden="true">·</span>
-                            </>
+                    <div className="flex items-center justify-between gap-2 text-[10px] text-fg-muted">
+                        <div className="flex items-center gap-2 min-w-0">
+                            {alert.routerName && (
+                                <>
+                                    <span className="font-medium truncate">{alert.routerName}</span>
+                                    <span aria-hidden="true">·</span>
+                                </>
+                            )}
+                            <time dateTime={alert.createdAt} className="shrink-0">
+                                {alert.createdAt
+                                    ? formatShortDateTime(alert.createdAt, timezone)
+                                    : '—'}
+                            </time>
+                        </div>
+
+                        {/* Acknowledge button atau checkmark kalau sudah ack */}
+                        {isAcked ? (
+                            <span
+                                className="flex items-center gap-1 text-status-online shrink-0"
+                                title="Acknowledged"
+                            >
+                                <CheckCircle className="w-3 h-3" aria-hidden="true" />
+                                <span>OK</span>
+                            </span>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => onAcknowledge?.(alert.id)}
+                                disabled={acknowledging}
+                                aria-label="Acknowledge alert"
+                                className={clsx(
+                                    'flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 transition-colors',
+                                    acknowledging
+                                        ? 'bg-slate-surface text-fg-muted cursor-not-allowed'
+                                        : 'bg-status-online/10 text-status-online hover:bg-status-online/20',
+                                )}
+                            >
+                                <CheckCheck className="w-3 h-3" aria-hidden="true" />
+                                {acknowledging ? '...' : 'Ack'}
+                            </button>
                         )}
-                        <time dateTime={alert.createdAt}>
-                            {alert.createdAt
-                                ? formatShortDateTime(alert.createdAt, timezone)
-                                : '—'}
-                        </time>
                     </div>
                 </div>
             </div>
@@ -123,6 +158,23 @@ export function AlertPanel({ isOpen, onClose }) {
             (a) => (a.severity || '').toLowerCase() === severityFilter,
         );
     }, [allAlerts, severityFilter]);
+
+    // Acknowledge mutation — hook ada optimistic update built-in (lihat
+    // hooks/useAlerts.js:99 onMutate). UI langsung update tanpa wait server.
+    const acknowledgeMutation = useAcknowledgeAlert();
+    const [pendingAckId, setPendingAckId] = useState(null);
+    const handleAcknowledge = async (alertId) => {
+        if (!alertId || pendingAckId === alertId) return;
+        setPendingAckId(alertId);
+        try {
+            await acknowledgeMutation.mutateAsync(alertId);
+        } catch {
+            // Mutation handler internal sudah handle error toast/log,
+            // optimistic update auto-rollback.
+        } finally {
+            setPendingAckId(null);
+        }
+    };
 
     // Severity chip dynamic — generate dari data real, jadi backend pakai naming
     // apapun (critical/high/warning/medium/low/info), chip-nya muncul.
@@ -251,7 +303,13 @@ export function AlertPanel({ isOpen, onClose }) {
                 {!isLoading && !isError && filteredAlerts.length > 0 && (
                     <div>
                         {filteredAlerts.map((alert) => (
-                            <AlertRow key={alert.id} alert={alert} timezone={timezone} />
+                            <AlertRow
+                                key={alert.id}
+                                alert={alert}
+                                timezone={timezone}
+                                onAcknowledge={handleAcknowledge}
+                                acknowledging={pendingAckId === alert.id}
+                            />
                         ))}
                     </div>
                 )}
