@@ -11,12 +11,14 @@ import {
     Signal,
     Cable,
     ExternalLink,
+    Users,
+    Laptop,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
 import MetricCard from './MetricCard';
 import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
-import { useAppTimezone } from '@/hooks';
+import { useAppTimezone, useGenieACSDevices } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
 
 /**
@@ -73,6 +75,63 @@ function rxSignalAccent(dBm) {
     return 'offline';
 }
 
+/**
+ * Extract Serial Number dari GenieACS device data structure. Schema TR-098/TR-181.
+ */
+function extractSn(device) {
+    if (!device) return null;
+    return (
+        device.InternetGatewayDevice?.DeviceInfo?.SerialNumber?._value
+        || device.Device?.DeviceInfo?.SerialNumber?._value
+        || device._serialNumber
+        || device.sn
+        || null
+    );
+}
+
+/**
+ * Count WiFi-associated devices (clients) per WLANConfiguration.
+ * Mirror logic dari components/map/AcsTab.jsx getAssociatedDevices().
+ */
+function countWlanClients(wlan) {
+    if (!wlan?.AssociatedDevice) return 0;
+    return Object.keys(wlan.AssociatedDevice).filter(
+        (key) => !key.startsWith('_') && /^\d+$/.test(key) && wlan.AssociatedDevice[key],
+    ).length;
+}
+
+/**
+ * Enumerate WLANConfiguration + count clients per SSID. Return summary
+ * untuk display di panel: { totalClients, enabledWlans }.
+ */
+function summarizeClients(device) {
+    if (!device) return null;
+    const lan = device.InternetGatewayDevice?.LANDevice?.[1] || device.Device?.LANDevice?.[1];
+    if (!lan?.WLANConfiguration) return null;
+
+    let totalClients = 0;
+    const ssidList = [];
+
+    Object.keys(lan.WLANConfiguration).forEach((key) => {
+        if (key.startsWith('_')) return;
+        if (!/^\d+$/.test(key)) return;
+        const wlan = lan.WLANConfiguration[key];
+        if (!wlan) return;
+
+        const enableRaw = wlan.Enable?._value;
+        const enabled = enableRaw === true || enableRaw === 'true' || enableRaw === '1' || enableRaw === 1;
+        const ssid = wlan.SSID?._value || `SSID${key}`;
+        const clients = countWlanClients(wlan);
+
+        if (enabled) {
+            ssidList.push({ ssid, clients, band: parseInt(key) >= 5 ? '5G' : '2.4G' });
+            totalClients += clients;
+        }
+    });
+
+    return { totalClients, ssidList };
+}
+
 export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
     const timezone = useAppTimezone();
 
@@ -103,6 +162,21 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
 
     // ACS shortcut available kalau ada SN + routerId
     const hasAcsContext = !!(netwatch?.sn && netwatch?.routerId);
+
+    // Fetch ACS devices (cached 30s, 5min gc, no polling) untuk count
+    // WiFi clients per ONU. Enabled hanya saat panel open + hasAcsContext
+    // — hindari fetch yang tidak perlu di komponen yang tidak visible.
+    const { data: acsDevices } = useGenieACSDevices(netwatch?.routerId, {
+        enabled: isOpen && hasAcsContext,
+        refetchInterval: false,
+    });
+
+    const acsDevice = useMemo(() => {
+        if (!Array.isArray(acsDevices) || !netwatch?.sn) return null;
+        return acsDevices.find((d) => extractSn(d) === netwatch.sn) ?? null;
+    }, [acsDevices, netwatch?.sn]);
+
+    const clientSummary = useMemo(() => summarizeClients(acsDevice), [acsDevice]);
 
     if (!netwatch) return null;
 
@@ -211,6 +285,77 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
                                 </div>
                             )}
                         </div>
+                        )}
+                    </>
+                )}
+
+                {/* Connected Devices section — derive dari GenieACS data kalau ada.
+                    Total WiFi clients + per-SSID breakdown. Wired LAN clients
+                    tidak di-include (defer ke "Buka Tab ACS" untuk full detail). */}
+                {hasAcsContext && clientSummary && (
+                    <>
+                        <div className="flex items-center justify-between mb-2">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">
+                                Klien Terhubung
+                            </div>
+                            {acsDevice && (
+                                <button
+                                    type="button"
+                                    onClick={() => onEditFull?.(netwatch, 'acs')}
+                                    className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline"
+                                >
+                                    Detail Klien →
+                                </button>
+                            )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mb-3">
+                            <MetricCard
+                                label="Total WiFi"
+                                value={clientSummary.totalClients}
+                                sub={clientSummary.totalClients > 0 ? 'connected' : 'no clients'}
+                                icon={Users}
+                                accent={clientSummary.totalClients > 0 ? 'online' : 'unknown'}
+                            />
+                            <MetricCard
+                                label="SSID Aktif"
+                                value={clientSummary.ssidList.length}
+                                sub={clientSummary.ssidList.length > 0 ? 'broadcasting' : 'all off'}
+                                icon={Wifi}
+                                accent={clientSummary.ssidList.length > 0 ? 'primary' : 'unknown'}
+                            />
+                        </div>
+
+                        {clientSummary.ssidList.length > 0 && (
+                            <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3 space-y-2 mb-4">
+                                {clientSummary.ssidList.map((s, idx) => (
+                                    <div
+                                        key={`${s.ssid}-${idx}`}
+                                        className={clsx(
+                                            'flex items-center justify-between gap-3',
+                                            idx > 0 && 'pt-2 border-t border-slate-border/40',
+                                        )}
+                                    >
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <Wifi className="w-3.5 h-3.5 text-fg-muted shrink-0" aria-hidden="true" />
+                                            <span className="text-xs text-fg truncate font-medium">{s.ssid}</span>
+                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-surface text-fg-muted shrink-0">
+                                                {s.band}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            <Laptop className="w-3 h-3 text-fg-muted" aria-hidden="true" />
+                                            <span
+                                                className={clsx(
+                                                    'text-xs font-bold tabular-nums',
+                                                    s.clients > 0 ? 'text-status-online' : 'text-fg-muted',
+                                                )}
+                                            >
+                                                {s.clients}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         )}
                     </>
                 )}

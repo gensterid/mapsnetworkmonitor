@@ -47,10 +47,15 @@ function StatusPill({ status, count }) {
 export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertClick }) {
     const [collapsed, setCollapsed] = useState(() => {
         try {
-            return localStorage.getItem('map_counter_collapsed') === 'true';
+            const stored = localStorage.getItem('map_counter_collapsed');
+            if (stored !== null) return stored === 'true';
         } catch {
-            return false;
+            // localStorage bisa disabled di incognito strict
         }
+        // Default: collapsed di mobile (lg breakpoint = 1024px) supaya
+        // tidak overlap dengan MapStatusFilter di area top. Operator
+        // expand manual kalau perlu.
+        return typeof window !== 'undefined' && window.innerWidth < 1024;
     });
 
     const toggle = () => {

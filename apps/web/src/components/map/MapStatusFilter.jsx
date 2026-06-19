@@ -32,7 +32,7 @@ export function MapStatusFilter({ value = 'all', onChange, counts }) {
         <div
             role="radiogroup"
             aria-label="Filter status marker"
-            className="absolute top-4 left-16 z-[1000] flex items-center gap-1 bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl p-1"
+            className="absolute top-4 left-16 right-4 lg:right-auto z-[1000] flex items-center gap-1 bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl p-1 overflow-x-auto custom-scrollbar"
         >
             {FILTERS.map((f) => {
                 const isActive = value === f.value;
@@ -49,7 +49,7 @@ export function MapStatusFilter({ value = 'all', onChange, counts }) {
                         aria-checked={isActive}
                         onClick={() => onChange(f.value)}
                         className={clsx(
-                            'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all',
+                            'inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-bold transition-all shrink-0 whitespace-nowrap',
                             isActive
                                 ? ACTIVE_CLASS[f.value]
                                 : 'text-fg-muted hover:text-fg hover:bg-white/5',
