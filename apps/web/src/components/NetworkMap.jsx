@@ -1525,11 +1525,25 @@ const NetworkMap = ({
         return lookup;
     }, [mapData.lines]);
 
-    // --- Stable Markers Generation (Flattened Array for Clustering) ---
-    const markers = useMemo(() => {
-        const allMarkers = [];
+    // --- Markers Generation: Split per device type (perf audit C-1) ---
+    //
+    // Sebelumnya satu monolithic `markers` useMemo bikin SEMUA 500+ JSX
+    // elements re-allocate tiap polling 30s netwatch, walau data router +
+    // pppoe tidak berubah. React reconciler tetap diff 500 subtree.
+    //
+    // Split jadi 3 sub-memo per device type. Saat netwatch poll fire:
+    // - mapData.nodes berubah → netwatchMarkers recompute
+    // - mapData.routers + mapData.pppoeNodes identity preserved
+    //   (via TanStack Query v5 structural sharing, H-1 fix)
+    //   → routerMarkers + pppoeMarkers SKIP recompute (memo hit)
+    //
+    // Combiner final cuma concat existing arrays (cheap, no element alloc).
+    // Hasil: 2/3 markers preserve identity di netwatch refresh → React
+    // reconciler skip diff buat unchanged subtrees.
 
-        // 1. Router Markers
+    // 1. Router Markers
+    const routerMarkers = useMemo(() => {
+        const out = [];
         mapData.routers.forEach(router => {
             if (typeof router.lat !== 'number' || typeof router.lng !== 'number' ||
                 (searchQuery && !(
@@ -1539,10 +1553,10 @@ const NetworkMap = ({
                 return;
             }
 
-            allMarkers.push(
+            out.push(
                 <MemoizedSmartMarker
                     key={`router-${router.id}`}
-                    id={router.id} // Pass ID for context check
+                    id={router.id}
                     position={[router.lat, router.lng]}
                     type="router"
                     status={router.status}
@@ -1553,7 +1567,7 @@ const NetworkMap = ({
                     packetLoss={router.packetLoss || (router.latestMetrics?.packetLoss)}
                     lastErrorMessage={router.lastErrorMessage}
                     draggable={isEditMode}
-                    onClick={null} // Click now handled by Popup
+                    onClick={null}
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(router.id),
                         mouseout: () => handleMarkerHover(null)
@@ -1570,8 +1584,19 @@ const NetworkMap = ({
                 </MemoizedSmartMarker>
             );
         });
+        return out;
+    }, [
+        mapData.routers,
+        searchQuery,
+        isEditMode,
+        handleMarkerHover,
+        handleQuickView,
+        handleQuickPing,
+    ]);
 
-        // 2. Netwatch Node Markers
+    // 2. Netwatch Node Markers
+    const netwatchMarkers = useMemo(() => {
+        const out = [];
         mapData.nodes.forEach(node => {
             if (typeof node.lat !== 'number' || typeof node.lng !== 'number' ||
                 (searchQuery && !(
@@ -1581,13 +1606,12 @@ const NetworkMap = ({
                 return;
             }
 
-            // Optimized Lookup
             const line = linesByNetwatchId[node.id];
 
-            allMarkers.push(
+            out.push(
                 <MemoizedSmartMarker
                     key={`netwatch-${node.routerId}-${node.id}`}
-                    id={node.id} // Pass ID for context check
+                    id={node.id}
                     position={[node.lat, node.lng]}
                     type={node.deviceType === 'client' ? 'netwatch' : (node.deviceType || 'netwatch')}
                     status={node.status}
@@ -1607,10 +1631,6 @@ const NetworkMap = ({
                     onDragEnd={(pos) => {
                         const payload = { latitude: String(pos[0]), longitude: String(pos[1]) };
 
-                        // ODP is a physical splitter that happens to be linked to an ONU
-                        // (for source-of-truth purposes). Moving the ODP marker should
-                        // only relocate the ODP itself — the linked ONU stays where the
-                        // technician installed it. Same for any non-ONU netwatch entry.
                         if (node.deviceType === 'odp' || node.deviceType === 'client' || node.deviceType === 'pppoe') {
                             updateNetwatchMutateRef.current({
                                 routerId: node.routerId,
@@ -1620,9 +1640,6 @@ const NetworkMap = ({
                             return;
                         }
 
-                        // Genuine ONU (passive=true OR deviceType='onu') — move the ONU
-                        // record. If a netwatch entry mirrors it via linkedOnuId, that
-                        // entry's coords are derived at read time so no second write needed.
                         if (node.isPassive || node.deviceType === 'onu' || node.linkedOnuId) {
                             const onuId = node.linkedOnuId || node.id;
                             const oltId = node.oltId;
@@ -1638,7 +1655,6 @@ const NetworkMap = ({
                             }
                         }
 
-                        // Fallback for any other non-passive netwatch row.
                         if (!node.isPassive && node.deviceType !== 'onu') {
                             updateNetwatchMutateRef.current({
                                 routerId: node.routerId,
@@ -1647,8 +1663,7 @@ const NetworkMap = ({
                             });
                         }
                     }}
-                    // isHovered prop removed
-                    onClick={null} // Click now handled by Popup
+                    onClick={null}
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(node.id),
                         mouseout: () => handleMarkerHover(null)
@@ -1669,8 +1684,26 @@ const NetworkMap = ({
                 </MemoizedSmartMarker>
             );
         });
+        return out;
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- updateOnuMutation +
+        // updateNetwatchMutateRef sengaja tidak di deps: ref pattern (M-1) + mutation
+        // object identity flap tiap render → masuk deps bikin recompute spurious.
+    }, [
+        mapData.nodes,
+        searchQuery,
+        showLabels,
+        isEditMode,
+        isHeatmapMode,
+        linesByNetwatchId,
+        handleMarkerHover,
+        handleQuickView,
+        handleArchiveOnu,
+        handleQuickPing,
+    ]);
 
-        // 3. PPPoE Client Markers
+    // 3. PPPoE Client Markers
+    const pppoeMarkers = useMemo(() => {
+        const out = [];
         (mapData.pppoeNodes || []).forEach(pppoe => {
             if (typeof pppoe.lat !== 'number' || typeof pppoe.lng !== 'number' ||
                 (searchQuery && !(
@@ -1682,10 +1715,10 @@ const NetworkMap = ({
 
             const line = linesByPppoeId[pppoe.id];
 
-            allMarkers.push(
+            out.push(
                 <MemoizedSmartMarker
                     key={`pppoe-${pppoe.id}`}
-                    id={pppoe.id} // Pass ID
+                    id={pppoe.id}
                     position={[pppoe.lat, pppoe.lng]}
                     type="pppoe"
                     status={pppoe.status}
@@ -1697,8 +1730,7 @@ const NetworkMap = ({
                     small={true}
                     draggable={isEditMode}
                     onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                    // isHovered prop removed
-                    onClick={null} // Click now handled by Popup
+                    onClick={null}
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(pppoe.id),
                         mouseout: () => handleMarkerHover(null)
@@ -1717,29 +1749,27 @@ const NetworkMap = ({
                 </MemoizedSmartMarker>
             );
         });
-
-        return allMarkers;
+        return out;
     }, [
-        mapData.routers,
-        mapData.nodes,
         mapData.pppoeNodes,
         searchQuery,
         showLabels,
         isEditMode,
-        handleDeviceClick,
-        handleQuickView,
-        handlePppoeDragEnd,
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- updateNetwatchMutation
-        // sengaja dihapus dari deps (perf audit M-1): pakai updateNetwatchMutateRef.current
-        // di JSX inline (line 1574 + 1602). Mutation object identity berubah tiap
-        // render → markers recompute spurious meski data tidak ganti.
-        timezone,
         isHeatmapMode,
-        linesByNetwatchId,
         linesByPppoeId,
-        handleMarkerHover, // Added missing dependency
-        handleArchiveOnu
+        handleMarkerHover,
+        handleDeviceClick,
+        handlePppoeDragEnd,
     ]);
+
+    // Combiner — cheap concat dari 3 sub-array yang sudah memoized.
+    // Saat sub-array identity preserved (mis. routerMarkers tidak ganti
+    // saat netwatch poll), combiner output stable di slot itu — React
+    // reconciler skip diff bagian itu.
+    const markers = useMemo(
+        () => [...routerMarkers, ...netwatchMarkers, ...pppoeMarkers],
+        [routerMarkers, netwatchMarkers, pppoeMarkers],
+    );
 
     // --- Unplaced Devices Calculation ---
     const unplacedDevices = useMemo(() => {
