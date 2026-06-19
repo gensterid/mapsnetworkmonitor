@@ -43,8 +43,10 @@ router.get('/export', requireRole('superadmin'), async (_req, res) => {
             }
         });
     } catch (error: any) {
+        // pg_dump errors bisa include DATABASE_URL connection string di message.
+        // Log detail server-side, kirim generic message ke client.
         logger.error({ err: error }, 'Export error');
-        res.status(500).json({ error: error.message || 'Failed to create backup' });
+        res.status(500).json({ error: 'Failed to create backup' });
     }
 });
 
@@ -129,8 +131,9 @@ router.post('/trigger-manual', requireRole('superadmin'), async (_req, res) => {
         const filePath = await backupService.exportDatabase(true);
         res.json({ message: 'Backup created successfully', filename: path.basename(filePath) });
     } catch (error: any) {
+        // Sama dengan /export — error message bisa leak DATABASE_URL ke client.
         logger.error({ err: error }, 'Manual trigger error');
-        res.status(500).json({ error: error.message || 'Failed to trigger backup' });
+        res.status(500).json({ error: 'Failed to trigger backup' });
     }
 });
 
