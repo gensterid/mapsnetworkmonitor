@@ -1,13 +1,14 @@
 import React, { useState, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Receipt, RefreshCw, Copy, CreditCard, ExternalLink, HandCoins } from 'lucide-react';
+import { Receipt, RefreshCw, Copy, CreditCard, ExternalLink, HandCoins, X } from 'lucide-react';
 import clsx from 'clsx';
 import {
     useInvoices, usePayInvoice, useCancelInvoice,
     useCustomers, useCreatePaymentLink,
 } from '@/hooks';
 import { useCreatePromise } from '@/hooks/usePromiseToPay';
+import { PromiseCreateModal } from './PromisesTab';
 import toast from 'react-hot-toast';
 import { fmtIDR, fmtDate, fmtDateTime, Modal, Field, inputCls } from './helpers';
 

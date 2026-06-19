@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { Ticket, Plus, RefreshCw, Printer } from 'lucide-react';
+import { Ticket, Plus, RefreshCw, Printer, Trash2 } from 'lucide-react';
 import clsx from 'clsx';
 import {
     useVouchersForRouter, useVoucherBatches, useGenerateVoucherBatch, useDeleteVoucherBatch,

@@ -90,7 +90,7 @@ export default function WaTab() {
 }
 
 // ─── Profile picker (dropdown dari MikroTik + opsi buat baru) ──────────────
-function IsolirProfilePicker({ routerId, currentValue }) {
+export function IsolirProfilePicker({ routerId, currentValue }) {
     const { data: profiles = [], isLoading, refetch, isRefetching } = useMikrotikPppProfiles(routerId);
     const create = useCreatePppProfile();
     const [creating, setCreating] = useState(false);
@@ -233,7 +233,7 @@ export function CommentAuditCard({ routerId }) {
 }
 
 // ─── Field: window jam isolir ──────────────────────────────────────────────
-function IsolirWindowField({ defaultStart, defaultEnd }) {
+export function IsolirWindowField({ defaultStart, defaultEnd }) {
     const [start, setStart] = useState(defaultStart);
     const [end, setEnd] = useState(defaultEnd);
     const hours = Array.from({ length: 24 }, (_, i) => i);
@@ -265,7 +265,7 @@ function IsolirWindowField({ defaultStart, defaultEnd }) {
 }
 
 // ─── Master billing scheduler (resilient isolir) ───────────────────────────
-function BillingSchedulerCard({ routerId, isolirProfile, startHour, endHour }) {
+export function BillingSchedulerCard({ routerId, isolirProfile, startHour, endHour }) {
     const { data: status, refetch, isFetching } = useBillingSchedulerStatus(routerId);
     const setup = useSetupBillingScheduler();
     const [interval, setInterval_] = useState('1h');

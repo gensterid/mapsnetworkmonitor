@@ -10,7 +10,13 @@ import {
 import toast from 'react-hot-toast';
 import { Field, inputCls } from './helpers';
 import GatewayDefaultsCard from './GatewayDefaultsCard';
-import { CommentAuditCard, IsolirFirewallSetup } from './WaTab';
+import {
+    CommentAuditCard,
+    IsolirFirewallSetup,
+    IsolirProfilePicker,
+    IsolirWindowField,
+    BillingSchedulerCard,
+} from './WaTab';
 
 // ─── Settings tab ──────────────────────────────────────────────────────────
 // ─── Hotspot Mode Picker (Polish UI) ───────────────────────────────────────
