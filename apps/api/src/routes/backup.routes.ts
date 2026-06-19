@@ -8,9 +8,39 @@ import { logger } from '../lib/logger.js';
 import fs from 'fs';
 import path from 'path';
 import { uploadLimiter } from '../config/security.js';
+import { auditRepository } from '../repositories/audit.repository.js';
 
 const router = Router();
 router.use(authMiddleware);
+
+/**
+ * Log audit entry untuk backup operation. Best-effort — kalau write
+ * gagal, JANGAN block actual operation. Operator superadmin tetap
+ * dapat hasil action, hanya audit trail yang missing untuk entry itu.
+ *
+ * Per code-review note: backup destructive ops (restore, delete,
+ * trigger, export) butuh tamper-evident trail untuk forensic /
+ * incident investigation. logger.info (pino) bukan audit store.
+ */
+async function logBackupAudit(
+    req: Request,
+    action: 'create' | 'restore' | 'delete' | 'export',
+    details: Record<string, unknown> = {},
+): Promise<void> {
+    try {
+        const userId = (req as any).user?.id ?? null;
+        await auditRepository.create({
+            userId,
+            action,
+            entity: 'backup',
+            details,
+            ipAddress: req.ip ?? null,
+            userAgent: req.headers['user-agent'] ?? null,
+        });
+    } catch (e) {
+        logger.error({ err: e, action }, 'Failed to write backup audit log');
+    }
+}
 
 const upload = multer({
     dest: 'temp/',
@@ -28,10 +58,12 @@ const upload = multer({
 });
 
 // Export Database
-router.get('/export', requireRole('superadmin'), async (_req, res) => {
+router.get('/export', requireRole('superadmin'), async (req, res) => {
     try {
         const filePath = await backupService.exportDatabase();
-        res.download(filePath, path.basename(filePath), (err) => {
+        const filename = path.basename(filePath);
+        await logBackupAudit(req, 'export', { filename });
+        res.download(filePath, filename, (err) => {
             if (err) {
                 logger.error({ err: err?.message || String(err) }, 'Download error');
             }
@@ -97,6 +129,11 @@ router.post('/import', uploadLimiter, requireRole('superadmin'), upload.single('
         }
 
         await backupService.importDatabase(file.path);
+        await logBackupAudit(req, 'restore', {
+            source: 'upload',
+            filename: file.originalname,
+            size: file.size,
+        });
 
         // Cleanup uploaded file
         try {
@@ -124,12 +161,14 @@ router.get('/list', requireRole('superadmin'), async (_req, res) => {
 });
 
 // Trigger Manual (Persistent) Backup
-router.post('/trigger-manual', requireRole('superadmin'), async (_req, res) => {
+router.post('/trigger-manual', requireRole('superadmin'), async (req, res) => {
     try {
         // Manual trigger always creates a fresh dump — bypass the same-day skip
         // that automatedBackup() applies for the scheduler.
         const filePath = await backupService.exportDatabase(true);
-        res.json({ message: 'Backup created successfully', filename: path.basename(filePath) });
+        const filename = path.basename(filePath);
+        await logBackupAudit(req, 'create', { filename });
+        res.json({ message: 'Backup created successfully', filename });
     } catch (error: any) {
         // Sama dengan /export — error message bisa leak DATABASE_URL ke client.
         logger.error({ err: error }, 'Manual trigger error');
@@ -139,23 +178,29 @@ router.post('/trigger-manual', requireRole('superadmin'), async (_req, res) => {
 
 // Delete Backup
 router.delete('/:filename', requireRole('superadmin'), async (req, res) => {
+    const filename = req.params.filename as string;
     try {
-        await backupService.deleteBackup(req.params.filename as string);
+        await backupService.deleteBackup(filename);
+        await logBackupAudit(req, 'delete', { filename });
         res.json({ message: 'Backup deleted successfully' });
     } catch (error: any) {
-        logger.error({ err: error }, 'Delete backup error');
+        logger.error({ err: error, filename }, 'Delete backup error');
         res.status(500).json({ error: 'Failed to delete backup' });
     }
 });
 
 // Restore from Local File
 router.post('/restore-local/:filename', requireRole('superadmin'), async (req, res) => {
+    const filename = req.params.filename as string;
     try {
-        await backupService.restoreFromHistory(req.params.filename as string);
+        await backupService.restoreFromHistory(filename);
+        await logBackupAudit(req, 'restore', { source: 'local', filename });
         res.json({ message: 'Database restored successfully from history' });
     } catch (error: any) {
-        logger.error({ err: error }, 'Restore local error');
-        res.status(500).json({ error: error.message || 'Failed to restore database' });
+        // Sama dengan /export — error message bisa leak DATABASE_URL atau path
+        // structure internal. Log detail server-side, return generic.
+        logger.error({ err: error, filename }, 'Restore local error');
+        res.status(500).json({ error: 'Failed to restore database' });
     }
 });
 
