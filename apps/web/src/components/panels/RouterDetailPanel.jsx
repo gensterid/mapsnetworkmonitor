@@ -118,8 +118,20 @@ export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, 
         return parseUptimeString(raw);
     }, [metrics, router]);
 
-    const pppActiveCount = Array.isArray(pppActive) ? pppActive.length : 0;
-    const hotspotActiveCount = Array.isArray(hotspotActive) ? hotspotActive.length : 0;
+    // Backend `/routers/:id/ppp/active` + `/hotspot/active` return shape
+    // `{ count: number }`, BUKAN array. Sebelumnya Array.isArray check fail
+    // → display 0 padahal data ada.
+    // Defensive: handle 3 shape — {count}, array, atau number — supaya
+    // future schema change tidak silent break.
+    const pickCount = (raw) => {
+        if (raw == null) return 0;
+        if (typeof raw === 'number') return raw;
+        if (Array.isArray(raw)) return raw.length;
+        if (typeof raw === 'object' && typeof raw.count === 'number') return raw.count;
+        return 0;
+    };
+    const pppActiveCount = pickCount(pppActive);
+    const hotspotActiveCount = pickCount(hotspotActive);
 
     // Filter alerts untuk router ini + ambil 3 paling baru
     const recentAlerts = useMemo(() => {

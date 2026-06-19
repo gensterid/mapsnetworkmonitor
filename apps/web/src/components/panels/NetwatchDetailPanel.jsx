@@ -90,6 +90,20 @@ function extractSn(device) {
 }
 
 /**
+ * Robust truthy check untuk TR-098/TR-181 boolean fields.
+ * GenieACS bisa simpan sebagai: true/false (bool), "true"/"false" (string),
+ * "1"/"0" (string), 1/0 (number), "True"/"False" (capitalized).
+ */
+function isTrueish(v) {
+    if (v === true || v === 1) return true;
+    if (typeof v === 'string') {
+        const s = v.toLowerCase();
+        return s === 'true' || s === '1' || s === 'yes' || s === 'enabled';
+    }
+    return false;
+}
+
+/**
  * Count WiFi-associated devices (clients) per WLANConfiguration.
  * Mirror logic dari components/map/AcsTab.jsx getAssociatedDevices().
  */
@@ -101,12 +115,33 @@ function countWlanClients(wlan) {
 }
 
 /**
+ * Resolve LANDevice node — coba multiple schema paths supaya cocok dengan
+ * vendor ZTE/Huawei/standard TR-098 + TR-181.
+ */
+function resolveLanDevice(device) {
+    if (!device) return null;
+    return (
+        device.InternetGatewayDevice?.LANDevice?.[1]
+        || device.InternetGatewayDevice?.LANDevice?.['1']
+        || device.Device?.LANDevice?.[1]
+        || device.Device?.LANDevice?.['1']
+        || null
+    );
+}
+
+/**
  * Enumerate WLANConfiguration + count clients per SSID. Return summary
- * untuk display di panel: { totalClients, enabledWlans }.
+ * untuk display di panel: { totalClients, ssidList }.
+ *
+ * Sebelumnya pakai check enable strict yang miss vendor variant boolean.
+ * Sekarang isTrueish() handle multiple representation (true/1/"true"/"1"/dst).
+ * Plus fallback: kalau Enable field absent total, anggap broadcasting
+ * (some GenieACS fields tidak populate Enable kalau ONT WLAN config tidak
+ * explicit set ke Disabled).
  */
 function summarizeClients(device) {
     if (!device) return null;
-    const lan = device.InternetGatewayDevice?.LANDevice?.[1] || device.Device?.LANDevice?.[1];
+    const lan = resolveLanDevice(device);
     if (!lan?.WLANConfiguration) return null;
 
     let totalClients = 0;
@@ -118,14 +153,20 @@ function summarizeClients(device) {
         const wlan = lan.WLANConfiguration[key];
         if (!wlan) return;
 
+        // Enable check: pakai isTrueish robust. Kalau Enable field absent
+        // (undefined), default ASSUME enabled — banyak ONT firmware tidak
+        // populate Enable kalau WLAN auto-broadcast by config.
         const enableRaw = wlan.Enable?._value;
-        const enabled = enableRaw === true || enableRaw === 'true' || enableRaw === '1' || enableRaw === 1;
-        const ssid = wlan.SSID?._value || `SSID${key}`;
+        const enabled = enableRaw === undefined ? true : isTrueish(enableRaw);
+
+        // SSID tetap di-skip kalau tidak ada (truly absent WLAN slot)
+        const ssid = wlan.SSID?._value;
+        if (!ssid) return;
+
         const clients = countWlanClients(wlan);
 
         // Band detection: Standard field dulu (Huawei X_HW_HardwareMode juga
         // ada vendor variant), fallback ke index >= 5 (TR-098 convention).
-        // Mirror AcsTab.jsx:67-70 supaya tidak diverge.
         const standard = wlan.Standard?._value || wlan['X_HW_HardwareMode']?._value;
         const is5G =
             (standard && /11(ac|ax|a|n5)/i.test(String(standard))) || parseInt(key) >= 5;
