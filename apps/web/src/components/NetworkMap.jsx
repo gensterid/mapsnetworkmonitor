@@ -528,9 +528,15 @@ const NetworkMap = ({
     });
 
     // Stable ref ke mutate function — per perf audit M-1.
-    // updateNetwatchMutation object identity berubah tiap render → masuk
-    // ke `markers` useMemo deps bikin recompute semua marker (500+) tiap
-    // render, bukan cuma saat data berubah.
+    // updateNetwatchMutation OBJECT identity berubah tiap render (mutation
+    // state changes: isPending, data, dst.) → masuk ke `markers` useMemo
+    // deps bikin recompute semua marker (500+) tiap render bukan cuma
+    // saat data berubah.
+    //
+    // Note: TanStack Query v5 sebenarnya stable identity untuk `.mutate`
+    // function itself (wrapped useCallback internal). Ref pattern di sini
+    // explicit safety + clarity — kalau TQ behavior berubah suatu hari,
+    // kode kita tetap aman. Plus dokumentasi intent jelas.
     const updateNetwatchMutateRef = useRef(updateNetwatchMutation.mutate);
     useEffect(() => {
         updateNetwatchMutateRef.current = updateNetwatchMutation.mutate;
@@ -1454,6 +1460,9 @@ const NetworkMap = ({
                 data: payload
             }, { onSuccess });
         }
+    // Mutation di deps OK di sini (handleQuickPlaceClick): user-action handler,
+    // bukan render hot path. Ref pattern hanya dipakai di JSX inline yang masuk
+    // useMemo `markers` deps (lihat updateNetwatchMutateRef line 519).
     }, [selectedUnplacedDevice, updateRouterMutation, updatePppoeMutation, updateOnuMutation, updateNetwatchMutation]);
 
     const handleAddDevice = (type) => {
@@ -1720,10 +1729,10 @@ const NetworkMap = ({
         handleDeviceClick,
         handleQuickView,
         handlePppoeDragEnd,
-        // updateNetwatchMutation dihapus dari deps (M-1): pakai
-        // updateNetwatchMutateRef.current di JSX inline. Sebelumnya
-        // mutation identity berubah tiap render → markers recompute
-        // spurious meski data tidak ganti.
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- updateNetwatchMutation
+        // sengaja dihapus dari deps (perf audit M-1): pakai updateNetwatchMutateRef.current
+        // di JSX inline (line 1574 + 1602). Mutation object identity berubah tiap
+        // render → markers recompute spurious meski data tidak ganti.
         timezone,
         isHeatmapMode,
         linesByNetwatchId,
