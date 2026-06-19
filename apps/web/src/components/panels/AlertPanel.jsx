@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import clsx from 'clsx';
 import { Bell, ExternalLink, AlertCircle, Info, AlertOctagon, AlertTriangle, CheckCheck, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -114,7 +114,11 @@ function AlertRow({ alert, timezone, onAcknowledge, acknowledging }) {
                                 type="button"
                                 onClick={() => onAcknowledge?.(alert.id)}
                                 disabled={acknowledging}
-                                aria-label="Acknowledge alert"
+                                aria-label={
+                                    acknowledging
+                                        ? 'Acknowledging alert...'
+                                        : `Acknowledge alert: ${alert.title || alert.message || 'untitled'}`
+                                }
                                 className={clsx(
                                     'flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 transition-colors',
                                     acknowledging
@@ -163,18 +167,24 @@ export function AlertPanel({ isOpen, onClose }) {
     // hooks/useAlerts.js:99 onMutate). UI langsung update tanpa wait server.
     const acknowledgeMutation = useAcknowledgeAlert();
     const [pendingAckId, setPendingAckId] = useState(null);
-    const handleAcknowledge = async (alertId) => {
-        if (!alertId || pendingAckId === alertId) return;
+    // Per code-review MEDIUM-1: ref untuk dedupe guard supaya tidak stale
+    // closure di rapid clicks (React 18 automatic batching bisa sebabkan
+    // closure read pendingAckId dari render lama).
+    const pendingAckIdRef = useRef(null);
+    const handleAcknowledge = useCallback(async (alertId) => {
+        if (!alertId || pendingAckIdRef.current === alertId) return;
+        pendingAckIdRef.current = alertId;
         setPendingAckId(alertId);
         try {
             await acknowledgeMutation.mutateAsync(alertId);
         } catch {
             // Mutation handler internal sudah handle error toast/log,
-            // optimistic update auto-rollback.
+            // optimistic update auto-rollback via invalidateQueries.
         } finally {
+            pendingAckIdRef.current = null;
             setPendingAckId(null);
         }
-    };
+    }, [acknowledgeMutation]);
 
     // Severity chip dynamic — generate dari data real, jadi backend pakai naming
     // apapun (critical/high/warning/medium/low/info), chip-nya muncul.
