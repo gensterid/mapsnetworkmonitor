@@ -2,29 +2,32 @@ import React from 'react';
 import clsx from 'clsx';
 
 /**
- * Card — Container surface dengan variants + padding control.
+ * Card — Container surface dengan variants.
  *
  * Satu Card component untuk semua surface pattern di aplikasi (per brief user
- * "satukan semua card ke satu Card component"). Variant + padding prop bikin
- * 1 component cover berbagai use case tanpa harus bikin file terpisah.
+ * "satukan semua card ke satu Card component"). Variant prop bikin 1 component
+ * cover berbagai use case tanpa harus bikin file terpisah.
  *
  * Surface + border + foreground ikut tema via CSS vars di @theme block.
  * text-fg = slate-100 di tema gelap, slate-900 di tema terang.
  *
- * Props:
- *   variant?: 'default' | 'compact' | 'elevated' | 'outlined' | 'inset'
- *     default  — Surface utama: bg slate-surface/40 + border + subtle shadow (default existing)
- *     compact  — Sama dengan default, beda di padding (kalau pakai padding='sm')
- *     elevated — Stronger shadow + slight bg lift; untuk modal-like prominent surface
+ * Props Card:
+ *   variant?: 'default' | 'elevated' | 'outlined' | 'inset'
+ *     default  — Surface utama: bg slate-surface/40 + border + subtle shadow
+ *     elevated — Stronger shadow + bg lift; untuk modal-like prominent surface
  *     outlined — Transparent bg, cuma border + text; untuk grouped sections
- *     inset    — Darker bg (surface-darker), no shadow; untuk nested card di dalam Card lain
+ *     inset    — Darker bg (surface-darker), no shadow; nested card di Card lain
  *
+ * Props CardContent:
  *   padding?: 'default' | 'sm' | 'lg' | 'none'
- *     Mengatur CardContent default padding (Card root tetap p-0).
- *     default — p-6 (existing CardContent)
- *     sm      — p-4 (untuk dense info)
- *     lg      — p-8 (untuk hero card)
+ *     Padding internal CardContent (terpisah dari variant Card).
+ *     default — p-6 pt-0 (existing CardContent — asumsi follow CardHeader)
+ *     sm      — p-4 pt-0 (untuk dense info)
+ *     lg      — p-8 pt-0 (untuk hero card)
  *     none    — no padding (kalau child sudah handle padding sendiri)
+ *
+ *     Note: pt-0 default karena CardContent biasanya follow CardHeader.
+ *     Kalau pakai CardContent standalone, override via className="pt-6".
  *
  * Backward compat: tanpa variant + padding prop, render sama persis dengan
  * existing usage (semua 88 file yang sudah pakai Card tidak break).
@@ -32,13 +35,14 @@ import clsx from 'clsx';
  * Usage:
  *   <Card>...</Card>                              ← default (current behavior)
  *   <Card variant="elevated">...</Card>           ← prominent surface
- *   <Card variant="outlined" padding="sm">...</Card>  ← grouped section, compact
+ *   <Card variant="outlined">
+ *     <CardContent padding="sm">...</CardContent>
+ *   </Card>                                       ← grouped section, compact
  *   <Card variant="inset">...</Card>              ← nested card
  */
 
 const VARIANT_CLASSES = {
     default: 'bg-slate-surface/40 border-slate-border shadow-sm backdrop-blur-sm',
-    compact: 'bg-slate-surface/40 border-slate-border shadow-sm backdrop-blur-sm',
     elevated: 'bg-slate-surface/60 border-slate-border shadow-lg shadow-black/20 backdrop-blur-md',
     outlined: 'bg-transparent border-slate-border',
     inset: 'bg-surface-darker/60 border-slate-border/50 backdrop-blur-sm',

@@ -65,12 +65,13 @@ export const Button = React.forwardRef(({
             ref={ref}
             type={type}
             className={clsx(
-                'inline-flex items-center justify-center rounded-xl font-bold tracking-tight transition-all duration-300 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-30 border transition-all',
+                'inline-flex items-center justify-center rounded-xl font-bold tracking-tight active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:pointer-events-none disabled:opacity-30 border transition-all duration-300',
                 variants[variant],
                 sizes[size],
                 className,
             )}
             disabled={disabled || loading}
+            aria-busy={loading || undefined}
             {...props}
         >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />}
