@@ -123,8 +123,15 @@ function summarizeClients(device) {
         const ssid = wlan.SSID?._value || `SSID${key}`;
         const clients = countWlanClients(wlan);
 
+        // Band detection: Standard field dulu (Huawei X_HW_HardwareMode juga
+        // ada vendor variant), fallback ke index >= 5 (TR-098 convention).
+        // Mirror AcsTab.jsx:67-70 supaya tidak diverge.
+        const standard = wlan.Standard?._value || wlan['X_HW_HardwareMode']?._value;
+        const is5G =
+            (standard && /11(ac|ax|a|n5)/i.test(String(standard))) || parseInt(key) >= 5;
+
         if (enabled) {
-            ssidList.push({ ssid, clients, band: parseInt(key) >= 5 ? '5G' : '2.4G' });
+            ssidList.push({ ssid, clients, band: is5G ? '5G' : '2.4G' });
             totalClients += clients;
         }
     });
@@ -171,9 +178,20 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
         refetchInterval: false,
     });
 
+    // Find device by SN (case-insensitive + _id fallback per AcsTab.jsx:106 pattern).
+    // SN di DB bisa tersimpan beda casing dari GenieACS _serialNumber → exact
+    // match silent-fail. Plus device._id sometimes contains SN as substring
+    // (mis. ZTEGD123ABC ada di "9000-F609-ZTEGD123ABC").
     const acsDevice = useMemo(() => {
         if (!Array.isArray(acsDevices) || !netwatch?.sn) return null;
-        return acsDevices.find((d) => extractSn(d) === netwatch.sn) ?? null;
+        const snLower = String(netwatch.sn).toLowerCase();
+        return (
+            acsDevices.find((d) => {
+                const deviceSn = String(extractSn(d) || '').toLowerCase();
+                if (deviceSn === snLower) return true;
+                return String(d?._id || '').toLowerCase().includes(snLower);
+            }) ?? null
+        );
     }, [acsDevices, netwatch?.sn]);
 
     const clientSummary = useMemo(() => summarizeClients(acsDevice), [acsDevice]);
