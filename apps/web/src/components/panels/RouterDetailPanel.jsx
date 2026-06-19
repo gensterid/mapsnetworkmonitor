@@ -224,27 +224,29 @@ export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, 
                     />
                 </div>
 
-                {/* Connected entities */}
+                {/* Connected entities — 3-col grid biar 3 card seimbang
+                    (per review M-1: sebelumnya grid-cols-2 dengan 3 cards =
+                    orphan card di slot kanan kosong). */}
                 <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-2">Konektivitas</div>
-                <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="grid grid-cols-3 gap-2 mb-4">
                     <MetricCard
-                        label="Netwatch Host"
+                        label="Netwatch"
                         value={netwatchCount}
-                        sub={netwatchCount > 0 ? 'monitored' : null}
+                        sub={netwatchCount > 0 ? 'host' : null}
                         icon={Activity}
                         accent="primary"
                     />
                     <MetricCard
-                        label="PPPoE Aktif"
+                        label="PPPoE"
                         value={pppActiveCount}
-                        sub={pppActiveCount > 0 ? 'connected' : null}
+                        sub={pppActiveCount > 0 ? 'aktif' : null}
                         icon={Users}
-                        accent="online"
+                        accent={pppActiveCount > 0 ? 'online' : 'unknown'}
                     />
                     <MetricCard
-                        label="Hotspot Aktif"
+                        label="Hotspot"
                         value={hotspotActiveCount}
-                        sub={hotspotActiveCount > 0 ? 'connected' : null}
+                        sub={hotspotActiveCount > 0 ? 'aktif' : null}
                         icon={Wifi}
                         accent={hotspotActiveCount > 0 ? 'online' : 'unknown'}
                     />
@@ -257,12 +259,18 @@ export function RouterDetailPanel({ isOpen, onClose, router, netwatchCount = 0, 
                             <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">
                                 Alert Terkini
                             </div>
+                            {/* Per review M-2: /alerts page belum baca ?routerId
+                                param untuk filter, jadi link sebelumnya misleading
+                                (label "Lihat Semua" mengimplikasikan filter).
+                                Sekarang label jujur "Buka Halaman Alerts" + tanpa
+                                query param. Future: kalau Alerts.jsx implement
+                                filter, balik lagi pasang ?routerId. */}
                             <Link
-                                to={`/alerts?routerId=${router.id}`}
+                                to="/alerts"
                                 onClick={onClose}
                                 className="text-[10px] font-bold uppercase tracking-wider text-primary hover:underline"
                             >
-                                Lihat Semua →
+                                Buka Halaman Alerts →
                             </Link>
                         </div>
                         <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3 space-y-2.5">
