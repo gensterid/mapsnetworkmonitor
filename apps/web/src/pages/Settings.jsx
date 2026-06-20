@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles, Wrench, History, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
+import { Settings as SettingsIcon, Save, RefreshCw, Bell, Globe, Clock, AlertTriangle, User, Database, Upload, Download, Activity, Plus, Trash2, Palette, Monitor, Info, Sparkles, Wrench, History, CheckCircle2, XCircle, ShieldCheck, ToggleLeft } from 'lucide-react';
 import { useExportDatabase, useImportDatabase, useBackups, useDeleteBackup, useRestoreBackup, useTriggerManualBackup } from '@/hooks';
 import { useTheme } from '@/context/ThemeContext';
 import AlertSettingsPanel from '@/components/settings/AlertSettingsPanel';
@@ -21,6 +21,7 @@ import MaintenanceSettings from '@/components/settings/MaintenanceSettings';
 import AISettings from '@/components/settings/AISettings';
 import SystemHealthGuide from '@/components/settings/SystemHealthGuide';
 import DiagnosticsSettings from '@/components/settings/DiagnosticsSettings';
+import FeatureFlagsCard from '@/components/settings/FeatureFlagsCard';
 
 const TABS = [
     { id: 'profile', label: 'My Profile', icon: User },
@@ -33,6 +34,7 @@ const TABS = [
     { id: 'diagnostics', label: 'Diagnostics', icon: Activity, superadminOnly: true },
     // Superadmin-only tab. Filtered out of the nav for other roles below.
     { id: 'system-guide', label: 'Panduan Sistem', icon: ShieldCheck, superadminOnly: true },
+    { id: 'features', label: 'Manajemen Fitur', icon: ToggleLeft, superadminOnly: true },
 ];
 
 // Helper components moved to PollingSettings.jsx
@@ -436,6 +438,10 @@ export default function Settings() {
 
                 {activeTab === 'diagnostics' && (
                     <DiagnosticsSettings />
+                )}
+
+                {activeTab === 'features' && (
+                    <FeatureFlagsCard />
                 )}
 
             </div>

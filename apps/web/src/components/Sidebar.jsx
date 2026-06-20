@@ -6,8 +6,10 @@ import {
     useUnreadAlertCount,
     useSettings,
     useCurrentUser,
+    useFeatureFlags,
 } from '@/hooks';
 import { useDriftSummary } from '@/hooks/useBillingDrift';
+import { isFeatureEnabled, DEFAULT_FEATURE_FLAGS } from '@/constants/features';
 import {
     Map as MapIcon,
     Bell,
@@ -57,28 +59,30 @@ const MAIN_NAV = [
     { path: '/routers', icon: RouterIcon, label: 'Router', badgeKey: 'routers' },
 ];
 
+// `feature` key (opsional) → di-gate oleh feature flag superadmin. Item dengan
+// feature yang dimatikan hilang untuk non-superadmin. Lihat constants/features.js.
 const SETTINGS_GROUPS = [
     {
         title: 'Overview',
         items: [
             { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-            { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'operator'] },
+            { path: '/analytics', icon: BarChart3, label: 'Analytics', roles: ['admin', 'operator'], feature: 'analytics' },
         ],
     },
     {
         title: 'Bisnis',
         items: [
-            { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'operator'], badgeKey: 'drift' },
-            { path: '/mikhmon', icon: Wifi, label: 'MikHMON Console', roles: ['admin', 'operator'] },
+            { path: '/billing', icon: Receipt, label: 'Billing', roles: ['admin', 'operator'], badgeKey: 'drift', feature: 'billing' },
+            { path: '/mikhmon', icon: Wifi, label: 'MikHMON Console', roles: ['admin', 'operator'], feature: 'mikhmon' },
         ],
     },
     {
         title: 'Monitoring',
         items: [
-            { path: '/genieacs', icon: Monitor, label: 'GenieACS' },
-            { path: '/olts', icon: Server, label: 'OLTs' },
-            { path: '/issues', icon: Activity, label: 'System Issues', badgeKey: 'issues' },
-            { path: '/netwatch', icon: Globe, label: 'Service Health', roles: ['admin'] },
+            { path: '/genieacs', icon: Monitor, label: 'GenieACS', feature: 'genieacs' },
+            { path: '/olts', icon: Server, label: 'OLTs', feature: 'olt' },
+            { path: '/issues', icon: Activity, label: 'System Issues', badgeKey: 'issues', feature: 'issues' },
+            { path: '/netwatch', icon: Globe, label: 'Service Health', roles: ['admin'], feature: 'serviceHealth' },
         ],
     },
     {
@@ -86,7 +90,7 @@ const SETTINGS_GROUPS = [
         items: [
             { path: '/users', icon: Users, label: 'Users', roles: ['admin'] },
             { path: '/audit-logs', icon: History, label: 'Audit Log', roles: ['admin'] },
-            { path: '/notification-groups', icon: MessageSquare, label: 'Notifications', roles: ['admin'] },
+            { path: '/notification-groups', icon: MessageSquare, label: 'Notifications', roles: ['admin'], feature: 'notifications' },
             { path: '/tenants', icon: Building, label: 'Tenants / ISPs', roles: ['superadmin'] },
             { path: '/settings/vpn-servers', icon: Network, label: 'VPN Servers', roles: ['superadmin'] },
         ],
@@ -99,12 +103,20 @@ const SETTINGS_GROUPS = [
     },
 ];
 
-function canAccess(item, roles) {
+function canAccessRole(item, roles) {
     if (!item.roles) return true;
     const { isAdmin, isOperator, isSuperAdmin } = roles;
     if (item.roles.includes('superadmin')) return isSuperAdmin;
     if (item.roles.includes('admin')) return isAdmin || isSuperAdmin;
     if (item.roles.includes('operator')) return isAdmin || isOperator || isSuperAdmin;
+    return true;
+}
+
+// Visibilitas akhir = lolos role check DAN feature flag check.
+// Superadmin bypass feature flag (isFeatureEnabled return true).
+function canAccess(item, roles, flags) {
+    if (!canAccessRole(item, roles)) return false;
+    if (item.feature) return isFeatureEnabled(item.feature, flags, roles.isSuperAdmin);
     return true;
 }
 
@@ -160,7 +172,7 @@ function NavIconButton({ to, icon: Icon, label, isActive, badge, badgeColor, onC
     );
 }
 
-function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) {
+function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges, flags }) {
     const panelRef = useRef(null);
 
     useEffect(() => {
@@ -223,7 +235,7 @@ function SettingsFlyout({ isOpen, onClose, navigate, location, roles, badges }) 
 
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-3 py-3 space-y-4">
                     {SETTINGS_GROUPS.map((group) => {
-                        const visible = group.items.filter((it) => canAccess(it, roles));
+                        const visible = group.items.filter((it) => canAccess(it, roles, flags));
                         if (visible.length === 0) return null;
                         return (
                             <div key={group.title}>
@@ -278,6 +290,8 @@ function Sidebar({ isOpen, onClose }) {
     const { isAdmin, isOperator, isSuperAdmin } = useRole();
     const { data: currentUser } = useCurrentUser();
     const { data: driftSummary } = useDriftSummary({ enabled: isAdmin || isOperator });
+    // Feature flags global — gate nav items. Default semua aktif saat loading.
+    const { data: featureFlags = DEFAULT_FEATURE_FLAGS } = useFeatureFlags();
 
     const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -482,6 +496,7 @@ function Sidebar({ isOpen, onClose }) {
                 location={location}
                 roles={{ isAdmin, isOperator, isSuperAdmin }}
                 badges={badges}
+                flags={featureFlags}
             />
         </>
     );

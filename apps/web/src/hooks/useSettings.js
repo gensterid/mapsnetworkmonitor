@@ -116,3 +116,46 @@ export function useDeleteSetting() {
         },
     });
 }
+
+// ==================== Feature Flags (global, superadmin-controlled) ====================
+
+/** Query key — global (tidak per-tenant; feature flags berlaku semua tenant). */
+export const featureFlagsKey = ['feature-flags', 'global'];
+
+/**
+ * Fetch global feature flags. Semua role authenticated boleh baca.
+ * staleTime panjang (5 menit) — flags jarang berubah, hindari refetch tiap nav.
+ */
+export function useFeatureFlags(options = {}) {
+    return useQuery({
+        queryKey: featureFlagsKey,
+        queryFn: () => settingsService.getFeatureFlags(),
+        staleTime: 5 * 60 * 1000,
+        gcTime: 30 * 60 * 1000,
+        ...options,
+    });
+}
+
+/**
+ * Update feature flags (superadmin only). Optimistic: langsung patch cache
+ * supaya toggle terasa instan, rollback kalau gagal.
+ */
+export function useUpdateFeatureFlags() {
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (partial) => settingsService.setFeatureFlags(partial),
+        onMutate: async (partial) => {
+            await queryClient.cancelQueries({ queryKey: featureFlagsKey });
+            const previous = queryClient.getQueryData(featureFlagsKey);
+            queryClient.setQueryData(featureFlagsKey, (old) => ({ ...(old || {}), ...partial }));
+            return { previous };
+        },
+        onError: (_err, _partial, ctx) => {
+            if (ctx?.previous) queryClient.setQueryData(featureFlagsKey, ctx.previous);
+        },
+        onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: featureFlagsKey });
+        },
+    });
+}

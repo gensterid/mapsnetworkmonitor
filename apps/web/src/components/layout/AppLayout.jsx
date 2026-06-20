@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, Search } from 'lucide-react';
 import Sidebar from '../Sidebar';
 import BottomNav from './BottomNav';
-import { useSSE } from '@/hooks';
+import { useSSE, useFeatureFlags } from '@/hooks';
+import { useRole } from '@/lib/auth-client';
+import { getBlockedFeatureForPath, DEFAULT_FEATURE_FLAGS } from '@/constants/features';
 import { motion, AnimatePresence } from 'framer-motion';
 import clsx from 'clsx';
+import toast from 'react-hot-toast';
 import { GlobalSearchModal } from '../search/GlobalSearchModal';
 import { useGlobalSearchShortcut } from '../search/useGlobalSearch';
 
@@ -22,6 +25,9 @@ export default function AppLayout() {
     const { isConnected } = useSSE();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const location = useLocation();
+    const navigate = useNavigate();
+    const { isSuperAdmin } = useRole();
+    const { data: featureFlags = DEFAULT_FEATURE_FLAGS } = useFeatureFlags();
 
     const { isOpen: searchOpen, open: openSearch, close: closeSearch } = useGlobalSearchShortcut();
 
@@ -29,6 +35,17 @@ export default function AppLayout() {
     useEffect(() => {
         setIsSidebarOpen(false);
     }, [location.pathname]);
+
+    // Route guard: non-superadmin yang akses URL fitur yang dimatikan (mis.
+    // ketik /billing langsung saat billing off) → redirect ke dashboard.
+    // Defensive — nav sudah disembunyikan, ini cegah akses via direct URL.
+    useEffect(() => {
+        const blocked = getBlockedFeatureForPath(location.pathname, featureFlags, isSuperAdmin);
+        if (blocked) {
+            toast.error('Fitur ini sedang dinonaktifkan.');
+            navigate('/', { replace: true });
+        }
+    }, [location.pathname, featureFlags, isSuperAdmin, navigate]);
 
     return (
         <div className="flex h-screen supports-[height:100dvh]:h-[100dvh] w-screen bg-background-dark overflow-hidden">

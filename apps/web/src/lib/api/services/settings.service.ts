@@ -48,6 +48,19 @@ export const settingsService = {
      * Get database usage statistics (Admin only)
      */
     getDatabaseStats: () => get<any[]>('/settings/maintenance/db-stats'),
+
+    /**
+     * Get global feature flags (all authenticated roles).
+     * Returns full map { [featureKey]: boolean }.
+     */
+    getFeatureFlags: () => get<Record<string, boolean>>('/settings/feature-flags'),
+
+    /**
+     * Update global feature flags (superadmin only).
+     * Accepts partial map; backend merges with current.
+     */
+    setFeatureFlags: (flags: Record<string, boolean>) =>
+        put<Record<string, boolean>>('/settings/feature-flags', flags),
 };
 
 export default settingsService;

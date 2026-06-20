@@ -75,6 +75,9 @@ export {
     useDeleteSetting,
     useDatabaseStats,
     settingsKeys,
+    useFeatureFlags,
+    useUpdateFeatureFlags,
+    featureFlagsKey,
 } from './useSettings';
 
 // Netwatch hooks
