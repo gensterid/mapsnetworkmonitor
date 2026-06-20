@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { db } from '../db/index.js';
 import { routers, routerNetwatch, olts, onus } from '../db/schema/index.js';
-import { eq, inArray, and } from 'drizzle-orm';
+import { eq, and } from 'drizzle-orm';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
-import { routerService } from '../services/index.js'; // Use existing services where possible
-import { cacheService } from '../lib/cache.js'; // New: Inject cache service
+import { routerService } from '../services/index.js';
+import { mapService, type MapAccessContext } from '../services/map.service.js';
+import { cacheService } from '../lib/cache.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 const router = Router();
@@ -44,75 +45,26 @@ router.get(
         );
 
         const routerIds = allRouters.map(r => r.id);
-
-        // 2. Fetch Netwatch Entries (Isolation)
-        let netwatchEntries: any[] = [];
         const tenantId = getEffectiveTenantId(req);
-        const isSuperAdminGlobal = req.user?.role === 'superadmin' && !tenantId;
+        const isSuperAdminGlobal = role === 'superadmin' && !tenantId;
 
-        if (req.user?.role === 'superadmin' && !tenantId) {
-            // Global superadmin sees everything across all ISPs
-            netwatchEntries = await db.select().from(routerNetwatch);
-        } else if (tenantId) {
-            // Admins and Superadmins with tenant context see devices within that tenant
-            // If they are Operator/User, they should also be restricted by routerIds
-            if (req.user?.role === 'superadmin' || req.user?.role === 'admin') {
-                netwatchEntries = await db
-                    .select()
-                    .from(routerNetwatch)
-                    .where(tenantId ? eq(routerNetwatch.tenantId, tenantId) : undefined as any);
-            } else if (routerIds.length > 0) {
-                netwatchEntries = await db
-                    .select()
-                    .from(routerNetwatch)
-                    .where(and(
-                        eq(routerNetwatch.tenantId, tenantId),
-                        inArray(routerNetwatch.routerId, routerIds)
-                    ));
-            }
-        }
+        // Access context dipakai oleh mapService untuk scope filtering.
+        // Refactor sebelumnya: 60+ baris if/else duplicate per entity
+        // (netwatch/olt/onu) inline di route. Sekarang centralized di
+        // map.service.ts dengan column subset (no SELECT *).
+        const ctx: MapAccessContext = {
+            tenantId: tenantId ?? null,
+            isSuperAdminGlobal,
+            isAdminOrSuper: role === 'superadmin' || role === 'admin',
+            routerIds,
+        };
 
-        // 3. Fetch OLTs (Isolation)
-        let allOlts: any[] = [];
-        if (isSuperAdminGlobal) {
-            allOlts = await db.select().from(olts);
-        } else if (tenantId) {
-            if (req.user?.role === 'superadmin' || req.user?.role === 'admin') {
-                allOlts = await db
-                    .select()
-                    .from(olts)
-                    .where(eq(olts.tenantId, tenantId));
-            } else if (routerIds.length > 0) {
-                allOlts = await db
-                    .select()
-                    .from(olts)
-                    .where(and(
-                        eq(olts.tenantId, tenantId),
-                        inArray(olts.parentId, routerIds)
-                    ));
-            }
-        }
-
-        // 4. Fetch ONUs (Inventory Isolation)
-        let allOnus: any[] = [];
-        if (isSuperAdminGlobal) {
-            allOnus = await db.select().from(onus);
-        } else if (tenantId) {
-            if (req.user?.role === 'superadmin' || req.user?.role === 'admin') {
-                allOnus = await db
-                    .select()
-                    .from(onus)
-                    .where(eq(onus.tenantId, tenantId));
-            } else if (routerIds.length > 0) {
-                allOnus = await db
-                    .select()
-                    .from(onus)
-                    .where(and(
-                        eq(onus.tenantId, tenantId),
-                        inArray(onus.routerId, routerIds)
-                    ));
-            }
-        }
+        // Parallel fetch \xe2\x80\x94 3 query independent, save round-trip time.
+        const [netwatchEntries, allOlts, allOnus] = await Promise.all([
+            mapService.fetchNetwatchForMap(ctx),
+            mapService.fetchOltsForMap(ctx),
+            mapService.fetchOnusForMap(ctx),
+        ]);
 
         // Create a map for fast lookup: key = routerId:host
         const onuLookup = new Map();
