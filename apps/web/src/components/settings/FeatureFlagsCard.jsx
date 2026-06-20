@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { ToggleLeft, Loader2, Info } from 'lucide-react';
+import { ToggleLeft, Loader2, Info, ShieldAlert } from 'lucide-react';
 import Toggle from '@/components/ui/Toggle';
 import { useFeatureFlags, useUpdateFeatureFlags } from '@/hooks';
+import { useRole } from '@/lib/auth-client';
 import { FEATURE_REGISTRY, DEFAULT_FEATURE_FLAGS } from '@/constants/features';
 import toast from 'react-hot-toast';
 
@@ -13,8 +14,20 @@ import toast from 'react-hot-toast';
  * Grup berdasarkan FEATURE_REGISTRY[].group.
  */
 export default function FeatureFlagsCard() {
+    const { isSuperAdmin } = useRole();
     const { data: flags = DEFAULT_FEATURE_FLAGS, isLoading } = useFeatureFlags();
     const updateFlags = useUpdateFeatureFlags();
+
+    // Defense-in-depth (per review LOW): backend PUT sudah superadmin-only,
+    // tapi gate UI juga supaya tidak bergantung penuh ke tab gating parent.
+    if (!isSuperAdmin) {
+        return (
+            <div className="bg-surface-dark border border-slate-border rounded-xl px-5 py-8 text-center">
+                <ShieldAlert className="w-6 h-6 text-status-issue inline-block mb-2" aria-hidden="true" />
+                <p className="text-sm text-fg-muted">Hanya superadmin yang dapat mengelola fitur.</p>
+            </div>
+        );
+    }
 
     // Group fitur untuk tampilan rapi
     const grouped = useMemo(() => {
