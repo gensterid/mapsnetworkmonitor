@@ -53,11 +53,14 @@ export const Button = React.forwardRef(({
         outline: 'border border-white/10 bg-transparent hover:bg-white/5 text-fg hover:text-fg glass-premium-light',
     };
 
+    // Touch target spec mobile min 44x44. default h-10 \xe2\x86\x92 h-11 (44px).
+    // sm explicit small (h-8 = 32px) opt-in untuk dense desktop UI \xe2\x80\x94
+    // operator yang pakai sm tahu konsekuensinya. icon square 44x44.
     const sizes = {
-        default: 'h-10 px-4 py-2',
+        default: 'h-11 px-4 py-2',
         sm: 'h-8 px-3 text-xs',
         lg: 'h-12 px-8',
-        icon: 'h-10 w-10',
+        icon: 'h-11 w-11',
     };
 
     return (

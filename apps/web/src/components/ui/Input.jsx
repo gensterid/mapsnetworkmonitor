@@ -10,7 +10,11 @@ export const Input = React.forwardRef(({ className, error, ...props }, ref) => {
         <div className="w-full">
             <input
                 className={clsx(
-                    "flex h-10 w-full rounded-lg border border-slate-border bg-surface-darker/50 px-3 py-2 text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all",
+                    // h-11 (44px) per mobile touch target spec. text-base
+                    // (16px) di mobile mencegah iOS Safari auto-zoom-in saat
+                    // focus input (browser zoom kalau text < 16px). md:text-sm
+                    // kembali ke 14px di tablet+ untuk density.
+                    "flex h-11 w-full rounded-lg border border-slate-border bg-surface-darker/50 px-3 py-2 text-base md:text-sm text-fg placeholder:text-fg-muted focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:cursor-not-allowed disabled:opacity-50 transition-all",
                     error && "border-danger focus:ring-danger",
                     className
                 )}

@@ -108,7 +108,7 @@ export default function SearchableSelect({
                 tabIndex={disabled ? -1 : 0}
                 onClick={() => !disabled && setIsOpen(!isOpen)}
                 className={`
-                    w-full px-3 py-2 text-left bg-slate-800/80 border rounded-md cursor-pointer flex items-center justify-between
+                    w-full min-h-[44px] px-3 py-2 text-left bg-slate-800/80 border rounded-md cursor-pointer flex items-center justify-between
                     ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-blue-500'}
                     ${isOpen ? 'border-blue-500 ring-1 ring-blue-500 outline-none' : 'border-slate-700/50'}
                 `}
