@@ -65,3 +65,26 @@ database-export.json
 sync_output.txt
 sync_output_utf8.txt
 backups/
+
+# Debug / temp dumps (git status output, process dumps, ad-hoc scripts)
+# Removed in cleanup commit — ignore so they never re-enter the repo.
+branches.txt
+git_log.txt
+remote.txt
+stash.txt
+status.txt
+log.txt
+file_mtimes.txt
+network_utils_diff.txt
+db_status.json
+processes.json
+test.json
+# Ad-hoc one-off debug scripts at repo root
+/check_status_fast.cjs
+/query_status.cjs
+/reset_db.cjs
+/simple-audit.js
+/test-bullmq.js
+/test-date.js
+/test-date-fix.mjs
+/test-status.mjs
