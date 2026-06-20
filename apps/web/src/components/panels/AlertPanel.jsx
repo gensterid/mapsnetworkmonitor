@@ -167,6 +167,7 @@ export function AlertPanel({ isOpen, onClose }) {
     // hooks/useAlerts.js:99 onMutate). UI langsung update tanpa wait server.
     const acknowledgeMutation = useAcknowledgeAlert();
     const [pendingAckId, setPendingAckId] = useState(null);
+    const [bulkAcking, setBulkAcking] = useState(false);
     // Per code-review MEDIUM-1: ref untuk dedupe guard supaya tidak stale
     // closure di rapid clicks (React 18 automatic batching bisa sebabkan
     // closure read pendingAckId dari render lama).
@@ -185,6 +186,30 @@ export function AlertPanel({ isOpen, onClose }) {
             setPendingAckId(null);
         }
     }, [acknowledgeMutation]);
+
+    // Bulk acknowledge — fire single-ack mutation per filtered unack alert
+    // dengan Promise.all. Sengaja pakai single-ack hook (bukan
+    // useAcknowledgeAllAlerts yang scope-nya category) supaya bisa tetap
+    // honor severity filter user. Misal user filter "Warning" → cuma
+    // warning alerts yang ke-ack, bukan semua.
+    const unackedFiltered = useMemo(
+        () => filteredAlerts.filter((a) => !a.acknowledged),
+        [filteredAlerts],
+    );
+    const handleBulkAcknowledge = useCallback(async () => {
+        if (bulkAcking || unackedFiltered.length === 0) return;
+        setBulkAcking(true);
+        try {
+            // Promise.allSettled — kalau salah satu mutation fail, lainnya
+            // tetap proceed. Hook internal handle rollback per row via
+            // invalidateQueries di onError.
+            await Promise.allSettled(
+                unackedFiltered.map((a) => acknowledgeMutation.mutateAsync(a.id)),
+            );
+        } finally {
+            setBulkAcking(false);
+        }
+    }, [acknowledgeMutation, bulkAcking, unackedFiltered]);
 
     // Severity chip dynamic — generate dari data real, jadi backend pakai naming
     // apapun (critical/high/warning/medium/low/info), chip-nya muncul.
@@ -283,6 +308,41 @@ export function AlertPanel({ isOpen, onClose }) {
                     );
                 })}
             </div>
+
+            {/* Bulk acknowledge toolbar — visible kalau ada filtered + unack.
+                Operator dengan flood alert similar (mis. packet loss spam dari
+                1 link down) bisa clear satu kali tanpa klik per row.
+                Tetap honor severity filter user — kalau filter "Warning", cuma
+                warning alerts yang ke-ack. */}
+            {unackedFiltered.length > 0 && (
+                <div className="px-3 py-2 border-b border-slate-border/60 bg-surface-darker/40 flex items-center justify-between gap-2">
+                    <span className="text-[10px] text-fg-muted">
+                        <span className="font-bold text-fg">{unackedFiltered.length}</span> belum di-ack
+                        {severityFilter !== 'all' && (
+                            <span className="text-fg-muted"> (filter aktif)</span>
+                        )}
+                    </span>
+                    <button
+                        type="button"
+                        onClick={handleBulkAcknowledge}
+                        disabled={bulkAcking}
+                        aria-label={
+                            bulkAcking
+                                ? `Acknowledging ${unackedFiltered.length} alerts...`
+                                : `Acknowledge all ${unackedFiltered.length} filtered alerts`
+                        }
+                        className={clsx(
+                            'flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors',
+                            bulkAcking
+                                ? 'bg-slate-surface text-fg-muted cursor-not-allowed'
+                                : 'bg-status-online/15 text-status-online hover:bg-status-online/25 ring-1 ring-status-online/30',
+                        )}
+                    >
+                        <CheckCheck className="w-3 h-3" aria-hidden="true" />
+                        {bulkAcking ? 'Memproses…' : `Ack Semua (${unackedFiltered.length})`}
+                    </button>
+                </div>
+            )}
 
             {/* Alert list */}
             <div>
