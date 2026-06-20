@@ -978,9 +978,55 @@ export const DeviceTooltip = React.memo(({ node, line }) => {
 });
 
 // 3. Popup Container (Rendered when clicked)
+//
+// Popup di-center di viewport saat dibuka supaya tidak terhalang / tumpang
+// tindih dengan toolbar atas (filter chip + status counter) atau bottom nav
+// di mobile. Berlaku untuk semua device type (router/netwatch/pppoe/onu/olt).
+//
+// Strategi:
+//   1. autoPanPadding generous \xe2\x80\x94 Leaflet jamin popup tidak masuk ke zona
+//      toolbar atas (~130px) atau bottom nav (~96px). Safety net untuk popup
+//      tinggi yang melebihi setengah layar (mobile).
+//   2. On open ('add' event) \xe2\x80\x94 pan map supaya marker turun ke lower-center
+//      sehingga popup yang mekar ke atas berada di tengah viewport. Offset
+//      adaptif: ~22% tinggi layar, capped 170px, supaya proporsional di
+//      mobile (layar kecil) maupun desktop.
+const POPUP_AUTOPAN_TOPLEFT = [24, 130];
+const POPUP_AUTOPAN_BOTTOMRIGHT = [24, 96];
+
 export const DevicePopup = React.memo(({ node, line, onEdit, onArchive, onQuickPing }) => {
+    const map = useMap();
+
+    const handlePopupOpen = useCallback((e) => {
+        const popup = e?.target;
+        const latlng = popup?.getLatLng?.();
+        if (!map || !latlng) return;
+
+        try {
+            const size = map.getSize();
+            // Geser marker ke bawah dari center supaya popup (mekar ke atas)
+            // jatuh di tengah. Capped 170px supaya di mobile tidak kebablasan.
+            const downwardOffset = Math.min(size.y * 0.22, 170);
+            const markerPx = map.latLngToContainerPoint(latlng);
+            // Center baru = titik 'downwardOffset' px di atas marker, sehingga
+            // setelah panTo marker berada 'downwardOffset' px di bawah center.
+            const targetPx = markerPx.subtract([0, downwardOffset]);
+            const targetLatLng = map.containerPointToLatLng(targetPx);
+            map.panTo(targetLatLng, { animate: true, duration: 0.3 });
+        } catch {
+            // panTo bisa throw kalau map lagi dalam transisi \xe2\x80\x94 abaikan,
+            // autoPanPadding sudah jadi fallback supaya popup tetap visible.
+        }
+    }, [map]);
+
     return (
-        <Popup offset={[0, -10]} className="custom-map-popup">
+        <Popup
+            offset={[0, -10]}
+            className="custom-map-popup"
+            autoPanPaddingTopLeft={POPUP_AUTOPAN_TOPLEFT}
+            autoPanPaddingBottomRight={POPUP_AUTOPAN_BOTTOMRIGHT}
+            eventHandlers={{ add: handlePopupOpen }}
+        >
             <DeviceTooltipContent node={node} line={line} onEdit={onEdit} onArchive={onArchive} onQuickPing={onQuickPing} />
         </Popup>
     );
