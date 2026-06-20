@@ -228,7 +228,7 @@ function TransactionCardMobile({ tx, expanded, onToggle }) {
                 type="button"
                 onClick={onToggle}
                 aria-expanded={expanded}
-                className="w-full text-left p-3 hover:bg-slate-surface/30 min-h-[44px]"
+                className="w-full text-left p-3 hover:bg-slate-surface/30 min-h-[44px] focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none focus-visible:bg-slate-surface/30"
             >
                 {/* Row 1: time + status badge */}
                 <div className="flex items-center justify-between gap-2 mb-2">

@@ -10,7 +10,24 @@ import {
 import toast from 'react-hot-toast';
 import { fmtDate, fmtDateTime, Modal, Field, inputCls } from './helpers';
 
-// ─── Voucher tab ───────────────────────────────────────────────────────────
+/**
+ * VoucherStatusBadge \xe2\x80\x94 shared between mobile card + desktop table.
+ * Per review MEDIUM-1: badge mode conditional duplicate \xe2\x80\x94 small helper
+ * untuk satu source. `compact` prop strip border style untuk inline table cell.
+ */
+function VoucherStatusBadge({ mode, item, compact = false }) {
+    const baseCompact = compact ? 'px-2 py-0.5 rounded uppercase' : 'text-[10px] px-2 py-0.5 rounded uppercase font-bold shrink-0';
+    if (mode === 'native') {
+        const color =
+            item.status === 'unused' ? 'bg-amber-500/20 text-amber-400' :
+            item.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' :
+            'bg-slate-500/20 text-fg-muted';
+        return <span className={clsx(baseCompact, color)}>{item.status}</span>;
+    }
+    return <span className={compact ? 'text-fg-muted' : 'text-[10px] text-fg-muted shrink-0'}>{item.billingPeriod || '—'}</span>;
+}
+
+// \xe2\x94\x80\xe2\x94\x80\xe2\x94\x80 Voucher tab \xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80\xe2\x94\x80
 export default function VouchersTab() {
     const { data: routers = [] } = useRouters();
     const { data: pkgs = [] } = usePackages({ type: 'hotspot' });
@@ -78,15 +95,11 @@ export default function VouchersTab() {
                                 <>
                                     {/* Mobile card stack \xe2\x80\x94 visible < 768px */}
                                     <div className="md:hidden space-y-2">
-                                        {items.slice(0, 200).map((it, i) => (
-                                            <div key={i} className="bg-slate-surface/70 border border-slate-border rounded-lg p-3">
+                                        {items.slice(0, 200).map((it) => (
+                                            <div key={it.code || it.id} className="bg-slate-surface/70 border border-slate-border rounded-lg p-3">
                                                 <div className="flex items-center justify-between gap-2 mb-2">
                                                     <span className="font-mono text-blue-400 text-sm truncate">{it.code}</span>
-                                                    {mode === 'native' ? (
-                                                        <span className={clsx('text-[10px] px-2 py-0.5 rounded uppercase font-bold shrink-0', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-fg-muted')}>{it.status}</span>
-                                                    ) : (
-                                                        <span className="text-[10px] text-fg-muted shrink-0">{it.billingPeriod || '\xe2\x80\x94'}</span>
-                                                    )}
+                                                    <VoucherStatusBadge mode={mode} item={it} />
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2 text-[11px]">
                                                     <div>
@@ -114,16 +127,12 @@ export default function VouchersTab() {
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-slate-800">
-                                                {items.slice(0, 200).map((it, i) => (
-                                                    <tr key={i} className="hover:bg-slate-surface/30">
+                                                {items.slice(0, 200).map((it) => (
+                                                    <tr key={it.code || it.id} className="hover:bg-slate-surface/30">
                                                         <td className="px-3 py-2 font-mono text-blue-400">{it.code}</td>
                                                         <td className="px-3 py-2 text-fg text-xs">{it.profile || '—'}</td>
                                                         <td className="px-3 py-2 text-xs">
-                                                            {mode === 'native' ? (
-                                                                <span className={clsx('px-2 py-0.5 rounded uppercase', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-fg-muted')}>{it.status}</span>
-                                                            ) : (
-                                                                <span className="text-fg-muted">{it.billingPeriod || '—'}</span>
-                                                            )}
+                                                            <VoucherStatusBadge mode={mode} item={it} compact />
                                                         </td>
                                                         <td className="px-3 py-2 text-fg-muted text-xs">{fmtDate(it.createdAt || it.generatedAt)}</td>
                                                     </tr>
