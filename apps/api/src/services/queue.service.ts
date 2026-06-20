@@ -2,6 +2,7 @@ import { Queue, Worker, Job } from 'bullmq';
 import { logger } from '../lib/logger.js';
 import { getRedisConnection, closeRedisConnection, createRedisConnection } from '../lib/redis-client.js';
 import { routerService } from './router.service.js';
+import { env } from '../config/env.js';
 
 // Re-export for compatibility
 export { getRedisConnection };
@@ -41,8 +42,10 @@ let worker: Worker | null = null;
  * stuck PPPoE poll) from monopolising worker slots and starving healthy
  * routers in the fleet.
  */
-const CB_FAIL_THRESHOLD = parseInt(process.env.ROUTER_CB_THRESHOLD || '5', 10);
-const CB_COOLDOWN_MS = parseInt(process.env.ROUTER_CB_COOLDOWN_MS || '300000', 10); // 5 min
+// Per-router circuit breaker — open setelah N consecutive failures, half-open
+// setelah cooldown. Tunables ada di env (lihat config/env.ts).
+const CB_FAIL_THRESHOLD = env.ROUTER_CB_THRESHOLD;
+const CB_COOLDOWN_MS = env.ROUTER_CB_COOLDOWN_MS;
 type BreakerState = { failures: number; openUntil: number };
 const breaker = new Map<string, BreakerState>();
 
@@ -83,8 +86,10 @@ function breakerRecord(routerId: string, ok: boolean) {
  */
 type AdaptiveState = { failures: number; nextEligibleAt: number };
 const adaptive = new Map<string, AdaptiveState>();
-const ADAPTIVE_BASE_MS = parseInt(process.env.ADAPTIVE_BASE_MS || '30000', 10);
-const ADAPTIVE_MAX_MULTIPLIER = parseInt(process.env.ADAPTIVE_MAX_MULTIPLIER || '16', 10);
+// Adaptive back-off: skip router yang baru fail untuk cycle berikutnya,
+// dengan exponential multiplier capped di MAX_MULTIPLIER.
+const ADAPTIVE_BASE_MS = env.ADAPTIVE_BASE_MS;
+const ADAPTIVE_MAX_MULTIPLIER = env.ADAPTIVE_MAX_MULTIPLIER;
 
 export function shouldEnqueueRouter(routerId: string): boolean {
     if (!breakerAllow(routerId)) return false;
@@ -110,7 +115,7 @@ function adaptiveRecord(routerId: string, ok: boolean) {
  * accept more jobs. Used by the scheduler to skip an entire enqueue
  * cycle when the worker is already saturated.
  */
-const BP_WAITING_LIMIT = parseInt(process.env.QUEUE_BP_WAITING_LIMIT || '200', 10);
+const BP_WAITING_LIMIT = env.QUEUE_BP_WAITING_LIMIT;
 
 /** Reset all circuit breakers (manual admin action). */
 export function clearBreakers(): number {
@@ -171,44 +176,62 @@ export function startQueueWorker() {
             const { routerId, includeNetwatch, isFullSync, tenantId } = job.data;
 
             if (!breakerAllow(routerId)) {
-                logger.debug({ routerId, jobId: job.id }, 'Router circuit breaker open — skipping');
+                logger.debug({ routerId, jobId: job.id }, 'Router circuit breaker open \xe2\x80\x94 skipping');
                 return { success: false, skipped: 'circuit-breaker-open' };
             }
 
+            // Per-router timing: log "Polling router X... done in 1.2s" format
+            // per spec. Operator visibility ke berapa lama tiap router (deteksi
+            // slow router yang ngeblok worker pool).
+            const startTime = Date.now();
             logger.debug({
                 jobId: job.id,
                 routerId,
-                isFullSync
-            }, 'Processing router sync job');
+                isFullSync,
+            }, `\xf0\x9f\x94\x84 Polling router ${routerId}...`);
 
             try {
-                // We use routerService directly which handles state/db updates
                 await routerService.refreshRouterStatus(routerId, includeNetwatch, isFullSync, tenantId);
+                const elapsedMs = Date.now() - startTime;
                 breakerRecord(routerId, true);
                 adaptiveRecord(routerId, true);
-                return { success: true };
+
+                // INFO level kalau slow (> 5s), DEBUG kalau normal (operator
+                // sehari-hari tidak perlu lihat log success normal).
+                const elapsedSec = (elapsedMs / 1000).toFixed(2);
+                if (elapsedMs > 5000) {
+                    logger.info({ routerId, jobId: job.id, elapsedMs }, `\xe2\x9c\x85 Polling router ${routerId}... done in ${elapsedSec}s (SLOW)`);
+                } else {
+                    logger.debug({ routerId, jobId: job.id, elapsedMs }, `\xe2\x9c\x85 Polling router ${routerId}... done in ${elapsedSec}s`);
+                }
+
+                return { success: true, elapsedMs };
             } catch (err: any) {
+                const elapsedMs = Date.now() - startTime;
                 breakerRecord(routerId, false);
                 adaptiveRecord(routerId, false);
                 logger.error({
                     err: err.message,
                     routerId,
-                    jobId: job.id
-                }, 'Router sync job failed');
+                    jobId: job.id,
+                    elapsedMs,
+                }, `\xe2\x9d\x8c Polling router ${routerId}... failed in ${(elapsedMs / 1000).toFixed(2)}s`);
                 throw err; // Throw to trigger BullMQ retry
             }
         },
         {
             connection: createRedisConnection() as any,
-            // Tunable: at ~15s per router poll, concurrency=20 lets us drain
-            // 80 routers per minute. Raise for larger fleets, lower if MikroTik
-            // boxes or the DB connection pool become saturated.
-            concurrency: parseInt(process.env.ROUTER_SYNC_CONCURRENCY || '20', 10),
+            // Concurrency: at ~15s per router poll, default 5 = drain ~20
+            // routers/minute. Raise via ROUTER_SYNC_CONCURRENCY untuk cluster
+            // besar, lower kalau MikroTik atau DB pool saturated.
+            // Note: env schema default 5 (lebih konservatif dari sebelumnya 20).
+            concurrency: env.ROUTER_SYNC_CONCURRENCY,
         }
     );
 
     worker.on('completed', (job: Job) => {
-        logger.debug({ jobId: job.id }, 'Sync job completed');
+        // Already logged inside handler dengan timing; skip duplicate.
+        logger.debug({ jobId: job.id, returnvalue: job.returnvalue }, 'BullMQ marked job completed');
     });
 
     worker.on('failed', (job: Job | undefined, err: Error) => {
@@ -239,7 +262,7 @@ export function startQueueWorker() {
         },
         {
             connection: createRedisConnection() as any,
-            concurrency: parseInt(process.env.OLT_SYNC_CONCURRENCY || '10', 10),
+            concurrency: env.OLT_SYNC_CONCURRENCY,
         }
     );
 }

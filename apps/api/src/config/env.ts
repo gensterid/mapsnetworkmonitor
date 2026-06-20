@@ -61,6 +61,25 @@ const envSchema = z.object({
     OLT_SYNC_CONCURRENCY: z.string().default('3').transform(Number),
     QUEUE_BP_WAITING_LIMIT: z.string().default('100').transform(Number),
 
+    // Scheduler intervals (semua ms). Default match dengan hardcoded value
+    // sebelumnya supaya behavior tidak berubah out-of-box.
+    SCHED_POLLING_MS: z.string().default('120000').transform(Number),       // 2 min — main router polling
+    SCHED_ESCALATION_MS: z.string().default('300000').transform(Number),    // 5 min — alert escalation check
+    SCHED_ROUTER_TIMEOUT_MS: z.string().default('60000').transform(Number), // 60s — per-router operation timeout
+    SCHED_GLOBAL_TIMEOUT_MS: z.string().default('600000').transform(Number), // 10 min — global polling safety net
+    SCHED_OLT_SNMP_MS: z.string().default('300000').transform(Number),     // 5 min — OLT SNMP sync
+    SCHED_OLT_WEB_MS: z.string().default('900000').transform(Number),      // 15 min — OLT web sync
+    SCHED_ACS_SYNC_MS: z.string().default('600000').transform(Number),     // 10 min — GenieACS device sync
+    SCHED_METRICS_MS: z.string().default('60000').transform(Number),       // 1 min — Prometheus metrics update
+    SCHED_ROUTER_SNMP_MS: z.string().default('60000').transform(Number),   // 1 min — high-frequency SNMP traffic
+    SCHED_ACS_WARMER_MS: z.string().default('60000').transform(Number),    // 1 min — ACS dashboard warm
+    SCHED_CLEANUP_MS: z.string().default('86400000').transform(Number),    // 24 hr — old metrics cleanup
+    SCHED_AUTOBACKUP_MS: z.string().default('86400000').transform(Number), // 24 hr — automated DB backup
+    SCHED_BILLING_MS: z.string().default('3600000').transform(Number),     // 1 hr — billing daily job (idempotent)
+    SCHED_DRIFT_MS: z.string().default('3600000').transform(Number),       // 1 hr — PPPoE drift scan
+    SCHED_NETWATCH_AUTOHEAL_MS: z.string().default('300000').transform(Number),  // 5 min — netwatch IP auto-heal
+    SCHED_NETWATCH_SWEEP_MS: z.string().default('300000').transform(Number),     // 5 min — netwatch alert resolver sweep
+
     // ─── Adaptive Scaling (auto-tune polling interval per cluster size) ──
     ADAPTIVE_BASE_MS: z.string().default('60000').transform(Number),
     ADAPTIVE_MAX_MULTIPLIER: z.string().default('5').transform(Number),

@@ -7,18 +7,20 @@ import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInte
 import { count, eq, lt, and, sql, isNull } from 'drizzle-orm';
 import { logger } from './logger.js';
 import { partitionService } from '../services/db/partition.service.js';
+import { env } from '../config/env.js';
 
-// Default polling interval in milliseconds (2 minutes)
-const DEFAULT_POLLING_INTERVAL = 2 * 60 * 1000;
-
-// Escalation check interval (5 minutes)
-const ESCALATION_CHECK_INTERVAL = 5 * 60 * 1000;
-
-// Per-router timeout (60 seconds)
-const ROUTER_TIMEOUT = 60 * 1000;
-
-// Global polling timeout (10 minutes) - safety net to prevent stuck polling
-const GLOBAL_POLLING_TIMEOUT = 10 * 60 * 1000;
+// Scheduler intervals \xe2\x80\x94 baca dari env (lib/env.ts schema) untuk runtime
+// tuning per environment. Default match dengan hardcoded value sebelumnya
+// supaya behavior tidak berubah out-of-box.
+//
+// Override via:
+//   SCHED_POLLING_MS=60000              # poll lebih sering (cluster kecil)
+//   SCHED_NETWATCH_AUTOHEAL_MS=120000   # heal lebih agresif
+//
+const DEFAULT_POLLING_INTERVAL = env.SCHED_POLLING_MS;
+const ESCALATION_CHECK_INTERVAL = env.SCHED_ESCALATION_MS;
+const ROUTER_TIMEOUT = env.SCHED_ROUTER_TIMEOUT_MS;
+const GLOBAL_POLLING_TIMEOUT = env.SCHED_GLOBAL_TIMEOUT_MS;
 
 // Adaptive scaling configuration
 interface ScalingConfig {
@@ -701,52 +703,64 @@ export async function startScheduler(): Promise<void> {
     // but here we keep the existing interval structure for simplicity, 
     // now iterating over tenants inside each function.
 
-    // Dynamic interval based on device count
-    const intervalMs = currentScalingConfig?.intervalMs || 2 * 60 * 1000;
+    // Dynamic interval based on device count (override env default kalau ada
+    // adaptive config). Default: env.SCHED_POLLING_MS = 2 menit.
+    const intervalMs = currentScalingConfig?.intervalMs || DEFAULT_POLLING_INTERVAL;
     pollingInterval = setInterval(pollAllRouters, intervalMs);
 
     escalationInterval = setInterval(checkAlertEscalation, ESCALATION_CHECK_INTERVAL);
-    oltSnmpInterval = setInterval(pollOltsSnmp, 5 * 60000); // 5 min default
-    oltWebInterval = setInterval(pollOltsWeb, 15 * 60000); // 15 min default
-
-    // GenieACS sync (every 10 minutes)
-    acsInterval = setInterval(syncGenieAcs, 10 * 60 * 1000);
-
-    // Prometheus Metrics (every 1 minute)
-    metricsInterval = setInterval(updatePrometheusMetrics, 60 * 1000);
-
-    // Router SNMP Traffic (every 60 seconds)
-    routerSnmpInterval = setInterval(pollRoutersSnmp, 60 * 1000);
+    oltSnmpInterval = setInterval(pollOltsSnmp, env.SCHED_OLT_SNMP_MS);
+    oltWebInterval = setInterval(pollOltsWeb, env.SCHED_OLT_WEB_MS);
+    acsInterval = setInterval(syncGenieAcs, env.SCHED_ACS_SYNC_MS);
+    metricsInterval = setInterval(updatePrometheusMetrics, env.SCHED_METRICS_MS);
+    routerSnmpInterval = setInterval(pollRoutersSnmp, env.SCHED_ROUTER_SNMP_MS);
 
     // Run immediately on start
     updatePrometheusMetrics();
-    acsWarmerInterval = setInterval(warmAcsDashboard, 60000); // Warm dashboard every minute
-    cleanupInterval = setInterval(cleanupOldMetrics, 24 * 60 * 60 * 1000); // Daily
-    autoBackupInterval = setInterval(() => backupService.automatedBackup(), 24 * 60 * 60 * 1000); // Daily
+    acsWarmerInterval = setInterval(warmAcsDashboard, env.SCHED_ACS_WARMER_MS);
+    cleanupInterval = setInterval(cleanupOldMetrics, env.SCHED_CLEANUP_MS);
+    autoBackupInterval = setInterval(() => backupService.automatedBackup(), env.SCHED_AUTOBACKUP_MS);
 
-    // Billing daily — generate invoices, mark overdue, auto-isolir.
-    // Initial run 5 minutes after startup so DB+migrations settle, then once per hour
+    // Billing daily \xe2\x80\x94 generate invoices, mark overdue, auto-isolir.
+    // Initial run 5 minutes after startup so DB+migrations settle, then loop
     // (idempotent: jobs that already ran today are skipped via DB checks).
     setTimeout(() => runBillingJobSafe(), 300000);
-    billingDailyInterval = setInterval(() => runBillingJobSafe(), 60 * 60 * 1000);
+    billingDailyInterval = setInterval(() => runBillingJobSafe(), env.SCHED_BILLING_MS);
 
-    // Drift detection — scan PPPoE drift antar DB ↔ MikroTik tiap 1 jam.
+    // Drift detection \xe2\x80\x94 scan PPPoE drift antar DB \xe2\x86\x94 MikroTik.
     // Initial run 6 menit setelah startup (offset dari billing job 5 menit).
-    // Per-tenant scan; router yang offline di-skip, dicatat di routersFailed.
     setTimeout(() => runDriftScanSafe(), 360000);
-    driftScanInterval = setInterval(() => runDriftScanSafe(), 60 * 60 * 1000);
+    driftScanInterval = setInterval(() => runDriftScanSafe(), env.SCHED_DRIFT_MS);
 
-    // Netwatch auto-heal — every 5 minutes, walk netwatch entries with
-    // linkedOnuId and update host IP if PPPoE/ACS reports a different one.
+    // Netwatch auto-heal \xe2\x80\x94 walk netwatch entries with linkedOnuId dan
+    // update host IP kalau PPPoE/ACS report IP berbeda.
     // Initial run after 90s so PPPoE polling has populated pppoe_sessions.
     setTimeout(() => runNetwatchAutoHealSafe(), 90000);
-    netwatchAutoHealInterval = setInterval(() => runNetwatchAutoHealSafe(), 5 * 60 * 1000);
+    netwatchAutoHealInterval = setInterval(() => runNetwatchAutoHealSafe(), env.SCHED_NETWATCH_AUTOHEAL_MS);
 
-    // Netwatch alert sweeper — every 5 minutes, resolve netwatch_down alerts
-    // whose corresponding netwatch entry is currently UP (catches stale alerts
-    // from IP changes, app restart races, deleted entries, etc.).
+    // Netwatch alert sweeper \xe2\x80\x94 resolve netwatch_down alerts yang netwatch
+    // entry-nya udah UP (catches stale alerts dari IP changes, app restart
+    // races, deleted entries, dst.).
     setTimeout(() => runNetwatchAlertSweepSafe(), 120000);
-    netwatchAlertSweepInterval = setInterval(() => runNetwatchAlertSweepSafe(), 5 * 60 * 1000);
+    netwatchAlertSweepInterval = setInterval(() => runNetwatchAlertSweepSafe(), env.SCHED_NETWATCH_SWEEP_MS);
+
+    // Startup summary log untuk operator visibility
+    logger.info(
+        {
+            pollingMs: intervalMs,
+            escalationMs: ESCALATION_CHECK_INTERVAL,
+            oltSnmpMs: env.SCHED_OLT_SNMP_MS,
+            oltWebMs: env.SCHED_OLT_WEB_MS,
+            acsSyncMs: env.SCHED_ACS_SYNC_MS,
+            metricsMs: env.SCHED_METRICS_MS,
+            routerSnmpMs: env.SCHED_ROUTER_SNMP_MS,
+            billingMs: env.SCHED_BILLING_MS,
+            driftMs: env.SCHED_DRIFT_MS,
+            netwatchAutoHealMs: env.SCHED_NETWATCH_AUTOHEAL_MS,
+            netwatchSweepMs: env.SCHED_NETWATCH_SWEEP_MS,
+        },
+        '\xe2\x8f\xb1\xef\xb8\x8f Scheduler started with intervals (override via env SCHED_*_MS)'
+    );
 }
 
 async function runBillingJobSafe() {
