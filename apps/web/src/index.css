@@ -621,6 +621,19 @@
         }
     }
 
+    /* Leaflet zoom controls touch target — min 44x44px di mobile per spec.
+       Default Leaflet 30x30 terlalu kecil untuk jari. Desktop tetap 30
+       (lebih compact untuk hover precision). */
+    @media (max-width: 767px) {
+        .leaflet-control-zoom a.leaflet-control-zoom-in,
+        .leaflet-control-zoom a.leaflet-control-zoom-out {
+            width: 44px !important;
+            height: 44px !important;
+            line-height: 44px !important;
+            font-size: 22px !important;
+        }
+    }
+
     .leaflet-marker-icon.marker-bounce {
         animation: marker-bounce 1s ease infinite;
     }

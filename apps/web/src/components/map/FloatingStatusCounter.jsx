@@ -52,10 +52,10 @@ export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertCli
         } catch {
             // localStorage bisa disabled di incognito strict
         }
-        // Default: collapsed di mobile (lg breakpoint = 1024px) supaya
-        // tidak overlap dengan MapStatusFilter di area top. Operator
-        // expand manual kalau perlu.
-        return typeof window !== 'undefined' && window.innerWidth < 1024;
+        // Default: expanded everywhere. Counter sekarang positioned
+        // bottom-center di mobile (tidak konflik dengan MapStatusFilter
+        // di top). Operator collapse manual kalau ganggu pan/zoom.
+        return false;
     });
 
     const toggle = () => {
@@ -77,11 +77,14 @@ export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertCli
         <div
             role="status"
             aria-label="Router status counter"
-            // Mobile: top-16 right-4 → render di BARIS 2 supaya tidak overlap
-            // dengan tombol Fullscreen + Hamburger di top-4 right-4/right-14
-            // (sebelumnya Counter ketutup hamburger karena z-index sama).
-            // Desktop: top-4 right-4 normal (sidebar slim 64px, ruang luas).
-            className="absolute top-16 right-4 lg:top-4 z-[1000] bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl overflow-hidden"
+            // Mobile (< 1024px): bottom-center supaya tidak konflik dengan
+            //   header top (hamburger + brand + search) atau MapStatusFilter.
+            //   bottom-4 = 16px gap dari bawah peta. Map container di
+            //   AppLayout sudah pb-16 mobile untuk clear BottomNav, jadi
+            //   bottom-4 here aman tidak ketutupi bottom nav.
+            // Desktop (\xe2\x89\xa51024px): top-right (lg:top-4 lg:right-4).
+            //   Override mobile bottom positioning via lg:bottom-auto.
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 lg:top-4 lg:right-4 lg:left-auto lg:bottom-auto lg:translate-x-0 z-[1000] bg-surface-darker/95 backdrop-blur-xl border border-slate-border rounded-xl shadow-2xl overflow-hidden"
             style={{ minWidth: collapsed ? '0' : '200px' }}
         >
             {/* Collapsed mode: cuma summary 1 baris kecil */}
