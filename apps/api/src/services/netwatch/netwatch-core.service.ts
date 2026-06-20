@@ -11,6 +11,7 @@ import { alertService } from '../alert.service.js';
 import { settingsService } from '../settings.service.js';
 import { netwatchRepository } from '../../repositories/netwatch.repository.js';
 import { alertRepository } from '../../repositories/alert.repository.js';
+import { logger } from '../../lib/logger.js';
 
 export interface UpdateEntryAuditOpts {
     reason?: 'manual_edit' | 'auto_heal_pppoe' | 'auto_heal_acs' | 'sync_correction';
@@ -130,7 +131,7 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
         try {
             await alertService.resolveAlertsByHost(routerId, oldHost, entry.tenantId || tenantId, tx);
         } catch (err: any) {
-            console.error('[Netwatch Update] Failed to resolve old alerts:', err.message);
+            logger.error({ err: err.message }, '[Netwatch Update] Failed to resolve old alerts');
         }
 
         // B. Update on MikroTik (if not app-only)
@@ -157,7 +158,7 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
                 }
             } catch (err: any) {
                 mikrotikPushError = err.message || String(err);
-                console.error('[Netwatch Update] Failed to update MikroTik/Webhook:', err.message);
+                logger.error({ err: err.message }, '[Netwatch Update] Failed to update MikroTik/Webhook');
             }
         }
     }
@@ -177,7 +178,7 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
                     )
                 ));
         } catch (err: any) {
-            console.error('[Netwatch Update] Failed to cascade IP change to ONUs:', err.message);
+            logger.error({ err: err.message }, '[Netwatch Update] Failed to cascade IP change to ONUs');
         }
     }
 
@@ -231,13 +232,13 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
                     changedBy: audit.changedBy || null,
                 });
             } catch (err: any) {
-                console.error('[Netwatch Update] Failed to record IP history:', err.message);
+                logger.error({ err: err.message }, '[Netwatch Update] Failed to record IP history');
             }
         }
 
         return updated;
     } catch (err: any) {
-        console.error(`[Netwatch Core] Failed to update entry ${id}:`, err.message);
+        logger.error({ err: err.message, id }, '[Netwatch Core] Failed to update entry');
         throw err;
     }
 }

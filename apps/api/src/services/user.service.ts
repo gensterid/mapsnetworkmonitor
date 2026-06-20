@@ -2,6 +2,7 @@ import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { users, accounts, tenants, userTenants, type User, type NewUser } from '../db/schema/index.js';
 import { scryptSync, randomBytes } from 'crypto';
+import { logger } from '../lib/logger.js';
 
 export type SafeUser = Omit<User, 'aiApiKey'>;
 
@@ -40,7 +41,7 @@ export class UserService {
         } else {
             // If no tenantId is provided (Superadmin view), don't filter.
             // This allows Superadmins to see and fix 'orphan' users with null tenantId.
-            console.log("Superadmin view: fetching all users including orphans");
+            logger.debug('Superadmin view: fetching all users including orphans');
         }
 
         const result = await query;
