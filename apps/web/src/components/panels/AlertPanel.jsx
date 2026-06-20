@@ -2,9 +2,12 @@ import React, { useState, useMemo, useRef, useCallback } from 'react';
 import clsx from 'clsx';
 import { Bell, ExternalLink, AlertCircle, Info, AlertOctagon, AlertTriangle, CheckCheck, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import SidePanel from './SidePanel';
 import { useAlerts, useAcknowledgeAlert } from '@/hooks';
 import { useAppTimezone } from '@/hooks';
+import { alertKeys } from '@/hooks/useAlerts';
 import { formatShortDateTime } from '@/lib/timezone';
 import { severityToStatus, STATUS_CLASSES } from '@/constants/status';
 
@@ -48,7 +51,7 @@ function severityMeta(sev) {
     return SEVERITY_META[sev] || { label: sev?.toUpperCase() || 'UNKNOWN', icon: Info };
 }
 
-function AlertRow({ alert, timezone, onAcknowledge, acknowledging }) {
+function AlertRow({ alert, timezone, onAcknowledge, acknowledging, bulkAcking }) {
     const status = severityToStatus(alert.severity);
     const colors = STATUS_CLASSES[status];
     const SevIcon = severityMeta(alert.severity?.toLowerCase()).icon;
@@ -113,15 +116,15 @@ function AlertRow({ alert, timezone, onAcknowledge, acknowledging }) {
                             <button
                                 type="button"
                                 onClick={() => onAcknowledge?.(alert.id)}
-                                disabled={acknowledging}
+                                disabled={acknowledging || bulkAcking}
                                 aria-label={
                                     acknowledging
-                                        ? 'Acknowledging alert...'
-                                        : `Acknowledge alert: ${alert.title || alert.message || 'untitled'}`
+                                        ? 'Memproses ack alert...'
+                                        : `Ack alert: ${alert.title || alert.message || 'tanpa judul'}`
                                 }
                                 className={clsx(
                                     'flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider shrink-0 transition-colors',
-                                    acknowledging
+                                    acknowledging || bulkAcking
                                         ? 'bg-slate-surface text-fg-muted cursor-not-allowed'
                                         : 'bg-status-online/10 text-status-online hover:bg-status-online/20',
                                 )}
@@ -192,6 +195,7 @@ export function AlertPanel({ isOpen, onClose }) {
     // useAcknowledgeAllAlerts yang scope-nya category) supaya bisa tetap
     // honor severity filter user. Misal user filter "Warning" → cuma
     // warning alerts yang ke-ack, bukan semua.
+    const queryClient = useQueryClient();
     const unackedFiltered = useMemo(
         () => filteredAlerts.filter((a) => !a.acknowledged),
         [filteredAlerts],
@@ -199,17 +203,38 @@ export function AlertPanel({ isOpen, onClose }) {
     const handleBulkAcknowledge = useCallback(async () => {
         if (bulkAcking || unackedFiltered.length === 0) return;
         setBulkAcking(true);
+        const total = unackedFiltered.length;
         try {
             // Promise.allSettled — kalau salah satu mutation fail, lainnya
             // tetap proceed. Hook internal handle rollback per row via
             // invalidateQueries di onError.
-            await Promise.allSettled(
+            const results = await Promise.allSettled(
                 unackedFiltered.map((a) => acknowledgeMutation.mutateAsync(a.id)),
             );
+
+            // Per review M-Q7: partial failure feedback. Promise.allSettled
+            // tidak throw, jadi user tidak tahu kalau sebagian gagal.
+            // Toast count success vs fail.
+            const failed = results.filter((r) => r.status === 'rejected').length;
+            const success = total - failed;
+            if (failed === 0) {
+                toast.success(`${success} alert berhasil di-ack`);
+            } else if (success === 0) {
+                toast.error(`Gagal ack ${failed} alert. Coba lagi.`);
+            } else {
+                toast(`${success} berhasil, ${failed} gagal di-ack`, { icon: 'WARNING' });
+            }
         } finally {
             setBulkAcking(false);
+            // Per review M-Q1: refetch storm mitigation. Setiap mutation
+            // trigger own invalidateQueries di onSettled → 50× refetch.
+            // Cancel + single explicit invalidate di akhir lebih efisien
+            // (TanStack Query dedupe in-flight tetap, tapi schedule lebih
+            // bersih).
+            queryClient.invalidateQueries({ queryKey: alertKeys.lists() });
+            queryClient.invalidateQueries({ queryKey: alertKeys.unread() });
         }
-    }, [acknowledgeMutation, bulkAcking, unackedFiltered]);
+    }, [acknowledgeMutation, bulkAcking, queryClient, unackedFiltered]);
 
     // Severity chip dynamic — generate dari data real, jadi backend pakai naming
     // apapun (critical/high/warning/medium/low/info), chip-nya muncul.
@@ -328,8 +353,8 @@ export function AlertPanel({ isOpen, onClose }) {
                         disabled={bulkAcking}
                         aria-label={
                             bulkAcking
-                                ? `Acknowledging ${unackedFiltered.length} alerts...`
-                                : `Acknowledge all ${unackedFiltered.length} filtered alerts`
+                                ? `Memproses ack ${unackedFiltered.length} alert...`
+                                : `Ack semua ${unackedFiltered.length} alert yang ditampilkan`
                         }
                         className={clsx(
                             'flex items-center gap-1.5 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wider transition-colors',
@@ -379,6 +404,7 @@ export function AlertPanel({ isOpen, onClose }) {
                                 timezone={timezone}
                                 onAcknowledge={handleAcknowledge}
                                 acknowledging={pendingAckId === alert.id}
+                                bulkAcking={bulkAcking}
                             />
                         ))}
                     </div>
