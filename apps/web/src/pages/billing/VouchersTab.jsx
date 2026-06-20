@@ -72,35 +72,68 @@ export default function VouchersTab() {
                                 <span>{items.length} entry</span>
                             </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm min-w-[640px]">
-                                    <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
-                                        <tr>
-                                            <th className="text-left px-3 py-2">Kode</th>
-                                            <th className="text-left px-3 py-2">Profile</th>
-                                            <th className="text-left px-3 py-2">Status / Note</th>
-                                            <th className="text-left px-3 py-2">Tanggal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-800">
-                                        {items.length === 0 ? <tr><td colSpan={4} className="px-3 py-6 text-center text-fg-muted">Belum ada voucher</td></tr> : items.slice(0, 200).map((it, i) => (
-                                            <tr key={i} className="hover:bg-slate-surface/30">
-                                                <td className="px-3 py-2 font-mono text-blue-400">{it.code}</td>
-                                                <td className="px-3 py-2 text-fg text-xs">{it.profile || '—'}</td>
-                                                <td className="px-3 py-2 text-xs">
+                            {items.length === 0 ? (
+                                <div className="px-3 py-6 text-center text-fg-muted">Belum ada voucher</div>
+                            ) : (
+                                <>
+                                    {/* Mobile card stack \xe2\x80\x94 visible < 768px */}
+                                    <div className="md:hidden space-y-2">
+                                        {items.slice(0, 200).map((it, i) => (
+                                            <div key={i} className="bg-slate-surface/70 border border-slate-border rounded-lg p-3">
+                                                <div className="flex items-center justify-between gap-2 mb-2">
+                                                    <span className="font-mono text-blue-400 text-sm truncate">{it.code}</span>
                                                     {mode === 'native' ? (
-                                                        <span className={clsx('px-2 py-0.5 rounded uppercase', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-fg-muted')}>{it.status}</span>
+                                                        <span className={clsx('text-[10px] px-2 py-0.5 rounded uppercase font-bold shrink-0', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-fg-muted')}>{it.status}</span>
                                                     ) : (
-                                                        <span className="text-fg-muted">{it.billingPeriod || '—'}</span>
+                                                        <span className="text-[10px] text-fg-muted shrink-0">{it.billingPeriod || '\xe2\x80\x94'}</span>
                                                     )}
-                                                </td>
-                                                <td className="px-3 py-2 text-fg-muted text-xs">{fmtDate(it.createdAt || it.generatedAt)}</td>
-                                            </tr>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 text-[11px]">
+                                                    <div>
+                                                        <div className="text-fg-muted uppercase text-[9px] mb-0.5">Profile</div>
+                                                        <div className="text-fg truncate">{it.profile || '\xe2\x80\x94'}</div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-fg-muted uppercase text-[9px] mb-0.5">Tanggal</div>
+                                                        <div className="text-fg-muted">{fmtDate(it.createdAt || it.generatedAt)}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         ))}
-                                    </tbody>
-                                </table>
-                                {items.length > 200 && <div className="text-xs text-fg-muted text-center mt-2">Menampilkan 200 dari {items.length}</div>}
-                            </div>
+                                    </div>
+
+                                    {/* Desktop table \xe2\x80\x94 visible \xe2\x89\xa5 768px */}
+                                    <div className="hidden md:block overflow-x-auto">
+                                        <table className="w-full text-sm min-w-[640px]">
+                                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
+                                                <tr>
+                                                    <th className="text-left px-3 py-2">Kode</th>
+                                                    <th className="text-left px-3 py-2">Profile</th>
+                                                    <th className="text-left px-3 py-2">Status / Note</th>
+                                                    <th className="text-left px-3 py-2">Tanggal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-800">
+                                                {items.slice(0, 200).map((it, i) => (
+                                                    <tr key={i} className="hover:bg-slate-surface/30">
+                                                        <td className="px-3 py-2 font-mono text-blue-400">{it.code}</td>
+                                                        <td className="px-3 py-2 text-fg text-xs">{it.profile || '—'}</td>
+                                                        <td className="px-3 py-2 text-xs">
+                                                            {mode === 'native' ? (
+                                                                <span className={clsx('px-2 py-0.5 rounded uppercase', it.status === 'unused' ? 'bg-amber-500/20 text-amber-400' : it.status === 'active' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-500/20 text-fg-muted')}>{it.status}</span>
+                                                            ) : (
+                                                                <span className="text-fg-muted">{it.billingPeriod || '—'}</span>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-3 py-2 text-fg-muted text-xs">{fmtDate(it.createdAt || it.generatedAt)}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {items.length > 200 && <div className="text-xs text-fg-muted text-center mt-2">Menampilkan 200 dari {items.length}</div>}
+                                </>
+                            )}
                         </div>
                     )}
                 </CardContent>

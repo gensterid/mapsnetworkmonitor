@@ -140,8 +140,22 @@ export default function TransaksiTab() {
                 <CardContent className="p-0">
                     {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> :
                      rows.length === 0 ? <div className="p-8 text-center text-fg-muted text-sm">Belum ada transaksi.</div> : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm min-w-[800px]">
+                        <>
+                            {/* Mobile card stack \xe2\x80\x94 visible < 768px */}
+                            <div className="md:hidden p-2 space-y-2">
+                                {rows.map(t => (
+                                    <TransactionCardMobile
+                                        key={t.id}
+                                        tx={t}
+                                        expanded={expandedId === t.id}
+                                        onToggle={() => setExpandedId(expandedId === t.id ? null : t.id)}
+                                    />
+                                ))}
+                            </div>
+
+                            {/* Desktop table \xe2\x80\x94 visible \xe2\x89\xa5 768px */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-sm min-w-[800px]">
                                 <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
                                     <tr>
                                         <th className="w-6"></th>
@@ -193,10 +207,63 @@ export default function TransaksiTab() {
                                     })}
                                 </tbody>
                             </table>
-                        </div>
+                            </div>
+                        </>
                     )}
                 </CardContent>
             </Card>
+        </div>
+    );
+}
+
+/**
+ * TransactionCardMobile \xe2\x80\x94 card layout untuk transaksi di viewport < 768px.
+ * Show: time + customer + invoice + amount + method/status badge.
+ * Tap card untuk expand DetailRow.
+ */
+function TransactionCardMobile({ tx, expanded, onToggle }) {
+    return (
+        <div className="bg-slate-surface/70 border border-slate-border rounded-lg overflow-hidden">
+            <button
+                type="button"
+                onClick={onToggle}
+                aria-expanded={expanded}
+                className="w-full text-left p-3 hover:bg-slate-surface/30 min-h-[44px]"
+            >
+                {/* Row 1: time + status badge */}
+                <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="text-[10px] text-fg-muted font-mono">{fmtDateTime(tx.recordedAt)}</span>
+                    <span className={clsx('text-[10px] px-2 py-0.5 rounded uppercase font-bold border shrink-0', STATUS_COLOR[tx.status])}>
+                        {tx.status}
+                    </span>
+                </div>
+
+                {/* Row 2: customer + amount */}
+                <div className="flex items-end justify-between gap-2 mb-2">
+                    <div className="min-w-0 flex-1">
+                        <div className="text-fg text-sm truncate font-medium">{tx.customerName || '\xe2\x80\x94'}</div>
+                        {tx.customerPhone && (
+                            <div className="text-[10px] text-fg-muted truncate">{tx.customerPhone}</div>
+                        )}
+                    </div>
+                    <div className="text-fg font-mono font-bold shrink-0">{fmtIDR(tx.amount)}</div>
+                </div>
+
+                {/* Row 3: invoice + method */}
+                <div className="flex items-center justify-between gap-2 text-[11px]">
+                    <span className="font-mono text-primary truncate">{tx.invoiceNumber}</span>
+                    <span className={clsx('text-[10px] px-2 py-0.5 rounded uppercase font-bold shrink-0', METHOD_COLOR[tx.method] || METHOD_COLOR.manual)}>
+                        {METHOD_LABEL[tx.method] || tx.method}
+                    </span>
+                </div>
+            </button>
+
+            {/* Expanded detail */}
+            {expanded && (
+                <div className="px-3 pb-3 pt-1 bg-black/20 border-t border-slate-border">
+                    <DetailRow tx={tx} />
+                </div>
+            )}
         </div>
     );
 }

@@ -68,42 +68,60 @@ export default function InvoicesTab() {
                 </div>
             </CardHeader>
             <CardContent className="p-0">
-                {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm min-w-[640px]">
-                            <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
-                                <tr><th className="text-left px-4 py-2">No. Invoice</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-left px-4 py-2">Jatuh Tempo</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Dibayar</th><th className="px-4 py-2"></th></tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800">
-                                {rows.length === 0 ? <tr><td colSpan={7} className="px-4 py-6 text-center text-fg-muted">Tidak ada tagihan</td></tr> : rows.map(i => (
-                                    <tr key={i.id} className="hover:bg-slate-surface/30">
-                                        <td className="px-4 py-2 font-mono text-blue-400">{i.invoiceNumber}</td>
-                                        <td className="px-4 py-2 text-fg">{custMap[i.customerId]?.name || '—'}</td>
-                                        <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(i.amount)}</td>
-                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDate(i.dueAt)}</td>
-                                        <td className="px-4 py-2">
-                                            <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
-                                                i.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                i.status === 'overdue' ? 'bg-red-500/20 text-red-400' :
-                                                i.status === 'unpaid' ? 'bg-amber-500/20 text-amber-400' :
-                                                'bg-slate-500/20 text-fg-muted')}>{i.status}</span>
-                                        </td>
-                                        <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(i.paidAt)}</td>
-                                        <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
-                                            {i.status !== 'paid' && i.status !== 'cancelled' && (
-                                                <>
-                                                    <Button size="sm" variant="outline" onClick={() => setPromiseTarget(i)} title="Defer dengan janji bayar"><HandCoins className="w-3.5 h-3.5 mr-1" /> Janji Bayar</Button>
-                                                    <Button size="sm" variant="outline" onClick={() => { setLinkTarget(i); setLinkResult(null); }}><CreditCard className="w-3.5 h-3.5 mr-1" /> Link Bayar</Button>
-                                                    <Button size="sm" onClick={() => setPayTarget(i)}>Bayar Manual</Button>
-                                                </>
-                                            )}
-                                            {i.status === 'unpaid' && <button onClick={() => { if (confirm('Batalkan tagihan?')) cancel.mutate(i.id); }} className="text-fg-muted hover:text-red-400 px-2"><X className="w-4 h-4" /></button>}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                {isLoading ? <div className="p-6 text-center text-fg-muted">Memuat…</div> : rows.length === 0 ? (
+                    <div className="p-6 text-center text-fg-muted text-sm">Tidak ada tagihan</div>
+                ) : (
+                    <>
+                        {/* Mobile card stack — visible < 768px */}
+                        <div className="md:hidden p-2 space-y-2">
+                            {rows.map(i => <InvoiceCardMobile
+                                key={i.id}
+                                invoice={i}
+                                customer={custMap[i.customerId]}
+                                onPromise={() => setPromiseTarget(i)}
+                                onLink={() => { setLinkTarget(i); setLinkResult(null); }}
+                                onPay={() => setPayTarget(i)}
+                                onCancel={() => { if (confirm('Batalkan tagihan?')) cancel.mutate(i.id); }}
+                            />)}
+                        </div>
+
+                        {/* Desktop table — visible >= 768px */}
+                        <div className="hidden md:block overflow-x-auto">
+                            <table className="w-full text-sm min-w-[640px]">
+                                <thead className="bg-surface-dark/50 text-xs text-fg-muted uppercase">
+                                    <tr><th className="text-left px-4 py-2">No. Invoice</th><th className="text-left px-4 py-2">Pelanggan</th><th className="text-right px-4 py-2">Jumlah</th><th className="text-left px-4 py-2">Jatuh Tempo</th><th className="text-left px-4 py-2">Status</th><th className="text-left px-4 py-2">Dibayar</th><th className="px-4 py-2"></th></tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800">
+                                    {rows.map(i => (
+                                        <tr key={i.id} className="hover:bg-slate-surface/30">
+                                            <td className="px-4 py-2 font-mono text-blue-400">{i.invoiceNumber}</td>
+                                            <td className="px-4 py-2 text-fg">{custMap[i.customerId]?.name || '—'}</td>
+                                            <td className="px-4 py-2 text-right text-emerald-400 font-mono">{fmtIDR(i.amount)}</td>
+                                            <td className="px-4 py-2 text-fg-muted text-xs">{fmtDate(i.dueAt)}</td>
+                                            <td className="px-4 py-2">
+                                                <span className={clsx('text-xs px-2 py-0.5 rounded uppercase font-semibold',
+                                                    i.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' :
+                                                    i.status === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                                                    i.status === 'unpaid' ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-slate-500/20 text-fg-muted')}>{i.status}</span>
+                                            </td>
+                                            <td className="px-4 py-2 text-fg-muted text-xs">{fmtDateTime(i.paidAt)}</td>
+                                            <td className="px-4 py-2 text-right space-x-1 whitespace-nowrap">
+                                                {i.status !== 'paid' && i.status !== 'cancelled' && (
+                                                    <>
+                                                        <Button size="sm" variant="outline" onClick={() => setPromiseTarget(i)} title="Defer dengan janji bayar"><HandCoins className="w-3.5 h-3.5 mr-1" /> Janji Bayar</Button>
+                                                        <Button size="sm" variant="outline" onClick={() => { setLinkTarget(i); setLinkResult(null); }}><CreditCard className="w-3.5 h-3.5 mr-1" /> Link Bayar</Button>
+                                                        <Button size="sm" onClick={() => setPayTarget(i)}>Bayar Manual</Button>
+                                                    </>
+                                                )}
+                                                {i.status === 'unpaid' && <button onClick={() => { if (confirm('Batalkan tagihan?')) cancel.mutate(i.id); }} className="text-fg-muted hover:text-red-400 px-2"><X className="w-4 h-4" /></button>}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </>
                 )}
             </CardContent>
 
@@ -184,6 +202,82 @@ export default function InvoicesTab() {
                 loading={createPromise.isPending}
             />
         </Card>
+    );
+}
+
+/**
+ * InvoiceCardMobile \xe2\x80\x94 card layout untuk invoice di viewport < 768px.
+ * Show info kritis: invoice no + customer + amount + status badge + due date.
+ * Actions tidak kompak \xe2\x80\x94 stack vertical full-width per spec mobile.
+ */
+function InvoiceCardMobile({ invoice, customer, onPromise, onLink, onPay, onCancel }) {
+    const i = invoice;
+    const canPay = i.status !== 'paid' && i.status !== 'cancelled';
+    const statusColor =
+        i.status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' :
+        i.status === 'overdue' ? 'bg-red-500/20 text-red-400' :
+        i.status === 'unpaid' ? 'bg-amber-500/20 text-amber-400' :
+        'bg-slate-500/20 text-fg-muted';
+
+    return (
+        <div className="bg-slate-surface/70 border border-slate-border rounded-lg p-3">
+            {/* Row 1: invoice no + status badge */}
+            <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="font-mono text-blue-400 text-sm truncate">{i.invoiceNumber}</span>
+                <span className={clsx('text-[10px] px-2 py-0.5 rounded uppercase font-bold shrink-0', statusColor)}>
+                    {i.status}
+                </span>
+            </div>
+
+            {/* Row 2: customer + amount */}
+            <div className="flex items-end justify-between gap-2 mb-2">
+                <div className="min-w-0 flex-1">
+                    <div className="text-[10px] text-fg-muted uppercase mb-0.5">Pelanggan</div>
+                    <div className="text-fg text-sm truncate">{customer?.name || '\xe2\x80\x94'}</div>
+                </div>
+                <div className="text-right shrink-0">
+                    <div className="text-[10px] text-fg-muted uppercase mb-0.5">Jumlah</div>
+                    <div className="text-emerald-400 font-mono font-bold">{fmtIDR(i.amount)}</div>
+                </div>
+            </div>
+
+            {/* Row 3: due date + paid date */}
+            <div className="grid grid-cols-2 gap-2 text-[11px] pb-2 border-b border-slate-border">
+                <div>
+                    <div className="text-fg-muted uppercase text-[9px] mb-0.5">Jatuh Tempo</div>
+                    <div className="text-fg-muted">{fmtDate(i.dueAt) || '\xe2\x80\x94'}</div>
+                </div>
+                <div>
+                    <div className="text-fg-muted uppercase text-[9px] mb-0.5">Dibayar</div>
+                    <div className="text-fg-muted">{fmtDateTime(i.paidAt) || '\xe2\x80\x94'}</div>
+                </div>
+            </div>
+
+            {/* Row 4: actions \xe2\x80\x94 stacked full-width kalau ada action.
+                Per spec: "Tombol aksi: full width di mobile, auto width di desktop". */}
+            {canPay && (
+                <div className="flex flex-col gap-2 pt-2">
+                    <Button size="sm" onClick={onPay} className="w-full">Bayar Manual</Button>
+                    <div className="grid grid-cols-2 gap-2">
+                        <Button size="sm" variant="outline" onClick={onLink}>
+                            <CreditCard className="w-3.5 h-3.5 mr-1" /> Link Bayar
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={onPromise}>
+                            <HandCoins className="w-3.5 h-3.5 mr-1" /> Janji Bayar
+                        </Button>
+                    </div>
+                    {i.status === 'unpaid' && (
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="text-xs text-fg-muted hover:text-red-400 min-h-[44px] flex items-center justify-center gap-1"
+                        >
+                            <X className="w-4 h-4" /> Batalkan Tagihan
+                        </button>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }
 
