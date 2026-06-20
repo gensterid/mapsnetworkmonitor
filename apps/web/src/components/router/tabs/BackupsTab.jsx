@@ -188,10 +188,14 @@ export default function BackupsTab({ routerId }) {
                                 className="bg-slate-surface/50 border-slate-border"
                             />
                         </div>
-                        <Button 
+                        {/* Per review: jangan override h- via className karena
+                            clsx tidak resolve conflict Tailwind utility (h-10
+                            vs default h-11). Pakai default size (h-11) + cuma
+                            override w + px. */}
+                        <Button
                             onClick={handleCreate}
                             loading={createMutation.isPending}
-                            className="w-full md:w-auto h-10 px-8"
+                            className="w-full md:w-auto px-8"
                         >
                             Take Backup
                         </Button>

@@ -34,7 +34,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                                     data-group="mapColors"
                                     value={formData.mapColors.online}
                                     onChange={handleChange}
-                                    className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                    className="h-11 w-20 rounded bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="online"
@@ -54,7 +54,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                                     data-group="mapColors"
                                     value={formData.mapColors.offline}
                                     onChange={handleChange}
-                                    className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                    className="h-11 w-20 rounded bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="offline"
@@ -74,7 +74,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                                     data-group="mapColors"
                                     value={formData.mapColors.warning}
                                     onChange={handleChange}
-                                    className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                    className="h-11 w-20 rounded bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="warning"
@@ -107,7 +107,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                                     data-group="mapColors"
                                     value={formData.mapColors.router}
                                     onChange={handleChange}
-                                    className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                    className="h-11 w-20 rounded bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="router"
@@ -127,7 +127,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                                     data-group="mapColors"
                                     value={formData.mapColors.pppoe}
                                     onChange={handleChange}
-                                    className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                    className="h-11 w-20 rounded bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="pppoe"
@@ -147,7 +147,7 @@ export default function MapColorsSettings({ formData, handleChange, setFormData,
                                     data-group="mapColors"
                                     value={formData.mapColors.odp}
                                     onChange={handleChange}
-                                    className="h-10 w-20 rounded bg-transparent cursor-pointer"
+                                    className="h-11 w-20 rounded bg-transparent cursor-pointer"
                                 />
                                 <Input
                                     name="odp"

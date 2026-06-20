@@ -18,10 +18,10 @@ import { Loader2 } from 'lucide-react';
  *     outline     — Outline only, bg transparent
  *
  *   size?: 'default' | 'sm' | 'lg' | 'icon'
- *     default — h-10 px-4 (umumnya)
- *     sm      — h-8 px-3 text-xs (table actions, compact form)
+ *     default — h-11 px-4 (44px touch target, mobile-friendly)
+ *     sm      — h-8 px-3 text-xs (32px, opt-in dense desktop UI only)
  *     lg      — h-12 px-8 (hero CTA, large)
- *     icon    — h-10 w-10 (icon-only square)
+ *     icon    — h-11 w-11 (44x44 icon-only square)
  *
  *   loading?: boolean — show spinner + disable
  *   disabled?: boolean
