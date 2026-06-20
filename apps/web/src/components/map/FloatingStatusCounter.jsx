@@ -6,13 +6,18 @@ import { Link } from 'react-router-dom';
 /**
  * FloatingStatusCounter — Floating badge di pojok kanan atas map.
  *
- * Format (sesuai brief user):
+ * Format:
  *   ┌─────────────────────────┐
- *   │ ROUTER                  │
+ *   │ DEVICE                  │
  *   │ 🟢 245  🔴 12  🟡 5     │
  *   │─────────────────────────│
  *   │ 🔔 8 Alert Unread       │
  *   └─────────────────────────┘
+ *
+ * "DEVICE" = aggregate semua device type (router + netwatch host + pppoe
+ * session), match dengan apa yang filter chip mempengaruhi visibility-nya.
+ * Sebelumnya label "ROUTER" misleading — angka cuma router count tapi
+ * filter affect netwatch + pppoe juga.
  *
  * Klik Alert row → navigate ke /alerts.
  * Collapsible: persist state ke localStorage supaya tidak balik expand setiap refresh.
@@ -76,7 +81,7 @@ export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertCli
     return (
         <div
             role="status"
-            aria-label="Router status counter"
+            aria-label="Device status counter"
             // Mobile (< 1024px): bottom-center supaya tidak konflik dengan
             //   header top (hamburger + brand + search) atau MapStatusFilter.
             //   bottom-4 = 16px gap dari bawah peta. Map container di
@@ -105,7 +110,7 @@ export function FloatingStatusCounter({ routerCounts, alertCount = 0, onAlertCli
                     {/* Header dengan toggle */}
                     <div className="flex items-center justify-between px-3 pt-2.5 pb-1.5">
                         <h3 className="text-[10px] font-bold uppercase tracking-widest text-fg-muted">
-                            Router
+                            Device
                         </h3>
                         <button
                             type="button"

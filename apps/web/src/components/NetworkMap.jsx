@@ -228,19 +228,54 @@ const NetworkMap = ({
     // Unread alert count untuk FloatingStatusCounter.
     const { data: alertCount } = useUnreadAlertCount();
 
-    // Router status counts — tenant-wide (TIDAK terpengaruh filteredRouterId).
-    // Konsumsi oleh FloatingStatusCounter + MapStatusFilter.
+    // Device status counts — ALL devices (router + netwatch host + pppoe session),
+    // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
+    // FloatingStatusCounter + MapStatusFilter.
+    //
+    // User feedback: sebelumnya cuma router yang dihitung, tapi filter chip
+    // mempengaruhi visibility netwatch juga \xe2\x86\x92 disconnect: counter say
+    // "4 online 0 offline" tapi map tampilkan marker offline netwatch/pppoe.
+    // Now: count semua device type supaya counter match dengan apa yang
+    // visible di map.
+    //
+    // Perf: 4 router + ~50 netwatch + ~300 pppoe = ~350 items per recompute.
+    // O(n) tunggal saat data berubah (useMemo cache). Negligible.
     const routerStatusCounts = useMemo(() => {
         const counts = { online: 0, offline: 0, issue: 0 };
-        if (!Array.isArray(stableRoutersData)) return counts;
-        stableRoutersData.forEach((r) => {
-            const s = mapToStatus(r.status);
-            if (s === STATUS.ONLINE) counts.online += 1;
-            else if (s === STATUS.OFFLINE) counts.offline += 1;
-            else if (s === STATUS.ISSUE) counts.issue += 1;
-        });
+
+        if (Array.isArray(stableRoutersData)) {
+            stableRoutersData.forEach((r) => {
+                const s = mapToStatus(r.status);
+                if (s === STATUS.ONLINE) counts.online += 1;
+                else if (s === STATUS.OFFLINE) counts.offline += 1;
+                else if (s === STATUS.ISSUE) counts.issue += 1;
+            });
+        }
+
+        // Netwatch entries di-flatten dari nwGroup.entries[]
+        if (Array.isArray(stableNetwatchData)) {
+            stableNetwatchData.forEach((nwGroup) => {
+                if (!nwGroup.entries) return;
+                nwGroup.entries.forEach((entry) => {
+                    const s = mapToStatus(entry.status);
+                    if (s === STATUS.ONLINE) counts.online += 1;
+                    else if (s === STATUS.OFFLINE) counts.offline += 1;
+                    else if (s === STATUS.ISSUE) counts.issue += 1;
+                });
+            });
+        }
+
+        // PPPoE sessions \xe2\x80\x94 status normalize: 'active'/'up' = online, else offline
+        if (Array.isArray(stablePppoeData)) {
+            stablePppoeData.forEach((session) => {
+                const isActive = session.status === 'active' || session.status === 'up';
+                if (isActive) counts.online += 1;
+                else counts.offline += 1;
+            });
+        }
+
         return counts;
-    }, [stableRoutersData]);
+    }, [stableRoutersData, stableNetwatchData, stablePppoeData]);
 
     // UI & Interactive State (Moved to top to prevent ReferenceError)
     const [mapType, setMapType] = useState(() => {
@@ -915,13 +950,20 @@ const NetworkMap = ({
                 const lat = parseFloat(session.latitude);
                 const lng = parseFloat(session.longitude);
                 if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
+                    // Status filter chip \xe2\x80\x94 hide pppoe session yang tidak match.
+                    // 'active'/'up' \xe2\x86\x92 online, else \xe2\x86\x92 offline.
+                    // Sebelumnya pppoe BYPASS filter \xe2\x80\x94 user feedback "klik
+                    // offline yang tampil pppoe" karena tidak ada filter check.
+                    const normalizedStatus = (session.status === 'active' || session.status === 'up') ? 'online' : 'offline';
+                    if (statusFilter !== 'all' && normalizedStatus !== statusFilter) return;
+
                     const node = {
                         ...session,
                         lat,
                         lng,
                         type: 'pppoe',
                         deviceType: 'pppoe',
-                        status: (session.status === 'active' || session.status === 'up') ? 'online' : 'offline',
+                        status: normalizedStatus,
                     };
                     pppoeNodesList.push(node);
                     deviceMap.set(session.id, node);
