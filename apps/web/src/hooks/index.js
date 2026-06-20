@@ -103,3 +103,4 @@ export { useDebounce } from './useDebounce';
 export { useAppTimezone } from './useAppTimezone';
 export { useDashboardStats, useDownItems } from './useDashboard';
 export { useRealtimeTraffic, useAllRoutersTraffic } from './useSocket';
+export { useIsMobile, useIsTablet, useIsDesktop, useIsTabletUp } from './useBreakpoint';
