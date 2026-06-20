@@ -45,7 +45,133 @@ export default function DeviceList({
 
   return (
     <div className="h-full flex flex-col bg-surface-dark/40 border border-slate-border rounded-xl overflow-hidden">
-      <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+      {/* Mobile card stack — visible < 768px (md:hidden).
+          Show high-value subset: status, device id, SN, IP, signal, clients.
+          VLAN / Model / Tags / MAC / Temp di-skip karena kurang critical
+          untuk operator field quick-check (bisa lihat detail via tap Info). */}
+      <div className="md:hidden flex-1 min-h-0 overflow-auto custom-scrollbar p-2 space-y-2">
+        {devices.map((dev) => {
+          const lastInformDate = dev._lastInform ? new Date(dev._lastInform) : null;
+          const isOnline = lastInformDate && (lastInformDate.getTime() > now - ONLINE_THRESHOLD);
+          const signalInfo = getSignalStatusInfo(dev._rxPower);
+          const clientInfo = getClientStatusInfo(dev._clientCount);
+          const isSelected = selectedIds.includes(dev._id);
+
+          return (
+            <div
+              key={dev._id}
+              className={clsx(
+                "bg-slate-surface/70 border border-slate-border rounded-lg p-3",
+                isSelected && "bg-primary/5 border-primary/30",
+              )}
+            >
+              {/* Row 1: checkbox + status + device id + linked badge */}
+              <div className="flex items-start gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary h-4 w-4 cursor-pointer mt-0.5 shrink-0"
+                  checked={isSelected}
+                  onChange={() => onToggleSelect(dev._id)}
+                />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span
+                      className={clsx(
+                        "w-2 h-2 rounded-full shrink-0",
+                        isOnline ? "bg-emerald-500" : "bg-red-500",
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => onViewDetails(dev._id)}
+                      className="text-sm font-bold text-fg truncate text-left flex-1 min-w-0"
+                    >
+                      {dev._id}
+                    </button>
+                    {dev._serialNumber && netwatchLookup.has(dev._serialNumber) && (
+                      <span className="px-1 bg-emerald-500/10 text-emerald-500 text-[8px] font-bold uppercase border border-emerald-500/20 rounded shrink-0">
+                        Linked
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-fg-muted font-mono truncate">
+                    SN: {dev._serialNumber || 'N/A'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: IP + signal + clients (3-col compact metric) */}
+              <div className="grid grid-cols-3 gap-2 text-[11px] pt-2 border-t border-slate-border">
+                <div>
+                  <div className="text-fg-muted uppercase text-[9px] mb-0.5">IP</div>
+                  <div className="text-primary font-mono font-bold truncate">{dev._ip || '—'}</div>
+                </div>
+                <div>
+                  <div className="text-fg-muted uppercase text-[9px] mb-0.5">Signal</div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-fg font-bold truncate">{signalInfo.value}</span>
+                    <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", signalInfo.colorClass)} />
+                  </div>
+                </div>
+                <div>
+                  <div className="text-fg-muted uppercase text-[9px] mb-0.5">Clients</div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-fg font-bold truncate">{clientInfo.value}</span>
+                    <span className={clsx("w-1.5 h-1.5 rounded-full shrink-0", clientInfo.colorClass)} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: action bar (touch target 44px each) */}
+              <div className="flex gap-1 pt-2 mt-2 border-t border-slate-border">
+                <button
+                  onClick={() => onRefresh(dev._id)}
+                  className="flex-1 min-h-[44px] rounded-md hover:bg-slate-border text-fg-muted hover:text-blue-400 transition-colors flex items-center justify-center"
+                  aria-label="Refresh"
+                  title="Refresh"
+                >
+                  <RefreshCw className={clsx("w-4 h-4", refreshPendingId === dev._id && "animate-spin")} />
+                </button>
+                <button
+                  onClick={() => onOpenWifi(dev)}
+                  className="flex-1 min-h-[44px] rounded-md hover:bg-slate-border text-fg-muted hover:text-emerald-400 transition-colors flex items-center justify-center"
+                  aria-label="WiFi"
+                  title="WiFi"
+                >
+                  <Wifi className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onViewDetails(dev._id)}
+                  className="flex-1 min-h-[44px] rounded-md hover:bg-slate-border text-fg-muted hover:text-primary transition-colors flex items-center justify-center"
+                  aria-label="Details"
+                  title="Details"
+                >
+                  <Info className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => onBackup(dev._id)}
+                  className="flex-1 min-h-[44px] rounded-md hover:bg-slate-border text-fg-muted hover:text-amber-400 transition-colors flex items-center justify-center"
+                  aria-label="Backup"
+                  title="Backup"
+                >
+                  <Database className={clsx("w-4 h-4", backupPendingId === dev._id && "animate-pulse")} />
+                </button>
+                <button
+                  onClick={() => onReboot(dev)}
+                  className="flex-1 min-h-[44px] rounded-md hover:bg-slate-border text-fg-muted hover:text-red-400 transition-colors flex items-center justify-center"
+                  aria-label="Reboot"
+                  title="Reboot"
+                >
+                  <Power className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop table — visible >= 768px (hidden md:block) */}
+      <div className="hidden md:flex md:flex-col flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 z-10 text-fg-muted text-[10px] uppercase font-bold tracking-wider">
             <tr>

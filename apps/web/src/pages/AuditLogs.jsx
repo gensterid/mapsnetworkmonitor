@@ -166,14 +166,14 @@ export default function AuditLogs() {
                                 type="date"
                                 value={startDate}
                                 onChange={(e) => setStartDate(e.target.value)}
-                                className="bg-surface-darker border border-slate-border text-fg text-sm rounded-lg px-2 py-2 h-10 focus:ring-1 focus:ring-primary focus:border-primary flex-1 min-w-0"
+                                className="bg-surface-darker border border-slate-border text-fg text-base md:text-sm rounded-lg px-2 py-2 h-11 focus:ring-1 focus:ring-primary focus:border-primary flex-1 min-w-0"
                             />
                             <span className="text-fg-muted text-xs">—</span>
                             <input
                                 type="date"
                                 value={endDate}
                                 onChange={(e) => setEndDate(e.target.value)}
-                                className="bg-surface-darker border border-slate-border text-fg text-sm rounded-lg px-2 py-2 h-10 focus:ring-1 focus:ring-primary focus:border-primary flex-1 min-w-0"
+                                className="bg-surface-darker border border-slate-border text-fg text-base md:text-sm rounded-lg px-2 py-2 h-11 focus:ring-1 focus:ring-primary focus:border-primary flex-1 min-w-0"
                             />
                         </div>
                     </div>
@@ -183,7 +183,26 @@ export default function AuditLogs() {
             {/* Table + pagination */}
             <Card>
                 <CardContent className="!p-0">
-                    <div className="overflow-x-auto">
+                    {/* Mobile card stack — visible < 768px */}
+                    <div className="md:hidden p-2 space-y-2">
+                        {isLoading ? (
+                            <div className="text-center py-12 text-fg-muted">
+                                <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" />
+                                Memuat\xe2\x80\xa6
+                            </div>
+                        ) : logs.length === 0 ? (
+                            <div className="text-center py-12 text-fg-muted text-sm">
+                                {hasFilter ? 'Tidak ada log yang match filter' : 'Belum ada log'}
+                            </div>
+                        ) : (
+                            logs.map((log) => (
+                                <LogCardMobile key={log.id} log={log} />
+                            ))
+                        )}
+                    </div>
+
+                    {/* Desktop table — visible \xe2\x89\xa5 768px */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-slate-border text-xs uppercase text-fg-muted font-semibold tracking-wider">
@@ -321,6 +340,88 @@ function LogRow({ log }) {
                 </tr>
             )}
         </>
+    );
+}
+
+/**
+ * LogCardMobile — card layout untuk audit log di viewport < 768px.
+ * Show: waktu (kecil) + user + aksi badge + entity + expand untuk details.
+ * Sama informasi dengan LogRow tabel desktop, stack vertically.
+ */
+function LogCardMobile({ log }) {
+    const [expanded, setExpanded] = React.useState(false);
+    const actionVariant = ACTION_BADGE[log.action] || 'default';
+    const hasDetails = log.details && Object.keys(log.details).length > 0;
+
+    return (
+        <div
+            className={clsx(
+                'bg-slate-surface/70 border border-slate-border rounded-lg p-3',
+                hasDetails && 'cursor-pointer',
+            )}
+            onClick={() => hasDetails && setExpanded((v) => !v)}
+        >
+            {/* Row 1: time + action badge */}
+            <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] text-fg-muted font-mono">
+                    {formatDateTime(log.createdAt)}
+                </span>
+                <Badge variant={actionVariant} size="xs">
+                    {log.action}
+                </Badge>
+            </div>
+
+            {/* Row 2: user + entity */}
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div>
+                    <div className="text-fg-muted uppercase text-[9px] mb-0.5">User</div>
+                    {log.userName ? (
+                        <div className="flex items-center gap-1 min-w-0">
+                            <User className="w-3 h-3 text-fg-muted shrink-0" />
+                            <div className="min-w-0">
+                                <div className="text-fg truncate font-medium">{log.userName}</div>
+                                {log.userRole && (
+                                    <div className="text-[9px] text-fg-muted uppercase">{log.userRole}</div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <span className="text-fg-muted italic">sistem</span>
+                    )}
+                </div>
+                <div className="min-w-0">
+                    <div className="text-fg-muted uppercase text-[9px] mb-0.5">Entity</div>
+                    <div className="text-fg font-mono truncate">{log.entity}</div>
+                    {log.entityId && (
+                        <div className="text-[9px] text-fg-muted font-mono truncate">
+                            {log.entityId}
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            {/* Row 3: details (expandable) */}
+            {hasDetails && (
+                <div className="mt-2 pt-2 border-t border-slate-border">
+                    <div className="flex items-center justify-between text-[10px] text-fg-muted">
+                        <span>Detail</span>
+                        <span>{expanded ? 'Tutup \xe2\x88\xa7' : 'Buka \xe2\x88\xa8'}</span>
+                    </div>
+                    {expanded && (
+                        <>
+                            <pre className="mt-2 p-2 bg-surface-darker rounded text-[10px] text-fg-muted overflow-x-auto max-h-40 custom-scrollbar">
+                                {JSON.stringify(log.details, null, 2)}
+                            </pre>
+                            {log.ipAddress && (
+                                <div className="text-[9px] text-fg-muted mt-1 font-mono break-all">
+                                    IP: {log.ipAddress}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            )}
+        </div>
     );
 }
 
