@@ -27,15 +27,15 @@ export function RouterList({ routers, onEdit, onDelete, onRefresh, refreshingId 
                                 <button
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRefresh(router.id); }}
                                     disabled={refreshingId === router.id}
-                                    className="p-2 rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 disabled:opacity-50"
+                                    className="rounded-md hover:bg-slate-700 text-slate-400 hover:text-emerald-400 disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                                     aria-label="Refresh router"
                                 >
                                     <RefreshCw className={clsx("w-4 h-4", refreshingId === router.id && "animate-spin")} />
                                 </button>
-                                <button onClick={(e) => onEdit(e, router)} className="p-2 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white" aria-label="Edit router">
+                                <button onClick={(e) => onEdit(e, router)} className="rounded-md hover:bg-slate-700 text-slate-400 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Edit router">
                                     <Edit className="w-4 h-4" />
                                 </button>
-                                <button onClick={(e) => onDelete(e, router)} className="p-2 rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400" aria-label="Delete router">
+                                <button onClick={(e) => onDelete(e, router)} className="rounded-md hover:bg-red-500/10 text-slate-400 hover:text-red-400 min-h-[44px] min-w-[44px] flex items-center justify-center" aria-label="Delete router">
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
