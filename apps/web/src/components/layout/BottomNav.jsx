@@ -29,14 +29,19 @@ function NavButton({ item, badge, badgeColor }) {
             to={item.path}
             className={({ isActive }) =>
                 clsx(
+                    // Touch target: parent flex-1 + h-16 bottom nav = ~64px tall per
+                    // item, lebar = viewport/4. Pasti > 44x44 px (spec min).
+                    // Active state: warna primary + line atas accent (visible cue).
                     'relative flex flex-col items-center justify-center gap-0.5 flex-1 min-w-0 py-1 transition-colors',
-                    isActive ? 'text-primary' : 'text-fg-muted active:text-fg',
+                    isActive
+                        ? 'text-primary after:absolute after:top-0 after:left-1/4 after:right-1/4 after:h-0.5 after:bg-primary after:rounded-b'
+                        : 'text-fg-muted active:text-fg',
                 )
             }
             aria-label={item.label}
         >
             <div className="relative">
-                <Icon className="w-5 h-5" aria-hidden="true" />
+                <Icon className="w-6 h-6" aria-hidden="true" />
                 {badge !== undefined && badge > 0 && (
                     <span
                         className={clsx(

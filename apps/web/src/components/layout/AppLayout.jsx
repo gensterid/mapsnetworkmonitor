@@ -35,14 +35,17 @@ export default function AppLayout() {
             <Sidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
 
             <main className="flex-1 flex flex-col overflow-hidden relative w-full">
-                {/* Mobile Header (hamburger + brand + search + status) */}
+                {/* Mobile Header (hamburger + brand + search + status).
+                    Per spec mobile: touch target min 44x44px untuk semua
+                    button. p-2 sebelumnya = 36px (icon 20px + padding 16px),
+                    bump ke min-h-[44px] min-w-[44px] explicit. */}
                 <div className="lg:hidden h-14 border-b border-slate-border flex items-center justify-between px-3 bg-surface-darker/95 backdrop-blur-xl z-40 flex-shrink-0">
                     <div className="flex items-center gap-2">
                         <button
                             type="button"
                             onClick={() => setIsSidebarOpen(true)}
                             aria-label="Buka menu navigasi"
-                            className="p-2 -ml-1 rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+                            className="-ml-1 rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                             <Menu className="w-5 h-5" aria-hidden="true" />
                         </button>
@@ -54,7 +57,7 @@ export default function AppLayout() {
                             type="button"
                             onClick={openSearch}
                             aria-label="Cari (Ctrl+K)"
-                            className="p-2 rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+                            className="rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                         >
                             <Search className="w-5 h-5" aria-hidden="true" />
                         </button>
