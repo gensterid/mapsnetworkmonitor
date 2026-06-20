@@ -141,7 +141,9 @@ export function SidePanel({
                             : 'transform 280ms cubic-bezier(0.32, 0.72, 0, 1), height 280ms cubic-bezier(0.32, 0.72, 0, 1)',
                     }}
                 >
-                    {/* Drag handle bar + header combined */}
+                    {/* Drag handle bar + header combined.
+                        Per review MEDIUM-5: keyboard users tidak bisa expand/
+                        collapse pakai drag. Tambah sr-only button toggle. */}
                     <div
                         onPointerDown={onPointerDown}
                         onPointerMove={onPointerMove}
@@ -150,6 +152,20 @@ export function SidePanel({
                         className="flex-shrink-0 touch-none"
                         style={{ touchAction: 'none' }}
                     >
+                        <button
+                            type="button"
+                            onClick={() =>
+                                setSnap((s) => (s === 'expanded' ? 'collapsed' : 'expanded'))
+                            }
+                            className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-10 focus:px-2 focus:py-1 focus:bg-primary focus:text-white focus:rounded"
+                            aria-label={
+                                snap === 'expanded'
+                                    ? 'Collapse panel ke 40%'
+                                    : 'Expand panel ke 85%'
+                            }
+                        >
+                            {snap === 'expanded' ? 'Collapse' : 'Expand'}
+                        </button>
                         <div className="pt-2 pb-1">
                             <div
                                 className="mx-auto w-12 h-1.5 rounded-full bg-fg-muted/40"
@@ -282,7 +298,7 @@ export function SidePanel({
                         onClick={onClose}
                         aria-label="Tutup panel"
                         title="Tutup (ESC)"
-                        className="flex-shrink-0 p-1.5 rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors"
+                        className="flex-shrink-0 rounded-lg text-fg-muted hover:text-fg hover:bg-white/5 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
                     >
                         <X className="w-5 h-5" aria-hidden="true" />
                     </button>

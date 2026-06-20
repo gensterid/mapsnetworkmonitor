@@ -26,33 +26,48 @@ const BREAKPOINTS = {
     lgUp: '(min-width: 1024px)',
 };
 
-function subscribeMatchMedia(query) {
-    return (callback) => {
-        if (typeof window === 'undefined' || !window.matchMedia) {
-            return () => {};
-        }
-        const mq = window.matchMedia(query);
-        const handler = () => callback();
-        mq.addEventListener?.('change', handler) ?? mq.addListener?.(handler);
-        return () => {
-            mq.removeEventListener?.('change', handler) ?? mq.removeListener?.(handler);
-        };
-    };
+// Per code-review HIGH-1: subscribe + snapshot HARUS stable per query.
+// Sebelumnya factory return new function per call \xe2\x86\x92 useSyncExternalStore
+// tear-down + re-subscribe per render \xe2\x86\x92 listener churn + tearing risk.
+// Cache per query string supaya identity preserved across renders.
+const subscribeCache = new Map();
+const snapshotCache = new Map();
+
+function getStableSubscribe(query) {
+    if (!subscribeCache.has(query)) {
+        subscribeCache.set(query, (callback) => {
+            if (typeof window === 'undefined' || !window.matchMedia) {
+                return () => {};
+            }
+            const mq = window.matchMedia(query);
+            const handler = () => callback();
+            if (mq.addEventListener) mq.addEventListener('change', handler);
+            else mq.addListener?.(handler);
+            return () => {
+                if (mq.removeEventListener) mq.removeEventListener('change', handler);
+                else mq.removeListener?.(handler);
+            };
+        });
+    }
+    return subscribeCache.get(query);
 }
 
-function getSnapshot(query) {
-    return () => {
-        if (typeof window === 'undefined' || !window.matchMedia) return false;
-        return window.matchMedia(query).matches;
-    };
+function getStableSnapshot(query) {
+    if (!snapshotCache.has(query)) {
+        snapshotCache.set(query, () => {
+            if (typeof window === 'undefined' || !window.matchMedia) return false;
+            return window.matchMedia(query).matches;
+        });
+    }
+    return snapshotCache.get(query);
 }
 
 const SSR_FALLBACK = () => false;
 
 function useMediaQuery(query) {
     return useSyncExternalStore(
-        subscribeMatchMedia(query),
-        getSnapshot(query),
+        getStableSubscribe(query),
+        getStableSnapshot(query),
         SSR_FALLBACK,
     );
 }
