@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { 
   RefreshCw, 
   Wifi, 
@@ -31,7 +31,10 @@ export default function DeviceList({
   refreshPendingId,
   backupPendingId
 }) {
-  const now = useMemo(() => Date.now(), []);
+  // Per review MEDIUM-3: jangan memoize `now` di mount \xe2\x80\x94 component
+  // bisa long-lived (tab dibuka lama), threshold 5-min jadi dihitung
+  // dari mount time bukan sekarang. Read Date.now() inline per row map
+  // \xe2\x80\x94 cheap operation, always fresh.
   const ONLINE_THRESHOLD = 5 * 60 * 1000;
 
   const StatusBadge = ({ value, label, colorClass, icon: Icon }) => (
@@ -52,7 +55,7 @@ export default function DeviceList({
       <div className="md:hidden flex-1 min-h-0 overflow-auto custom-scrollbar p-2 space-y-2">
         {devices.map((dev) => {
           const lastInformDate = dev._lastInform ? new Date(dev._lastInform) : null;
-          const isOnline = lastInformDate && (lastInformDate.getTime() > now - ONLINE_THRESHOLD);
+          const isOnline = lastInformDate && (lastInformDate.getTime() > Date.now() - ONLINE_THRESHOLD);
           const signalInfo = getSignalStatusInfo(dev._rxPower);
           const clientInfo = getClientStatusInfo(dev._clientCount);
           const isSelected = selectedIds.includes(dev._id);
@@ -65,14 +68,20 @@ export default function DeviceList({
                 isSelected && "bg-primary/5 border-primary/30",
               )}
             >
-              {/* Row 1: checkbox + status + device id + linked badge */}
-              <div className="flex items-start gap-2 mb-2">
-                <input
-                  type="checkbox"
-                  className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary h-4 w-4 cursor-pointer mt-0.5 shrink-0"
-                  checked={isSelected}
-                  onChange={() => onToggleSelect(dev._id)}
-                />
+              {/* Row 1: checkbox + status + device id + linked badge.
+                  Per review HIGH-2: checkbox h-4 w-4 (16px) di bawah spec touch
+                  target. Wrap dalam label dengan padding p-2 \xe2\x86\x92 hit area
+                  efektif 32x32+ dengan visual checkbox tetap 16px. */}
+              <div className="flex items-start gap-1 mb-2">
+                <label className="p-2 -m-2 cursor-pointer shrink-0 inline-flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    className="rounded border-slate-border bg-surface-dark text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect(dev._id)}
+                    aria-label={`Select device ${dev._id}`}
+                  />
+                </label>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5">
                     <span
@@ -197,7 +206,7 @@ export default function DeviceList({
           <tbody className="divide-y divide-slate-800">
             {devices.map((dev) => {
               const lastInformDate = dev._lastInform ? new Date(dev._lastInform) : null;
-              const isOnline = lastInformDate && (lastInformDate.getTime() > now - ONLINE_THRESHOLD);
+              const isOnline = lastInformDate && (lastInformDate.getTime() > Date.now() - ONLINE_THRESHOLD);
 
               return (
                 <tr

@@ -353,14 +353,11 @@ function LogCardMobile({ log }) {
     const actionVariant = ACTION_BADGE[log.action] || 'default';
     const hasDetails = log.details && Object.keys(log.details).length > 0;
 
+    // Per review MEDIUM-1: whole-card onClick risk accidental tap saat
+    // scroll list panjang di mobile. Pakai explicit toggle button di
+    // detail section saja, container hanya visual.
     return (
-        <div
-            className={clsx(
-                'bg-slate-surface/70 border border-slate-border rounded-lg p-3',
-                hasDetails && 'cursor-pointer',
-            )}
-            onClick={() => hasDetails && setExpanded((v) => !v)}
-        >
+        <div className="bg-slate-surface/70 border border-slate-border rounded-lg p-3">
             {/* Row 1: time + action badge */}
             <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="text-[10px] text-fg-muted font-mono">
@@ -400,13 +397,18 @@ function LogCardMobile({ log }) {
                 </div>
             </div>
 
-            {/* Row 3: details (expandable) */}
+            {/* Row 3: details (expandable via explicit button, not whole-card) */}
             {hasDetails && (
                 <div className="mt-2 pt-2 border-t border-slate-border">
-                    <div className="flex items-center justify-between text-[10px] text-fg-muted">
+                    <button
+                        type="button"
+                        onClick={() => setExpanded((v) => !v)}
+                        aria-expanded={expanded}
+                        className="flex items-center justify-between w-full min-h-[44px] -mx-1 px-1 text-[10px] text-fg-muted hover:text-fg transition-colors"
+                    >
                         <span>Detail</span>
                         <span>{expanded ? 'Tutup \xe2\x88\xa7' : 'Buka \xe2\x88\xa8'}</span>
-                    </div>
+                    </button>
                     {expanded && (
                         <>
                             <pre className="mt-2 p-2 bg-surface-darker rounded text-[10px] text-fg-muted overflow-x-auto max-h-40 custom-scrollbar">
@@ -415,6 +417,14 @@ function LogCardMobile({ log }) {
                             {log.ipAddress && (
                                 <div className="text-[9px] text-fg-muted mt-1 font-mono break-all">
                                     IP: {log.ipAddress}
+                                </div>
+                            )}
+                            {/* Per review HIGH-1: userAgent ada di LogRow desktop
+                                tapi sebelumnya hilang di mobile card. Forensik
+                                investigasi butuh UA juga. */}
+                            {log.userAgent && (
+                                <div className="text-[9px] text-fg-muted mt-1 font-mono break-all">
+                                    UA: {log.userAgent.slice(0, 80)}
                                 </div>
                             )}
                         </>
