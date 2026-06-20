@@ -393,6 +393,13 @@
       "when": 1781700000000,
       "tag": "0055_map_tenant_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1781800000000,
+      "tag": "0056_system_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { settingsService } from '../services/index.js';
+import { systemSettingsService, TOGGLEABLE_FEATURES } from '../services/system-settings.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
-import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { requireAdmin, requireRole } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 import { strictLimiter } from '../config/security.js';
@@ -15,8 +16,50 @@ const updateSettingSchema = z.object({
     description: z.string().optional(),
 });
 
+// Feature flags: partial map of known feature keys -> boolean.
+const featureFlagsSchema = z
+    .object(
+        TOGGLEABLE_FEATURES.reduce((acc, key) => {
+            acc[key] = z.boolean();
+            return acc;
+        }, {} as Record<string, z.ZodBoolean>),
+    )
+    .partial();
+
 // All routes require authentication
 router.use(authMiddleware);
+
+/**
+ * GET /api/settings/feature-flags
+ * Baca feature flags global. Semua role authenticated boleh baca (untuk tahu
+ * fitur mana yang aktif). HARUS didefinisikan SEBELUM route '/:key' supaya
+ * tidak ke-shadow oleh param route.
+ */
+router.get(
+    '/feature-flags',
+    asyncHandler(async (_req, res) => {
+        const flags = await systemSettingsService.getFeatureFlags();
+        res.json({ data: flags });
+    }),
+);
+
+/**
+ * PUT /api/settings/feature-flags
+ * Update feature flags. Superadmin only. Body: partial { [featureKey]: boolean }.
+ */
+router.put(
+    '/feature-flags',
+    strictLimiter,
+    requireRole('superadmin'),
+    asyncHandler(async (req, res) => {
+        const parsed = featureFlagsSchema.safeParse(req.body);
+        if (!parsed.success) {
+            throw ApiError.badRequest('Invalid feature flags payload');
+        }
+        const updated = await systemSettingsService.setFeatureFlags(parsed.data, req.user?.id);
+        res.json({ data: updated });
+    }),
+);
 
 /**
  * GET /api/settings
