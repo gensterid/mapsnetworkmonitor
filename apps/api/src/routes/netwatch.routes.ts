@@ -19,7 +19,12 @@ const createNetwatchSchema = z.object({
     latitude: z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().optional()),
     longitude: z.preprocess((val) => (val === '' || val === null ? undefined : val), z.string().optional()),
     location: z.preprocess((val) => (val === null ? undefined : val), z.string().optional()),
-    deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
+    // Map-node type 'netwatch' (UI concept) → DB enum 'client'. Frontend
+    // kadang kirim 'netwatch' (generic marker type) yang bukan device type DB.
+    deviceType: z.preprocess(
+        (v) => (v === 'netwatch' ? 'client' : v),
+        z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
+    ),
     waypoints: z.string().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
     // connectedToId mereferensikan device heterogen (netwatch/onu/pppoe) yang
@@ -41,7 +46,11 @@ const updateNetwatchSchema = z.object({
     longitude: z.string().optional().nullable(),
     location: z.string().nullable().optional(),
     status: z.enum(['up', 'down', 'unknown']).optional(),
-    deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
+    // Map-node type 'netwatch' → DB enum 'client' (lihat catatan di create schema).
+    deviceType: z.preprocess(
+        (v) => (v === 'netwatch' ? 'client' : v),
+        z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
+    ),
     waypoints: z.string().nullable().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
     // Lihat catatan di createNetwatchSchema — string biasa, bukan .uuid().

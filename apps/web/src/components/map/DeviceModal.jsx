@@ -8,6 +8,11 @@ import OltTab from './OltTab';
 import AcsTab from './AcsTab';
 import { useAppTimezone } from '@/hooks';
 
+// DB enum device type yang valid. 'netwatch' adalah tipe map-node UI, BUKAN
+// device type DB — harus dinormalisasi ke 'client'.
+const VALID_DEVICE_TYPES = ['client', 'olt', 'odp', 'router', 'switch'];
+const normalizeDeviceType = (t) => (VALID_DEVICE_TYPES.includes(t) ? t : 'client');
+
 /**
  * DeviceModal - Modal for viewing and editing device properties
  * Includes connection source selection for network topology
@@ -87,8 +92,11 @@ const DeviceModal = ({
                         ? (isNew ? '' : (device.name || '')) 
                         : (prev.name || device.name || ''),
                         
-                    // Preserve or initialize Type
-                    type: device.deviceType || device.type || (shouldResetFields ? (isNew ? 'router' : 'router') : prev.type),
+                    // Preserve or initialize Type. Normalize generic map-node
+                    // type 'netwatch' → 'client' (DB enum tidak punya 'netwatch';
+                    // option dropdown juga tidak ada → kalau dibiarkan, select
+                    // mismatch + backend tolak 400).
+                    type: normalizeDeviceType(device.deviceType || device.type) || (shouldResetFields ? (isNew ? 'router' : 'router') : prev.type),
                     
                     // Preserve or initialize Host/Notes
                     host: shouldResetFields 
@@ -182,7 +190,7 @@ const DeviceModal = ({
                 id: device?.id, // Keep ID for reference
                 routerId: targetRouterId,
                 name: formData.name,
-                deviceType: formData.type,
+                deviceType: normalizeDeviceType(formData.type),
                 host: formData.host,
                 notes: formData.notes,
                 latitude: formData.latitude,
