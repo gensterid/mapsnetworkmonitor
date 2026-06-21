@@ -32,13 +32,24 @@ apiClient.interceptors.response.use(
             if (typeof data.error === 'object' && data.error !== null) {
                 message = data.error.message || message;
                 details = data.error.details || details;
-            } 
+            }
             // Legacy/Standard formats: { message: "msg" } or { error: "msg" }
             else {
                 message = data.message || data.error || message;
             }
         } else if (error.message) {
             message = error.message;
+        }
+
+        // Surface validation field detail di message supaya error 400 (Zod
+        // ValidationError) tidak generik "Invalid request data" — operator
+        // langsung lihat field mana yang gagal.
+        if (Array.isArray(details) && details.length > 0) {
+            const fieldErrors = details
+                .map((d) => (d?.path ? `${d.path}: ${d.message}` : d?.message))
+                .filter(Boolean)
+                .join('; ');
+            if (fieldErrors) message = `${message} — ${fieldErrors}`;
         }
 
         const apiError = {

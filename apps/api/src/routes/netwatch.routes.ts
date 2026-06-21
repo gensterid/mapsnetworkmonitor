@@ -22,7 +22,10 @@ const createNetwatchSchema = z.object({
     deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
     waypoints: z.string().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
-    connectedToId: z.string().uuid().optional().nullable(),
+    // connectedToId mereferensikan device heterogen (netwatch/onu/pppoe) yang
+    // ID-nya tidak selalu uuid murni di map. Pakai string biasa, bukan .uuid(),
+    // supaya "Through Another Client" tidak ditolak 400.
+    connectedToId: z.string().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
     isAppOnly: z.boolean().optional(),
@@ -41,7 +44,8 @@ const updateNetwatchSchema = z.object({
     deviceType: z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
     waypoints: z.string().nullable().optional(),
     connectionType: z.enum(['router', 'client']).optional(),
-    connectedToId: z.string().uuid().optional().nullable(),
+    // Lihat catatan di createNetwatchSchema — string biasa, bukan .uuid().
+    connectedToId: z.string().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
     linkedOnuId: z.string().optional().nullable(),
     // Setting linkLocked=true tells the auto-linkage layer to leave this row
@@ -52,6 +56,17 @@ const updateNetwatchSchema = z.object({
     portCapacity: z.number().int().min(1).max(128).optional(),
     splitterRatio: z.string().optional().nullable(),
 });
+
+// Sanitize payload sebelum validasi: empty string → undefined untuk field
+// opsional. Dipakai POST + PUT supaya konsisten (sebelumnya hanya POST yang
+// sanitize, PUT langsung parse → '' di field tertentu bisa lolos/ganggu).
+function sanitizeNetwatchBody(body: Record<string, unknown>): Record<string, unknown> {
+    const out = { ...body };
+    for (const key of ['host', 'connectedToId', 'targetInterface', 'linkedOnuId', 'latitude', 'longitude', 'location']) {
+        if (out[key] === '') out[key] = undefined;
+    }
+    return out;
+}
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -79,14 +94,7 @@ router.post(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
 
-        const rawData = { ...req.body };
-        if (rawData.latitude === '') rawData.latitude = undefined;
-        if (rawData.longitude === '') rawData.longitude = undefined;
-        if (rawData.host === '') rawData.host = undefined;
-        if (rawData.connectedToId === '') rawData.connectedToId = undefined;
-        if (rawData.targetInterface === '') rawData.targetInterface = undefined;
-        if (rawData.linkedOnuId === '') rawData.linkedOnuId = undefined;
-
+        const rawData = sanitizeNetwatchBody(req.body);
         const data = createNetwatchSchema.parse(rawData);
         const netwatch = await routerService.createNetwatch(id, data, getEffectiveTenantId(req));
 
@@ -149,7 +157,7 @@ router.put(
             throw new ApiError(400, 'Request body is missing');
         }
 
-        const data = updateNetwatchSchema.parse(req.body);
+        const data = updateNetwatchSchema.parse(sanitizeNetwatchBody(req.body));
         const netwatch = await routerService.updateNetwatch(id, netwatchId, data, getEffectiveTenantId(req));
 
         if (!netwatch) {
