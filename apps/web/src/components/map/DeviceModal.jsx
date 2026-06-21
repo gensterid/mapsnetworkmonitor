@@ -96,7 +96,12 @@ const DeviceModal = ({
                     // type 'netwatch' → 'client' (DB enum tidak punya 'netwatch';
                     // option dropdown juga tidak ada → kalau dibiarkan, select
                     // mismatch + backend tolak 400).
-                    type: normalizeDeviceType(device.deviceType || device.type) || (shouldResetFields ? (isNew ? 'router' : 'router') : prev.type),
+                    // Device baru / quick-place tanpa type eksplisit → default
+                    // 'client' (Client/Netwatch), BUKAN 'router', supaya konsisten
+                    // dengan enum DB dan tidak memicu error deviceType lagi.
+                    type: normalizeDeviceType(
+                        device.deviceType || device.type || (shouldResetFields && isNew ? 'client' : prev.type),
+                    ),
                     
                     // Preserve or initialize Host/Notes
                     host: shouldResetFields 
