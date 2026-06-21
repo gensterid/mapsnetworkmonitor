@@ -157,7 +157,23 @@ router.put(
             throw new ApiError(400, 'Request body is missing');
         }
 
-        const data = updateNetwatchSchema.parse(sanitizeNetwatchBody(req.body));
+        // Diagnostic: log payload + exact failing field saat validasi gagal,
+        // supaya 400 bisa di-trace dari pm2 logs tanpa nebak.
+        const sanitized = sanitizeNetwatchBody(req.body);
+        const parsed = updateNetwatchSchema.safeParse(sanitized);
+        if (!parsed.success) {
+            const issues = parsed.error.issues.map((i) => ({
+                path: i.path.join('.'),
+                message: i.message,
+                code: i.code,
+            }));
+            logger.warn(
+                { netwatchId, routerId: id, issues, receivedBody: req.body },
+                '[Netwatch PUT] Validation failed',
+            );
+            throw new ApiError(400, 'Invalid netwatch data', issues);
+        }
+        const data = parsed.data;
         const netwatch = await routerService.updateNetwatch(id, netwatchId, data, getEffectiveTenantId(req));
 
         if (!netwatch) {
