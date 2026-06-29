@@ -97,6 +97,15 @@ const envSchema = z.object({
     // ─── Audit Retention ──────────────────────────────────────────────────
     GLOBAL_AUDIT_RETENTION_DAYS: z.string().default('365').transform(Number),
 
+    // ─── Signal / Redaman (ONU RX power) Alert ────────────────────────────
+    // Alert saat redaman ONU berubah signifikan (degradasi sinyal optik).
+    // SIGNAL_DROP_THRESHOLD_DB: minimal penurunan (dBm) untuk trigger warning.
+    // SIGNAL_CRITICAL_DBM: ambang RX power kritis (lebih negatif = lebih buruk).
+    // SIGNAL_ALERT_COOLDOWN_MIN: jeda anti-spam per ONU.
+    SIGNAL_DROP_THRESHOLD_DB: z.string().default('3').transform(Number),
+    SIGNAL_CRITICAL_DBM: z.string().default('-27').transform(Number),
+    SIGNAL_ALERT_COOLDOWN_MIN: z.string().default('30').transform(Number),
+
     // ─── Billing ───────────────────────────────────────────────────────────
     BILLING_TZ: z.string().default('Asia/Makassar'),
 

@@ -5,6 +5,7 @@ import { ApiError } from '../middleware/error.middleware.js';
 import { logger } from '../lib/logger.js';
 import { decrypt, encrypt } from '../lib/encryption.js';
 import type { Onu } from '../db/schema/onus.js';
+import { checkSignalChange } from './signal-alert.service.js';
 
 export class OltService {
     private static instance: OltService;
@@ -233,6 +234,22 @@ export class OltService {
                             if (status === 'online') updateData.lastSeen = new Date();
                             if (incomingName && !incomingName.startsWith('ONT-')) {
                                 updateData.name = incomingName;
+                            }
+
+                            // Deteksi perubahan redaman (RX power) signifikan SEBELUM
+                            // update DB — bandingkan nilai lama (dbOnu.lastRxPower) vs
+                            // baru (device.signal). Hanya saat ONU online (signal valid).
+                            if (status === 'online' && device.signal != null) {
+                                await checkSignalChange({
+                                    routerId: olt.parentId,
+                                    tenantId: olt.tenantId,
+                                    onuName: dbOnu.name || device.name || device.sn,
+                                    sn: device.sn,
+                                    oltName: olt.name,
+                                    oldSignal: dbOnu.lastRxPower,
+                                    newSignal: device.signal,
+                                    tx,
+                                });
                             }
 
                             await tx.update(onus).set(updateData).where(eq(onus.id, dbOnu.id));
@@ -464,6 +481,17 @@ export class OltService {
                 }, '[OLT Sync] Operator-archived ONUs still present in OLT — skipping unarchive (respect operator intent)');
             }
 
+            // Capture redaman (RX power) LAMA per-SN SEBELUM upsert, untuk
+            // bandingkan dengan nilai baru → deteksi perubahan signifikan.
+            const oldSignalMap = new Map<string, string | null>();
+            try {
+                const existingSignals = await db
+                    .select({ sn: onus.sn, lastRxPower: onus.lastRxPower })
+                    .from(onus)
+                    .where(inArray(onus.sn, incomingSns));
+                existingSignals.forEach((o) => oldSignalMap.set(o.sn, o.lastRxPower));
+            } catch { /* best-effort; kalau gagal, skip signal alert siklus ini */ }
+
             let historyValues: any[] = [];
             await db.transaction(async (tx) => {
                 await tx.insert(onus).values(valuesToUpsert as any).onConflictDoUpdate({
@@ -510,6 +538,24 @@ export class OltService {
                 } catch (historyErr) {
                     logger.warn({ err: historyErr, oltId }, 'Failed to bulk log ONU history (ignoring)');
                 }
+            }
+
+            // 3b. Deteksi perubahan redaman signifikan per ONU (bandingkan
+            // signal lama vs baru). Best-effort, di luar transaksi — sebagian
+            // besar return cepat (no change), DB query hanya saat ada perubahan.
+            for (const v of valuesToUpsert) {
+                if (v.status !== 'online' || v.lastRxPower == null) continue;
+                const oldSignal = oldSignalMap.get(v.sn);
+                if (oldSignal == null) continue; // first discovery, no baseline
+                await checkSignalChange({
+                    routerId: olt.parentId,
+                    tenantId: tenantId || olt.tenantId,
+                    onuName: v.name || v.sn,
+                    sn: v.sn,
+                    oltName: olt.name,
+                    oldSignal,
+                    newSignal: v.lastRxPower,
+                });
             }
 
             added = valuesToUpsert.length;
