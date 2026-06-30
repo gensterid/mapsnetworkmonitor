@@ -7,6 +7,19 @@ import { TrafficContext, HoveredItemContext } from './MapStyles';
 import { formatShortDateTime } from '@/lib/timezone';
 import { computeOnuSourceHealth, getSourceHealthLabel, getSourceHealthClasses } from '@/lib/onuSourceHealth';
 
+/**
+ * Format RX power (redaman) ke "-16.65 dBm" konsisten. Sebagian driver OLT
+ * (mis. CDATA) sudah sertakan unit " dBm" di nilai, jadi append " dBm" lagi
+ * bikin "dBm dBm". parseFloat ambil angka-nya saja, lalu tambah unit sekali.
+ * Return null kalau tidak ada nilai, atau raw string kalau bukan numerik.
+ */
+const formatRxPower = (raw) => {
+    if (raw === null || raw === undefined || raw === '') return null;
+    const n = parseFloat(String(raw));
+    if (Number.isNaN(n)) return String(raw);
+    return `${n} dBm`;
+};
+
 // Helper to auto-fit bounds to markers (only on initial load)
 export const MapAutoFit = ({ markers, isEditing }) => {
     const map = useMap();
@@ -787,7 +800,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive, onQuickPin
                                 <span className={`font-mono font-bold ${parseFloat(node.lastRxPower) < -27 ? 'text-red-400' :
                                     parseFloat(node.lastRxPower) < -24 ? 'text-yellow-400' : 'text-emerald-400'
                                     }`}>
-                                    {node.lastRxPower} dBm
+                                    {formatRxPower(node.lastRxPower)}
                                 </span>
                             </div>
                         )}
@@ -873,7 +886,7 @@ export const DeviceTooltipContent = ({ node, line, onEdit, onArchive, onQuickPin
                                         <span className={`font-mono font-bold ${parseFloat(line.parentData.lastRxPower) < -27 ? 'text-red-400' :
                                             parseFloat(line.parentData.lastRxPower) < -24 ? 'text-yellow-400' : 'text-emerald-400'
                                             }`}>
-                                            {line.parentData.lastRxPower} dBm
+                                            {formatRxPower(line.parentData.lastRxPower)}
                                         </span>
                                     </div>
                                 )}
