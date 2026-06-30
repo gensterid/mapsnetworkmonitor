@@ -6,6 +6,7 @@ import { logger } from '../lib/logger.js';
 import { decrypt, encrypt } from '../lib/encryption.js';
 import type { Onu } from '../db/schema/onus.js';
 import { checkSignalChange } from './signal-alert.service.js';
+import { env } from '../config/env.js';
 
 export class OltService {
     private static instance: OltService;
@@ -166,6 +167,8 @@ export class OltService {
 
             const dbOnuMap = new Map(dbOnus.map(o => [o.sn, o]));
 
+            // Cap alert redaman per cycle (anti-flood) — per review HIGH-1.
+            let signalAlertsCreated = 0;
             await db.transaction(async (tx) => {
                 for (const device of driverOnus) {
                     if (!device.sn) {
@@ -239,8 +242,14 @@ export class OltService {
                             // Deteksi perubahan redaman (RX power) signifikan SEBELUM
                             // update DB — bandingkan nilai lama (dbOnu.lastRxPower) vs
                             // baru (device.signal). Hanya saat ONU online (signal valid).
-                            if (status === 'online' && device.signal != null) {
-                                await checkSignalChange({
+                            // checkSignalChange pakai db internal (bukan tx) jadi tidak
+                            // memperpanjang transaksi untuk write; cap anti-flood.
+                            if (
+                                status === 'online' &&
+                                device.signal != null &&
+                                signalAlertsCreated < env.SIGNAL_MAX_ALERTS_PER_SYNC
+                            ) {
+                                const created = await checkSignalChange({
                                     routerId: olt.parentId,
                                     tenantId: olt.tenantId,
                                     onuName: dbOnu.name || device.name || device.sn,
@@ -248,8 +257,8 @@ export class OltService {
                                     oltName: olt.name,
                                     oldSignal: dbOnu.lastRxPower,
                                     newSignal: device.signal,
-                                    tx,
                                 });
+                                if (created) signalAlertsCreated++;
                             }
 
                             await tx.update(onus).set(updateData).where(eq(onus.id, dbOnu.id));
@@ -543,11 +552,14 @@ export class OltService {
             // 3b. Deteksi perubahan redaman signifikan per ONU (bandingkan
             // signal lama vs baru). Best-effort, di luar transaksi — sebagian
             // besar return cepat (no change), DB query hanya saat ada perubahan.
+            // Cap jumlah alert per cycle (anti-flood mass-event) — per review HIGH-1.
+            let signalAlertsCreated = 0;
             for (const v of valuesToUpsert) {
+                if (signalAlertsCreated >= env.SIGNAL_MAX_ALERTS_PER_SYNC) break;
                 if (v.status !== 'online' || v.lastRxPower == null) continue;
                 const oldSignal = oldSignalMap.get(v.sn);
                 if (oldSignal == null) continue; // first discovery, no baseline
-                await checkSignalChange({
+                const created = await checkSignalChange({
                     routerId: olt.parentId,
                     tenantId: tenantId || olt.tenantId,
                     onuName: v.name || v.sn,
@@ -556,6 +568,7 @@ export class OltService {
                     oldSignal,
                     newSignal: v.lastRxPower,
                 });
+                if (created) signalAlertsCreated++;
             }
 
             added = valuesToUpsert.length;

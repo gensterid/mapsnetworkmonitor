@@ -105,6 +105,9 @@ const envSchema = z.object({
     SIGNAL_DROP_THRESHOLD_DB: z.string().default('3').transform(Number),
     SIGNAL_CRITICAL_DBM: z.string().default('-27').transform(Number),
     SIGNAL_ALERT_COOLDOWN_MIN: z.string().default('30').transform(Number),
+    // Cap alert redaman per 1 siklus sync OLT — cegah flood saat mass-event
+    // (OLT recover → ratusan ONU berubah bareng). Sisanya ke cycle berikutnya.
+    SIGNAL_MAX_ALERTS_PER_SYNC: z.string().default('25').transform(Number),
 
     // ─── Billing ───────────────────────────────────────────────────────────
     BILLING_TZ: z.string().default('Asia/Makassar'),
