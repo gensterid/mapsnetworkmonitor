@@ -255,6 +255,7 @@ export class OltService {
                                     onuName: dbOnu.name || device.name || device.sn,
                                     sn: device.sn,
                                     oltName: olt.name,
+                                    source: 'olt',
                                     oldSignal: dbOnu.lastRxPower,
                                     newSignal: device.signal,
                                 });
@@ -565,6 +566,7 @@ export class OltService {
                     onuName: v.name || v.sn,
                     sn: v.sn,
                     oltName: olt.name,
+                    source: 'olt',
                     oldSignal,
                     newSignal: v.lastRxPower,
                 });

@@ -49,6 +49,7 @@ export interface SignalChangeInput {
     onuName: string;
     sn: string;
     oltName?: string;
+    source?: 'olt' | 'acs'; // titik ukur redaman (OLT port vs ONU/CPE). Untuk label pesan.
     oldSignal: unknown; // dBm lama (string/number/null)
     newSignal: unknown; // dBm baru
     tx?: any;
@@ -61,7 +62,7 @@ export interface SignalChangeInput {
  * @returns true kalau alert dibuat (untuk caller cap jumlah per sync-cycle).
  */
 export async function checkSignalChange(input: SignalChangeInput): Promise<boolean> {
-    const { routerId, tenantId, onuName, sn, oltName, oldSignal, newSignal } = input;
+    const { routerId, tenantId, onuName, sn, oltName, source, oldSignal, newSignal } = input;
 
     // Semua operasi alert (dedup + create) pakai `db`, INDEPENDEN dari transaksi
     // OLT sync — supaya alert persist walau sync rollback + dedup baca data
@@ -128,8 +129,10 @@ export async function checkSignalChange(input: SignalChangeInput): Promise<boole
 
         const direction = delta < 0 ? 'turun' : 'naik';
         const oltPart = oltName ? ` (OLT ${oltName})` : '';
+        // Label sumber pengukuran: OLT (sisi port OLT) vs ACS (sisi ONU/CPE).
+        const srcPart = source === 'acs' ? ' [sumber: ACS/CPE]' : source === 'olt' ? ' [sumber: OLT]' : '';
         const message =
-            `Redaman ${onuName} [SN ${sn}]${oltPart} ${direction} ` +
+            `Redaman ${onuName} [SN ${sn}]${oltPart}${srcPart} ${direction} ` +
             `${Math.abs(delta).toFixed(1)} dBm: ${oldDbm.toFixed(1)} → ${newDbm.toFixed(1)} dBm.` +
             (newDbm <= criticalDbm ? ' Sinyal di zona kritis — cek fisik/fiber.' : '');
 

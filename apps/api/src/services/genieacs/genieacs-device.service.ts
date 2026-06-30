@@ -7,6 +7,8 @@ import { cacheService } from '../../lib/cache.js';
 import { oltService } from '../olt.service.js';
 import { settingsService } from '../settings.service.js';
 import { GenieACSDevice, getGenieAcsConfig } from './genieacs-core.service.js';
+import { checkSignalChange } from '../signal-alert.service.js';
+import { env } from '../../config/env.js';
 
 /**
  * Get all devices from GenieACS
@@ -503,6 +505,9 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
         const devices = await getDevices(routerId, tenantId);
         total = devices.length;
 
+        // Cap alert redaman per cycle (anti-flood) — sama dengan OLT path.
+        let signalAlertsCreated = 0;
+
         for (const dev of devices) {
             if (!dev._serialNumber) continue;
             const sn = dev._serialNumber;
@@ -550,6 +555,30 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
                 if (dev._rxPower && resolvedRouterId) {
                     const sig = oltService.parseSignal(dev._rxPower);
                     if (sig !== null) await db.insert(devicePerformanceHistory).values({ tenantId: tenantId || '', routerId: resolvedRouterId, onuId: existing.id, signal: sig, recordedAt: new Date() }).execute().catch(() => {});
+                }
+
+                // Alert redaman dari ACS — HANYA untuk ONU yang sinyalnya
+                // memang bersumber dari ACS (bukan OLT). Untuk ONU ber-OLT,
+                // lastRxPower dipertahankan nilai OLT (line di atas) dan alert
+                // sudah ditangani OLT sync path → di sini di-skip supaya tidak
+                // double-alert + tidak mencampur ukuran OLT vs ACS.
+                const acsOwnsSignal = !(sources.includes('olt') && existing.lastRxPower !== null);
+                if (
+                    acsOwnsSignal &&
+                    dev._rxPower &&
+                    resolvedRouterId &&
+                    signalAlertsCreated < env.SIGNAL_MAX_ALERTS_PER_SYNC
+                ) {
+                    const created = await checkSignalChange({
+                        routerId: resolvedRouterId,
+                        tenantId: tenantId ?? null,
+                        onuName: existing.name || sn,
+                        sn,
+                        source: 'acs', // sumber ACS (sisi ONU/CPE)
+                        oldSignal: existing.lastRxPower, // baseline ACS sebelumnya
+                        newSignal: dev._rxPower,
+                    });
+                    if (created) signalAlertsCreated++;
                 }
                 updated++;
             } else {
