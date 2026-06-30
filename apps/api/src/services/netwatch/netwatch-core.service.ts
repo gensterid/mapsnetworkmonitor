@@ -118,6 +118,14 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
     const ipChanged = newHost && oldHost && newHost !== oldHost;
     const historyShouldRecord = newHost !== undefined && newHost !== oldHost;
 
+    // Nama netwatch di app dipetakan ke COMMENT netwatch MikroTik. Netwatch
+    // sync (netwatch-sync.service.ts:87) baca `finalName = nw.comment` lalu
+    // overwrite name DB tiap siklus. Kalau rename di app TIDAK di-push ke
+    // comment MikroTik, nama balik lagi ke nilai lama tiap sync (~2 menit).
+    // Jadi: deteksi name change → push ke comment juga.
+    const newName = data.name;
+    const nameChanged = newName !== undefined && newName !== null && newName !== entry.name;
+
     // Smart Sync: track whether the MikroTik push succeeded so we can mark
     // the row 'synced' (push OK) or 'pending' (push failed, retry needed).
     // App-only entries don't have a MikroTik counterpart, so they stay 'app_only'.
@@ -125,41 +133,47 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
     let mikrotikPushSucceeded = false;
     let mikrotikPushError: string | null = null;
 
-    // 2. If IP changed, perform system-wide alignment (Alerts/MikroTik/Webhooks)
+    // 2a. If IP changed, resolve existing alerts for the old host.
     if (ipChanged) {
-        // A. Resolve any existing alerts for the old host (system-wide alignment)
         try {
             await alertService.resolveAlertsByHost(routerId, oldHost, entry.tenantId || tenantId, tx);
         } catch (err: any) {
             logger.error({ err: err.message }, '[Netwatch Update] Failed to resolve old alerts');
         }
+    }
 
-        // B. Update on MikroTik (if not app-only)
-        if (!entry.isAppOnly) {
-            mikrotikPushAttempted = true;
-            try {
-                const router = await findRouterWithPassword(routerId, tenantId, tx);
-                if (router) {
-                    const { connectToRouter, updateNetwatchEntry, configureNetwatchWebhook } = await import('../../lib/mikrotik-api.js');
-                    const conn = await connectToRouter(router);
+    // 2b. Push ke MikroTik kalau IP DAN/ATAU nama (comment) berubah.
+    // Butuh oldHost (string) untuk match entry di /tool netwatch.
+    if ((ipChanged || nameChanged) && !entry.isAppOnly && oldHost) {
+        mikrotikPushAttempted = true;
+        try {
+            const router = await findRouterWithPassword(routerId, tenantId, tx);
+            if (router) {
+                const { connectToRouter, updateNetwatchEntry, configureNetwatchWebhook } = await import('../../lib/mikrotik-api.js');
+                const conn = await connectToRouter(router);
 
-                    // Update host in /tool netwatch
-                    await updateNetwatchEntry(conn, oldHost, { host: newHost });
+                // Set host (kalau berubah) + comment=nama (kalau berubah).
+                // Match by oldHost — kalau hanya nama berubah, oldHost == host
+                // sekarang jadi tetap ketemu.
+                await updateNetwatchEntry(conn, oldHost, {
+                    host: ipChanged ? newHost : undefined,
+                    comment: nameChanged ? newName : undefined,
+                });
 
-                    // Re-configure webhook to update hardcoded host in up/down scripts
-                    if (router.useWebhook && router.webhookSecret && router.tenantId) {
-                        const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId);
-                        await configureNetwatchWebhook(conn, newHost, webhookUrl, router.webhookSecret);
-                    }
-
-                    if (conn.release) conn.release();
-                    else await conn.close();
-                    mikrotikPushSucceeded = true;
+                // Re-configure webhook hanya saat host berubah (script up/down
+                // hardcode host, bukan comment).
+                if (ipChanged && router.useWebhook && router.webhookSecret && router.tenantId) {
+                    const webhookUrl = await settingsService.getWebhookUrl(router.webhookSecret, router.tenantId);
+                    await configureNetwatchWebhook(conn, newHost, webhookUrl, router.webhookSecret);
                 }
-            } catch (err: any) {
-                mikrotikPushError = err.message || String(err);
-                logger.error({ err: err.message }, '[Netwatch Update] Failed to update MikroTik/Webhook');
+
+                if (conn.release) conn.release();
+                else await conn.close();
+                mikrotikPushSucceeded = true;
             }
+        } catch (err: any) {
+            mikrotikPushError = err.message || String(err);
+            logger.error({ err: err.message }, '[Netwatch Update] Failed to update MikroTik/Webhook');
         }
     }
 
@@ -192,12 +206,14 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
             // App-only entries don't sync to MikroTik
             sanitizedData.syncState = 'app_only';
             sanitizedData.conflictReason = null;
-        } else if (ipChanged) {
+        } else if (ipChanged || nameChanged) {
             if (mikrotikPushSucceeded) {
-                // Both sides now agree on the new host
+                // Both sides now agree (host dan/atau comment ter-push).
                 sanitizedData.syncState = 'synced';
-                sanitizedData.mikrotikHost = newHost;
-                sanitizedData.mikrotikSyncedAt = new Date();
+                if (ipChanged) {
+                    sanitizedData.mikrotikHost = newHost;
+                    sanitizedData.mikrotikSyncedAt = new Date();
+                }
                 sanitizedData.conflictReason = null;
             } else if (mikrotikPushAttempted) {
                 // Push attempted but failed — operator will see this in UI
@@ -206,7 +222,7 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
                     ? `MikroTik push failed: ${mikrotikPushError}`
                     : 'MikroTik push attempted but did not confirm';
             } else {
-                // No push attempted (shouldn't reach here for non-app-only with ipChanged)
+                // No push attempted (shouldn't reach here for non-app-only)
                 sanitizedData.syncState = 'pending';
                 sanitizedData.conflictReason = 'Awaiting MikroTik confirmation';
             }
