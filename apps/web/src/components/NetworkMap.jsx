@@ -74,7 +74,6 @@ import {
     RouterTooltipContent,
     DeviceTooltipContent,
     DeviceTooltip,
-    DevicePopup,
     arePropsEqual,
     MemoizedNetworkLine,
     areLinesEqual,
@@ -1625,7 +1624,10 @@ const NetworkMap = ({
                     packetLoss={router.packetLoss || (router.latestMetrics?.packetLoss)}
                     lastErrorMessage={router.lastErrorMessage}
                     draggable={isEditMode}
-                    onClick={null}
+                    // Klik marker → langsung buka panel detail (bukan popup
+                    // perantara). Di edit mode klik diabaikan supaya tidak
+                    // ganggu drag reposisi.
+                    onClick={isEditMode ? null : () => handleQuickView({ ...router, deviceType: 'router' }, 'router')}
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(router.id),
                         mouseout: () => handleMarkerHover(null)
@@ -1633,11 +1635,6 @@ const NetworkMap = ({
                 >
                     <DeviceTooltip
                         node={{ ...router, deviceType: 'router' }}
-                    />
-                    <DevicePopup
-                        node={{ ...router, deviceType: 'router' }}
-                        onEdit={() => handleQuickView({ ...router, deviceType: 'router' }, 'router')}
-                        onQuickPing={handleQuickPing}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1721,7 +1718,8 @@ const NetworkMap = ({
                             });
                         }
                     }}
-                    onClick={null}
+                    // Klik marker → langsung buka panel detail netwatch.
+                    onClick={isEditMode ? null : () => handleQuickView(node, node.deviceType === 'router' ? 'router' : 'netwatch')}
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(node.id),
                         mouseout: () => handleMarkerHover(null)
@@ -1731,13 +1729,6 @@ const NetworkMap = ({
                     <DeviceTooltip
                         node={node}
                         line={line}
-                    />
-                    <DevicePopup
-                        node={node}
-                        line={line}
-                        onEdit={(n) => handleQuickView(n, n.deviceType === 'router' ? 'router' : 'netwatch')}
-                        onArchive={handleArchiveOnu}
-                        onQuickPing={handleQuickPing}
                     />
                 </MemoizedSmartMarker>
             );
@@ -1788,7 +1779,8 @@ const NetworkMap = ({
                     small={true}
                     draggable={isEditMode}
                     onDragEnd={(pos) => handlePppoeDragEnd(pppoe, pos)}
-                    onClick={null}
+                    // Klik marker PPPoE → langsung buka detail (modal PPPoE).
+                    onClick={isEditMode ? null : () => handleDeviceClick({ ...pppoe, deviceType: 'pppoe' }, 'pppoe')}
                     eventHandlers={{
                         mouseover: () => handleMarkerHover(pppoe.id),
                         mouseout: () => handleMarkerHover(null)
@@ -1798,11 +1790,6 @@ const NetworkMap = ({
                     <DeviceTooltip
                         node={{ ...pppoe, deviceType: 'pppoe' }}
                         line={line}
-                    />
-                    <DevicePopup
-                        node={{ ...pppoe, deviceType: 'pppoe' }}
-                        line={line}
-                        onEdit={(n, tab) => handleDeviceClick(n, 'pppoe', tab)}
                     />
                 </MemoizedSmartMarker>
             );

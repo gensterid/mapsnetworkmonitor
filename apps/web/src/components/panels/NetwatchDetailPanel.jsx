@@ -183,8 +183,23 @@ function summarizeClients(device) {
 export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
     const timezone = useAppTimezone();
 
+    // Status Netwatch (ping/ICMP) — reachability dari router.
     const status = mapToStatus(netwatch?.status);
     const statusLabel = STATUS_LABELS[status];
+
+    // Status fisik ONU/OLT (optical) — TERPISAH dari ping. Bisa beda:
+    // mis. ping UP (host masih respons) tapi ONU "Removed from OLT" = down.
+    // Ditampilkan dengan label sumber supaya operator tidak bingung.
+    // Optical-down states (lost/power_down/dying_gasp) tidak dikenali
+    // mapToStatus → normalisasi ke 'offline' supaya badge merah, bukan abu.
+    const physicalRaw = netwatch?.physicalStatus;
+    const hasPhysicalStatus = !!physicalRaw && String(physicalRaw).toLowerCase() !== 'unknown';
+    const OPTICAL_DOWN = ['offline', 'down', 'lost', 'power_down', 'dying_gasp', 'removed'];
+    const physicalStatus = hasPhysicalStatus
+        ? (OPTICAL_DOWN.includes(String(physicalRaw).toLowerCase()) ? 'offline' : mapToStatus(physicalRaw))
+        : null;
+    const physicalLabel = physicalStatus ? STATUS_LABELS[physicalStatus] : null;
+    const physicalReason = netwatch?.lastDownReason || null;
 
     const latencyMs = useMemo(() => {
         const raw = netwatch?.latency ?? netwatch?.latencyMs ?? netwatch?.responseTime;
@@ -262,17 +277,52 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
                 {/* Status */}
                 <div className="mb-4 pb-4 border-b border-slate-border/60">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-1.5">Status</div>
-                    <span
-                        className={clsx(
-                            'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-xs',
-                            STATUS_CLASSES[status].bg,
-                            STATUS_CLASSES[status].text,
-                            STATUS_CLASSES[status].ring,
+                    <div className="flex flex-col gap-2">
+                        {/* Status Netwatch (ping) — selalu tampil */}
+                        <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-fg-muted uppercase tracking-wide">Netwatch (Ping)</span>
+                            <span
+                                className={clsx(
+                                    'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-xs',
+                                    STATUS_CLASSES[status].bg,
+                                    STATUS_CLASSES[status].text,
+                                    STATUS_CLASSES[status].ring,
+                                )}
+                            >
+                                <span className={clsx('w-1.5 h-1.5 rounded-full', STATUS_CLASSES[status].dot)} aria-hidden="true" />
+                                {statusLabel}
+                            </span>
+                        </div>
+
+                        {/* Status ONU/OLT (optical) — hanya kalau ada data fisik.
+                            Beri label + alasan (mis. "Removed from OLT") supaya
+                            jelas ini status yang berbeda dari ping. */}
+                        {physicalStatus && (
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] text-fg-muted uppercase tracking-wide">
+                                    ONU / OLT
+                                </span>
+                                <span
+                                    className={clsx(
+                                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md font-bold uppercase tracking-wider text-xs',
+                                        STATUS_CLASSES[physicalStatus].bg,
+                                        STATUS_CLASSES[physicalStatus].text,
+                                        STATUS_CLASSES[physicalStatus].ring,
+                                    )}
+                                >
+                                    <span className={clsx('w-1.5 h-1.5 rounded-full', STATUS_CLASSES[physicalStatus].dot)} aria-hidden="true" />
+                                    {physicalLabel}
+                                </span>
+                            </div>
                         )}
-                    >
-                        <span className={clsx('w-1.5 h-1.5 rounded-full', STATUS_CLASSES[status].dot)} aria-hidden="true" />
-                        {statusLabel}
-                    </span>
+
+                        {/* Alasan down fisik (kalau ONU offline) */}
+                        {physicalStatus && physicalStatus !== 'online' && physicalReason && (
+                            <div className="text-[11px] text-status-issue leading-snug">
+                                Alasan: {physicalReason}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 {/* Connection metrics */}
