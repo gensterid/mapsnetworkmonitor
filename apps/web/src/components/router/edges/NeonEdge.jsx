@@ -67,16 +67,22 @@ const NeonEdge = ({
     const animationDuration = `${2 / speedFactor}s`;
 
     // Partikel traffic mengalir — tampil saat link UP dan ada traffic (atau
-    // live mode). Jumlah + kecepatan ikut utilisasi.
+    // live mode). Jumlah + kecepatan ikut utilisasi. Dibatasi 2..5 per edge
+    // supaya total SMIL <animateMotion> tetap terkendali di topology besar
+    // (SMIL jalan di main-thread, tidak di-compositor).
     const showParticles = isUp && (data?.isLiveMode || totalTraffic > 0);
-    const particleCount = showParticles ? 3 + Math.round(util * 5) : 0; // 3..8
+    const particleCount = showParticles ? 2 + Math.round(util * 3) : 0; // 2..5
     const particleDur = 3 - util * 1.8; // detik: 3s idle → ~1.2s penuh
+
+    // Edge id bisa mengandung karakter (mis. ':') yang membuat fragment ref
+    // `#id` gagal resolve di SVG → partikel diam. Sanitasi untuk id path+mpath.
+    const pathId = `edgep-${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
     return (
         <>
             {/* Background path for the cable look */}
             <path
-                id={id}
+                id={pathId}
                 style={{ ...style, strokeOpacity: 0.1, strokeWidth: 4 }}
                 className="react-flow__edge-path base-path"
                 d={edgePath}
@@ -116,7 +122,7 @@ const NeonEdge = ({
                         keyTimes="0;1"
                         calcMode="linear"
                     >
-                        <mpath href={`#${id}`} />
+                        <mpath href={`#${pathId}`} />
                     </animateMotion>
                 </circle>
             ))}

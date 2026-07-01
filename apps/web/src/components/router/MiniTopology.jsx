@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import dagre from '@dagrejs/dagre';
 import {
     ReactFlow,
@@ -14,7 +14,6 @@ import {
     getViewportForBounds,
     MarkerType,
 } from '@xyflow/react';
-import { toPng } from 'html-to-image';
 import {
     useRouterTopology,
     useUpdateTopologyCoords,
@@ -58,7 +57,7 @@ const edgeTypes = {
 
 // Tombol export diagram → PNG. Harus di DALAM <ReactFlow> (pakai
 // useReactFlow). Fit semua node lalu render viewport ke gambar.
-const ExportButton = ({ routerName }) => {
+const ExportButton = ({ routerName, wrapperRef }) => {
     const { getNodes } = useReactFlow();
     const [busy, setBusy] = useState(false);
 
@@ -67,13 +66,17 @@ const ExportButton = ({ routerName }) => {
         if (!allNodes.length) return;
         setBusy(true);
         try {
+            // Scope ke viewport milik ReactFlow ini saja (bukan querySelector
+            // global — kalau ada >1 ReactFlow di page bisa salah target).
+            const viewportEl = wrapperRef?.current?.querySelector('.react-flow__viewport');
+            if (!viewportEl) return;
             const bounds = getNodesBounds(allNodes);
             const pad = 80;
             const width = Math.max(800, Math.ceil(bounds.width) + pad * 2);
             const height = Math.max(600, Math.ceil(bounds.height) + pad * 2);
             const vp = getViewportForBounds(bounds, width, height, 0.4, 2, pad);
-            const viewportEl = document.querySelector('.react-flow__viewport');
-            if (!viewportEl) return;
+            // Lazy-load html-to-image supaya tidak masuk initial chunk.
+            const { toPng } = await import('html-to-image');
             const dataUrl = await toPng(viewportEl, {
                 backgroundColor: '#0b0e14',
                 width,
@@ -144,6 +147,7 @@ const DebouncedUpdate = ({ value, onUpdate, delay = 500 }) => {
 };
 
 const MiniTopology = ({ routerId }) => {
+    const reactFlowWrapperRef = useRef(null);
     const [isEditMode, setIsEditMode] = useState(false);
 
     const [isLiveMode, setIsLiveMode] = useState(false);
@@ -590,7 +594,7 @@ const MiniTopology = ({ routerId }) => {
                     </div>
                 )}
 
-                <div className="react-flow-wrapper" style={{ flex: 1, height: '100%' }}>
+                <div ref={reactFlowWrapperRef} className="react-flow-wrapper" style={{ flex: 1, height: '100%' }}>
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
@@ -614,7 +618,7 @@ const MiniTopology = ({ routerId }) => {
                         <Controls position="top-right" />
                         {/* Export PNG — di dalam ReactFlow supaya akses useReactFlow. */}
                         <Panel position="top-left">
-                            <ExportButton routerName={nodes.find(n => n.data?.systemId === routerId)?.data?.name} />
+                            <ExportButton wrapperRef={reactFlowWrapperRef} routerName={nodes.find(n => n.data?.systemId === routerId)?.data?.name} />
                         </Panel>
                         {/* MiniMap overview — warna node ikut status. */}
                         <MiniMap
