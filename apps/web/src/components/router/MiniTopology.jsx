@@ -152,6 +152,14 @@ const MiniTopology = ({ routerId }) => {
     const [showLinkSuggest, setShowLinkSuggest] = useState(false);
     const [selectedSuggest, setSelectedSuggest] = useState(() => new Set());
     const [suggestSearch, setSuggestSearch] = useState('');
+    // Gaya garis link (global, persist localStorage): curved | stepped | straight
+    const [lineStyle, setLineStyle] = useState(() => {
+        try { return localStorage.getItem('topo.lineStyle') || 'curved'; } catch { return 'curved'; }
+    });
+    const changeLineStyle = (v) => {
+        setLineStyle(v);
+        try { localStorage.setItem('topo.lineStyle', v); } catch { /* ignore */ }
+    };
 
     const [isLiveMode, setIsLiveMode] = useState(false);
     const [isAddingNode, setIsAddingNode] = useState(false);
@@ -459,6 +467,7 @@ const MiniTopology = ({ routerId }) => {
                     animationType: edge.animationType || 'pulse',
                     sourceHandle: edge.sourceHandle,
                     targetHandle: edge.targetHandle,
+                    lineStyle,
                     isEditMode,
                     isLiveMode,
                     txRate,
@@ -467,7 +476,7 @@ const MiniTopology = ({ routerId }) => {
             });
         });
         setEdges(rfEdges);
-    }, [topology, isEditMode, routerId, isLiveMode, allTraffic, alertByRouter, setNodes, setEdges]);
+    }, [topology, isEditMode, routerId, isLiveMode, allTraffic, alertByRouter, lineStyle, setNodes, setEdges]);
 
 
 
@@ -692,6 +701,16 @@ const MiniTopology = ({ routerId }) => {
                     </div>
                     {isEditMode ? (
                         <>
+                            <select
+                                value={lineStyle}
+                                onChange={(e) => changeLineStyle(e.target.value)}
+                                title="Gaya garis link"
+                                className="bg-slate-800/60 border border-slate-700/60 text-slate-200 text-xs rounded px-2 py-1 outline-none focus:border-cyan-500/50 cursor-pointer"
+                            >
+                                <option value="curved">Garis: Lengkung</option>
+                                <option value="stepped">Garis: Siku</option>
+                                <option value="straight">Garis: Lurus</option>
+                            </select>
                             <button className="action-btn bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded text-xs transition-all flex items-center gap-1.5 font-semibold mx-2" onClick={onLayout}>
                                 <Wand2 size={14} /> Tidy Up
                             </button>

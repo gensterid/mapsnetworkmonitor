@@ -1,5 +1,5 @@
 import React from 'react';
-import { getSmoothStepPath, EdgeText } from '@xyflow/react';
+import { getSmoothStepPath, getBezierPath, getStraightPath, EdgeText } from '@xyflow/react';
 import { clsx } from 'clsx';
 
 const NeonEdge = ({
@@ -26,16 +26,25 @@ const NeonEdge = ({
     const nx = (-dy / len) * offset;
     const ny = (dx / len) * offset;
 
-    const [edgePath, labelX, labelY] = getSmoothStepPath({
+    // Gaya garis dipilih operator (global): lengkung (bezier) / siku
+    // (smoothstep) / lurus. Default lengkung.
+    const lineStyle = data?.lineStyle || 'curved';
+    const pp = {
         sourceX: sourceX + nx,
         sourceY: sourceY + ny,
         sourcePosition,
         targetX: targetX + nx,
         targetY: targetY + ny,
         targetPosition,
-        borderRadius: 16,
-        offset: 20,
-    });
+    };
+    let edgePath, labelX, labelY;
+    if (lineStyle === 'straight') {
+        [edgePath, labelX, labelY] = getStraightPath({ sourceX: pp.sourceX, sourceY: pp.sourceY, targetX: pp.targetX, targetY: pp.targetY });
+    } else if (lineStyle === 'stepped') {
+        [edgePath, labelX, labelY] = getSmoothStepPath({ ...pp, borderRadius: 16, offset: 20 });
+    } else {
+        [edgePath, labelX, labelY] = getBezierPath(pp);
+    }
 
     const isUp = data?.status === 'up' || data?.status === 'online';
 
@@ -78,20 +87,30 @@ const NeonEdge = ({
     // `#id` gagal resolve di SVG → partikel diam. Sanitasi untuk id path+mpath.
     const pathId = `edgep-${String(id).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
 
+    const arrowColor = isUp ? heatColor : '#ef4444';
+    const arrowId = `arrow-${pathId}`;
+
     return (
         <>
+            {/* Panah arah di ujung target — perjelas source→target. */}
+            <defs>
+                <marker id={arrowId} markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto" markerUnits="userSpaceOnUse">
+                    <path d="M0,0 L6,3 L0,6 Z" fill={arrowColor} />
+                </marker>
+            </defs>
+
             {/* Background path for the cable look */}
             <path
                 id={pathId}
                 style={{ ...style, strokeOpacity: 0.1, strokeWidth: 4 }}
                 className="react-flow__edge-path base-path"
                 d={edgePath}
-                markerEnd={markerEnd}
                 pathLength="100"
             />
 
             {/* Glow Path — warna & tebal ikut utilisasi (heatmap). Saat down,
-                pakai class .down (merah). Saat up, override inline dengan heat. */}
+                pakai class .down (merah, berkedip). Saat up, override inline
+                dengan heat. Panah arah di ujung target. */}
             <path
                 className={clsx("neon-glow-path", !isUp && "down")}
                 style={isUp ? {
@@ -103,28 +122,32 @@ const NeonEdge = ({
                 d={edgePath}
                 fill="none"
                 strokeWidth={2}
+                markerEnd={`url(#${arrowId})`}
                 pathLength="100"
             />
 
-            {/* Partikel traffic mengalir sepanjang kabel (SMIL animateMotion). */}
+            {/* Partikel traffic mengalir — bentuk comet (ellipse memanjang +
+                rotate="auto" ikut arah lintasan) supaya arah aliran jelas. */}
             {particleCount > 0 && Array.from({ length: particleCount }).map((_, i) => (
-                <circle
+                <ellipse
                     key={`${id}-particle-${i}`}
-                    r={1.6 + util * 1.4}
+                    rx={3 + util * 3}
+                    ry={1.3 + util * 1}
                     fill={heatColor}
-                    style={{ filter: `drop-shadow(0 0 3px ${heatColor})` }}
+                    style={{ filter: `drop-shadow(0 0 4px ${heatColor})` }}
                 >
                     <animateMotion
                         dur={`${particleDur}s`}
                         begin={`-${(particleDur / particleCount) * i}s`}
                         repeatCount="indefinite"
+                        rotate="auto"
                         keyPoints="0;1"
                         keyTimes="0;1"
                         calcMode="linear"
                     >
                         <mpath href={`#${pathId}`} />
                     </animateMotion>
-                </circle>
+                </ellipse>
             ))}
 
             {/* Neon dash pulse — hanya saat TIDAK ada partikel (idle) supaya

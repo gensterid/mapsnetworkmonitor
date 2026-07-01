@@ -96,6 +96,14 @@
 .neon-glow-path.down {
     stroke: var(--neon-danger);
     filter: drop-shadow(0 0 8px var(--neon-danger));
+    /* Link down berkedip pelan supaya menarik perhatian saat troubleshooting.
+       Animasi opacity (compositor-friendly), bukan layout. */
+    animation: neon-down-blink 1.1s ease-in-out infinite;
+}
+
+@keyframes neon-down-blink {
+    0%, 100% { stroke-opacity: 0.85; }
+    50%      { stroke-opacity: 0.25; }
 }
 
 .neon-flow-animation {
