@@ -170,8 +170,8 @@ const MiniTopology = ({ routerId }) => {
     const allTraffic = useAllRoutersTraffic(topologyRouters, isLiveMode);
 
     const { mutate: updateCoords } = useUpdateTopologyCoords();
-    const { mutate: addNode } = useAddTopologyNode();
-    const { mutate: addLink } = useAddTopologyLink();
+    const { mutate: addNode, isPending: isAddNodePending } = useAddTopologyNode();
+    const { mutate: addLink, isPending: isAddLinkPending } = useAddTopologyLink();
     const { mutate: removeLink } = useRemoveTopologyLink(routerId);
     const { mutate: updateLink } = useUpdateTopologyLink(routerId);
     const { mutate: updateNode } = useUpdateTopologyNode();
@@ -277,7 +277,10 @@ const MiniTopology = ({ routerId }) => {
         // custom default '0.0.0.0'). Kalau tidak di-exclude, semua device
         // custom bisa false-match ke satu sama lain.
         const SENTINEL_HOSTS = new Set(['0.0.0.0', '::', '0']);
-        const usableIp = (ip) => ip && !SENTINEL_HOSTS.has(ip);
+        // MAC bukan IP — RoMON kirim romonId yang bisa berupa MAC. Jangan pakai
+        // sebagai host node (polling/health check pakai host sebagai IP).
+        const MAC_RE = /^([0-9a-f]{2}[:-]){5}[0-9a-f]{2}$/i;
+        const usableIp = (ip) => ip && !SENTINEL_HOSTS.has(ip) && !MAC_RE.test(ip);
 
         // Cari node di canvas yang mewakili sebuah neighbor (via systemId
         // mapping / IP host / identity).
@@ -570,6 +573,10 @@ const MiniTopology = ({ routerId }) => {
                 sourceHandle: 'b1',
                 targetHandle: 't1',
             },
+        }, {
+            // Kalau node sudah dibuat tapi link gagal → kasih tahu operator
+            // (modal sudah tertutup, kalau tidak error-nya hilang senyap).
+            onError: (err) => alert(`Node dibuat tapi link gagal: ${err?.message || 'error'}. Buka Saran Link lagi untuk hubungkan.`),
         });
         chosen.forEach(s => {
             if (s.mode === 'add') {
@@ -847,10 +854,10 @@ const MiniTopology = ({ routerId }) => {
                             )}
                             <button
                                 onClick={createSelectedLinks}
-                                disabled={selectedSuggest.size === 0}
+                                disabled={selectedSuggest.size === 0 || isAddNodePending || isAddLinkPending}
                                 className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                Buat {selectedSuggest.size > 0 ? `${selectedSuggest.size} ` : ''}Link Terpilih
+                                {(isAddNodePending || isAddLinkPending) ? 'Memproses…' : `Buat ${selectedSuggest.size > 0 ? `${selectedSuggest.size} ` : ''}Link Terpilih`}
                             </button>
                         </div>
                     </div>
