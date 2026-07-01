@@ -181,7 +181,9 @@ const MiniTopology = ({ routerId }) => {
 
     useRouters();
     useOlts();
-    const { data: mndpNeighbors } = useRouterNeighbors(routerId);
+    // Neighbor MNDP hanya dipakai di UI edit mode (sidebar Discovered Units,
+    // modal device, saran link) — gate fetch-nya biar tidak polling saat view.
+    const { data: mndpNeighbors } = useRouterNeighbors(routerId, { enabled: isEditMode });
 
     // Alert aktif per-router → overlay badge di node. Ambil severity terparah
     // per routerId dari alert yang belum resolved.
@@ -270,6 +272,11 @@ const MiniTopology = ({ routerId }) => {
             if (e.target === rootId) linkedTo.add(e.source);
         }
 
+        // Host placeholder yang TIDAK boleh dipakai untuk cocokkan (device
+        // custom default '0.0.0.0'). Kalau tidak di-exclude, semua device
+        // custom bisa false-match ke satu sama lain.
+        const SENTINEL_HOSTS = new Set(['0.0.0.0', '::', '0']);
+
         // Cari node kandidat yang cocok dengan sebuah neighbor.
         const matchNode = (ipRaw, identityRaw) => {
             const ip = norm(ipRaw);
@@ -278,7 +285,11 @@ const MiniTopology = ({ routerId }) => {
                 if (n.id === rootId) return false;
                 const host = norm(n.data?.host);
                 const name = norm(n.data?.name);
-                return (ip && host && host === ip) || (identity && name && name === identity);
+                const ipMatch = ip && !SENTINEL_HOSTS.has(ip) && host && !SENTINEL_HOSTS.has(host) && host === ip;
+                // identity minimal 2 char — hindari cocok kebetulan dgn identity
+                // kosong/1-char (device sering advertise identity default dulu).
+                const nameMatch = identity && identity.length > 1 && name && name === identity;
+                return ipMatch || nameMatch;
             });
         };
 
@@ -548,9 +559,11 @@ const MiniTopology = ({ routerId }) => {
                 },
             });
         });
+        // addLink onSuccess sudah invalidate query topology → refetch otomatis
+        // setelah tiap mutation persist. Jangan refetch() manual di sini (akan
+        // fetch state basi sebelum mutation selesai).
         setShowLinkSuggest(false);
         setSelectedSuggest(new Set());
-        refetch();
     };
 
     if (!routerId || routerId === 'undefined') {
@@ -755,9 +768,9 @@ const MiniTopology = ({ routerId }) => {
 
             {showLinkSuggest && (
                 <div className="topology-config-overlay" onClick={() => setShowLinkSuggest(false)}>
-                    <div className="topology-config-card max-w-md" onClick={e => e.stopPropagation()}>
+                    <div className="topology-config-card max-w-md" role="dialog" aria-modal="true" aria-labelledby="link-suggest-title" onClick={e => e.stopPropagation()}>
                         <div className="config-header">
-                            <h4 className="flex items-center gap-2"><Link2 size={18} /> Saran Link dari Neighbor</h4>
+                            <h4 id="link-suggest-title" className="flex items-center gap-2"><Link2 size={18} /> Saran Link dari Neighbor</h4>
                             <button onClick={() => setShowLinkSuggest(false)}><X size={18} /></button>
                         </div>
                         <div className="config-body space-y-3">
@@ -774,6 +787,8 @@ const MiniTopology = ({ routerId }) => {
                                         return (
                                             <button
                                                 key={s.key}
+                                                role="checkbox"
+                                                aria-checked={checked}
                                                 onClick={() => toggleSuggest(s.key)}
                                                 className={clsx(
                                                     "w-full text-left p-2.5 rounded border flex items-center gap-3 transition-all",
