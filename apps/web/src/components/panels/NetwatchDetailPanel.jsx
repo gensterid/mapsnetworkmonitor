@@ -60,6 +60,14 @@ function packetLossAccent(lossPct) {
     return 'offline';
 }
 
+// ONU optical-down states dari berbagai vendor OLT (ZTE/Huawei/HSGQ/CDATA).
+// mapToStatus tidak kenal state ini → normalisasi ke 'offline' supaya badge
+// merah. Set di module scope (bukan per-render). Lowercase semua.
+const OPTICAL_DOWN_STATES = new Set([
+    'offline', 'down', 'lost', 'power_down', 'dying_gasp', 'removed',
+    'loi', 'los', 'auth_failed', 'auth-failed', 'onu_disable', 'onu-disable', 'disabled',
+]);
+
 /**
  * RX signal strength threshold (dBm) per industri standard GPON:
  *   >= -22 dBm → good (online)
@@ -190,13 +198,12 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
     // Status fisik ONU/OLT (optical) — TERPISAH dari ping. Bisa beda:
     // mis. ping UP (host masih respons) tapi ONU "Removed from OLT" = down.
     // Ditampilkan dengan label sumber supaya operator tidak bingung.
-    // Optical-down states (lost/power_down/dying_gasp) tidak dikenali
-    // mapToStatus → normalisasi ke 'offline' supaya badge merah, bukan abu.
+    // Optical-down states tidak dikenali mapToStatus → normalisasi ke
+    // 'offline' supaya badge merah, bukan abu.
     const physicalRaw = netwatch?.physicalStatus;
     const hasPhysicalStatus = !!physicalRaw && String(physicalRaw).toLowerCase() !== 'unknown';
-    const OPTICAL_DOWN = ['offline', 'down', 'lost', 'power_down', 'dying_gasp', 'removed'];
     const physicalStatus = hasPhysicalStatus
-        ? (OPTICAL_DOWN.includes(String(physicalRaw).toLowerCase()) ? 'offline' : mapToStatus(physicalRaw))
+        ? (OPTICAL_DOWN_STATES.has(String(physicalRaw).toLowerCase()) ? 'offline' : mapToStatus(physicalRaw))
         : null;
     const physicalLabel = physicalStatus ? STATUS_LABELS[physicalStatus] : null;
     const physicalReason = netwatch?.lastDownReason || null;

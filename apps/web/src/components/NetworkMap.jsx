@@ -1646,7 +1646,6 @@ const NetworkMap = ({
         isEditMode,
         handleMarkerHover,
         handleQuickView,
-        handleQuickPing,
     ]);
 
     // 2. Netwatch Node Markers
@@ -1746,8 +1745,6 @@ const NetworkMap = ({
         linesByNetwatchId,
         handleMarkerHover,
         handleQuickView,
-        handleArchiveOnu,
-        handleQuickPing,
     ]);
 
     // 3. PPPoE Client Markers
