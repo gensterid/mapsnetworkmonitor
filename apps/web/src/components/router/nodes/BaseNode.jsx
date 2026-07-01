@@ -3,14 +3,29 @@ import { Handle, Position } from '@xyflow/react';
 import { clsx } from 'clsx';
 import './nodes.css';
 
+// Warna gauge ikut nilai: hijau (rendah) → amber → merah (tinggi).
+const gaugeClass = (pct) => {
+    if (pct === null || pct === undefined) return '';
+    if (pct >= 85) return 'crit';
+    if (pct >= 65) return 'warn';
+    return 'ok';
+};
+
 const BaseNode = ({ data, children, type }) => {
     const { name, host, status } = data;
+    const isUp = status === 'up' || status === 'online';
+
+    // Live metrics — hanya tampil kalau ada (router/olt yang termonitor).
+    const cpu = typeof data.cpuLoad === 'number' ? Math.round(data.cpuLoad) : null;
+    const mem = typeof data.memoryPct === 'number' ? data.memoryPct : null;
+    const temp = typeof data.temperature === 'number' ? Math.round(data.temperature) : null;
+    const hasMetrics = cpu !== null || mem !== null || temp !== null;
 
     return (
-        <div className={clsx('base-node-container', type, status)}>
+        <div className={clsx('base-node-container', type, status, isUp && 'is-up')}>
             <div className="node-glass-card">
                 {/* Status LED */}
-                <div className={clsx('status-led', (status === 'up' || status === 'online') ? 'up' : 'down')} />
+                <div className={clsx('status-led', isUp ? 'up' : 'down')} />
 
                 {/* --- 8 POINT HANDLE SYSTEM --- */}
 
@@ -44,6 +59,35 @@ const BaseNode = ({ data, children, type }) => {
                         <div className="node-name">{name}</div>
                         <div className="node-host">{host}</div>
                     </div>
+
+                    {/* Live metrics mini-gauges — CPU/RAM bar + suhu badge */}
+                    {hasMetrics && (
+                        <div className="node-metrics">
+                            {cpu !== null && (
+                                <div className="metric-row">
+                                    <span className="metric-label">CPU</span>
+                                    <span className="metric-bar">
+                                        <span className={clsx('metric-fill', gaugeClass(cpu))} style={{ width: `${Math.min(100, cpu)}%` }} />
+                                    </span>
+                                    <span className="metric-val">{cpu}%</span>
+                                </div>
+                            )}
+                            {mem !== null && (
+                                <div className="metric-row">
+                                    <span className="metric-label">RAM</span>
+                                    <span className="metric-bar">
+                                        <span className={clsx('metric-fill', gaugeClass(mem))} style={{ width: `${Math.min(100, mem)}%` }} />
+                                    </span>
+                                    <span className="metric-val">{mem}%</span>
+                                </div>
+                            )}
+                            {temp !== null && (
+                                <div className={clsx('metric-temp', gaugeClass(temp >= 60 ? 90 : temp >= 50 ? 70 : 40))}>
+                                    {temp}°C
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Hover Tooltip */}

@@ -3,6 +3,7 @@ import { db } from '../db/index.js';
 import { routers, routerInterfaces, routerNetwatch, olts, onus, topologyNodes, topologyLinks } from '../db/schema/index.js';
 import { logger } from '../lib/logger.js';
 import { routerNetwatchService } from './router-netwatch.service.js';
+import { metricRepository } from '../repositories/metric.repository.js';
 
 export class TopologyService {
     /**
@@ -36,6 +37,29 @@ export class TopologyService {
         const netwatchInSchematic = nodeIds.length > 0
             ? await db.select().from(routerNetwatch).where(inArray(routerNetwatch.id, nodeIds))
             : [];
+
+        // Latest metrics (CPU/RAM/suhu) per router — untuk gauge live di node.
+        // Ambil untuk semua router di skema + router root. routerMetrics pakai
+        // snake_case (raw SQL SELECT *).
+        const metricRouterIds = [
+            ...routersInSchematic.map(r => r.id),
+            targetRouter.id,
+        ];
+        const latestMetricsRows = await metricRepository.findLatestForRouters(metricRouterIds);
+        const metricsMap: Record<string, any> = {};
+        for (const m of latestMetricsRows) {
+            metricsMap[m.router_id] = m;
+        }
+        const nodeMetrics = (routerId: string) => {
+            const m = metricsMap[routerId];
+            if (!m) return { cpuLoad: null, memoryPct: null, temperature: null };
+            const cpuLoad = typeof m.cpu_load === 'number' ? m.cpu_load : null;
+            const memoryPct = (m.total_memory && m.used_memory)
+                ? Math.round((Number(m.used_memory) / Number(m.total_memory)) * 100)
+                : null;
+            const temperature = typeof m.temperature === 'number' ? m.temperature : null;
+            return { cpuLoad, memoryPct, temperature };
+        };
 
         // Build a map for quick access
         const deviceMap: Record<string, any> = {};
@@ -79,6 +103,9 @@ export class TopologyService {
                 uptime: device?.uptime,
                 packetLoss: device?.packetLoss,
                 boardName: device?.boardName,
+                // Live metrics untuk gauge di badan node (router). Ambil dari
+                // routerMetrics terbaru via metricsMap (bukan kolom routers).
+                ...nodeMetrics(mNode.nodeId || ''),
             };
 
             nodes.push(nodeData);
@@ -99,6 +126,7 @@ export class TopologyService {
                 model: targetRouter.model,
                 latency: targetRouter.latency,
                 boardName: targetRouter.boardName,
+                ...nodeMetrics(targetRouter.id),
             });
             // Also map it for edge resolution in case something links to it
             schematicNodeMap[targetRouter.id] = nodes[nodes.length - 1];

@@ -3,7 +3,9 @@ import dagre from '@dagrejs/dagre';
 import {
     ReactFlow,
     Background,
+    BackgroundVariant,
     Controls,
+    MiniMap,
     useNodesState,
     useEdgesState,
     MarkerType,
@@ -519,8 +521,25 @@ const MiniTopology = ({ routerId }) => {
                         minZoom={0.2}
                         maxZoom={2}
                     >
-                        <Background color="#1e293b" gap={30} size={1} />
+                        {/* Background berlapis: grid dots halus + garis besar
+                            samar untuk kedalaman. */}
+                        <Background id="bg-dots" variant={BackgroundVariant.Dots} color="#1e293b" gap={30} size={1} />
+                        <Background id="bg-lines" variant={BackgroundVariant.Lines} color="#141a24" gap={150} lineWidth={0.5} />
                         <Controls position="top-right" />
+                        {/* MiniMap overview — warna node ikut status. */}
+                        <MiniMap
+                            position="bottom-right"
+                            pannable
+                            zoomable
+                            nodeColor={(n) => {
+                                const s = n?.data?.status;
+                                if (s === 'up' || s === 'online') return '#22c55e';
+                                if (s === 'down' || s === 'offline') return '#ef4444';
+                                return '#64748b';
+                            }}
+                            maskColor="rgba(8, 11, 20, 0.6)"
+                            style={{ background: 'rgba(11, 14, 20, 0.85)', border: '1px solid rgba(148,163,184,0.15)', borderRadius: 8 }}
+                        />
                     </ReactFlow>
                 </div>
             </div>

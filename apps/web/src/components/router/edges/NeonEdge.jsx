@@ -48,10 +48,29 @@ const NeonEdge = ({
         return `${Math.round(bits)} bps`;
     };
 
-    // Calculate dynamic animation duration based on traffic (100bps base, faster at higher speeds)
+    // ── Utilization heatmap ────────────────────────────────────────────────
+    // Beban link = total traffic vs kapasitas referensi. Kalau data.capacityBps
+    // tidak ada, pakai default 100 Mbps. util 0..1 → warna cyan→amber→merah +
+    // kabel makin tebal saat makin sibuk.
     const totalTraffic = (data?.txRate || 0) + (data?.rxRate || 0);
-    const speedFactor = Math.min(5, Math.max(1, totalTraffic / 1000000)); // Faster up to 5x at 5Mbps+
+    const refCapacity = data?.capacityBps || 100_000_000; // 100 Mbps default
+    const util = Math.min(1, totalTraffic / refCapacity);
+
+    // Hue 190 (cyan, idle) → 0 (merah, penuh). Lewat hijau/kuning di tengah.
+    const heatHue = Math.round(190 - util * 190);
+    const heatColor = `hsl(${heatHue}, 90%, 55%)`;
+    const heatWidth = 2 + util * 4; // 2px idle → 6px penuh
+    const heatGlow = 6 + util * 10;
+
+    // Dynamic animation duration (faster at higher speeds)
+    const speedFactor = Math.min(5, Math.max(1, totalTraffic / 1000000));
     const animationDuration = `${2 / speedFactor}s`;
+
+    // Partikel traffic mengalir — tampil saat link UP dan ada traffic (atau
+    // live mode). Jumlah + kecepatan ikut utilisasi.
+    const showParticles = isUp && (data?.isLiveMode || totalTraffic > 0);
+    const particleCount = showParticles ? 3 + Math.round(util * 5) : 0; // 3..8
+    const particleDur = 3 - util * 1.8; // detik: 3s idle → ~1.2s penuh
 
     return (
         <>
@@ -65,17 +84,46 @@ const NeonEdge = ({
                 pathLength="100"
             />
 
-            {/* Glow Path */}
+            {/* Glow Path — warna & tebal ikut utilisasi (heatmap). Saat down,
+                pakai class .down (merah). Saat up, override inline dengan heat. */}
             <path
                 className={clsx("neon-glow-path", !isUp && "down")}
+                style={isUp ? {
+                    stroke: heatColor,
+                    strokeWidth: heatWidth,
+                    strokeOpacity: 0.35 + util * 0.35,
+                    filter: `drop-shadow(0 0 ${heatGlow}px ${heatColor})`,
+                } : undefined}
                 d={edgePath}
                 fill="none"
                 strokeWidth={2}
                 pathLength="100"
             />
 
-            {/* Neon Flow Animation Points - Always show if animation is enabled */}
-            {data?.animationType !== 'none' && (
+            {/* Partikel traffic mengalir sepanjang kabel (SMIL animateMotion). */}
+            {particleCount > 0 && Array.from({ length: particleCount }).map((_, i) => (
+                <circle
+                    key={`${id}-particle-${i}`}
+                    r={1.6 + util * 1.4}
+                    fill={heatColor}
+                    style={{ filter: `drop-shadow(0 0 3px ${heatColor})` }}
+                >
+                    <animateMotion
+                        dur={`${particleDur}s`}
+                        begin={`-${(particleDur / particleCount) * i}s`}
+                        repeatCount="indefinite"
+                        keyPoints="0;1"
+                        keyTimes="0;1"
+                        calcMode="linear"
+                    >
+                        <mpath href={`#${id}`} />
+                    </animateMotion>
+                </circle>
+            ))}
+
+            {/* Neon dash pulse — hanya saat TIDAK ada partikel (idle) supaya
+                kabel tetap "hidup" tapi tidak terlalu ramai. */}
+            {data?.animationType !== 'none' && !showParticles && (
                 <path
                     key={`${id}-${data?.animationType || 'pulse'}`}
                     className={clsx(
@@ -83,8 +131,8 @@ const NeonEdge = ({
                         data?.animationType || 'pulse',
                         !isUp && "down"
                     )}
-                    style={{ 
-                        animationDuration: data?.isLiveMode ? animationDuration : undefined 
+                    style={{
+                        animationDuration: data?.isLiveMode ? animationDuration : undefined
                     }}
                     d={edgePath}
                     fill="none"
