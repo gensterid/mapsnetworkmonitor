@@ -32,7 +32,7 @@ import {
     useAllRoutersTraffic,
     useAlerts,
 } from '@/hooks';
-import { Plus, Check, Edit2, X, Box, Network, Layers, Globe, Cpu, Zap, Trash2, Settings, Link2, Wand2, RefreshCw, Download } from 'lucide-react';
+import { Plus, Check, Edit2, X, Box, Network, Layers, Globe, Cpu, Zap, Trash2, Settings, Link2, Wand2, RefreshCw, Download, Search } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDebounce } from '@/hooks';
 
@@ -151,6 +151,7 @@ const MiniTopology = ({ routerId }) => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [showLinkSuggest, setShowLinkSuggest] = useState(false);
     const [selectedSuggest, setSelectedSuggest] = useState(() => new Set());
+    const [suggestSearch, setSuggestSearch] = useState('');
 
     const [isLiveMode, setIsLiveMode] = useState(false);
     const [isAddingNode, setIsAddingNode] = useState(false);
@@ -346,6 +347,17 @@ const MiniTopology = ({ routerId }) => {
     }, [nodes, edges, mndpNeighbors, romonNeighbors, routerId]);
 
     const suggestItems = linkSuggestions?.items || [];
+    // Filter list saran sesuai kotak pencarian (nama/host/port/sumber).
+    const shownSuggest = useMemo(() => {
+        const q = suggestSearch.trim().toLowerCase();
+        if (!q) return suggestItems;
+        return suggestItems.filter(s =>
+            String(s.targetName || '').toLowerCase().includes(q) ||
+            String(s.targetHost || '').toLowerCase().includes(q) ||
+            String(s.sourceInterface || '').toLowerCase().includes(q) ||
+            String(s.source || '').toLowerCase().includes(q)
+        );
+    }, [suggestItems, suggestSearch]);
 
 
     const sourceNode = nodes.find(n => n.id === editingEdge?.source);
@@ -543,9 +555,11 @@ const MiniTopology = ({ routerId }) => {
         }, { onSuccess: () => { setIsAddingNode(false); refetch(); } });
     };
 
-    // Buka modal saran link — default centang semua kandidat.
+    // Buka modal saran link — default TIDAK ada yang tercentang, operator
+    // pilih sendiri (bisa pakai pencarian + pilih semua hasil).
     const openLinkSuggest = () => {
-        setSelectedSuggest(new Set(suggestItems.map(s => s.key)));
+        setSelectedSuggest(new Set());
+        setSuggestSearch('');
         setShowLinkSuggest(true);
     };
 
@@ -556,6 +570,16 @@ const MiniTopology = ({ routerId }) => {
             return next;
         });
     };
+
+    // Centang semua yang sedang tampil (mengikuti filter pencarian).
+    const selectAllShown = () => {
+        setSelectedSuggest(prev => {
+            const next = new Set(prev);
+            shownSuggest.forEach(s => next.add(s.key));
+            return next;
+        });
+    };
+    const clearSuggestSelection = () => setSelectedSuggest(new Set());
 
     // Buat link untuk kandidat terpilih. Root → node, sourceHandle default
     // 'b1' / targetHandle 't1' (sama dgn default edit modal).
@@ -819,8 +843,28 @@ const MiniTopology = ({ routerId }) => {
                             {suggestItems.length === 0 ? (
                                 <div className="text-xs text-slate-500 italic py-4 text-center">Tidak ada saran link.</div>
                             ) : (
+                              <>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" />
+                                        <input
+                                            type="text"
+                                            value={suggestSearch}
+                                            onChange={(e) => setSuggestSearch(e.target.value)}
+                                            placeholder="Cari nama / IP / port…"
+                                            className="w-full bg-slate-900/50 border border-slate-700/50 rounded pl-8 pr-2 py-1.5 text-white text-xs outline-none focus:border-cyan-500/50"
+                                        />
+                                    </div>
+                                    <button onClick={selectAllShown} className="text-[10px] font-semibold px-2 py-1.5 rounded border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/10 shrink-0">Pilih semua{shownSuggest.length ? ` (${shownSuggest.length})` : ''}</button>
+                                    {selectedSuggest.size > 0 && (
+                                        <button onClick={clearSuggestSelection} className="text-[10px] font-semibold px-2 py-1.5 rounded border border-slate-600 text-slate-400 hover:bg-slate-700/40 shrink-0">Kosongkan</button>
+                                    )}
+                                </div>
+                                {shownSuggest.length === 0 ? (
+                                    <div className="text-xs text-slate-500 italic py-4 text-center">Tidak ada hasil untuk "{suggestSearch}".</div>
+                                ) : (
                                 <div className="space-y-2 max-h-72 overflow-y-auto">
-                                    {suggestItems.map(s => {
+                                    {shownSuggest.map(s => {
                                         const checked = selectedSuggest.has(s.key);
                                         return (
                                             <button
@@ -851,6 +895,8 @@ const MiniTopology = ({ routerId }) => {
                                         );
                                     })}
                                 </div>
+                                )}
+                              </>
                             )}
                             <button
                                 onClick={createSelectedLinks}
