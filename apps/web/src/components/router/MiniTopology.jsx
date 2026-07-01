@@ -515,14 +515,44 @@ const MiniTopology = ({ routerId }) => {
         nodes.forEach((node) => dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight }));
         edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
         dagre.layout(dagreGraph);
+        const posMap = {};
         const layoutedNodes = nodes.map((node) => {
             const nodeWithPosition = dagreGraph.node(node.id);
-            const newNode = { ...node, position: { x: nodeWithPosition.x - nodeWidth / 2, y: nodeWithPosition.y - nodeHeight / 2 } };
-            updateCoords({ routerId, nodeId: newNode.id, x: newNode.position.x, y: newNode.position.y });
-            return newNode;
+            const position = { x: nodeWithPosition.x - nodeWidth / 2, y: nodeWithPosition.y - nodeHeight / 2 };
+            posMap[node.id] = position;
+            updateCoords({ routerId, nodeId: node.id, x: position.x, y: position.y });
+            return { ...node, position };
         });
         setNodes(layoutedNodes);
-    }, [nodes, edges, updateCoords, routerId, setNodes]);
+
+        // Rapikan titik sambung link mengikuti posisi baru — attach di sisi
+        // yang saling menghadap (bukan selalu b1→t1 yang bikin garis monoton).
+        // Slot 1/2 memisah link paralel via arah tegak lurus.
+        const pickHandles = (s, t) => {
+            const sc = { x: s.x + nodeWidth / 2, y: s.y + nodeHeight / 2 };
+            const tc = { x: t.x + nodeWidth / 2, y: t.y + nodeHeight / 2 };
+            const dx = tc.x - sc.x, dy = tc.y - sc.y;
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                const slot = dy < 0 ? '1' : '2';
+                return dx >= 0
+                    ? { sourceHandle: `r${slot}`, targetHandle: `l${slot}` }
+                    : { sourceHandle: `l${slot}`, targetHandle: `r${slot}` };
+            }
+            const slot = dx < 0 ? '1' : '2';
+            return dy >= 0
+                ? { sourceHandle: `b${slot}`, targetHandle: `t${slot}` }
+                : { sourceHandle: `t${slot}`, targetHandle: `b${slot}` };
+        };
+        const nextEdges = edges.map((edge) => {
+            const s = posMap[edge.source], t = posMap[edge.target];
+            if (!s || !t) return edge;
+            const { sourceHandle, targetHandle } = pickHandles(s, t);
+            if (edge.sourceHandle === sourceHandle && edge.targetHandle === targetHandle) return edge;
+            updateLink({ linkId: edge.id, data: { sourceHandle, targetHandle } });
+            return { ...edge, sourceHandle, targetHandle };
+        });
+        setEdges(nextEdges);
+    }, [nodes, edges, updateCoords, updateLink, routerId, setNodes, setEdges]);
 
 
     const onNodeDoubleClick = useCallback((event, node) => {
