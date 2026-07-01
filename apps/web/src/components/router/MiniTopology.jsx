@@ -259,8 +259,9 @@ const MiniTopology = ({ routerId }) => {
     // dengan node lain di canvas (via IP host / identity), usulkan link
     // root → node itu. Skip yang sudah ada link-nya. Operator review dulu.
     const linkSuggestions = useMemo(() => {
+        const empty = { rootId: null, rootName: 'Router', items: [] };
         const rootNode = nodes.find(n => n.data?.systemId && n.data.systemId === routerId);
-        if (!rootNode) return [];
+        if (!rootNode) return empty;
 
         const norm = (v) => String(v || '').trim().toLowerCase();
         const rootId = rootNode.id;
@@ -276,16 +277,20 @@ const MiniTopology = ({ routerId }) => {
         // custom default '0.0.0.0'). Kalau tidak di-exclude, semua device
         // custom bisa false-match ke satu sama lain.
         const SENTINEL_HOSTS = new Set(['0.0.0.0', '::', '0']);
+        const usableIp = (ip) => ip && !SENTINEL_HOSTS.has(ip);
 
-        // Cari node kandidat yang cocok dengan sebuah neighbor.
-        const matchNode = (ipRaw, identityRaw) => {
+        // Cari node di canvas yang mewakili sebuah neighbor (via systemId
+        // mapping / IP host / identity).
+        const matchNode = (neighborId, ipRaw, identityRaw) => {
+            const nid = norm(neighborId);
             const ip = norm(ipRaw);
             const identity = norm(identityRaw);
             return nodes.find(n => {
                 if (n.id === rootId) return false;
+                if (nid && norm(n.data?.systemId) === nid) return true;
                 const host = norm(n.data?.host);
                 const name = norm(n.data?.name);
-                const ipMatch = ip && !SENTINEL_HOSTS.has(ip) && host && !SENTINEL_HOSTS.has(host) && host === ip;
+                const ipMatch = usableIp(ip) && usableIp(host) && host === ip;
                 // identity minimal 2 char — hindari cocok kebetulan dgn identity
                 // kosong/1-char (device sering advertise identity default dulu).
                 const nameMatch = identity && identity.length > 1 && name && name === identity;
@@ -293,39 +298,48 @@ const MiniTopology = ({ routerId }) => {
             });
         };
 
-        const byTarget = new Map(); // targetNodeId → suggestion (MNDP menang, ada interface)
+        const items = [];
+        const usedTargets = new Set(); // node id yang sudah jadi kandidat link
+        const usedAdds = new Set();    // dedup neighbor untuk add (MNDP+RoMON)
 
-        for (const nb of (mndpNeighbors || [])) {
-            const cand = matchNode(nb.address, nb.identity);
-            if (!cand || linkedTo.has(cand.id) || byTarget.has(cand.id)) continue;
-            byTarget.set(cand.id, {
-                key: cand.id,
-                targetNodeId: cand.id,
-                targetName: cand.data?.name || cand.data?.host || cand.id,
-                targetHost: cand.data?.host || '',
-                sourceInterface: nb.interface || null,
-                source: 'MNDP',
+        // Kalau neighbor sudah punya node di canvas → 'link'. Kalau belum &
+        // punya IP valid → 'add' (buat node + link sekaligus). Device Layer-2
+        // tanpa IP (mis. '*79') di-skip.
+        const consider = (source, neighborId, ipRaw, identityRaw, iface) => {
+            const cand = matchNode(neighborId, ipRaw, identityRaw);
+            if (cand) {
+                if (linkedTo.has(cand.id) || usedTargets.has(cand.id)) return;
+                usedTargets.add(cand.id);
+                items.push({
+                    key: `link-${cand.id}`,
+                    mode: 'link',
+                    targetNodeId: cand.id,
+                    targetName: cand.data?.name || cand.data?.host || cand.id,
+                    targetHost: cand.data?.host || '',
+                    sourceInterface: iface || null,
+                    source,
+                });
+                return;
+            }
+            const ip = norm(ipRaw);
+            if (!usableIp(ip) || usedAdds.has(ip)) return;
+            usedAdds.add(ip);
+            items.push({
+                key: `add-${ip}`,
+                mode: 'add',
+                targetNodeId: null,
+                targetName: (identityRaw && String(identityRaw).trim()) || ipRaw,
+                targetHost: ipRaw,
+                sourceInterface: iface || null,
+                source,
+                neighbor: { id: neighborId, identity: identityRaw, address: ipRaw },
             });
-        }
-
-        for (const nb of (romonNeighbors || [])) {
-            const cand = matchNode(nb.romonId, nb.identity);
-            if (!cand || linkedTo.has(cand.id) || byTarget.has(cand.id)) continue;
-            byTarget.set(cand.id, {
-                key: cand.id,
-                targetNodeId: cand.id,
-                targetName: cand.data?.name || cand.data?.host || cand.id,
-                targetHost: cand.data?.host || '',
-                sourceInterface: null,
-                source: 'RoMON',
-            });
-        }
-
-        return {
-            rootId,
-            rootName: rootNode.data?.name || 'Router',
-            items: Array.from(byTarget.values()),
         };
+
+        for (const nb of (mndpNeighbors || [])) consider('MNDP', nb.id, nb.address, nb.identity, nb.interface);
+        for (const nb of (romonNeighbors || [])) consider('RoMON', nb.romonId, nb.romonId, nb.identity, null);
+
+        return { rootId, rootName: rootNode.data?.name || 'Router', items };
     }, [nodes, edges, mndpNeighbors, romonNeighbors, routerId]);
 
     const suggestItems = linkSuggestions?.items || [];
@@ -546,22 +560,40 @@ const MiniTopology = ({ routerId }) => {
         const rootId = linkSuggestions?.rootId;
         if (!rootId) return;
         const chosen = suggestItems.filter(s => selectedSuggest.has(s.key));
-        chosen.forEach(s => {
-            addLink({
-                routerId,
-                data: {
-                    sourceNodeId: rootId,
-                    targetNodeId: s.targetNodeId,
-                    sourceInterface: s.sourceInterface,
-                    targetInterface: null,
-                    sourceHandle: 'b1',
-                    targetHandle: 't1',
-                },
-            });
+        const linkTo = (targetNodeId, sourceInterface) => addLink({
+            routerId,
+            data: {
+                sourceNodeId: rootId,
+                targetNodeId,
+                sourceInterface,
+                targetInterface: null,
+                sourceHandle: 'b1',
+                targetHandle: 't1',
+            },
         });
-        // addLink onSuccess sudah invalidate query topology → refetch otomatis
-        // setelah tiap mutation persist. Jangan refetch() manual di sini (akan
-        // fetch state basi sebelum mutation selesai).
+        chosen.forEach(s => {
+            if (s.mode === 'add') {
+                // Buat node baru dari neighbor, lalu link ke root pakai id node
+                // yang baru dibuat (respons addNode = node ter-unwrap, punya .id).
+                addNode({
+                    routerId,
+                    data: {
+                        nodeId: null,
+                        nodeType: 'router',
+                        name: s.neighbor?.identity || s.neighbor?.address || s.neighbor?.id,
+                        host: s.neighbor?.address || s.neighbor?.id,
+                        systemId: s.neighbor?.id,
+                    },
+                }, {
+                    onSuccess: (created) => { if (created?.id) linkTo(created.id, s.sourceInterface); },
+                    onError: (err) => alert(`Gagal buat node ${s.targetName}: ${err?.message || 'error'}`),
+                });
+            } else {
+                linkTo(s.targetNodeId, s.sourceInterface);
+            }
+        });
+        // addLink/addNode onSuccess sudah invalidate query topology → refetch
+        // otomatis. Jangan refetch() manual (fetch state basi sebelum persist).
         setShowLinkSuggest(false);
         setSelectedSuggest(new Set());
     };
@@ -775,8 +807,7 @@ const MiniTopology = ({ routerId }) => {
                         </div>
                         <div className="config-body space-y-3">
                             <p className="text-[11px] text-slate-400 leading-relaxed">
-                                Neighbor MNDP/RoMON yang cocok dengan device di canvas.
-                                Link dibuat dari <span className="text-cyan-400 font-semibold">{linkSuggestions?.rootName}</span> ke device di bawah. Centang yang mau dibuat.
+                                Neighbor MNDP/RoMON dari <span className="text-cyan-400 font-semibold">{linkSuggestions?.rootName}</span>. Yang sudah ada di canvas → dibuatkan link. Yang belum (tag <span className="text-amber-400 font-semibold">+NODE</span>) → node baru dibuat lalu di-link. Centang yang mau.
                             </p>
                             {suggestItems.length === 0 ? (
                                 <div className="text-xs text-slate-500 italic py-4 text-center">Tidak ada saran link.</div>
@@ -799,7 +830,10 @@ const MiniTopology = ({ routerId }) => {
                                                     {checked && <Check size={11} className="text-slate-900" />}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
-                                                    <div className="text-white text-xs font-semibold truncate">{s.targetName}</div>
+                                                    <div className="text-white text-xs font-semibold truncate flex items-center gap-1.5">
+                                                        {s.targetName}
+                                                        {s.mode === 'add' && <span className="text-[8px] font-bold uppercase px-1 py-0.5 rounded bg-amber-500/15 text-amber-400 shrink-0">+node</span>}
+                                                    </div>
                                                     <div className="text-[10px] text-slate-500 truncate">
                                                         {s.targetHost || '—'}
                                                         {s.sourceInterface && <span className="text-slate-400"> · port {s.sourceInterface}</span>}
