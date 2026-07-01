@@ -149,6 +149,8 @@ const DebouncedUpdate = ({ value, onUpdate, delay = 500 }) => {
 const MiniTopology = ({ routerId }) => {
     const reactFlowWrapperRef = useRef(null);
     const [isEditMode, setIsEditMode] = useState(false);
+    const [showLinkSuggest, setShowLinkSuggest] = useState(false);
+    const [selectedSuggest, setSelectedSuggest] = useState(() => new Set());
 
     const [isLiveMode, setIsLiveMode] = useState(false);
     const [isAddingNode, setIsAddingNode] = useState(false);
@@ -249,6 +251,73 @@ const MiniTopology = ({ routerId }) => {
 
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+    // ── Saran link dari neighbor (MNDP/RoMON) ──────────────────────────────
+    // Neighbor di-discover dari router root. Untuk tiap neighbor yang cocok
+    // dengan node lain di canvas (via IP host / identity), usulkan link
+    // root → node itu. Skip yang sudah ada link-nya. Operator review dulu.
+    const linkSuggestions = useMemo(() => {
+        const rootNode = nodes.find(n => n.data?.systemId && n.data.systemId === routerId);
+        if (!rootNode) return [];
+
+        const norm = (v) => String(v || '').trim().toLowerCase();
+        const rootId = rootNode.id;
+
+        // Pasangan node yang sudah terhubung (kedua arah) → skip.
+        const linkedTo = new Set();
+        for (const e of edges) {
+            if (e.source === rootId) linkedTo.add(e.target);
+            if (e.target === rootId) linkedTo.add(e.source);
+        }
+
+        // Cari node kandidat yang cocok dengan sebuah neighbor.
+        const matchNode = (ipRaw, identityRaw) => {
+            const ip = norm(ipRaw);
+            const identity = norm(identityRaw);
+            return nodes.find(n => {
+                if (n.id === rootId) return false;
+                const host = norm(n.data?.host);
+                const name = norm(n.data?.name);
+                return (ip && host && host === ip) || (identity && name && name === identity);
+            });
+        };
+
+        const byTarget = new Map(); // targetNodeId → suggestion (MNDP menang, ada interface)
+
+        for (const nb of (mndpNeighbors || [])) {
+            const cand = matchNode(nb.address, nb.identity);
+            if (!cand || linkedTo.has(cand.id) || byTarget.has(cand.id)) continue;
+            byTarget.set(cand.id, {
+                key: cand.id,
+                targetNodeId: cand.id,
+                targetName: cand.data?.name || cand.data?.host || cand.id,
+                targetHost: cand.data?.host || '',
+                sourceInterface: nb.interface || null,
+                source: 'MNDP',
+            });
+        }
+
+        for (const nb of (romonNeighbors || [])) {
+            const cand = matchNode(nb.romonId, nb.identity);
+            if (!cand || linkedTo.has(cand.id) || byTarget.has(cand.id)) continue;
+            byTarget.set(cand.id, {
+                key: cand.id,
+                targetNodeId: cand.id,
+                targetName: cand.data?.name || cand.data?.host || cand.id,
+                targetHost: cand.data?.host || '',
+                sourceInterface: null,
+                source: 'RoMON',
+            });
+        }
+
+        return {
+            rootId,
+            rootName: rootNode.data?.name || 'Router',
+            items: Array.from(byTarget.values()),
+        };
+    }, [nodes, edges, mndpNeighbors, romonNeighbors, routerId]);
+
+    const suggestItems = linkSuggestions?.items || [];
 
 
     const sourceNode = nodes.find(n => n.id === editingEdge?.source);
@@ -446,6 +515,44 @@ const MiniTopology = ({ routerId }) => {
         }, { onSuccess: () => { setIsAddingNode(false); refetch(); } });
     };
 
+    // Buka modal saran link — default centang semua kandidat.
+    const openLinkSuggest = () => {
+        setSelectedSuggest(new Set(suggestItems.map(s => s.key)));
+        setShowLinkSuggest(true);
+    };
+
+    const toggleSuggest = (key) => {
+        setSelectedSuggest(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key); else next.add(key);
+            return next;
+        });
+    };
+
+    // Buat link untuk kandidat terpilih. Root → node, sourceHandle default
+    // 'b1' / targetHandle 't1' (sama dgn default edit modal).
+    const createSelectedLinks = () => {
+        const rootId = linkSuggestions?.rootId;
+        if (!rootId) return;
+        const chosen = suggestItems.filter(s => selectedSuggest.has(s.key));
+        chosen.forEach(s => {
+            addLink({
+                routerId,
+                data: {
+                    sourceNodeId: rootId,
+                    targetNodeId: s.targetNodeId,
+                    sourceInterface: s.sourceInterface,
+                    targetInterface: null,
+                    sourceHandle: 'b1',
+                    targetHandle: 't1',
+                },
+            });
+        });
+        setShowLinkSuggest(false);
+        setSelectedSuggest(new Set());
+        refetch();
+    };
+
     if (!routerId || routerId === 'undefined') {
         return <div className="p-8 text-slate-500 text-xs italic flex items-center gap-2">
             <RefreshCw className="w-3 h-3 animate-spin" /> Loading topology context...
@@ -481,6 +588,14 @@ const MiniTopology = ({ routerId }) => {
                         <>
                             <button className="action-btn bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 px-3 py-1 rounded text-xs transition-all flex items-center gap-1.5 font-semibold mx-2" onClick={onLayout}>
                                 <Wand2 size={14} /> Tidy Up
+                            </button>
+                            <button
+                                className="action-btn bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 px-3 py-1 rounded text-xs transition-all flex items-center gap-1.5 font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                                onClick={openLinkSuggest}
+                                disabled={suggestItems.length === 0}
+                                title={suggestItems.length === 0 ? 'Tidak ada neighbor yang cocok dengan node di canvas' : `${suggestItems.length} saran link dari neighbor`}
+                            >
+                                <Link2 size={14} /> Saran Link{suggestItems.length > 0 ? ` (${suggestItems.length})` : ''}
                             </button>
                             <button className="action-btn add" onClick={() => setIsAddingNode(!isAddingNode)}>
                                 <Plus size={16} /> Add Device
@@ -637,6 +752,61 @@ const MiniTopology = ({ routerId }) => {
                     </ReactFlow>
                 </div>
             </div>
+
+            {showLinkSuggest && (
+                <div className="topology-config-overlay" onClick={() => setShowLinkSuggest(false)}>
+                    <div className="topology-config-card max-w-md" onClick={e => e.stopPropagation()}>
+                        <div className="config-header">
+                            <h4 className="flex items-center gap-2"><Link2 size={18} /> Saran Link dari Neighbor</h4>
+                            <button onClick={() => setShowLinkSuggest(false)}><X size={18} /></button>
+                        </div>
+                        <div className="config-body space-y-3">
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                                Neighbor MNDP/RoMON yang cocok dengan device di canvas.
+                                Link dibuat dari <span className="text-cyan-400 font-semibold">{linkSuggestions?.rootName}</span> ke device di bawah. Centang yang mau dibuat.
+                            </p>
+                            {suggestItems.length === 0 ? (
+                                <div className="text-xs text-slate-500 italic py-4 text-center">Tidak ada saran link.</div>
+                            ) : (
+                                <div className="space-y-2 max-h-72 overflow-y-auto">
+                                    {suggestItems.map(s => {
+                                        const checked = selectedSuggest.has(s.key);
+                                        return (
+                                            <button
+                                                key={s.key}
+                                                onClick={() => toggleSuggest(s.key)}
+                                                className={clsx(
+                                                    "w-full text-left p-2.5 rounded border flex items-center gap-3 transition-all",
+                                                    checked ? "bg-cyan-500/10 border-cyan-500/40" : "bg-slate-800/30 border-slate-700/50 hover:border-slate-600"
+                                                )}
+                                            >
+                                                <div className={clsx("w-4 h-4 rounded flex items-center justify-center border shrink-0", checked ? "bg-cyan-500 border-cyan-500" : "border-slate-600")}>
+                                                    {checked && <Check size={11} className="text-slate-900" />}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-white text-xs font-semibold truncate">{s.targetName}</div>
+                                                    <div className="text-[10px] text-slate-500 truncate">
+                                                        {s.targetHost || '—'}
+                                                        {s.sourceInterface && <span className="text-slate-400"> · port {s.sourceInterface}</span>}
+                                                    </div>
+                                                </div>
+                                                <span className={clsx("text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0", s.source === 'MNDP' ? "bg-emerald-500/15 text-emerald-400" : "bg-indigo-500/15 text-indigo-400")}>{s.source}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                            <button
+                                onClick={createSelectedLinks}
+                                disabled={selectedSuggest.size === 0}
+                                className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-2 rounded text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                Buat {selectedSuggest.size > 0 ? `${selectedSuggest.size} ` : ''}Link Terpilih
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {editingNode && (
                 <div className="topology-config-overlay" onClick={() => setEditingNode(null)}>
