@@ -1,6 +1,7 @@
 import React, { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import { clsx } from 'clsx';
+import { AlertTriangle } from 'lucide-react';
 import './nodes.css';
 
 // Warna gauge ikut nilai: hijau (rendah) → amber → merah (tinggi).
@@ -23,9 +24,16 @@ const BaseNode = ({ data, children, type }) => {
 
     return (
         <div className={clsx('base-node-container', type, status, isUp && 'is-up')}>
-            <div className="node-glass-card">
+            <div className={clsx('node-glass-card', data.hasAlert && 'has-alert')}>
                 {/* Status LED */}
                 <div className={clsx('status-led', isUp ? 'up' : 'down')} />
+
+                {/* Alert overlay badge — muncul kalau router punya alert aktif */}
+                {data.hasAlert && (
+                    <div className={clsx('node-alert-badge', data.alertSeverity || 'warning')} title={`Alert aktif (${data.alertSeverity || 'warning'})`}>
+                        <AlertTriangle size={10} />
+                    </div>
+                )}
 
                 {/* --- 8 POINT HANDLE SYSTEM --- */}
 

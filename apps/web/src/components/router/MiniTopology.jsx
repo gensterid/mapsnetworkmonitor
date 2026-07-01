@@ -6,10 +6,15 @@ import {
     BackgroundVariant,
     Controls,
     MiniMap,
+    Panel,
     useNodesState,
     useEdgesState,
+    useReactFlow,
+    getNodesBounds,
+    getViewportForBounds,
     MarkerType,
 } from '@xyflow/react';
+import { toPng } from 'html-to-image';
 import {
     useRouterTopology,
     useUpdateTopologyCoords,
@@ -25,9 +30,10 @@ import {
     useRouterRomonNeighbors,
     useRouterInterfaces,
     usePingHost,
-    useAllRoutersTraffic
+    useAllRoutersTraffic,
+    useAlerts,
 } from '@/hooks';
-import { Plus, Check, Edit2, X, Box, Network, Layers, Globe, Cpu, Zap, Trash2, Settings, Link2, Wand2, RefreshCw } from 'lucide-react';
+import { Plus, Check, Edit2, X, Box, Network, Layers, Globe, Cpu, Zap, Trash2, Settings, Link2, Wand2, RefreshCw, Download } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useDebounce } from '@/hooks';
 
@@ -48,6 +54,60 @@ const nodeTypes = {
 
 const edgeTypes = {
     neon: NeonEdge,
+};
+
+// Tombol export diagram → PNG. Harus di DALAM <ReactFlow> (pakai
+// useReactFlow). Fit semua node lalu render viewport ke gambar.
+const ExportButton = ({ routerName }) => {
+    const { getNodes } = useReactFlow();
+    const [busy, setBusy] = useState(false);
+
+    const onExport = async () => {
+        const allNodes = getNodes();
+        if (!allNodes.length) return;
+        setBusy(true);
+        try {
+            const bounds = getNodesBounds(allNodes);
+            const pad = 80;
+            const width = Math.max(800, Math.ceil(bounds.width) + pad * 2);
+            const height = Math.max(600, Math.ceil(bounds.height) + pad * 2);
+            const vp = getViewportForBounds(bounds, width, height, 0.4, 2, pad);
+            const viewportEl = document.querySelector('.react-flow__viewport');
+            if (!viewportEl) return;
+            const dataUrl = await toPng(viewportEl, {
+                backgroundColor: '#0b0e14',
+                width,
+                height,
+                pixelRatio: 2,
+                style: {
+                    width: `${width}px`,
+                    height: `${height}px`,
+                    transform: `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`,
+                },
+            });
+            const a = document.createElement('a');
+            const safe = (routerName || 'topology').replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+            a.download = `topology-${safe}.png`;
+            a.href = dataUrl;
+            a.click();
+        } catch (err) {
+            console.error('Export topology failed:', err);
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={onExport}
+            disabled={busy}
+            className="topo-export-btn"
+            title="Export diagram ke PNG"
+        >
+            <Download size={13} /> {busy ? 'Rendering…' : 'Export PNG'}
+        </button>
+    );
 };
 
 // Helper component for debounced updates
@@ -116,6 +176,24 @@ const MiniTopology = ({ routerId }) => {
     useRouters();
     useOlts();
     const { data: mndpNeighbors } = useRouterNeighbors(routerId);
+
+    // Alert aktif per-router → overlay badge di node. Ambil severity terparah
+    // per routerId dari alert yang belum resolved.
+    const { data: alertsResp } = useAlerts({ limit: 200, sortOrder: 'desc' });
+    const alertByRouter = useMemo(() => {
+        const arr = Array.isArray(alertsResp)
+            ? alertsResp
+            : (alertsResp?.data || alertsResp?.alerts || []);
+        const rank = { critical: 3, warning: 2, info: 1 };
+        const map = new Map();
+        for (const a of arr) {
+            if (a?.resolved || !a?.routerId) continue;
+            const sev = String(a.severity || 'info').toLowerCase();
+            const prev = map.get(a.routerId);
+            if (!prev || (rank[sev] || 0) > (rank[prev] || 0)) map.set(a.routerId, sev);
+        }
+        return map;
+    }, [alertsResp]);
 
     const { data: romonNeighbors } = useRouterRomonNeighbors(routerId, { enabled: isEditMode });
 
@@ -194,11 +272,19 @@ const MiniTopology = ({ routerId }) => {
                     };
                 }
 
+                const alertSeverity = node.systemId ? (alertByRouter.get(node.systemId) || null) : null;
                 return {
                     id: node.id,
                     type: node.type || 'router',
                     position,
-                    data: { ...node, deviceId: node.id, isEditMode, isLiveMode },
+                    data: {
+                        ...node,
+                        deviceId: node.id,
+                        isEditMode,
+                        isLiveMode,
+                        hasAlert: !!alertSeverity,
+                        alertSeverity,
+                    },
                     draggable: isEditMode,
                 };
             });
@@ -268,7 +354,7 @@ const MiniTopology = ({ routerId }) => {
             });
         });
         setEdges(rfEdges);
-    }, [topology, isEditMode, routerId, isLiveMode, allTraffic, setNodes, setEdges]);
+    }, [topology, isEditMode, routerId, isLiveMode, allTraffic, alertByRouter, setNodes, setEdges]);
 
 
 
@@ -526,6 +612,10 @@ const MiniTopology = ({ routerId }) => {
                         <Background id="bg-dots" variant={BackgroundVariant.Dots} color="#1e293b" gap={30} size={1} />
                         <Background id="bg-lines" variant={BackgroundVariant.Lines} color="#141a24" gap={150} lineWidth={0.5} />
                         <Controls position="top-right" />
+                        {/* Export PNG — di dalam ReactFlow supaya akses useReactFlow. */}
+                        <Panel position="top-left">
+                            <ExportButton routerName={nodes.find(n => n.data?.systemId === routerId)?.data?.name} />
+                        </Panel>
                         {/* MiniMap overview — warna node ikut status. */}
                         <MiniMap
                             position="bottom-right"

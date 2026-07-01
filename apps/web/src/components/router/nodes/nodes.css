@@ -347,3 +347,32 @@
 .base-node-container.down .node-glass-card {
     animation: node-pulse-down 2s ease-out infinite;
 }
+
+/* ─── Alert overlay badge di node ───────────────────────────────────────── */
+.node-alert-badge {
+    position: absolute;
+    top: -7px;
+    left: -7px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    z-index: 30;
+    border: 1.5px solid #0b0e14;
+    animation: alert-badge-pulse 1.4s ease-in-out infinite;
+}
+.node-alert-badge.critical { background: #ef4444; box-shadow: 0 0 10px #ef4444; }
+.node-alert-badge.warning { background: #eab308; box-shadow: 0 0 10px #eab308; }
+.node-alert-badge.info { background: #3b82f6; box-shadow: 0 0 10px #3b82f6; }
+
+@keyframes alert-badge-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.18); opacity: 0.85; }
+}
+
+.node-glass-card.has-alert {
+    border-color: rgba(239, 68, 68, 0.4) !important;
+}
