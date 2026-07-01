@@ -75,7 +75,9 @@ export class TopologyService {
             deviceMap[n.id] = {
                 ...n,
                 type,
-                status: n.status === 'up' ? 'online' : 'offline'
+                // 3-way: 'unknown' (belum ke-poll) JANGAN dipaksa jadi offline —
+                // node yang baru ditambah tidak boleh langsung tampil down.
+                status: n.status === 'up' ? 'online' : (n.status === 'down' ? 'offline' : 'unknown'),
             };
         });
 
@@ -207,6 +209,16 @@ export class TopologyService {
                     }
                 }
 
+                // Trafik mengalir = link hidup → node di kedua ujung pasti
+                // reachable. Upgrade status supaya node 'unknown'/'offline'
+                // (mis. netwatch app-only belum ke-poll) tidak salah tampil
+                // down padahal jelas ada trafik lewat.
+                const hasTraffic = txRate > 0 || rxRate > 0;
+                if (hasTraffic) {
+                    if (fromNode.status !== 'online') fromNode.status = 'online';
+                    if (toNode.status !== 'online') toNode.status = 'online';
+                }
+
                 edges.push({
                     id: link.id,
                     from: link.sourceNodeId,
@@ -215,7 +227,8 @@ export class TopologyService {
                     toInterface: link.targetInterface,
                     sourceHandle: link.sourceHandle,
                     targetHandle: link.targetHandle,
-                    status: fromNode.status !== 'offline' && toNode.status !== 'offline' ? 'up' : 'down',
+                    // Up kalau ada trafik ATAU kedua node tidak offline.
+                    status: (hasTraffic || (fromNode.status !== 'offline' && toNode.status !== 'offline')) ? 'up' : 'down',
                     pathOffset: link.pathOffset || '0',
                     animationType: link.animationType || 'pulse',
                     notes: link.notes,
