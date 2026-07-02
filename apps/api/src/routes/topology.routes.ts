@@ -21,7 +21,7 @@ router.get(
     '/',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const topology = await topologyService.getRouterTopology(id);
+        const topology = await topologyService.getRouterTopology(id, getEffectiveTenantId(req));
         res.json({ data: topology });
     })
 );
@@ -86,7 +86,7 @@ router.delete(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
         const nodeId = req.params.nodeId as string;
-        await topologyService.removeNode(id, nodeId);
+        await topologyService.removeNode(id, nodeId, getEffectiveTenantId(req));
         res.json({ data: { success: true } });
     })
 );
@@ -107,7 +107,7 @@ router.patch(
             routerId: z.string().uuid().optional(),
         });
         const data = schema.parse(req.body);
-        const result = await topologyService.updateNode(nodeId, data as any);
+        const result = await topologyService.updateNode(nodeId, data as any, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );
@@ -155,7 +155,7 @@ router.delete(
     requireOperator,
     asyncHandler(async (req, res) => {
         const linkId = req.params.linkId as string;
-        await topologyService.removeLink(linkId);
+        await topologyService.removeLink(linkId, getEffectiveTenantId(req));
         res.json({ data: { success: true } });
     })
 );
@@ -178,7 +178,7 @@ router.patch(
             notes: z.string().optional().nullable(),
         });
         const data = schema.parse(req.body);
-        const result = await topologyService.updateLink(linkId, data as any);
+        const result = await topologyService.updateLink(linkId, data as any, getEffectiveTenantId(req));
         res.json({ data: result });
     })
 );

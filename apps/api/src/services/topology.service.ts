@@ -4,15 +4,30 @@ import { routers, routerInterfaces, routerNetwatch, olts, onus, topologyNodes, t
 import { logger } from '../lib/logger.js';
 import { routerNetwatchService } from './router-netwatch.service.js';
 import { metricRepository } from '../repositories/metric.repository.js';
+import { ApiError } from '../middleware/error.middleware.js';
 
 export class TopologyService {
     /**
+     * Tenant guard — pastikan router pemilik schematic dimiliki tenant ini.
+     * Pakai routers.tenantId (selalu terisi), bukan tenantId kolom topology
+     * yang bisa NULL di row lama. Lempar 404 (jangan bocorkan keberadaan).
+     */
+    private async assertRouterTenant(routerId: string | null | undefined, tenantId?: string) {
+        if (!tenantId || !routerId) return;
+        const [r] = await db.select({ id: routers.id }).from(routers)
+            .where(and(eq(routers.id, routerId), eq(routers.tenantId, tenantId)));
+        if (!r) throw new ApiError(404, 'Resource not found');
+    }
+
+    /**
      * Get topology tree for a specific router
      */
-    async getRouterTopology(routerId: string) {
+    async getRouterTopology(routerId: string, tenantId?: string) {
         // 1. Get the current router (The owner of the schematic)
         const [targetRouter] = await db.select().from(routers).where(eq(routers.id, routerId));
         if (!targetRouter) return null;
+        // Tenant scoping — jangan bocorkan topology router milik tenant lain.
+        if (tenantId && targetRouter.tenantId !== tenantId) return null;
 
         // 2. Fetch manual nodes and links
         const manualNodes = await db.select().from(topologyNodes).where(eq(topologyNodes.routerId, routerId));
@@ -162,80 +177,78 @@ export class TopologyService {
             };
         });
 
-        // 5. Resolve Edges (Using Schematic IDs)
+        // Helper for fuzzy match on interface rate (best effort). Match by
+        // boundary, bukan substring bebas — supaya 'ether1' TIDAK cocok dgn
+        // 'ether10' (yang bikin trafik interface salah tampil).
+        const getStaticStats = (deviceId: string, iface: string | null) => {
+            if (!iface || !deviceId) return null;
+            const exact = interfaceRateMap[`${deviceId}:${iface}`];
+            if (exact) return exact;
+            if (iface.toLowerCase() === 'netwatch' || iface === deviceId) {
+                return interfaceRateMap[`${deviceId}:netwatch`];
+            }
+            const want = iface.toLowerCase();
+            // a diawali b DAN karakter setelah b bukan alfanumerik (boundary):
+            // 'ether1-wan' cocok 'ether1', tapi 'ether10' TIDAK cocok 'ether1'.
+            const boundary = (a: string, b: string) =>
+                a.startsWith(b) && b.length > 0 && !/[0-9a-z]/i.test(a.charAt(b.length));
+            const prefix = `${deviceId}:`;
+            const key = Object.keys(interfaceRateMap).find(k => {
+                if (!k.startsWith(prefix)) return false;
+                const keyIface = k.slice(prefix.length).toLowerCase();
+                return keyIface === want || boundary(want, keyIface) || boundary(keyIface, want);
+            });
+            return key ? interfaceRateMap[key] : null;
+        };
+
+        // 5. Resolve Edges (Using Schematic IDs) — dua pass supaya status edge
+        // tidak bergantung urutan. Pass 1: hitung rate + upgrade liveness node.
+        const resolved: any[] = [];
         for (const link of manualLinks) {
             const fromNode = schematicNodeMap[link.sourceNodeId];
             const toNode = schematicNodeMap[link.targetNodeId];
- 
-            if (fromNode && toNode) {
-                // Determine base rates from DB polling
-                let txRate = 0;
-                let rxRate = 0;
+            if (!fromNode || !toNode) continue;
 
-                // Helper for fuzzy match on static data (best effort)
-                const getStaticStats = (deviceId: string, iface: string | null) => {
-                    if (!iface || !deviceId) return null;
-                    const exact = interfaceRateMap[`${deviceId}:${iface}`];
-                    if (exact) return exact;
-                    
-                    // Netwatch fallback (if the interface name is 'netwatch' or matches the netwatch entry)
-                    if (iface.toLowerCase() === 'netwatch' || iface === deviceId) {
-                        return interfaceRateMap[`${deviceId}:netwatch`];
-                    }
-
-                    // Basic prefix search for things like 'ether1-WAN' vs 'ether1'
-                    const partialMatchKey = Object.keys(interfaceRateMap).find(k => 
-                        k.startsWith(`${deviceId}:`) && 
-                        (k.toLowerCase().includes(iface.toLowerCase()) || iface.toLowerCase().includes(k.split(':')[1].toLowerCase()))
-                    );
-                    return partialMatchKey ? interfaceRateMap[partialMatchKey] : null;
-                };
-
-                // Try source side
-                if (link.sourceInterface && fromNode.systemId) {
-                    const stats = getStaticStats(fromNode.systemId, link.sourceInterface);
-                    if (stats) {
-                        txRate = stats.tx;
-                        rxRate = stats.rx;
-                    }
-                }
-
-                // Fallback to target side (Swap TX/RX)
-                if (txRate === 0 && rxRate === 0 && link.targetInterface && toNode.systemId) {
-                    const stats = getStaticStats(toNode.systemId, link.targetInterface);
-                    if (stats) {
-                        txRate = stats.rx; // Perspective flip
-                        rxRate = stats.tx;
-                    }
-                }
-
-                // Trafik mengalir = link hidup → node di kedua ujung pasti
-                // reachable. Upgrade status supaya node 'unknown'/'offline'
-                // (mis. netwatch app-only belum ke-poll) tidak salah tampil
-                // down padahal jelas ada trafik lewat.
-                const hasTraffic = txRate > 0 || rxRate > 0;
-                if (hasTraffic) {
-                    if (fromNode.status !== 'online') fromNode.status = 'online';
-                    if (toNode.status !== 'online') toNode.status = 'online';
-                }
-
-                edges.push({
-                    id: link.id,
-                    from: link.sourceNodeId,
-                    to: link.targetNodeId,
-                    fromInterface: link.sourceInterface,
-                    toInterface: link.targetInterface,
-                    sourceHandle: link.sourceHandle,
-                    targetHandle: link.targetHandle,
-                    // Up kalau ada trafik ATAU kedua node tidak offline.
-                    status: (hasTraffic || (fromNode.status !== 'offline' && toNode.status !== 'offline')) ? 'up' : 'down',
-                    pathOffset: link.pathOffset || '0',
-                    animationType: link.animationType || 'pulse',
-                    notes: link.notes,
-                    txRate,
-                    rxRate
-                });
+            let txRate = 0;
+            let rxRate = 0;
+            if (link.sourceInterface && fromNode.systemId) {
+                const stats = getStaticStats(fromNode.systemId, link.sourceInterface);
+                if (stats) { txRate = stats.tx; rxRate = stats.rx; }
             }
+            if (txRate === 0 && rxRate === 0 && link.targetInterface && toNode.systemId) {
+                const stats = getStaticStats(toNode.systemId, link.targetInterface);
+                if (stats) { txRate = stats.rx; rxRate = stats.tx; } // Perspective flip
+            }
+
+            // Trafik mengalir = link hidup → node ujung pasti reachable.
+            const hasTraffic = txRate > 0 || rxRate > 0;
+            if (hasTraffic) {
+                if (fromNode.status !== 'online') fromNode.status = 'online';
+                if (toNode.status !== 'online') toNode.status = 'online';
+            }
+            resolved.push({ link, fromNode, toNode, txRate, rxRate, hasTraffic });
+        }
+
+        // Pass 2: status edge dihitung dari status node FINAL (setelah semua
+        // upgrade), jadi tidak tergantung urutan link diproses.
+        for (const r of resolved) {
+            const { link, fromNode, toNode, txRate, rxRate, hasTraffic } = r;
+            edges.push({
+                id: link.id,
+                from: link.sourceNodeId,
+                to: link.targetNodeId,
+                fromInterface: link.sourceInterface,
+                toInterface: link.targetInterface,
+                sourceHandle: link.sourceHandle,
+                targetHandle: link.targetHandle,
+                // Up kalau ada trafik ATAU kedua node tidak offline.
+                status: (hasTraffic || (fromNode.status !== 'offline' && toNode.status !== 'offline')) ? 'up' : 'down',
+                pathOffset: link.pathOffset || '0',
+                animationType: link.animationType || 'pulse',
+                notes: link.notes,
+                txRate,
+                rxRate
+            });
         }
 
         return { nodes, edges };
@@ -245,18 +258,20 @@ export class TopologyService {
      * Add a device to the router's schematic
      */
     async addNode(routerId: string, nodeId: string | null, nodeType: string, tenantId?: string, customData?: { name?: string, host?: string }) {
+        await this.assertRouterTenant(routerId, tenantId);
         let finalNodeId = nodeId;
 
         // NEW: If no nodeId but host is provided, auto-create/link an app-only netwatch entry
         if (!finalNodeId && customData?.host && customData.host !== '0.0.0.0' && customData.host !== '') {
             try {
+                // NB: 6th arg = tx (default db). JANGAN kirim null/ID di sini —
+                // dulu `null` bikin tx.select() crash → linkage gagal senyap.
                 finalNodeId = await routerNetwatchService.ensureAppOnlyEntry(
                     routerId,
                     customData.host,
                     customData.name || 'Unmapped Node',
                     nodeType as any,
-                    tenantId,
-                    null // No existing ID yet
+                    tenantId
                 );
             } catch (err) {
                 // Ignore validation errors (like partial IPs during creation)
@@ -293,8 +308,9 @@ export class TopologyService {
     /**
      * Remove a device from the router's schematic
      */
-    async removeNode(routerId: string, nodeId: string) {
+    async removeNode(routerId: string, nodeId: string, tenantId?: string) {
         // Here nodeId is the SCHEMATIC ID (topology_nodes.id)
+        await this.assertRouterTenant(routerId, tenantId);
 
         // Get the node before deleting to check for linked netwatch
         const [node] = await db.select().from(topologyNodes)
@@ -338,11 +354,13 @@ export class TopologyService {
     /**
      * Update a schematic node (e.g. mapping to system ID)
      */
-    async updateNode(nodeIdInTopology: string, data: { nodeId?: string | null, nodeType?: string, customName?: string, customHost?: string, routerId?: string, notes?: string }) {
+    async updateNode(nodeIdInTopology: string, data: { nodeId?: string | null, nodeType?: string, customName?: string, customHost?: string, routerId?: string, notes?: string }, tenantId?: string) {
         // Try to update by primary key first
         const [existing] = await db.select().from(topologyNodes).where(eq(topologyNodes.id, nodeIdInTopology as any));
 
         if (existing) {
+            // Tenant guard via router pemilik node.
+            await this.assertRouterTenant(existing.routerId, tenantId);
             const updateData: any = {
                 ...data,
                 updatedAt: new Date()
@@ -359,13 +377,15 @@ export class TopologyService {
                 if (isUnmapped || isMonitorable) {
                     try {
                         const targetRouterId = data.routerId || existing.routerId;
+                        // ensureNetwatchEntry sudah cari & update entry lama by
+                        // (routerId, host, name). JANGAN kirim existing.nodeId
+                        // sebagai arg ke-6 (itu param `tx` → string bikin crash).
                         const netwatchId = await routerNetwatchService.ensureAppOnlyEntry(
                             targetRouterId,
                             hostToUse,
                             data.customName || existing.customName || 'Updated Node',
                             (data.nodeType || existing.nodeType) as any,
-                            existing.tenantId || undefined,
-                            existing.nodeId // Pass existing ID to update in-place!
+                            existing.tenantId || undefined
                         );
 
                         // If the nodeId changed (promotion or host change) and the old one was AppOnly, 
@@ -393,6 +413,7 @@ export class TopologyService {
 
         // If not found by primary key, it might be a fallback node (system ID)
         if (data.routerId) {
+            await this.assertRouterTenant(data.routerId, tenantId);
             const [fallback] = await db.select()
                 .from(topologyNodes)
                 .where(and(
@@ -430,6 +451,7 @@ export class TopologyService {
      * Add a link between two schematic nodes
      */
     async addLink(routerId: string, sourceId: string, targetId: string, sourceInterface: string, targetInterface: string, tenantId?: string, pathOffset?: string, sourceHandle?: string, targetHandle?: string, notes?: string) {
+        await this.assertRouterTenant(routerId, tenantId);
         const [newLink] = await db.insert(topologyLinks).values({
             routerId,
             sourceNodeId: sourceId,
@@ -450,14 +472,26 @@ export class TopologyService {
     /**
      * Remove a link
      */
-    async removeLink(linkId: string) {
+    async removeLink(linkId: string, tenantId?: string) {
+        if (tenantId) {
+            const [link] = await db.select({ routerId: topologyLinks.routerId })
+                .from(topologyLinks).where(eq(topologyLinks.id, linkId));
+            if (!link) return;
+            await this.assertRouterTenant(link.routerId, tenantId);
+        }
         return await db.delete(topologyLinks).where(eq(topologyLinks.id, linkId));
     }
 
     /**
      * Update a link's configuration
      */
-    async updateLink(linkId: string, data: { sourceInterface?: string, targetInterface?: string, pathOffset?: string | number, animationType?: string, sourceHandle?: string, targetHandle?: string, notes?: string }) {
+    async updateLink(linkId: string, data: { sourceInterface?: string, targetInterface?: string, pathOffset?: string | number, animationType?: string, sourceHandle?: string, targetHandle?: string, notes?: string }, tenantId?: string) {
+        if (tenantId) {
+            const [link] = await db.select({ routerId: topologyLinks.routerId })
+                .from(topologyLinks).where(eq(topologyLinks.id, linkId));
+            if (!link) return;
+            await this.assertRouterTenant(link.routerId, tenantId);
+        }
         const updateData: any = {
             ...data,
             updatedAt: new Date()
@@ -476,6 +510,7 @@ export class TopologyService {
      * Update schematic coordinates (Upsert style to handle fallback nodes)
      */
     async updateCoords(routerId: string, nodeId: string, x: number, y: number, tenantId?: string) {
+        await this.assertRouterTenant(routerId, tenantId);
         // nodeId here is the SCHEMATIC ID (or systemId for fallback nodes)
         const [existing] = await db.select().from(topologyNodes).where(
             or(
