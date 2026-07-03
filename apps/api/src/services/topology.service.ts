@@ -60,12 +60,14 @@ export class TopologyService {
         const netwatchForRouter = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
         const normHost = (h: any) => String(h || '').trim().toLowerCase();
         const netwatchByHost = new Map<string, any>();
+        const stRank: Record<string, number> = { up: 3, down: 2, unknown: 1 };
         for (const n of netwatchForRouter) {
             const key = normHost(n.host);
             if (!key) continue;
-            // Prioritaskan entry yang statusnya sudah ke-poll (up/down) drpd unknown.
+            // Kalau ada beberapa entry utk host sama (duplikat lama), pilih yang
+            // paling "hidup": up > down > unknown.
             const prev = netwatchByHost.get(key);
-            if (!prev || (prev.status === 'unknown' && n.status !== 'unknown')) {
+            if (!prev || (stRank[n.status || 'unknown'] || 0) > (stRank[prev.status || 'unknown'] || 0)) {
                 netwatchByHost.set(key, n);
             }
         }
@@ -122,16 +124,16 @@ export class TopologyService {
             const device = mNode.nodeId ? deviceMap[mNode.nodeId] : null;
             if (mNode.nodeId === routerId) rootRouterInSchematic = true;
 
-            // Status: pakai device tertaut; kalau tidak ada / masih 'unknown',
-            // fallback ke entry netwatch yang host-nya cocok (customHost).
+            // Status node: gabungkan device tertaut + entry netwatch by-host.
+            // Reachability UP MENANG — device yang balas ping tidak boleh tampil
+            // merah walau nodeId-nya basi / nunjuk entry duplikat yang down.
             let resolvedStatus = device?.status;
             const effHost = mNode.customHost || device?.host;
-            if ((!resolvedStatus || resolvedStatus === 'unknown') && effHost) {
-                const nw = netwatchByHost.get(normHost(effHost));
-                if (nw) {
-                    const s = nwStatusToNode(nw.status);
-                    if (s !== 'unknown') resolvedStatus = s;
-                }
+            const nwByHost = effHost ? netwatchByHost.get(normHost(effHost)) : null;
+            if (nwByHost) {
+                const s = nwStatusToNode(nwByHost.status);
+                if (s === 'online') resolvedStatus = 'online';                        // reachable → hijau
+                else if (!resolvedStatus || resolvedStatus === 'unknown') resolvedStatus = s;
             }
 
             const nodeData = {
