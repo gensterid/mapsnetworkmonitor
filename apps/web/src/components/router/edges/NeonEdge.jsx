@@ -12,7 +12,6 @@ const NeonEdge = ({
     targetPosition,
     style = {},
     data,
-    markerEnd,
 }) => {
     // Path offset shifts the cable perpendicular to the source→target direction
     // This separates overlapping cables between the same two nodes

@@ -3,36 +3,24 @@
     border-radius: 12px;
 }
 
-/* Status Glows */
+/* Status Glows — box-shadow statis (glow), animasi "hidup" ditangani ring
+   ::after (transform/opacity) yang jauh lebih hemat GPU. Tidak lagi
+   meng-animate box-shadow/filter tiap frame di setiap node. */
 .base-node-container.online,
 .base-node-container.up {
     box-shadow: 0 0 25px -5px rgba(57, 255, 20, 0.2);
-    animation: node-pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .base-node-container.offline {
     box-shadow: 0 0 20px -5px rgba(255, 49, 49, 0.1);
 }
 
-@keyframes node-pulse {
-
-    0%,
-    100% {
-        box-shadow: 0 0 15px -5px rgba(57, 255, 20, 0.1);
-        filter: brightness(1);
-    }
-
-    50% {
-        box-shadow: 0 0 35px -2px rgba(57, 255, 20, 0.3);
-        filter: brightness(1.2);
-    }
-}
-
 .node-glass-card {
     min-width: 140px;
-    background: linear-gradient(135deg, rgba(15, 23, 42, 0.7) 0%, rgba(15, 23, 42, 0.9) 100%);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.86) 0%, rgba(15, 23, 42, 0.95) 100%);
+    /* backdrop-filter dihapus dari kartu node — mahal saat pan/zoom di banyak
+       node. Background gradient sudah cukup opaque; blur disimpan untuk overlay
+       tunggal (tooltip/modal) saja. */
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px;
     padding: 12px;
@@ -345,7 +333,9 @@
     border-radius: inherit;
     pointer-events: none;
     z-index: -1;
-    will-change: transform, opacity;
+    /* Tanpa will-change permanen — animasi transform/opacity yang looping
+       sudah dapat compositor layer sendiri; will-change di tiap node malah
+       boros GPU memory saat node banyak. */
     animation: node-ring-pulse 2.8s ease-out infinite;
 }
 

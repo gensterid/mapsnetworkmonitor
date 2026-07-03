@@ -12,7 +12,6 @@ import {
     useReactFlow,
     getNodesBounds,
     getViewportForBounds,
-    MarkerType,
 } from '@xyflow/react';
 import {
     useRouterTopology,
@@ -411,12 +410,17 @@ const MiniTopology = ({ routerId }) => {
             });
 
             if (prevNodes.length === 0 || rfNodes.length !== prevNodes.length) return rfNodes;
+            // O(N) merge — Map lookup, bukan .find() dalam .map() (O(N²) tiap tick).
+            const rfById = new Map(rfNodes.map(rn => [rn.id, rn]));
             return prevNodes.map(n => {
-                const updated = rfNodes.find(rn => rn.id === n.id);
+                const updated = rfById.get(n.id);
                 if (!updated) return n;
                 return { ...n, draggable: isEditMode, data: { ...updated.data, isLiveMode } };
             });
         });
+
+        // Map id→node topology dipakai saat build edge (hindari .find O(E×N)).
+        const topoNodeById = new Map((topology.nodes || []).map(n => [n.id, n]));
 
         const rfEdges = (topology.edges || []).map(edge => {
             // Calculate traffic rates
@@ -426,7 +430,7 @@ const MiniTopology = ({ routerId }) => {
  
             // 2. Override with real-time WebSocket data ONLY if Live Mode is active
             if (isLiveMode && edge.fromInterface) {
-                const sourceNodeFound = (topology.nodes || []).find(n => n.id === edge.from);
+                const sourceNodeFound = topoNodeById.get(edge.from);
                 if (sourceNodeFound?.systemId) {
                     const stats = findTrafficStats(sourceNodeFound.systemId, edge.fromInterface);
                     if (stats) {
@@ -438,7 +442,7 @@ const MiniTopology = ({ routerId }) => {
  
             // 3. Fallback: If source side has no traffic in Live Mode, try target side (and swap TX/RX)
             if (isLiveMode && txRate === 0 && rxRate === 0 && edge.toInterface) {
-                const targetNodeFound = (topology.nodes || []).find(n => n.id === edge.to);
+                const targetNodeFound = topoNodeById.get(edge.to);
                 if (targetNodeFound?.systemId) {
                     const stats = findTrafficStats(targetNodeFound.systemId, edge.toInterface);
                     if (stats) {
@@ -465,8 +469,6 @@ const MiniTopology = ({ routerId }) => {
                     toInterface: edge.toInterface,
                     pathOffset: edge.pathOffset || '0',
                     animationType: edge.animationType || 'pulse',
-                    sourceHandle: edge.sourceHandle,
-                    targetHandle: edge.targetHandle,
                     lineStyle,
                     isEditMode,
                     isLiveMode,
@@ -570,7 +572,7 @@ const MiniTopology = ({ routerId }) => {
     }, [isEditMode]);
 
     const onAddNode = (idInSystem, type, neighborData = null) => {
-        if (nodes.some(n => n.systemId === idInSystem)) return;
+        if (nodes.some(n => n.data?.systemId === idInSystem)) return;
         addNode({
             routerId,
             data: {
@@ -692,9 +694,14 @@ const MiniTopology = ({ routerId }) => {
                             <Zap size={14} className={clsx(isLiveMode ? "text-amber-400" : "text-slate-500")} />
                             <span>Live Mode</span>
                         </div>
-                        <div 
+                        <div
+                            role="switch"
+                            tabIndex={0}
+                            aria-checked={isLiveMode}
+                            aria-label="Live Mode"
                             className={clsx("toggle-switch", isLiveMode && "active")}
                             onClick={() => setIsLiveMode(!isLiveMode)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setIsLiveMode(v => !v); } }}
                         >
                             <div className="toggle-knob" />
                         </div>
@@ -760,7 +767,7 @@ const MiniTopology = ({ routerId }) => {
                                         <span className="text-[8px] bg-purple-500/10 text-purple-400 px-1 border border-purple-500/20 rounded">RoMON</span>
                                     </div>
                                 </div>
-                                {mndpNeighbors?.filter(n => !nodes.some(node => node.systemId === n.id)).map(n => {
+                                {mndpNeighbors?.filter(n => !nodes.some(node => node.data?.systemId === n.id)).map(n => {
                                     const ip = n.address || n.id;
                                     const pingState = pingResults[ip];
                                     return (
@@ -794,7 +801,7 @@ const MiniTopology = ({ routerId }) => {
                                         </div>
                                     );
                                 })}
-                                {romonNeighbors?.filter(n => !nodes.some(node => node.systemId === n.id)).map(n => {
+                                {romonNeighbors?.filter(n => !nodes.some(node => node.data?.systemId === n.id)).map(n => {
                                     const ip = n.id;
                                     const pingState = pingResults[ip];
                                     return (
@@ -850,6 +857,7 @@ const MiniTopology = ({ routerId }) => {
                         fitViewOptions={{ padding: 0.5 }}
                         minZoom={0.2}
                         maxZoom={2}
+                        onlyRenderVisibleElements
                     >
                         {/* Background berlapis: grid dots halus + garis besar
                             samar untuk kedalaman. */}
@@ -900,6 +908,7 @@ const MiniTopology = ({ routerId }) => {
                                             type="text"
                                             value={suggestSearch}
                                             onChange={(e) => setSuggestSearch(e.target.value)}
+                                            aria-label="Cari kandidat link"
                                             placeholder="Cari nama / IP / port…"
                                             className="w-full bg-slate-900/50 border border-slate-700/50 rounded pl-8 pr-2 py-1.5 text-white text-xs outline-none focus:border-cyan-500/50"
                                         />
@@ -989,7 +998,7 @@ const MiniTopology = ({ routerId }) => {
                                 <label className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-2 block">System Mapping</label>
                                 {!editingNode.data.systemId ? (
                                     <div className="space-y-2 max-h-32 overflow-y-auto">
-                                        {mndpNeighbors?.filter(n => !nodes.some(node => node.systemId === n.id)).map(n => (
+                                        {mndpNeighbors?.filter(n => !nodes.some(node => node.data?.systemId === n.id)).map(n => (
                                             <button key={n.id} className="w-full text-left p-2 hover:bg-emerald-500/10 rounded border border-slate-700/50 text-xs flex items-center gap-2 group" onClick={() => {
                                                 const name = n.identity || n.id;
                                                 updateNode({ nodeIdInTopology: editingNode.id, routerId, data: { customName: name, customHost: n.address || n.id } });
