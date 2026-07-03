@@ -50,6 +50,7 @@ let billingDailyInterval: ReturnType<typeof setInterval> | null = null;
 let driftScanInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAutoHealInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAlertSweepInterval: ReturnType<typeof setInterval> | null = null;
+let netwatchAppPingInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let isPollingSnmp = false;
 let pollingStartTime: number | null = null;
@@ -744,6 +745,12 @@ export async function startScheduler(): Promise<void> {
     setTimeout(() => runNetwatchAlertSweepSafe(), 120000);
     netwatchAlertSweepInterval = setInterval(() => runNetwatchAlertSweepSafe(), env.SCHED_NETWATCH_SWEEP_MS);
 
+    // Ping entry netwatch app-only via router induk (status UP/DOWN untuk device
+    // yang di-monitor lewat app, bukan netwatch native MikroTik). Initial run 45s
+    // supaya router sudah sempat ke-poll (status online).
+    setTimeout(() => runNetwatchAppPingSafe(), 45000);
+    netwatchAppPingInterval = setInterval(() => runNetwatchAppPingSafe(), env.SCHED_NETWATCH_APPPING_MS);
+
     // Startup summary log untuk operator visibility
     logger.info(
         {
@@ -758,6 +765,7 @@ export async function startScheduler(): Promise<void> {
             driftMs: env.SCHED_DRIFT_MS,
             netwatchAutoHealMs: env.SCHED_NETWATCH_AUTOHEAL_MS,
             netwatchSweepMs: env.SCHED_NETWATCH_SWEEP_MS,
+            netwatchAppPingMs: env.SCHED_NETWATCH_APPPING_MS,
         },
         '\xe2\x8f\xb1\xef\xb8\x8f Scheduler started with intervals (override via env SCHED_*_MS)'
     );
@@ -818,6 +826,18 @@ async function runNetwatchAlertSweepSafe() {
     }
 }
 
+async function runNetwatchAppPingSafe() {
+    try {
+        const { pingAppOnlyNetwatch } = await import('../services/netwatch/netwatch-appping.service.js');
+        const result = await pingAppOnlyNetwatch();
+        if (result.checked > 0) {
+            logger.debug(result, 'App-only netwatch ping cycle complete');
+        }
+    } catch (err) {
+        logger.error({ err }, 'App-only netwatch ping cycle crashed');
+    }
+}
+
 /**
  * Stop the background polling scheduler
  */
@@ -836,6 +856,7 @@ export function stopScheduler(): void {
     if (driftScanInterval) { clearInterval(driftScanInterval); driftScanInterval = null; }
     if (netwatchAutoHealInterval) { clearInterval(netwatchAutoHealInterval); netwatchAutoHealInterval = null; }
     if (netwatchAlertSweepInterval) { clearInterval(netwatchAlertSweepInterval); netwatchAlertSweepInterval = null; }
+    if (netwatchAppPingInterval) { clearInterval(netwatchAppPingInterval); netwatchAppPingInterval = null; }
 
     stopQueueWorker();
     logger.info('🛑 Scheduler stopped');

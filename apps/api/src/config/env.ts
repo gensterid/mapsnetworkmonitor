@@ -79,6 +79,7 @@ const envSchema = z.object({
     SCHED_DRIFT_MS: z.string().default('3600000').transform(Number),       // 1 hr — PPPoE drift scan
     SCHED_NETWATCH_AUTOHEAL_MS: z.string().default('300000').transform(Number),  // 5 min — netwatch IP auto-heal
     SCHED_NETWATCH_SWEEP_MS: z.string().default('300000').transform(Number),     // 5 min — netwatch alert resolver sweep
+    SCHED_NETWATCH_APPPING_MS: z.string().default('60000').transform(Number),    // 1 min — ping entry app-only via router induk
 
     // ─── Adaptive Scaling (auto-tune polling interval per cluster size) ──
     ADAPTIVE_BASE_MS: z.string().default('60000').transform(Number),
