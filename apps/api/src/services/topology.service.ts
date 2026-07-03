@@ -53,6 +53,24 @@ export class TopologyService {
             ? await db.select().from(routerNetwatch).where(inArray(routerNetwatch.id, nodeIds))
             : [];
 
+        // Fallback status by-host: node yang link-nya (nodeId) null/basi tapi
+        // punya customHost tetap bisa dapat status dari entry netwatch yang
+        // host-nya sama (mis. app-only yang di-ping poller). Fix node topology
+        // yang dibuat saat linkage netwatch masih bug → nyangkut merah/unknown.
+        const netwatchForRouter = await db.select().from(routerNetwatch).where(eq(routerNetwatch.routerId, routerId));
+        const normHost = (h: any) => String(h || '').trim().toLowerCase();
+        const netwatchByHost = new Map<string, any>();
+        for (const n of netwatchForRouter) {
+            const key = normHost(n.host);
+            if (!key) continue;
+            // Prioritaskan entry yang statusnya sudah ke-poll (up/down) drpd unknown.
+            const prev = netwatchByHost.get(key);
+            if (!prev || (prev.status === 'unknown' && n.status !== 'unknown')) {
+                netwatchByHost.set(key, n);
+            }
+        }
+        const nwStatusToNode = (s: any) => (s === 'up' ? 'online' : (s === 'down' ? 'offline' : 'unknown'));
+
         // Latest metrics (CPU/RAM/suhu) per router — untuk gauge live di node.
         // Ambil untuk semua router di skema + router root. routerMetrics pakai
         // snake_case (raw SQL SELECT *).
@@ -104,6 +122,18 @@ export class TopologyService {
             const device = mNode.nodeId ? deviceMap[mNode.nodeId] : null;
             if (mNode.nodeId === routerId) rootRouterInSchematic = true;
 
+            // Status: pakai device tertaut; kalau tidak ada / masih 'unknown',
+            // fallback ke entry netwatch yang host-nya cocok (customHost).
+            let resolvedStatus = device?.status;
+            const effHost = mNode.customHost || device?.host;
+            if ((!resolvedStatus || resolvedStatus === 'unknown') && effHost) {
+                const nw = netwatchByHost.get(normHost(effHost));
+                if (nw) {
+                    const s = nwStatusToNode(nw.status);
+                    if (s !== 'unknown') resolvedStatus = s;
+                }
+            }
+
             const nodeData = {
                 id: mNode.id,
                 systemId: mNode.nodeId,
@@ -111,7 +141,7 @@ export class TopologyService {
                 // Prioritize custom name/host if set in schematic
                 name: mNode.customName || device?.name || 'Unmapped Device',
                 host: mNode.customHost || device?.host || '0.0.0.0',
-                status: device?.status || 'unknown',
+                status: resolvedStatus || 'unknown',
                 x: mNode.x,
                 y: mNode.y,
                 notes: mNode.notes,
