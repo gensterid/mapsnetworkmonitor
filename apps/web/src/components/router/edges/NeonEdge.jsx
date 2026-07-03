@@ -1,5 +1,5 @@
 import React from 'react';
-import { getSmoothStepPath, getBezierPath, getStraightPath, EdgeText } from '@xyflow/react';
+import { getSmoothStepPath, getBezierPath, getStraightPath, EdgeText, EdgeLabelRenderer, useReactFlow } from '@xyflow/react';
 import { clsx } from 'clsx';
 
 const NeonEdge = ({
@@ -13,6 +13,8 @@ const NeonEdge = ({
     style = {},
     data,
 }) => {
+    const { screenToFlowPosition, setEdges } = useReactFlow();
+
     // Path offset shifts the cable perpendicular to the source→target direction
     // This separates overlapping cables between the same two nodes
     const offset = parseFloat(data?.pathOffset) || 0;
@@ -24,6 +26,43 @@ const NeonEdge = ({
     // Normal vector (perpendicular): rotate 90° → (-dy, dx)
     const nx = (-dy / len) * offset;
     const ny = (dx / len) * offset;
+
+    // ── Drag-to-bend ────────────────────────────────────────────────────────
+    // Titik-tengah edge yang bisa di-drag (edit mode) untuk melengkungkan garis
+    // via pathOffset (jarak tegak lurus dari garis lurus source→target).
+    const isEdit = !!data?.isEditMode;
+    const midX = (sourceX + targetX) / 2;
+    const midY = (sourceY + targetY) / 2;
+    const perpX = -dy / len;
+    const perpY = dx / len;
+    const bendX = midX + perpX * offset;
+    const bendY = midY + perpY * offset;
+
+    const offsetFromPointer = (clientX, clientY) => {
+        const p = screenToFlowPosition({ x: clientX, y: clientY });
+        return Math.round((p.x - midX) * perpX + (p.y - midY) * perpY);
+    };
+    const onBendDown = (e) => {
+        e.stopPropagation();
+        try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+    };
+    const onBendMove = (e) => {
+        if (e.buttons !== 1) return; // hanya saat ditekan
+        e.stopPropagation();
+        const val = offsetFromPointer(e.clientX, e.clientY);
+        setEdges((eds) => eds.map((ed) => ed.id === id ? { ...ed, data: { ...ed.data, pathOffset: String(val) } } : ed));
+    };
+    const onBendUp = (e) => {
+        e.stopPropagation();
+        try { e.currentTarget.releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+        data?.onBendCommit?.(id, offsetFromPointer(e.clientX, e.clientY));
+    };
+    const onBendReset = (e) => {
+        // Double-click = luruskan lagi (offset 0).
+        e.stopPropagation();
+        setEdges((eds) => eds.map((ed) => ed.id === id ? { ...ed, data: { ...ed.data, pathOffset: '0' } } : ed));
+        data?.onBendCommit?.(id, 0);
+    };
 
     // Gaya garis dipilih operator (global): lengkung (bezier) / siku
     // (smoothstep) / lurus. Default lengkung.
@@ -228,6 +267,22 @@ const NeonEdge = ({
                         />
                     )}
                 </g>
+            )}
+
+            {/* Handle drag-to-bend — hanya edit mode. Geser untuk melengkungkan,
+                double-click untuk luruskan lagi. */}
+            {isEdit && (
+                <EdgeLabelRenderer>
+                    <div
+                        className="edge-bend-handle nodrag nopan"
+                        style={{ transform: `translate(-50%, -50%) translate(${bendX}px, ${bendY}px)` }}
+                        onPointerDown={onBendDown}
+                        onPointerMove={onBendMove}
+                        onPointerUp={onBendUp}
+                        onDoubleClick={onBendReset}
+                        title="Geser untuk melengkungkan garis · dobel-klik untuk luruskan"
+                    />
+                </EdgeLabelRenderer>
             )}
         </>
     );

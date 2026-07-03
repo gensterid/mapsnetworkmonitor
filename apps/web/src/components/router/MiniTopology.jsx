@@ -472,6 +472,7 @@ const MiniTopology = ({ routerId }) => {
                     lineStyle,
                     isEditMode,
                     isLiveMode,
+                    onBendCommit: onEdgeBendCommit,
                     txRate,
                     rxRate
                 }
@@ -516,6 +517,11 @@ const MiniTopology = ({ routerId }) => {
         if (!isEditMode) return;
         setEditingEdge(edge);
     }, [isEditMode]);
+
+    // Persist lengkungan edge (pathOffset) setelah drag handle titik-tengah.
+    const onEdgeBendCommit = useCallback((linkId, offset) => {
+        updateLink({ linkId, data: { pathOffset: String(offset) } });
+    }, [updateLink]);
 
     const onLayout = useCallback(() => {
         const dagreGraph = new dagre.graphlib.Graph();
