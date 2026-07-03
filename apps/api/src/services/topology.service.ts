@@ -365,6 +365,9 @@ export class TopologyService {
                 ...data,
                 updatedAt: new Date()
             };
+            // Jangan izinkan re-parent node ke router lain lewat endpoint ini
+            // (mass-assignment → bisa suntik node ke schematic tenant lain).
+            delete updateData.routerId;
 
             // NEW: If customHost is being updated and there's no system nodeId,
             // or if we want to refresh the app-only link

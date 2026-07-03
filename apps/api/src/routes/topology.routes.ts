@@ -13,6 +13,17 @@ const router = Router({ mergeParams: true });
 // All routes require authentication
 router.use(authMiddleware);
 
+// Tenant-context guard: non-superadmin TANPA tenantId (akun orphan) tidak
+// boleh lolos scoping — getEffectiveTenantId akan kembalikan undefined dan
+// guard per-service jadi no-op → IDOR. Tolak di sini.
+router.use((req, _res, next) => {
+    const u: any = (req as any).user;
+    if (u?.role !== 'superadmin' && !u?.tenantId) {
+        return next(new ApiError(403, 'Tenant context required'));
+    }
+    next();
+});
+
 /**
  * GET /api/routers/:id/topology
  * Get topology tree for a specific router
