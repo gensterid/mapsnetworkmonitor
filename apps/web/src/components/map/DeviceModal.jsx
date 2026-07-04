@@ -760,7 +760,7 @@ const DeviceModal = ({
                                         onChange={(e) => setDmDraft(d => ({ ...d, label: e.target.value }))}
                                         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistMarker(); } }}
                                         placeholder="label (opsional)"
-                                        style={{ flex: 1, minWidth: 90, background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '5px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                        style={{ flex: '1 1 90px', minWidth: 0, boxSizing: 'border-box', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '5px 8px', color: '#e2e8f0', fontSize: 12 }}
                                     />
                                     <button type="button" onClick={addDistMarker} className="device-modal__btn device-modal__btn--secondary" style={{ padding: '5px 10px' }}>
                                         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>

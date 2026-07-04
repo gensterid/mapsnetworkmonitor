@@ -543,6 +543,34 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
                         </div>
                     )}
                 </div>
+
+                {/* Penanda Jarak di Garis (tersimpan) */}
+                {(() => {
+                    let markers = [];
+                    try {
+                        const dm = netwatch.distanceMarkers;
+                        markers = Array.isArray(dm) ? dm : (dm ? JSON.parse(dm) : []);
+                    } catch { markers = []; }
+                    if (!Array.isArray(markers) || markers.length === 0) return null;
+                    return (
+                        <div className="mt-4">
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-2">Penanda Jarak di Garis</div>
+                            <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3 space-y-2">
+                                {markers.map((m, i) => (
+                                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                                        <span className="flex items-center gap-2 min-w-0">
+                                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0 ${m.side === 'dest' ? 'bg-amber-500/15 text-amber-400' : 'bg-cyan-500/15 text-cyan-400'}`}>
+                                                {m.side === 'dest' ? 'DEST' : 'SOURCE'}
+                                            </span>
+                                            {m.label && <span className="text-fg-muted truncate">{m.label}</span>}
+                                        </span>
+                                        <span className="text-fg font-mono shrink-0">{m.meters} m</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
         </SidePanel>
     );

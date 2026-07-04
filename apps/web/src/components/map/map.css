@@ -897,7 +897,8 @@ svg.leaflet-zoom-animated {
     flex-direction: column;
     gap: 16px;
     overflow-y: auto;
-    /* Scrollable content area */
+    overflow-x: hidden;
+    /* Scrollable content area — cegah scroll horizontal yang merusak layout */
     flex: 1;
     /* Take remaining space */
 }
@@ -911,6 +912,14 @@ svg.leaflet-zoom-animated {
 .device-modal__field-row {
     display: flex;
     gap: 12px;
+    flex-wrap: wrap;
+}
+
+/* Input dalam row (mis. koordinat lat/long) harus menyusut, bukan overflow. */
+.device-modal__field-row .device-modal__input,
+.device-modal__field-row .device-modal__select {
+    flex: 1 1 0;
+    min-width: 0;
 }
 
 .device-modal__label {
@@ -929,6 +938,8 @@ svg.leaflet-zoom-animated {
     font-size: 14px;
     outline: none;
     transition: border-color 0.15s ease;
+    box-sizing: border-box;
+    max-width: 100%;
 }
 
 .device-modal__input:focus,
