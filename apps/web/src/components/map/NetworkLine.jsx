@@ -82,7 +82,7 @@ const NetworkLineOriginal = ({
                         <span class="text-slate-400">Core</span>
                         <span class="flex items-center gap-1.5 text-slate-200">
                             <span style="width:12px;height:12px;border-radius:3px;background:${line.coreColorHex};border:1px solid rgba(255,255,255,0.4);display:inline-block"></span>
-                            ${line.coreIndex ? `Core ${line.coreIndex}` : 'Core'}${line.coreName ? ` · ${escapeHtml(line.coreName)}` : ''}
+                            ${line.coreIndex ? `Core ${escapeHtml(line.coreIndex)}` : 'Core'}${line.coreName ? ` · ${escapeHtml(line.coreName)}` : ''}
                         </span>
                     </div>` : '';
 
@@ -92,7 +92,7 @@ const NetworkLineOriginal = ({
                     <div class="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2">
                         <span class="text-slate-400">Kabel</span>
                         <span class="flex items-center gap-1 text-slate-200">
-                            ${fc.cores.map((c) => `<span title="Core ${c.i}${c.dest ? ' → ' + escapeHtml(c.dest) : ''}" style="width:9px;height:9px;border-radius:2px;background:${coreColor(c.i).hex};border:1px solid rgba(255,255,255,0.35);display:inline-block"></span>`).join('')}
+                            ${fc.cores.map((c) => `<span title="Core ${escapeHtml(c.i)}${c.dest ? ' → ' + escapeHtml(c.dest) : ''}" style="width:9px;height:9px;border-radius:2px;background:${coreColor(c.i).hex};border:1px solid rgba(255,255,255,0.35);display:inline-block"></span>`).join('')}
                             <span class="text-[10px] text-slate-400 ml-1">${fc.cores.length} core</span>
                         </span>
                     </div>` : '';

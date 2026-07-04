@@ -1134,6 +1134,10 @@ const NetworkMap = ({
 
             let fromPos = null;
             let sourceName = 'Unknown';
+            // Id device yang benar-benar jadi sumber garis (yang meresolve
+            // fromPos). Dipakai tombol "Edit Source" di panel garis supaya
+            // membuka device yang ditampilkan, bukan connectedToId yatim.
+            let resolvedSourceId = null;
 
             // Determine Source Position (Robust Fallback Logic)
             if (node.connectionType === 'client' && node.connectedToId) {
@@ -1142,6 +1146,7 @@ const NetworkMap = ({
                 if (parentNode) {
                     fromPos = [parentNode.lat, parentNode.lng];
                     sourceName = parentNode.name || parentNode.host || 'Unknown Client';
+                    resolvedSourceId = node.connectedToId;
                 }
             } else if (node.connectionType === 'router' && node.connectedToId) {
                 // 2. Try connecting to Parent Router
@@ -1149,6 +1154,7 @@ const NetworkMap = ({
                 if (parentRouter) {
                     fromPos = [parentRouter.lat, parentRouter.lng];
                     sourceName = parentRouter.name;
+                    resolvedSourceId = node.connectedToId;
                 }
             }
 
@@ -1158,6 +1164,7 @@ const NetworkMap = ({
                 if (parentRouter) {
                     fromPos = [parentRouter.lat, parentRouter.lng];
                     sourceName = parentRouter.name;
+                    resolvedSourceId = node.routerId;
                 }
             }
 
@@ -1213,7 +1220,7 @@ const NetworkMap = ({
                     coreIndex,
                     coreName,
                     routerId: node.routerId,
-                    sourceId: node.connectedToId,
+                    sourceId: resolvedSourceId,
                     netwatchId: node.type !== 'pppoe' ? node.id : undefined,
                     pppoeId: node.type === 'pppoe' ? node.id : undefined,
                     from: fromPos,

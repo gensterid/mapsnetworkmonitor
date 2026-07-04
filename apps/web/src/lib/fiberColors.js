@@ -19,9 +19,13 @@ export const FIBER_COLORS = [
 export const CORE_COUNTS = [2, 4, 6, 8, 12, 16, 24];
 
 // Warna standar untuk core ke-i (1-based). Berulang setelah 12.
+// Defensif: index non-numerik / rusak → fallback ke 'slate' (abu) supaya
+// pemanggil (mis. `coreColor(i).hex`) tak pernah crash pada data tercemar.
 export const coreColor = (i) => {
     const n = FIBER_COLORS.length;
-    const idx = ((Number(i) - 1) % n + n) % n;
+    const num = Number(i);
+    if (!Number.isFinite(num)) return FIBER_COLORS[4]; // 'slate'
+    const idx = ((Math.trunc(num) - 1) % n + n) % n;
     return FIBER_COLORS[idx];
 };
 
