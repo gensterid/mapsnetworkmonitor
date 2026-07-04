@@ -67,6 +67,9 @@ const DeviceModal = ({
     // Accordion untuk section tambahan: 'distance' | 'fiber' | null (default null
     // → keduanya minimize supaya edit device leluasa; buka satu → yang lain nutup).
     const [openExtra, setOpenExtra] = useState(null);
+    // Apakah operator mengubah Device Type. Kalau TIDAK, jangan kirim deviceType
+    // saat save → backend pertahankan tipe asli (ODP tetap ODP, client tetap client).
+    const [typeTouched, setTypeTouched] = useState(false);
     const setCoreCount = (count) => {
         const c = parseInt(count) || 0;
         if (!c) { setFiber(null); return; }
@@ -163,6 +166,9 @@ const DeviceModal = ({
         } catch { setDistMarkers([]); }
     }, [device?.id, device?.distanceMarkers]);
 
+    // Reset "type disentuh" tiap ganti device.
+    useEffect(() => { setTypeTouched(false); }, [device?.id]);
+
     // Init fiber core.
     useEffect(() => {
         const fc = device?.fiberCores;
@@ -257,6 +263,13 @@ const DeviceModal = ({
                 // Fiber multi-core → JSON string (atau null).
                 fiberCores: (fiber && fiber.coreCount) ? JSON.stringify(fiber) : null,
             };
+
+            // Pertahankan tipe device: kalau operator TIDAK mengubah dropdown
+            // Device Type pada device existing, jangan kirim deviceType → backend
+            // biarkan tipe asli (cegah ODP tak sengaja jadi client).
+            if (device?.id && !device?.isNew && !typeTouched) {
+                delete payload.deviceType;
+            }
 
             onSave(payload);
         }
@@ -427,7 +440,7 @@ const DeviceModal = ({
                                     name="type"
                                     className="device-modal__select"
                                     value={formData.type}
-                                    onChange={handleChange}
+                                    onChange={(e) => { setTypeTouched(true); handleChange(e); }}
                                     disabled={isSaving || (device?.id && (device.deviceType === 'router' || device.deviceType === 'pppoe'))}
                                 >
                                     <option value="router">Router</option>

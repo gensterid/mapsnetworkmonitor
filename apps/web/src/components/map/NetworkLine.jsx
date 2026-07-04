@@ -198,8 +198,10 @@ const NetworkLineOriginal = ({
     }, [line.status, line.deviceType, line.latency, line.packetLoss, txRate, rxRate, isHeatmapMode, lineThickness, mapColors, currentUser?.animationStyle, lowPerfMode]);
 
     let { styleConfig, railColor, effectiveThickness, motionColor, motionType, isAlert, isAntPath } = renderOptions;
-    // Sorot core fiber: seluruh segmen pakai warna core itu (override status).
-    if (highlightColor) {
+    // Warna core fiber: seluruh segmen pakai warna core itu — TAPI status DOWN
+    // menang (garis putus tetap merah supaya jelas saat troubleshooting).
+    const lineDown = line.status && !['up', 'online', 'active', 'warning'].includes(String(line.status).toLowerCase());
+    if (highlightColor && !lineDown) {
         railColor = highlightColor;
         motionColor = highlightColor;
         effectiveThickness = effectiveThickness + 2;
