@@ -38,7 +38,23 @@ const MapClickHandler = ({ enabled, onMapClick }) => {
         map.on('click', handleClick);
         return () => map.off('click', handleClick);
     }, [map, enabled, onMapClick]);
-    
+
+    return null;
+};
+
+// Auto-hide panel ukur jarak saat klik di area kosong peta (bukan garis).
+// stateRef.current = { active, openedAt } supaya klik pembuka panel tidak
+// langsung menutupnya (guard ~350ms) & baca nilai terbaru tanpa re-register.
+const MeasurePanelCloser = ({ stateRef, onClose }) => {
+    const map = useMap();
+    useEffect(() => {
+        const handleClick = () => {
+            const s = stateRef.current;
+            if (s.active && Date.now() - s.openedAt > 350) onClose();
+        };
+        map.on('click', handleClick);
+        return () => map.off('click', handleClick);
+    }, [map, stateRef, onClose]);
     return null;
 };
 
@@ -317,6 +333,8 @@ const NetworkMap = ({
     const [measureLabel, setMeasureLabel] = useState('');
     // Highlight 1 core fiber → recolor garis. { lineId, hex, i } | null
     const [highlightCore, setHighlightCore] = useState(null);
+    // Ref sinkron untuk auto-hide panel ukur (dibaca handler klik peta tanpa re-register).
+    const measureStateRef = React.useRef({ active: false, openedAt: 0 });
     const [lineThickness, setLineThickness] = useState(4);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -379,10 +397,18 @@ const NetworkMap = ({
 
     // Klik garis → buka panel ukur jarak (cek putus). Default meter = 0.
     const handleLineMeasure = useCallback((line) => {
+        measureStateRef.current = { active: true, openedAt: Date.now() };
         setMeasureLine(line);
         setMeasureMeters(0);
         setMeasureSide('source');
         setMeasureLabel('');
+        setHighlightCore(null);
+    }, []);
+
+    // Tutup panel ukur (dipakai tombol X, klik peta, & setelah simpan).
+    const closeMeasure = useCallback(() => {
+        measureStateRef.current.active = false;
+        setMeasureLine(null);
         setHighlightCore(null);
     }, []);
 
@@ -1165,19 +1191,29 @@ const NetworkMap = ({
                 // ini menuju-nya) menugaskan sebuah core ke device ini, garis
                 // pakai warna core tsb → visual "core mana ke mana".
                 let coreColorHex;
+                let coreIndex;
+                let coreName;
                 const parentDev = node.connectedToId ? deviceMap.get(node.connectedToId) : null;
                 if (parentDev) {
                     const pfc = parseJsonSafe(parentDev.fiberCores, null);
                     if (pfc && Array.isArray(pfc.cores)) {
                         const core = pfc.cores.find(c => c.dest && (c.dest === node.name || c.dest === node.host));
-                        if (core) coreColorHex = coreColor(core.i).hex;
+                        if (core) {
+                            const col = coreColor(core.i);
+                            coreColorHex = col.hex;
+                            coreIndex = core.i;
+                            coreName = col.name;
+                        }
                     }
                 }
 
                 lines.push({
                     id: node.type === 'pppoe' ? `pppoe-${node.id}` : `${node.routerId}-${node.id}`,
                     coreColorHex,
+                    coreIndex,
+                    coreName,
                     routerId: node.routerId,
+                    sourceId: node.connectedToId,
                     netwatchId: node.type !== 'pppoe' ? node.id : undefined,
                     pppoeId: node.type === 'pppoe' ? node.id : undefined,
                     from: fromPos,
@@ -1244,6 +1280,23 @@ const NetworkMap = ({
         setModalInitialTab(initialTab);
         setIsModalOpen(true);
     }, []);
+
+    // Buka modal edit device (source/dest) langsung dari panel garis, supaya
+    // operator cepat ubah pengaturan core/garis tanpa cari markernya.
+    const openDeviceEditById = useCallback((id) => {
+        if (!id) return;
+        const dev = allMarkers.find((d) => d.id === id);
+        if (!dev) {
+            toast.error('Device tidak ditemukan di peta');
+            return;
+        }
+        const type = (dev.type === 'router' || dev.deviceType === 'router') ? 'router'
+            : (dev.type === 'pppoe' || dev.deviceType === 'pppoe') ? 'pppoe'
+            : (dev.type === 'onu' || dev.deviceType === 'onu') ? 'onu'
+            : 'netwatch';
+        closeMeasure();
+        handleDeviceClick(dev, type, 'settings');
+    }, [allMarkers, closeMeasure, handleDeviceClick]);
 
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false);
@@ -2033,7 +2086,7 @@ const NetworkMap = ({
         if (!(m >= 0)) return;
         const existing = Array.isArray(measureLine.distanceMarkers) ? measureLine.distanceMarkers : [];
         const distanceMarkers = JSON.stringify([...existing, { side: measureSide, meters: m, label: (measureLabel || '').trim() }]);
-        const done = () => { toast.success('Penanda jarak disimpan'); setMeasureLine(null); };
+        const done = () => { toast.success('Penanda jarak disimpan'); closeMeasure(); };
         const fail = (e) => toast.error(`Gagal simpan: ${e?.message || 'error'}`);
         if (measureLine.nodeType === 'onu' && measureLine.oltId) {
             updateOnuMutation.mutate({ oltId: measureLine.oltId, onuId: measureLine.netwatchId, data: { distanceMarkers } }, { onSuccess: done, onError: fail });
@@ -2042,7 +2095,7 @@ const NetworkMap = ({
         } else {
             toast('Garis ini (PPPoE) belum didukung untuk simpan penanda.');
         }
-    }, [measureLine, measureMeters, measureSide, measureLabel, updateOnuMutation, updateNetwatchMutation]);
+    }, [measureLine, measureMeters, measureSide, measureLabel, updateOnuMutation, updateNetwatchMutation, closeMeasure]);
 
     // Hapus 1 penanda jarak dari detail panel (netwatch/ODP). Persist ke DB.
     const handleDeleteDistanceMarker = useCallback((idx) => {
@@ -2119,6 +2172,7 @@ const NetworkMap = ({
                             enabled={!!selectedUnplacedDevice || isPickingCoordinate}
                             onMapClick={isPickingCoordinate ? handlePickCoordinate : handleQuickPlaceClick}
                         />
+                        <MeasurePanelCloser stateRef={measureStateRef} onClose={closeMeasure} />
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
                         {(!apiKey || googleFailed) ? (
                             <TileLayer
@@ -2423,12 +2477,33 @@ const NetworkMap = ({
                                     <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#06b6d4' }}>straighten</span>
                                     Ukur Jarak · Cek Putus
                                 </div>
-                                <button onClick={() => setMeasureLine(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }} title="Tutup">
+                                <button onClick={closeMeasure} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }} title="Tutup">
                                     <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
                                 </button>
                             </div>
-                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>
                                 {measureLine.sourceName} → {measureLine.destName} · total {formatDistance(measureLine.distance || 0)}
+                            </div>
+                            {/* Edit cepat pengaturan garis/core di device ujung */}
+                            <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                                <button
+                                    onClick={() => openDeviceEditById(measureLine.sourceId)}
+                                    disabled={!measureLine.sourceId}
+                                    title="Edit device sumber (ubah core & pengaturan garis)"
+                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: measureLine.sourceId ? '#e2e8f0' : '#475569', fontSize: 11, fontWeight: 600, cursor: measureLine.sourceId ? 'pointer' : 'not-allowed' }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit_location</span>
+                                    Edit Source
+                                </button>
+                                <button
+                                    onClick={() => openDeviceEditById(measureLine.netwatchId || measureLine.pppoeId)}
+                                    disabled={!(measureLine.netwatchId || measureLine.pppoeId)}
+                                    title="Edit device tujuan (ubah core & pengaturan garis)"
+                                    style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: (measureLine.netwatchId || measureLine.pppoeId) ? '#e2e8f0' : '#475569', fontSize: 11, fontWeight: 600, cursor: (measureLine.netwatchId || measureLine.pppoeId) ? 'pointer' : 'not-allowed' }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>edit_location</span>
+                                    Edit Destination
+                                </button>
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                                 <input

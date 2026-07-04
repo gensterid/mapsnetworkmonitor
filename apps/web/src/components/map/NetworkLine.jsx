@@ -3,6 +3,12 @@ import { TrafficContext, HoveredItemContext } from './MapStyles';
 import AnimatedPath from './AnimatedPath';
 import AntPath from './AntPath';
 import { getAnimationStyle } from './animationStyles';
+import { coreColor } from '@/lib/fiberColors';
+
+// Escape untuk nilai dinamis (nama device) yang masuk ke string HTML popup.
+const escapeHtml = (s) => String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 // Helper to format bitrate
 export const formatBitrate = (bits) => {
@@ -70,6 +76,27 @@ const NetworkLineOriginal = ({
 
         const isUp = ['up', 'online', 'active'].includes(line.status);
 
+        // Info core yang mewarnai garis ini (ditugaskan device parent).
+        const coreRow = line.coreColorHex ? `
+                    <div class="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2">
+                        <span class="text-slate-400">Core</span>
+                        <span class="flex items-center gap-1.5 text-slate-200">
+                            <span style="width:12px;height:12px;border-radius:3px;background:${line.coreColorHex};border:1px solid rgba(255,255,255,0.4);display:inline-block"></span>
+                            ${line.coreIndex ? `Core ${line.coreIndex}` : 'Core'}${line.coreName ? ` · ${escapeHtml(line.coreName)}` : ''}
+                        </span>
+                    </div>` : '';
+
+        // Kabel multi-core: tampilkan titik warna tiap core + jumlah.
+        const fc = line.fiberCores;
+        const trunkRow = (fc && Array.isArray(fc.cores) && fc.cores.length > 1) ? `
+                    <div class="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2">
+                        <span class="text-slate-400">Kabel</span>
+                        <span class="flex items-center gap-1 text-slate-200">
+                            ${fc.cores.map((c) => `<span title="Core ${c.i}${c.dest ? ' → ' + escapeHtml(c.dest) : ''}" style="width:9px;height:9px;border-radius:2px;background:${coreColor(c.i).hex};border:1px solid rgba(255,255,255,0.35);display:inline-block"></span>`).join('')}
+                            <span class="text-[10px] text-slate-400 ml-1">${fc.cores.length} core</span>
+                        </span>
+                    </div>` : '';
+
         return `
             <div class="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
                 <div class="px-3 py-2 flex items-center justify-between ${isUp ? 'bg-indigo-600' : 'bg-slate-600'}">
@@ -94,6 +121,8 @@ const NetworkLineOriginal = ({
                         <span class="text-slate-400">Destination</span>
                         <span class="text-slate-200 truncate max-w-[120px]">${line.destName || '-'}</span>
                     </div>
+                    ${coreRow}
+                    ${trunkRow}
                     ${line.distance ? `
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-400">Distance</span>
@@ -256,6 +285,13 @@ const NetworkLineOriginal = ({
     );
 };
 
+// Tanda-tangan ringan cores kabel (untuk deteksi perubahan tanpa deep-compare).
+const fiberCoresSig = (line) => {
+    const c = line?.fiberCores?.cores;
+    if (!Array.isArray(c)) return '';
+    return c.map((x) => `${x.i}:${x.dest || ''}`).join('|');
+};
+
 // Custom comparison to prevent re-renders when non-hovered live traffic changes
 export const areLinesEqual = (prev, next) => {
     // 1. Check for position changes (Essential for fixing "Centered at Router" bug)
@@ -282,6 +318,9 @@ export const areLinesEqual = (prev, next) => {
         prev.lowPerfMode === next.lowPerfMode &&
         prev.timezone === next.timezone &&
         prev.highlightColor === next.highlightColor &&
+        prev.line.coreColorHex === next.line.coreColorHex &&
+        prev.line.coreIndex === next.line.coreIndex &&
+        fiberCoresSig(prev.line) === fiberCoresSig(next.line) &&
         prev.trafficMapRef === next.trafficMapRef
     );
 };
