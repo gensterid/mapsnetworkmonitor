@@ -26,6 +26,7 @@ const NetworkLineOriginal = ({
     timezone,
     onMouseOver,
     onMouseOut,
+    onLineClick, // klik garis → buka panel ukur jarak (cek putus)
     tick,
     isLiveMode, // New prop
     trafficMapRef // Removed: now consumed from context
@@ -212,6 +213,7 @@ const NetworkLineOriginal = ({
                 }}
                 tooltip={tooltipContent}
                 popup={tooltipContent}
+                onClick={() => onLineClick?.(line)}
                 onMouseOver={onMouseOver}
                 onMouseOut={onMouseOut}
             />
@@ -238,6 +240,7 @@ const NetworkLineOriginal = ({
             paused={!enableAnimation}
             tooltip={tooltipContent}
             popup={tooltipContent}
+            onClick={() => onLineClick?.(line)}
             onMouseOver={onMouseOver}
             onMouseOut={onMouseOut}
         />

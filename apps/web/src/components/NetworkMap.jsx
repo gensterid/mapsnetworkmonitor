@@ -308,6 +308,11 @@ const NetworkMap = ({
     const [editingDevice, setEditingDevice] = useState(null);
     const [editWaypoints, setEditWaypoints] = useState([]);
     const [pathLength, setPathLength] = useState(0);
+    // Alat ukur jarak di garis (cek jalur putus): klik garis → panel.
+    const [measureLine, setMeasureLine] = useState(null);
+    const [measureMeters, setMeasureMeters] = useState(0);
+    const [measureSide, setMeasureSide] = useState('source'); // 'source' | 'dest'
+    const [measureLabel, setMeasureLabel] = useState('');
     const [lineThickness, setLineThickness] = useState(4);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -366,6 +371,14 @@ const NetworkMap = ({
         lineHoverTimeout.current = setTimeout(() => {
             setHoveredLineId(id);
         }, 50); // 50ms delay to prevent jitter
+    }, []);
+
+    // Klik garis → buka panel ukur jarak (cek putus). Default meter = 0.
+    const handleLineMeasure = useCallback((line) => {
+        setMeasureLine(line);
+        setMeasureMeters(0);
+        setMeasureSide('source');
+        setMeasureLabel('');
     }, []);
 
     const handleMarkerHover = useCallback((id) => {
@@ -1154,6 +1167,8 @@ const NetworkMap = ({
                     waypoints: waypoints,
                     fullPath,
                     distanceMarkers: parseJsonSafe(node.distanceMarkers, []),
+                    nodeType: node.type,
+                    oltId: node.oltId,
                     sourceName,
                     destName: node.name || node.host,
                     distance,
@@ -1942,11 +1957,13 @@ const NetworkMap = ({
                     // Removed isHovered prop
                     onMouseOver={() => handleLineHover(line.id)}
                     onMouseOut={() => handleLineHover(null)}
+                    onLineClick={handleLineMeasure}
                 />
             );
         });
     }, [
         mapData.lines,
+        handleLineMeasure,
         // hoveredLineId removed
         isHeatmapMode,
         lineThickness,
@@ -1978,6 +1995,32 @@ const NetworkMap = ({
         }
         return out;
     }, [mapData.lines]);
+
+    // Titik ukur live (mengikuti input meter) untuk cek jalur putus.
+    const measurePoint = useMemo(() => {
+        if (!measureLine || !Array.isArray(measureLine.fullPath) || measureLine.fullPath.length < 2) return null;
+        const m = Number(measureMeters);
+        if (!(m >= 0)) return null;
+        return pointAlongPath(measureLine.fullPath, m, measureSide);
+    }, [measureLine, measureMeters, measureSide]);
+
+    // Simpan titik ukur jadi penanda permanen di device pemilik garis.
+    const handleSaveMeasure = useCallback(() => {
+        if (!measureLine) return;
+        const m = Number(measureMeters);
+        if (!(m >= 0)) return;
+        const existing = Array.isArray(measureLine.distanceMarkers) ? measureLine.distanceMarkers : [];
+        const distanceMarkers = JSON.stringify([...existing, { side: measureSide, meters: m, label: (measureLabel || '').trim() }]);
+        const done = () => { toast.success('Penanda jarak disimpan'); setMeasureLine(null); };
+        const fail = (e) => toast.error(`Gagal simpan: ${e?.message || 'error'}`);
+        if (measureLine.nodeType === 'onu' && measureLine.oltId) {
+            updateOnuMutation.mutate({ oltId: measureLine.oltId, onuId: measureLine.netwatchId, data: { distanceMarkers } }, { onSuccess: done, onError: fail });
+        } else if (measureLine.netwatchId) {
+            updateNetwatchMutation.mutate({ routerId: measureLine.routerId, netwatchId: measureLine.netwatchId, data: { distanceMarkers } }, { onSuccess: done, onError: fail });
+        } else {
+            toast('Garis ini (PPPoE) belum didukung untuk simpan penanda.');
+        }
+    }, [measureLine, measureMeters, measureSide, measureLabel, updateOnuMutation, updateNetwatchMutation]);
 
     // Device modal data
     const allDevicesList = useMemo(() => [...mapData.nodes, ...(mapData.pppoeNodes || [])], [mapData.nodes, mapData.pppoeNodes]);
@@ -2072,6 +2115,20 @@ const NetworkMap = ({
                                 </Tooltip>
                             </CircleMarker>
                         ))}
+
+                        {/* Titik ukur LIVE (cek jalur putus) — ikut input meter */}
+                        {!isEditingPath && measurePoint && (
+                            <CircleMarker
+                                center={measurePoint}
+                                radius={7}
+                                pane="markerPane"
+                                pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 }}
+                            >
+                                <Tooltip permanent direction="top" offset={[0, -5]} className="dist-marker-tooltip">
+                                    {formatDistance(Number(measureMeters) || 0)} dari {measureSide === 'dest' ? 'dest' : 'source'}
+                                </Tooltip>
+                            </CircleMarker>
+                        )}
 
                         {/* Editable Path (show when editing) */}
                         {isEditingPath && editingLine && (
@@ -2282,6 +2339,54 @@ const NetworkMap = ({
                         onClose={() => setDeleteDialog({ isOpen: false, node: null })}
                         onConfirm={handleDeleteConfirmed}
                     />
+
+                    {/* Panel Ukur Jarak (cek jalur putus) — muncul saat garis diklik */}
+                    {measureLine && (
+                        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1200, width: 370, maxWidth: '92vw', background: 'rgba(15,23,42,0.97)', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.55)', padding: 14, color: '#e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#06b6d4' }}>straighten</span>
+                                    Ukur Jarak · Cek Putus
+                                </div>
+                                <button onClick={() => setMeasureLine(null)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }} title="Tutup">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                                </button>
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                                {measureLine.sourceName} → {measureLine.destName} · total {formatDistance(measureLine.distance || 0)}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                                <input
+                                    type="number" min="0" max={Math.ceil(measureLine.distance || 0)}
+                                    value={measureMeters}
+                                    onChange={(e) => setMeasureMeters(e.target.value)}
+                                    style={{ width: 90, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 13, fontWeight: 700 }}
+                                />
+                                <span style={{ fontSize: 12, color: '#94a3b8' }}>m dari</span>
+                                <select value={measureSide} onChange={(e) => setMeasureSide(e.target.value)} style={{ background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}>
+                                    <option value="source">source</option>
+                                    <option value="dest">destination</option>
+                                </select>
+                            </div>
+                            <input
+                                type="range" min="0" max={Math.max(1, Math.ceil(measureLine.distance || 0))}
+                                value={Number(measureMeters) || 0}
+                                onChange={(e) => setMeasureMeters(e.target.value)}
+                                style={{ width: '100%', accentColor: '#06b6d4', marginBottom: 10 }}
+                            />
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <input
+                                    type="text" placeholder="label (opsional, mis. Titik Putus)"
+                                    value={measureLabel}
+                                    onChange={(e) => setMeasureLabel(e.target.value)}
+                                    style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                />
+                                <button onClick={handleSaveMeasure} style={{ background: '#06b6d4', color: '#04121a', fontWeight: 800, border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>push_pin</span> Simpan
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Device Modal */}
                     <DeviceModal
