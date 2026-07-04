@@ -96,17 +96,6 @@ function parseJsonSafe(v, fallback) {
     try { return JSON.parse(v); } catch { return fallback; }
 }
 
-// Badge kabel multi-core: titik-titik warna core + "NC" di tengah kabel.
-function makeFiberBadgeIcon(colors, count) {
-    const dots = colors.slice(0, 8).map(hex =>
-        `<span style="width:7px;height:7px;border-radius:50%;background:${hex};display:inline-block;border:1px solid rgba(255,255,255,.55)"></span>`
-    ).join('');
-    return L.divIcon({
-        className: 'fiber-cable-badge',
-        html: `<div class="fiber-badge-inner">${dots}<b>${count}C</b></div>`,
-        iconSize: [0, 0],
-    });
-}
 
 
 
@@ -2029,21 +2018,6 @@ const NetworkMap = ({
         return out;
     }, [mapData.lines]);
 
-    // Badge kabel multi-core: di tengah garis yang punya fiberCores.
-    const fiberCableBadges = useMemo(() => {
-        const out = [];
-        for (const line of (mapData.lines || [])) {
-            const fc = line.fiberCores;
-            if (!fc || !Array.isArray(fc.cores) || fc.cores.length === 0) continue;
-            const path = line.fullPath;
-            if (!Array.isArray(path) || path.length < 2) continue;
-            const mid = pointAlongPath(path, calculatePathLength(path) / 2, 'source');
-            if (!mid) continue;
-            out.push({ key: `${line.id}-fiber`, pos: mid, lineId: line.id, count: fc.coreCount || fc.cores.length, colors: fc.cores.map(c => coreColor(c.i).hex) });
-        }
-        return out;
-    }, [mapData.lines]);
-
     // Titik ukur live (mengikuti input meter) untuk cek jalur putus.
     const measurePoint = useMemo(() => {
         if (!measureLine || !Array.isArray(measureLine.fullPath) || measureLine.fullPath.length < 2) return null;
@@ -2186,15 +2160,35 @@ const NetworkMap = ({
                             </CircleMarker>
                         ))}
 
-                        {/* Badge kabel multi-core — klik untuk buka panel */}
-                        {!isEditingPath && zoomLevel >= 15 && fiberCableBadges.map((b) => (
-                            <Marker
-                                key={b.key}
-                                position={b.pos}
-                                icon={makeFiberBadgeIcon(b.colors, b.count)}
-                                eventHandlers={{ click: () => { const line = mapData.lines.find(l => l.id === b.lineId); if (line) handleLineMeasure(line); } }}
-                            />
-                        ))}
+                        {/* Kabel multi-core: garis BELANG warna core (candy stripe).
+                            Tiap core = 1 polyline dashed dengan offset beda → warna
+                            bergantian sepanjang kabel. Garis DOWN dilewati (tetap
+                            merah dari base line). */}
+                        {!isEditingPath && mapData.lines.map((line) => {
+                            const fc = line.fiberCores;
+                            if (!fc || !Array.isArray(fc.cores) || fc.cores.length < 2) return null;
+                            const path = line.fullPath;
+                            if (!Array.isArray(path) || path.length < 2) return null;
+                            const down = line.status && !['up', 'online', 'active', 'warning'].includes(String(line.status).toLowerCase());
+                            if (down) return null;
+                            const N = fc.cores.length;
+                            const seg = 10;
+                            return fc.cores.map((c, idx) => (
+                                <Polyline
+                                    key={`${line.id}-core-${idx}`}
+                                    positions={path}
+                                    interactive={false}
+                                    pathOptions={{
+                                        color: coreColor(c.i).hex,
+                                        weight: 4,
+                                        opacity: 0.95,
+                                        lineCap: 'butt',
+                                        dashArray: `${seg} ${seg * (N - 1)}`,
+                                        dashOffset: `${idx * seg}`,
+                                    }}
+                                />
+                            ));
+                        })}
 
                         {/* Titik ukur LIVE (cek jalur putus) — ikut input meter */}
                         {!isEditingPath && measurePoint && (
