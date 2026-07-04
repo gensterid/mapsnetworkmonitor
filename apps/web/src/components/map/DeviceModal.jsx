@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import './map.css';
 import SearchableSelect from '../ui/SearchableSelect';
 import { DeleteConfirmationModal } from '../ui/DeleteConfirmationModal';
-import { X, Trash2, Save, Map, Edit2, Link as LinkIcon, Info, Settings, History, Radio, Router } from 'lucide-react';
+import { X, Trash2, Save, Edit2, Link as LinkIcon, Info, Settings, History, Radio, Router } from 'lucide-react';
 import HistoryTab from '../router/tabs/HistoryTab';
 import OltTab from './OltTab';
 import AcsTab from './AcsTab';
