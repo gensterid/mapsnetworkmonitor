@@ -2137,9 +2137,11 @@ const NetworkMap = ({
                                     fillOpacity: 1,
                                 }}
                             >
-                                <Tooltip permanent direction="top" offset={[0, -3]} className="dist-marker-tooltip">
-                                    {dm.label ? `${dm.label} · ` : ''}{formatDistance(dm.meters)}
-                                </Tooltip>
+                                {showLabels && (
+                                    <Tooltip permanent direction="top" offset={[0, -3]} className="dist-marker-label">
+                                        {dm.label ? `${dm.label} · ` : ''}{formatDistance(dm.meters)}
+                                    </Tooltip>
+                                )}
                             </CircleMarker>
                         ))}
 

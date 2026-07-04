@@ -271,6 +271,22 @@ const DeviceModal = ({
         }
     }, [formData.connectionType, routers, devices, device]);
 
+    // Opsi tujuan core = device yang sudah ada di peta (ODP/ONU/netwatch/dll),
+    // supaya operator memilih, bukan mengira-ngira nama.
+    const coreDestOptions = useMemo(() => {
+        const seen = new Set();
+        const opts = [];
+        for (const d of devices) {
+            const nm = d.name || d.host;
+            if (!nm || seen.has(nm)) continue;
+            if (device?.id && d.id === device.id) continue; // skip diri sendiri
+            seen.add(nm);
+            const t = d.deviceType || d.type;
+            opts.push({ value: nm, label: t ? `${nm} (${t})` : nm });
+        }
+        return opts.sort((a, b) => a.label.localeCompare(b.label));
+    }, [devices, device?.id]);
+
     // Filter interfaces for heatmap mapping (exclude PPPoE)
     const interfaceOptions = useMemo(() => {
         return routerInterfaces
@@ -742,7 +758,7 @@ const DeviceModal = ({
 
                         {/* Penanda Jarak di Garis */}
                         {device?.id && (
-                            <div className="device-modal__field" style={{ marginTop: 4 }}>
+                            <div className="device-modal__field" style={{ marginTop: 4, padding: '0 20px' }}>
                                 <label className="device-modal__label">Penanda Jarak di Garis</label>
                                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
                                     Tandai titik sejauh X meter dari sisi source / destination (mis. lokasi closure/sambungan).
@@ -797,7 +813,7 @@ const DeviceModal = ({
 
                         {/* Fiber Multi-Core */}
                         {device?.id && (
-                            <div className="device-modal__field" style={{ marginTop: 4 }}>
+                            <div className="device-modal__field" style={{ marginTop: 4, padding: '0 20px' }}>
                                 <label className="device-modal__label">Fiber Core (kabel di garis ini)</label>
                                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
                                     Warna core standar TIA-598. Isi tujuan tiap core (mis. ODP B).
@@ -819,13 +835,16 @@ const DeviceModal = ({
                                                 <div key={c.i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                     <span title={col.name} style={{ width: 16, height: 16, borderRadius: 4, background: col.hex, border: '1px solid rgba(255,255,255,0.35)', flexShrink: 0 }} />
                                                     <span style={{ fontSize: 11, color: '#94a3b8', width: 46, flexShrink: 0 }}>C{c.i} · {col.name}</span>
-                                                    <input
-                                                        type="text"
-                                                        value={c.dest || ''}
-                                                        onChange={(e) => updateCore(c.i, 'dest', e.target.value)}
-                                                        placeholder="tujuan (mis. ODP B)"
-                                                        style={{ flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '4px 8px', color: '#e2e8f0', fontSize: 12 }}
-                                                    />
+                                                    <div style={{ flex: '1 1 0', minWidth: 0 }}>
+                                                        <SearchableSelect
+                                                            name={`core-${c.i}`}
+                                                            options={coreDestOptions}
+                                                            value={c.dest || ''}
+                                                            onChange={(e) => updateCore(c.i, 'dest', e.target.value)}
+                                                            placeholder="pilih tujuan…"
+                                                            disabled={isSaving}
+                                                        />
+                                                    </div>
                                                 </div>
                                             );
                                         })}

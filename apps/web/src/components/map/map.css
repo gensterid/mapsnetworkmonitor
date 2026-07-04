@@ -1659,3 +1659,20 @@ svg.leaflet-zoom-animated {
 .dist-marker-tooltip::before {
     display: none !important;
 }
+
+/* Label penanda jarak tersimpan — halus seperti label device (bukan bubble
+   tebal), ikut toggle "Labels". */
+.dist-marker-label {
+    background: rgba(11, 14, 20, 0.72) !important;
+    color: #cbd5e1 !important;
+    font-weight: 600;
+    font-size: 9px !important;
+    border: none !important;
+    border-radius: 4px;
+    padding: 0 4px !important;
+    box-shadow: none !important;
+    white-space: nowrap;
+}
+.dist-marker-label::before {
+    display: none !important;
+}
