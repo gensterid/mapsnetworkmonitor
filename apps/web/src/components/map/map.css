@@ -1660,6 +1660,33 @@ svg.leaflet-zoom-animated {
     display: none !important;
 }
 
+/* Badge kabel multi-core */
+.fiber-cable-badge {
+    background: transparent !important;
+    border: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+.fiber-badge-inner {
+    transform: translate(-50%, -50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(11, 14, 20, 0.92);
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    border-radius: 999px;
+    padding: 2px 7px;
+    white-space: nowrap;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.55);
+    cursor: pointer;
+}
+.fiber-badge-inner b {
+    color: #e2e8f0;
+    font-size: 10px;
+    font-weight: 800;
+    margin-left: 2px;
+}
+
 /* Label penanda jarak tersimpan — halus seperti label device (bukan bubble
    tebal), ikut toggle "Labels". */
 .dist-marker-label {
