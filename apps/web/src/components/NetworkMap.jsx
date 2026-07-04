@@ -87,6 +87,7 @@ import './map/map.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { calculatePathLength, formatDistance, pointAlongPath } from '@/lib/geo';
+import { coreColor } from '@/lib/fiberColors';
 
 // Parse JSON aman — string malformed tidak boleh bikin build mapData crash.
 function parseJsonSafe(v, fallback) {
@@ -313,6 +314,8 @@ const NetworkMap = ({
     const [measureMeters, setMeasureMeters] = useState(0);
     const [measureSide, setMeasureSide] = useState('source'); // 'source' | 'dest'
     const [measureLabel, setMeasureLabel] = useState('');
+    // Highlight 1 core fiber → recolor garis. { lineId, hex, i } | null
+    const [highlightCore, setHighlightCore] = useState(null);
     const [lineThickness, setLineThickness] = useState(4);
     const [isEditMode, setIsEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -379,6 +382,7 @@ const NetworkMap = ({
         setMeasureMeters(0);
         setMeasureSide('source');
         setMeasureLabel('');
+        setHighlightCore(null);
     }, []);
 
     const handleMarkerHover = useCallback((id) => {
@@ -1167,6 +1171,7 @@ const NetworkMap = ({
                     waypoints: waypoints,
                     fullPath,
                     distanceMarkers: parseJsonSafe(node.distanceMarkers, []),
+                    fiberCores: parseJsonSafe(node.fiberCores, null),
                     nodeType: node.type,
                     oltId: node.oltId,
                     sourceName,
@@ -1958,12 +1963,14 @@ const NetworkMap = ({
                     onMouseOver={() => handleLineHover(line.id)}
                     onMouseOut={() => handleLineHover(null)}
                     onLineClick={handleLineMeasure}
+                    highlightColor={highlightCore?.lineId === line.id ? highlightCore.hex : undefined}
                 />
             );
         });
     }, [
         mapData.lines,
         handleLineMeasure,
+        highlightCore,
         // hoveredLineId removed
         isHeatmapMode,
         lineThickness,
@@ -2406,6 +2413,40 @@ const NetworkMap = ({
                                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>push_pin</span> Simpan
                                 </button>
                             </div>
+
+                            {/* Fiber Core — daftar core + sorot warna di garis */}
+                            {measureLine.fiberCores && Array.isArray(measureLine.fiberCores.cores) && measureLine.fiberCores.cores.length > 0 && (
+                                <div style={{ marginTop: 12, borderTop: '1px solid rgba(148,163,184,0.2)', paddingTop: 10 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                        <span style={{ fontSize: 12, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#a78bfa' }}>cable</span>
+                                            Fiber {measureLine.fiberCores.coreCount} core
+                                        </span>
+                                        {highlightCore?.lineId === measureLine.id && (
+                                            <button onClick={() => setHighlightCore(null)} style={{ fontSize: 10, color: '#94a3b8', background: 'none', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 5, padding: '2px 6px', cursor: 'pointer' }}>Reset warna</button>
+                                        )}
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
+                                        {measureLine.fiberCores.cores.map((c) => {
+                                            const col = coreColor(c.i);
+                                            const active = highlightCore?.lineId === measureLine.id && highlightCore?.i === c.i;
+                                            return (
+                                                <button
+                                                    key={c.i}
+                                                    onClick={() => setHighlightCore(active ? null : { lineId: measureLine.id, hex: col.hex, i: c.i })}
+                                                    title="Sorot core ini di garis"
+                                                    style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px', borderRadius: 6, cursor: 'pointer', textAlign: 'left', background: active ? 'rgba(255,255,255,0.08)' : 'transparent', border: active ? '1px solid rgba(148,163,184,0.4)' : '1px solid transparent' }}
+                                                >
+                                                    <span style={{ width: 14, height: 14, borderRadius: 4, background: col.hex, border: '1px solid rgba(255,255,255,0.35)', flexShrink: 0 }} />
+                                                    <span style={{ fontSize: 11, color: '#94a3b8', width: 44, flexShrink: 0 }}>C{c.i}</span>
+                                                    <span style={{ fontSize: 12, color: '#e2e8f0', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.dest || <span style={{ color: '#64748b' }}>—</span>}</span>
+                                                    {active && <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#22d3ee' }}>visibility</span>}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 

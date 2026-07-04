@@ -7,6 +7,7 @@ import HistoryTab from '../router/tabs/HistoryTab';
 import OltTab from './OltTab';
 import AcsTab from './AcsTab';
 import { useAppTimezone } from '@/hooks';
+import { CORE_COUNTS, coreColor, buildCores } from '@/lib/fiberColors';
 
 // DB enum device type yang valid. 'netwatch' adalah tipe map-node UI, BUKAN
 // device type DB — harus dinormalisasi ke 'client'.
@@ -59,6 +60,17 @@ const DeviceModal = ({
         if (!(meters >= 0)) return;
         setDistMarkers(list => [...list, { side: dmDraft.side === 'dest' ? 'dest' : 'source', meters, label: dmDraft.label.trim() }]);
         setDmDraft({ meters: '', side: dmDraft.side, label: '' });
+    };
+
+    // Fiber multi-core: { coreCount, cores:[{ i, color, dest, note }] } | null
+    const [fiber, setFiber] = useState(null);
+    const setCoreCount = (count) => {
+        const c = parseInt(count) || 0;
+        if (!c) { setFiber(null); return; }
+        setFiber(prev => ({ coreCount: c, cores: buildCores(c, prev?.cores || []) }));
+    };
+    const updateCore = (i, field, value) => {
+        setFiber(prev => prev ? ({ ...prev, cores: prev.cores.map(c => c.i === i ? { ...c, [field]: value } : c) }) : prev);
     };
 
     const [availableOnus, setAvailableOnus] = useState([]);
@@ -148,6 +160,15 @@ const DeviceModal = ({
         } catch { setDistMarkers([]); }
     }, [device?.id, device?.distanceMarkers]);
 
+    // Init fiber core.
+    useEffect(() => {
+        const fc = device?.fiberCores;
+        try {
+            const parsed = typeof fc === 'string' ? (fc ? JSON.parse(fc) : null) : fc;
+            setFiber(parsed && parsed.coreCount ? parsed : null);
+        } catch { setFiber(null); }
+    }, [device?.id, device?.fiberCores]);
+
     // Fetch available ONUs for the selected router
     useEffect(() => {
         const fetchOnus = async (routerId) => {
@@ -230,6 +251,8 @@ const DeviceModal = ({
                 splitterRatio: formData.splitterRatio || null,
                 // Penanda jarak → JSON string (atau null kalau kosong).
                 distanceMarkers: distMarkers.length ? JSON.stringify(distMarkers) : null,
+                // Fiber multi-core → JSON string (atau null).
+                fiberCores: (fiber && fiber.coreCount) ? JSON.stringify(fiber) : null,
             };
 
             onSave(payload);
@@ -769,6 +792,45 @@ const DeviceModal = ({
                                         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
                                     </button>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Fiber Multi-Core */}
+                        {device?.id && (
+                            <div className="device-modal__field" style={{ marginTop: 4 }}>
+                                <label className="device-modal__label">Fiber Core (kabel di garis ini)</label>
+                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
+                                    Warna core standar TIA-598. Isi tujuan tiap core (mis. ODP B).
+                                </div>
+                                <select
+                                    value={fiber?.coreCount || ''}
+                                    onChange={(e) => setCoreCount(e.target.value)}
+                                    className="device-modal__select"
+                                    style={{ width: '100%', marginBottom: fiber ? 8 : 0 }}
+                                >
+                                    <option value="">— Tidak ada / non-fiber —</option>
+                                    {CORE_COUNTS.map(c => <option key={c} value={c}>{c} core</option>)}
+                                </select>
+                                {fiber && Array.isArray(fiber.cores) && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
+                                        {fiber.cores.map((c) => {
+                                            const col = coreColor(c.i);
+                                            return (
+                                                <div key={c.i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span title={col.name} style={{ width: 16, height: 16, borderRadius: 4, background: col.hex, border: '1px solid rgba(255,255,255,0.35)', flexShrink: 0 }} />
+                                                    <span style={{ fontSize: 11, color: '#94a3b8', width: 46, flexShrink: 0 }}>C{c.i} · {col.name}</span>
+                                                    <input
+                                                        type="text"
+                                                        value={c.dest || ''}
+                                                        onChange={(e) => updateCore(c.i, 'dest', e.target.value)}
+                                                        placeholder="tujuan (mis. ODP B)"
+                                                        style={{ flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '4px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                                    />
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         )}
 

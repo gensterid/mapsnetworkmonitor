@@ -27,6 +27,7 @@ const NetworkLineOriginal = ({
     onMouseOver,
     onMouseOut,
     onLineClick, // klik garis → buka panel ukur jarak (cek putus)
+    highlightColor, // override warna garis saat sorot 1 core fiber
     tick,
     isLiveMode, // New prop
     trafficMapRef // Removed: now consumed from context
@@ -196,7 +197,13 @@ const NetworkLineOriginal = ({
         };
     }, [line.status, line.deviceType, line.latency, line.packetLoss, txRate, rxRate, isHeatmapMode, lineThickness, mapColors, currentUser?.animationStyle, lowPerfMode]);
 
-    const { styleConfig, railColor, effectiveThickness, motionColor, motionType, isAlert, isAntPath } = renderOptions;
+    let { styleConfig, railColor, effectiveThickness, motionColor, motionType, isAlert, isAntPath } = renderOptions;
+    // Sorot core fiber: seluruh segmen pakai warna core itu (override status).
+    if (highlightColor) {
+        railColor = highlightColor;
+        motionColor = highlightColor;
+        effectiveThickness = effectiveThickness + 2;
+    }
 
     if (isAntPath) {
         return (
@@ -272,6 +279,7 @@ export const areLinesEqual = (prev, next) => {
         prev.enableAnimation === next.enableAnimation &&
         prev.lowPerfMode === next.lowPerfMode &&
         prev.timezone === next.timezone &&
+        prev.highlightColor === next.highlightColor &&
         prev.trafficMapRef === next.trafficMapRef
     );
 };
