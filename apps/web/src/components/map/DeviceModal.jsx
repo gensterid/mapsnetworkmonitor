@@ -64,6 +64,9 @@ const DeviceModal = ({
 
     // Fiber multi-core: { coreCount, cores:[{ i, color, dest, note }] } | null
     const [fiber, setFiber] = useState(null);
+    // Accordion untuk section tambahan: 'distance' | 'fiber' | null (default null
+    // → keduanya minimize supaya edit device leluasa; buka satu → yang lain nutup).
+    const [openExtra, setOpenExtra] = useState(null);
     const setCoreCount = (count) => {
         const c = parseInt(count) || 0;
         if (!c) { setFiber(null); return; }
@@ -759,7 +762,11 @@ const DeviceModal = ({
                         {/* Penanda Jarak di Garis */}
                         {device?.id && (
                             <div className="device-modal__field" style={{ marginTop: 4, padding: '0 20px' }}>
-                                <label className="device-modal__label">Penanda Jarak di Garis</label>
+                                <button type="button" onClick={() => setOpenExtra(o => (o === 'distance' ? null : 'distance'))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                    <span className="device-modal__label" style={{ margin: 0 }}>Penanda Jarak di Garis{distMarkers.length ? ` (${distMarkers.length})` : ''}</span>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94a3b8', transition: 'transform .15s', transform: openExtra === 'distance' ? 'rotate(180deg)' : 'none' }}>expand_more</span>
+                                </button>
+                                {openExtra === 'distance' && (<div style={{ marginTop: 8 }}>
                                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
                                     Tandai titik sejauh X meter dari sisi source / destination (mis. lokasi closure/sambungan).
                                 </div>
@@ -808,13 +815,18 @@ const DeviceModal = ({
                                         <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
                                     </button>
                                 </div>
+                                </div>)}
                             </div>
                         )}
 
                         {/* Fiber Multi-Core */}
                         {device?.id && (
                             <div className="device-modal__field" style={{ marginTop: 4, padding: '0 20px' }}>
-                                <label className="device-modal__label">Fiber Core (kabel di garis ini)</label>
+                                <button type="button" onClick={() => setOpenExtra(o => (o === 'fiber' ? null : 'fiber'))} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+                                    <span className="device-modal__label" style={{ margin: 0 }}>Fiber Core{fiber?.coreCount ? ` (${fiber.coreCount} core)` : ''}</span>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#94a3b8', transition: 'transform .15s', transform: openExtra === 'fiber' ? 'rotate(180deg)' : 'none' }}>expand_more</span>
+                                </button>
+                                {openExtra === 'fiber' && (<div style={{ marginTop: 8 }}>
                                 <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
                                     Warna core standar TIA-598. Isi tujuan tiap core (mis. ODP B).
                                 </div>
@@ -835,21 +847,21 @@ const DeviceModal = ({
                                                 <div key={c.i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                     <span title={col.name} style={{ width: 16, height: 16, borderRadius: 4, background: col.hex, border: '1px solid rgba(255,255,255,0.35)', flexShrink: 0 }} />
                                                     <span style={{ fontSize: 11, color: '#94a3b8', width: 46, flexShrink: 0 }}>C{c.i} · {col.name}</span>
-                                                    <div style={{ flex: '1 1 0', minWidth: 0 }}>
-                                                        <SearchableSelect
-                                                            name={`core-${c.i}`}
-                                                            options={coreDestOptions}
-                                                            value={c.dest || ''}
-                                                            onChange={(e) => updateCore(c.i, 'dest', e.target.value)}
-                                                            placeholder="pilih tujuan…"
-                                                            disabled={isSaving}
-                                                        />
-                                                    </div>
+                                                    <select
+                                                        value={c.dest || ''}
+                                                        onChange={(e) => updateCore(c.i, 'dest', e.target.value)}
+                                                        disabled={isSaving}
+                                                        style={{ flex: '1 1 0', minWidth: 0, boxSizing: 'border-box', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '4px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                                    >
+                                                        <option value="">— pilih tujuan —</option>
+                                                        {coreDestOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                                    </select>
                                                 </div>
                                             );
                                         })}
                                     </div>
                                 )}
+                                </div>)}
                             </div>
                         )}
 
