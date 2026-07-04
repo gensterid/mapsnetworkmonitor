@@ -274,15 +274,17 @@ const DeviceModal = ({
         }
     }, [formData.connectionType, routers, devices, device]);
 
-    // Opsi tujuan core = device yang sudah ada di peta (ODP/ONU/netwatch/dll),
-    // supaya operator memilih, bukan mengira-ngira nama.
+    // Opsi tujuan core = HANYA device yang terhubung ke device ini (anak/
+    // downstream: connectedToId === device.id). value = id device supaya garis
+    // ke device itu bisa diwarnai sesuai core yang dipilih.
     const coreDestOptions = useMemo(() => {
-        const seen = new Set();
+        if (!device?.id) return [];
         const opts = [];
+        const seen = new Set();
         for (const d of devices) {
-            const nm = d.name || d.host;
-            if (!nm || seen.has(nm)) continue;
-            if (device?.id && d.id === device.id) continue; // skip diri sendiri
+            if (d.connectedToId !== device.id) continue;
+            const nm = d.name || d.host || d.id;
+            if (seen.has(nm)) continue;
             seen.add(nm);
             const t = d.deviceType || d.type;
             opts.push({ value: nm, label: t ? `${nm} (${t})` : nm });

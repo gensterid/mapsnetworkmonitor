@@ -1160,8 +1160,22 @@ const NetworkMap = ({
                     }
                 }
 
+                // Warna garis dari fiber core: kalau PARENT (device yang garis
+                // ini menuju-nya) menugaskan sebuah core ke device ini, garis
+                // pakai warna core tsb → visual "core mana ke mana".
+                let coreColorHex;
+                const parentDev = node.connectedToId ? deviceMap.get(node.connectedToId) : null;
+                if (parentDev) {
+                    const pfc = parseJsonSafe(parentDev.fiberCores, null);
+                    if (pfc && Array.isArray(pfc.cores)) {
+                        const core = pfc.cores.find(c => c.dest && (c.dest === node.name || c.dest === node.host));
+                        if (core) coreColorHex = coreColor(core.i).hex;
+                    }
+                }
+
                 lines.push({
                     id: node.type === 'pppoe' ? `pppoe-${node.id}` : `${node.routerId}-${node.id}`,
+                    coreColorHex,
                     routerId: node.routerId,
                     netwatchId: node.type !== 'pppoe' ? node.id : undefined,
                     pppoeId: node.type === 'pppoe' ? node.id : undefined,
@@ -1963,7 +1977,7 @@ const NetworkMap = ({
                     onMouseOver={() => handleLineHover(line.id)}
                     onMouseOut={() => handleLineHover(null)}
                     onLineClick={handleLineMeasure}
-                    highlightColor={highlightCore?.lineId === line.id ? highlightCore.hex : undefined}
+                    highlightColor={highlightCore?.lineId === line.id ? highlightCore.hex : line.coreColorHex}
                 />
             );
         });
@@ -2137,7 +2151,7 @@ const NetworkMap = ({
                                     fillOpacity: 1,
                                 }}
                             >
-                                {showLabels && (
+                                {showLabels && zoomLevel >= 16 && (
                                     <Tooltip permanent direction="top" offset={[0, -3]} className="dist-marker-label">
                                         {dm.label ? `${dm.label} · ` : ''}{formatDistance(dm.meters)}
                                     </Tooltip>
