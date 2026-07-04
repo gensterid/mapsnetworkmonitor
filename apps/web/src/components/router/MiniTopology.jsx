@@ -472,7 +472,6 @@ const MiniTopology = ({ routerId }) => {
                     lineStyle,
                     isEditMode,
                     isLiveMode,
-                    onBendCommit: onEdgeBendCommit,
                     txRate,
                     rxRate
                 }
@@ -518,10 +517,36 @@ const MiniTopology = ({ routerId }) => {
         setEditingEdge(edge);
     }, [isEditMode]);
 
-    // Persist lengkungan edge (pathOffset) setelah drag handle titik-tengah.
-    const onEdgeBendCommit = useCallback((linkId, offset) => {
-        updateLink({ linkId, data: { pathOffset: String(offset) } });
-    }, [updateLink]);
+    // Reconnect: drag ujung garis ke handle lain langsung di canvas (tanpa buka
+    // modal). Kalau masih node yang sama → cukup update handle. Kalau pindah ke
+    // node lain → hapus link lama, buat baru (schema link tidak bisa ganti node
+    // in-place). Garis tetap tersambung ke handle.
+    const onReconnect = useCallback((oldEdge, conn) => {
+        if (!conn?.source || !conn?.target) return;
+        const sameNodes = conn.source === oldEdge.source && conn.target === oldEdge.target;
+        if (sameNodes) {
+            setEdges((els) => els.map((e) => e.id === oldEdge.id
+                ? { ...e, sourceHandle: conn.sourceHandle, targetHandle: conn.targetHandle }
+                : e));
+            updateLink({
+                linkId: oldEdge.id,
+                data: { sourceHandle: conn.sourceHandle, targetHandle: conn.targetHandle },
+            }, { onSuccess: () => refetch() });
+        } else {
+            removeLink({ routerId, linkId: oldEdge.id });
+            addLink({
+                routerId,
+                data: {
+                    sourceNodeId: conn.source,
+                    targetNodeId: conn.target,
+                    sourceInterface: oldEdge.data?.fromInterface || null,
+                    targetInterface: oldEdge.data?.toInterface || null,
+                    sourceHandle: conn.sourceHandle,
+                    targetHandle: conn.targetHandle,
+                },
+            }, { onSuccess: () => refetch() });
+        }
+    }, [updateLink, removeLink, addLink, routerId, refetch, setEdges]);
 
     const onLayout = useCallback(() => {
         const dagreGraph = new dagre.graphlib.Graph();
@@ -854,6 +879,9 @@ const MiniTopology = ({ routerId }) => {
                         onNodesChange={onNodesChange}
                         onEdgesChange={onEdgesChange}
                         onConnect={onConnect}
+                        onReconnect={onReconnect}
+                        edgesReconnectable={isEditMode}
+                        reconnectRadius={18}
                         onNodeDragStop={onNodeDragStop}
                         onEdgeClick={onEdgeClick}
                         onNodeDoubleClick={onNodeDoubleClick}

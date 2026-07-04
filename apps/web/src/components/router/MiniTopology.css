@@ -93,28 +93,6 @@
     stroke-opacity: 0.3;
 }
 
-/* Handle drag-to-bend di titik tengah edge (edit mode) */
-.edge-bend-handle {
-    position: absolute;
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    background: rgba(6, 182, 212, 0.85);
-    border: 2px solid #0b0e14;
-    box-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
-    cursor: grab;
-    pointer-events: all;
-    z-index: 11;
-    transition: background 0.15s ease, box-shadow 0.15s ease;
-}
-.edge-bend-handle:hover {
-    background: #22d3ee;
-    box-shadow: 0 0 12px rgba(34, 211, 238, 0.9);
-}
-.edge-bend-handle:active {
-    cursor: grabbing;
-}
-
 .neon-glow-path.down {
     stroke: var(--neon-danger);
     filter: drop-shadow(0 0 8px var(--neon-danger));
