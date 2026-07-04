@@ -1124,6 +1124,52 @@ const NetworkMap = ({
             }
         });
 
+        // 2.95 pass: Fiber core routing (multi-hop).
+        // Tiap device D dgn fiberCores mendefinisikan core di kabel uplink-nya
+        // (D → parent). Tiap core menuju endpoint E (boleh beberapa lompatan ke
+        // bawah). Warna core melukis SEMUA ruas dari uplink D sampai E; ruas yg
+        // dilewati >1 core → belang. segCores: nodeId → Map<coreIndex, destName>
+        // (core yg lewat ruas uplink node tsb).
+        const nodeByName = new Map();
+        for (const d of deviceMap.values()) {
+            const nm = d.name || d.host;
+            if (nm && !nodeByName.has(nm)) nodeByName.set(nm, d);
+        }
+        const segCores = new Map();
+        const addSeg = (nodeId, i, dest) => {
+            let m = segCores.get(nodeId);
+            if (!m) { m = new Map(); segCores.set(nodeId, m); }
+            if (!m.has(i)) m.set(i, dest);
+        };
+        for (const D of deviceMap.values()) {
+            const pfc = parseJsonSafe(D.fiberCores, null);
+            if (!pfc || !Array.isArray(pfc.cores)) continue;
+            for (const c of pfc.cores) {
+                const i = Number(c.i);
+                if (!Number.isFinite(i)) continue;
+                // Uplink D membawa semua core yang didefinisikan di sini.
+                addSeg(D.id, i, c.dest || '');
+                if (!c.dest) continue;
+                const E = nodeByName.get(c.dest);
+                if (!E || E.id === D.id) continue;
+                // Kumpulkan jalur E → atas sampai D; hanya warnai kalau E benar
+                // ada di subtree D (walk mencapai D), supaya tak salah cabang.
+                const pathIds = [];
+                const guard = new Set();
+                let N = E;
+                let reached = false;
+                while (N && !guard.has(N.id)) {
+                    if (N.id === D.id) { reached = true; break; }
+                    guard.add(N.id);
+                    pathIds.push(N.id);
+                    N = N.connectedToId ? deviceMap.get(N.connectedToId) : null;
+                }
+                if (reached) {
+                    for (const id of pathIds) addSeg(id, i, c.dest);
+                }
+            }
+        }
+
         // 3.0 pass: Create lines for ALL indexed devices and enrich with port info
         const allDevices = [...nodes, ...pppoeNodesList];
         allDevices.forEach(node => {
@@ -1194,23 +1240,23 @@ const NetworkMap = ({
                     }
                 }
 
-                // Warna garis dari fiber core: kalau PARENT (device yang garis
-                // ini menuju-nya) menugaskan sebuah core ke device ini, garis
-                // pakai warna core tsb → visual "core mana ke mana".
+                // Warna garis dari core yang LEWAT ruas ini (uplink node). Hasil
+                // propagasi multi-hop di pass 2.95: 1 core → solid, >1 → belang.
                 let coreColorHex;
                 let coreIndex;
                 let coreName;
-                const parentDev = node.connectedToId ? deviceMap.get(node.connectedToId) : null;
-                if (parentDev) {
-                    const pfc = parseJsonSafe(parentDev.fiberCores, null);
-                    if (pfc && Array.isArray(pfc.cores)) {
-                        const core = pfc.cores.find(c => c.dest && (c.dest === node.name || c.dest === node.host));
-                        if (core) {
-                            const col = coreColor(core.i);
-                            coreColorHex = col.hex;
-                            coreIndex = core.i;
-                            coreName = col.name;
-                        }
+                let lineCores; // [{ i, hex, dest }] saat >1 core (candy stripe)
+                const segMap = segCores.get(node.id);
+                if (segMap && segMap.size > 0) {
+                    const entries = [...segMap.entries()].sort((a, b) => a[0] - b[0]);
+                    if (entries.length === 1) {
+                        const [i] = entries[0];
+                        const col = coreColor(i);
+                        coreColorHex = col.hex;
+                        coreIndex = i;
+                        coreName = col.name;
+                    } else {
+                        lineCores = entries.map(([i, dest]) => ({ i, hex: coreColor(i).hex, dest }));
                     }
                 }
 
@@ -1219,6 +1265,7 @@ const NetworkMap = ({
                     coreColorHex,
                     coreIndex,
                     coreName,
+                    lineCores,
                     routerId: node.routerId,
                     sourceId: resolvedSourceId,
                     netwatchId: node.type !== 'pppoe' ? node.id : undefined,
@@ -1304,6 +1351,17 @@ const NetworkMap = ({
         closeMeasure();
         handleDeviceClick(dev, type, 'settings');
     }, [allMarkers, closeMeasure, handleDeviceClick]);
+
+    // Tombol "Edit Source/Destination" di dalam popup garis (HTML string Leaflet)
+    // memancarkan CustomEvent 'map-edit-device' → tangkap di sini. Pakai ref agar
+    // listener terdaftar sekali tapi selalu panggil handler terbaru.
+    const openEditRef = React.useRef(openDeviceEditById);
+    useEffect(() => { openEditRef.current = openDeviceEditById; }, [openDeviceEditById]);
+    useEffect(() => {
+        const h = (e) => { const id = e?.detail; if (id) openEditRef.current?.(id); };
+        window.addEventListener('map-edit-device', h);
+        return () => window.removeEventListener('map-edit-device', h);
+    }, []);
 
     const handleCloseModal = useCallback(() => {
         setIsModalOpen(false);
@@ -2226,21 +2284,21 @@ const NetworkMap = ({
                             bergantian sepanjang kabel. Garis DOWN dilewati (tetap
                             merah dari base line). */}
                         {!isEditingPath && mapData.lines.map((line) => {
-                            const fc = line.fiberCores;
-                            if (!fc || !Array.isArray(fc.cores) || fc.cores.length < 2) return null;
+                            const lc = line.lineCores;
+                            if (!Array.isArray(lc) || lc.length < 2) return null;
                             const path = line.fullPath;
                             if (!Array.isArray(path) || path.length < 2) return null;
                             const down = line.status && !['up', 'online', 'active', 'warning'].includes(String(line.status).toLowerCase());
                             if (down) return null;
-                            const N = fc.cores.length;
+                            const N = lc.length;
                             const seg = 10;
-                            return fc.cores.map((c, idx) => (
+                            return lc.map((c, idx) => (
                                 <Polyline
                                     key={`${line.id}-core-${idx}`}
                                     positions={path}
                                     interactive={false}
                                     pathOptions={{
-                                        color: coreColor(c.i).hex,
+                                        color: c.hex,
                                         weight: 4,
                                         opacity: 0.95,
                                         lineCap: 'butt',

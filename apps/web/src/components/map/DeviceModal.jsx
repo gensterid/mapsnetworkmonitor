@@ -287,20 +287,33 @@ const DeviceModal = ({
         }
     }, [formData.connectionType, routers, devices, device]);
 
-    // Opsi tujuan core = HANYA device yang terhubung ke device ini (anak/
-    // downstream: connectedToId === device.id). value = id device supaya garis
-    // ke device itu bisa diwarnai sesuai core yang dipilih.
+    // Opsi tujuan core = SEMUA device di HILIR device ini (anak, cucu, cicit —
+    // via connectedToId), bukan cuma anak langsung. Endpoint boleh beberapa
+    // lompatan; warna core nanti melukis seluruh jalur dari kabel sampai endpoint.
     const coreDestOptions = useMemo(() => {
         if (!device?.id) return [];
+        // Index anak per parent → telusuri subtree.
+        const childrenBy = new Map();
+        for (const d of devices) {
+            if (!d.connectedToId) continue;
+            if (!childrenBy.has(d.connectedToId)) childrenBy.set(d.connectedToId, []);
+            childrenBy.get(d.connectedToId).push(d);
+        }
         const opts = [];
         const seen = new Set();
-        for (const d of devices) {
-            if (d.connectedToId !== device.id) continue;
+        const visited = new Set();
+        const stack = [...(childrenBy.get(device.id) || [])];
+        while (stack.length) {
+            const d = stack.pop();
+            if (visited.has(d.id)) continue; // cycle guard
+            visited.add(d.id);
             const nm = d.name || d.host || d.id;
-            if (seen.has(nm)) continue;
-            seen.add(nm);
-            const t = d.deviceType || d.type;
-            opts.push({ value: nm, label: t ? `${nm} (${t})` : nm });
+            if (!seen.has(nm)) {
+                seen.add(nm);
+                const t = d.deviceType || d.type;
+                opts.push({ value: nm, label: t ? `${nm} (${t})` : nm });
+            }
+            for (const ch of (childrenBy.get(d.id) || [])) stack.push(ch);
         }
         return opts.sort((a, b) => a.label.localeCompare(b.label));
     }, [devices, device?.id]);

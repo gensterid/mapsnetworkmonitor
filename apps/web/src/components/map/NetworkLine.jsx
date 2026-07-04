@@ -3,12 +3,15 @@ import { TrafficContext, HoveredItemContext } from './MapStyles';
 import AnimatedPath from './AnimatedPath';
 import AntPath from './AntPath';
 import { getAnimationStyle } from './animationStyles';
-import { coreColor } from '@/lib/fiberColors';
 
 // Escape untuk nilai dinamis (nama device) yang masuk ke string HTML popup.
 const escapeHtml = (s) => String(s ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+// Id device yang aman diselipkan ke atribut onclick popup (mencegah injeksi).
+// Hanya izinkan karakter id (UUID/slug); kalau tidak cocok → '' (tombol disembunyikan).
+const safeId = (v) => (/^[\w-]+$/.test(String(v ?? '')) ? String(v) : '');
 
 // Helper to format bitrate
 export const formatBitrate = (bits) => {
@@ -86,16 +89,29 @@ const NetworkLineOriginal = ({
                         </span>
                     </div>` : '';
 
-        // Kabel multi-core: tampilkan titik warna tiap core + jumlah.
-        const fc = line.fiberCores;
-        const trunkRow = (fc && Array.isArray(fc.cores) && fc.cores.length > 1) ? `
+        // Kabel multi-core: titik warna tiap core yang LEWAT ruas ini + jumlah.
+        const lc = Array.isArray(line.lineCores) ? line.lineCores : [];
+        const trunkRow = (lc.length > 1) ? `
                     <div class="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2">
                         <span class="text-slate-400">Kabel</span>
                         <span class="flex items-center gap-1 text-slate-200">
-                            ${fc.cores.map((c) => `<span title="Core ${escapeHtml(c.i)}${c.dest ? ' → ' + escapeHtml(c.dest) : ''}" style="width:9px;height:9px;border-radius:2px;background:${coreColor(c.i).hex};border:1px solid rgba(255,255,255,0.35);display:inline-block"></span>`).join('')}
-                            <span class="text-[10px] text-slate-400 ml-1">${fc.cores.length} core</span>
+                            ${lc.map((c) => `<span title="Core ${escapeHtml(c.i)}${c.dest ? ' → ' + escapeHtml(c.dest) : ''}" style="width:9px;height:9px;border-radius:2px;background:${c.hex};border:1px solid rgba(255,255,255,0.35);display:inline-block"></span>`).join('')}
+                            <span class="text-[10px] text-slate-400 ml-1">${lc.length} core</span>
                         </span>
                     </div>` : '';
+
+        // Tombol Edit Source/Destination di dalam popup (di kedua tempat: panel +
+        // popup). Klik → CustomEvent 'map-edit-device' ditangkap NetworkMap.
+        const srcId = safeId(line.sourceId);
+        const dstId = safeId(line.netwatchId || line.pppoeId);
+        const editBtn = (id, label) => id
+            ? `<button type="button" onclick="window.dispatchEvent(new CustomEvent('map-edit-device',{detail:'${id}'}))" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.3);border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:11px;font-weight:600;cursor:pointer"><span class="material-symbols-outlined" style="font-size:14px">edit_location</span>${label}</button>`
+            : '';
+        const editRow = (srcId || dstId) ? `
+                <div style="display:flex;gap:6px;padding:8px 12px;background:#1e293b;border-top:1px solid rgba(148,163,184,0.15)">
+                    ${editBtn(srcId, 'Edit Source')}
+                    ${editBtn(dstId, 'Edit Destination')}
+                </div>` : '';
 
         return `
             <div class="flex flex-col min-w-[220px] bg-slate-900 rounded-lg shadow-xl border border-slate-700 overflow-hidden font-sans">
@@ -146,6 +162,7 @@ const NetworkLineOriginal = ({
                     </div>
                     ` : ''}
                 </div>
+                ${editRow}
             </div>
         `;
     }, [line, txRate, rxRate, timezone, isLiveMode, isHeatmapMode]);
@@ -285,9 +302,9 @@ const NetworkLineOriginal = ({
     );
 };
 
-// Tanda-tangan ringan cores kabel (untuk deteksi perubahan tanpa deep-compare).
-const fiberCoresSig = (line) => {
-    const c = line?.fiberCores?.cores;
+// Tanda-tangan ringan cores yang lewat ruas ini (deteksi perubahan tanpa deep-compare).
+const lineCoresSig = (line) => {
+    const c = line?.lineCores;
     if (!Array.isArray(c)) return '';
     return c.map((x) => `${x.i}:${x.dest || ''}`).join('|');
 };
@@ -320,7 +337,9 @@ export const areLinesEqual = (prev, next) => {
         prev.highlightColor === next.highlightColor &&
         prev.line.coreColorHex === next.line.coreColorHex &&
         prev.line.coreIndex === next.line.coreIndex &&
-        fiberCoresSig(prev.line) === fiberCoresSig(next.line) &&
+        prev.line.sourceId === next.line.sourceId &&
+        prev.line.netwatchId === next.line.netwatchId &&
+        lineCoresSig(prev.line) === lineCoresSig(next.line) &&
         prev.trafficMapRef === next.trafficMapRef
     );
 };
