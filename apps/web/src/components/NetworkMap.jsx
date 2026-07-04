@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap, Polyline, useMapEvents, CircleMarker } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -86,7 +86,14 @@ import './map/map.css';
 // Marker Cluster CSS
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
-import { calculatePathLength, formatDistance } from '@/lib/geo';
+import { calculatePathLength, formatDistance, pointAlongPath } from '@/lib/geo';
+
+// Parse JSON aman — string malformed tidak boleh bikin build mapData crash.
+function parseJsonSafe(v, fallback) {
+    if (v == null) return fallback;
+    if (typeof v !== 'string') return v;
+    try { return JSON.parse(v); } catch { return fallback; }
+}
 
 
 
@@ -1145,6 +1152,8 @@ const NetworkMap = ({
                     to: [node.lat, node.lng],
                     status: node.type === 'pppoe' ? (node.status === 'online' ? 'up' : 'down') : node.status,
                     waypoints: waypoints,
+                    fullPath,
+                    distanceMarkers: parseJsonSafe(node.distanceMarkers, []),
                     sourceName,
                     destName: node.name || node.host,
                     distance,
@@ -1951,6 +1960,25 @@ const NetworkMap = ({
         handleLineHover // Added dependency
     ]);
 
+    // Penanda jarak di sepanjang garis — hitung posisi via pointAlongPath.
+    const distanceMarkerPoints = useMemo(() => {
+        const out = [];
+        for (const line of (mapData.lines || [])) {
+            const dm = line.distanceMarkers;
+            const path = line.fullPath;
+            if (!Array.isArray(dm) || dm.length === 0 || !Array.isArray(path) || path.length < 2) continue;
+            dm.forEach((m, idx) => {
+                const meters = Number(m?.meters);
+                if (!(meters >= 0)) return;
+                const side = m?.side === 'dest' ? 'dest' : 'source';
+                const pos = pointAlongPath(path, meters, side);
+                if (!pos) return;
+                out.push({ key: `${line.id}-dm-${idx}`, pos, meters, side, label: m?.label || '' });
+            });
+        }
+        return out;
+    }, [mapData.lines]);
+
     // Device modal data
     const allDevicesList = useMemo(() => [...mapData.nodes, ...(mapData.pppoeNodes || [])], [mapData.nodes, mapData.pppoeNodes]);
 
@@ -2024,6 +2052,26 @@ const NetworkMap = ({
 
                         {/* Animated Topology Lines (show when NOT editing) */}
                         {!isEditingPath && topologyLines}
+
+                        {/* Penanda jarak di sepanjang garis (X m dari source/dest) */}
+                        {!isEditingPath && distanceMarkerPoints.map((dm) => (
+                            <CircleMarker
+                                key={dm.key}
+                                center={dm.pos}
+                                radius={4}
+                                pane="markerPane"
+                                pathOptions={{
+                                    color: '#0b0e14',
+                                    weight: 2,
+                                    fillColor: dm.side === 'dest' ? '#f59e0b' : '#06b6d4',
+                                    fillOpacity: 1,
+                                }}
+                            >
+                                <Tooltip permanent direction="top" offset={[0, -3]} className="dist-marker-tooltip">
+                                    {dm.label ? `${dm.label} · ` : ''}{formatDistance(dm.meters)}
+                                </Tooltip>
+                            </CircleMarker>
+                        ))}
 
                         {/* Editable Path (show when editing) */}
                         {isEditingPath && editingLine && (

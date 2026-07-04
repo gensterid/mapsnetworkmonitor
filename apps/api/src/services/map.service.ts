@@ -34,6 +34,8 @@ const NETWATCH_COLS = {
     latitude: routerNetwatch.latitude,
     longitude: routerNetwatch.longitude,
     waypoints: routerNetwatch.waypoints,
+    distanceMarkers: routerNetwatch.distanceMarkers,
+    fiberCores: routerNetwatch.fiberCores,
     deviceType: routerNetwatch.deviceType,
     targetInterface: routerNetwatch.targetInterface,
     linkedOnuId: routerNetwatch.linkedOnuId,
@@ -67,6 +69,11 @@ const ONU_COLS = {
     latitude: onus.latitude,
     longitude: onus.longitude,
     lastRxPower: onus.lastRxPower,
+    waypoints: onus.waypoints,
+    distanceMarkers: onus.distanceMarkers,
+    fiberCores: onus.fiberCores,
+    connectionType: onus.connectionType,
+    connectedToId: onus.connectedToId,
 };
 
 export interface MapAccessContext {

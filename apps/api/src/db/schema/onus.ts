@@ -77,6 +77,8 @@ export const onus = pgTable('onus', {
     connectionType: text('connection_type').default('router'), // 'router' or 'client'
     connectedToId: uuid('connected_to_id'), // ID of the device this is connected to
     waypoints: text('waypoints'), // JSON string: [[lat1, lng1], [lat2, lng2], ...]
+    distanceMarkers: text('distance_markers'), // JSON: [{ side, meters, label? }]
+    fiberCores: text('fiber_cores'), // JSON: { coreCount, cores:[{ i, color, dest?, note? }] }
 
     // Traffic Mapping (Experimental for Passive)
     targetInterface: text('target_interface'),

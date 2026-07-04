@@ -40,6 +40,8 @@ const updateOnuSchema = z.object({
     connectionType: z.string().optional().nullable(),
     connectedToId: z.string().uuid().optional().nullable(),
     waypoints: z.string().optional().nullable(),
+    distanceMarkers: z.string().optional().nullable(),
+    fiberCores: z.string().optional().nullable(),
     targetInterface: z.string().optional().nullable(),
     location: z.string().optional().nullable(),
     macAddress: z.string().optional().nullable(),

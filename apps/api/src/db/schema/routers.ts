@@ -242,6 +242,11 @@ export const routerNetwatch = pgTable('router_netwatch', {
     // Waypoints for custom path on map (JSON array of [lat, lng] coordinates)
     waypoints: text('waypoints'), // JSON string: [[lat1, lng1], [lat2, lng2], ...]
 
+    // Penanda jarak di sepanjang garis. JSON: [{ side:'source'|'dest', meters, label? }]
+    distanceMarkers: text('distance_markers'),
+    // Fiber multi-core. JSON: { coreCount, cores:[{ i, color, dest?, note? }] }
+    fiberCores: text('fiber_cores'),
+
     // Manual Link to ONU Inventory
     linkedOnuId: uuid('linked_onu_id'),
     // True when the link was set/confirmed by an operator. Auto-linkage skips

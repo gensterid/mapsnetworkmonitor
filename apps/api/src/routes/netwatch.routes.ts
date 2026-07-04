@@ -52,6 +52,8 @@ const updateNetwatchSchema = z.object({
         z.enum(['client', 'olt', 'odp', 'router', 'switch']).optional(),
     ),
     waypoints: z.string().nullable().optional(),
+    distanceMarkers: z.string().nullable().optional(), // JSON penanda jarak
+    fiberCores: z.string().nullable().optional(),       // JSON fiber multi-core
     connectionType: z.enum(['router', 'client']).optional(),
     // Lihat catatan di createNetwatchSchema — string biasa, bukan .uuid().
     connectedToId: z.string().optional().nullable(),

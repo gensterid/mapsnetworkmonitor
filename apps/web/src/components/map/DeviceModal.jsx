@@ -50,6 +50,17 @@ const DeviceModal = ({
         linkLocked: false, // Prevent auto-linkage from overwriting manual choice
     });
 
+    // Penanda jarak di garis: [{ side:'source'|'dest', meters, label }]
+    const [distMarkers, setDistMarkers] = useState([]);
+    const [dmDraft, setDmDraft] = useState({ meters: '', side: 'source', label: '' });
+
+    const addDistMarker = () => {
+        const meters = parseFloat(dmDraft.meters);
+        if (!(meters >= 0)) return;
+        setDistMarkers(list => [...list, { side: dmDraft.side === 'dest' ? 'dest' : 'source', meters, label: dmDraft.label.trim() }]);
+        setDmDraft({ meters: '', side: dmDraft.side, label: '' });
+    };
+
     const [availableOnus, setAvailableOnus] = useState([]);
     const [isLoadingOnus, setIsLoadingOnus] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -125,6 +136,12 @@ const DeviceModal = ({
                     splitterRatio: device.splitterRatio || (shouldResetFields ? '' : prev.splitterRatio) || '',
                 };
             });
+
+            // Init penanda jarak dari device (JSON string atau array).
+            try {
+                const dm = device.distanceMarkers;
+                setDistMarkers(Array.isArray(dm) ? dm : (dm ? JSON.parse(dm) : []));
+            } catch { setDistMarkers([]); }
         }
     }, [device?.id, device?.isNew, device?.latitude, device?.longitude, device?.lat, device?.lng]);
 
@@ -208,6 +225,8 @@ const DeviceModal = ({
                 portCapacity: parseInt(formData.portCapacity) || 8,
                 linkLocked: formData.linkLocked,
                 splitterRatio: formData.splitterRatio || null,
+                // Penanda jarak → JSON string (atau null kalau kosong).
+                distanceMarkers: distMarkers.length ? JSON.stringify(distMarkers) : null,
             };
 
             onSave(payload);
@@ -694,6 +713,61 @@ const DeviceModal = ({
                                 </div>
                             )}
                         </div>
+
+                        {/* Penanda Jarak di Garis */}
+                        {device?.id && (
+                            <div className="device-modal__field" style={{ marginTop: 4 }}>
+                                <label className="device-modal__label">Penanda Jarak di Garis</label>
+                                <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>
+                                    Tandai titik sejauh X meter dari sisi source / destination (mis. lokasi closure/sambungan).
+                                </div>
+                                {distMarkers.length > 0 && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+                                        {distMarkers.map((m, i) => (
+                                            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(148,163,184,0.2)', borderRadius: 6, padding: '4px 8px' }}>
+                                                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: m.side === 'dest' ? 'rgba(245,158,11,0.15)' : 'rgba(6,182,212,0.15)', color: m.side === 'dest' ? '#f59e0b' : '#06b6d4' }}>
+                                                    {m.side === 'dest' ? 'DEST' : 'SOURCE'}
+                                                </span>
+                                                <span style={{ fontSize: 12, color: '#e2e8f0', fontWeight: 700 }}>{m.meters} m</span>
+                                                {m.label && <span style={{ fontSize: 11, color: '#94a3b8' }}>· {m.label}</span>}
+                                                <button type="button" onClick={() => setDistMarkers(list => list.filter((_, idx) => idx !== i))} style={{ marginLeft: 'auto', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }} title="Hapus">
+                                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <input
+                                        type="number" min="0" step="1"
+                                        value={dmDraft.meters}
+                                        onChange={(e) => setDmDraft(d => ({ ...d, meters: e.target.value }))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistMarker(); } }}
+                                        placeholder="meter"
+                                        style={{ width: 80, background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '5px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                    />
+                                    <select
+                                        value={dmDraft.side}
+                                        onChange={(e) => setDmDraft(d => ({ ...d, side: e.target.value }))}
+                                        style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '5px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                    >
+                                        <option value="source">dari Source</option>
+                                        <option value="dest">dari Destination</option>
+                                    </select>
+                                    <input
+                                        type="text"
+                                        value={dmDraft.label}
+                                        onChange={(e) => setDmDraft(d => ({ ...d, label: e.target.value }))}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addDistMarker(); } }}
+                                        placeholder="label (opsional)"
+                                        style={{ flex: 1, minWidth: 90, background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '5px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                    />
+                                    <button type="button" onClick={addDistMarker} className="device-modal__btn device-modal__btn--secondary" style={{ padding: '5px 10px' }}>
+                                        <span className="material-symbols-outlined" style={{ fontSize: 16 }}>add</span>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Actions */}
                         <div className="device-modal__actions">

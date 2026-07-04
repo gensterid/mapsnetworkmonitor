@@ -27,3 +27,26 @@ export const formatDistance = (meters) => {
     }
     return `${(meters / 1000).toFixed(2)} km`;
 };
+
+// Titik [lat,lng] pada polyline sejauh `meters` dari awal (side='source') atau
+// dari akhir (side='dest'). Interpolasi linear per segmen (cukup akurat pada
+// jarak pendek). Clamp ke ujung kalau meters > total panjang. null bila invalid.
+export const pointAlongPath = (positions, meters, side = 'source') => {
+    if (!Array.isArray(positions) || positions.length < 2) return null;
+    if (!(meters >= 0)) return null;
+    const pts = side === 'dest' ? [...positions].reverse() : positions;
+    let remaining = meters;
+    for (let i = 0; i < pts.length - 1; i++) {
+        const [aLat, aLng] = pts[i];
+        const [bLat, bLng] = pts[i + 1];
+        const segLen = calculateDistance(aLat, aLng, bLat, bLng);
+        if (segLen <= 0) continue;
+        if (remaining <= segLen) {
+            const t = remaining / segLen;
+            return [aLat + (bLat - aLat) * t, aLng + (bLng - aLng) * t];
+        }
+        remaining -= segLen;
+    }
+    const end = pts[pts.length - 1];
+    return [end[0], end[1]];
+};
