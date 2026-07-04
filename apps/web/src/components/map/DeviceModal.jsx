@@ -136,14 +136,17 @@ const DeviceModal = ({
                     splitterRatio: device.splitterRatio || (shouldResetFields ? '' : prev.splitterRatio) || '',
                 };
             });
-
-            // Init penanda jarak dari device (JSON string atau array).
-            try {
-                const dm = device.distanceMarkers;
-                setDistMarkers(Array.isArray(dm) ? dm : (dm ? JSON.parse(dm) : []));
-            } catch { setDistMarkers([]); }
         }
     }, [device?.id, device?.isNew, device?.latitude, device?.longitude, device?.lat, device?.lng]);
+
+    // Init penanda jarak — effect TERPISAH supaya ikut ter-update saat data
+    // device (distanceMarkers) berubah dari refetch, tidak cuma saat id berubah.
+    useEffect(() => {
+        const dm = device?.distanceMarkers;
+        try {
+            setDistMarkers(Array.isArray(dm) ? dm : (dm ? JSON.parse(dm) : []));
+        } catch { setDistMarkers([]); }
+    }, [device?.id, device?.distanceMarkers]);
 
     // Fetch available ONUs for the selected router
     useEffect(() => {

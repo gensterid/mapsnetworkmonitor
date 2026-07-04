@@ -13,6 +13,7 @@ import {
     ExternalLink,
     Users,
     Laptop,
+    Trash2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
@@ -188,7 +189,7 @@ function summarizeClients(device) {
     return { totalClients, ssidList };
 }
 
-export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
+export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull, onDeleteDistanceMarker }) {
     const timezone = useAppTimezone();
 
     // Status Netwatch (ping/ICMP) — reachability dari router.
@@ -564,7 +565,19 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull }) {
                                             </span>
                                             {m.label && <span className="text-fg-muted truncate">{m.label}</span>}
                                         </span>
-                                        <span className="text-fg font-mono shrink-0">{m.meters} m</span>
+                                        <span className="flex items-center gap-2 shrink-0">
+                                            <span className="text-fg font-mono">{m.meters} m</span>
+                                            {onDeleteDistanceMarker && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onDeleteDistanceMarker(i)}
+                                                    className="text-red-400 hover:text-red-300 flex items-center"
+                                                    title="Hapus penanda"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                                </button>
+                                            )}
+                                        </span>
                                     </div>
                                 ))}
                             </div>

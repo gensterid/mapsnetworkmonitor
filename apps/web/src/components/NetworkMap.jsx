@@ -2022,6 +2022,26 @@ const NetworkMap = ({
         }
     }, [measureLine, measureMeters, measureSide, measureLabel, updateOnuMutation, updateNetwatchMutation]);
 
+    // Hapus 1 penanda jarak dari detail panel (netwatch/ODP). Persist ke DB.
+    const handleDeleteDistanceMarker = useCallback((idx) => {
+        const nw = quickViewDevice;
+        if (!nw?.id) return;
+        let markers = [];
+        try {
+            const dm = nw.distanceMarkers;
+            markers = Array.isArray(dm) ? dm : (dm ? JSON.parse(dm) : []);
+        } catch { markers = []; }
+        const next = markers.filter((_, i) => i !== idx);
+        const distanceMarkers = next.length ? JSON.stringify(next) : null;
+        updateNetwatchMutation.mutate(
+            { routerId: nw.routerId, netwatchId: nw.id, data: { distanceMarkers } },
+            {
+                onSuccess: () => toast.success('Penanda jarak dihapus'),
+                onError: (e) => toast.error(`Gagal hapus: ${e?.message || 'error'}`),
+            }
+        );
+    }, [quickViewDevice, updateNetwatchMutation]);
+
     // Device modal data
     const allDevicesList = useMemo(() => [...mapData.nodes, ...(mapData.pppoeNodes || [])], [mapData.nodes, mapData.pppoeNodes]);
 
@@ -2330,6 +2350,7 @@ const NetworkMap = ({
                         onClose={handleCloseQuickView}
                         netwatch={activePanel === 'netwatch' ? quickViewDevice : null}
                         onEditFull={handleQuickViewEditFull}
+                        onDeleteDistanceMarker={handleDeleteDistanceMarker}
                     />
 
                     {/* Trash confirmation — 3 options (ONU only / Netwatch only / Both) */}
