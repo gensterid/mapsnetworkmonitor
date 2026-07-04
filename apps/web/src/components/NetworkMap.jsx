@@ -1130,16 +1130,26 @@ const NetworkMap = ({
         // bawah). Warna core melukis SEMUA ruas dari uplink D sampai E; ruas yg
         // dilewati >1 core → belang. segCores: nodeId → Map<coreIndex, destName>
         // (core yg lewat ruas uplink node tsb).
+        // nodeByName resolve dest (nama). nameCount deteksi nama duplikat → dest
+        // ambigu di-skip propagasi (fail closed: lebih baik tak warnai daripada
+        // salah cabang, karena nama device tak dijamin unik).
         const nodeByName = new Map();
+        const nameCount = new Map();
         for (const d of deviceMap.values()) {
             const nm = d.name || d.host;
-            if (nm && !nodeByName.has(nm)) nodeByName.set(nm, d);
+            if (!nm) continue;
+            nameCount.set(nm, (nameCount.get(nm) || 0) + 1);
+            if (!nodeByName.has(nm)) nodeByName.set(nm, d);
         }
         const segCores = new Map();
-        const addSeg = (nodeId, i, dest) => {
+        // Key per-SIRKIT = `${ownerId}:${i}` supaya 2 core dari cable berbeda yang
+        // kebetulan pakai index sama tidak saling menimpa (tetap kehitung 2 →
+        // belang), bukan cuma dedup by index mentah.
+        const addSeg = (nodeId, ownerId, i, dest) => {
             let m = segCores.get(nodeId);
             if (!m) { m = new Map(); segCores.set(nodeId, m); }
-            if (!m.has(i)) m.set(i, dest);
+            const key = `${ownerId}:${i}`;
+            if (!m.has(key)) m.set(key, { i, dest });
         };
         for (const D of deviceMap.values()) {
             const pfc = parseJsonSafe(D.fiberCores, null);
@@ -1148,8 +1158,9 @@ const NetworkMap = ({
                 const i = Number(c.i);
                 if (!Number.isFinite(i)) continue;
                 // Uplink D membawa semua core yang didefinisikan di sini.
-                addSeg(D.id, i, c.dest || '');
+                addSeg(D.id, D.id, i, c.dest || '');
                 if (!c.dest) continue;
+                if ((nameCount.get(c.dest) || 0) > 1) continue; // nama tujuan ambigu → skip
                 const E = nodeByName.get(c.dest);
                 if (!E || E.id === D.id) continue;
                 // Kumpulkan jalur E → atas sampai D; hanya warnai kalau E benar
@@ -1165,7 +1176,7 @@ const NetworkMap = ({
                     N = N.connectedToId ? deviceMap.get(N.connectedToId) : null;
                 }
                 if (reached) {
-                    for (const id of pathIds) addSeg(id, i, c.dest);
+                    for (const id of pathIds) addSeg(id, D.id, i, c.dest);
                 }
             }
         }
@@ -1248,15 +1259,14 @@ const NetworkMap = ({
                 let lineCores; // [{ i, hex, dest }] saat >1 core (candy stripe)
                 const segMap = segCores.get(node.id);
                 if (segMap && segMap.size > 0) {
-                    const entries = [...segMap.entries()].sort((a, b) => a[0] - b[0]);
+                    const entries = [...segMap.values()].sort((a, b) => a.i - b.i);
                     if (entries.length === 1) {
-                        const [i] = entries[0];
-                        const col = coreColor(i);
+                        const col = coreColor(entries[0].i);
                         coreColorHex = col.hex;
-                        coreIndex = i;
+                        coreIndex = entries[0].i;
                         coreName = col.name;
                     } else {
-                        lineCores = entries.map(([i, dest]) => ({ i, hex: coreColor(i).hex, dest }));
+                        lineCores = entries.map((e) => ({ i: e.i, hex: coreColor(e.i).hex, dest: e.dest }));
                     }
                 }
 

@@ -118,24 +118,24 @@ const NetworkLineOriginal = ({
                 <div class="px-3 py-2 flex items-center justify-between ${isUp ? 'bg-indigo-600' : 'bg-slate-600'}">
                     <div class="flex items-center gap-2 text-white">
                         <span class="material-symbols-outlined text-[16px]">cable</span>
-                        <span class="font-bold text-xs truncate max-w-[140px]">${line.destName || 'Link'}</span>
+                        <span class="font-bold text-xs truncate max-w-[140px]">${escapeHtml(line.destName || 'Link')}</span>
                     </div>
                     <div class="px-1.5 py-0.5 bg-black/20 rounded text-[10px] text-white font-medium uppercase tracking-wider">
-                        ${line.deviceType || 'Link'}
+                        ${escapeHtml(line.deviceType || 'Link')}
                     </div>
                 </div>
                 <div class="p-3 bg-slate-800 space-y-3">
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-400">Status</span>
-                        <span class="font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}">${line.status.toUpperCase()}</span>
+                        <span class="font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}">${escapeHtml(String(line.status || '').toUpperCase())}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs border-t border-slate-700/50 pt-2">
                         <span class="text-slate-400">Source</span>
-                        <span class="text-slate-200 truncate max-w-[120px]">${line.sourceName || '-'}</span>
+                        <span class="text-slate-200 truncate max-w-[120px]">${escapeHtml(line.sourceName || '-')}</span>
                     </div>
                     <div class="flex items-center justify-between text-xs">
                         <span class="text-slate-400">Destination</span>
-                        <span class="text-slate-200 truncate max-w-[120px]">${line.destName || '-'}</span>
+                        <span class="text-slate-200 truncate max-w-[120px]">${escapeHtml(line.destName || '-')}</span>
                     </div>
                     ${coreRow}
                     ${trunkRow}
@@ -148,7 +148,7 @@ const NetworkLineOriginal = ({
                     ${isHeatmapMode && line.targetInterface ? `
                     <div class="flex items-center justify-between text-xs border-b border-slate-700/50 pb-2">
                         <span class="text-slate-400">Interface</span>
-                        <span class="text-slate-200 font-mono text-[10px]">${line.targetInterface}</span>
+                        <span class="text-slate-200 font-mono text-[10px]">${escapeHtml(line.targetInterface)}</span>
                     </div>
                     <div class="grid grid-cols-2 gap-2 mt-2">
                         <div class="bg-slate-900/50 p-2 rounded border border-slate-700/30 flex flex-col items-center shadow-inner">
