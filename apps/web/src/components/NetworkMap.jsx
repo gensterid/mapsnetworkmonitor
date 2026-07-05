@@ -1154,10 +1154,13 @@ const NetworkMap = ({
             for (const c of pfc.cores) {
                 const i = Number(c.i);
                 if (!Number.isFinite(i)) continue;
-                // Uplink D membawa semua core yang didefinisikan di sini.
-                addSeg(D.id, D.id, i, c.dest || '');
+                // Core tanpa tujuan = belum di-assign → JANGAN dihitung/diwarnai.
+                // (kalau dihitung, tiap ODP yg diisi "N core" tapi tujuan kosong
+                // bikin ruas jadi over-count / dobel dgn core kiriman dari hulu.)
                 if (!c.dest) continue;
                 if ((nameCount.get(c.dest) || 0) > 1) continue; // nama tujuan ambigu → skip
+                // Uplink D membawa core ini (yg sudah punya tujuan).
+                addSeg(D.id, D.id, i, c.dest);
                 const E = nodeByName.get(c.dest);
                 if (!E || E.id === D.id) continue;
                 // Kumpulkan jalur E → atas sampai D; hanya warnai kalau E benar
