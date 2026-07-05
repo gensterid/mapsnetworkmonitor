@@ -315,8 +315,19 @@ const DeviceModal = ({
             }
             for (const ch of (childrenBy.get(d.id) || [])) stack.push(ch);
         }
+        // Pertahankan tujuan yang SUDAH tersimpan walau device-nya kini tak
+        // terhubung di bawah sini (mis. sudah dilepas) — supaya nilainya tetap
+        // terlihat di dropdown & tidak terhapus diam-diam saat Save.
+        if (fiber && Array.isArray(fiber.cores)) {
+            for (const c of fiber.cores) {
+                if (c.dest && !seen.has(c.dest)) {
+                    seen.add(c.dest);
+                    opts.push({ value: c.dest, label: `${c.dest} (tak terhubung)` });
+                }
+            }
+        }
         return opts.sort((a, b) => a.label.localeCompare(b.label));
-    }, [devices, device?.id]);
+    }, [devices, device?.id, fiber]);
 
     // Filter interfaces for heatmap mapping (exclude PPPoE)
     const interfaceOptions = useMemo(() => {
