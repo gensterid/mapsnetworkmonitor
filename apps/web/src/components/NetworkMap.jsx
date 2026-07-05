@@ -1215,8 +1215,11 @@ const NetworkMap = ({
                 }
             }
 
-            // 3. FALLBACK: Connect to Main Router if no parent found
-            if (!fromPos && node.routerId) {
+            // 3. FALLBACK: Connect to Main Router if no parent found — KECUALI
+            // device sengaja dilepas: pilih "Through Another Client" tapi client
+            // dikosongkan → jangan gambar garis ke router (garis benar-benar hilang).
+            const detached = node.connectionType === 'client' && !node.connectedToId;
+            if (!fromPos && !detached && node.routerId) {
                 const parentRouter = routerMap.get(node.routerId);
                 if (parentRouter) {
                     fromPos = [parentRouter.lat, parentRouter.lng];
