@@ -1121,65 +1121,10 @@ const NetworkMap = ({
             }
         });
 
-        // 2.95 pass: Fiber core routing (multi-hop).
-        // Tiap device D dgn fiberCores mendefinisikan core di kabel uplink-nya
-        // (D → parent). Tiap core menuju endpoint E (boleh beberapa lompatan ke
-        // bawah). Warna core melukis SEMUA ruas dari uplink D sampai E; ruas yg
-        // dilewati >1 core → belang. segCores: nodeId → Map<coreIndex, destName>
-        // (core yg lewat ruas uplink node tsb).
-        // nodeByName resolve dest (nama). nameCount deteksi nama duplikat → dest
-        // ambigu di-skip propagasi (fail closed: lebih baik tak warnai daripada
-        // salah cabang, karena nama device tak dijamin unik).
-        const nodeByName = new Map();
-        const nameCount = new Map();
-        for (const d of deviceMap.values()) {
-            const nm = d.name || d.host;
-            if (!nm) continue;
-            nameCount.set(nm, (nameCount.get(nm) || 0) + 1);
-            if (!nodeByName.has(nm)) nodeByName.set(nm, d);
-        }
-        const segCores = new Map();
-        // Key per-SIRKIT = `${ownerId}:${i}` supaya 2 core dari cable berbeda yang
-        // kebetulan pakai index sama tidak saling menimpa (tetap kehitung 2 →
-        // belang), bukan cuma dedup by index mentah.
-        const addSeg = (nodeId, ownerId, i, dest) => {
-            let m = segCores.get(nodeId);
-            if (!m) { m = new Map(); segCores.set(nodeId, m); }
-            const key = `${ownerId}:${i}`;
-            if (!m.has(key)) m.set(key, { i, dest });
-        };
-        for (const D of deviceMap.values()) {
-            const pfc = parseJsonSafe(D.fiberCores, null);
-            if (!pfc || !Array.isArray(pfc.cores)) continue;
-            for (const c of pfc.cores) {
-                const i = Number(c.i);
-                if (!Number.isFinite(i)) continue;
-                // Core tanpa tujuan = belum di-assign → JANGAN dihitung/diwarnai.
-                // (kalau dihitung, tiap ODP yg diisi "N core" tapi tujuan kosong
-                // bikin ruas jadi over-count / dobel dgn core kiriman dari hulu.)
-                if (!c.dest) continue;
-                if ((nameCount.get(c.dest) || 0) > 1) continue; // nama tujuan ambigu → skip
-                // Uplink D membawa core ini (yg sudah punya tujuan).
-                addSeg(D.id, D.id, i, c.dest);
-                const E = nodeByName.get(c.dest);
-                if (!E || E.id === D.id) continue;
-                // Kumpulkan jalur E → atas sampai D; hanya warnai kalau E benar
-                // ada di subtree D (walk mencapai D), supaya tak salah cabang.
-                const pathIds = [];
-                const guard = new Set();
-                let N = E;
-                let reached = false;
-                while (N && !guard.has(N.id)) {
-                    if (N.id === D.id) { reached = true; break; }
-                    guard.add(N.id);
-                    pathIds.push(N.id);
-                    N = N.connectedToId ? deviceMap.get(N.connectedToId) : null;
-                }
-                if (reached) {
-                    for (const id of pathIds) addSeg(id, D.id, i, c.dest);
-                }
-            }
-        }
+        // Fiber core = model PER-HOP. Warna tiap ruas (garis child→parent)
+        // ditentukan LOKAL oleh fiberCores PARENT: core dengan dest = nama child
+        // ini. Bisa >1 core ke child yang sama → kabel belang (candy). Tidak ada
+        // propagasi multi-hop; kelanjutan core ditentukan lagi di ODP berikutnya.
 
         // 3.0 pass: Create lines for ALL indexed devices and enrich with port info
         const allDevices = [...nodes, ...pppoeNodesList];
@@ -1257,22 +1202,29 @@ const NetworkMap = ({
                     }
                 }
 
-                // Warna garis dari core yang LEWAT ruas ini (uplink node). Hasil
-                // propagasi multi-hop di pass 2.95: 1 core → solid, >1 → belang.
+                // Warna garis ruas ini (PER-HOP): ambil dari fiberCores PARENT —
+                // core yang dest-nya = nama node ini. 1 core → solid, >1 core ke
+                // node yg sama → belang (candy). Kelanjutan core diatur lagi di
+                // node ini (fiberCores-nya) untuk ruas berikutnya.
                 let coreColorHex;
                 let coreIndex;
                 let coreName;
                 let lineCores; // [{ i, hex, dest }] saat >1 core (candy stripe)
-                const segMap = segCores.get(node.id);
-                if (segMap && segMap.size > 0) {
-                    const entries = [...segMap.values()].sort((a, b) => a.i - b.i);
-                    if (entries.length === 1) {
-                        const col = coreColor(entries[0].i);
-                        coreColorHex = col.hex;
-                        coreIndex = entries[0].i;
-                        coreName = col.name;
-                    } else {
-                        lineCores = entries.map((e) => ({ i: e.i, hex: coreColor(e.i).hex, dest: e.dest }));
+                const coreParent = node.connectedToId ? deviceMap.get(node.connectedToId) : null;
+                if (coreParent) {
+                    const pfc = parseJsonSafe(coreParent.fiberCores, null);
+                    if (pfc && Array.isArray(pfc.cores)) {
+                        const mine = pfc.cores
+                            .filter((c) => c.dest && (c.dest === node.name || c.dest === node.host))
+                            .sort((a, b) => Number(a.i) - Number(b.i));
+                        if (mine.length === 1) {
+                            const col = coreColor(mine[0].i);
+                            coreColorHex = col.hex;
+                            coreIndex = mine[0].i;
+                            coreName = col.name;
+                        } else if (mine.length >= 2) {
+                            lineCores = mine.map((c) => ({ i: c.i, hex: coreColor(c.i).hex, dest: c.dest }));
+                        }
                     }
                 }
 

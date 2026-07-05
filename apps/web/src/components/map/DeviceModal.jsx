@@ -287,36 +287,24 @@ const DeviceModal = ({
         }
     }, [formData.connectionType, routers, devices, device]);
 
-    // Opsi tujuan core = SEMUA device di HILIR device ini (anak, cucu, cicit —
-    // via connectedToId), bukan cuma anak langsung. Endpoint boleh beberapa
-    // lompatan; warna core nanti melukis seluruh jalur dari kabel sampai endpoint.
+    // Opsi tujuan core (model PER-HOP) = HANYA anak langsung (device berikutnya,
+    // 1 lompatan) — connectedToId === device.id. Kelanjutan core diatur lagi di
+    // device tujuan itu untuk ruas berikutnya. Kabel 2-core = assign 2 core ke
+    // anak yang sama.
     const coreDestOptions = useMemo(() => {
         if (!device?.id) return [];
-        // Index anak per parent → telusuri subtree.
-        const childrenBy = new Map();
-        for (const d of devices) {
-            if (!d.connectedToId) continue;
-            if (!childrenBy.has(d.connectedToId)) childrenBy.set(d.connectedToId, []);
-            childrenBy.get(d.connectedToId).push(d);
-        }
         const opts = [];
         const seen = new Set();
-        const visited = new Set();
-        const stack = [...(childrenBy.get(device.id) || [])];
-        while (stack.length) {
-            const d = stack.pop();
-            if (visited.has(d.id)) continue; // cycle guard
-            visited.add(d.id);
+        for (const d of devices) {
+            if (d.connectedToId !== device.id) continue; // hanya anak langsung
             const nm = d.name || d.host || d.id;
-            if (!seen.has(nm)) {
-                seen.add(nm);
-                const t = d.deviceType || d.type;
-                opts.push({ value: nm, label: t ? `${nm} (${t})` : nm });
-            }
-            for (const ch of (childrenBy.get(d.id) || [])) stack.push(ch);
+            if (seen.has(nm)) continue;
+            seen.add(nm);
+            const t = d.deviceType || d.type;
+            opts.push({ value: nm, label: t ? `${nm} (${t})` : nm });
         }
-        // Pertahankan tujuan yang SUDAH tersimpan walau device-nya kini tak
-        // terhubung di bawah sini (mis. sudah dilepas) — supaya nilainya tetap
+        // Pertahankan tujuan yang SUDAH tersimpan walau device-nya kini bukan
+        // anak langsung (mis. sudah dilepas/pindah) — supaya nilainya tetap
         // terlihat di dropdown & tidak terhapus diam-diam saat Save.
         if (fiber && Array.isArray(fiber.cores)) {
             for (const c of fiber.cores) {
