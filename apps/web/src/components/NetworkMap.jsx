@@ -1216,9 +1216,12 @@ const NetworkMap = ({
             }
 
             // 3. FALLBACK: Connect to Main Router if no parent found — KECUALI
-            // device sengaja dilepas: pilih "Through Another Client" tapi client
-            // dikosongkan → jangan gambar garis ke router (garis benar-benar hilang).
-            const detached = node.connectionType === 'client' && !node.connectedToId;
+            // device bertipe "Through Another Client". Device 'client' HARUS
+            // nyambung ke client (branch 1). Kalau parent-nya tak ke-resolve
+            // (kosong / nunjuk router / id yatim) = sengaja dilepas → JANGAN
+            // fallback ke router; garis benar-benar hilang. (Fallback router
+            // hanya untuk device "Direct to Router".)
+            const detached = node.connectionType === 'client';
             if (!fromPos && !detached && node.routerId) {
                 const parentRouter = routerMap.get(node.routerId);
                 if (parentRouter) {
