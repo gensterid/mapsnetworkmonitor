@@ -301,13 +301,11 @@ const NetworkMap = ({
     const [showCables, setShowCables] = useState(() => {
         try { const s = localStorage.getItem('map_show_cables'); return s === null ? true : JSON.parse(s); } catch { return true; }
     });
-    const toggleShowCables = useCallback(() => {
-        setShowCables((v) => {
-            const nv = !v;
-            try { localStorage.setItem('map_show_cables', JSON.stringify(nv)); } catch { /* ignore */ }
-            return nv;
-        });
-    }, []);
+    const toggleShowCables = useCallback(() => setShowCables((v) => !v), []);
+    // Persist di effect (updater state harus murni — hindari side-effect di dalamnya).
+    useEffect(() => {
+        try { localStorage.setItem('map_show_cables', JSON.stringify(showCables)); } catch { /* ignore */ }
+    }, [showCables]);
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
