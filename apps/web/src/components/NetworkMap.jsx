@@ -297,6 +297,17 @@ const NetworkMap = ({
     // Ref selalu-terkini (dibaca handler garis/marker yang di-memo) untuk cegah
     // mode lain (ukur/edit device) dibuka saat sedang edit kabel.
     const editingCableRef = React.useRef(null);
+    // Toggle layer kabel (C4) — persist ke localStorage.
+    const [showCables, setShowCables] = useState(() => {
+        try { const s = localStorage.getItem('map_show_cables'); return s === null ? true : JSON.parse(s); } catch { return true; }
+    });
+    const toggleShowCables = useCallback(() => {
+        setShowCables((v) => {
+            const nv = !v;
+            try { localStorage.setItem('map_show_cables', JSON.stringify(nv)); } catch { /* ignore */ }
+            return nv;
+        });
+    }, []);
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
@@ -1439,7 +1450,7 @@ const NetworkMap = ({
             fromDeviceId: first.deviceId,
             toDeviceId: last.deviceId,
         }, {
-            onSuccess: () => { setIsDrawingCable(false); setDrawCablePath([]); },
+            onSuccess: () => { setIsDrawingCable(false); setDrawCablePath([]); setShowCables(true); },
         });
     }, [drawCablePath, drawCableCores, drawCableName, filteredRouterId, snapToMarker, createCableMutation]);
 
@@ -2448,8 +2459,9 @@ const NetworkMap = ({
                         })}
 
                         {/* Fiber cables (Cara C) — objek kabel digambar bebas, dirender
-                            belang N-core. Independen dari device-tree. Klik → popup info. */}
-                        {!isEditingPath && cableSegments.map((cable) => {
+                            belang N-core. Independen dari device-tree. Klik → popup info.
+                            Layer bisa disembunyikan lewat toggle (C4). */}
+                        {!isEditingPath && showCables && cableSegments.map((cable) => {
                             if (editingCable && editingCable.id === cable.id) return null; // sedang diedit → EditablePath
                             const N = cable.cores.length;
                             return (
@@ -2762,17 +2774,31 @@ const NetworkMap = ({
                         onConfirm={handleDeleteConfirmed}
                     />
 
-                    {/* Tombol mulai gambar kabel (C2) */}
+                    {/* Cluster kabel kiri-bawah (C2 gambar + C4 toggle layer) */}
                     {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && !isPickingCoordinate && !editingCable && (
-                        <button
-                            type="button"
-                            onClick={startDrawCable}
-                            title="Gambar kabel fiber di peta (Cara C)"
-                            style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 1100, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(148,163,184,0.35)', borderRadius: 10, padding: '8px 12px', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}
-                        >
-                            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#a78bfa' }}>cable</span>
-                            Gambar Kabel
-                        </button>
+                        <div style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 1100, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button
+                                type="button"
+                                onClick={startDrawCable}
+                                title="Gambar kabel fiber di peta (Cara C)"
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(148,163,184,0.35)', borderRadius: 10, padding: '8px 12px', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}
+                            >
+                                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#a78bfa' }}>cable</span>
+                                Gambar Kabel
+                            </button>
+                            {cableSegments.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={toggleShowCables}
+                                    aria-pressed={showCables}
+                                    title={showCables ? 'Sembunyikan layer kabel' : 'Tampilkan layer kabel'}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,0.95)', border: `1px solid ${showCables ? 'rgba(167,139,250,0.5)' : 'rgba(148,163,184,0.35)'}`, borderRadius: 10, padding: '8px 12px', color: showCables ? '#e2e8f0' : '#94a3b8', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>{showCables ? 'visibility' : 'visibility_off'}</span>
+                                    Kabel ({cableSegments.length})
+                                </button>
+                            )}
+                        </div>
                     )}
 
                     {/* Panel gambar kabel (C2) */}

@@ -62,7 +62,7 @@
 | 14 | Netwatch sync auto-cleanup + topology orphan handler | ✅ | Phase 15 selesai |
 | 15 | Linkage hardening (strict mode untuk router tanpa OLT) | ✅ | Phase 16 selesai |
 | 16 | Map: penanda jarak di garis (cek jalur putus) + fiber core coloring PER-HOP | ✅ | Panel ukur + core warna per ruas (`32d719f`) |
-| 17 | Map: fiber cable segments (trunk multi-core drawable, core fleksibel) | 🔵 | Rancangan [Cara C](FIBER-CABLE-DESIGN.md) — objek kabel digambar bebas + centang core. ~2.5 hari |
+| 17 | Map: fiber cable segments (trunk multi-core drawable, core fleksibel) | ✅ | [Cara C](FIBER-CABLE-DESIGN.md) C1-C4: skema+API, gambar+snap, edit/hapus, toggle layer. Objek kabel digambar bebas + belang N-core |
 
 ---
 
@@ -151,6 +151,11 @@
 | 26.v3 | Phase 26 v3 — also require DB has_webhook=true for skip | `e5b784e` |
 | 27 | Granular 3-mode delete dialog for non-ONU netwatch markers | `2629bc0` |
 | 26.v4 | Preserve has_webhook on skip path (fix flip-flop loop) | `eb43f16` |
+| Map-1 | Penanda jarak di garis + fiber core coloring PER-HOP | `32d719f` |
+| C1 | Fiber cable: skema fiber_cables + API CRUD + render belang | `5e1d084` / `2eea0b3` |
+| C2 | Fiber cable: UI gambar kabel + pilih core + snap device | `8430d65` / `bbfe5fc` |
+| C3 | Fiber cable: edit jalur + ubah core/nama + hapus | `2c99a19` / `29779d8` |
+| C4 | Fiber cable: toggle layer "Kabel" + poles | (this commit) |
 
 ---
 
