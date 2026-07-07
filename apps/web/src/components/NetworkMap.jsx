@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
-import { useCables } from '@/hooks/useCables';
+import { useCables, useCreateCable } from '@/hooks/useCables';
 import { mapToStatus, STATUS } from '@/constants/status';
 import { AlertPanel, RouterDetailPanel, NetwatchDetailPanel } from '@/components/panels';
 import '@/lib/GoogleMutant';
@@ -103,8 +103,8 @@ import './map/map.css';
 // Marker Cluster CSS
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
-import { calculatePathLength, formatDistance, pointAlongPath } from '@/lib/geo';
-import { coreColor } from '@/lib/fiberColors';
+import { calculatePathLength, formatDistance, pointAlongPath, calculateDistance } from '@/lib/geo';
+import { coreColor, FIBER_COLORS } from '@/lib/fiberColors';
 
 // Parse JSON aman — string malformed tidak boleh bikin build mapData crash.
 function parseJsonSafe(v, fallback) {
@@ -276,6 +276,13 @@ const NetworkMap = ({
             return { id: cable.id, name: cable.name, path, cores, length: calculatePathLength(path) };
         }).filter(Boolean);
     }, [cables]);
+
+    // Draw-kabel (C2): mode gambar polyline + pilih core → simpan.
+    const createCableMutation = useCreateCable();
+    const [isDrawingCable, setIsDrawingCable] = useState(false);
+    const [drawCablePath, setDrawCablePath] = useState([]); // [[lat,lng], …]
+    const [drawCableName, setDrawCableName] = useState('');
+    const [drawCableCores, setDrawCableCores] = useState([1, 2]); // index core aktif
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
@@ -1345,6 +1352,64 @@ const NetworkMap = ({
         handleDeviceClick(dev, type, 'settings');
     }, [allMarkers, closeMeasure, handleDeviceClick]);
 
+    // === Draw kabel (C2) ===
+    // Snap titik gambar ke marker device terdekat (≤30m) supaya ujung kabel pas
+    // di device + bisa rekam from/to device id.
+    const snapToMarker = useCallback((pos) => {
+        let best = null;
+        let bestD = Infinity;
+        for (const m of allMarkers) {
+            if (!Number.isFinite(m.lat) || !Number.isFinite(m.lng)) continue;
+            const d = calculateDistance(pos[0], pos[1], m.lat, m.lng);
+            if (d < bestD) { bestD = d; best = m; }
+        }
+        if (best && bestD <= 30) return { pos: [best.lat, best.lng], deviceId: best.id };
+        return { pos, deviceId: null };
+    }, [allMarkers]);
+
+    const startDrawCable = useCallback(() => {
+        setActivePanel(null);
+        setMeasureLine(null);
+        setIsDrawingCable(true);
+        setDrawCablePath([]);
+        setDrawCableName('');
+        setDrawCableCores([1, 2]);
+    }, []);
+
+    const handleDrawCableClick = useCallback((pos) => {
+        setDrawCablePath((prev) => [...prev, snapToMarker(pos).pos]);
+    }, [snapToMarker]);
+
+    const undoDrawPoint = useCallback(() => setDrawCablePath((prev) => prev.slice(0, -1)), []);
+
+    const cancelDrawCable = useCallback(() => {
+        setIsDrawingCable(false);
+        setDrawCablePath([]);
+    }, []);
+
+    const toggleDrawCore = useCallback((i) => {
+        setDrawCableCores((prev) => (prev.includes(i)
+            ? prev.filter((x) => x !== i)
+            : [...prev, i].sort((a, b) => a - b)));
+    }, []);
+
+    const saveDrawCable = useCallback(() => {
+        if (drawCablePath.length < 2) { toast.error('Kabel butuh minimal 2 titik'); return; }
+        if (drawCableCores.length === 0) { toast.error('Pilih minimal 1 core'); return; }
+        const first = snapToMarker(drawCablePath[0]);
+        const last = snapToMarker(drawCablePath[drawCablePath.length - 1]);
+        createCableMutation.mutate({
+            name: drawCableName.trim() || null,
+            routerId: filteredRouterId || null,
+            path: drawCablePath,
+            cores: drawCableCores,
+            fromDeviceId: first.deviceId,
+            toDeviceId: last.deviceId,
+        }, {
+            onSuccess: () => { setIsDrawingCable(false); setDrawCablePath([]); },
+        });
+    }, [drawCablePath, drawCableCores, drawCableName, filteredRouterId, snapToMarker, createCableMutation]);
+
     // Tombol "Edit Source/Destination" di dalam popup garis (HTML string Leaflet)
     // memancarkan CustomEvent 'map-edit-device' → tangkap di sini. Pakai ref agar
     // listener terdaftar sekali tapi selalu panggil handler terbaru.
@@ -2227,8 +2292,8 @@ const NetworkMap = ({
                     >
                         <MapZoomHandler onZoomChange={setZoomLevel} />
                         <MapClickHandler
-                            enabled={!!selectedUnplacedDevice || isPickingCoordinate}
-                            onMapClick={isPickingCoordinate ? handlePickCoordinate : handleQuickPlaceClick}
+                            enabled={!!selectedUnplacedDevice || isPickingCoordinate || isDrawingCable}
+                            onMapClick={isDrawingCable ? handleDrawCableClick : (isPickingCoordinate ? handlePickCoordinate : handleQuickPlaceClick)}
                         />
                         <MeasurePanelCloser stateRef={measureStateRef} onClose={closeMeasure} />
                         <MapAutoFit markers={allMarkers} isEditing={isEditMode || isEditingPath} />
@@ -2338,6 +2403,34 @@ const NetworkMap = ({
                                 </React.Fragment>
                             );
                         })}
+
+                        {/* Preview LIVE saat menggambar kabel (C2): garis belang core
+                            terpilih + titik vertex. */}
+                        {isDrawingCable && drawCablePath.length >= 2 && (
+                            (drawCableCores.length ? drawCableCores : [0]).map((c, idx) => (
+                                <Polyline
+                                    key={`draw-core-${idx}`}
+                                    positions={drawCablePath}
+                                    interactive={false}
+                                    pathOptions={{
+                                        color: c ? coreColor(c).hex : '#22d3ee',
+                                        weight: 4,
+                                        opacity: 0.9,
+                                        lineCap: 'butt',
+                                        ...candyDashProps(idx, drawCableCores.length || 1),
+                                    }}
+                                />
+                            ))
+                        )}
+                        {isDrawingCable && drawCablePath.map((p, i) => (
+                            <CircleMarker
+                                key={`draw-pt-${i}`}
+                                center={p}
+                                radius={5}
+                                pane="markerPane"
+                                pathOptions={{ color: '#fff', weight: 2, fillColor: '#06b6d4', fillOpacity: 1 }}
+                            />
+                        ))}
 
                         {/* Titik ukur LIVE (cek jalur putus) — ikut input meter */}
                         {!isEditingPath && measurePoint && (
@@ -2563,6 +2656,69 @@ const NetworkMap = ({
                         onClose={() => setDeleteDialog({ isOpen: false, node: null })}
                         onConfirm={handleDeleteConfirmed}
                     />
+
+                    {/* Tombol mulai gambar kabel (C2) */}
+                    {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && (
+                        <button
+                            onClick={startDrawCable}
+                            title="Gambar kabel fiber di peta (Cara C)"
+                            style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 1100, display: 'flex', alignItems: 'center', gap: 6, background: 'rgba(15,23,42,0.95)', border: '1px solid rgba(148,163,184,0.35)', borderRadius: 10, padding: '8px 12px', color: '#e2e8f0', fontSize: 12, fontWeight: 700, cursor: 'pointer', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}
+                        >
+                            <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#a78bfa' }}>cable</span>
+                            Gambar Kabel
+                        </button>
+                    )}
+
+                    {/* Panel gambar kabel (C2) */}
+                    {isDrawingCable && (
+                        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1200, width: 440, maxWidth: '94vw', background: 'rgba(15,23,42,0.97)', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.55)', padding: 14, color: '#e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#a78bfa' }}>cable</span>
+                                    Gambar Kabel · {drawCablePath.length} titik
+                                </div>
+                                <button onClick={cancelDrawCable} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }} title="Batal">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                                </button>
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                                Klik di peta untuk menambah titik jalur (klik dekat marker → nempel ke device). Pilih core yang dibawa, lalu Simpan.
+                            </div>
+                            <input
+                                type="text" placeholder="Nama kabel (opsional, mis. Trunk PUSAT-ADY)"
+                                value={drawCableName} onChange={(e) => setDrawCableName(e.target.value)}
+                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12, marginBottom: 10 }}
+                            />
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Core yang dibawa ({drawCableCores.length}):</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                                {FIBER_COLORS.map((fc, idx) => {
+                                    const i = idx + 1;
+                                    const active = drawCableCores.includes(i);
+                                    return (
+                                        <button
+                                            key={i} onClick={() => toggleDrawCore(i)} title={`Core ${i} · ${fc.name}`}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 6, cursor: 'pointer', background: active ? 'rgba(255,255,255,0.1)' : 'transparent', border: active ? '1px solid rgba(148,163,184,0.5)' : '1px solid rgba(148,163,184,0.2)', color: active ? '#e2e8f0' : '#94a3b8', fontSize: 11 }}
+                                        >
+                                            <span style={{ width: 12, height: 12, borderRadius: 3, background: fc.hex, border: '1px solid rgba(255,255,255,0.4)' }} />
+                                            C{i}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button onClick={undoDrawPoint} disabled={!drawCablePath.length} style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '7px 8px', color: drawCablePath.length ? '#e2e8f0' : '#475569', fontSize: 12, cursor: drawCablePath.length ? 'pointer' : 'not-allowed' }}>Undo titik</button>
+                                <button onClick={cancelDrawCable} style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '7px 8px', color: '#e2e8f0', fontSize: 12, cursor: 'pointer' }}>Batal</button>
+                                <button
+                                    onClick={saveDrawCable}
+                                    disabled={drawCablePath.length < 2 || !drawCableCores.length || createCableMutation.isPending}
+                                    style={{ flex: 1.4, background: (drawCablePath.length >= 2 && drawCableCores.length) ? '#06b6d4' : 'rgba(6,182,212,0.35)', color: '#04121a', fontWeight: 800, border: 'none', borderRadius: 6, padding: '7px 8px', cursor: (drawCablePath.length >= 2 && drawCableCores.length) ? 'pointer' : 'not-allowed', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>save</span>
+                                    {createCableMutation.isPending ? 'Menyimpan…' : 'Simpan'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* Panel Ukur Jarak (cek jalur putus) — muncul saat garis diklik */}
                     {measureLine && (
