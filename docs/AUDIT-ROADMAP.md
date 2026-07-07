@@ -1,6 +1,6 @@
 # Audit & Roadmap — Maps Network Monitor
 
-**Last reviewed:** 2026-05-24
+**Last reviewed:** 2026-07-05
 **Mode:** Living document — update saat fitur selesai/diubah.
 
 ## Legenda Status
@@ -61,6 +61,8 @@
 | 13 | Theme aware toggle untuk semua tema | ✅ | Phase 12 selesai |
 | 14 | Netwatch sync auto-cleanup + topology orphan handler | ✅ | Phase 15 selesai |
 | 15 | Linkage hardening (strict mode untuk router tanpa OLT) | ✅ | Phase 16 selesai |
+| 16 | Map: penanda jarak di garis (cek jalur putus) + fiber core coloring PER-HOP | ✅ | Panel ukur + core warna per ruas (`32d719f`) |
+| 17 | Map: fiber cable segments (trunk multi-core drawable, core fleksibel) | 🔵 | Rancangan [Cara C](FIBER-CABLE-DESIGN.md) — objek kabel digambar bebas + centang core. ~2.5 hari |
 
 ---
 
