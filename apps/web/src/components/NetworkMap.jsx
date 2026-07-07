@@ -294,6 +294,9 @@ const NetworkMap = ({
     const [editCableWaypoints, setEditCableWaypoints] = useState([]);
     const [editCableName, setEditCableName] = useState('');
     const [editCableCores, setEditCableCores] = useState([]);
+    // Ref selalu-terkini (dibaca handler garis/marker yang di-memo) untuk cegah
+    // mode lain (ukur/edit device) dibuka saat sedang edit kabel.
+    const editingCableRef = React.useRef(null);
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
@@ -440,9 +443,9 @@ const NetworkMap = ({
 
     // Klik garis → buka panel ukur jarak (cek putus). Default meter = 0.
     const handleLineMeasure = useCallback((line) => {
-        // Saat gambar kabel: jangan buka panel ukur (klik-nya bubble ke map →
-        // MapClickHandler yang menambah titik jalur pada posisi klik).
-        if (isDrawingCableRef.current) return;
+        // Saat gambar/edit kabel: jangan buka panel ukur (klik gambar bubble ke
+        // map → MapClickHandler yang menambah titik pada posisi klik).
+        if (isDrawingCableRef.current || editingCableRef.current) return;
         measureStateRef.current = { active: true, openedAt: Date.now() };
         setMeasureLine(line);
         setMeasureMeters(0);
@@ -1354,6 +1357,7 @@ const NetworkMap = ({
     // Handlers
     const handleDeviceClick = useCallback((device, type, initialTab = 'settings') => {
         if (isDrawingCableRef.current) { drawPointFromDevice(device); return; }
+        if (editingCableRef.current) return; // sedang edit kabel → jangan buka modal
         setSelectedDevice({ ...device, type });
         setModalInitialTab(initialTab);
         setIsModalOpen(true);
@@ -1407,6 +1411,7 @@ const NetworkMap = ({
     // Sinkron ref (dibaca handler marker/garis yang di-memo).
     useEffect(() => { isDrawingCableRef.current = isDrawingCable; }, [isDrawingCable]);
     useEffect(() => { addDrawPointRef.current = handleDrawCableClick; }, [handleDrawCableClick]);
+    useEffect(() => { editingCableRef.current = editingCable; }, [editingCable]);
 
     const undoDrawPoint = useCallback(() => setDrawCablePath((prev) => prev.slice(0, -1)), []);
 
@@ -1455,6 +1460,8 @@ const NetworkMap = ({
     const cancelEditCable = useCallback(() => {
         setEditingCable(null);
         setEditCableWaypoints([]);
+        setEditCableName('');
+        setEditCableCores([]);
     }, []);
 
     const toggleEditCore = useCallback((i) => {
@@ -1471,9 +1478,9 @@ const NetworkMap = ({
             id: editingCable.id,
             data: { name: editCableName.trim() || null, cores: editCableCores, path },
         }, {
-            onSuccess: () => { setEditingCable(null); setEditCableWaypoints([]); },
+            onSuccess: () => cancelEditCable(),
         });
-    }, [editingCable, editCableWaypoints, editCableName, editCableCores, updateCableMutation]);
+    }, [editingCable, editCableWaypoints, editCableName, editCableCores, updateCableMutation, cancelEditCable]);
 
     const deleteCable = useCallback((id, name) => {
         if (!id) return;
@@ -1511,6 +1518,7 @@ const NetworkMap = ({
      */
     const handleQuickView = useCallback((device, type) => {
         if (isDrawingCableRef.current) { drawPointFromDevice(device); return; }
+        if (editingCableRef.current) return; // sedang edit kabel → jangan buka panel
         if (type !== 'router' && type !== 'netwatch') return;
         // Stamp deviceType ke device supaya handleQuickViewEditFull bisa derive
         // type konsisten dari data (per H1 fix — tidak depend ke activePanel state).
@@ -2462,7 +2470,7 @@ const NetworkMap = ({
                                                     <button type="button" onClick={() => startEditCable(cable)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#1e293b', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span> Edit
                                                     </button>
-                                                    <button type="button" onClick={() => deleteCable(cable.id, cable.name)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(127,29,29,0.4)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                    <button type="button" onClick={() => deleteCable(cable.id, cable.name)} disabled={deleteCableMutation.isPending} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(127,29,29,0.4)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: deleteCableMutation.isPending ? 'not-allowed' : 'pointer' }}>
                                                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span> Hapus
                                                     </button>
                                                 </div>
@@ -2856,7 +2864,7 @@ const NetworkMap = ({
                                 })}
                             </div>
                             <div style={{ display: 'flex', gap: 8 }}>
-                                <button type="button" onClick={() => deleteCable(editingCable.id, editCableName)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(127,29,29,0.4)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                                <button type="button" onClick={() => deleteCable(editingCable.id, editCableName)} disabled={deleteCableMutation.isPending} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(127,29,29,0.4)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 600, cursor: deleteCableMutation.isPending ? 'not-allowed' : 'pointer' }}>
                                     <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete</span> Hapus
                                 </button>
                                 <button type="button" onClick={cancelEditCable} style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '7px 8px', color: '#e2e8f0', fontSize: 12, cursor: 'pointer' }}>Batal</button>
