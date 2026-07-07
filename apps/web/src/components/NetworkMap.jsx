@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
+import { useCables } from '@/hooks/useCables';
 import { mapToStatus, STATUS } from '@/constants/status';
 import { AlertPanel, RouterDetailPanel, NetwatchDetailPanel } from '@/components/panels';
 import '@/lib/GoogleMutant';
@@ -251,6 +252,8 @@ const NetworkMap = ({
 
     // Unread alert count untuk FloatingStatusCounter.
     const { data: alertCount } = useUnreadAlertCount();
+    // Fiber cables (Cara C) — objek kabel digambar bebas, dirender belang N-core.
+    const { data: cables = [] } = useCables(filteredRouterId || undefined);
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
@@ -2275,6 +2278,52 @@ const NetworkMap = ({
                                     }}
                                 />
                             ));
+                        })}
+
+                        {/* Fiber cables (Cara C) — objek kabel digambar bebas, dirender
+                            belang N-core. Independen dari device-tree. Klik → popup info. */}
+                        {!isEditingPath && Array.isArray(cables) && cables.map((cable) => {
+                            const path = Array.isArray(cable.path) ? cable.path : [];
+                            const cores = Array.isArray(cable.cores)
+                                ? cable.cores.filter((c) => Number.isFinite(Number(c)))
+                                : [];
+                            if (path.length < 2 || cores.length === 0) return null;
+                            const N = cores.length;
+                            const seg = 10;
+                            return (
+                                <React.Fragment key={`cable-${cable.id}`}>
+                                    {/* hitbox transparan (lebar) untuk klik + popup */}
+                                    <Polyline positions={path} pathOptions={{ color: '#000', weight: 12, opacity: 0 }}>
+                                        <Popup>
+                                            <div style={{ minWidth: 160 }}>
+                                                <div style={{ fontWeight: 700, marginBottom: 6 }}>{cable.name || 'Kabel'}</div>
+                                                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
+                                                    {cores.map((c) => (
+                                                        <span key={c} title={`Core ${c} · ${coreColor(c).name}`} style={{ width: 12, height: 12, borderRadius: 3, background: coreColor(c).hex, border: '1px solid rgba(255,255,255,0.4)', display: 'inline-block' }} />
+                                                    ))}
+                                                    <span style={{ fontSize: 11, color: '#64748b', marginLeft: 2 }}>{N} core</span>
+                                                </div>
+                                                <div style={{ fontSize: 11, color: '#64748b' }}>{formatDistance(calculatePathLength(path))}</div>
+                                            </div>
+                                        </Popup>
+                                    </Polyline>
+                                    {cores.map((c, idx) => (
+                                        <Polyline
+                                            key={`cable-${cable.id}-core-${idx}`}
+                                            positions={path}
+                                            interactive={false}
+                                            pathOptions={{
+                                                color: coreColor(c).hex,
+                                                weight: 4,
+                                                opacity: 0.95,
+                                                lineCap: 'butt',
+                                                dashArray: N > 1 ? `${seg} ${seg * (N - 1)}` : undefined,
+                                                dashOffset: N > 1 ? `${idx * seg}` : undefined,
+                                            }}
+                                        />
+                                    ))}
+                                </React.Fragment>
+                            );
                         })}
 
                         {/* Titik ukur LIVE (cek jalur putus) — ikut input meter */}

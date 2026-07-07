@@ -23,3 +23,4 @@ export * from './mikhmon.js';
 export * from './netwatch-history.js';
 export * from './vpn-servers.js';
 export * from './system-settings.js';
+export * from './cables.js';

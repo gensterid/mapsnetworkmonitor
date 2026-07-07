@@ -407,6 +407,13 @@
       "when": 1781900000000,
       "tag": "0057_map_line_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1782000000000,
+      "tag": "0058_fiber_cables",
+      "breakpoints": true
     }
   ]
 }

@@ -28,6 +28,7 @@ import vpnServerRoutes from './vpn-server.routes.js';
 import searchRoutes from './search.routes.js';
 import customer360Routes from './customer-360.routes.js';
 import backupRoutes from './backup.routes.js';
+import cableRoutes from './cable.routes.js';
 
 const router = Router();
 
@@ -70,6 +71,7 @@ router.use('/superadmin/vpn-servers', vpnServerRoutes);
 router.use('/search', searchRoutes);
 router.use('/customers', customer360Routes);
 router.use('/backup', backupRoutes);
+router.use('/cables', cableRoutes);
 
 export default router;
 
