@@ -6,7 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { useSettings, useCurrentUser, usePingLatencies, useRouterHotspotActive, useRouterPppActive, useAppTimezone, useUnreadAlertCount } from '@/hooks';
-import { useCables, useCreateCable } from '@/hooks/useCables';
+import { useCables, useCreateCable, useUpdateCable, useDeleteCable } from '@/hooks/useCables';
 import { mapToStatus, STATUS } from '@/constants/status';
 import { AlertPanel, RouterDetailPanel, NetwatchDetailPanel } from '@/components/panels';
 import '@/lib/GoogleMutant';
@@ -287,6 +287,13 @@ const NetworkMap = ({
     // saat isDrawingCable toggle) tetap tahu mode gambar aktif + bisa nambah titik.
     const isDrawingCableRef = React.useRef(false);
     const addDrawPointRef = React.useRef(null);
+    // Edit/hapus kabel (C3).
+    const updateCableMutation = useUpdateCable();
+    const deleteCableMutation = useDeleteCable();
+    const [editingCable, setEditingCable] = useState(null); // { id, from, to }
+    const [editCableWaypoints, setEditCableWaypoints] = useState([]);
+    const [editCableName, setEditCableName] = useState('');
+    const [editCableCores, setEditCableCores] = useState([]);
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
@@ -1431,6 +1438,51 @@ const NetworkMap = ({
         });
     }, [drawCablePath, drawCableCores, drawCableName, filteredRouterId, snapToMarker, createCableMutation]);
 
+    // === Edit / hapus kabel (C3) ===
+    // Edit jalur pakai EditablePath: ujung (from/to) tetap, waypoint tengah bisa
+    // digeser/tambah/hapus. Ganti nama & core lewat panel.
+    const startEditCable = useCallback((cable) => {
+        const path = Array.isArray(cable.path) ? cable.path : [];
+        if (path.length < 2) return;
+        setIsDrawingCable(false);
+        setMeasureLine(null);
+        setEditingCable({ id: cable.id, from: path[0], to: path[path.length - 1] });
+        setEditCableWaypoints(path.slice(1, -1));
+        setEditCableName(cable.name || '');
+        setEditCableCores(Array.isArray(cable.cores) ? cable.cores.filter((c) => Number.isFinite(Number(c))) : []);
+    }, []);
+
+    const cancelEditCable = useCallback(() => {
+        setEditingCable(null);
+        setEditCableWaypoints([]);
+    }, []);
+
+    const toggleEditCore = useCallback((i) => {
+        setEditCableCores((prev) => (prev.includes(i)
+            ? prev.filter((x) => x !== i)
+            : [...prev, i].sort((a, b) => a - b)));
+    }, []);
+
+    const saveEditCable = useCallback(() => {
+        if (!editingCable) return;
+        if (!editCableCores.length) { toast.error('Pilih minimal 1 core'); return; }
+        const path = [editingCable.from, ...editCableWaypoints, editingCable.to];
+        updateCableMutation.mutate({
+            id: editingCable.id,
+            data: { name: editCableName.trim() || null, cores: editCableCores, path },
+        }, {
+            onSuccess: () => { setEditingCable(null); setEditCableWaypoints([]); },
+        });
+    }, [editingCable, editCableWaypoints, editCableName, editCableCores, updateCableMutation]);
+
+    const deleteCable = useCallback((id, name) => {
+        if (!id) return;
+        if (!window.confirm(`Hapus kabel "${name || 'tanpa nama'}"? Tindakan ini tak bisa dibatalkan.`)) return;
+        deleteCableMutation.mutate(id, {
+            onSuccess: () => { setEditingCable((prev) => (prev?.id === id ? null : prev)); },
+        });
+    }, [deleteCableMutation]);
+
     // Tombol "Edit Source/Destination" di dalam popup garis (HTML string Leaflet)
     // memancarkan CustomEvent 'map-edit-device' → tangkap di sini. Pakai ref agar
     // listener terdaftar sekali tapi selalu panggil handler terbaru.
@@ -2390,13 +2442,14 @@ const NetworkMap = ({
                         {/* Fiber cables (Cara C) — objek kabel digambar bebas, dirender
                             belang N-core. Independen dari device-tree. Klik → popup info. */}
                         {!isEditingPath && cableSegments.map((cable) => {
+                            if (editingCable && editingCable.id === cable.id) return null; // sedang diedit → EditablePath
                             const N = cable.cores.length;
                             return (
                                 <React.Fragment key={`cable-${cable.id}`}>
                                     {/* hitbox transparan (lebar) untuk klik + popup */}
                                     <Polyline positions={cable.path} pathOptions={{ color: '#000', weight: 12, opacity: 0 }}>
                                         <Popup>
-                                            <div style={{ minWidth: 160 }}>
+                                            <div style={{ minWidth: 170 }}>
                                                 <div style={{ fontWeight: 700, marginBottom: 6 }}>{cable.name || 'Kabel'}</div>
                                                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
                                                     {cable.cores.map((c, i) => (
@@ -2404,7 +2457,15 @@ const NetworkMap = ({
                                                     ))}
                                                     <span style={{ fontSize: 11, color: '#64748b', marginLeft: 2 }}>{N} core</span>
                                                 </div>
-                                                <div style={{ fontSize: 11, color: '#64748b' }}>{formatDistance(cable.length)}</div>
+                                                <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>{formatDistance(cable.length)}</div>
+                                                <div style={{ display: 'flex', gap: 6 }}>
+                                                    <button type="button" onClick={() => startEditCable(cable)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#1e293b', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span> Edit
+                                                    </button>
+                                                    <button type="button" onClick={() => deleteCable(cable.id, cable.name)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(127,29,29,0.4)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>delete</span> Hapus
+                                                    </button>
+                                                </div>
                                             </div>
                                         </Popup>
                                     </Polyline>
@@ -2425,6 +2486,20 @@ const NetworkMap = ({
                                 </React.Fragment>
                             );
                         })}
+
+                        {/* Edit jalur kabel (C3): EditablePath — geser/tambah/hapus
+                            waypoint tengah (ujung tetap). Warna = core pertama. */}
+                        {editingCable && (
+                            <EditablePath
+                                fromPosition={editingCable.from}
+                                toPosition={editingCable.to}
+                                waypoints={editCableWaypoints}
+                                isEditing={true}
+                                color={editCableCores.length ? coreColor(editCableCores[0]).hex : '#22d3ee'}
+                                weight={4}
+                                onWaypointsChange={setEditCableWaypoints}
+                            />
+                        )}
 
                         {/* Preview LIVE saat menggambar kabel (C2): garis belang core
                             terpilih + titik vertex. */}
@@ -2680,7 +2755,7 @@ const NetworkMap = ({
                     />
 
                     {/* Tombol mulai gambar kabel (C2) */}
-                    {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && !isPickingCoordinate && (
+                    {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && !isPickingCoordinate && !editingCable && (
                         <button
                             type="button"
                             onClick={startDrawCable}
@@ -2739,6 +2814,60 @@ const NetworkMap = ({
                                 >
                                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>save</span>
                                     {createCableMutation.isPending ? 'Menyimpan…' : 'Simpan'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Panel edit kabel (C3) */}
+                    {editingCable && (
+                        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1200, width: 440, maxWidth: '94vw', background: 'rgba(15,23,42,0.97)', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.55)', padding: 14, color: '#e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#a78bfa' }}>edit</span>
+                                    Edit Kabel · {editCableWaypoints.length + 2} titik
+                                </div>
+                                <button type="button" onClick={cancelEditCable} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }} title="Batal">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                                </button>
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                                Geser titik untuk membelokkan jalur. Klik garis/titik-tengah untuk tambah titik; klik-kanan titik untuk hapus. Ujung kabel tetap.
+                            </div>
+                            <input
+                                type="text" aria-label="Nama kabel" placeholder="Nama kabel (opsional)"
+                                value={editCableName} onChange={(e) => setEditCableName(e.target.value)}
+                                style={{ width: '100%', boxSizing: 'border-box', background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12, marginBottom: 10 }}
+                            />
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6 }}>Core yang dibawa ({editCableCores.length}):</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                                {FIBER_COLORS.map((fc, idx) => {
+                                    const i = idx + 1;
+                                    const active = editCableCores.includes(i);
+                                    return (
+                                        <button
+                                            type="button" key={i} onClick={() => toggleEditCore(i)} aria-pressed={active} title={`Core ${i} · ${fc.name}`}
+                                            style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 8px', borderRadius: 6, cursor: 'pointer', background: active ? 'rgba(255,255,255,0.1)' : 'transparent', border: active ? '1px solid rgba(148,163,184,0.5)' : '1px solid rgba(148,163,184,0.2)', color: active ? '#e2e8f0' : '#94a3b8', fontSize: 11 }}
+                                        >
+                                            <span style={{ width: 12, height: 12, borderRadius: 3, background: fc.hex, border: '1px solid rgba(255,255,255,0.4)' }} />
+                                            C{i}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <button type="button" onClick={() => deleteCable(editingCable.id, editCableName)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: 'rgba(127,29,29,0.4)', color: '#fca5a5', border: '1px solid rgba(248,113,113,0.4)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 15 }}>delete</span> Hapus
+                                </button>
+                                <button type="button" onClick={cancelEditCable} style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '7px 8px', color: '#e2e8f0', fontSize: 12, cursor: 'pointer' }}>Batal</button>
+                                <button
+                                    type="button"
+                                    onClick={saveEditCable}
+                                    disabled={!editCableCores.length || updateCableMutation.isPending}
+                                    style={{ flex: 1.4, background: editCableCores.length ? '#06b6d4' : 'rgba(6,182,212,0.35)', color: '#04121a', fontWeight: 800, border: 'none', borderRadius: 6, padding: '7px 8px', cursor: editCableCores.length ? 'pointer' : 'not-allowed', fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}
+                                >
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>save</span>
+                                    {updateCableMutation.isPending ? 'Menyimpan…' : 'Simpan'}
                                 </button>
                             </div>
                         </div>
