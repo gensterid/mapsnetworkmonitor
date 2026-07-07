@@ -41,8 +41,11 @@ export class CableService {
     async getById(id: string, tenantId?: string) {
         const [c] = await db.select().from(fiberCables).where(eq(fiberCables.id, id));
         if (!c) return null;
-        // Tenant scoping — jangan bocorkan kabel milik tenant lain.
-        if (tenantId && c.tenantId && c.tenantId !== tenantId) return null;
+        // Tenant scoping — jangan bocorkan/ubah kabel milik tenant lain. Tanpa
+        // truthy-check pada c.tenantId: kabel NULL-tenant (mis. dibuat superadmin
+        // tanpa X-Tenant-Id) TIDAK boleh diakses caller ber-tenant. (sama pola
+        // topology.service; jangan tambah `&& c.tenantId` yang justru buka lubang.)
+        if (tenantId && c.tenantId !== tenantId) return null;
         return c;
     }
 

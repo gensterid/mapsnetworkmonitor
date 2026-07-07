@@ -113,6 +113,12 @@ function parseJsonSafe(v, fallback) {
     try { return JSON.parse(v); } catch { return fallback; }
 }
 
+// Properti dash untuk efek belang (candy stripe) N-core: tiap core = 1 polyline
+// dashed dengan offset beda → warna bergantian sepanjang garis. n<=1 → solid.
+const candyDashProps = (idx, n, seg = 10) => (n > 1
+    ? { dashArray: `${seg} ${seg * (n - 1)}`, dashOffset: `${idx * seg}` }
+    : {});
+
 
 
 
@@ -254,6 +260,22 @@ const NetworkMap = ({
     const { data: alertCount } = useUnreadAlertCount();
     // Fiber cables (Cara C) — objek kabel digambar bebas, dirender belang N-core.
     const { data: cables = [] } = useCables(filteredRouterId || undefined);
+    // Validasi + siapkan segmen kabel sekali (memoized): buang titik path yang
+    // rusak (cegah crash Leaflet dari data tercemar/legacy) & core non-numerik.
+    const cableSegments = useMemo(() => {
+        if (!Array.isArray(cables)) return [];
+        return cables.map((cable) => {
+            const path = Array.isArray(cable.path)
+                ? cable.path.filter((p) => Array.isArray(p) && p.length === 2
+                    && Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1])))
+                : [];
+            const cores = Array.isArray(cable.cores)
+                ? cable.cores.filter((c) => Number.isFinite(Number(c)))
+                : [];
+            if (path.length < 2 || cores.length === 0) return null;
+            return { id: cable.id, name: cable.name, path, cores, length: calculatePathLength(path) };
+        }).filter(Boolean);
+    }, [cables]);
 
     // Device status counts — ALL devices (router + netwatch host + pppoe session),
     // tenant-wide (TIDAK terpengaruh filteredRouterId). Konsumsi oleh
@@ -2262,7 +2284,6 @@ const NetworkMap = ({
                             const down = line.status && !['up', 'online', 'active', 'warning'].includes(String(line.status).toLowerCase());
                             if (down) return null;
                             const N = lc.length;
-                            const seg = 10;
                             return lc.map((c, idx) => (
                                 <Polyline
                                     key={`${line.id}-core-${idx}`}
@@ -2273,8 +2294,7 @@ const NetworkMap = ({
                                         weight: 4,
                                         opacity: 0.95,
                                         lineCap: 'butt',
-                                        dashArray: `${seg} ${seg * (N - 1)}`,
-                                        dashOffset: `${idx * seg}`,
+                                        ...candyDashProps(idx, N),
                                     }}
                                 />
                             ));
@@ -2282,43 +2302,36 @@ const NetworkMap = ({
 
                         {/* Fiber cables (Cara C) — objek kabel digambar bebas, dirender
                             belang N-core. Independen dari device-tree. Klik → popup info. */}
-                        {!isEditingPath && Array.isArray(cables) && cables.map((cable) => {
-                            const path = Array.isArray(cable.path) ? cable.path : [];
-                            const cores = Array.isArray(cable.cores)
-                                ? cable.cores.filter((c) => Number.isFinite(Number(c)))
-                                : [];
-                            if (path.length < 2 || cores.length === 0) return null;
-                            const N = cores.length;
-                            const seg = 10;
+                        {!isEditingPath && cableSegments.map((cable) => {
+                            const N = cable.cores.length;
                             return (
                                 <React.Fragment key={`cable-${cable.id}`}>
                                     {/* hitbox transparan (lebar) untuk klik + popup */}
-                                    <Polyline positions={path} pathOptions={{ color: '#000', weight: 12, opacity: 0 }}>
+                                    <Polyline positions={cable.path} pathOptions={{ color: '#000', weight: 12, opacity: 0 }}>
                                         <Popup>
                                             <div style={{ minWidth: 160 }}>
                                                 <div style={{ fontWeight: 700, marginBottom: 6 }}>{cable.name || 'Kabel'}</div>
                                                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', marginBottom: 4 }}>
-                                                    {cores.map((c) => (
-                                                        <span key={c} title={`Core ${c} · ${coreColor(c).name}`} style={{ width: 12, height: 12, borderRadius: 3, background: coreColor(c).hex, border: '1px solid rgba(255,255,255,0.4)', display: 'inline-block' }} />
+                                                    {cable.cores.map((c, i) => (
+                                                        <span key={`${cable.id}-sw-${i}`} title={`Core ${c} · ${coreColor(c).name}`} style={{ width: 12, height: 12, borderRadius: 3, background: coreColor(c).hex, border: '1px solid rgba(255,255,255,0.4)', display: 'inline-block' }} />
                                                     ))}
                                                     <span style={{ fontSize: 11, color: '#64748b', marginLeft: 2 }}>{N} core</span>
                                                 </div>
-                                                <div style={{ fontSize: 11, color: '#64748b' }}>{formatDistance(calculatePathLength(path))}</div>
+                                                <div style={{ fontSize: 11, color: '#64748b' }}>{formatDistance(cable.length)}</div>
                                             </div>
                                         </Popup>
                                     </Polyline>
-                                    {cores.map((c, idx) => (
+                                    {cable.cores.map((c, idx) => (
                                         <Polyline
                                             key={`cable-${cable.id}-core-${idx}`}
-                                            positions={path}
+                                            positions={cable.path}
                                             interactive={false}
                                             pathOptions={{
                                                 color: coreColor(c).hex,
                                                 weight: 4,
                                                 opacity: 0.95,
                                                 lineCap: 'butt',
-                                                dashArray: N > 1 ? `${seg} ${seg * (N - 1)}` : undefined,
-                                                dashOffset: N > 1 ? `${idx * seg}` : undefined,
+                                                ...candyDashProps(idx, N),
                                             }}
                                         />
                                     ))}
