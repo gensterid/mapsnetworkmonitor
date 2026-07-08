@@ -1469,6 +1469,7 @@ const NetworkMap = ({
         if (path.length < 2) return;
         setIsDrawingCable(false);
         setMeasureLine(null);
+        setIsPickingCoordinate(false);
         setEditingCable({ id: cable.id, from: path[0], to: path[path.length - 1] });
         setEditCableWaypoints(path.slice(1, -1));
         setEditCableName(cable.name || '');
@@ -1525,6 +1526,7 @@ const NetworkMap = ({
         setEditingCable(null);
         setMeasureLine(null);
         setIsDrawingCable(false);
+        setIsPickingCoordinate(false); // mode pick koordinat tak boleh barengan
         setMeasureCableId(cableId);
         setCableMeasureMeters(0);
         setCableMeasureSide('source');
@@ -1539,8 +1541,9 @@ const NetworkMap = ({
         if (!(m >= 0)) return;
         const existing = Array.isArray(measureCable.distanceMarkers) ? measureCable.distanceMarkers : [];
         const distanceMarkers = [...existing, { side: cableMeasureSide, meters: m, label: (cableMeasureLabel || '').trim() }];
+        // Toast di hook (useUpdateCable) — jangan dobel di sini; cukup reset input.
         updateCableMutation.mutate({ id: measureCable.id, data: { distanceMarkers } }, {
-            onSuccess: () => { toast.success('Penanda putus disimpan'); setCableMeasureMeters(0); setCableMeasureLabel(''); },
+            onSuccess: () => { setCableMeasureMeters(0); setCableMeasureLabel(''); },
         });
     }, [measureCable, cableMeasureMeters, cableMeasureSide, cableMeasureLabel, updateCableMutation]);
 
@@ -1558,7 +1561,10 @@ const NetworkMap = ({
         for (const c of cableSegments) {
             for (const mk of (c.distanceMarkers || [])) {
                 const pos = pointAlongPath(c.path, Number(mk.meters), mk.side);
-                if (pos) out.push({ pos, label: mk.label, meters: mk.meters });
+                // beyond = penanda melebihi panjang kabel saat ini (jalur mungkin
+                // dipendekkan setelah edit) → titik ke-clamp ke ujung; beri tanda.
+                const beyond = Number(mk.meters) > (c.length || 0);
+                if (pos) out.push({ pos, label: mk.label, meters: mk.meters, beyond });
             }
         }
         return out;
@@ -2601,11 +2607,11 @@ const NetworkMap = ({
                                 center={mk.pos}
                                 radius={6}
                                 pane="markerPane"
-                                pathOptions={{ color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 }}
+                                pathOptions={{ color: mk.beyond ? '#f59e0b' : '#fff', weight: 2, fillColor: mk.beyond ? '#f59e0b' : '#ef4444', fillOpacity: 1, dashArray: mk.beyond ? '3 3' : undefined }}
                             >
                                 {(showLabels && zoomLevel >= 16) && (
                                     <Tooltip permanent direction="top" offset={[0, -5]} className="dist-marker-tooltip">
-                                        {mk.label ? `${mk.label} · ` : ''}{formatDistance(mk.meters)}
+                                        {mk.label ? `${mk.label} · ` : ''}{formatDistance(mk.meters)}{mk.beyond ? ' (di luar panjang)' : ''}
                                     </Tooltip>
                                 )}
                             </CircleMarker>
@@ -3034,7 +3040,7 @@ const NetworkMap = ({
                                     style={{ width: 90, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 13, fontWeight: 700 }}
                                 />
                                 <span style={{ fontSize: 12, color: '#94a3b8' }}>m dari</span>
-                                <select value={cableMeasureSide} onChange={(e) => setCableMeasureSide(e.target.value)} style={{ background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}>
+                                <select aria-label="Sisi ukur (awal/ujung)" value={cableMeasureSide} onChange={(e) => setCableMeasureSide(e.target.value)} style={{ background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}>
                                     <option value="source">awal</option>
                                     <option value="dest">ujung</option>
                                 </select>
@@ -3062,8 +3068,8 @@ const NetworkMap = ({
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
                                             <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
                                                 <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
-                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {mk.label ? `${mk.label} · ` : ''}{formatDistance(mk.meters)} dari {mk.side === 'dest' ? 'ujung' : 'awal'}
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: Number(mk.meters) > (measureCable.length || 0) ? '#fbbf24' : undefined }}>
+                                                    {mk.label ? `${mk.label} · ` : ''}{formatDistance(mk.meters)} dari {mk.side === 'dest' ? 'ujung' : 'awal'}{Number(mk.meters) > (measureCable.length || 0) ? ' (di luar panjang)' : ''}
                                                 </span>
                                             </span>
                                             <button type="button" onClick={() => deleteCableMarker(i)} disabled={updateCableMutation.isPending} title="Hapus penanda" style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', display: 'flex', flexShrink: 0 }}>
