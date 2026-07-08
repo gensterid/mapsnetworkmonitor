@@ -104,13 +104,16 @@ const NetworkLineOriginal = ({
         // popup). Klik → CustomEvent 'map-edit-device' ditangkap NetworkMap.
         const srcId = safeId(line.sourceId);
         const dstId = safeId(line.netwatchId || line.pppoeId);
+        // data-edit-device ditangkap listener capture-phase di NetworkMap (CSP-safe,
+        // jalan walau Leaflet popup menahan propagasi bubble). Tanpa ikon font
+        // (material-symbols kadang tak ter-render di popup) → teks jelas kontras.
         const editBtn = (id, label) => id
-            ? `<button type="button" onclick="window.dispatchEvent(new CustomEvent('map-edit-device',{detail:'${id}'}))" style="flex:1;display:flex;align-items:center;justify-content:center;gap:4px;background:rgba(15,23,42,0.6);border:1px solid rgba(148,163,184,0.3);border-radius:6px;padding:5px 8px;color:#e2e8f0;font-size:11px;font-weight:600;cursor:pointer"><span class="material-symbols-outlined" style="font-size:14px">edit_location</span>${label}</button>`
+            ? `<button type="button" data-edit-device="${id}" style="flex:1;background:#334155;border:1px solid rgba(148,163,184,0.45);border-radius:6px;padding:6px 8px;color:#f1f5f9;font-size:11px;font-weight:700;cursor:pointer">${label}</button>`
             : '';
         const editRow = (srcId || dstId) ? `
                 <div style="display:flex;gap:6px;padding:8px 12px;background:#1e293b;border-top:1px solid rgba(148,163,184,0.15)">
-                    ${editBtn(srcId, 'Edit Source')}
-                    ${editBtn(dstId, 'Edit Destination')}
+                    ${editBtn(srcId, '✎ Edit Source')}
+                    ${editBtn(dstId, '✎ Edit Destination')}
                 </div>` : '';
 
         return `

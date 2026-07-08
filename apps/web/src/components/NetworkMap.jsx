@@ -1499,15 +1499,21 @@ const NetworkMap = ({
         });
     }, [deleteCableMutation]);
 
-    // Tombol "Edit Source/Destination" di dalam popup garis (HTML string Leaflet)
-    // memancarkan CustomEvent 'map-edit-device' → tangkap di sini. Pakai ref agar
-    // listener terdaftar sekali tapi selalu panggil handler terbaru.
+    // Tombol "Edit Source/Destination" di popup garis (HTML string Leaflet) pakai
+    // atribut data-edit-device. Ditangkap di CAPTURE phase document → jalan lebih
+    // dulu daripada stopPropagation bubble-nya Leaflet popup, dan CSP-safe (tanpa
+    // inline onclick). Ref agar listener sekali daftar tapi panggil handler terbaru.
     const openEditRef = React.useRef(openDeviceEditById);
     useEffect(() => { openEditRef.current = openDeviceEditById; }, [openDeviceEditById]);
     useEffect(() => {
-        const h = (e) => { const id = e?.detail; if (id) openEditRef.current?.(id); };
-        window.addEventListener('map-edit-device', h);
-        return () => window.removeEventListener('map-edit-device', h);
+        const h = (e) => {
+            const btn = e.target?.closest?.('[data-edit-device]');
+            if (!btn) return;
+            const id = btn.getAttribute('data-edit-device');
+            if (id) openEditRef.current?.(id);
+        };
+        document.addEventListener('click', h, true); // capture
+        return () => document.removeEventListener('click', h, true);
     }, []);
 
     const handleCloseModal = useCallback(() => {
