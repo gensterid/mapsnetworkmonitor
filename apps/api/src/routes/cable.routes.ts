@@ -28,6 +28,11 @@ const cableSchema = z.object({
     // render diulang tiap list()/load peta). Cukup untuk rute kabel realistis.
     path: z.array(latLng).min(2, 'Kabel butuh minimal 2 titik').max(2000),
     cores: z.array(z.number().int().min(1).max(96)).min(1, 'Pilih minimal 1 core').max(96),
+    distanceMarkers: z.array(z.object({
+        side: z.enum(['source', 'dest']),
+        meters: z.number().min(0),
+        label: z.string().max(200).optional(),
+    })).max(500).optional(),
     fromDeviceId: z.string().uuid().optional().nullable(),
     toDeviceId: z.string().uuid().optional().nullable(),
     notes: z.string().max(1000).optional().nullable(),

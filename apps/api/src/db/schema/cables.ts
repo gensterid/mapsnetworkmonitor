@@ -28,6 +28,11 @@ export const fiberCables = pgTable('fiber_cables', {
     path: jsonb('path').$type<[number, number][]>().notNull().default([]),
     // Core yang dibawa: array index 1-based (TIA-598), mis. [1,2] = biru+oranye.
     cores: jsonb('cores').$type<number[]>().notNull().default([]),
+    // Penanda jarak (cek putus) sepanjang kabel: [{ side, meters, label }].
+    // side = 'source'|'dest' (ujung mana), meters = jarak dari ujung itu.
+    distanceMarkers: jsonb('distance_markers')
+        .$type<{ side: string; meters: number; label?: string }[]>()
+        .notNull().default([]),
     // Anchor opsional ke device (untuk snap ujung path ke marker).
     fromDeviceId: uuid('from_device_id'),
     toDeviceId: uuid('to_device_id'),

@@ -3,18 +3,25 @@ import { db } from '../db/index.js';
 import { fiberCables, routers } from '../db/schema/index.js';
 import { ApiError } from '../middleware/error.middleware.js';
 
+export interface CableDistanceMarker {
+    side: string;
+    meters: number;
+    label?: string;
+}
+
 export interface CableInput {
     name?: string | null;
     routerId?: string | null;
     path?: [number, number][];
     cores?: number[];
+    distanceMarkers?: CableDistanceMarker[];
     fromDeviceId?: string | null;
     toDeviceId?: string | null;
     notes?: string | null;
 }
 
 const EDITABLE_FIELDS = [
-    'name', 'routerId', 'path', 'cores', 'fromDeviceId', 'toDeviceId', 'notes',
+    'name', 'routerId', 'path', 'cores', 'distanceMarkers', 'fromDeviceId', 'toDeviceId', 'notes',
 ] as const;
 
 export class CableService {
@@ -57,6 +64,7 @@ export class CableService {
             name: data.name || null,
             path: data.path || [],
             cores: data.cores || [],
+            distanceMarkers: data.distanceMarkers || [],
             fromDeviceId: data.fromDeviceId || null,
             toDeviceId: data.toDeviceId || null,
             notes: data.notes || null,

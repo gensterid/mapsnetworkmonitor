@@ -273,7 +273,10 @@ const NetworkMap = ({
                 ? cable.cores.filter((c) => Number.isFinite(Number(c)))
                 : [];
             if (path.length < 2 || cores.length === 0) return null;
-            return { id: cable.id, name: cable.name, path, cores, length: calculatePathLength(path) };
+            const distanceMarkers = Array.isArray(cable.distanceMarkers)
+                ? cable.distanceMarkers.filter((m) => m && Number.isFinite(Number(m.meters)))
+                : [];
+            return { id: cable.id, name: cable.name, path, cores, distanceMarkers, length: calculatePathLength(path) };
         }).filter(Boolean);
     }, [cables]);
 
@@ -297,6 +300,11 @@ const NetworkMap = ({
     // Ref selalu-terkini (dibaca handler garis/marker yang di-memo) untuk cegah
     // mode lain (ukur/edit device) dibuka saat sedang edit kabel.
     const editingCableRef = React.useRef(null);
+    // Ukur jarak / cek putus pada kabel (C5) — lintas-ODP karena kabel 1 polyline.
+    const [measureCableId, setMeasureCableId] = useState(null);
+    const [cableMeasureMeters, setCableMeasureMeters] = useState(0);
+    const [cableMeasureSide, setCableMeasureSide] = useState('source'); // 'source'|'dest'
+    const [cableMeasureLabel, setCableMeasureLabel] = useState('');
     // Toggle layer kabel (C4) — persist ke localStorage.
     const [showCables, setShowCables] = useState(() => {
         try { const s = localStorage.getItem('map_show_cables'); return s === null ? true : JSON.parse(s); } catch { return true; }
@@ -455,6 +463,7 @@ const NetworkMap = ({
         // Saat gambar/edit kabel: jangan buka panel ukur (klik gambar bubble ke
         // map → MapClickHandler yang menambah titik pada posisi klik).
         if (isDrawingCableRef.current || editingCableRef.current) return;
+        setMeasureCableId(null); // tutup panel ukur kabel (mutual-exclusive)
         measureStateRef.current = { active: true, openedAt: Date.now() };
         setMeasureLine(line);
         setMeasureMeters(0);
@@ -1499,6 +1508,62 @@ const NetworkMap = ({
         });
     }, [deleteCableMutation]);
 
+    // === Ukur jarak / cek putus pada kabel (C5) ===
+    // Kabel = 1 polyline menerus → ukur "X meter dari ujung" otomatis lintas-ODP.
+    const measureCable = useMemo(
+        () => (measureCableId ? cableSegments.find((c) => c.id === measureCableId) || null : null),
+        [measureCableId, cableSegments],
+    );
+    const cableMeasurePoint = useMemo(() => {
+        if (!measureCable) return null;
+        const m = Number(cableMeasureMeters);
+        if (!(m >= 0)) return null;
+        return pointAlongPath(measureCable.path, m, cableMeasureSide);
+    }, [measureCable, cableMeasureMeters, cableMeasureSide]);
+
+    const startMeasureCable = useCallback((cableId) => {
+        setEditingCable(null);
+        setMeasureLine(null);
+        setIsDrawingCable(false);
+        setMeasureCableId(cableId);
+        setCableMeasureMeters(0);
+        setCableMeasureSide('source');
+        setCableMeasureLabel('');
+    }, []);
+
+    const cancelMeasureCable = useCallback(() => setMeasureCableId(null), []);
+
+    const saveCableMarker = useCallback(() => {
+        if (!measureCable) return;
+        const m = Number(cableMeasureMeters);
+        if (!(m >= 0)) return;
+        const existing = Array.isArray(measureCable.distanceMarkers) ? measureCable.distanceMarkers : [];
+        const distanceMarkers = [...existing, { side: cableMeasureSide, meters: m, label: (cableMeasureLabel || '').trim() }];
+        updateCableMutation.mutate({ id: measureCable.id, data: { distanceMarkers } }, {
+            onSuccess: () => { toast.success('Penanda putus disimpan'); setCableMeasureMeters(0); setCableMeasureLabel(''); },
+        });
+    }, [measureCable, cableMeasureMeters, cableMeasureSide, cableMeasureLabel, updateCableMutation]);
+
+    const deleteCableMarker = useCallback((idx) => {
+        if (!measureCable) return;
+        const existing = Array.isArray(measureCable.distanceMarkers) ? measureCable.distanceMarkers : [];
+        const distanceMarkers = existing.filter((_, i) => i !== idx);
+        updateCableMutation.mutate({ id: measureCable.id, data: { distanceMarkers } });
+    }, [measureCable, updateCableMutation]);
+
+    // Semua penanda putus kabel (tersimpan) → titik di peta, selalu tampil saat
+    // layer kabel aktif. { pos, label, cableId }
+    const cableMarkerPoints = useMemo(() => {
+        const out = [];
+        for (const c of cableSegments) {
+            for (const mk of (c.distanceMarkers || [])) {
+                const pos = pointAlongPath(c.path, Number(mk.meters), mk.side);
+                if (pos) out.push({ pos, label: mk.label, meters: mk.meters });
+            }
+        }
+        return out;
+    }, [cableSegments]);
+
     // Tombol "Edit Source/Destination" di popup garis (HTML string Leaflet) pakai
     // atribut data-edit-device. Ditangkap di CAPTURE phase document → jalan lebih
     // dulu daripada stopPropagation bubble-nya Leaflet popup, dan CSP-safe (tanpa
@@ -2483,6 +2548,9 @@ const NetworkMap = ({
                                                 </div>
                                                 <div style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>{formatDistance(cable.length)}</div>
                                                 <div style={{ display: 'flex', gap: 6 }}>
+                                                    <button type="button" onClick={() => startMeasureCable(cable.id)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#0e3a44', color: '#67e8f9', border: '1px solid rgba(103,232,249,0.35)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>straighten</span> Ukur
+                                                    </button>
                                                     <button type="button" onClick={() => startEditCable(cable)} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, background: '#1e293b', color: '#e2e8f0', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                                         <span className="material-symbols-outlined" style={{ fontSize: 14 }}>edit</span> Edit
                                                     </button>
@@ -2523,6 +2591,38 @@ const NetworkMap = ({
                                 weight={4}
                                 onWaypointsChange={setEditCableWaypoints}
                             />
+                        )}
+
+                        {/* Penanda putus tersimpan pada kabel (C5) — selalu tampil
+                            saat layer kabel aktif. */}
+                        {showCables && !isEditingPath && cableMarkerPoints.map((mk, i) => (
+                            <CircleMarker
+                                key={`cablemk-${i}`}
+                                center={mk.pos}
+                                radius={6}
+                                pane="markerPane"
+                                pathOptions={{ color: '#fff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 }}
+                            >
+                                {(showLabels && zoomLevel >= 16) && (
+                                    <Tooltip permanent direction="top" offset={[0, -5]} className="dist-marker-tooltip">
+                                        {mk.label ? `${mk.label} · ` : ''}{formatDistance(mk.meters)}
+                                    </Tooltip>
+                                )}
+                            </CircleMarker>
+                        ))}
+
+                        {/* Titik ukur LIVE kabel (C5) — ikut input meter di panel. */}
+                        {measureCable && cableMeasurePoint && (
+                            <CircleMarker
+                                center={cableMeasurePoint}
+                                radius={7}
+                                pane="markerPane"
+                                pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 }}
+                            >
+                                <Tooltip permanent direction="top" offset={[0, -5]} className="dist-marker-tooltip">
+                                    {formatDistance(Number(cableMeasureMeters) || 0)} dari {cableMeasureSide === 'dest' ? 'ujung' : 'awal'}
+                                </Tooltip>
+                            </CircleMarker>
                         )}
 
                         {/* Preview LIVE saat menggambar kabel (C2): garis belang core
@@ -2779,7 +2879,7 @@ const NetworkMap = ({
                     />
 
                     {/* Cluster kabel kiri-bawah (C2 gambar + C4 toggle layer) */}
-                    {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && !isPickingCoordinate && !editingCable && (
+                    {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && !isPickingCoordinate && !editingCable && !measureCable && (
                         <div style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 1100, display: 'flex', alignItems: 'center', gap: 8 }}>
                             <button
                                 type="button"
@@ -2908,6 +3008,71 @@ const NetworkMap = ({
                                     {updateCableMutation.isPending ? 'Menyimpan…' : 'Simpan'}
                                 </button>
                             </div>
+                        </div>
+                    )}
+
+                    {/* Panel Ukur Kabel · Cek Putus (C5) — ukur lintas-ODP */}
+                    {measureCable && (
+                        <div style={{ position: 'fixed', bottom: 20, left: '50%', transform: 'translateX(-50%)', zIndex: 1200, width: 400, maxWidth: '92vw', background: 'rgba(15,23,42,0.97)', border: '1px solid rgba(148,163,184,0.3)', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.55)', padding: 14, color: '#e2e8f0' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13 }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#06b6d4' }}>straighten</span>
+                                    Ukur Kabel · Cek Putus
+                                </div>
+                                <button type="button" onClick={cancelMeasureCable} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', display: 'flex' }} title="Tutup">
+                                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+                                </button>
+                            </div>
+                            <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10 }}>
+                                {measureCable.name || 'Kabel'} · total {formatDistance(measureCable.length)}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                                <input
+                                    type="number" aria-label="Jarak meter" min="0" max={Math.ceil(measureCable.length || 0)}
+                                    value={cableMeasureMeters}
+                                    onChange={(e) => setCableMeasureMeters(e.target.value)}
+                                    style={{ width: 90, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 13, fontWeight: 700 }}
+                                />
+                                <span style={{ fontSize: 12, color: '#94a3b8' }}>m dari</span>
+                                <select value={cableMeasureSide} onChange={(e) => setCableMeasureSide(e.target.value)} style={{ background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}>
+                                    <option value="source">awal</option>
+                                    <option value="dest">ujung</option>
+                                </select>
+                            </div>
+                            <input
+                                type="range" min="0" max={Math.max(1, Math.ceil(measureCable.length || 0))}
+                                value={Number(cableMeasureMeters) || 0}
+                                onChange={(e) => setCableMeasureMeters(e.target.value)}
+                                style={{ width: '100%', accentColor: '#06b6d4', marginBottom: 10 }}
+                            />
+                            <div style={{ display: 'flex', gap: 8, marginBottom: (measureCable.distanceMarkers || []).length ? 10 : 0 }}>
+                                <input
+                                    type="text" aria-label="Label titik" placeholder="label (opsional, mis. Titik Putus)"
+                                    value={cableMeasureLabel}
+                                    onChange={(e) => setCableMeasureLabel(e.target.value)}
+                                    style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                />
+                                <button type="button" onClick={saveCableMarker} disabled={updateCableMutation.isPending} style={{ background: '#06b6d4', color: '#04121a', fontWeight: 800, border: 'none', borderRadius: 6, padding: '6px 12px', cursor: updateCableMutation.isPending ? 'not-allowed' : 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>push_pin</span> Simpan
+                                </button>
+                            </div>
+                            {(measureCable.distanceMarkers || []).length > 0 && (
+                                <div style={{ borderTop: '1px solid rgba(148,163,184,0.2)', paddingTop: 8, display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 130, overflowY: 'auto' }}>
+                                    {measureCable.distanceMarkers.map((mk, i) => (
+                                        <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, fontSize: 12 }}>
+                                            <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                                                <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', flexShrink: 0 }} />
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {mk.label ? `${mk.label} · ` : ''}{formatDistance(mk.meters)} dari {mk.side === 'dest' ? 'ujung' : 'awal'}
+                                                </span>
+                                            </span>
+                                            <button type="button" onClick={() => deleteCableMarker(i)} disabled={updateCableMutation.isPending} title="Hapus penanda" style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', display: 'flex', flexShrink: 0 }}>
+                                                <span className="material-symbols-outlined" style={{ fontSize: 16 }}>delete</span>
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
 
