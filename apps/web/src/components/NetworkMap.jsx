@@ -1295,6 +1295,11 @@ const NetworkMap = ({
                     }
                 }
 
+                // Stamp source/jarak garis ke node → panel detail (quick view)
+                // bisa menampilkan info yang sama seperti hover tooltip.
+                node.sourceName = sourceName;
+                node.lineDistance = distance;
+
                 lines.push({
                     id: node.type === 'pppoe' ? `pppoe-${node.id}` : `${node.routerId}-${node.id}`,
                     coreColorHex,

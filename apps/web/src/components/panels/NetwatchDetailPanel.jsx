@@ -14,6 +14,11 @@ import {
     Users,
     Laptop,
     Trash2,
+    ArrowUp,
+    ArrowDown,
+    MapPin,
+    Ruler,
+    Cpu,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
@@ -22,6 +27,7 @@ import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
 import { coreColor } from '@/lib/fiberColors';
 import { useAppTimezone, useGenieACSDevices } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
+import { formatDistance } from '@/lib/geo';
 
 /**
  * NetwatchDetailPanel — Quick view netwatch host saat klik marker.
@@ -513,6 +519,61 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull, onD
                             {netwatch.lastSeen ? formatShortDateTime(netwatch.lastSeen, timezone) : '—'}
                         </span>
                     </div>
+
+                    {/* Last Up / Last Down — sama seperti hover tooltip */}
+                    {(netwatch.lastUpTime || netwatch.lastUp) && (
+                        <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
+                            <div className="flex items-center gap-2">
+                                <ArrowUp className="w-3.5 h-3.5 text-status-online" aria-hidden="true" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Last Up</span>
+                            </div>
+                            <span className="text-xs text-status-online font-mono">
+                                {netwatch.lastUpTime || formatShortDateTime(netwatch.lastUp, timezone)}
+                            </span>
+                        </div>
+                    )}
+                    {(netwatch.lastDownTime || netwatch.lastDown) && (
+                        <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
+                            <div className="flex items-center gap-2">
+                                <ArrowDown className="w-3.5 h-3.5 text-status-offline" aria-hidden="true" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Last Down</span>
+                            </div>
+                            <span className="text-xs text-status-offline font-mono">
+                                {netwatch.lastDownTime || formatShortDateTime(netwatch.lastDown, timezone)}
+                            </span>
+                        </div>
+                    )}
+
+                    {/* Source (parent garis) + Distance (panjang garis) — dari hover */}
+                    {netwatch.sourceName && (
+                        <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
+                            <div className="flex items-center gap-2">
+                                <MapPin className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Source</span>
+                            </div>
+                            <span className="text-xs text-fg truncate max-w-[170px]" title={netwatch.sourceName}>{netwatch.sourceName}</span>
+                        </div>
+                    )}
+                    {Number.isFinite(netwatch.lineDistance) && netwatch.lineDistance > 0 && (
+                        <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
+                            <div className="flex items-center gap-2">
+                                <Ruler className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Distance</span>
+                            </div>
+                            <span className="text-xs text-fg font-mono">{formatDistance(netwatch.lineDistance)}</span>
+                        </div>
+                    )}
+
+                    {/* Model perangkat (ONU/ACS) */}
+                    {netwatch.model && (
+                        <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
+                            <div className="flex items-center gap-2">
+                                <Cpu className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-fg-muted">Model</span>
+                            </div>
+                            <span className="text-xs text-fg truncate max-w-[170px]" title={netwatch.model}>{netwatch.model}</span>
+                        </div>
+                    )}
 
                     {netwatch.routerName && (
                         <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
