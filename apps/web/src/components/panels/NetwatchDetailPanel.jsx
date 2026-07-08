@@ -544,8 +544,10 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull, onD
                         </div>
                     )}
 
-                    {/* Source (parent garis) + Distance (panjang garis) — dari hover */}
-                    {netwatch.sourceName && (
+                    {/* Source (parent garis) + Distance (panjang garis) — dari hover.
+                        Source hanya tampil kalau BEDA dari router (mis. rantai ODP/
+                        client) supaya tak duplikat baris "Router Parent". */}
+                    {netwatch.sourceName && netwatch.sourceName !== netwatch.routerName && (
                         <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-slate-border/40">
                             <div className="flex items-center gap-2">
                                 <MapPin className="w-3.5 h-3.5 text-fg-muted" aria-hidden="true" />
