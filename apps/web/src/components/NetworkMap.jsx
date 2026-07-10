@@ -2399,23 +2399,30 @@ const NetworkMap = ({
         return path.length >= 2 ? path : null;
     }, [measureLine, mapData.lines]);
 
-    // Jalur & total aktif (segmen vs seluruh rantai).
-    const measureActivePath = (measureWholeChain && measureChainPath) ? measureChainPath : measureLine?.fullPath;
-    const measureTotalLen = (measureWholeChain && measureChainPath)
-        ? calculatePathLength(measureChainPath)
-        : (measureLine?.distance || 0);
+    // Jalur & total aktif (segmen vs seluruh rantai). Memoized → dipakai
+    // ulang oleh measurePoint & panel (satu sumber, tak dobel ternary).
+    const measureActivePath = useMemo(
+        () => ((measureWholeChain && measureChainPath) ? measureChainPath : (measureLine?.fullPath || null)),
+        [measureWholeChain, measureChainPath, measureLine],
+    );
+    const measureTotalLen = useMemo(
+        () => ((measureWholeChain && measureChainPath) ? calculatePathLength(measureChainPath) : (measureLine?.distance || 0)),
+        [measureWholeChain, measureChainPath, measureLine],
+    );
 
     const measurePoint = useMemo(() => {
-        const path = (measureWholeChain && measureChainPath) ? measureChainPath : measureLine?.fullPath;
-        if (!Array.isArray(path) || path.length < 2) return null;
+        if (!Array.isArray(measureActivePath) || measureActivePath.length < 2) return null;
         const m = Number(measureMeters);
         if (!(m >= 0)) return null;
-        return pointAlongPath(path, m, measureSide);
-    }, [measureLine, measureMeters, measureSide, measureWholeChain, measureChainPath]);
+        return pointAlongPath(measureActivePath, m, measureSide);
+    }, [measureActivePath, measureMeters, measureSide]);
 
     // Simpan titik ukur jadi penanda permanen di device pemilik garis.
     const handleSaveMeasure = useCallback(() => {
         if (!measureLine) return;
+        // Mode "Seluruh jalur" = ukur-saja: meter-nya relatif rantai, tak boleh
+        // disimpan sbg penanda per-segmen (defense-in-depth, bukan cuma disabled UI).
+        if (measureWholeChain) return;
         const m = Number(measureMeters);
         if (!(m >= 0)) return;
         const existing = Array.isArray(measureLine.distanceMarkers) ? measureLine.distanceMarkers : [];
@@ -2429,7 +2436,7 @@ const NetworkMap = ({
         } else {
             toast('Garis ini (PPPoE) belum didukung untuk simpan penanda.');
         }
-    }, [measureLine, measureMeters, measureSide, measureLabel, updateOnuMutation, updateNetwatchMutation, closeMeasure]);
+    }, [measureLine, measureWholeChain, measureMeters, measureSide, measureLabel, updateOnuMutation, updateNetwatchMutation, closeMeasure]);
 
     // Hapus 1 penanda jarak dari detail panel (netwatch/ODP). Persist ke DB.
     const handleDeleteDistanceMarker = useCallback((idx) => {
@@ -3142,12 +3149,15 @@ const NetworkMap = ({
                                     ? `Seluruh jalur (hulu → ${measureLine.destName}) · total ${formatDistance(measureTotalLen)}`
                                     : `${measureLine.sourceName} → ${measureLine.destName} · total ${formatDistance(measureLine.distance || 0)}`}
                             </div>
-                            {/* Toggle segmen vs seluruh jalur sampai hulu (Cara 2) */}
-                            <div style={{ display: 'flex', gap: 6, marginBottom: 10, background: 'rgba(2,6,23,0.5)', borderRadius: 8, padding: 3 }}>
-                                <button type="button" onClick={() => setMeasureWholeChain(false)} style={{ flex: 1, background: !measureWholeChain ? 'rgba(6,182,212,0.25)' : 'transparent', color: !measureWholeChain ? '#67e8f9' : '#94a3b8', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Segmen ini</button>
-                                <button type="button" onClick={() => setMeasureWholeChain(true)} disabled={!measureChainPath} title={measureChainPath ? 'Ukur menembus semua ODP sampai hulu (root)' : 'Tak ada rantai ke hulu'} style={{ flex: 1, background: measureWholeChain ? 'rgba(6,182,212,0.25)' : 'transparent', color: measureWholeChain ? '#67e8f9' : (measureChainPath ? '#94a3b8' : '#475569'), border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 700, cursor: measureChainPath ? 'pointer' : 'not-allowed' }}>Seluruh jalur (hulu)</button>
+                            {/* Toggle segmen vs seluruh jalur sampai hulu (Cara 2).
+                                Indikator aktif: warna + ✓ (bukan warna saja) + aria-pressed. */}
+                            <div role="group" aria-label="Mode ukur" style={{ display: 'flex', gap: 6, marginBottom: 10, background: 'rgba(2,6,23,0.5)', borderRadius: 8, padding: 3 }}>
+                                <button type="button" aria-pressed={!measureWholeChain} onClick={() => setMeasureWholeChain(false)} style={{ flex: 1, background: !measureWholeChain ? 'rgba(6,182,212,0.25)' : 'transparent', color: !measureWholeChain ? '#67e8f9' : '#94a3b8', border: !measureWholeChain ? '1px solid rgba(103,232,249,0.5)' : '1px solid transparent', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>{!measureWholeChain ? '✓ ' : ''}Segmen ini</button>
+                                <button type="button" aria-pressed={measureWholeChain} onClick={() => setMeasureWholeChain(true)} disabled={!measureChainPath} title={measureChainPath ? 'Ukur menembus semua ODP sampai hulu (root)' : 'Tak ada rantai ke hulu'} style={{ flex: 1, background: measureWholeChain ? 'rgba(6,182,212,0.25)' : 'transparent', color: measureWholeChain ? '#67e8f9' : (measureChainPath ? '#94a3b8' : '#475569'), border: measureWholeChain ? '1px solid rgba(103,232,249,0.5)' : '1px solid transparent', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 700, cursor: measureChainPath ? 'pointer' : 'not-allowed' }}>{measureWholeChain ? '✓ ' : ''}Seluruh jalur (hulu)</button>
                             </div>
-                            {/* Edit cepat pengaturan garis/core di device ujung */}
+                            {/* Edit cepat pengaturan garis/core di device ujung — hanya di mode
+                                segmen (di mode seluruh jalur, "source" ambigu = root vs segmen). */}
+                            {!measureWholeChain && (
                             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
                                 <button
                                     onClick={() => openDeviceEditById(measureLine.sourceId)}
@@ -3168,6 +3178,7 @@ const NetworkMap = ({
                                     Edit Destination
                                 </button>
                             </div>
+                            )}
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                                 <input
                                     type="number" min="0" max={Math.ceil(measureTotalLen || 0)}
