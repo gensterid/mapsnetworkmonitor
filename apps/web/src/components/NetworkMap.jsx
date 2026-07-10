@@ -394,6 +394,9 @@ const NetworkMap = ({
     const [measureMeters, setMeasureMeters] = useState(0);
     const [measureSide, setMeasureSide] = useState('source'); // 'source' | 'dest'
     const [measureLabel, setMeasureLabel] = useState('');
+    // Ukur seluruh jalur (Cara 2): sambung rantai connectedToId sampai hulu (root)
+    // → ukur menembus banyak ODP. Mode ini ukur-saja (penanda tetap per-segmen).
+    const [measureWholeChain, setMeasureWholeChain] = useState(false);
     // Highlight 1 core fiber → recolor garis. { lineId, hex, i } | null
     const [highlightCore, setHighlightCore] = useState(null);
     // Ref sinkron untuk auto-hide panel ukur (dibaca handler klik peta tanpa re-register).
@@ -469,6 +472,7 @@ const NetworkMap = ({
         setMeasureMeters(0);
         setMeasureSide('source');
         setMeasureLabel('');
+        setMeasureWholeChain(false);
         setHighlightCore(null);
     }, []);
 
@@ -2368,12 +2372,46 @@ const NetworkMap = ({
     }, [mapData.lines]);
 
     // Titik ukur live (mengikuti input meter) untuk cek jalur putus.
+    // Rantai penuh dari HULU (root) sampai device yang diukur: telusuri
+    // sourceId ke atas, sambung fullPath tiap segmen (buang titik sambungan
+    // duplikat). Dipakai mode "Seluruh jalur" → ukur menembus banyak ODP.
+    const measureChainPath = useMemo(() => {
+        if (!measureLine) return null;
+        const byChild = new Map();
+        for (const l of mapData.lines) {
+            const cid = l.netwatchId || l.pppoeId;
+            if (cid) byChild.set(cid, l);
+        }
+        const segs = [];
+        const guard = new Set();
+        let cur = measureLine;
+        while (cur && !guard.has(cur.id)) {
+            guard.add(cur.id);
+            segs.push(cur);
+            cur = cur.sourceId ? byChild.get(cur.sourceId) : null;
+        }
+        segs.reverse(); // root → device
+        let path = [];
+        for (let i = 0; i < segs.length; i++) {
+            const fp = Array.isArray(segs[i].fullPath) ? segs[i].fullPath : [];
+            path = i === 0 ? [...fp] : path.concat(fp.slice(1));
+        }
+        return path.length >= 2 ? path : null;
+    }, [measureLine, mapData.lines]);
+
+    // Jalur & total aktif (segmen vs seluruh rantai).
+    const measureActivePath = (measureWholeChain && measureChainPath) ? measureChainPath : measureLine?.fullPath;
+    const measureTotalLen = (measureWholeChain && measureChainPath)
+        ? calculatePathLength(measureChainPath)
+        : (measureLine?.distance || 0);
+
     const measurePoint = useMemo(() => {
-        if (!measureLine || !Array.isArray(measureLine.fullPath) || measureLine.fullPath.length < 2) return null;
+        const path = (measureWholeChain && measureChainPath) ? measureChainPath : measureLine?.fullPath;
+        if (!Array.isArray(path) || path.length < 2) return null;
         const m = Number(measureMeters);
         if (!(m >= 0)) return null;
-        return pointAlongPath(measureLine.fullPath, m, measureSide);
-    }, [measureLine, measureMeters, measureSide]);
+        return pointAlongPath(path, m, measureSide);
+    }, [measureLine, measureMeters, measureSide, measureWholeChain, measureChainPath]);
 
     // Simpan titik ukur jadi penanda permanen di device pemilik garis.
     const handleSaveMeasure = useCallback(() => {
@@ -2673,7 +2711,7 @@ const NetworkMap = ({
                                 pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#ef4444', fillOpacity: 1 }}
                             >
                                 <Tooltip permanent direction="top" offset={[0, -5]} className="dist-marker-tooltip">
-                                    {formatDistance(Number(measureMeters) || 0)} dari {measureSide === 'dest' ? 'dest' : 'source'}
+                                    {formatDistance(Number(measureMeters) || 0)} dari {measureWholeChain ? (measureSide === 'dest' ? 'ujung' : 'hulu') : (measureSide === 'dest' ? 'dest' : 'source')}
                                 </Tooltip>
                             </CircleMarker>
                         )}
@@ -3100,7 +3138,14 @@ const NetworkMap = ({
                                 </button>
                             </div>
                             <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 8 }}>
-                                {measureLine.sourceName} → {measureLine.destName} · total {formatDistance(measureLine.distance || 0)}
+                                {measureWholeChain
+                                    ? `Seluruh jalur (hulu → ${measureLine.destName}) · total ${formatDistance(measureTotalLen)}`
+                                    : `${measureLine.sourceName} → ${measureLine.destName} · total ${formatDistance(measureLine.distance || 0)}`}
+                            </div>
+                            {/* Toggle segmen vs seluruh jalur sampai hulu (Cara 2) */}
+                            <div style={{ display: 'flex', gap: 6, marginBottom: 10, background: 'rgba(2,6,23,0.5)', borderRadius: 8, padding: 3 }}>
+                                <button type="button" onClick={() => setMeasureWholeChain(false)} style={{ flex: 1, background: !measureWholeChain ? 'rgba(6,182,212,0.25)' : 'transparent', color: !measureWholeChain ? '#67e8f9' : '#94a3b8', border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>Segmen ini</button>
+                                <button type="button" onClick={() => setMeasureWholeChain(true)} disabled={!measureChainPath} title={measureChainPath ? 'Ukur menembus semua ODP sampai hulu (root)' : 'Tak ada rantai ke hulu'} style={{ flex: 1, background: measureWholeChain ? 'rgba(6,182,212,0.25)' : 'transparent', color: measureWholeChain ? '#67e8f9' : (measureChainPath ? '#94a3b8' : '#475569'), border: 'none', borderRadius: 6, padding: '5px 8px', fontSize: 11, fontWeight: 700, cursor: measureChainPath ? 'pointer' : 'not-allowed' }}>Seluruh jalur (hulu)</button>
                             </div>
                             {/* Edit cepat pengaturan garis/core di device ujung */}
                             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
@@ -3125,19 +3170,19 @@ const NetworkMap = ({
                             </div>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                                 <input
-                                    type="number" min="0" max={Math.ceil(measureLine.distance || 0)}
+                                    type="number" min="0" max={Math.ceil(measureTotalLen || 0)}
                                     value={measureMeters}
                                     onChange={(e) => setMeasureMeters(e.target.value)}
                                     style={{ width: 90, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 13, fontWeight: 700 }}
                                 />
                                 <span style={{ fontSize: 12, color: '#94a3b8' }}>m dari</span>
                                 <select value={measureSide} onChange={(e) => setMeasureSide(e.target.value)} style={{ background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}>
-                                    <option value="source">source</option>
-                                    <option value="dest">destination</option>
+                                    <option value="source">{measureWholeChain ? 'hulu (root)' : 'source'}</option>
+                                    <option value="dest">{measureWholeChain ? 'ujung (device)' : 'destination'}</option>
                                 </select>
                             </div>
                             <input
-                                type="range" min="0" max={Math.max(1, Math.ceil(measureLine.distance || 0))}
+                                type="range" min="0" max={Math.max(1, Math.ceil(measureTotalLen || 0))}
                                 value={Number(measureMeters) || 0}
                                 onChange={(e) => setMeasureMeters(e.target.value)}
                                 style={{ width: '100%', accentColor: '#06b6d4', marginBottom: 10 }}
@@ -3147,12 +3192,18 @@ const NetworkMap = ({
                                     type="text" placeholder="label (opsional, mis. Titik Putus)"
                                     value={measureLabel}
                                     onChange={(e) => setMeasureLabel(e.target.value)}
-                                    style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: '#e2e8f0', fontSize: 12 }}
+                                    disabled={measureWholeChain}
+                                    style={{ flex: 1, background: 'rgba(2,6,23,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '6px 8px', color: measureWholeChain ? '#475569' : '#e2e8f0', fontSize: 12 }}
                                 />
-                                <button onClick={handleSaveMeasure} style={{ background: '#06b6d4', color: '#04121a', fontWeight: 800, border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <button onClick={handleSaveMeasure} disabled={measureWholeChain} title={measureWholeChain ? 'Mode seluruh jalur = ukur/lokasi saja. Simpan penanda pakai mode "Segmen ini" atau fitur Kabel.' : 'Simpan penanda'} style={{ background: measureWholeChain ? 'rgba(6,182,212,0.35)' : '#06b6d4', color: '#04121a', fontWeight: 800, border: 'none', borderRadius: 6, padding: '6px 12px', cursor: measureWholeChain ? 'not-allowed' : 'pointer', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <span className="material-symbols-outlined" style={{ fontSize: 16 }}>push_pin</span> Simpan
                                 </button>
                             </div>
+                            {measureWholeChain && (
+                                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6, lineHeight: 1.4 }}>
+                                    Mode seluruh jalur: ukur & lokasi titik saja (menembus semua ODP sampai hulu). Untuk simpan penanda putus end-to-end, gunakan <b>fitur Kabel</b>.
+                                </div>
+                            )}
 
                             {/* Fiber Core — daftar core + sorot warna di garis */}
                             {measureLine.fiberCores && Array.isArray(measureLine.fiberCores.cores) && measureLine.fiberCores.cores.length > 0 && (
