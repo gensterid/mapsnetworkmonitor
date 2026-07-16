@@ -8,6 +8,12 @@ import type { Onu } from '../db/schema/onus.js';
 import { checkSignalChange } from './signal-alert.service.js';
 import { env } from '../config/env.js';
 
+// Sentinel written to onus.lastDownReason by the orphan sweep when an ONU
+// vanishes from its OLT's device list. The cross-OLT reassign logic reads this
+// exact string as proof the old OLT dropped the ONU, so both sites MUST share
+// one constant — a reword on one side would silently desync the other.
+const ORPHAN_REASON = 'Removed from OLT';
+
 export class OltService {
     private static instance: OltService;
 
@@ -441,10 +447,21 @@ export class OltService {
         }
 
         if (valuesToUpsert.length > 0) {
-            // Auto-reassign cross-OLT moves: if any incoming SN already exists
-            // in DB but is currently linked to a different OLT, AND the old
-            // OLT hasn't seen it for 6+ hours, reassign before the bulk upsert
-            // so olt_id/pon_port follow the physical move.
+            // Auto-reassign cross-OLT moves: if this OLT now reports an SN that
+            // DB still links to a DIFFERENT OLT, the ONU has physically moved
+            // here (a GPON ONU registers to exactly one OLT PON at a time), so
+            // olt_id/pon_port must follow — before the SN-keyed bulk upsert runs.
+            //
+            // We must NOT gate this purely on lastSeenOlt: that column is keyed
+            // by SN and refreshed to `now` by THIS OLT's own upsert every cycle,
+            // so once the new OLT starts polling it never goes stale — which
+            // permanently deadlocked moves (ONU stuck showing 'Removed from OLT'
+            // on the old OLT forever, even a month after the physical move).
+            // Instead reassign immediately when the move is unambiguous: the new
+            // OLT sees it ONLINE, or the old OLT already dropped it (orphan marker
+            // / offline). Only keep the 6h defer for the genuinely ambiguous case
+            // (new OLT lists it but not online yet AND the old OLT saw it very
+            // recently — e.g. a pre-provisioned SN mid-migration).
             const STALE_HOURS = 6;
             const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000);
             const incomingSns = valuesToUpsert.map(v => v.sn);
@@ -453,25 +470,44 @@ export class OltService {
                 sn: onus.sn,
                 oldOltId: onus.oltId,
                 lastSeenOlt: onus.lastSeenOlt,
+                status: onus.status,
+                lastDownReason: onus.lastDownReason,
             }).from(onus).where(and(
                 inArray(onus.sn, incomingSns),
                 isNotNull(onus.oltId),
                 sql`${onus.oltId} != ${oltId}`,
+                // Tenant scoping: never repoint an ONU across tenants. onus.sn is
+                // globally unique, so a cross-tenant SN collision (dup hardware,
+                // seed data) could otherwise steal a row into another tenant's OLT.
+                ...(tenantId ? [eq(onus.tenantId, tenantId)] : []),
             ));
             for (const c of crossOltCandidates) {
-                if (c.lastSeenOlt && c.lastSeenOlt > staleThreshold) continue; // dual-registered, leave alone
                 const incoming = valuesToUpsert.find(v => v.sn === c.sn);
                 if (!incoming) continue;
-                await db.update(onus).set({
-                    oltId: oltId,
-                    ponPort: incoming.ponPort,
-                    onuIndex: incoming.onuIndex,
-                    routerId: olt.parentId,
-                    updatedAt: now,
-                }).where(eq(onus.id, c.id));
-                logger.info({
-                    oltId, oltName: olt.name, sn: c.sn, fromOltId: c.oldOltId,
-                }, '🔀 Auto-reassigned ONU to this OLT (stale on previous)');
+                const liveOnThisOlt = incoming.status === 'online';
+                const droppedByOldOlt = c.lastDownReason === ORPHAN_REASON || c.status === 'offline';
+                const freshOnOldOlt = c.lastSeenOlt && c.lastSeenOlt > staleThreshold;
+                // Defer only while the move is still ambiguous AND the old OLT saw it recently.
+                if (!liveOnThisOlt && !droppedByOldOlt && freshOnOldOlt) continue;
+                // Best-effort per candidate — one failed reassign must not abort
+                // the whole sync cycle (bulk upsert + orphan sweep still run).
+                try {
+                    await db.update(onus).set({
+                        oltId: oltId,
+                        ponPort: incoming.ponPort,
+                        onuIndex: incoming.onuIndex,
+                        routerId: olt.parentId,
+                        // Normalize ownership to the OLT the ONU now lives under.
+                        tenantId: olt.tenantId,
+                        updatedAt: now,
+                    }).where(eq(onus.id, c.id));
+                    logger.info({
+                        oltId, oltName: olt.name, sn: c.sn, fromOltId: c.oldOltId,
+                        trigger: liveOnThisOlt ? 'online-on-new' : droppedByOldOlt ? 'orphaned-on-old' : 'stale-on-old',
+                    }, '🔀 Auto-reassigned ONU to this OLT');
+                } catch (reassignErr) {
+                    logger.warn({ err: reassignErr, oltId, sn: c.sn }, 'Cross-OLT reassign failed (will retry next cycle)');
+                }
             }
 
             // Operator-archived ONUs that the OLT still reports — log so operator
@@ -590,7 +626,7 @@ export class OltService {
             if (orphanIds.length > 0) {
                 await db.update(onus).set({
                     status: 'offline',
-                    lastDownReason: 'Removed from OLT',
+                    lastDownReason: ORPHAN_REASON,
                     updatedAt: now,
                 }).where(inArray(onus.id, orphanIds));
                 orphaned = orphanIds.length;
