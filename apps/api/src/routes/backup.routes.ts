@@ -192,8 +192,10 @@ router.get('/list', requireRole('superadmin'), async (_req, res) => {
 router.post('/trigger-manual', requireRole('superadmin'), async (req, res) => {
     try {
         // Manual trigger always creates a fresh dump — bypass the same-day skip
-        // that automatedBackup() applies for the scheduler.
-        const filePath = await backupService.exportDatabase(true);
+        // that automatedBackup() applies for the scheduler. persistent=true so
+        // this snapshot uses the 'manual-bkp-' prefix and is EXEMPT from the
+        // auto-backup rotation/count-cap (operator prunes it manually).
+        const filePath = await backupService.exportDatabase(false, true);
         const filename = path.basename(filePath);
         await logBackupAudit(req, 'create', { filename });
         res.json({ message: 'Backup created successfully', filename });

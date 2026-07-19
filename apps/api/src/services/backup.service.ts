@@ -21,7 +21,7 @@ export class BackupService {
         this.psqlPath = process.env.PSQL_PATH || 'psql';
     }
 
-    async exportDatabase(isAuto: boolean = false): Promise<string> {
+    async exportDatabase(isAuto: boolean = false, persistent: boolean = false): Promise<string> {
         // First check if pg_dump is available
         try {
             await execFileAsync(this.pgDumpPath, ['--version']);
@@ -30,8 +30,15 @@ export class BackupService {
         }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = isAuto ? `auto-bkp-${timestamp}.sql.gz` : `backup-${timestamp}.sql.gz`;
-        const dir = isAuto ? path.join(process.cwd(), 'backups') : path.join(process.cwd(), 'temp');
+        // Prefix decides RETENTION policy, not just naming:
+        //  - 'manual-bkp-' (persistent): operator-triggered snapshot kept in
+        //     backups/ and NEVER auto-deleted — cleanupOldBackups() only targets
+        //     'auto-bkp-'. Operator prunes these manually (e.g. pre-migration).
+        //  - 'auto-bkp-'  (scheduled):   rotated by cleanupOldBackups (age + count cap).
+        //  - 'backup-'    (download):    ephemeral one-off export, written to temp/.
+        const prefix = persistent ? 'manual-bkp-' : isAuto ? 'auto-bkp-' : 'backup-';
+        const filename = `${prefix}${timestamp}.sql.gz`;
+        const dir = (isAuto || persistent) ? path.join(process.cwd(), 'backups') : path.join(process.cwd(), 'temp');
         const outputPath = path.join(dir, filename);
 
         // Ensure dir exists
@@ -70,7 +77,9 @@ export class BackupService {
                 stderrSnippet: stderr ? String(stderr).slice(0, 200) : undefined,
             }, '💾 Database backup written');
 
-            if (isAuto) {
+            // Only rotate scheduled auto backups. Persistent manual snapshots
+            // use a different prefix and are exempt — never trigger rotation.
+            if (isAuto && !persistent) {
                 await this.cleanupOldBackups();
             }
 
@@ -93,6 +102,14 @@ export class BackupService {
     }
 
     async automatedBackup(): Promise<string | null> {
+        // Prune old backups FIRST — before attempting the dump. This runs on
+        // every scheduled tick regardless of whether today's backup exists or
+        // the dump later fails, which breaks the death spiral where a full disk
+        // makes the dump fail so the post-dump cleanup never runs — leaving the
+        // disk full forever (exactly how CT206 filled up: backups stopped, old
+        // files never pruned).
+        await this.cleanupOldBackups();
+
         // Skip jika sudah ada auto backup hari ini — mencegah triplikasi saat
         // PM2 reload beberapa kali dalam sehari.
         const dir = path.join(process.cwd(), 'backups');
@@ -209,6 +226,30 @@ export class BackupService {
                     }
                 } catch (err: any) {
                     logger.warn({ file, error: err.message }, 'Failed to process individual backup for cleanup');
+                }
+            }
+
+            // Hard count cap — independent of the age retention. Each dump is
+            // GiB-scale, so an age-only policy set too high (e.g. 90 days) can
+            // fill the disk long before files age out. Keep only the newest N
+            // auto-backups; delete the rest regardless of age. Re-read the dir
+            // because the age pass above may have already removed some files.
+            const MAX_KEEP = 7;
+            const remaining = fs.readdirSync(dir)
+                .filter(f => f.startsWith('auto-bkp-'))
+                .map(f => {
+                    try { return { file: f, mtime: fs.statSync(path.join(dir, f)).mtime.getTime() }; }
+                    catch { return null; }
+                })
+                .filter((x): x is { file: string; mtime: number } => x !== null)
+                .sort((a, b) => b.mtime - a.mtime);
+            for (let i = MAX_KEEP; i < remaining.length; i++) {
+                try {
+                    fs.unlinkSync(path.join(dir, remaining[i].file));
+                    logger.info({ file: remaining[i].file, reason: 'over-count-cap' }, '🧹 Cleaned up backup over count cap');
+                    deletedCount++;
+                } catch (err: any) {
+                    logger.warn({ file: remaining[i].file, error: err.message }, 'Failed to delete backup over count cap');
                 }
             }
 
