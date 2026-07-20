@@ -29,13 +29,33 @@ export const coreColor = (i) => {
     return FIBER_COLORS[idx];
 };
 
-// Bangun array cores default untuk jumlah tertentu, mempertahankan dest/note
-// yang sudah ada saat resize.
+// Cari definisi warna dari key (mis. 'blue'). null bila key tak dikenal.
+export const colorByKey = (key) => FIBER_COLORS.find((c) => c.key === key) || null;
+
+// Warna EFEKTIF sebuah core: pakai warna tersimpan bila valid, kalau tidak
+// jatuh ke standar TIA berdasarkan nomor core.
+//
+// Perlu karena satu ODP sering memakai BEBERAPA kabel 2-core ke arah berbeda,
+// dan tiap kabel itu fisiknya sama-sama biru+oranye. Warna karena itu tak bisa
+// lagi diturunkan dari nomor core saja (C3 tidak selalu hijau) — operator harus
+// bisa menyetel C3=biru, C4=oranye untuk kabel arah kedua. Dipakai renderer
+// peta, panel detail, dan modal supaya satu sumber kebenaran.
+export const resolveCoreColor = (core) => colorByKey(core?.color) || coreColor(core?.i);
+
+// Bangun array cores default untuk jumlah tertentu, mempertahankan warna/dest/
+// note yang sudah ada saat resize.
 export const buildCores = (count, existing = []) => {
     const out = [];
     for (let i = 1; i <= count; i++) {
         const prev = existing.find((c) => Number(c.i) === i);
-        out.push({ i, color: coreColor(i).key, dest: prev?.dest || '', note: prev?.note || '' });
+        out.push({
+            i,
+            // Pertahankan warna pilihan operator saat jumlah core diubah —
+            // hanya core baru yang memakai default TIA.
+            color: prev?.color || coreColor(i).key,
+            dest: prev?.dest || '',
+            note: prev?.note || '',
+        });
     }
     return out;
 };

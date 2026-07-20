@@ -104,7 +104,7 @@ import './map/map.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import { calculatePathLength, formatDistance, pointAlongPath, calculateDistance } from '@/lib/geo';
-import { coreColor, FIBER_COLORS } from '@/lib/fiberColors';
+import { coreColor, resolveCoreColor, FIBER_COLORS } from '@/lib/fiberColors';
 
 // Parse JSON aman — string malformed tidak boleh bikin build mapData crash.
 function parseJsonSafe(v, fallback) {
@@ -1289,12 +1289,15 @@ const NetworkMap = ({
                             .filter((c) => c.dest && (c.dest === node.name || c.dest === node.host))
                             .sort((a, b) => Number(a.i) - Number(b.i));
                         if (mine.length === 1) {
-                            const col = coreColor(mine[0].i);
+                            // Warna efektif (override operator > default TIA) —
+                            // satu ODP bisa punya beberapa kabel 2-core yang
+                            // sama-sama biru+oranye, jadi jangan pakai indeks.
+                            const col = resolveCoreColor(mine[0]);
                             coreColorHex = col.hex;
                             coreIndex = mine[0].i;
                             coreName = col.name;
                         } else if (mine.length >= 2) {
-                            lineCores = mine.map((c) => ({ i: c.i, hex: coreColor(c.i).hex, dest: c.dest }));
+                            lineCores = mine.map((c) => ({ i: c.i, hex: resolveCoreColor(c).hex, dest: c.dest }));
                         }
                     }
                 }
@@ -3230,7 +3233,10 @@ const NetworkMap = ({
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 150, overflowY: 'auto' }}>
                                         {measureLine.fiberCores.cores.map((c) => {
-                                            const col = coreColor(c.i);
+                                            // Warna efektif (override operator > default TIA) — nilai ini
+                                            // juga dipakai sebagai warna sorotan garis, jadi harus sama
+                                            // dengan yang dirender garisnya.
+                                            const col = resolveCoreColor(c);
                                             const active = highlightCore?.lineId === measureLine.id && highlightCore?.i === c.i;
                                             return (
                                                 <button

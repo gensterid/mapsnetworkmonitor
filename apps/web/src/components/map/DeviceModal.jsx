@@ -7,7 +7,7 @@ import HistoryTab from '../router/tabs/HistoryTab';
 import OltTab from './OltTab';
 import AcsTab from './AcsTab';
 import { useAppTimezone } from '@/hooks';
-import { CORE_COUNTS, coreColor, buildCores } from '@/lib/fiberColors';
+import { CORE_COUNTS, FIBER_COLORS, resolveCoreColor, buildCores } from '@/lib/fiberColors';
 
 // DB enum device type yang valid. 'netwatch' adalah tipe map-node UI, BUKAN
 // device type DB — harus dinormalisasi ke 'client'.
@@ -869,11 +869,23 @@ const DeviceModal = ({
                                 {fiber && Array.isArray(fiber.cores) && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflowY: 'auto' }}>
                                         {fiber.cores.map((c) => {
-                                            const col = coreColor(c.i);
+                                            const col = resolveCoreColor(c);
                                             return (
                                                 <div key={c.i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                     <span title={col.name} style={{ width: 16, height: 16, borderRadius: 4, background: col.hex, border: '1px solid rgba(255,255,255,0.35)', flexShrink: 0 }} />
-                                                    <span style={{ fontSize: 11, color: '#94a3b8', width: 46, flexShrink: 0 }}>C{c.i} · {col.name}</span>
+                                                    <span style={{ fontSize: 11, color: '#94a3b8', width: 26, flexShrink: 0 }}>C{c.i}</span>
+                                                    <select
+                                                        value={col.key}
+                                                        onChange={(e) => updateCore(c.i, 'color', e.target.value)}
+                                                        disabled={isSaving}
+                                                        aria-label={`Warna core C${c.i}`}
+                                                        title="Warna core — ubah bila kabel tiap arah memakai warna yang sama (mis. tiap arah 2-core biru+oranye)"
+                                                        style={{ width: 86, flexShrink: 0, boxSizing: 'border-box', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 6, padding: '4px 6px', color: '#e2e8f0', fontSize: 11 }}
+                                                    >
+                                                        {FIBER_COLORS.map((fcol) => (
+                                                            <option key={fcol.key} value={fcol.key}>{fcol.name}</option>
+                                                        ))}
+                                                    </select>
                                                     <select
                                                         value={c.dest || ''}
                                                         onChange={(e) => updateCore(c.i, 'dest', e.target.value)}

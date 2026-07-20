@@ -24,7 +24,7 @@ import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
 import MetricCard from './MetricCard';
 import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
-import { coreColor } from '@/lib/fiberColors';
+import { resolveCoreColor } from '@/lib/fiberColors';
 import { useAppTimezone, useGenieACSDevices } from '@/hooks';
 import { formatShortDateTime } from '@/lib/timezone';
 import { formatDistance } from '@/lib/geo';
@@ -662,7 +662,7 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull, onD
                             <div className="text-[10px] font-bold uppercase tracking-widest text-fg-muted mb-2">Fiber Core ({fc.coreCount})</div>
                             <div className="bg-surface-darker/50 border border-slate-border/60 rounded-lg p-3 space-y-1.5">
                                 {fc.cores.map((c) => {
-                                    const col = coreColor(c.i);
+                                    const col = resolveCoreColor(c);
                                     return (
                                         <div key={c.i} className="flex items-center gap-2 text-xs">
                                             <span className="w-3.5 h-3.5 rounded shrink-0 border border-white/30" style={{ background: col.hex }} title={col.name} />
