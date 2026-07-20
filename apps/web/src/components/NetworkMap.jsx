@@ -2937,9 +2937,15 @@ const NetworkMap = ({
                         onConfirm={handleDeleteConfirmed}
                     />
 
-                    {/* Cluster kabel kiri-bawah (C2 gambar + C4 toggle layer) */}
+                    {/* Cluster kabel kiri-bawah (C2 gambar + C4 toggle layer).
+                        Offset posisi dihitung agar tidak menabrak elemen lain:
+                        - lg (desktop): sidebar slim 64px → left 84px; atribusi
+                          "Google"/Leaflet di kiri-bawah peta → bottom 56px
+                          (menutupi atribusi peta melanggar ToS + bikin sesak).
+                        - mobile: sidebar jadi overlay (tak makan layout) → left
+                          16px; tapi ada BottomNav 64px → bottom 88px. */}
                     {!showRoutersOnly && !selectedUnplacedDevice && !isEditingPath && !isDrawingCable && !measureLine && !isPickingCoordinate && !editingCable && !measureCable && (
-                        <div style={{ position: 'fixed', bottom: 20, left: 20, zIndex: 1100, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div className="fixed z-[1100] flex items-center gap-2 left-4 bottom-[88px] lg:left-[84px] lg:bottom-14">
                             <button
                                 type="button"
                                 onClick={startDrawCable}
