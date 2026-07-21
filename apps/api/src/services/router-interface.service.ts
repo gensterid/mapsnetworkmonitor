@@ -9,6 +9,10 @@ import {
 
 import { interfaceRepository } from '../repositories/interface.repository.js';
 import { logger } from '../lib/logger.js';
+import {
+    checkInterfaceSpeed,
+    type InterfaceSpeedSample,
+} from './automation/checks/interface-speed.check.js';
 
 export class RouterInterfaceService {
     /**
@@ -40,11 +44,30 @@ export class RouterInterfaceService {
             existingInterfaces.map((i: RouterInterface) => [i.name, i])
         );
 
+        // Automation: kumpulkan interface yang nilai speed-nya berubah. Dibanding
+        // di sini karena `existingInterface` masih memuat nilai SEBELUM update —
+        // pola sama seperti snapshot redaman lama pada sync OLT.
+        const speedSamples: InterfaceSpeedSample[] = [];
+
         for (const iface of interfaces) {
             const existingInterface = interfaceMap.get(iface.name);
 
             if (existingInterface) {
                 const now = new Date();
+
+                // Syarat `iface.speed` truthy penting: saat port down MikroTik tak
+                // mengirim speed (undefined), dan Drizzle melewati field undefined
+                // sehingga kolom DB tetap menyimpan nilai lama. Tanpa guard ini
+                // perbandingan "1Gbps !== undefined" bernilai true SELAMANYA untuk
+                // tiap port mati → query router sia-sia tiap siklus poll.
+                if (iface.speed && existingInterface.speed !== iface.speed) {
+                    speedSamples.push({
+                        interfaceId: existingInterface.id,
+                        name: iface.name,
+                        oldSpeed: existingInterface.speed ?? null,
+                        newSpeed: iface.speed ?? null,
+                    });
+                }
                 // Update basic metadata (status, etc)
                 const updateData: any = {
                     ...iface,
@@ -174,6 +197,35 @@ export class RouterInterfaceService {
                     txRate: 0,
                     rxRate: 0,
                 });
+            }
+        }
+
+        // Automation: evaluasi penurunan kecepatan link. Sengaja DI LUAR loop
+        // (router di-query sekali, hanya bila memang ada perubahan) dan best-effort
+        // — kegagalan di sini tidak boleh menggagalkan sync interface.
+        if (speedSamples.length > 0) {
+            try {
+                const [router] = await db
+                    .select({ tenantId: routers.tenantId, name: routers.name })
+                    .from(routers)
+                    .where(eq(routers.id, routerId))
+                    .limit(1);
+
+                // alerts.tenant_id NOT NULL → tanpa tenant, lewati saja.
+                if (router?.tenantId) {
+                    await checkInterfaceSpeed({
+                        routerId,
+                        tenantId: router.tenantId,
+                        routerName: router.name || routerId,
+                        samples: speedSamples,
+                    });
+                } else {
+                    // Router tanpa tenant adalah anomali integritas data — jangan
+                    // dibuang diam-diam, operator perlu tahu.
+                    logger.warn({ routerId }, 'Automation: router tanpa tenantId — cek speed dilewati');
+                }
+            } catch (err) {
+                logger.warn({ err, routerId }, 'Automation: interface speed check gagal (diabaikan)');
             }
         }
     }
