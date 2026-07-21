@@ -57,6 +57,9 @@ const envSchema = z.object({
 
     // ─── Polling & Scheduler Tuning ───────────────────────────────────────
     SYNC_ENABLED: z.enum(['true', 'false']).default('true'),
+    // Kill switch siklus automation checks (toggle per tenant tetap tersedia
+    // lewat setting `automation_enabled`).
+    AUTOMATION_ENABLED: z.enum(['true', 'false']).default('true'),
     ROUTER_SYNC_CONCURRENCY: z.string().default('5').transform(Number),
     OLT_SYNC_CONCURRENCY: z.string().default('3').transform(Number),
     QUEUE_BP_WAITING_LIMIT: z.string().default('100').transform(Number),
@@ -80,6 +83,7 @@ const envSchema = z.object({
     SCHED_NETWATCH_AUTOHEAL_MS: z.string().default('300000').transform(Number),  // 5 min — netwatch IP auto-heal
     SCHED_NETWATCH_SWEEP_MS: z.string().default('300000').transform(Number),     // 5 min — netwatch alert resolver sweep
     SCHED_NETWATCH_APPPING_MS: z.string().default('60000').transform(Number),    // 1 min — ping entry app-only via router induk
+    SCHED_AUTOMATION_MS: z.string().default('300000').transform(Number),         // 5 min — automation checks pull-based (IP pool DHCP)
 
     // ─── Adaptive Scaling (auto-tune polling interval per cluster size) ──
     ADAPTIVE_BASE_MS: z.string().default('60000').transform(Number),

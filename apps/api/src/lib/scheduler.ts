@@ -51,6 +51,7 @@ let driftScanInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAutoHealInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAlertSweepInterval: ReturnType<typeof setInterval> | null = null;
 let netwatchAppPingInterval: ReturnType<typeof setInterval> | null = null;
+let automationInterval: ReturnType<typeof setInterval> | null = null;
 let isPolling = false;
 let isPollingSnmp = false;
 let pollingStartTime: number | null = null;
@@ -751,6 +752,11 @@ export async function startScheduler(): Promise<void> {
     setTimeout(() => runNetwatchAppPingSafe(), 45000);
     netwatchAppPingInterval = setInterval(() => runNetwatchAppPingSafe(), env.SCHED_NETWATCH_APPPING_MS);
 
+    // Automation checks pull-based. Start awal sengaja paling belakang (5 mnt)
+    // supaya tidak berebut koneksi router dengan poll pertama saat boot.
+    setTimeout(() => runAutomationChecksSafe(), 300000);
+    automationInterval = setInterval(() => runAutomationChecksSafe(), env.SCHED_AUTOMATION_MS);
+
     // Startup summary log untuk operator visibility
     logger.info(
         {
@@ -766,6 +772,7 @@ export async function startScheduler(): Promise<void> {
             netwatchAutoHealMs: env.SCHED_NETWATCH_AUTOHEAL_MS,
             netwatchSweepMs: env.SCHED_NETWATCH_SWEEP_MS,
             netwatchAppPingMs: env.SCHED_NETWATCH_APPPING_MS,
+            automationMs: env.SCHED_AUTOMATION_MS,
         },
         '\xe2\x8f\xb1\xef\xb8\x8f Scheduler started with intervals (override via env SCHED_*_MS)'
     );
@@ -826,6 +833,20 @@ async function runNetwatchAlertSweepSafe() {
     }
 }
 
+async function runAutomationChecksSafe() {
+    // Kill switch — set AUTOMATION_ENABLED=false untuk mematikan siklus sepenuhnya
+    // (toggle per tenant tetap tersedia lewat setting automation_enabled).
+    if (env.AUTOMATION_ENABLED === 'false') {
+        return;
+    }
+    try {
+        const { runAutomationChecks } = await import('../services/automation/runner.js');
+        await runAutomationChecks();
+    } catch (err) {
+        logger.error({ err }, 'Automation checks cycle crashed');
+    }
+}
+
 async function runNetwatchAppPingSafe() {
     try {
         const { pingAppOnlyNetwatch } = await import('../services/netwatch/netwatch-appping.service.js');
@@ -857,6 +878,7 @@ export function stopScheduler(): void {
     if (netwatchAutoHealInterval) { clearInterval(netwatchAutoHealInterval); netwatchAutoHealInterval = null; }
     if (netwatchAlertSweepInterval) { clearInterval(netwatchAlertSweepInterval); netwatchAlertSweepInterval = null; }
     if (netwatchAppPingInterval) { clearInterval(netwatchAppPingInterval); netwatchAppPingInterval = null; }
+    if (automationInterval) { clearInterval(automationInterval); automationInterval = null; }
 
     stopQueueWorker();
     logger.info('🛑 Scheduler stopped');
