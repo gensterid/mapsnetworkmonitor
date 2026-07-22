@@ -33,6 +33,11 @@ import { X } from 'lucide-react';
  *   maxWidth?: string — Tailwind class override (mis. 'max-w-3xl'). Override size.
  *   dismissible?: boolean — default true. Set false untuk modal critical
  *                            yang tidak boleh close via ESC/backdrop.
+ *   zIndexClass?: string — Tailwind z-index override (default 'z-[1200]').
+ *                          Naikkan HANYA saat modal dibuka DARI ATAS overlay
+ *                          lain yang lebih tinggi dari 1200 (mis. konfirmasi
+ *                          hapus di dalam Edit Device yang overlay-nya z-2000),
+ *                          kalau tidak modal tenggelam di belakang.
  *
  * Backward compat: prop `open` (legacy dari billing/helpers) DI-ALIAS ke
  * `isOpen` supaya 6 file billing tetap work tanpa migration mass.
@@ -67,6 +72,7 @@ export const Modal = ({
     size = 'md',
     maxWidth,
     dismissible = true,
+    zIndexClass = 'z-[1200]',
 }) => {
     const titleId = useId();
     const visible = isOpen ?? open ?? false;
@@ -103,12 +109,16 @@ export const Modal = ({
     const widthClass = maxWidth || SIZE_CLASSES[size] || SIZE_CLASSES.md;
 
     return createPortal(
-        // z-[1200] supaya di ATAS SidePanel (z-1110) + AlertPanel.
+        // Default z-[1200] supaya di ATAS SidePanel (z-1110) + AlertPanel.
         // Di BAWAH Sidebar mobile drawer (z-2001) + SettingsFlyout (z-2060)
         // — kalau Sidebar drawer terbuka, user harus close itu dulu untuk
-        // buka Modal. Hindari deadlock visual.
+        // buka Modal. Hindari deadlock visual. Bisa dinaikkan via zIndexClass
+        // saat dibuka dari overlay yang lebih tinggi (lihat JSDoc).
         <div
-            className="fixed inset-0 z-[1200] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm dl-backdrop-in"
+            className={clsx(
+                'fixed inset-0 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm dl-backdrop-in',
+                zIndexClass,
+            )}
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}

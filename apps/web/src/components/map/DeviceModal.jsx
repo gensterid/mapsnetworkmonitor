@@ -980,6 +980,8 @@ const DeviceModal = ({
                 message="Yakin ingin menghapus perangkat ini dari peta?"
                 showMikrotikOption={device && (device.deviceType === 'client' || !device.deviceType) && !device.isAppOnly}
                 isDeleting={isDeleting}
+                // Overlay Edit Device z-2000; konfirmasi harus di ATASnya agar bisa diklik.
+                zIndexClass="z-[2100]"
             />
         </div>
     );

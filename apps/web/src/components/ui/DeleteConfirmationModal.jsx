@@ -12,7 +12,8 @@ export const DeleteConfirmationModal = ({
     itemName = "",
     showMikrotikOption = false,
     confirmText = "Delete",
-    isDeleting = false
+    isDeleting = false,
+    zIndexClass, // teruskan ke Modal; naikkan bila dibuka dari overlay tinggi
 }) => {
     const [deleteFromMikrotik, setDeleteFromMikrotik] = useState(true);
 
@@ -21,7 +22,7 @@ export const DeleteConfirmationModal = ({
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={title}>
+        <Modal isOpen={isOpen} onClose={onClose} title={title} zIndexClass={zIndexClass}>
             <div className="space-y-4">
                 <div className="flex items-start gap-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                     <div className="p-2 bg-red-500/20 rounded-lg shrink-0">
