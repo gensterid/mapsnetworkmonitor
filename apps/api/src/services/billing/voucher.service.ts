@@ -124,6 +124,9 @@ export const voucherService = {
      * Smart list: dispatch to native or bridge based on per-router settings.
      */
     async listForRouter(tenantId: string, routerId: string) {
+        // Cegah IDOR lintas-tenant: routerId dari URL harus milik tenant ini
+        // (melindungi dispatch ke listBridge yang membaca kredensial live).
+        await routerActionService.assertRouterOwnedByTenant(routerId, tenantId);
         const [settings] = await db.select().from(billingRouterSettings)
             .where(eq(billingRouterSettings.routerId, routerId)).limit(1);
         const mode = settings?.hotspotMode || 'disabled';
@@ -188,6 +191,8 @@ export const voucherService = {
             .where(and(eq(packages.id, input.packageId), eq(packages.tenantId, input.tenantId))).limit(1);
         if (!pkg) throw new Error('Package not found');
         if (pkg.type !== 'hotspot') throw new Error('Package is not a hotspot package');
+        // Cegah IDOR lintas-tenant: routerId harus milik tenant ini.
+        await routerActionService.assertRouterOwnedByTenant(input.routerId, input.tenantId);
 
         const api = await routerActionService.getRouterConnection(input.routerId);
 
@@ -257,6 +262,9 @@ export const voucherService = {
     }): Promise<{ batch: VoucherBatch; created: number; failed: number; vouchers: Voucher[] }> {
         const { tenantId, routerId, packageId, count } = input;
         if (count < 1 || count > 500) throw new Error('count must be 1..500');
+        // Cegah IDOR lintas-tenant: routerId dari input harus milik tenant ini
+        // sebelum push ratusan user hotspot ke router.
+        await routerActionService.assertRouterOwnedByTenant(routerId, tenantId);
 
         const [pkg] = await db.select().from(packages)
             .where(and(eq(packages.id, packageId), eq(packages.tenantId, tenantId))).limit(1);

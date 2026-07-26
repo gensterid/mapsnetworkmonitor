@@ -43,7 +43,27 @@ export class RouterActionService {
     }
 
     /**
-     * Get a connection to a router, handling RoMON if configured
+     * Pastikan router milik tenant pemanggil SEBELUM operasi apa pun yang
+     * memakai routerId dari input client (billing subscription/voucher).
+     * tenantId undefined (superadmin) → lolos. 404 kalau bukan miliknya.
+     *
+     * Menutup footgun: getRouterConnection(routerId) TANPA tenantId akan
+     * konek ke router live tenant mana pun. Panggil helper ini di titik-masuk
+     * yang menerima routerId dari request, lalu operasi di bawahnya aman.
+     */
+    async assertRouterOwnedByTenant(routerId: string, tenantId?: string): Promise<void> {
+        const filters = [eq(routers.id, routerId)];
+        if (tenantId) filters.push(eq(routers.tenantId, tenantId));
+        const [found] = await db.select({ id: routers.id }).from(routers).where(and(...filters)).limit(1);
+        if (!found) throw new ApiError(404, 'Router not found');
+    }
+
+    /**
+     * Get a connection to a router, handling RoMON if configured.
+     *
+     * PERINGATAN: bila routerId berasal dari input client, panggil dulu
+     * assertRouterOwnedByTenant() — memanggil ini dengan tenantId kosong tidak
+     * memfilter tenant sama sekali.
      */
     async getRouterConnection(routerId: string, tenantId?: string): Promise<any> {
         const router = await this.findRouterWithPassword(routerId, tenantId);

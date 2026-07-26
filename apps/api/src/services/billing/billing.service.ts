@@ -194,6 +194,11 @@ export const subscriptionService = {
         const pkg = await packageService.findById(input.packageId, tenantId);
         if (!pkg) throw new Error('Package not found');
 
+        // Cegah IDOR lintas-tenant: routerId dari body WAJIB milik tenant ini.
+        // Baris ini melindungi INSERT subscription di bawah (yang menyimpan
+        // routerId) sekaligus push ke MikroTik — bukan hanya push-nya.
+        await routerActionService.assertRouterOwnedByTenant(input.routerId, tenantId);
+
         const billingDay = input.billingDay ?? 1;
         const billingMode = input.billingMode || 'anchor_day';
         const now = new Date();
