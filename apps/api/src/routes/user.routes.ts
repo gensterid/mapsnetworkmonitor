@@ -1,11 +1,23 @@
-import { Router } from 'express';
+import { Router, type RequestHandler } from 'express';
 import { z } from 'zod';
 import { userService, settingsService } from '../services/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin, requireOwnerOrAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
+import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 const router = Router();
+
+// Non-superadmin tanpa tenantId (akun orphan) tak boleh mengelola user:
+// getEffectiveTenantId() akan mengembalikan null → findById(id, null) TAK
+// ter-scope → bypass isolasi tenant. Fail-closed. (Konsisten dgn guard di
+// router-backup & user-router.) Dipasang pada route manajemen admin-only.
+const requireTenantContext: RequestHandler = (req, _res, next) => {
+    if (req.user?.role !== 'superadmin' && !req.user?.tenantId) {
+        return next(ApiError.forbidden('Tenant context required'));
+    }
+    next();
+};
 
 // Validation schemas
 // Helper to convert empty strings to null
@@ -82,6 +94,7 @@ router.get(
 router.post(
     '/',
     requireAdmin,
+    requireTenantContext,
     asyncHandler(async (req, res) => {
         const data = createUserSchema.parse(req.body);
 
@@ -98,6 +111,14 @@ router.post(
         // RBAC: Only superadmin can create admin
         if (data.role === 'admin' && req.user?.role !== 'superadmin') {
             throw ApiError.forbidden('Only superadmins can create admin users');
+        }
+
+        // Non-superadmin: user baru WAJIB masuk ke tenant milik si admin.
+        // Abaikan tenantId/additionalTenantIds dari body → cegah provisioning
+        // user ke tenant lain (privilege escalation lintas-tenant).
+        if (req.user?.role !== 'superadmin') {
+            data.tenantId = req.user?.tenantId ?? null;
+            data.additionalTenantIds = undefined;
         }
 
         // Check if email already exists
@@ -231,6 +252,13 @@ router.put(
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
 
+        // Mengelola user LAIN butuh konteks tenant. Non-superadmin tanpa
+        // tenantId (akun orphan) → getEffectiveTenantId null → findById tak
+        // ter-scope → bypass lintas-tenant. Self-update tetap diizinkan.
+        if (id !== req.user?.id && req.user?.role !== 'superadmin' && !req.user?.tenantId) {
+            throw ApiError.forbidden('Tenant context required');
+        }
+
         // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
         if (req.user?.role !== 'superadmin' && req.user?.tenantId !== req.user?.primaryTenantId) {
             throw ApiError.forbidden('User management is only allowed in your primary ISP context');
@@ -240,14 +268,14 @@ router.put(
 
         // RBAC: Only superadmin can change the primary tenantId
         if (userData.tenantId !== undefined && req.user?.role !== 'superadmin') {
-            const currentUser = await userService.findById(id);
+            const currentUser = await userService.findById(id, getEffectiveTenantId(req));
             if (currentUser && currentUser.tenantId !== userData.tenantId) {
                 throw ApiError.forbidden('Only superadmins can change the primary ISP assignment');
             }
         }
 
         // Fetch target user for target protection
-        const targetUser = await userService.findById(id);
+        const targetUser = await userService.findById(id, getEffectiveTenantId(req));
         if (!targetUser) {
             throw ApiError.notFound('User not found');
         }
@@ -308,6 +336,7 @@ router.put(
 router.put(
     '/:id/role',
     requireAdmin,
+    requireTenantContext,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
 
@@ -319,7 +348,7 @@ router.put(
         const { role } = updateRoleSchema.parse(req.body);
 
         // Fetch target user to check their current role
-        const targetUser = await userService.findById(id);
+        const targetUser = await userService.findById(id, getEffectiveTenantId(req));
         if (!targetUser) {
             throw ApiError.notFound('User not found');
         }
@@ -378,6 +407,7 @@ router.put(
 router.put(
     '/:id/password',
     requireAdmin,
+    requireTenantContext,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
 
@@ -389,7 +419,7 @@ router.put(
         const { password } = updatePasswordSchema.parse(req.body);
 
         // Fetch target user
-        const targetUser = await userService.findById(id);
+        const targetUser = await userService.findById(id, getEffectiveTenantId(req));
         if (!targetUser) {
             throw ApiError.notFound('User not found');
         }
@@ -436,6 +466,7 @@ router.put(
 router.delete(
     '/:id',
     requireAdmin,
+    requireTenantContext,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
 
@@ -449,7 +480,7 @@ router.delete(
             throw ApiError.badRequest('Cannot delete your own account');
         }
 
-        const user = await userService.findById(id);
+        const user = await userService.findById(id, getEffectiveTenantId(req));
 
         if (!user) {
             throw ApiError.notFound('User not found');
