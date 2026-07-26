@@ -22,6 +22,33 @@ export class RouterBackupService {
         }
     }
 
+    /**
+     * Pastikan router milik tenant pemanggil sebelum operasi backup apa pun.
+     * tenantId undefined (superadmin) → lolos semua. Lempar 404 — JANGAN
+     * bocorkan keberadaan router tenant lain. Dipanggil dari route layer
+     * karena backup memuat kredensial router (mencegah IDOR lintas-tenant).
+     */
+    async assertRouterOwned(routerId: string, tenantId?: string): Promise<void> {
+        const conds = [eq(routers.id, routerId)];
+        if (tenantId) conds.push(eq(routers.tenantId, tenantId));
+        const [found] = await db.select({ id: routers.id }).from(routers).where(and(...conds)).limit(1);
+        if (!found) throw ApiError.notFound('Router not found');
+    }
+
+    /**
+     * Pastikan backup milik tenant pemanggil (via tenantId tersimpan di row
+     * backup). 404 kalau bukan miliknya.
+     */
+    async assertBackupOwned(backupId: string, tenantId?: string): Promise<void> {
+        const [found] = await db
+            .select({ id: routerBackups.id, tenantId: routerBackups.tenantId })
+            .from(routerBackups)
+            .where(eq(routerBackups.id, backupId))
+            .limit(1);
+        if (!found) throw ApiError.notFound('Backup not found');
+        if (tenantId && found.tenantId !== tenantId) throw ApiError.notFound('Backup not found');
+    }
+
     private async extractJsonSnapshot(routerId: string, conn: any, comment?: string): Promise<any> {
         const snapshot: any = {
             metadata: {
