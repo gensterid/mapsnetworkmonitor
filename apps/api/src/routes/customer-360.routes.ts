@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireTenantContext } from '../middleware/tenant-context.middleware.js';
 import { asyncHandler } from '../middleware/error.middleware.js';
 import { customer360Service } from '../services/customer-360.service.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
@@ -8,6 +9,9 @@ import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 const router = Router();
 
 router.use(authMiddleware);
+// Cegah akun orphan (non-superadmin tanpa tenantId) mengakses data customer
+// lintas-tenant — getEffectiveTenantId-nya null → scoping ter-drop.
+router.use(requireTenantContext);
 
 const paramSchema = z.object({
     id: z.string().uuid(),

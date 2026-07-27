@@ -108,6 +108,11 @@ export async function getGenieAcsConfig(routerId?: string, tenantId?: string) {
         if (!effectiveTenantId) {
             const firstWithAcs = await settingRepository.findFirstByKey('genieacs_url');
             effectiveTenantId = firstWithAcs?.tenantId as string;
+            // Hanya jalur tanpa-tenant (superadmin/global). Log supaya jelas
+            // config ACS tenant mana yang "dipinjam" — cegah pemakaian tak sengaja.
+            if (effectiveTenantId) {
+                logger.warn({ borrowedTenantId: effectiveTenantId }, 'GenieACS: tanpa konteks tenant — memakai config ACS tenant pertama yang tersedia (jalur global/superadmin)');
+            }
         }
 
         if (effectiveTenantId) {

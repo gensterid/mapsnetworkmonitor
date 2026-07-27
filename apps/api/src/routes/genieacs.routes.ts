@@ -5,10 +5,11 @@ import { requireOperator, requireAdmin } from '../middleware/rbac.middleware.js'
 import { genieacsService } from '../services/genieacs.service.js';
 import { routerService } from '../services/router.service.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
+import { requireTenantContext } from '../middleware/tenant-context.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 import { db } from '../db/index.js';
 import { onus } from '../db/schema/index.js';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
 
 const router = Router();
@@ -86,6 +87,8 @@ const bulkConfigSchema = bulkActionSchema.extend({
 
 // Require auth for all routes
 router.use(authMiddleware);
+// Cegah akun orphan (non-superadmin tanpa tenantId) → scoping ter-drop.
+router.use(requireTenantContext);
 
 /**
  * POST /api/genieacs/sync
@@ -357,17 +360,21 @@ router.get(
     requireOperator,
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
+        const tenantId = getEffectiveTenantId(req);
         // First get the ONU to get its UUID
-        const device = await genieacsService.getDevice(id, req.query.routerId as string, getEffectiveTenantId(req));
+        const device = await genieacsService.getDevice(id, req.query.routerId as string, tenantId);
         if (!device) throw ApiError.notFound('Device not found');
 
         const sn = device._deviceId._SerialNumber;
-        let [onu] = await db.select().from(onus).where(eq(onus.sn, sn)).limit(1);
-        
+        // Scope ONU lookup ke tenant → cegah baca ONU tenant lain via kolisi SN.
+        let [onu] = await db.select().from(onus)
+            .where(and(eq(onus.sn, sn), tenantId ? eq(onus.tenantId, tenantId) : undefined)).limit(1);
+
         // Suffix fallback for vendors with varying OUI prefixes (e.g. FiberHome)
         if (!onu && sn.length > 8) {
             const suffix = sn.substring(sn.length - 8);
-            [onu] = await db.select().from(onus).where(sql`${onus.sn} LIKE ${'%' + suffix}`).limit(1);
+            [onu] = await db.select().from(onus)
+                .where(and(sql`${onus.sn} LIKE ${'%' + suffix}`, tenantId ? eq(onus.tenantId, tenantId) : undefined)).limit(1);
         }
 
         if (!onu) throw ApiError.notFound(`ONU record with SN ${sn} not found in inventory.`);

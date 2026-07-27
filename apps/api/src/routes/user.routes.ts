@@ -224,6 +224,13 @@ router.get(
         const id = req.params.id as string;
         const isSuperadmin = req.user?.role === 'superadmin';
 
+        // Membaca user LAIN butuh konteks tenant. Non-superadmin tanpa tenantId
+        // (akun orphan) → findById(id, null) tak ter-scope → baca user tenant
+        // lain. Self-read tetap diizinkan (requireOwnerOrAdmin).
+        if (id !== req.user?.id && !isSuperadmin && !req.user?.tenantId) {
+            throw ApiError.forbidden('Tenant context required');
+        }
+
         // Strict Enforcement: Non-superadmins can only manage users in their Primary ISP
         if (!isSuperadmin && req.user?.tenantId !== req.user?.primaryTenantId) {
             throw ApiError.forbidden('User management is only allowed in your primary ISP context');

@@ -86,7 +86,7 @@ class Customer360Service {
             this.loadPayments(customerId),
             this.loadPppoeActive(mikrotikIdentities, routerIds),
             this.loadNetwatch(mikrotikIdentities, routerIds),
-            this.loadOnuLinked(mikrotikIdentities),
+            this.loadOnuLinked(mikrotikIdentities, tenantId),
             this.loadWaNotifs(customerId),
             this.loadActivity(customerId),
         ]);
@@ -254,11 +254,13 @@ class Customer360Service {
             .limit(20);
     }
 
-    private async loadOnuLinked(identities: string[]) {
+    private async loadOnuLinked(identities: string[], tenantId?: string) {
         if (identities.length === 0) return [];
 
         // ONU mungkin punya field username yang match dengan PPPoE.
         // Best-effort search: match by name (alias) atau description.
+        // WAJIB di-scope tenant — nama/username PPPoE tidak unik antar tenant,
+        // tanpa filter ini ONU tenant lain bisa bocor via kolisi identitas.
         return db
             .select({
                 id: onus.id,
@@ -274,9 +276,10 @@ class Customer360Service {
                 mgmtIp: onus.mgmtIp,
             })
             .from(onus)
-            .where(
-                sql`(${onus.name} = ANY(${identities}) OR ${onus.description} = ANY(${identities}))`
-            )
+            .where(and(
+                sql`(${onus.name} = ANY(${identities}) OR ${onus.description} = ANY(${identities}))`,
+                tenantId ? eq(onus.tenantId, tenantId) : undefined,
+            ))
             .limit(10);
     }
 
