@@ -1,6 +1,9 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { and, eq } from 'drizzle-orm';
 import { routerService } from '../services/index.js';
+import { db } from '../db/index.js';
+import { routerNetwatch } from '../db/schema/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireOperator } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
@@ -81,6 +84,33 @@ function sanitizeNetwatchBody(body: Record<string, unknown>): Record<string, unk
 
 // All routes require authentication
 router.use(authMiddleware);
+
+// Semua route di sini di-scope ke router :id. Verifikasi SEKALI bahwa router
+// itu milik tenant pemanggil → semua operasi netwatch di bawahnya aman (entry
+// netwatch milik router; mutasi lewat service juga cek entry.routerId===:id).
+// Menutup IDOR lintas-tenant: create/update/delete/sync/conflicts (audit H4,H5).
+router.use(async (req, _res, next) => {
+    try {
+        if (req.user?.role !== 'superadmin' && !req.user?.tenantId) {
+            return next(new ApiError(403, 'Tenant context required'));
+        }
+        const owned = await routerService.findById(req.params.id as string, getEffectiveTenantId(req));
+        if (!owned) return next(new ApiError(404, 'Router not found'));
+        next();
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Untuk operasi ber-:netwatchId yang TIDAK melewati guard entry.routerId===:id
+// di service (history, heal-now), pastikan entry memang milik router :id yang
+// sudah terverifikasi → cegah baca/olah entry tenant lain via netwatchId
+// (audit M1, M2).
+async function assertNetwatchInRouter(netwatchId: string, routerId: string): Promise<void> {
+    const [row] = await db.select({ id: routerNetwatch.id }).from(routerNetwatch)
+        .where(and(eq(routerNetwatch.id, netwatchId), eq(routerNetwatch.routerId, routerId))).limit(1);
+    if (!row) throw new ApiError(404, 'Netwatch entry not found');
+}
 
 /**
  * GET /api/routers/:id/netwatch
@@ -202,7 +232,8 @@ router.put(
 router.get(
     '/:netwatchId/history',
     asyncHandler(async (req, res) => {
-        const { netwatchId } = req.params as { netwatchId: string };
+        const { id, netwatchId } = req.params as { id: string; netwatchId: string };
+        await assertNetwatchInRouter(netwatchId, id);
         const { getHistory } = await import('../services/netwatch/netwatch-autoheal.service.js');
         const history = await getHistory(netwatchId, 50);
         res.json({ data: history });
@@ -218,6 +249,7 @@ router.post(
     requireOperator,
     asyncHandler(async (req, res) => {
         const { id, netwatchId } = req.params as { id: string; netwatchId: string };
+        await assertNetwatchInRouter(netwatchId, id);
         const { resolveCurrentIp } = await import('../services/netwatch/netwatch-autoheal.service.js');
         const resolved = await resolveCurrentIp(netwatchId);
         if (!resolved) {

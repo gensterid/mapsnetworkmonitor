@@ -155,7 +155,7 @@ export class AlertRepository {
     /**
      * Resolve single alert
      */
-    async resolve(id: string, tx: any = db): Promise<Alert | undefined> {
+    async resolve(id: string, tenantId?: string, tx: any = db): Promise<Alert | undefined> {
         const [updated] = await tx
             .update(alerts)
             .set({ 
@@ -163,7 +163,7 @@ export class AlertRepository {
                 resolvedAt: new Date(),
                 updatedAt: new Date()
             })
-            .where(eq(alerts.id, id))
+            .where(and(eq(alerts.id, id), tenantId ? eq(alerts.tenantId, tenantId) : undefined))
             .returning();
         return updated;
     }
@@ -228,7 +228,7 @@ export class AlertRepository {
     /**
      * Acknowledge an alert
      */
-    async acknowledge(id: string, userId: string, tx: any = db): Promise<Alert | undefined> {
+    async acknowledge(id: string, userId: string, tenantId?: string, tx: any = db): Promise<Alert | undefined> {
         const [updated] = await tx
             .update(alerts)
             .set({
@@ -237,7 +237,7 @@ export class AlertRepository {
                 acknowledgedAt: new Date(),
                 updatedAt: new Date()
             })
-            .where(eq(alerts.id, id))
+            .where(and(eq(alerts.id, id), tenantId ? eq(alerts.tenantId, tenantId) : undefined))
             .returning();
         return updated;
     }

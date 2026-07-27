@@ -110,7 +110,7 @@ export class AlertActionService {
      * Acknowledge an alert
      */
     async acknowledge(id: string, userId: string, userRole?: string, tenantId?: string): Promise<Alert | undefined> {
-        const alert = await alertRepository.acknowledge(id, userId);
+        const alert = await alertRepository.acknowledge(id, userId, tenantId);
         
         if (alert) {
             eventEmitter.broadcast('alerts_updated', {
@@ -227,7 +227,7 @@ export class AlertActionService {
      * Resolve an alert
      */
     async resolve(id: string, tenantId?: string): Promise<Alert | undefined> {
-        const alert = await alertRepository.resolve(id);
+        const alert = await alertRepository.resolve(id, tenantId);
         if (alert) {
             eventEmitter.broadcast('alerts_updated', {
                 type: 'resolve',
