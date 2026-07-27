@@ -61,6 +61,10 @@ router.post('/webhook/xendit',   expressRaw({ type: '*/*', limit: '256kb' }), we
 
 // All routes below require authentication
 router.use(authMiddleware);
+// M6 (audit): seluruh route billing (di bawah) minimal Operator — cegah role
+// `user` (berhak terendah) melihat PII pelanggan / tagihan. Webhook publik di
+// ATAS baris ini TIDAK terpengaruh (mutasi tetap punya requireOperator sendiri).
+router.use(requireOperator);
 
 const requireTenant = (req: any, res: any, next: any) => {
     const t = getEffectiveTenantId(req);

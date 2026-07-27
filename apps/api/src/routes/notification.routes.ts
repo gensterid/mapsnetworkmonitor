@@ -3,7 +3,7 @@ import { db } from '../db/index.js';
 import { notificationGroups } from '../db/schema/index.js';
 import { eq, desc, and } from 'drizzle-orm';
 import { z } from 'zod';
-import { requireAdmin } from '../middleware/rbac.middleware.js';
+import { requireAdmin, requireOperator } from '../middleware/rbac.middleware.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
@@ -26,7 +26,9 @@ const notificationGroupSchema = z.object({
 });
 
 // Get all groups (accessible by operators and admins for dropdown selection)
-router.get('/', async (req, res) => {
+// M6 (audit): grup notifikasi memuat token bot Telegram & key WhatsApp —
+// batasi ke Operator+ (mutasi tetap requireAdmin).
+router.get('/', requireOperator, async (req, res) => {
     try {
         const tenantId = getEffectiveTenantId(req);
         const groups = await db
