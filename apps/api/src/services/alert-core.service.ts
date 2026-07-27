@@ -51,7 +51,7 @@ export async function getRouterSnmpConfig(routerId: string, tx: any = db): Promi
 /**
  * Get alert thresholds from settings
  */
-export async function getThresholds(tx: any = db): Promise<{
+export async function getThresholds(routerId?: string, tx: any = db): Promise<{
     cpuWarning: number;
     cpuCritical: number;
     memoryWarning: number;
@@ -61,11 +61,17 @@ export async function getThresholds(tx: any = db): Promise<{
     highCpuAlerts: boolean;
     highMemoryAlerts: boolean;
 }> {
-    const settings = await tx.select().from(appSettings);
+    // Threshold/toggle alert bersifat PER-TENANT. Resolve tenant dari router
+    // agar setting satu tenant tak berlaku ke tenant lain — dulu query membaca
+    // SELURUH app_settings tanpa filter, sehingga row terakhir per-key menang
+    // (mis. tenant B set alertsEnabled=false → alert SEMUA tenant mati).
+    // Tanpa routerId → DEFAULT (alerts aktif), JANGAN baca lintas-tenant.
     const settingsMap: Record<string, unknown> = {};
-    settings.forEach((s: any) => {
-        settingsMap[s.key] = s.value;
-    });
+    const tenantId = routerId ? await getTenantIdFromRouter(routerId, tx) : null;
+    if (tenantId) {
+        const settings = await tx.select().from(appSettings).where(eq(appSettings.tenantId, tenantId));
+        settings.forEach((s: any) => { settingsMap[s.key] = s.value; });
+    }
 
     return {
         cpuWarning: (settingsMap.alertThresholdCpuWarning as number) ?? DEFAULT_THRESHOLDS.cpuWarning,

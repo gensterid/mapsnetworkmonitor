@@ -255,7 +255,7 @@ export class AlertActionService {
         status: 'up' | 'down',
         tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled || !thresholds.statusChangeAlerts) return null;
         if (deviceName?.includes('[DISABLED]')) return null;
 
@@ -357,7 +357,7 @@ export class AlertActionService {
         reason?: string,
         tx: any = db
     ): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled || !thresholds.statusChangeAlerts) return null;
 
         const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
@@ -389,7 +389,7 @@ export class AlertActionService {
      * Create high CPU alert
      */
     async createHighCpuAlert(routerId: string, routerName: string, cpuLoad: number, tx: any = db): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled || !thresholds.highCpuAlerts || cpuLoad < thresholds.cpuWarning) return null;
 
         const existingAlert = await this.findRecentUnresolvedAlert(routerId, 'high_cpu', tx);
@@ -412,7 +412,7 @@ export class AlertActionService {
      * Create high memory alert
      */
     async createHighMemoryAlert(routerId: string, routerName: string, memoryPercent: number, tx: any = db): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled || !thresholds.highMemoryAlerts || memoryPercent < thresholds.memoryWarning) return null;
 
         const existingAlert = await this.findRecentUnresolvedAlert(routerId, 'high_memory', tx);
@@ -444,7 +444,7 @@ export class AlertActionService {
     ): Promise<{ cpuAlert: Alert | null; memoryAlert: Alert | null }> {
         let cpuAlert: Alert | null = null;
         let memoryAlert: Alert | null = null;
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
 
         if (cpuLoad !== undefined && cpuLoad !== null) {
             if (cpuLoad >= thresholds.cpuWarning) cpuAlert = await this.createHighCpuAlert(routerId, routerName, cpuLoad, tx);
@@ -492,7 +492,7 @@ export class AlertActionService {
      * Create PPPoE alerts
      */
     async createPppoeConnectAlert(routerId: string, routerName: string, username: string, ipAddress: string, tx: any = db): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled) return null;
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({
@@ -502,7 +502,7 @@ export class AlertActionService {
     }
 
     async createPppoeDisconnectAlert(routerId: string, routerName: string, username: string, ipAddress: string, sessionDurationSeconds: number, tx: any = db): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled) return null;
         const tenantId = await getTenantIdFromRouter(routerId, tx);
         return this.create({
@@ -516,7 +516,7 @@ export class AlertActionService {
      * Performance alerts
      */
     async createPerformanceAlert(routerId: string, routerName: string, host: string | null, deviceName: string, latency: number, packetLoss: number, status?: string, tx: any = db): Promise<Alert | null> {
-        const thresholds = await getThresholds(tx);
+        const thresholds = await getThresholds(routerId, tx);
         if (!thresholds.alertsEnabled || deviceName?.includes('[DISABLED]')) return null;
 
         // Performance alerts are noisy by nature — wireless links flap, paket 1-2%

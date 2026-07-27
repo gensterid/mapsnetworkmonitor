@@ -73,10 +73,13 @@ export const packageService = {
         return row || null;
     },
     async create(tenantId: string, input: Omit<NewPackage, 'tenantId'>): Promise<Package> {
+        // Verifikasi routerId (FK) milik tenant sebelum simpan.
+        if (input.routerId) await routerActionService.assertRouterOwnedByTenant(input.routerId, tenantId);
         const [row] = await db.insert(packages).values({ ...input, tenantId }).returning();
         return row;
     },
     async update(id: string, tenantId: string, patch: Partial<NewPackage>): Promise<Package | null> {
+        if (patch.routerId) await routerActionService.assertRouterOwnedByTenant(patch.routerId, tenantId);
         const [row] = await db.update(packages)
             .set({ ...patch, updatedAt: new Date() })
             .where(and(eq(packages.id, id), eq(packages.tenantId, tenantId)))
