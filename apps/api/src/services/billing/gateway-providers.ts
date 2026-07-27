@@ -55,7 +55,6 @@ export interface VerifyResult {
     status: 'paid' | 'failed' | 'pending' | 'expired' | 'unknown';
     gatewayTxnId?: string;
     amount?: number;
-    invoiceNumber?: string;
     raw?: any;
     error?: string;
 }
@@ -104,18 +103,11 @@ interface TripayCfg {
 
 const TRIPAY_BASE = (sandbox: boolean) => sandbox ? 'https://tripay.co.id/api-sandbox' : 'https://tripay.co.id/api';
 
-/**
- * Recover invoice number dari gateway reference. Format:
- *   New (with router): INV-{ROUTER}-YYYYMM-NNNN[-suffix]
- *   Old (no router):   INV-YYYYMM-NNNN[-suffix]
- * Regex match pattern INV-(maybe router)-YYYYMM-NNNN
- */
-function recoverInvoiceNumber(ref: string): string {
-    const m = String(ref || '').match(/INV-(?:[A-Z0-9]+-)?(\d{6})-(\d+)/);
-    if (m) return `INV-${m[1]}-${m[2]}`;
-    // Fallback: ambil 3 part pertama (backward compat).
-    return String(ref || '').split('-').slice(0, 3).join('-');
-}
+// (dihapus) recoverInvoiceNumber: dulu dipakai mengisi VerifyResult.invoiceNumber
+// dengan regex yang MEMBUANG kode router — tapi field itu tak pernah dibaca
+// (dead code). Resolusi invoice yang benar & ter-scope tenant ada di
+// gatewayService.handleWebhook. Dihapus agar tak jadi jebakan laten yang bisa
+// mengembalikan IDOR lintas-tenant (audit H1/FU4).
 
 async function tripayCreate(cfg: TripayCfg, input: CreatePaymentInput): Promise<CreatePaymentResult> {
     if (!cfg.apiKey || !cfg.privateKey || !cfg.merchantCode) throw new Error('Tripay credentials incomplete');
@@ -184,7 +176,6 @@ function tripayVerify(cfg: TripayCfg, rawBody: string, headers: Record<string, a
         status,
         gatewayTxnId: payload.reference,
         amount: payload.total_amount,
-        invoiceNumber: recoverInvoiceNumber(payload.merchant_ref),
         raw: payload,
     };
 }
@@ -263,16 +254,13 @@ function midtransVerify(cfg: MidtransCfg, rawBody: string, _headers: Record<stri
     else if (t === 'expire') status = 'expired';
     else if (t === 'cancel' || t === 'deny' || t === 'failure') status = 'failed';
 
-    // order_id format: INV[-ROUTER]-YYYYMM-NNNN-<timestamp>; recover invoice number
     const orderId = String(payload.order_id || '');
-    const invoiceNumber = recoverInvoiceNumber(orderId);
 
     return {
         valid: true,
         status,
         gatewayTxnId: orderId,
         amount: parseFloat(payload.gross_amount || '0'),
-        invoiceNumber,
         raw: payload,
     };
 }
@@ -340,14 +328,12 @@ function xenditVerify(cfg: XenditCfg, rawBody: string, headers: Record<string, a
     else if (xs === 'FAILED') status = 'failed';
 
     const externalId = String(payload.external_id || '');
-    const invoiceNumber = recoverInvoiceNumber(externalId);
 
     return {
         valid: true,
         status,
         gatewayTxnId: payload.id || externalId,
         amount: payload.amount,
-        invoiceNumber,
         raw: payload,
     };
 }

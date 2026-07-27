@@ -576,6 +576,9 @@ export const invoiceService = {
         dueAt?: Date;
         notes?: string;
     }): Promise<Invoice> {
+        // Verifikasi routerId (FK) milik tenant sebelum simpan (cegah referensi
+        // router lintas-tenant pada invoice).
+        if (input.routerId) await routerActionService.assertRouterOwnedByTenant(input.routerId, tenantId);
         const invoiceNumber = await generateInvoiceNumber(tenantId);
         const dueAt = input.dueAt ?? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const [row] = await db.insert(invoices).values({
