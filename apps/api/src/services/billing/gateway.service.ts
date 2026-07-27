@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '../../db/index.js';
 import {
     invoices, customers, billingRouterSettings, payments, appSettings, routers,
@@ -169,19 +169,48 @@ export const gatewayService = {
         let payload: any;
         try { payload = JSON.parse(input.rawBody); } catch { return { status: 400, body: { error: 'invalid json' } }; }
 
-        // Try to identify the invoice. Each gateway uses a different field.
-        // Format ref: INV[-ROUTER]-YYYYMM-NNNN[-timestamp].
-        // Extract pakai regex yang match optional router code di tengah.
+        // Identify the invoice from the merchant ref.
+        // Format: INV-{ROUTERCODE}-YYYYMM-NNNN (router code optional untuk
+        // invoice lama). PENTING: invoiceNumber unik hanya PER-TENANT, jadi
+        // lookup by number saja bisa mengambil invoice tenant LAIN saat nomor
+        // kolisi (INV-202607-0001 = invoice pertama tiap tenant). Kita pakai
+        // kode router (yang createPayment sisipkan) untuk disambiguasi, dan
+        // TOLAK bila tetap ambigu — jangan pernah pick arbitrer (audit H1).
         const rawRef = payload.merchant_ref || payload.external_id || payload.order_id || '';
-        const m = String(rawRef).match(/INV-(?:[A-Z0-9]+-)?(\d{6})-(\d+)/);
-        const invoiceNumber = m ? `INV-${m[1]}-${m[2]}` : '';
+        const m = String(rawRef).match(/INV-(?:([A-Z0-9]+)-)?(\d{6})-(\d+)/);
+        const refRouterCode = m?.[1] || null;
+        const invoiceNumber = m ? `INV-${m[2]}-${m[3]}` : '';
 
         if (!invoiceNumber) return { status: 400, body: { error: 'invoice number not found in payload' } };
 
-        const [inv] = await db.select().from(invoices)
-            .where(eq(invoices.invoiceNumber, invoiceNumber))
-            .limit(1);
-        if (!inv) return { status: 404, body: { error: 'invoice not found' } };
+        const candidates = await db.select().from(invoices)
+            .where(eq(invoices.invoiceNumber, invoiceNumber));
+        if (candidates.length === 0) return { status: 404, body: { error: 'invoice not found' } };
+
+        let inv = candidates[0];
+        if (candidates.length > 1) {
+            // Kolisi nomor lintas-tenant → WAJIB disambiguasi via kode router
+            // (derive dari router.name, sama seperti createPayment).
+            const codeOf = (name: string | null) =>
+                (name || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+            const routerIds = candidates.map((c) => c.routerId).filter(Boolean) as string[];
+            const routerRows = routerIds.length
+                ? await db.select({ id: routers.id, name: routers.name }).from(routers)
+                    .where(inArray(routers.id, routerIds))
+                : [];
+            const matchRouterIds = new Set(
+                routerRows.filter((r) => refRouterCode && codeOf(r.name) === refRouterCode).map((r) => r.id),
+            );
+            const matched = candidates.filter((c) => c.routerId && matchRouterIds.has(c.routerId));
+            if (matched.length !== 1) {
+                logger.warn(
+                    { invoiceNumber, refRouterCode, candidates: candidates.length, matched: matched.length },
+                    'webhook: nomor invoice ambigu lintas-tenant — ditolak (tak dipick arbitrer)',
+                );
+                return { status: 409, body: { error: 'ambiguous invoice reference' } };
+            }
+            inv = matched[0];
+        }
         if (!inv.routerId) return { status: 400, body: { error: 'invoice has no router' } };
 
         // Resolve gateway config dengan router → tenant fallback.
