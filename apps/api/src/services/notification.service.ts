@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { db } from '../db/index.js';
 import { notificationGroups, routers, routerNetwatch, type Alert } from '../db/schema/index.js';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, isNull } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
+import { escapeHtml } from '../lib/html-escape.js';
 
 // System timezone: reads from env TZ, falls back to user schema default
 const SYSTEM_TIMEZONE = process.env.TZ || 'Asia/Makassar';
@@ -11,7 +12,12 @@ export class NotificationService {
     /**
      * Send Telegram Message
      */
-    private async sendTelegram(token: string, chatId: string, message: string, threadId?: string) {
+    private async sendTelegram(
+        token: string,
+        chatId: string,
+        message: string,
+        threadId?: string,
+    ): Promise<{ ok: boolean; error?: string }> {
         try {
             const url = `https://api.telegram.org/bot${token}/sendMessage`;
             const payload: any = {
@@ -24,8 +30,12 @@ export class NotificationService {
                 payload.message_thread_id = threadId;
             }
 
-            await axios.post(url, payload);
+            // Timeout eksplisit: sendTelegram kini bisa dipanggil di jalur request
+            // user-facing (pushTextToTenant). Tanpa ini, api.telegram.org yang
+            // menggantung bikin GET ikut menggantung. Samakan pola sendWhatsapp.
+            await axios.post(url, payload, { timeout: 10000 });
             logger.info({ chatId, threadId }, 'Telegram message sent successfully');
+            return { ok: true };
         } catch (error: any) {
             // Unpack the Telegram API response so operators can see the actual
             // failure reason (e.g. "Bad Request: message thread not found",
@@ -46,20 +56,65 @@ export class NotificationService {
                 threadId,
                 messageSnippet: message.substring(0, 100),
             }, 'Failed to send Telegram message');
+            return { ok: false, error: String(telegramError) };
         }
     }
 
     /**
-     * Escape HTML special characters for Telegram HTML mode
+     * Kirim pesan HTML ad-hoc ke SEMUA notification group ber-Telegram milik
+     * satu tenant. Dipakai laporan on-demand (mis. tes provisioning dari HP).
+     *
+     * Tenant-scoped: hanya group dengan `tenant_id` sama yang dituju (null →
+     * group tanpa tenant), jadi tak ada kebocoran lintas-tenant. Mengembalikan
+     * ringkasan pengiriman agar pemanggil bisa menunjukkan sukses/gagal.
+     */
+    async pushTextToTenant(
+        tenantId: string | null | undefined,
+        htmlMessage: string,
+    ): Promise<{ delivered: number; groups: number; errors: string[] }> {
+        const groups = await db
+            .select()
+            .from(notificationGroups)
+            .where(
+                and(
+                    tenantId
+                        ? eq(notificationGroups.tenantId, tenantId)
+                        : isNull(notificationGroups.tenantId),
+                    eq(notificationGroups.telegramEnabled, true),
+                ),
+            );
+
+        const targets = groups.filter((g) => g.telegramBotToken && g.telegramChatId);
+
+        // Kirim paralel — tiap grup independen & sendTelegram tak pernah reject
+        // (selalu resolve {ok,error}), jadi Promise.all aman tanpa allSettled.
+        const results = await Promise.all(
+            targets.map((g) =>
+                this.sendTelegram(
+                    g.telegramBotToken!,
+                    g.telegramChatId!,
+                    htmlMessage,
+                    g.telegramThreadId || undefined,
+                ).then((result) => ({ name: g.name as string, result })),
+            ),
+        );
+
+        const errors: string[] = [];
+        let delivered = 0;
+        for (const { name, result } of results) {
+            if (result.ok) delivered += 1;
+            else errors.push(`${name}: ${result.error ?? 'gagal'}`);
+        }
+
+        return { delivered, groups: targets.length, errors };
+    }
+
+    /**
+     * Escape HTML special characters for Telegram HTML mode.
+     * Delegasi ke util bersama `lib/html-escape` agar aturan escape satu sumber.
      */
     private escapeHtml(text: string): string {
-        if (!text) return '';
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
+        return escapeHtml(text);
     }
 
     /**

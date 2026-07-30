@@ -152,13 +152,27 @@ router.post('/plan', authMiddleware, requireTenantContext, requireOperator, asyn
 
 // ---- Fase-1 baca: ONU belum ter-authorize di OLT (Telnet, READ-ONLY) ----
 
+// Presence flag `?notify=1` / `?notify=telegram` → dorong hasil ke Telegram
+// (Level 1 "push-hasil": tes dari HP, output mentah ikut untuk kalibrasi parser).
+const wantsNotify = (req: { query: Record<string, unknown> }): boolean => {
+    // `qs` mengubah param berulang (?notify=1&notify=1) jadi array — tangani agar
+    // proxy/HP yang menduplikasi param tak diam-diam menonaktifkan notify.
+    const raw = req.query.notify;
+    const values = Array.isArray(raw) ? raw : [raw];
+    return values.some((v) => v === '1' || v === 'telegram');
+};
+
 // GET /provisioning/olts/:oltId/unconfigured — Operator+
 router.get('/olts/:oltId/unconfigured', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
     try {
-        const data = await provisioningService.getUnconfiguredOnus(idCheck.data, getEffectiveTenantId(req));
-        res.json({ data });
+        const { onus, notify } = await provisioningService.getUnconfiguredOnus(
+            idCheck.data,
+            getEffectiveTenantId(req),
+            { notify: wantsNotify(req) },
+        );
+        res.json({ data: onus, notify });
     } catch (error) {
         res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }
@@ -169,8 +183,12 @@ router.get('/olts/:oltId/test-connection', authMiddleware, requireTenantContext,
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
     try {
-        const result = await provisioningService.testConnection(idCheck.data, getEffectiveTenantId(req));
-        res.json({ data: result });
+        const { result, notify } = await provisioningService.testConnection(
+            idCheck.data,
+            getEffectiveTenantId(req),
+            { notify: wantsNotify(req) },
+        );
+        res.json({ data: result, notify });
     } catch (error) {
         res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
     }

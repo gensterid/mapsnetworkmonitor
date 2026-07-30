@@ -2,6 +2,7 @@ import {
     BaseOltProvisioningDriver,
     OltProvisioningCapabilities,
     UnconfiguredOnu,
+    UnconfiguredDiscovery,
     OnuRef,
     ProvisioningPreset,
     ProvisionPlan,
@@ -132,12 +133,22 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
      * Hanya menjalankan `show ont autofind all` (tak mengubah config OLT).
      */
     async getUnconfiguredOnus(): Promise<UnconfiguredOnu[]> {
+        return (await this.getUnconfiguredDetailed()).onus;
+    }
+
+    /**
+     * READ-ONLY + diagnostik: hasil parse SERTA teks mentah `show ont autofind
+     * all`. Satu sesi Telnet. Teks mentah dipakai laporan lapangan/kalibrasi
+     * parser (bila `parseAutofind` belum tepat, `onus` bisa kosong tapi `raw`
+     * tetap memperlihatkan output asli OLT).
+     */
+    async getUnconfiguredDetailed(): Promise<UnconfiguredDiscovery> {
         try {
             await this.connect(); // di dalam try → disconnect tetap jalan bila connect gagal
-            const out = await this.telnet!.exec('show ont autofind all');
-            const onus = this.parseAutofind(out);
+            const raw = await this.telnet!.exec('show ont autofind all');
+            const onus = this.parseAutofind(raw);
             logger.info({ host: this.config.host, count: onus.length }, 'C-Data provisioning: autofind list');
-            return onus;
+            return { onus, raw };
         } finally {
             await this.disconnect();
         }

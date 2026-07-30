@@ -60,6 +60,13 @@ export interface UnconfiguredOnu {
     raw?: unknown;
 }
 
+/** Hasil discovery kaya: daftar ter-parse + teks mentah perintah (untuk kalibrasi/laporan). */
+export interface UnconfiguredDiscovery {
+    onus: UnconfiguredOnu[];
+    /** Output mentah `show ont autofind all` (atau setara). Untuk kalibrasi parser. */
+    raw: string;
+}
+
 /** Identitas satu ONU untuk aksi provisioning. */
 export interface OnuRef {
     ponId: string;
@@ -172,6 +179,15 @@ export interface IOltProvisioningDriver {
      * login OLT.
      */
     getUnconfiguredOnus(): Promise<UnconfiguredOnu[]>;
+
+    /**
+     * Diagnostik opsional: hasil parse + teks MENTAH dari perintah discovery.
+     * Dipakai laporan lapangan/kalibrasi parser — parser bisa mengekstrak 0
+     * ONU bila regex belum terkalibrasi, jadi teks mentah tetap wajib ada agar
+     * operator (atau kita) bisa melihat output asli OLT. Driver yang tak
+     * mengimplementasikan cukup mengandalkan `getUnconfiguredOnus()`.
+     */
+    getUnconfiguredDetailed?(): Promise<UnconfiguredDiscovery>;
 
     /**
      * DRY-RUN: hasilkan rencana (perintah persis) TANPA menerapkannya.
