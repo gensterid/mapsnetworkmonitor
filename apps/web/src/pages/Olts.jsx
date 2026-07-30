@@ -152,6 +152,8 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
         webPassword: '',
         webProtocol: 'http',
         telnetPort: '',
+        telnetUsername: '',
+        telnetPassword: '',
         useSnmp: true,
         useWeb: false,
         parentId: '',
@@ -172,6 +174,8 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 webPassword: olt.webPassword || '',
                 webProtocol: olt.webProtocol || 'http',
                 telnetPort: olt.telnetPort ? String(olt.telnetPort) : '',
+                telnetUsername: olt.telnetUsername || '',
+                telnetPassword: '', // jangan echo secret; kosong = tidak diubah
                 useSnmp: olt.useSnmp !== undefined ? olt.useSnmp : true,
                 useWeb: olt.useWeb || false,
                 parentId: olt.parentId || '',
@@ -189,6 +193,8 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 webPassword: '',
                 webProtocol: 'http',
                 telnetPort: '',
+                telnetUsername: '',
+                telnetPassword: '',
                 useSnmp: true,
                 useWeb: false,
                 parentId: '',
@@ -213,8 +219,15 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
             webPort: parseInt(formData.webPort, 10) || 80,
             // Kosong → null (driver pakai default 23); terisi → port override.
             telnetPort: formData.telnetPort ? parseInt(formData.telnetPort, 10) : null,
+            telnetUsername: formData.telnetUsername || null,
             parentId: formData.parentId || null,
         };
+        // Password telnet: kirim hanya bila diisi — kosong = biarkan tak berubah.
+        if (formData.telnetPassword) {
+            payload.telnetPassword = formData.telnetPassword;
+        } else {
+            delete payload.telnetPassword;
+        }
 
         if (olt) {
             updateOlt.mutate({ id: olt.id, data: payload }, {
@@ -350,10 +363,23 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                     </div>
                 )}
 
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-fg">Telnet Port <span className="text-fg-muted font-normal">(provisioning, opsional)</span></label>
-                    <Input type="number" name="telnetPort" value={formData.telnetPort} onChange={handleChange} placeholder="23" />
-                    <p className="text-xs text-fg-muted">Kosongkan untuk default 23. Isi bila OLT dijangkau via VPN port-forward dengan port eksternal custom (mis. 2323 → OLT:23).</p>
+                <div className="space-y-4 p-4 rounded-lg bg-surface-dark/30 border border-slate-border/50">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-fg">Telnet Port <span className="text-fg-muted font-normal">(provisioning, opsional)</span></label>
+                        <Input type="number" name="telnetPort" value={formData.telnetPort} onChange={handleChange} placeholder="23" />
+                        <p className="text-xs text-fg-muted">Kosongkan untuk default 23. Isi bila OLT dijangkau via VPN port-forward dengan port eksternal custom (mis. 2323 → OLT:23).</p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-fg">Telnet Username</label>
+                            <Input name="telnetUsername" value={formData.telnetUsername} onChange={handleChange} placeholder="admin (kosong = pakai web)" />
+                        </div>
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-fg">Telnet Password</label>
+                            <Input type="password" name="telnetPassword" value={formData.telnetPassword} onChange={handleChange} placeholder="kosong = tidak diubah" />
+                        </div>
+                    </div>
+                    <p className="text-xs text-fg-muted">Kredensial CLI bila beda dari web (C-Data lazimnya admin/admin atau root/admin). Kosong → pakai kredensial web.</p>
                 </div>
 
                 <div className="space-y-2">

@@ -34,8 +34,13 @@ export const olts = pgTable('olts', {
     // Provisioning (CLI/Telnet)
     // Override port Telnet bila beda dari 23 — mis. OLT dijangkau lewat VPN
     // port-forward yang memetakan port eksternal custom → OLT:23. Null → driver
-    // pakai default 23. Host & kredensial memakai ulang web* untuk saat ini.
+    // pakai default 23. Host memakai ulang `host` (endpoint VPN yang sama).
     telnetPort: integer('telnet_port'),
+    // Kredensial Telnet CLI bila beda dari web (C-Data CLI lazimnya admin/admin
+    // atau root/admin). Null → fallback ke webUsername/webPassword. Password
+    // disimpan terenkripsi (format v2:, sama seperti webPassword).
+    telnetUsername: text('telnet_username'),
+    telnetPassword: text('telnet_password'),
 
     // Protocol Flags
     useSnmp: boolean('use_snmp').default(true).notNull(),

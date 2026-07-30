@@ -82,18 +82,25 @@ export class OltService {
     }
 
     /**
-     * Encrypt webPassword if it's a fresh plain-text value. Encrypted values
+     * Encrypt secret fields if they're fresh plain-text values. Encrypted values
      * always start with the encryption library's "v2:" version tag, so we can
-     * detect already-encrypted input and avoid double-encrypting.
+     * detect already-encrypted input and avoid double-encrypting. Empty/absent
+     * fields are left untouched (so a partial update never wipes them).
      */
-    private normalizeWebPassword(data: any): any {
-        if (!data || typeof data.webPassword !== 'string' || data.webPassword.length === 0) return data;
-        if (data.webPassword.startsWith('v2:')) return data;
-        return { ...data, webPassword: encrypt(data.webPassword) };
+    private normalizeSecrets(data: any): any {
+        if (!data) return data;
+        let out = data;
+        for (const field of ['webPassword', 'telnetPassword']) {
+            const val = out[field];
+            if (typeof val !== 'string' || val.length === 0) continue;
+            if (val.startsWith('v2:')) continue;
+            out = { ...out, [field]: encrypt(val) };
+        }
+        return out;
     }
 
     async create(data: any, tenantId: string): Promise<any> {
-        const safe = this.normalizeWebPassword(data);
+        const safe = this.normalizeSecrets(data);
         const [inserted] = await db.insert(olts).values({ ...safe, tenantId }).returning();
         return inserted;
     }
@@ -101,7 +108,7 @@ export class OltService {
     async update(id: string, data: any, tenantId?: string): Promise<any> {
         const filters = [eq(olts.id, id)];
         if (tenantId) filters.push(eq(olts.tenantId, tenantId));
-        const safe = this.normalizeWebPassword(data);
+        const safe = this.normalizeSecrets(data);
         const [updated] = await db.update(olts).set({ ...safe, updatedAt: new Date() }).where(and(...filters)).returning();
         return updated;
     }

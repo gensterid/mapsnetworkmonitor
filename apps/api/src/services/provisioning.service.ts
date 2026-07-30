@@ -38,14 +38,19 @@ async function resolveOltAndDriver(
         throw new Error('OLT tidak ditemukan atau bukan milik tenant ini');
     }
 
-    const password = olt.webPassword ? decrypt(olt.webPassword) : undefined;
+    // Kredensial telnet: pakai khusus bila diisi, jika tidak fallback ke web*.
+    // (C-Data CLI sering admin/admin atau root/admin — beda dari login web.)
+    // Pakai `||` (bukan `??`) agar string kosong pun jatuh ke fallback web.
+    const secret = olt.telnetPassword || olt.webPassword;
+    const password = secret ? decrypt(secret) : undefined;
+    const username = olt.telnetUsername || olt.webUsername || undefined;
 
     const driver = OltDriverFactory.getProvisioningDriver(olt.type, {
         host: olt.host,
         // Port telnet override (mis. VPN port-forward custom → OLT:23); fallback 23.
         port: olt.telnetPort ?? TELNET_DEFAULT_PORT,
         protocol: 'telnet',
-        username: olt.webUsername ?? undefined,
+        username,
         password,
     });
 
