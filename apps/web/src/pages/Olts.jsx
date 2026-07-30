@@ -151,6 +151,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
         webUsername: '',
         webPassword: '',
         webProtocol: 'http',
+        telnetPort: '',
         useSnmp: true,
         useWeb: false,
         parentId: '',
@@ -170,6 +171,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 webUsername: olt.webUsername || '',
                 webPassword: olt.webPassword || '',
                 webProtocol: olt.webProtocol || 'http',
+                telnetPort: olt.telnetPort ? String(olt.telnetPort) : '',
                 useSnmp: olt.useSnmp !== undefined ? olt.useSnmp : true,
                 useWeb: olt.useWeb || false,
                 parentId: olt.parentId || '',
@@ -186,6 +188,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                 webUsername: '',
                 webPassword: '',
                 webProtocol: 'http',
+                telnetPort: '',
                 useSnmp: true,
                 useWeb: false,
                 parentId: '',
@@ -208,6 +211,8 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
             ...formData,
             snmpPort: parseInt(formData.snmpPort, 10) || 161,
             webPort: parseInt(formData.webPort, 10) || 80,
+            // Kosong → null (driver pakai default 23); terisi → port override.
+            telnetPort: formData.telnetPort ? parseInt(formData.telnetPort, 10) : null,
             parentId: formData.parentId || null,
         };
 
@@ -344,6 +349,12 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                         </div>
                     </div>
                 )}
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-fg">Telnet Port <span className="text-fg-muted font-normal">(provisioning, opsional)</span></label>
+                    <Input type="number" name="telnetPort" value={formData.telnetPort} onChange={handleChange} placeholder="23" />
+                    <p className="text-xs text-fg-muted">Kosongkan untuk default 23. Isi bila OLT dijangkau via VPN port-forward dengan port eksternal custom (mis. 2323 → OLT:23).</p>
+                </div>
 
                 <div className="space-y-2">
                     <label className="text-sm font-medium text-fg">Description</label>

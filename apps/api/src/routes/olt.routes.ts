@@ -25,6 +25,8 @@ const createOltSchema = z.object({
     webUsername: z.string().optional(),
     webPassword: z.string().optional(),
     webProtocol: z.enum(['http', 'https']).default('http'),
+    // Provisioning: override port Telnet (mis. via VPN port-forward). Null/omit → 23.
+    telnetPort: z.number().int().min(1).max(65535).optional().nullable(),
     useSnmp: z.boolean().default(true),
     useWeb: z.boolean().default(false),
     parentId: z.string().uuid().optional().nullable(),

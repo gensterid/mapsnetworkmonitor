@@ -31,6 +31,12 @@ export const olts = pgTable('olts', {
     webPassword: text('web_password'), // Should be encrypted
     webProtocol: text('web_protocol').default('http'), // 'http' or 'https'
 
+    // Provisioning (CLI/Telnet)
+    // Override port Telnet bila beda dari 23 — mis. OLT dijangkau lewat VPN
+    // port-forward yang memetakan port eksternal custom → OLT:23. Null → driver
+    // pakai default 23. Host & kredensial memakai ulang web* untuk saat ini.
+    telnetPort: integer('telnet_port'),
+
     // Protocol Flags
     useSnmp: boolean('use_snmp').default(true).notNull(),
     useWeb: boolean('use_web').default(false).notNull(),

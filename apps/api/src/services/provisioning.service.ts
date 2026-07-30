@@ -42,7 +42,8 @@ async function resolveOltAndDriver(
 
     const driver = OltDriverFactory.getProvisioningDriver(olt.type, {
         host: olt.host,
-        port: TELNET_DEFAULT_PORT,
+        // Port telnet override (mis. VPN port-forward custom → OLT:23); fallback 23.
+        port: olt.telnetPort ?? TELNET_DEFAULT_PORT,
         protocol: 'telnet',
         username: olt.webUsername ?? undefined,
         password,

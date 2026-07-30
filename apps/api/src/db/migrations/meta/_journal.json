@@ -435,6 +435,13 @@
       "when": 1782300000000,
       "tag": "0061_provisioning_presets",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1782400000000,
+      "tag": "0062_olt_telnet_port",
+      "breakpoints": true
     }
   ]
 }
