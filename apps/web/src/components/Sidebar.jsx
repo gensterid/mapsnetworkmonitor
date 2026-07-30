@@ -23,6 +23,7 @@ import {
     Wifi,
     Monitor,
     Server,
+    SlidersHorizontal,
     Activity,
     Globe,
     Users,
@@ -81,6 +82,7 @@ const SETTINGS_GROUPS = [
         items: [
             { path: '/genieacs', icon: Monitor, label: 'GenieACS', feature: 'genieacs' },
             { path: '/olts', icon: Server, label: 'OLTs', feature: 'olt' },
+            { path: '/provisioning/presets', icon: SlidersHorizontal, label: 'Provisioning', roles: ['admin', 'operator'], feature: 'olt' },
             { path: '/issues', icon: Activity, label: 'System Issues', badgeKey: 'issues', feature: 'issues' },
             { path: '/netwatch', icon: Globe, label: 'Service Health', roles: ['admin'], feature: 'serviceHealth' },
         ],

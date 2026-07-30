@@ -10,6 +10,7 @@ const Routers = lazy(() => import('./pages/routers/index'));
 const RouterDetails = lazy(() => import('./pages/RouterDetails'));
 const Olts = lazy(() => import('./pages/Olts'));
 const OltDetails = lazy(() => import('./pages/OltDetails'));
+const ProvisioningPresets = lazy(() => import('./pages/provisioning/Presets'));
 const GenieACS = lazy(() => import('./pages/GenieACS'));
 const NetworkMap = lazy(() => import('./pages/NetworkMap'));
 const Alerts = lazy(() => import('./pages/Alerts'));
@@ -278,6 +279,11 @@ function App() {
                 <Route path="routers/:id" element={<RouterDetails />} />
                 <Route path="olts" element={<Olts />} />
                 <Route path="olts/:id" element={<OltDetails />} />
+                <Route path="provisioning/presets" element={
+                  <OperatorRoute>
+                    <ProvisioningPresets />
+                  </OperatorRoute>
+                } />
                 <Route path="genieacs" element={<GenieACS />} />
                 <Route path="alerts" element={<Alerts />} />
                 <Route path="issues" element={<Issues />} />
