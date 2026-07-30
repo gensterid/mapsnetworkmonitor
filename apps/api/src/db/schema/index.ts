@@ -10,6 +10,7 @@ export * from './pppoe.js';
 export * from './olts.js';
 export * from './onus.js';
 export * from './presets.js';
+export * from './provisioning-presets.js';
 export * from './tenants.js';
 export * from './user-tenants.js';
 export * from './topology_schematics.js';
