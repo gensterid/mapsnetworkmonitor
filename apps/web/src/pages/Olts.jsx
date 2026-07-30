@@ -376,7 +376,7 @@ function OltFormModal({ isOpen, onClose, olt = null }) {
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-fg">Telnet Password</label>
-                            <Input type="password" name="telnetPassword" value={formData.telnetPassword} onChange={handleChange} placeholder="kosong = tidak diubah" />
+                            <Input type="password" name="telnetPassword" value={formData.telnetPassword} onChange={handleChange} placeholder={olt?.hasTelnetPassword ? 'tersimpan — kosongkan untuk tetap' : 'kosong = pakai web'} />
                         </div>
                     </div>
                     <p className="text-xs text-fg-muted">Kredensial CLI bila beda dari web (C-Data lazimnya admin/admin atau root/admin). Kosong → pakai kredensial web.</p>

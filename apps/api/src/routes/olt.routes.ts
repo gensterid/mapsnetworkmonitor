@@ -27,9 +27,11 @@ const createOltSchema = z.object({
     webProtocol: z.enum(['http', 'https']).default('http'),
     // Provisioning: override port Telnet (mis. via VPN port-forward). Null/omit → 23.
     telnetPort: z.number().int().min(1).max(65535).optional().nullable(),
-    // Kredensial Telnet bila beda dari web. Null/omit → fallback ke web*.
+    // Kredensial Telnet bila beda dari web. Kosong/omit → fallback ke web*.
+    // telnetPassword TANPA .nullable() (samakan webPassword): null tak boleh
+    // dipakai untuk menghapus secret via partial update.
     telnetUsername: z.string().optional().nullable(),
-    telnetPassword: z.string().optional().nullable(),
+    telnetPassword: z.string().optional(),
     useSnmp: z.boolean().default(true),
     useWeb: z.boolean().default(false),
     parentId: z.string().uuid().optional().nullable(),

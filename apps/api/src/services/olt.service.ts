@@ -60,7 +60,8 @@ export class OltService {
             filters.push(inArray(olts.parentId, routerIds));
         }
 
-        return db.select().from(olts).where(and(...filters)).orderBy(olts.name);
+        const rows = await db.select().from(olts).where(and(...filters)).orderBy(olts.name);
+        return rows.map((r) => this.redactSecrets(r));
     }
 
     async findById(id: string, tenantId?: string, userId?: string, userRole?: string): Promise<any> {
@@ -78,7 +79,7 @@ export class OltService {
             if (!assignment) return null;
         }
 
-        return olt;
+        return this.redactSecrets(olt);
     }
 
     /**
@@ -92,11 +93,29 @@ export class OltService {
         let out = data;
         for (const field of ['webPassword', 'telnetPassword']) {
             const val = out[field];
+            // Explicit null → buang key (jangan tulis null; partial update tak boleh
+            // menghapus secret yang sudah tersimpan).
+            if (val === null) {
+                out = { ...out };
+                delete out[field];
+                continue;
+            }
             if (typeof val !== 'string' || val.length === 0) continue;
             if (val.startsWith('v2:')) continue;
             out = { ...out, [field]: encrypt(val) };
         }
         return out;
+    }
+
+    /**
+     * Buang ciphertext telnet_password dari respons API (jangan kirim secret ke
+     * klien) — ganti dengan flag boolean. Form telnet TIDAK memuat ulang password
+     * ini. `webPassword` sengaja dibiarkan: form web lama masih mengandalkannya.
+     */
+    private redactSecrets(olt: any): any {
+        if (!olt) return olt;
+        const { telnetPassword, ...rest } = olt;
+        return { ...rest, hasTelnetPassword: !!telnetPassword };
     }
 
     async create(data: any, tenantId: string): Promise<any> {

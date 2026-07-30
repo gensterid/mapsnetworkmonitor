@@ -40,9 +40,13 @@ async function resolveOltAndDriver(
 
     // Kredensial telnet: pakai khusus bila diisi, jika tidak fallback ke web*.
     // (C-Data CLI sering admin/admin atau root/admin — beda dari login web.)
-    // Pakai `||` (bukan `??`) agar string kosong pun jatuh ke fallback web.
-    const secret = olt.telnetPassword || olt.webPassword;
-    const password = secret ? decrypt(secret) : undefined;
+    // decrypt() menelan error dan mengembalikan '' → perlakukan '' sebagai gagal
+    // agar telnet-secret rusak jatuh ke web, bukan diam-diam kirim password kosong.
+    const safeDecrypt = (v?: string | null): string | undefined => {
+        if (!v) return undefined;
+        return decrypt(v) || undefined;
+    };
+    const password = safeDecrypt(olt.telnetPassword) ?? safeDecrypt(olt.webPassword);
     const username = olt.telnetUsername || olt.webUsername || undefined;
 
     const driver = OltDriverFactory.getProvisioningDriver(olt.type, {
