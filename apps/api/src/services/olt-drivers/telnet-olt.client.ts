@@ -27,8 +27,12 @@ export class TelnetOltClient {
                 loginPrompt: /(?:user\s?name|login)[: ]*$/i,
                 passwordPrompt: /assword[: ]*$/i,
                 timeout: config.timeout ?? 8000,
-                execTimeout: 10000,
+                execTimeout: 20000, // paginasi butuh beberapa putaran kirim-spasi
                 sendTimeout: 8000,
+                // Pager device (`--More--`, `Press any key`, dll). telnet-client
+                // otomatis kirim spasi tiap kena pola ini → lanjut halaman.
+                // Default lib hanya '---- More'; C-Data pakai bentuk lain.
+                pageSeparator: /(?:-{2,}\s*more)|(?:more\s*-{2,})|(?:press any key)/i,
                 // Device CLI sering tak menuntut negosiasi Telnet penuh.
                 negotiationMandatory: false,
                 ors: '\r\n',
@@ -50,7 +54,7 @@ export class TelnetOltClient {
 
     async exec(command: string): Promise<string> {
         if (!this.connected) throw new Error('Telnet belum terkoneksi');
-        return this.conn.exec(command, { execTimeout: 10000 });
+        return this.conn.exec(command, { execTimeout: 20000 });
     }
 
     async close(): Promise<void> {
