@@ -176,25 +176,27 @@ export const provisioningService = {
     probeAutofind: async (
         oltId: string,
         tenantId?: string | null,
-        opts?: { notify?: boolean; command?: string },
-    ): Promise<{ host: string; port: number; command: string; dump: string; notify?: NotifySummary }> => {
+        opts?: { notify?: boolean; command?: string; enable?: boolean },
+    ): Promise<{ host: string; port: number; command: string; enable: boolean; dump: string; notify?: NotifySummary }> => {
         const { olt, telnet } = await resolveOltAndDriver(oltId, tenantId);
         // Perintah bisa dioverride (diagnostik discovery), default autofind lama.
-        // Route sudah membatasi hanya show/display (read-only).
+        // Route sudah membatasi hanya show/display/enable/help/? (read-only).
         const command = opts?.command || 'show ont autofind all';
-        const raw = await probeTelnetExec({ ...telnet, command });
+        const enable = opts?.enable ?? false;
+        // Enable password sering sama dengan password login → pakai ulang.
+        const raw = await probeTelnetExec({ ...telnet, command, enable, enablePassword: telnet.password });
         const dump = sanitizeTelnetBanner(raw) || '(tidak ada output setelah perintah)';
 
         let notify: NotifySummary | undefined;
         if (opts?.notify) {
             const msg =
-                `🔌 <b>Probe CLI mentah</b>\n` +
+                `🔌 <b>Probe CLI mentah</b>${enable ? ' <i>(enable)</i>' : ''}\n` +
                 `<b>${escapeHtml(olt.name)}</b> (${escapeHtml(telnet.host)}:${telnet.port})\n` +
                 `<code>${escapeHtml(command)}</code>\n\n` +
                 `<pre>${escapeHtml(dump.slice(0, 3200))}</pre>`;
             notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
         }
-        return { host: telnet.host, port: telnet.port, command, dump, notify };
+        return { host: telnet.host, port: telnet.port, command, enable, dump, notify };
     },
 
     /**

@@ -200,10 +200,13 @@ router.get('/olts/:oltId/autofind-probe', authMiddleware, requireTenantContext, 
         command = c;
     }
 
+    const enable = req.query.enable === '1' || req.query.enable === 'true';
+
     try {
         const data = await provisioningService.probeAutofind(idCheck.data, getEffectiveTenantId(req), {
             notify: wantsNotify(req),
             command,
+            enable,
         });
         res.json({ data });
     } catch (error) {

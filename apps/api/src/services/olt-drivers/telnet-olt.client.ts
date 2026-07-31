@@ -164,14 +164,32 @@ export function probeTelnetExec(params: {
     username?: string;
     password?: string;
     command: string;
+    /** Masuk mode privileged (`enable`) sebelum menjalankan `command`. */
+    enable?: boolean;
+    /** Password enable (bila diminta). Sering sama dengan password login. */
+    enablePassword?: string;
     timeoutMs?: number;
 }): Promise<string> {
-    const { host, port, username = '', password = '', command, timeoutMs = 15000 } = params;
+    const {
+        host,
+        port,
+        username = '',
+        password = '',
+        command,
+        enable = false,
+        enablePassword = '',
+        timeoutMs = 15000,
+    } = params;
+    const PAGER = /(?:-{2,}\s*more)|(?:more\s*-{2,})|(?:press any key)/i;
+    const LOGIN = /(?:user\s?name|login)[: ]*$/i;
+    const PASS = /assword[: ]*$/i;
     return new Promise((resolve) => {
         let buf = Buffer.alloc(0);
         let done = false;
         let sentUser = false;
         let sentPass = false;
+        let enableSent = false;
+        let enablePassSent = false;
         let sentCmd = false;
         const socket = net.createConnection({ host, port });
         const finish = () => {
@@ -198,18 +216,41 @@ export function probeTelnetExec(params: {
             if (chunk.length === 0) return;
             buf = Buffer.concat([buf, chunk]);
             const tail = buf.toString('latin1').slice(-160);
-            if (/(?:-{2,}\s*more)|(?:more\s*-{2,})|(?:press any key)/i.test(tail)) {
+
+            if (PAGER.test(tail)) {
                 write(' '); // lanjut halaman pager
-            } else if (!sentUser && /(?:user\s?name|login)[: ]*$/i.test(tail)) {
+                return;
+            }
+            if (!sentUser && LOGIN.test(tail)) {
                 sentUser = true;
                 write(username + '\r\n');
-            } else if (sentUser && !sentPass && /assword[: ]*$/i.test(tail)) {
+                return;
+            }
+            if (sentUser && !sentPass && PASS.test(tail)) {
                 sentPass = true;
                 write(password + '\r\n');
-            } else if (sentPass && !sentCmd && /[#>]\s*$/.test(tail)) {
-                sentCmd = true;
-                write(command + '\r\n');
-                buf = Buffer.alloc(0); // buang noise login; dump = output perintah saja
+                return;
+            }
+            if (sentPass && !sentCmd) {
+                // Masuk privileged bila diminta: '>' → enable → (Password:) → '#'.
+                if (enable && !enableSent && />\s*$/.test(tail)) {
+                    enableSent = true;
+                    write('enable\r\n');
+                    return;
+                }
+                if (enable && enableSent && !enablePassSent && PASS.test(tail)) {
+                    enablePassSent = true;
+                    write(enablePassword + '\r\n');
+                    return;
+                }
+                // Siap kirim perintah: mode enable tunggu '#', selain itu '>'/'#'.
+                const ready = enable ? /#\s*$/.test(tail) : /[#>]\s*$/.test(tail);
+                if (ready) {
+                    sentCmd = true;
+                    write(command + '\r\n');
+                    buf = Buffer.alloc(0); // buang noise login; dump = output perintah saja
+                    return;
+                }
             }
             if (buf.length > 65536) finish();
         });
