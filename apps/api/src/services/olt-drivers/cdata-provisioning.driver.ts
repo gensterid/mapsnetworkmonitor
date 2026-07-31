@@ -117,9 +117,10 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
 
     async testConnection(): Promise<{ success: boolean; error?: string }> {
         try {
+            // connect() resolve = login + shellPrompt cocok. Cukup itu; JANGAN
+            // jalankan perintah berat (autofind bisa paginasi `--More--` →
+            // "response not received" walau login sebetulnya sukses).
             await this.connect();
-            // Perintah non-destruktif untuk memastikan login + CLI merespons.
-            await this.telnet!.exec('show ont autofind all');
             return { success: true };
         } catch (e: any) {
             return { success: false, error: e?.message || 'Koneksi Telnet gagal' };

@@ -5,6 +5,7 @@ import { decrypt } from '../lib/encryption.js';
 import { escapeHtml } from '../lib/html-escape.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
 import { UnconfiguredOnu, IOltProvisioningDriver } from './olt-drivers/olt-provisioning.interface.js';
+import { probeTelnetBanner, sanitizeTelnetBanner } from './olt-drivers/telnet-olt.client.js';
 import { notificationService } from './notification.service.js';
 
 // Port Telnet default OLT. TODO: bila unit pakai port/kredensial telnet berbeda
@@ -138,6 +139,33 @@ export const provisioningService = {
             );
         }
         return { onus, notify };
+    },
+
+    /**
+     * DIAGNOSTIK: dump banner mentah (byte awal) yang dikirim OLT saat telnet
+     * connect — untuk kalibrasi prompt saat login gagal "response not received".
+     * Tak login; hanya socket TCP mentah + baca. Bila `opts.notify`, kirim ke
+     * grup Telegram pemilik OLT.
+     */
+    probeTelnet: async (
+        oltId: string,
+        tenantId?: string | null,
+        opts?: { notify?: boolean },
+    ): Promise<{ host: string; port: number; banner: string; notify?: NotifySummary }> => {
+        const { olt } = await resolveOltAndDriver(oltId, tenantId);
+        const port = olt.telnetPort ?? TELNET_DEFAULT_PORT;
+        const raw = await probeTelnetBanner(olt.host, port);
+        const banner = sanitizeTelnetBanner(raw) || '(tidak ada data diterima dari device)';
+
+        let notify: NotifySummary | undefined;
+        if (opts?.notify) {
+            const msg =
+                `🔌 <b>Probe Telnet mentah</b>\n` +
+                `<b>${escapeHtml(olt.name)}</b> (${escapeHtml(olt.host)}:${port})\n\n` +
+                `<pre>${escapeHtml(banner.slice(0, 3000))}</pre>`;
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
+        }
+        return { host: olt.host, port, banner, notify };
     },
 
     /**
