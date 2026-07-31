@@ -120,3 +120,101 @@ export function sanitizeTelnetBanner(raw: string): string {
     // eslint-disable-next-line no-control-regex
     return raw.replace(/[^\x20-\x7e\r\n]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
 }
+
+/**
+ * Tolak semua negosiasi opsi Telnet (WILL/WONT→DONT, DO/DONT→WONT) agar device
+ * lanjut ke prompt login. Buang byte IAC dari data, balas penolakan via socket.
+ */
+function refuseTelnetOptions(data: Buffer, socket: net.Socket): Buffer {
+    const clean: number[] = [];
+    let i = 0;
+    while (i < data.length) {
+        if (data[i] === 0xff && i + 1 < data.length) {
+            const cmd = data[i + 1];
+            if (cmd >= 251 && cmd <= 254 && i + 2 < data.length) {
+                const opt = data[i + 2];
+                const reply = cmd === 251 || cmd === 252 ? 254 /* DONT */ : 252 /* WONT */;
+                try {
+                    socket.write(Buffer.from([0xff, reply, opt]));
+                } catch {
+                    /* abaikan */
+                }
+                i += 3;
+                continue;
+            }
+            i += 2; // IAC + perintah 1-byte lain
+            continue;
+        }
+        clean.push(data[i]);
+        i += 1;
+    }
+    return Buffer.from(clean);
+}
+
+/**
+ * DIAGNOSTIK: sesi Telnet mentah penuh — login manual (Username:/Password:),
+ * kirim satu perintah, lalu dump SEMUA byte output apa adanya (auto-advance
+ * pager dgn spasi). Reset buffer setelah perintah dikirim → dump hanya output
+ * perintah (buang noise login). Untuk melihat pager/prompt/validitas perintah
+ * persis saat `exec()` telnet-client gagal "response not received".
+ */
+export function probeTelnetExec(params: {
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    command: string;
+    timeoutMs?: number;
+}): Promise<string> {
+    const { host, port, username = '', password = '', command, timeoutMs = 15000 } = params;
+    return new Promise((resolve) => {
+        let buf = Buffer.alloc(0);
+        let done = false;
+        let sentUser = false;
+        let sentPass = false;
+        let sentCmd = false;
+        const socket = net.createConnection({ host, port });
+        const finish = () => {
+            if (done) return;
+            done = true;
+            try {
+                socket.destroy();
+            } catch {
+                /* abaikan */
+            }
+            resolve(buf.toString('latin1'));
+        };
+        const write = (s: string) => {
+            try {
+                socket.write(s);
+            } catch {
+                /* abaikan */
+            }
+        };
+        socket.setTimeout(2500, finish); // 2.5s hening → dump dianggap selesai
+        socket.on('connect', () => write('\r\n'));
+        socket.on('data', (raw) => {
+            const chunk = refuseTelnetOptions(raw, socket);
+            if (chunk.length === 0) return;
+            buf = Buffer.concat([buf, chunk]);
+            const tail = buf.toString('latin1').slice(-160);
+            if (/(?:-{2,}\s*more)|(?:more\s*-{2,})|(?:press any key)/i.test(tail)) {
+                write(' '); // lanjut halaman pager
+            } else if (!sentUser && /(?:user\s?name|login)[: ]*$/i.test(tail)) {
+                sentUser = true;
+                write(username + '\r\n');
+            } else if (sentUser && !sentPass && /assword[: ]*$/i.test(tail)) {
+                sentPass = true;
+                write(password + '\r\n');
+            } else if (sentPass && !sentCmd && /[#>]\s*$/.test(tail)) {
+                sentCmd = true;
+                write(command + '\r\n');
+                buf = Buffer.alloc(0); // buang noise login; dump = output perintah saja
+            }
+            if (buf.length > 65536) finish();
+        });
+        socket.on('error', finish);
+        socket.on('close', finish);
+        setTimeout(finish, timeoutMs).unref(); // cap absolut
+    });
+}

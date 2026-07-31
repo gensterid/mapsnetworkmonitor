@@ -178,6 +178,18 @@ router.get('/olts/:oltId/unconfigured', authMiddleware, requireTenantContext, re
     }
 });
 
+// GET /provisioning/olts/:oltId/autofind-probe — login + jalankan autofind, dump mentah
+router.get('/olts/:oltId/autofind-probe', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+    const idCheck = z.string().uuid().safeParse(req.params.oltId);
+    if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+    try {
+        const data = await provisioningService.probeAutofind(idCheck.data, getEffectiveTenantId(req), { notify: wantsNotify(req) });
+        res.json({ data });
+    } catch (error) {
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+
 // GET /provisioning/olts/:oltId/telnet-probe — dump banner mentah (diagnostik prompt)
 router.get('/olts/:oltId/telnet-probe', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);

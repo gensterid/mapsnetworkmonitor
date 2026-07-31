@@ -5,7 +5,7 @@ import { decrypt } from '../lib/encryption.js';
 import { escapeHtml } from '../lib/html-escape.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
 import { UnconfiguredOnu, IOltProvisioningDriver } from './olt-drivers/olt-provisioning.interface.js';
-import { probeTelnetBanner, sanitizeTelnetBanner } from './olt-drivers/telnet-olt.client.js';
+import { probeTelnetBanner, probeTelnetExec, sanitizeTelnetBanner } from './olt-drivers/telnet-olt.client.js';
 import { notificationService } from './notification.service.js';
 
 // Port Telnet default OLT. TODO: bila unit pakai port/kredensial telnet berbeda
@@ -18,19 +18,28 @@ const TELNET_DEFAULT_PORT = 23;
 const RAW_ESCAPED_BUDGET = 3500;
 
 type NotifySummary = { delivered: number; groups: number; errors: string[] };
+type TelnetParams = { host: string; port: number; username?: string; password?: string };
+
+// decrypt() menelan error dan mengembalikan '' → perlakukan '' sebagai gagal agar
+// telnet-secret rusak jatuh ke fallback web, bukan diam-diam jadi password kosong.
+function safeDecrypt(v?: string | null): string | undefined {
+    if (!v) return undefined;
+    return decrypt(v) || undefined;
+}
 
 /**
  * Resolve OLT (di-scope tenant) lalu bangun driver provisioning dari
- * kredensialnya. Mirror pola olt.service: decrypt webPassword sebelum dipakai.
- * Kredensial telnet SEMENTARA memakai ulang kredensial web.
+ * kredensialnya. Kredensial telnet pakai khusus bila diisi, jika tidak fallback
+ * ke web* (C-Data CLI sering admin/admin atau root/admin — beda dari login web).
  *
- * Mengembalikan row OLT juga agar pemanggil bisa memformat laporan (nama/host)
- * dan menentukan target push notifikasi (`olt.tenantId`).
+ * Mengembalikan row OLT + param telnet ter-resolve agar pemanggil bisa
+ * memformat laporan (nama/host), menentukan target push (`olt.tenantId`), dan
+ * memakai kredensial yang sama untuk probe diagnostik.
  */
 async function resolveOltAndDriver(
     oltId: string,
     tenantId?: string | null,
-): Promise<{ olt: Olt; driver: IOltProvisioningDriver }> {
+): Promise<{ olt: Olt; driver: IOltProvisioningDriver; telnet: TelnetParams }> {
     const [olt] = await db
         .select()
         .from(olts)
@@ -39,27 +48,17 @@ async function resolveOltAndDriver(
         throw new Error('OLT tidak ditemukan atau bukan milik tenant ini');
     }
 
-    // Kredensial telnet: pakai khusus bila diisi, jika tidak fallback ke web*.
-    // (C-Data CLI sering admin/admin atau root/admin — beda dari login web.)
-    // decrypt() menelan error dan mengembalikan '' → perlakukan '' sebagai gagal
-    // agar telnet-secret rusak jatuh ke web, bukan diam-diam kirim password kosong.
-    const safeDecrypt = (v?: string | null): string | undefined => {
-        if (!v) return undefined;
-        return decrypt(v) || undefined;
-    };
-    const password = safeDecrypt(olt.telnetPassword) ?? safeDecrypt(olt.webPassword);
-    const username = olt.telnetUsername || olt.webUsername || undefined;
-
-    const driver = OltDriverFactory.getProvisioningDriver(olt.type, {
+    const telnet: TelnetParams = {
         host: olt.host,
         // Port telnet override (mis. VPN port-forward custom → OLT:23); fallback 23.
         port: olt.telnetPort ?? TELNET_DEFAULT_PORT,
-        protocol: 'telnet',
-        username,
-        password,
-    });
+        username: olt.telnetUsername || olt.webUsername || undefined,
+        password: safeDecrypt(olt.telnetPassword) ?? safeDecrypt(olt.webPassword),
+    };
 
-    return { olt, driver };
+    const driver = OltDriverFactory.getProvisioningDriver(olt.type, { ...telnet, protocol: 'telnet' });
+
+    return { olt, driver, telnet };
 }
 
 /** Ambil discovery kaya (parse + mentah) bila driver mendukung; fallback ke parse saja. */
@@ -166,6 +165,32 @@ export const provisioningService = {
             notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
         }
         return { host: olt.host, port, banner, notify };
+    },
+
+    /**
+     * DIAGNOSTIK: login penuh + jalankan `show ont autofind all` via socket
+     * mentah, dump SEMUA byte output (pager persis, prompt, validitas perintah).
+     * Dipakai saat `exec()` telnet-client gagal "response not received" agar kita
+     * lihat sumber macetnya. Bila `opts.notify`, kirim ke Telegram pemilik OLT.
+     */
+    probeAutofind: async (
+        oltId: string,
+        tenantId?: string | null,
+        opts?: { notify?: boolean },
+    ): Promise<{ host: string; port: number; dump: string; notify?: NotifySummary }> => {
+        const { olt, telnet } = await resolveOltAndDriver(oltId, tenantId);
+        const raw = await probeTelnetExec({ ...telnet, command: 'show ont autofind all' });
+        const dump = sanitizeTelnetBanner(raw) || '(tidak ada output setelah perintah)';
+
+        let notify: NotifySummary | undefined;
+        if (opts?.notify) {
+            const msg =
+                `🔌 <b>Probe autofind mentah</b>\n` +
+                `<b>${escapeHtml(olt.name)}</b> (${escapeHtml(telnet.host)}:${telnet.port})\n\n` +
+                `<pre>${escapeHtml(dump.slice(0, 3200))}</pre>`;
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
+        }
+        return { host: telnet.host, port: telnet.port, dump, notify };
     },
 
     /**
