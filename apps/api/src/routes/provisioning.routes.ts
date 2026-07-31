@@ -178,12 +178,31 @@ router.get('/olts/:oltId/unconfigured', authMiddleware, requireTenantContext, re
     }
 });
 
-// GET /provisioning/olts/:oltId/autofind-probe — login + jalankan autofind, dump mentah
+// Probe CLI hanya boleh perintah show/display (read-only) — cegah aksi berbahaya
+// & injection. `?` diizinkan untuk context-help discovery (mis. "show ?").
+const CLI_PROBE_RE = /^(?:show|display)[\w ?/.\-]{0,74}$/i;
+
+// GET /provisioning/olts/:oltId/autofind-probe — login + jalankan perintah, dump mentah.
+// ?cmd=<show...> override perintah (default `show ont autofind all`) untuk discovery.
 router.get('/olts/:oltId/autofind-probe', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+
+    const rawCmd = Array.isArray(req.query.cmd) ? req.query.cmd[0] : req.query.cmd;
+    let command: string | undefined;
+    if (typeof rawCmd === 'string' && rawCmd.trim().length > 0) {
+        const c = rawCmd.trim();
+        if (!CLI_PROBE_RE.test(c)) {
+            return res.status(400).json({ error: 'cmd hanya boleh perintah show/display (diagnostik read-only)' });
+        }
+        command = c;
+    }
+
     try {
-        const data = await provisioningService.probeAutofind(idCheck.data, getEffectiveTenantId(req), { notify: wantsNotify(req) });
+        const data = await provisioningService.probeAutofind(idCheck.data, getEffectiveTenantId(req), {
+            notify: wantsNotify(req),
+            command,
+        });
         res.json({ data });
     } catch (error) {
         res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
