@@ -178,9 +178,11 @@ router.get('/olts/:oltId/unconfigured', authMiddleware, requireTenantContext, re
     }
 });
 
-// Probe CLI hanya boleh perintah show/display (read-only) — cegah aksi berbahaya
-// & injection. `?` diizinkan untuk context-help discovery (mis. "show ?").
-const CLI_PROBE_RE = /^(?:show|display)[\w ?/.\-]{0,74}$/i;
+// Probe CLI: allowlist verb non-destruktif untuk discovery (show/display baca,
+// enable/help/list/? untuk eksplorasi mode & daftar perintah). Cegah aksi
+// berbahaya (reboot/delete/config) & injection. Satu perintah per sesi →
+// `enable` sendirian hanya pindah mode, tak bisa dirangkai jadi aksi merusak.
+const CLI_PROBE_RE = /^(?:show|display|enable|help|list|\?)[\w ?/.\-]{0,74}$/i;
 
 // GET /provisioning/olts/:oltId/autofind-probe — login + jalankan perintah, dump mentah.
 // ?cmd=<show...> override perintah (default `show ont autofind all`) untuk discovery.
