@@ -11,7 +11,7 @@ import {
     ProvisioningNotSupportedError,
     assertCliSafe,
 } from './olt-provisioning.interface.js';
-import { TelnetOltClient } from './telnet-olt.client.js';
+import { TelnetOltClient, probeTelnetExec } from './telnet-olt.client.js';
 import { logger } from '../../lib/logger.js';
 
 /**
@@ -144,33 +144,47 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
      * tetap memperlihatkan output asli OLT).
      */
     async getUnconfiguredDetailed(): Promise<UnconfiguredDiscovery> {
-        try {
-            await this.connect(); // di dalam try → disconnect tetap jalan bila connect gagal
-            const raw = await this.telnet!.exec('show ont autofind all');
-            const onus = this.parseAutofind(raw);
-            logger.info({ host: this.config.host, count: onus.length }, 'C-Data provisioning: autofind list');
-            return { onus, raw };
-        } finally {
-            await this.disconnect();
-        }
+        // FD1602S-B1: `show ont autofind all` HANYA ada di mode privileged (`#`).
+        // Pakai raw-exec (login → enable → command) — telnet-client tak bisa masuk
+        // privileged & kepentok pager di device ini. enable-password = password
+        // login (terbukti live). Perintah dijalankan di config-level, read-only.
+        const raw = await probeTelnetExec({
+            host: this.config.host,
+            port: this.config.port ?? 23,
+            username: this.config.username,
+            password: this.config.password,
+            enable: true,
+            enablePassword: this.config.password,
+            command: 'show ont autofind all',
+        });
+        const onus = this.parseAutofind(raw);
+        logger.info({ host: this.config.host, count: onus.length }, 'C-Data provisioning: autofind list');
+        return { onus, raw };
     }
 
     /**
-     * Parser best-effort output `show ont autofind all`. Mengekstrak SN + PON
-     * dari tiap baris. TODO: kalibrasi dengan output unit sungguhan (kolom Index/
-     * SN/Autofind-Time; MAC untuk EPON).
+     * Parser output `show ont autofind all` (C-Data FD16xx). Tangani status
+     * eksplisit "There is no ONT available." Format ONT bisa blok (F/S/P & Ont SN
+     * di baris berbeda) atau tabel — lacak PON terakhir agar SN ter-asosiasi walau
+     * beda baris. TODO: verifikasi kolom dgn sampel ONT sungguhan (manual/live).
      */
     private parseAutofind(output: string): UnconfiguredOnu[] {
+        // Status eksplisit → daftar kosong (bukan gagal parse).
+        if (/no\s+ont\s+available/i.test(output)) return [];
+
         const onus: UnconfiguredOnu[] = [];
-        // SN GPON: 4 huruf vendor + 8 hex (mis. HWTC1234ABCD) atau 16 hex.
-        const snRe = /\b([A-Z]{4}[0-9A-Fa-f]{8}|[0-9A-Fa-f]{16})\b/;
+        // SN GPON: 4 huruf vendor + 8 hex (mis. CDAT1234ABCD, HWTC…) atau 16 hex.
+        const snRe = /\b([A-Za-z]{4}[0-9A-Fa-f]{8}|[0-9A-Fa-f]{16})\b/;
         const ponRe = /\b(\d+\/\d+(?:\/\d+)?)\b/;
+        let currentPon = '';
 
         for (const line of output.split(/\r?\n/)) {
+            const ponOnLine = line.match(ponRe)?.[1];
+            if (ponOnLine) currentPon = ponOnLine; // blok: F/S/P mendahului Ont SN
             const sn = line.match(snRe)?.[1];
             if (!sn) continue;
             onus.push({
-                ponId: line.match(ponRe)?.[1] || '',
+                ponId: ponOnLine || currentPon || '',
                 sn,
                 raw: line.trim(),
             });
