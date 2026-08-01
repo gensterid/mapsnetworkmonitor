@@ -71,6 +71,7 @@ export class NotificationService {
     async pushTextToTenant(
         tenantId: string | null | undefined,
         htmlMessage: string,
+        opts?: { provisioning?: boolean },
     ): Promise<{ delivered: number; groups: number; errors: string[] }> {
         const groups = await db
             .select()
@@ -89,14 +90,18 @@ export class NotificationService {
         // Kirim paralel — tiap grup independen & sendTelegram tak pernah reject
         // (selalu resolve {ok,error}), jadi Promise.all aman tanpa allSettled.
         const results = await Promise.all(
-            targets.map((g) =>
-                this.sendTelegram(
+            targets.map((g) => {
+                // Provisioning → topic khusus (fallback ke topic alert bila kosong).
+                const threadId = opts?.provisioning
+                    ? g.telegramProvisioningThreadId || g.telegramThreadId
+                    : g.telegramThreadId;
+                return this.sendTelegram(
                     g.telegramBotToken!,
                     g.telegramChatId!,
                     htmlMessage,
-                    g.telegramThreadId || undefined,
-                ).then((result) => ({ name: g.name as string, result })),
-            ),
+                    threadId || undefined,
+                ).then((result) => ({ name: g.name as string, result }));
+            }),
         );
 
         const errors: string[] = [];

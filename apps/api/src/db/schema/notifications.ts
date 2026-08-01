@@ -9,7 +9,10 @@ export const notificationGroups = pgTable('notification_groups', {
     telegramEnabled: boolean('telegram_enabled').default(false),
     telegramBotToken: text('telegram_bot_token'),
     telegramChatId: text('telegram_chat_id'),
-    telegramThreadId: text('telegram_thread_id'), // For topic support
+    telegramThreadId: text('telegram_thread_id'), // For topic support (alert)
+    // Topic terpisah untuk notifikasi provisioning/konfigurasi ONT. Null → pakai
+    // telegramThreadId (topic alert).
+    telegramProvisioningThreadId: text('telegram_provisioning_thread_id'),
 
     // WhatsApp
     whatsappEnabled: boolean('whatsapp_enabled').default(false),

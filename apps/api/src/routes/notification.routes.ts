@@ -19,6 +19,7 @@ const notificationGroupSchema = z.object({
     telegramBotToken: z.string().optional().nullable(),
     telegramChatId: z.string().optional().nullable(),
     telegramThreadId: z.string().optional().nullable(),
+    telegramProvisioningThreadId: z.string().optional().nullable(),
     whatsappEnabled: z.boolean().optional(),
     whatsappUrl: z.string().optional().nullable(),
     whatsappKey: z.string().optional().nullable(),

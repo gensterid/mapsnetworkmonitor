@@ -189,6 +189,7 @@ export const provisioningService = {
             notify = await notificationService.pushTextToTenant(
                 olt.tenantId,
                 formatUnconfiguredReport(olt, onus, raw),
+                { provisioning: true },
             );
         }
         return { onus, notify };
@@ -216,7 +217,7 @@ export const provisioningService = {
                 `🔌 <b>Probe Telnet mentah</b>\n` +
                 `<b>${escapeHtml(olt.name)}</b> (${escapeHtml(olt.host)}:${port})\n\n` +
                 `<pre>${escapeHtml(banner.slice(0, 3000))}</pre>`;
-            notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg, { provisioning: true });
         }
         return { host: olt.host, port, banner, notify };
     },
@@ -248,7 +249,7 @@ export const provisioningService = {
                 `<b>${escapeHtml(olt.name)}</b> (${escapeHtml(telnet.host)}:${telnet.port})\n` +
                 `<code>${escapeHtml(command)}</code>\n\n` +
                 `<pre>${escapeHtml(dump.slice(0, 3200))}</pre>`;
-            notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg, { provisioning: true });
         }
         return { host: telnet.host, port: telnet.port, command, enable, dump, notify };
     },
@@ -270,6 +271,7 @@ export const provisioningService = {
             notify = await notificationService.pushTextToTenant(
                 olt.tenantId,
                 formatTestConnectionReport(olt, result),
+                { provisioning: true },
             );
         }
         return { result, notify };
@@ -333,7 +335,7 @@ export const provisioningService = {
                 `${icon} <b>Authorize ONU</b>\n` +
                 `<b>${escapeHtml(olt.name)}</b> · SN <code>${escapeHtml(input.onu.sn || '-')}</code> · PON ${escapeHtml(input.onu.ponId || '-')}\n` +
                 `${escapeHtml(result.message || result.error || '')}`;
-            notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg, { provisioning: true });
         }
         return { result, notify };
     },

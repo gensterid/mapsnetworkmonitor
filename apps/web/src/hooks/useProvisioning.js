@@ -54,3 +54,29 @@ export function useDeletePreset() {
         onError: (e) => toast.error(errMsg(e, 'Gagal hapus preset')),
     });
 }
+
+// ---- Authorize flow ----
+
+/** Scan ONU belum ter-authorize di OLT (buka sesi telnet — on-demand). */
+export function useScanUnconfigured() {
+    return useMutation({
+        mutationFn: (oltId) => provisioningService.getUnconfigured(oltId),
+        onError: (e) => toast.error(errMsg(e, 'Gagal scan ONU')),
+    });
+}
+
+/** Preview perintah authorize (murni — tak menyentuh OLT). */
+export function usePlanAuthorize() {
+    return useMutation({
+        mutationFn: (data) => provisioningService.plan(data),
+        onError: (e) => toast.error(errMsg(e, 'Gagal membuat preview')),
+    });
+}
+
+/** TULIS-LIVE authorize (confirm otomatis di service). */
+export function useAuthorizeOnu() {
+    return useMutation({
+        mutationFn: ({ oltId, data }) => provisioningService.authorize(oltId, data),
+        onError: (e) => toast.error(errMsg(e, 'Gagal authorize')),
+    });
+}

@@ -11,6 +11,7 @@ const RouterDetails = lazy(() => import('./pages/RouterDetails'));
 const Olts = lazy(() => import('./pages/Olts'));
 const OltDetails = lazy(() => import('./pages/OltDetails'));
 const ProvisioningPresets = lazy(() => import('./pages/provisioning/Presets'));
+const ProvisioningAuthorize = lazy(() => import('./pages/provisioning/Authorize'));
 const GenieACS = lazy(() => import('./pages/GenieACS'));
 const NetworkMap = lazy(() => import('./pages/NetworkMap'));
 const Alerts = lazy(() => import('./pages/Alerts'));
@@ -282,6 +283,11 @@ function App() {
                 <Route path="provisioning/presets" element={
                   <OperatorRoute>
                     <ProvisioningPresets />
+                  </OperatorRoute>
+                } />
+                <Route path="provisioning/authorize" element={
+                  <OperatorRoute>
+                    <ProvisioningAuthorize />
                   </OperatorRoute>
                 } />
                 <Route path="genieacs" element={<GenieACS />} />

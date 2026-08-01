@@ -28,6 +28,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
         telegramBotToken: '',
         telegramChatId: '',
         telegramThreadId: '',
+        telegramProvisioningThreadId: '',
         whatsappEnabled: false,
         whatsappUrl: '',
         whatsappKey: '',
@@ -44,6 +45,7 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                 telegramBotToken: group?.telegramBotToken || '',
                 telegramChatId: group?.telegramChatId || '',
                 telegramThreadId: group?.telegramThreadId || '',
+                telegramProvisioningThreadId: group?.telegramProvisioningThreadId || '',
                 whatsappEnabled: group?.whatsappEnabled || false,
                 whatsappUrl: group?.whatsappUrl || '',
                 whatsappKey: group?.whatsappKey || '',
@@ -117,9 +119,13 @@ function GroupFormModal({ isOpen, onClose, group = null }) {
                                     <Input name="telegramChatId" value={formData.telegramChatId} onChange={handleChange} placeholder="-1001234567890" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-xs text-fg-muted">Thread ID (Topic)</label>
+                                    <label className="text-xs text-fg-muted">Thread ID (Topic Alert)</label>
                                     <Input name="telegramThreadId" value={formData.telegramThreadId} onChange={handleChange} placeholder="Optional" />
                                 </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-xs text-fg-muted">Thread ID Topic Provisioning/ONT</label>
+                                <Input name="telegramProvisioningThreadId" value={formData.telegramProvisioningThreadId} onChange={handleChange} placeholder="Kosong = ikut topic alert" />
                             </div>
                         </>
                     )}
