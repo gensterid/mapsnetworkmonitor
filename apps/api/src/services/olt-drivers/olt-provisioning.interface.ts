@@ -67,6 +67,28 @@ export interface UnconfiguredDiscovery {
     raw: string;
 }
 
+/** ONU yang SUDAH ter-authorize/teregister di OLT (untuk fitur Modify). */
+export interface RegisteredOnu {
+    /** PON F/S/P, mis. "0/0/2". */
+    ponId: string;
+    /** Nomor ONT (ont-id) pada PON. */
+    onuId: string;
+    /** Serial number. */
+    sn: string;
+    /** Run-state (Online/Offline/…), bila terbaca. */
+    runState?: string;
+    /** Deskripsi/label, bila ada. */
+    description?: string;
+}
+
+/** Opsi saat modify ONT teregister. */
+export interface ModifyOptions {
+    /** Ganti juga VLAN service-port (hapus lama + set baru dari preset). DESTRUKTIF sesaat. */
+    updateVlan?: boolean;
+    /** Set label/deskripsi ONT (mis. nama pelanggan). */
+    description?: string;
+}
+
 /** Identitas satu ONU untuk aksi provisioning. */
 export interface OnuRef {
     ponId: string;
@@ -194,6 +216,21 @@ export interface IOltProvisioningDriver {
      * WAJIB dipanggil & ditampilkan sebelum `authorizeOnu()`.
      */
     planAuthorize(onu: OnuRef, preset: ProvisioningPreset): Promise<ProvisionPlan>;
+
+    /**
+     * Opsional (Modify): daftar ONU yang SUDAH teregister di OLT (untuk mode
+     * auto-auth — ONU auto ter-config, lalu diubah profil/VLAN-nya by SN).
+     */
+    getRegisteredOnus?(): Promise<RegisteredOnu[]>;
+
+    /** Opsional (Modify): DRY-RUN perintah modify (rebind profil/VLAN). */
+    planModify?(target: OnuRef, preset: ProvisioningPreset, opts?: ModifyOptions): Promise<ProvisionPlan>;
+
+    /**
+     * Opsional (Modify): TULIS-LIVE — ubah profil (dan opsional VLAN/label) ONT
+     * yang sudah teregister. WAJIB fail-closed: verifikasi SN↔ont-id target dulu.
+     */
+    modifyOnu?(target: OnuRef, preset: ProvisioningPreset, opts?: ModifyOptions): Promise<ProvisionResult>;
 
     /**
      * Terapkan authorize + service + (opsional) ACS via preset.

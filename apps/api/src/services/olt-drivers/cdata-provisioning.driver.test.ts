@@ -210,3 +210,77 @@ describe('CDataProvisioningDriver.authorizeOnu (idempotent + collision-safe + fa
         expect(r.error).toMatch(/gagal|tak pasti/i);
     });
 });
+
+const mtarget = { ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '3' };
+
+describe('CDataProvisioningDriver Modify (registered ONT)', () => {
+    beforeEach(() => {
+        mockExec.mockReset();
+        mockRun.mockReset();
+    });
+
+    it('getRegisteredOnus parses "show ont info all" table', async () => {
+        mockRun.mockResolvedValueOnce({
+            transcript: '',
+            reachedShell: true,
+            completed: true,
+            outputs: [{
+                command: 'show ont info all',
+                output: `${ONT_INFO_HEADER}0/0 2 1 TPLGCAF02E40 Active Online success match\n0/0 2 3 DD16B3551CD3 Active Online success match\nTotal: 2, online: 2`,
+            }],
+        });
+        const list = await driver().getRegisteredOnus();
+        expect(list).toHaveLength(2);
+        expect(list[0]).toMatchObject({ ponId: '0/0/2', onuId: '1', sn: 'TPLGCAF02E40', runState: 'Online' });
+        expect(list[1].sn).toBe('DD16B3551CD3');
+    });
+
+    it('planModify builds rebind (+ VLAN + label) commands', async () => {
+        const plan = await driver().planModify(mtarget, preset(), { updateVlan: true, description: 'PelangganX' });
+        const cmds = plan.steps.map((s) => s.command);
+        expect(cmds).toContain('ont modify 2 3 ont-lineprofile-id 1 ont-srvprofile-id 1');
+        expect(cmds).toContain('ont description 2 3 PelangganX');
+        expect(cmds).toContain('no service-port gpon 0/0 port 2 ont 3');
+        expect(cmds.some((c) => c.startsWith('service-port autoindex vlan 100 gpon 0/0 port 2 ont 3'))).toBe(true);
+        expect(cmds).toContain('save');
+    });
+
+    it('planModify without options = rebind only (no VLAN/label)', async () => {
+        const cmds = (await driver().planModify(mtarget, preset())).steps.map((s) => s.command);
+        expect(cmds).toContain('ont modify 2 3 ont-lineprofile-id 1 ont-srvprofile-id 1');
+        expect(cmds.some((c) => c.startsWith('no service-port'))).toBe(false);
+        expect(cmds.some((c) => c.startsWith('ont description'))).toBe(false);
+    });
+
+    it('modifyOnu succeeds when SN↔ont-id matches (verify → modify)', async () => {
+        mockRun
+            .mockResolvedValueOnce(readSession('0/0 2 3 DD16B3551CD3 Active Online success match\nTotal: 1'))
+            .mockResolvedValueOnce({
+                transcript: '',
+                reachedShell: true,
+                completed: true,
+                outputs: [
+                    { command: 'ont modify 2 3 ont-lineprofile-id 1 ont-srvprofile-id 1', output: '\r\nOLT(config-interface-gpon-0/0)#' },
+                    { command: 'save', output: 'Current configuration saved.' },
+                ],
+            });
+        const r = await driver().modifyOnu(mtarget, preset());
+        expect(r.success).toBe(true);
+        expect(mockRun).toHaveBeenCalledTimes(2);
+    });
+
+    it('modifyOnu FAILS CLOSED when SN does not match the ont-id (no write)', async () => {
+        mockRun.mockResolvedValueOnce(readSession('0/0 2 3 OTHERSN123456 Active Online success match\nTotal: 1'));
+        const r = await driver().modifyOnu(mtarget, preset());
+        expect(r.success).toBe(false);
+        expect(r.error).toMatch(/tak ditemukan/i);
+        expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    it('modifyOnu FAILS CLOSED when the verify read cannot log in (no write)', async () => {
+        mockRun.mockResolvedValueOnce({ transcript: '', reachedShell: false, completed: false, outputs: [] });
+        const r = await driver().modifyOnu(mtarget, preset());
+        expect(r.success).toBe(false);
+        expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+});

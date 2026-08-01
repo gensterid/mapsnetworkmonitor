@@ -20,4 +20,9 @@ export const provisioningService = {
     plan: (data) => post('/provisioning/plan', data),
     // TULIS-LIVE: authorize. confirm=true wajib. notify=1 → hasil ke topic Telegram.
     authorize: (oltId, data) => post(`/provisioning/olts/${oltId}/authorize?notify=1`, { ...data, confirm: true }),
+
+    // Modify ONT teregister (mode auto-auth)
+    getRegistered: (oltId) => get(`/provisioning/olts/${oltId}/registered`),
+    planModify: (oltId, data) => post(`/provisioning/olts/${oltId}/plan-modify`, data),
+    modify: (oltId, data) => post(`/provisioning/olts/${oltId}/modify?notify=1`, { ...data, confirm: true }),
 };

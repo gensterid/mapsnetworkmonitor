@@ -12,6 +12,7 @@ const Olts = lazy(() => import('./pages/Olts'));
 const OltDetails = lazy(() => import('./pages/OltDetails'));
 const ProvisioningPresets = lazy(() => import('./pages/provisioning/Presets'));
 const ProvisioningAuthorize = lazy(() => import('./pages/provisioning/Authorize'));
+const ProvisioningModify = lazy(() => import('./pages/provisioning/Modify'));
 const GenieACS = lazy(() => import('./pages/GenieACS'));
 const NetworkMap = lazy(() => import('./pages/NetworkMap'));
 const Alerts = lazy(() => import('./pages/Alerts'));
@@ -288,6 +289,11 @@ function App() {
                 <Route path="provisioning/authorize" element={
                   <OperatorRoute>
                     <ProvisioningAuthorize />
+                  </OperatorRoute>
+                } />
+                <Route path="provisioning/modify" element={
+                  <OperatorRoute>
+                    <ProvisioningModify />
                   </OperatorRoute>
                 } />
                 <Route path="genieacs" element={<GenieACS />} />

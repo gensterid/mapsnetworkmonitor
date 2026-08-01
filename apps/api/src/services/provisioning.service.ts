@@ -9,6 +9,9 @@ import {
     IOltProvisioningDriver,
     ProvisioningPreset,
     ProvisionResult,
+    ProvisionPlan,
+    RegisteredOnu,
+    ModifyOptions,
     OnuRef,
 } from './olt-drivers/olt-provisioning.interface.js';
 import { probeTelnetBanner, probeTelnetExec, sanitizeTelnetBanner } from './olt-drivers/telnet-olt.client.js';
@@ -333,6 +336,85 @@ export const provisioningService = {
             const icon = result.success ? (result.alreadyProvisioned ? 'ℹ️' : '✅') : '❌';
             const msg =
                 `${icon} <b>Authorize ONU</b>\n` +
+                `<b>${escapeHtml(olt.name)}</b> · SN <code>${escapeHtml(input.onu.sn || '-')}</code> · PON ${escapeHtml(input.onu.ponId || '-')}\n` +
+                `${escapeHtml(result.message || result.error || '')}`;
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg, { provisioning: true });
+        }
+        return { result, notify };
+    },
+
+    /** READ-ONLY: daftar ONT yang SUDAH teregister (mode auto-auth) untuk Modify. */
+    getRegisteredOnus: async (oltId: string, tenantId?: string | null): Promise<RegisteredOnu[]> => {
+        const { driver } = await resolveOltAndDriver(oltId, tenantId);
+        if (typeof driver.getRegisteredOnus !== 'function') {
+            throw new Error("Driver OLT ini belum mendukung daftar ONT teregister.");
+        }
+        return driver.getRegisteredOnus();
+    },
+
+    /** Preview MURNI perintah modify (tanpa menyentuh OLT). */
+    planModify: async (
+        oltId: string,
+        tenantId: string | null | undefined,
+        input: { presetId: string; onu: OnuRef; opts?: ModifyOptions },
+    ): Promise<ProvisionPlan> => {
+        const preset = await provisioningPresetService.findById(input.presetId, tenantId);
+        if (!preset) throw new Error('Preset tidak ditemukan atau bukan milik tenant ini.');
+        const { driver } = await resolveOltAndDriver(oltId, tenantId);
+        if (typeof driver.planModify !== 'function') throw new Error('Driver OLT ini belum mendukung modify.');
+        return driver.planModify(input.onu, toProvisioningPreset(preset), input.opts);
+    },
+
+    /**
+     * TULIS-LIVE: modify ONT teregister (rebind profil, opsional VLAN/label).
+     * Sama seperti authorize: confirm wajib, serialisasi per-OLT, audit, notify.
+     */
+    modifyOnu: async (
+        oltId: string,
+        tenantId: string | null | undefined,
+        input: { presetId: string; onu: OnuRef; opts?: ModifyOptions; confirm: boolean },
+        opts?: { notify?: boolean; actor?: { userId?: string; ip?: string; userAgent?: string } },
+    ): Promise<{ result: ProvisionResult; notify?: NotifySummary }> => {
+        if (input.confirm !== true) throw new Error('Konfirmasi diperlukan (confirm=true) sebelum modify.');
+        const preset = await provisioningPresetService.findById(input.presetId, tenantId);
+        if (!preset) throw new Error('Preset tidak ditemukan atau bukan milik tenant ini.');
+        const { olt, driver } = await resolveOltAndDriver(oltId, tenantId);
+        if (typeof driver.modifyOnu !== 'function') throw new Error('Driver OLT ini belum mendukung modify.');
+        if (preset.oltId && preset.oltId !== oltId) {
+            throw new Error('Preset ini terikat ke OLT lain — pilih preset untuk OLT ini atau preset global.');
+        }
+
+        const result = await withOltLock(oltId, () => driver.modifyOnu!(input.onu, toProvisioningPreset(preset), input.opts));
+
+        try {
+            await auditRepository.create({
+                userId: opts?.actor?.userId ?? null,
+                tenantId: olt.tenantId ?? null,
+                action: result.success ? 'modify-onu' : 'modify-onu-fail',
+                entity: 'olt',
+                entityId: oltId,
+                details: {
+                    ponId: input.onu.ponId,
+                    sn: input.onu.sn,
+                    onuId: input.onu.onuId,
+                    presetId: input.presetId,
+                    updateVlan: input.opts?.updateVlan ?? false,
+                    success: result.success,
+                    message: result.message ?? null,
+                    error: result.error ?? null,
+                },
+                ipAddress: opts?.actor?.ip ?? null,
+                userAgent: opts?.actor?.userAgent ?? null,
+            });
+        } catch (e) {
+            logger.warn({ err: e, oltId }, 'Gagal menulis audit log modify');
+        }
+
+        let notify: NotifySummary | undefined;
+        if (opts?.notify) {
+            const icon = result.success ? '🔧' : '❌';
+            const msg =
+                `${icon} <b>Modify ONU</b>\n` +
                 `<b>${escapeHtml(olt.name)}</b> · SN <code>${escapeHtml(input.onu.sn || '-')}</code> · PON ${escapeHtml(input.onu.ponId || '-')}\n` +
                 `${escapeHtml(result.message || result.error || '')}`;
             notify = await notificationService.pushTextToTenant(olt.tenantId, msg, { provisioning: true });

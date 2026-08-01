@@ -54,6 +54,21 @@ const authorizeSchema = z.object({
     confirm: z.literal(true, { errorMap: () => ({ message: 'confirm harus true' }) }),
 });
 
+// Modify (TULIS-LIVE): ubah profil/VLAN ONT teregister. description terbatas
+// charset aman (juga masuk perintah CLI `ont description`).
+const DESC_RE = /^[A-Za-z0-9 _.\-]{1,32}$/;
+const modifyBaseSchema = z.object({
+    presetId: z.string().uuid(),
+    ponId: z.string().regex(PON_RE, 'format PON tidak valid (mis. 0/0/2)'),
+    sn: z.string().regex(SN_RE),
+    onuId: z.string().regex(ONUID_RE),
+    updateVlan: z.boolean().optional(),
+    description: z.string().regex(DESC_RE, 'label hanya boleh huruf/angka/spasi/._-').optional(),
+});
+const modifySchema = modifyBaseSchema.extend({
+    confirm: z.literal(true, { errorMap: () => ({ message: 'confirm harus true' }) }),
+});
+
 // ---- CRUD preset provisioning (semua tenant-scoped) ----
 
 // GET /provisioning/presets — Operator+ (bisa memuat konteks kredensial)
@@ -185,6 +200,65 @@ router.post('/olts/:oltId/authorize', authMiddleware, strictLimiter, requireTena
         );
         // Authorize gagal (mis. tabrakan ont-id) tetap 200 dgn result.success=false
         // agar UI bisa tampilkan pesan; error tak terduga → catch di bawah (500).
+        res.json({ data: result, notify });
+    } catch (error) {
+        if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+
+// ---- Modify ONT teregister (mode auto-auth): rebind profil/VLAN by SN ----
+
+// GET /provisioning/olts/:oltId/registered — daftar ONT teregister (Operator+).
+router.get('/olts/:oltId/registered', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
+    const idCheck = z.string().uuid().safeParse(req.params.oltId);
+    if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+    try {
+        const data = await provisioningService.getRegisteredOnus(idCheck.data, getEffectiveTenantId(req));
+        res.json({ data });
+    } catch (error) {
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+
+// POST /provisioning/olts/:oltId/plan-modify — preview MURNI (tanpa sentuh OLT).
+router.post('/olts/:oltId/plan-modify', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+    const idCheck = z.string().uuid().safeParse(req.params.oltId);
+    if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+    try {
+        const body = modifyBaseSchema.parse(req.body);
+        const plan = await provisioningService.planModify(idCheck.data, getEffectiveTenantId(req), {
+            presetId: body.presetId,
+            onu: { ponId: body.ponId, sn: body.sn, onuId: body.onuId },
+            opts: { updateVlan: body.updateVlan, description: body.description },
+        });
+        res.json({ data: plan });
+    } catch (error) {
+        if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+
+// POST /provisioning/olts/:oltId/modify — TULIS-LIVE (Operator+, confirm=true wajib).
+router.post('/olts/:oltId/modify', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
+    const idCheck = z.string().uuid().safeParse(req.params.oltId);
+    if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+    try {
+        const body = modifySchema.parse(req.body);
+        const { result, notify } = await provisioningService.modifyOnu(
+            idCheck.data,
+            getEffectiveTenantId(req),
+            {
+                presetId: body.presetId,
+                onu: { ponId: body.ponId, sn: body.sn, onuId: body.onuId },
+                opts: { updateVlan: body.updateVlan, description: body.description },
+                confirm: body.confirm,
+            },
+            {
+                notify: wantsNotify(req),
+                actor: { userId: req.user?.id, ip: req.ip, userAgent: req.headers['user-agent'] },
+            },
+        );
         res.json({ data: result, notify });
     } catch (error) {
         if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });

@@ -3,6 +3,8 @@ import {
     OltProvisioningCapabilities,
     UnconfiguredOnu,
     UnconfiguredDiscovery,
+    RegisteredOnu,
+    ModifyOptions,
     OnuRef,
     ProvisioningPreset,
     ProvisionPlan,
@@ -365,6 +367,164 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
             onu: { ...onu },
             appliedSteps: commands.length,
             message: `ONT ${onu.sn} ter-authorize (ONT-ID ${onu.onuId}) di port ${port}.${session.completed ? '' : ' (sesi terputus sebelum save — verifikasi manual.)'}`,
+        };
+    }
+
+    // ---- Modify (mode auto-auth): ubah profil/VLAN ONT teregister by SN ----
+
+    /** Param koneksi telnet dari config driver (reuse read+write, selalu enable). */
+    private conn() {
+        return {
+            host: this.config.host,
+            port: this.config.port ?? 23,
+            username: this.config.username,
+            password: this.config.password,
+            enable: true,
+            enablePassword: this.config.password,
+        };
+    }
+
+    /**
+     * READ-ONLY: daftar ONT yang SUDAH teregister (semua port) via `show ont info
+     * all`. Untuk mode auto-auth: ONU sudah auto-config, lalu diubah by SN.
+     */
+    async getRegisteredOnus(): Promise<RegisteredOnu[]> {
+        const session = await runTelnetCommands({ ...this.conn(), commands: ['config', 'show ont info all', 'end'] });
+        if (!session.reachedShell) throw new Error('Gagal login/telnet ke OLT.');
+        const out = session.outputs.find((o) => o.command.startsWith('show ont info'))?.output ?? '';
+        if (!/total\s*:/i.test(out)) {
+            throw new Error(`Output "show ont info all" tak dikenali: ${out.replace(/\s+/g, ' ').trim().slice(0, 200) || '(kosong)'}`);
+        }
+        return this.parseRegistered(out);
+    }
+
+    /** Parse tabel `show ont info all`: `F/S P ONT-ID SN Control Run …`. */
+    private parseRegistered(output: string): RegisteredOnu[] {
+        const rows: RegisteredOnu[] = [];
+        for (const line of output.split(/\r?\n/)) {
+            const m = line.match(/^\s*(\d+\/\d+)\s+(\d+)\s+(\d+)\s+([A-Za-z0-9-]{6,20})(?:\s+\S+\s+(\S+))?/);
+            if (m) rows.push({ ponId: `${m[1]}/${m[2]}`, onuId: m[3] as string, sn: m[4] as string, runState: m[5] });
+        }
+        return rows;
+    }
+
+    /** DRY-RUN: perintah modify (rebind profil, opsional VLAN/label). AMAN. */
+    async planModify(target: OnuRef, preset: ProvisioningPreset, opts: ModifyOptions = {}): Promise<ProvisionPlan> {
+        const warnings: string[] = [];
+        if (target.onuId === undefined) warnings.push('onuId target kosong.');
+        if (!preset.lineProfile || !preset.serviceProfile) warnings.push('lineProfile/serviceProfile preset kosong.');
+        if (opts.updateVlan) warnings.push('updateVlan: service-port lama DIHAPUS lalu dibuat ulang — layanan ONT ini terputus sesaat.');
+        warnings.push('Sesi otomatis masuk privileged (`enable`). SN↔ont-id diverifikasi dulu sebelum apply.');
+        return {
+            onu: target,
+            presetName: preset.name,
+            transport: 'cli',
+            steps: this.buildModifyCommands(target, preset, opts),
+            warnings,
+            requiresSave: true,
+        };
+    }
+
+    private buildModifyCommands(target: OnuRef, preset: ProvisioningPreset, opts: ModifyOptions): ProvisionStep[] {
+        const { fs, port } = this.splitPon(target.ponId || '');
+        const fsSafe = assertCliSafe(fs || '<F/S>', 'ponId');
+        const portSafe = assertCliSafe(port || '<port>', 'ponPort');
+        const ontId = assertCliSafe(target.onuId ?? '<ont-id>', 'onuId');
+        const line = assertCliSafe(preset.lineProfile ?? '<line>', 'lineProfile');
+        const srv = assertCliSafe(preset.serviceProfile ?? '<srv>', 'serviceProfile');
+        const vlan = preset.serviceVlan;
+
+        const steps: ProvisionStep[] = [
+            { description: 'Masuk global config', command: 'config' },
+            { description: `Masuk interface GPON ${fsSafe}`, command: `interface gpon ${fsSafe}` },
+            {
+                description: `Rebind ONT ${ontId} → line ${line} / srv ${srv}`,
+                command: `ont modify ${portSafe} ${ontId} ont-lineprofile-id ${line} ont-srvprofile-id ${srv}`,
+            },
+        ];
+        if (opts.description) {
+            const desc = assertCliSafe(opts.description, 'description');
+            steps.push({ description: 'Set label ONT', command: `ont description ${portSafe} ${ontId} ${desc}` });
+        }
+        steps.push({ description: 'Kembali ke config', command: 'exit' });
+        if (opts.updateVlan) {
+            steps.push({
+                description: `Hapus service-port lama ONT ${ontId}`,
+                command: `no service-port gpon ${fsSafe} port ${portSafe} ont ${ontId}`,
+                destructive: true,
+            });
+            steps.push({
+                description: `Set service-port VLAN ${vlan}`,
+                command: `service-port autoindex vlan ${vlan} gpon ${fsSafe} port ${portSafe} ont ${ontId} gemport 1 multi-service user-vlan ${vlan} tag-action transparent`,
+            });
+        }
+        steps.push({ description: 'Kembali ke privileged', command: 'end' });
+        steps.push({ description: 'Simpan konfigurasi', command: 'save' });
+        return steps;
+    }
+
+    /**
+     * TULIS-LIVE: modify ONT teregister. FAIL-CLOSED: verifikasi SN↔ont-id target
+     * benar-benar ada di port sebelum menulis (cegah salah-ONT).
+     */
+    async modifyOnu(target: OnuRef, preset: ProvisioningPreset, opts: ModifyOptions = {}): Promise<ProvisionResult> {
+        if (!target.sn) throw new Error('SN target wajib.');
+        if (target.onuId === undefined) throw new Error('onuId target wajib.');
+        const { fs, port } = this.splitPon(target.ponId || '');
+        if (!fs || !port) throw new Error(`ponId tidak lengkap (F/S/port): "${target.ponId}"`);
+        if (!preset.lineProfile || !preset.serviceProfile) throw new Error('Preset butuh lineProfile & serviceProfile.');
+
+        const conn = this.conn();
+        const fsSafe = assertCliSafe(fs, 'ponFS');
+        const portSafe = assertCliSafe(port, 'ponPort');
+
+        // 1. FAIL-CLOSED: verifikasi SN↔ont-id target ada di port ini.
+        const readSession = await runTelnetCommands({
+            ...conn,
+            commands: ['config', `interface gpon ${fsSafe}`, `show ont info ${portSafe} all`, 'end'],
+        });
+        if (!readSession.reachedShell) {
+            return { success: false, onu: target, appliedSteps: 0, error: 'Gagal login/telnet ke OLT saat verifikasi — dibatalkan.' };
+        }
+        const infoOut = readSession.outputs.find((o) => o.command.startsWith('show ont info'))?.output ?? '';
+        if (!/total\s*:/i.test(infoOut) || /%/.test(infoOut)) {
+            return { success: false, onu: target, appliedSteps: 0, error: 'Verifikasi status port gagal (output tak dikenali) — dibatalkan.' };
+        }
+        const existing = this.parseOntInfo(infoOut);
+        const match = existing.find((e) => Number(e.ontId) === Number(target.onuId) && e.sn.toUpperCase() === target.sn!.toUpperCase());
+        if (!match) {
+            return {
+                success: false,
+                onu: target,
+                appliedSteps: 0,
+                error: `ONT-ID ${target.onuId} dengan SN ${target.sn} tak ditemukan di port ${port}. Refresh daftar (mungkin sudah berubah).`,
+            };
+        }
+
+        // 2. Eksekusi modify.
+        const commands = this.buildModifyCommands(target, preset, opts).map((s) => s.command as string);
+        const session = await runTelnetCommands({ ...conn, commands });
+        if (!session.reachedShell) {
+            return { success: false, onu: target, appliedSteps: 0, error: 'Gagal login saat modify.' };
+        }
+
+        // 3. Verifikasi: perintah `ont modify` terkirim & tanpa error (sukses = senyap).
+        const modEntry = session.outputs.find((o) => o.command.startsWith('ont modify'));
+        const modOut = modEntry?.output ?? '';
+        if (!modEntry || /%|error|fail|invalid|not\s+exist/i.test(modOut)) {
+            return {
+                success: false,
+                onu: target,
+                appliedSteps: session.outputs.length,
+                error: `Modify gagal/tak terkirim. Output "ont modify": ${modOut.replace(/\s+/g, ' ').trim().slice(0, 300) || '(kosong)'}`,
+            };
+        }
+
+        return {
+            success: true,
+            onu: target,
+            appliedSteps: commands.length,
+            message: `ONT ${target.sn} (ID ${target.onuId}) di-rebind ke line ${preset.lineProfile}/srv ${preset.serviceProfile}${opts.updateVlan ? ` + VLAN ${preset.serviceVlan}` : ''}${opts.description ? ` (label "${opts.description}")` : ''}.${session.completed ? '' : ' (sesi terputus sebelum save — verifikasi.)'}`,
         };
     }
 }

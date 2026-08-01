@@ -80,3 +80,29 @@ export function useAuthorizeOnu() {
         onError: (e) => toast.error(errMsg(e, 'Gagal authorize')),
     });
 }
+
+// ---- Modify flow (mode auto-auth) ----
+
+/** Scan ONT yang SUDAH teregister di OLT (on-demand — buka sesi telnet). */
+export function useScanRegistered() {
+    return useMutation({
+        mutationFn: (oltId) => provisioningService.getRegistered(oltId),
+        onError: (e) => toast.error(errMsg(e, 'Gagal scan ONT teregister')),
+    });
+}
+
+/** Preview perintah modify (murni — tak menyentuh OLT). */
+export function usePlanModify() {
+    return useMutation({
+        mutationFn: ({ oltId, data }) => provisioningService.planModify(oltId, data),
+        onError: (e) => toast.error(errMsg(e, 'Gagal membuat preview')),
+    });
+}
+
+/** TULIS-LIVE modify (confirm otomatis di service). */
+export function useModifyOnu() {
+    return useMutation({
+        mutationFn: ({ oltId, data }) => provisioningService.modify(oltId, data),
+        onError: (e) => toast.error(errMsg(e, 'Gagal modify')),
+    });
+}
