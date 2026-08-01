@@ -163,32 +163,77 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
     }
 
     /**
-     * Parser output `show ont autofind all` (C-Data FD16xx). Tangani status
-     * eksplisit "There is no ONT available." Format ONT bisa blok (F/S/P & Ont SN
-     * di baris berbeda) atau tabel — lacak PON terakhir agar SN ter-asosiasi walau
-     * beda baris. TODO: verifikasi kolom dgn sampel ONT sungguhan (manual/live).
+     * Parser output `show ont autofind all` (C-Data FD16xx) — format BLOK berlabel
+     * (dikonfirmasi dari manual). Contoh satu blok:
+     *   Number: 1
+     *   Frame/Slot : 0/0
+     *   Port : 2
+     *   Logic ID: 1
+     *   Ont SN: DD16B3551CD3
+     *   Password: 12345678
+     *   Vendor ID : xPON
+     *   Last autofind time: Sat Jan 1 10:15:36 2000
+     * Parse per-LABEL (bukan regex SN longgar) agar tak salah tangkap Loid/hex
+     * lain, dan ponId = Frame/Slot + Port (mis. "0/0/2"). Blok dipisah "Number:".
      */
     private parseAutofind(output: string): UnconfiguredOnu[] {
         // Status eksplisit → daftar kosong (bukan gagal parse).
         if (/no\s+ont\s+available/i.test(output)) return [];
 
         const onus: UnconfiguredOnu[] = [];
-        // SN GPON: 4 huruf vendor + 8 hex (mis. CDAT1234ABCD, HWTC…) atau 16 hex.
-        const snRe = /\b([A-Za-z]{4}[0-9A-Fa-f]{8}|[0-9A-Fa-f]{16})\b/;
-        const ponRe = /\b(\d+\/\d+(?:\/\d+)?)\b/;
-        let currentPon = '';
+        let cur: {
+            frameSlot?: string;
+            port?: string;
+            sn?: string;
+            suggestedOnuId?: string;
+            vendorModel?: string;
+            password?: string;
+            discoveredAt?: string;
+            raw: string[];
+        } = { raw: [] };
+
+        const flush = () => {
+            if (cur.sn) {
+                const ponId = cur.frameSlot
+                    ? cur.port
+                        ? `${cur.frameSlot}/${cur.port}`
+                        : cur.frameSlot
+                    : cur.port || '';
+                onus.push({
+                    ponId,
+                    sn: cur.sn,
+                    suggestedOnuId: cur.suggestedOnuId,
+                    vendorModel: cur.vendorModel,
+                    password: cur.password,
+                    discoveredAt: cur.discoveredAt,
+                    raw: cur.raw.join('\n').trim(),
+                });
+            }
+            cur = { raw: [] };
+        };
+
+        const grab = (line: string, re: RegExp): string | undefined => line.match(re)?.[1]?.trim();
 
         for (const line of output.split(/\r?\n/)) {
-            const ponOnLine = line.match(ponRe)?.[1];
-            if (ponOnLine) currentPon = ponOnLine; // blok: F/S/P mendahului Ont SN
-            const sn = line.match(snRe)?.[1];
-            if (!sn) continue;
-            onus.push({
-                ponId: ponOnLine || currentPon || '',
-                sn,
-                raw: line.trim(),
-            });
+            if (/^\s*Number\s*:/i.test(line)) flush(); // penanda blok baru
+            cur.raw.push(line);
+
+            const sn = grab(line, /Ont\s*SN\s*:\s*(\S+)/i);
+            if (sn) cur.sn = sn; // token pertama = SN (hex/string), buang catatan
+            const fs = grab(line, /Frame\/Slot\s*:\s*([\d/]+)/i);
+            if (fs) cur.frameSlot = fs;
+            const port = grab(line, /^\s*Port\s*:\s*(\d+)/i);
+            if (port) cur.port = port;
+            const logic = grab(line, /Logic\s*ID\s*:\s*(\d+)/i);
+            if (logic) cur.suggestedOnuId = logic;
+            const vendor = grab(line, /Vendor\s*ID\s*:\s*(\S+)/i);
+            if (vendor) cur.vendorModel = vendor;
+            const pw = grab(line, /^\s*Password\s*:\s*(\S+)/i);
+            if (pw) cur.password = pw;
+            const t = grab(line, /Last\s*autofind\s*time\s*:\s*(.+)/i);
+            if (t) cur.discoveredAt = t;
         }
+        flush(); // blok terakhir
         return onus;
     }
 
