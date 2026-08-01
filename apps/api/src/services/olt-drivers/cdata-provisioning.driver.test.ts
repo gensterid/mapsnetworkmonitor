@@ -241,15 +241,15 @@ describe('CDataProvisioningDriver Modify (registered ONT)', () => {
         expect(cmds).toContain('ont modify 2 3 ont-lineprofile-id 1 ont-srvprofile-id 1');
         expect(cmds).toContain('ont description 2 3 PelangganX');
         expect(cmds).toContain('no service-port gpon 0/0 port 2 ont 3');
-        expect(cmds.some((c) => c.startsWith('service-port autoindex vlan 100 gpon 0/0 port 2 ont 3'))).toBe(true);
+        expect(cmds.some((c) => c?.startsWith('service-port autoindex vlan 100 gpon 0/0 port 2 ont 3'))).toBe(true);
         expect(cmds).toContain('save');
     });
 
     it('planModify without options = rebind only (no VLAN/label)', async () => {
         const cmds = (await driver().planModify(mtarget, preset())).steps.map((s) => s.command);
         expect(cmds).toContain('ont modify 2 3 ont-lineprofile-id 1 ont-srvprofile-id 1');
-        expect(cmds.some((c) => c.startsWith('no service-port'))).toBe(false);
-        expect(cmds.some((c) => c.startsWith('ont description'))).toBe(false);
+        expect(cmds.some((c) => c?.startsWith('no service-port'))).toBe(false);
+        expect(cmds.some((c) => c?.startsWith('ont description'))).toBe(false);
     });
 
     it('modifyOnu succeeds when SN↔ont-id matches (verify → modify)', async () => {
