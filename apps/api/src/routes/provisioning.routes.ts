@@ -44,6 +44,15 @@ const planSchema = z.object({
     oltType: z.enum(['hsgq', 'cdata', 'generic']).optional(),
 });
 
+// Authorize (TULIS-LIVE): butuh F/S/P lengkap, SN, ont-id, + confirm=true eksplisit.
+const authorizeSchema = z.object({
+    presetId: z.string().uuid(),
+    ponId: z.string().regex(PON_RE, 'format PON tidak valid (mis. 0/0/2)'),
+    sn: z.string().regex(SN_RE),
+    onuId: z.string().regex(ONUID_RE),
+    confirm: z.literal(true, { errorMap: () => ({ message: 'confirm harus true' }) }),
+});
+
 // ---- CRUD preset provisioning (semua tenant-scoped) ----
 
 // GET /provisioning/presets — Operator+ (bisa memuat konteks kredensial)
@@ -144,6 +153,35 @@ router.post('/plan', authMiddleware, requireTenantContext, requireOperator, asyn
         const onu: OnuRef = { ponId, sn, onuId };
         const plan = await driver.planAuthorize(onu, provPreset);
         res.json({ data: plan });
+    } catch (error) {
+        if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+
+// ---- Fase-1 TULIS: authorize ONU (Operator+, wajib confirm=true) ----
+
+// POST /provisioning/olts/:oltId/authorize — jalankan authorize dari preset.
+// Pengaman: confirm=true wajib (operator sudah lihat preview via /plan). Driver
+// idempoten (cek SN) & tolak tabrakan ont-id. ?notify=1 → hasil ke Telegram.
+router.post('/olts/:oltId/authorize', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+    const idCheck = z.string().uuid().safeParse(req.params.oltId);
+    if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+    try {
+        const body = authorizeSchema.parse(req.body);
+        const { result, notify } = await provisioningService.authorize(
+            idCheck.data,
+            getEffectiveTenantId(req),
+            {
+                presetId: body.presetId,
+                onu: { ponId: body.ponId, sn: body.sn, onuId: body.onuId },
+                confirm: body.confirm,
+            },
+            { notify: wantsNotify(req) },
+        );
+        // Authorize gagal (mis. tabrakan ont-id) tetap 200 dgn result.success=false
+        // agar UI bisa tampilkan pesan; error tak terduga → catch di bawah (500).
+        res.json({ data: result, notify });
     } catch (error) {
         if (error instanceof z.ZodError) return res.status(400).json({ error: error.errors });
         res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });

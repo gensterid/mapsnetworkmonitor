@@ -4,9 +4,16 @@ import { eq, and } from 'drizzle-orm';
 import { decrypt } from '../lib/encryption.js';
 import { escapeHtml } from '../lib/html-escape.js';
 import { OltDriverFactory } from './olt-drivers/driver.factory.js';
-import { UnconfiguredOnu, IOltProvisioningDriver } from './olt-drivers/olt-provisioning.interface.js';
+import {
+    UnconfiguredOnu,
+    IOltProvisioningDriver,
+    ProvisioningPreset,
+    ProvisionResult,
+    OnuRef,
+} from './olt-drivers/olt-provisioning.interface.js';
 import { probeTelnetBanner, probeTelnetExec, sanitizeTelnetBanner } from './olt-drivers/telnet-olt.client.js';
 import { notificationService } from './notification.service.js';
+import { provisioningPresetService } from './provisioning-preset.service.js';
 
 // Port Telnet default OLT. TODO: bila unit pakai port/kredensial telnet berbeda
 // dari web, tambah kolom khusus (telnet_port/telnet_username/telnet_password).
@@ -114,6 +121,41 @@ function formatUnconfiguredReport(olt: Olt, onus: UnconfiguredOnu[], raw: string
     return `${head}\n\n<b>RAW autofind:</b>\n<pre>${rawEsc}</pre>${suffix}`;
 }
 
+/**
+ * Petakan preset publik (row redaksi) → ProvisioningPreset yang dipakai driver.
+ * Secret (acsPassword/pppoePassword) TAK diperlukan untuk C-Data authorize
+ * (ACS bukan via CLI); pppoe.password placeholder bila ada username.
+ */
+function toProvisioningPreset(p: {
+    id: string;
+    name: string;
+    onuTypeProfile?: string | null;
+    lineProfile?: string | null;
+    serviceProfile?: string | null;
+    serviceVlan: number;
+    mgmtVlan?: number | null;
+    acsUrl?: string | null;
+    acsUsername?: string | null;
+    informInterval?: number | null;
+    wanMode: ProvisioningPreset['wanMode'];
+    pppoeUsername?: string | null;
+}): ProvisioningPreset {
+    return {
+        id: p.id,
+        name: p.name,
+        onuTypeProfile: p.onuTypeProfile ?? undefined,
+        lineProfile: p.lineProfile ?? undefined,
+        serviceProfile: p.serviceProfile ?? undefined,
+        serviceVlan: p.serviceVlan,
+        mgmtVlan: p.mgmtVlan ?? undefined,
+        acsUrl: p.acsUrl ?? undefined,
+        acsUsername: p.acsUsername ?? undefined,
+        informInterval: p.informInterval ?? undefined,
+        wanMode: p.wanMode,
+        pppoe: p.pppoeUsername ? { username: p.pppoeUsername, password: '' } : undefined,
+    };
+}
+
 export const provisioningService = {
     /**
      * FASE-1 baca (READ-ONLY): daftar ONU yang belum ter-authorize di OLT.
@@ -217,6 +259,38 @@ export const provisioningService = {
                 olt.tenantId,
                 formatTestConnectionReport(olt, result),
             );
+        }
+        return { result, notify };
+    },
+
+    /**
+     * TULIS-LIVE: authorize satu ONU pakai preset. WAJIB `input.confirm === true`
+     * (pengaman: operator sudah lihat preview via /plan). Idempoten & aman-tabrakan
+     * ditangani di driver. Bila `opts.notify`, kirim hasil ke Telegram pemilik OLT.
+     */
+    authorize: async (
+        oltId: string,
+        tenantId: string | null | undefined,
+        input: { presetId: string; onu: OnuRef; confirm: boolean },
+        opts?: { notify?: boolean },
+    ): Promise<{ result: ProvisionResult; notify?: NotifySummary }> => {
+        if (input.confirm !== true) {
+            throw new Error('Konfirmasi diperlukan (confirm=true) sebelum authorize.');
+        }
+        const preset = await provisioningPresetService.findById(input.presetId, tenantId);
+        if (!preset) throw new Error('Preset tidak ditemukan atau bukan milik tenant ini.');
+
+        const { olt, driver } = await resolveOltAndDriver(oltId, tenantId);
+        const result = await driver.authorizeOnu(input.onu, toProvisioningPreset(preset));
+
+        let notify: NotifySummary | undefined;
+        if (opts?.notify) {
+            const icon = result.success ? (result.alreadyProvisioned ? 'ℹ️' : '✅') : '❌';
+            const msg =
+                `${icon} <b>Authorize ONU</b>\n` +
+                `<b>${escapeHtml(olt.name)}</b> · SN <code>${escapeHtml(input.onu.sn || '-')}</code> · PON ${escapeHtml(input.onu.ponId || '-')}\n` +
+                `${escapeHtml(result.message || result.error || '')}`;
+            notify = await notificationService.pushTextToTenant(olt.tenantId, msg);
         }
         return { result, notify };
     },

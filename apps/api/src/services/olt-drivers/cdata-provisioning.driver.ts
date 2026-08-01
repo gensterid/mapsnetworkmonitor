@@ -8,10 +8,9 @@ import {
     ProvisionPlan,
     ProvisionStep,
     ProvisionResult,
-    ProvisioningNotSupportedError,
     assertCliSafe,
 } from './olt-provisioning.interface.js';
-import { TelnetOltClient, probeTelnetExec } from './telnet-olt.client.js';
+import { TelnetOltClient, probeTelnetExec, runTelnetCommands } from './telnet-olt.client.js';
 import { logger } from '../../lib/logger.js';
 
 /**
@@ -59,7 +58,7 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
         if (preset.wanMode === 'pppoe') {
             warnings.push('wanMode=pppoe: C-Data OLT umumnya bridge/VLAN; PPPoE di router pelanggan/TR-069. Verifikasi di unit.');
         }
-        warnings.push('Arg `ont add`: urutan port/ont-id bisa beda per firmware — konfirmasi perintah sebelum apply.');
+        warnings.push('Sesi otomatis masuk privileged (`enable`) sebelum perintah di bawah. Idempoten: SN dicek dulu.');
 
         return {
             onu,
@@ -71,9 +70,25 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
         };
     }
 
+    /** Pecah ponId "0/0/2" → { fs:"0/0", port:"2" }. Autofind memberi F/S/P. */
+    private splitPon(ponId: string): { fs: string; port: string } {
+        const parts = (ponId || '').split('/').filter(Boolean);
+        if (parts.length >= 3) return { fs: `${parts[0]}/${parts[1]}`, port: parts[2] as string };
+        if (parts.length === 2) return { fs: `${parts[0]}/${parts[1]}`, port: '' };
+        return { fs: ponId || '', port: '' };
+    }
+
+    /**
+     * Susun perintah authorize FD16xx (dikonfirmasi dari manual + CLI live).
+     * `enable` TIDAK di sini — executor (`runTelnetCommands`) yang masuk privileged.
+     * `ont add <port> <ont-id> sn-auth <SN> ont-lineprofile-id <L> ont-srvprofile-id
+     * <S>` di mode config-gpon; service-port di config; `save` persist.
+     */
     private buildAuthorizeCommands(onu: OnuRef, preset: ProvisioningPreset): ProvisionStep[] {
+        const { fs, port } = this.splitPon(onu.ponId || '');
         // Guard anti-injection: setiap nilai yang masuk baris perintah divalidasi.
-        const pon = assertCliSafe(onu.ponId || '<pon>', 'ponId');
+        const fsSafe = assertCliSafe(fs || '<F/S>', 'ponId');
+        const portSafe = assertCliSafe(port || '<port>', 'ponPort');
         const ontId = assertCliSafe(onu.onuId ?? '<ont-id>', 'onuId');
         const sn = assertCliSafe(onu.sn ?? '<SN>', 'sn');
         const line = assertCliSafe(preset.lineProfile ?? '<line-profile-id>', 'lineProfile');
@@ -81,22 +96,18 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
         const vlan = preset.serviceVlan;
 
         return [
-            { description: 'Masuk privileged mode', command: 'enable' },
-            { description: 'Masuk config', command: 'config' },
-            { description: `Masuk interface PON ${pon}`, command: `interface gpon ${pon}` },
+            { description: 'Masuk global config', command: 'config' },
+            { description: `Masuk interface GPON ${fsSafe}`, command: `interface gpon ${fsSafe}` },
             {
-                description: 'Authorize ONU by SN + bind profil (adaptive = semua merk)',
-                command: `ont add ${ontId} sn-auth ${sn} ont-lineprofile-id ${line} ont-srvprofile-id ${srv}`,
+                description: `Authorize ONT (port ${portSafe}, id ${ontId}) by SN + bind profil L${line}/S${srv}`,
+                command: `ont add ${portSafe} ${ontId} sn-auth ${sn} ont-lineprofile-id ${line} ont-srvprofile-id ${srv}`,
             },
+            { description: 'Kembali ke config', command: 'exit' },
             {
-                description: `Set native VLAN ${vlan} di UNI eth1`,
-                command: `ont port native-vlan ${ontId} eth 1 vlan ${vlan}`,
+                description: `Map service-port VLAN ${vlan} (transparan) untuk ONT ${ontId}`,
+                command: `service-port autoindex vlan ${vlan} gpon ${fsSafe} port ${portSafe} ont ${ontId} gemport 1 multi-service user-vlan ${vlan} tag-action transparent`,
             },
-            { description: 'Keluar interface', command: 'exit' },
-            {
-                description: `Map service-port VLAN ${vlan} (bridge transparan)`,
-                command: `service-port autoindex vlan ${vlan} gpon ${pon} port ${ontId} ont ${ontId} gemport 1 multi-service user-vlan ${vlan} tag-action transparent`,
-            },
+            { description: 'Kembali ke privileged', command: 'end' },
             { description: 'Simpan konfigurasi (persist lintas-reboot)', command: 'save' },
         ];
     }
@@ -237,11 +248,102 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
         return onus;
     }
 
-    // ---- Slice C: tulis-live (belum diaktifkan) ----
+    // ---- Slice C: tulis-live (authorize) ----
 
-    async authorizeOnu(_onu: OnuRef, _preset: ProvisioningPreset): Promise<ProvisionResult> {
-        // Sengaja belum eksekusi: cegah tulis-live sebelum diuji.
-        // Gunakan planAuthorize() untuk pratinjau perintah persisnya.
-        throw new ProvisioningNotSupportedError('CDataProvisioningDriver', 'authorizeOnu — Slice C belum diaktifkan (pakai planAuthorize untuk preview)');
+    /**
+     * Parse `show ont info <port> all` → daftar { ontId, sn } yang SUDAH
+     * ter-authorize di port itu. Format data (dikonfirmasi manual):
+     *   0/0 2 1 TPLGCAF02E40 Active Online failed mismatch
+     *   <F>/<S> <port> <ont-id> <SN> <control> <run> ...
+     * Dipakai cek idempotensi (SN sudah ada?) & tabrakan ont-id.
+     */
+    private parseOntInfo(output: string): { ontId: string; sn: string }[] {
+        const rows: { ontId: string; sn: string }[] = [];
+        for (const line of output.split(/\r?\n/)) {
+            const m = line.match(/^\s*\d+\/\d+\s+\d+\s+(\d+)\s+([A-Za-z0-9-]{6,20})\b/);
+            if (m) rows.push({ ontId: m[1] as string, sn: m[2] as string });
+        }
+        return rows;
+    }
+
+    /**
+     * TULIS-LIVE: authorize satu ONU by SN + bind profil + service-port + save.
+     * Idempoten & aman-tabrakan:
+     *  1. Baca `show ont info <port> all` — bila SN sudah ada → alreadyProvisioned;
+     *     bila ont-id target dipakai SN lain → tolak (jangan timpa ONT live).
+     *  2. Jalankan deret perintah dalam SATU sesi (config→gpon→ont add→service-port
+     *     →save) via executor (login+enable otomatis).
+     *  3. Verifikasi dari transkrip perintah `ont add`.
+     * WAJIB dipanggil hanya SETELAH operator mengonfirmasi preview (planAuthorize).
+     */
+    async authorizeOnu(onu: OnuRef, preset: ProvisioningPreset): Promise<ProvisionResult> {
+        if (!onu.sn) throw new Error('SN wajib untuk authorize GPON.');
+        if (onu.onuId === undefined) throw new Error('onuId (nomor ONT target) wajib diisi.');
+        const { fs, port } = this.splitPon(onu.ponId || '');
+        if (!fs || !port) throw new Error(`ponId tidak lengkap (butuh F/S/port, mis 0/0/2): "${onu.ponId}"`);
+        if (!preset.lineProfile || !preset.serviceProfile) {
+            throw new Error('Preset butuh lineProfile & serviceProfile (id numerik yang sudah ada di OLT).');
+        }
+
+        const conn = {
+            host: this.config.host,
+            port: this.config.port ?? 23,
+            username: this.config.username,
+            password: this.config.password,
+            enable: true,
+            enablePassword: this.config.password,
+        };
+
+        // 1. Idempotensi + cek tabrakan (best-effort — read-only).
+        const infoRaw = await probeTelnetExec({ ...conn, command: `show ont info ${assertCliSafe(port, 'ponPort')} all` });
+        const existing = this.parseOntInfo(infoRaw);
+        const snUpper = onu.sn.toUpperCase();
+        const sameSn = existing.find((e) => e.sn.toUpperCase() === snUpper);
+        if (sameSn) {
+            return {
+                success: true,
+                onu: { ...onu, onuId: sameSn.ontId },
+                appliedSteps: 0,
+                alreadyProvisioned: true,
+                message: `SN ${onu.sn} sudah ter-authorize (ONT-ID ${sameSn.ontId}) di port ${port}. Tidak diubah.`,
+            };
+        }
+        const idClash = existing.find((e) => e.ontId === onu.onuId);
+        if (idClash) {
+            return {
+                success: false,
+                onu,
+                appliedSteps: 0,
+                error: `ONT-ID ${onu.onuId} di port ${port} sudah dipakai SN lain (${idClash.sn}). Pilih ont-id lain agar tak menimpa ONT live.`,
+            };
+        }
+
+        // 2. Eksekusi deret perintah (satu sesi privileged).
+        const commands = this.buildAuthorizeCommands(onu, preset).map((s) => s.command as string);
+        const session = await runTelnetCommands({ ...conn, commands });
+
+        if (!session.reachedShell) {
+            return { success: false, onu, appliedSteps: 0, error: 'Gagal login/enable ke OLT saat authorize.' };
+        }
+
+        // 3. Verifikasi dari output perintah `ont add`.
+        const addOut = session.outputs.find((o) => o.command.startsWith('ont add'))?.output ?? '';
+        const failed = /%|error|fail|invalid|incomplete|already\s+exist/i.test(addOut);
+        const succeeded = /successfully|ONT\s+online|\bonline\b/i.test(addOut);
+        if (failed || !succeeded) {
+            return {
+                success: false,
+                onu: { ...onu },
+                appliedSteps: session.outputs.length,
+                error: `Authorize gagal/tak pasti. Output "ont add": ${addOut.replace(/\s+/g, ' ').trim().slice(0, 300) || '(kosong)'}`,
+            };
+        }
+
+        return {
+            success: true,
+            onu: { ...onu },
+            appliedSteps: commands.length,
+            message: `ONT ${onu.sn} ter-authorize (ONT-ID ${onu.onuId}) di port ${port}.${session.completed ? '' : ' (sesi terputus sebelum save — verifikasi manual.)'}`,
+        };
     }
 }

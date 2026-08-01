@@ -259,3 +259,167 @@ export function probeTelnetExec(params: {
         setTimeout(finish, timeoutMs).unref(); // cap absolut
     });
 }
+
+/** Hasil satu perintah dalam sesi multi-perintah. */
+export interface TelnetCommandOutput {
+    command: string;
+    output: string;
+}
+
+export interface TelnetSessionResult {
+    /** Transkrip mentah seluruh sesi (login→enable→perintah→save). */
+    transcript: string;
+    /** Output per perintah (urut). */
+    outputs: TelnetCommandOutput[];
+    /** true bila berhasil login + sampai prompt shell. */
+    reachedShell: boolean;
+    /** true bila `commands` semua terkirim (tidak putus di tengah). */
+    completed: boolean;
+}
+
+/**
+ * Jalankan DERETAN perintah dalam SATU sesi telnet (login → enable → cmd1 →
+ * cmd2 → …), menjaga konteks mode (config/config-gpon) antar perintah. Dipakai
+ * jalur TULIS (authorize): telnet-client tak bisa privileged & sulit multi-mode.
+ *
+ * Prompt config/privileged (`OLT(config)#`, `OLT(config-gpon-0/0)#`, `OLT#`)
+ * dideteksi via akhir `#`/`>`. Menangkap output tiap perintah untuk cek
+ * sukses/gagal (mis. "successfully", "% ...", "already exist"). Auto-advance
+ * pager. Tak menjalankan perintah destruktif — pemanggil yang menyusun daftar.
+ */
+export function runTelnetCommands(params: {
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    enable?: boolean;
+    enablePassword?: string;
+    commands: string[];
+    timeoutMs?: number;
+}): Promise<TelnetSessionResult> {
+    const {
+        host,
+        port,
+        username = '',
+        password = '',
+        enable = false,
+        enablePassword = '',
+        commands,
+        timeoutMs = 30000,
+    } = params;
+    const PAGER = /(?:-{2,}\s*more)|(?:more\s*-{2,})|(?:press any key)/i;
+    const LOGIN = /(?:user\s?name|login)[: ]*$/i;
+    const PASS = /assword[: ]*$/i;
+    // Prompt shell/config: berakhiran # atau > (opsional diawali "(config…)").
+    const PROMPT = /[)\w./-]*[#>]\s*$/;
+
+    return new Promise((resolve) => {
+        let full = '';
+        let done = false;
+        let stage: 'login' | 'enable' | 'run' = 'login';
+        let sentUser = false;
+        let sentPass = false;
+        let enableSent = false;
+        let enablePassSent = false;
+        let reachedShell = false;
+        let cmdIndex = -1; // perintah yang sedang ditunggu output-nya
+        let cmdStart = 0; // offset `full` saat perintah dikirim
+        const outputs: TelnetCommandOutput[] = [];
+        const socket = net.createConnection({ host, port });
+
+        const finish = () => {
+            if (done) return;
+            done = true;
+            try {
+                socket.destroy();
+            } catch {
+                /* abaikan */
+            }
+            resolve({
+                transcript: full,
+                outputs,
+                reachedShell,
+                completed: cmdIndex >= commands.length,
+            });
+        };
+        const write = (s: string) => {
+            try {
+                socket.write(s);
+            } catch {
+                /* abaikan */
+            }
+        };
+        const sendNext = () => {
+            // Rekam output perintah sebelumnya (bila ada).
+            if (cmdIndex >= 0 && cmdIndex < commands.length) {
+                outputs[cmdIndex] = { command: commands[cmdIndex] as string, output: full.slice(cmdStart) };
+            }
+            cmdIndex += 1;
+            if (cmdIndex >= commands.length) {
+                write('exit\r\n'); // logout bersih
+                setTimeout(finish, 800).unref();
+                return;
+            }
+            cmdStart = full.length;
+            write((commands[cmdIndex] as string) + '\r\n');
+        };
+
+        socket.setTimeout(4000, finish); // 4s hening → anggap selesai/macet
+        socket.on('connect', () => write('\r\n'));
+        socket.on('data', (raw) => {
+            const chunk = refuseTelnetOptions(raw, socket);
+            if (chunk.length === 0) return;
+            full += chunk.toString('latin1');
+            const tail = full.slice(-160);
+
+            if (PAGER.test(tail)) {
+                write(' ');
+                return;
+            }
+            if (stage === 'login') {
+                if (!sentUser && LOGIN.test(tail)) {
+                    sentUser = true;
+                    write(username + '\r\n');
+                    return;
+                }
+                if (sentUser && !sentPass && PASS.test(tail)) {
+                    sentPass = true;
+                    write(password + '\r\n');
+                    return;
+                }
+                if (sentPass && PROMPT.test(tail)) {
+                    reachedShell = true;
+                    if (enable && />\s*$/.test(tail)) {
+                        stage = 'enable';
+                        enableSent = true;
+                        write('enable\r\n');
+                        return;
+                    }
+                    stage = 'run';
+                    sendNext();
+                    return;
+                }
+                return;
+            }
+            if (stage === 'enable') {
+                if (!enablePassSent && PASS.test(tail)) {
+                    enablePassSent = true;
+                    write(enablePassword + '\r\n');
+                    return;
+                }
+                if (/#\s*$/.test(tail)) {
+                    stage = 'run';
+                    sendNext();
+                }
+                return;
+            }
+            // stage === 'run': tunggu prompt kembali setelah tiap perintah.
+            if (cmdIndex >= 0 && PROMPT.test(tail)) {
+                sendNext();
+            }
+        });
+        socket.on('error', finish);
+        socket.on('close', finish);
+        setTimeout(finish, timeoutMs).unref(); // cap absolut
+    });
+}
