@@ -15,28 +15,59 @@ function AuthorizeModal({ isOpen, onClose, olt, onu, presets, onDone }) {
     const authMut = useAuthorizeOnu();
     const [presetId, setPresetId] = useState('');
     const [onuId, setOnuId] = useState(onu?.suggestedOnuId || '');
+    // Plan diberi stempel (_presetId/_onuId) supaya preview yg tak lagi cocok
+    // dengan pilihan saat ini tidak ditampilkan/dipakai konfirmasi (anti race).
     const [plan, setPlan] = useState(null);
     const [result, setResult] = useState(null);
+    // Sukses authorize → kunci tombol Konfirmasi. Reset hanya saat modal remount
+    // per-ONU (key di parent), bukan saat preview ulang.
+    const [authorized, setAuthorized] = useState(false);
+
+    const resetOutputs = () => {
+        setPlan(null);
+        setResult(null);
+    };
 
     const preview = () => {
         setResult(null);
+        const reqPresetId = presetId;
+        const reqOnuId = onuId;
         planMut.mutate(
-            { presetId, ponId: onu.ponId, sn: onu.sn, onuId },
-            { onSuccess: (p) => setPlan(p) },
+            { presetId: reqPresetId, ponId: onu.ponId, sn: onu.sn, onuId: reqOnuId, oltType: olt?.type },
+            { onSuccess: (p) => setPlan({ ...p, _presetId: reqPresetId, _onuId: reqOnuId }) },
         );
     };
 
     const confirm = () => {
         authMut.mutate(
             { oltId: olt.id, data: { presetId, ponId: onu.ponId, sn: onu.sn, onuId } },
-            { onSuccess: (r) => { setResult(r); if (r.success && !r.alreadyProvisioned) onDone?.(); } },
+            {
+                onSuccess: (r) => {
+                    setResult(r);
+                    if (r.success && !r.alreadyProvisioned) {
+                        setAuthorized(true);
+                        onDone?.();
+                    }
+                },
+                onError: (e) => setResult({ success: false, error: e?.message || 'Gagal authorize (jaringan/server).' }),
+            },
         );
     };
 
-    const canPreview = presetId && onuId && onu?.ponId?.split('/').length >= 3;
+    // Tutup diblok selama tulis-live berjalan (jangan hilangkan hasil di tengah).
+    const guardedClose = () => {
+        if (!authMut.isPending) onClose();
+    };
+
+    const ontIdNum = Number(onuId);
+    const ponOk = (onu?.ponId || '').split('/').filter(Boolean).length >= 3;
+    const canPreview = !!presetId && onuId !== '' && ontIdNum >= 1 && ontIdNum <= 128 && ponOk;
+    // Plan dianggap segar hanya bila stempelnya cocok pilihan saat ini.
+    const planFresh = plan && plan._presetId === presetId && plan._onuId === onuId;
+    const canConfirm = planFresh && !authMut.isPending && !authorized;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title={`Authorize ONU — ${onu?.sn}`} size="lg">
+        <Modal isOpen={isOpen} onClose={guardedClose} title={`Authorize ONU — ${onu?.sn}`} size="lg">
             <div className="space-y-5">
                 <div className="grid grid-cols-2 gap-3 text-sm p-3 rounded-lg bg-surface-dark/30 border border-slate-border/50">
                     <div><span className="text-fg-muted">SN:</span> <span className="font-mono text-fg">{onu?.sn}</span></div>
@@ -45,14 +76,14 @@ function AuthorizeModal({ isOpen, onClose, olt, onu, presets, onDone }) {
                     <div><span className="text-fg-muted">OLT:</span> <span className="text-fg">{olt?.name}</span></div>
                 </div>
 
-                {onu?.ponId && onu.ponId.split('/').length < 3 && (
+                {!ponOk && (
                     <p className="text-xs text-amber-400">PON tidak lengkap (butuh F/S/P mis. 0/0/2). Authorize butuh nomor port.</p>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-fg">Preset</label>
-                        <select value={presetId} onChange={(e) => { setPresetId(e.target.value); setPlan(null); }} className={selectCls}>
+                        <select value={presetId} onChange={(e) => { setPresetId(e.target.value); resetOutputs(); }} className={selectCls}>
                             <option value="">— pilih preset —</option>
                             {presets.map((p) => (
                                 <option key={p.id} value={p.id}>{p.name} (VLAN {p.serviceVlan}{p.lineProfile ? ` · L${p.lineProfile}/S${p.serviceProfile}` : ''})</option>
@@ -61,7 +92,7 @@ function AuthorizeModal({ isOpen, onClose, olt, onu, presets, onDone }) {
                     </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-fg">ONT-ID <span className="text-fg-muted font-normal">(1–128)</span></label>
-                        <Input type="number" value={onuId} onChange={(e) => { setOnuId(e.target.value); setPlan(null); }} min="1" max="128" placeholder="nomor ONT bebas" />
+                        <Input type="number" value={onuId} onChange={(e) => { setOnuId(e.target.value); resetOutputs(); }} min="1" max="128" placeholder="nomor ONT bebas" />
                     </div>
                 </div>
 
@@ -71,7 +102,7 @@ function AuthorizeModal({ isOpen, onClose, olt, onu, presets, onDone }) {
                     </Button>
                 </div>
 
-                {plan && (
+                {planFresh && (
                     <div className="space-y-3">
                         <div className="rounded-lg border border-slate-border bg-gray-900 p-3">
                             <p className="text-xs text-fg-muted mb-2">Perintah yang akan dijalankan (setelah <span className="font-mono">enable</span> otomatis):</p>
@@ -79,7 +110,7 @@ function AuthorizeModal({ isOpen, onClose, olt, onu, presets, onDone }) {
                         </div>
                         {plan.warnings?.length > 0 && (
                             <ul className="text-xs text-amber-400 list-disc pl-5 space-y-1">
-                                {plan.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                                {plan.warnings.map((w) => <li key={w}>{w}</li>)}
                             </ul>
                         )}
                     </div>
@@ -94,9 +125,9 @@ function AuthorizeModal({ isOpen, onClose, olt, onu, presets, onDone }) {
                 )}
 
                 <div className="pt-2 flex justify-end gap-2 border-t border-slate-border/50">
-                    <Button variant="ghost" onClick={onClose} type="button">Tutup</Button>
-                    <Button onClick={confirm} disabled={!plan || authMut.isPending || (result?.success && !result?.alreadyProvisioned)}>
-                        <Zap className="w-4 h-4 mr-1" /> {authMut.isPending ? 'Menjalankan…' : 'Konfirmasi & Authorize'}
+                    <Button variant="ghost" onClick={guardedClose} type="button" disabled={authMut.isPending}>Tutup</Button>
+                    <Button onClick={confirm} disabled={!canConfirm}>
+                        <Zap className="w-4 h-4 mr-1" /> {authMut.isPending ? 'Menjalankan…' : authorized ? 'Ter-authorize' : 'Konfirmasi & Authorize'}
                     </Button>
                 </div>
             </div>
@@ -164,12 +195,14 @@ export default function ProvisioningAuthorize() {
                             </thead>
                             <tbody>
                                 {onus.length === 0 ? (
-                                    <tr><td colSpan={5} className="px-4 py-8 text-center text-fg-muted flex-col">
-                                        <CheckCircle className="w-5 h-5 mx-auto mb-1 text-emerald-400" /> Tidak ada ONU menunggu authorize.
+                                    <tr><td colSpan={5} className="px-4 py-8 text-center text-fg-muted">
+                                        <div className="flex flex-col items-center gap-1">
+                                            <CheckCircle className="w-5 h-5 text-emerald-400" /> Tidak ada ONU menunggu authorize.
+                                        </div>
                                     </td></tr>
                                 ) : (
                                     onus.map((o, i) => (
-                                        <tr key={`${o.sn}-${i}`} className="border-b border-slate-border/50 hover:bg-surface-dark/30">
+                                        <tr key={`${o.sn}-${o.ponId}-${i}`} className="border-b border-slate-border/50 hover:bg-surface-dark/30">
                                             <td className="px-4 py-3 font-mono text-fg">{o.sn}</td>
                                             <td className="px-4 py-3 font-mono text-fg-muted">{o.ponId || '—'}</td>
                                             <td className="px-4 py-3 text-fg-muted">{o.vendorModel || '—'}</td>
@@ -196,7 +229,7 @@ export default function ProvisioningAuthorize() {
 
             {modalOnu && (
                 <AuthorizeModal
-                    key={modalOnu.sn}
+                    key={`${modalOnu.sn}-${modalOnu.ponId}`}
                     isOpen={!!modalOnu}
                     onClose={() => setModalOnu(null)}
                     olt={olt}

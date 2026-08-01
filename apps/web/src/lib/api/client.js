@@ -28,8 +28,15 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
+        // Surfacer pesan error backend. Backend memakai { error: ... } (bisa string
+        // atau array zod). Array → pesan ringkas; string → apa adanya. Fallback ke
+        // { message } lalu pesan axios.
+        const body = error.response?.data;
+        const backendError = Array.isArray(body?.error)
+            ? 'Validasi gagal — periksa kembali isian.'
+            : body?.error;
         const apiError = {
-            message: error.response?.data?.message || error.message || 'Something went wrong',
+            message: backendError || body?.message || error.message || 'Something went wrong',
             status: error.response?.status,
             code: error.code,
         };
