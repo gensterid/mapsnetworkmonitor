@@ -14,6 +14,18 @@ import {
 import { probeTelnetBanner, probeTelnetExec, sanitizeTelnetBanner } from './olt-drivers/telnet-olt.client.js';
 import { notificationService } from './notification.service.js';
 import { provisioningPresetService } from './provisioning-preset.service.js';
+import { auditRepository } from '../repositories/audit.repository.js';
+import { logger } from '../lib/logger.js';
+
+// Serialisasi authorize per-OLT (cegah TOCTOU/konkuren tulis ke OLT sama).
+// Rantai promise per oltId: tiap panggilan menunggu pemegang sebelumnya selesai.
+const oltAuthChains = new Map<string, Promise<unknown>>();
+function withOltLock<T>(oltId: string, fn: () => Promise<T>): Promise<T> {
+    const prev = oltAuthChains.get(oltId) ?? Promise.resolve();
+    const next = prev.then(fn, fn); // jalankan setelah pemegang sebelumnya settle
+    oltAuthChains.set(oltId, next.then(() => {}, () => {})); // tail: telan error agar rantai lanjut
+    return next;
+}
 
 // Port Telnet default OLT. TODO: bila unit pakai port/kredensial telnet berbeda
 // dari web, tambah kolom khusus (telnet_port/telnet_username/telnet_password).
@@ -272,7 +284,7 @@ export const provisioningService = {
         oltId: string,
         tenantId: string | null | undefined,
         input: { presetId: string; onu: OnuRef; confirm: boolean },
-        opts?: { notify?: boolean },
+        opts?: { notify?: boolean; actor?: { userId?: string; ip?: string; userAgent?: string } },
     ): Promise<{ result: ProvisionResult; notify?: NotifySummary }> => {
         if (input.confirm !== true) {
             throw new Error('Konfirmasi diperlukan (confirm=true) sebelum authorize.');
@@ -281,7 +293,38 @@ export const provisioningService = {
         if (!preset) throw new Error('Preset tidak ditemukan atau bukan milik tenant ini.');
 
         const { olt, driver } = await resolveOltAndDriver(oltId, tenantId);
-        const result = await driver.authorizeOnu(input.onu, toProvisioningPreset(preset));
+        // Preset terikat OLT lain tak boleh dipakai ke OLT ini (VLAN/profil OLT-specific).
+        if (preset.oltId && preset.oltId !== oltId) {
+            throw new Error('Preset ini terikat ke OLT lain — pilih preset untuk OLT ini atau preset global.');
+        }
+
+        // Serialisasi per-OLT (anti-TOCTOU) — hanya satu authorize berjalan per OLT.
+        const result = await withOltLock(oltId, () => driver.authorizeOnu(input.onu, toProvisioningPreset(preset)));
+
+        // Audit (best-effort — kegagalan audit tak boleh membatalkan hasil authorize).
+        try {
+            await auditRepository.create({
+                userId: opts?.actor?.userId ?? null,
+                tenantId: olt.tenantId ?? null,
+                action: result.alreadyProvisioned ? 'authorize-skip' : result.success ? 'authorize' : 'authorize-fail',
+                entity: 'olt',
+                entityId: oltId,
+                details: {
+                    ponId: input.onu.ponId,
+                    sn: input.onu.sn,
+                    onuId: input.onu.onuId,
+                    presetId: input.presetId,
+                    success: result.success,
+                    alreadyProvisioned: result.alreadyProvisioned ?? false,
+                    message: result.message ?? null,
+                    error: result.error ?? null,
+                },
+                ipAddress: opts?.actor?.ip ?? null,
+                userAgent: opts?.actor?.userAgent ?? null,
+            });
+        } catch (e) {
+            logger.warn({ err: e, oltId }, 'Gagal menulis audit log authorize');
+        }
 
         let notify: NotifySummary | undefined;
         if (opts?.notify) {

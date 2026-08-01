@@ -114,70 +114,98 @@ describe('CDataProvisioningDriver.planAuthorize', () => {
     });
 });
 
-const ONT_INFO_HEADER = `show ont info 2 all
---------------------------------------------------------------------------------
+const ONT_INFO_HEADER = `--------------------------------------------------------------------------------
 F/S P ONT SN Control Run Config Match
 `;
+// Sesi baca (show ont info) via runTelnetCommands — reachedShell + output "Total:".
+const readSession = (rows: string) => ({
+    transcript: '',
+    reachedShell: true,
+    completed: true,
+    outputs: [{ command: 'show ont info 2 all', output: `${ONT_INFO_HEADER}${rows}` }],
+});
+const target = { ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '5' };
 
-describe('CDataProvisioningDriver.authorizeOnu (idempotent + collision-safe)', () => {
+describe('CDataProvisioningDriver.authorizeOnu (idempotent + collision-safe + fail-closed)', () => {
     beforeEach(() => {
         mockExec.mockReset();
         mockRun.mockReset();
     });
 
     it('returns alreadyProvisioned when SN already authorized (no write)', async () => {
-        mockExec.mockResolvedValue(`${ONT_INFO_HEADER}0/0 2 3 DD16B3551CD3 Active Online success match\nTotal: 1`);
-        const r = await driver().authorizeOnu({ ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '5' }, preset());
+        mockRun.mockResolvedValueOnce(readSession('0/0 2 3 DD16B3551CD3 Active Online success match\nTotal: 1'));
+        const r = await driver().authorizeOnu(target, preset());
         expect(r.success).toBe(true);
         expect(r.alreadyProvisioned).toBe(true);
-        expect(r.onu.onuId).toBe('3'); // dilaporkan pakai ont-id existing
-        expect(mockRun).not.toHaveBeenCalled();
+        expect(r.onu.onuId).toBe('3');
+        expect(mockRun).toHaveBeenCalledTimes(1); // baca saja, tak menulis
     });
 
     it('rejects ont-id collision with a different SN (no write)', async () => {
-        mockExec.mockResolvedValue(`${ONT_INFO_HEADER}0/0 2 5 XPON99999999 Active Online success match\nTotal: 1`);
-        const r = await driver().authorizeOnu({ ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '5' }, preset());
+        mockRun.mockResolvedValueOnce(readSession('0/0 2 5 XPON99999999 Active Online success match\nTotal: 1'));
+        const r = await driver().authorizeOnu(target, preset());
         expect(r.success).toBe(false);
         expect(r.error).toMatch(/sudah dipakai/i);
-        expect(mockRun).not.toHaveBeenCalled();
-    });
-
-    it('runs the write session and reports success on "ONT online"', async () => {
-        mockExec.mockResolvedValue(`${ONT_INFO_HEADER}Total: 0, online: 0`); // tak ada ONT existing
-        mockRun.mockResolvedValue({
-            transcript: '...',
-            reachedShell: true,
-            completed: true,
-            outputs: [
-                { command: 'config', output: '' },
-                { command: 'interface gpon 0/0', output: '' },
-                {
-                    command: 'ont add 2 5 sn-auth DD16B3551CD3 ont-lineprofile-id 1 ont-srvprofile-id 1',
-                    output: '\r\n2022-05-15 13:57:16 PON 0/0/2 ONU 5: The ONT online\r\nOLT(config-gpon-0/0)#',
-                },
-                { command: 'save', output: 'Current configuration saved.' },
-            ],
-        });
-        const r = await driver().authorizeOnu({ ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '5' }, preset());
-        expect(r.success).toBe(true);
-        expect(r.onu.onuId).toBe('5');
         expect(mockRun).toHaveBeenCalledTimes(1);
     });
 
-    it('reports failure when "ont add" output shows an error', async () => {
-        mockExec.mockResolvedValue(`${ONT_INFO_HEADER}Total: 0`);
-        mockRun.mockResolvedValue({
-            transcript: '...',
+    it('FAILS CLOSED when the pre-write read cannot log in (no write)', async () => {
+        mockRun.mockResolvedValueOnce({ transcript: '', reachedShell: false, completed: false, outputs: [] });
+        const r = await driver().authorizeOnu(target, preset());
+        expect(r.success).toBe(false);
+        expect(r.error).toMatch(/gagal login|dibatalkan/i);
+        expect(mockRun).toHaveBeenCalledTimes(1); // tidak lanjut menulis
+    });
+
+    it('FAILS CLOSED when show ont info output is unrecognized (no "Total:")', async () => {
+        mockRun.mockResolvedValueOnce({
+            transcript: '',
             reachedShell: true,
             completed: true,
-            outputs: [
-                {
-                    command: 'ont add 2 5 sn-auth DD16B3551CD3 ont-lineprofile-id 1 ont-srvprofile-id 1',
-                    output: '% Ont-id already exist.\nOLT(config-gpon-0/0)#',
-                },
-            ],
+            outputs: [{ command: 'show ont info 2 all', output: '% Unknown command.' }],
         });
-        const r = await driver().authorizeOnu({ ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '5' }, preset());
+        const r = await driver().authorizeOnu(target, preset());
+        expect(r.success).toBe(false);
+        expect(r.error).toMatch(/tak dikenali|dibatalkan/i);
+        expect(mockRun).toHaveBeenCalledTimes(1);
+    });
+
+    it('runs the write session and reports success on "ONT online"', async () => {
+        mockRun
+            .mockResolvedValueOnce(readSession('Total: 0, online: 0')) // baca: kosong
+            .mockResolvedValueOnce({
+                transcript: '',
+                reachedShell: true,
+                completed: true,
+                outputs: [
+                    {
+                        command: 'ont add 2 5 sn-auth DD16B3551CD3 ont-lineprofile-id 1 ont-srvprofile-id 1',
+                        output: '\r\n2022-05-15 13:57:16 PON 0/0/2 ONU 5: The ONT online\r\nOLT(config-gpon-0/0)#',
+                    },
+                    { command: 'save', output: 'Current configuration saved.' },
+                ],
+            });
+        const r = await driver().authorizeOnu(target, preset());
+        expect(r.success).toBe(true);
+        expect(r.onu.onuId).toBe('5');
+        expect(mockRun).toHaveBeenCalledTimes(2); // baca lalu tulis
+    });
+
+    it('reports failure when "ont add" output shows an error', async () => {
+        mockRun
+            .mockResolvedValueOnce(readSession('Total: 0'))
+            .mockResolvedValueOnce({
+                transcript: '',
+                reachedShell: true,
+                completed: true,
+                outputs: [
+                    {
+                        command: 'ont add 2 5 sn-auth DD16B3551CD3 ont-lineprofile-id 1 ont-srvprofile-id 1',
+                        output: '% Ont-id already exist.\nOLT(config-gpon-0/0)#',
+                    },
+                ],
+            });
+        const r = await driver().authorizeOnu(target, preset());
         expect(r.success).toBe(false);
         expect(r.error).toMatch(/gagal|tak pasti/i);
     });

@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin, requireOperator } from '../middleware/rbac.middleware.js';
 import { requireTenantContext } from '../middleware/tenant-context.middleware.js';
 import { getEffectiveTenantId } from '../lib/tenant-utils.js';
+import { strictLimiter } from '../config/security.js';
 import { provisioningPresetService, ProvisioningPresetInput } from '../services/provisioning-preset.service.js';
 import { provisioningService } from '../services/provisioning.service.js';
 import { OltDriverFactory } from '../services/olt-drivers/driver.factory.js';
@@ -164,7 +165,7 @@ router.post('/plan', authMiddleware, requireTenantContext, requireOperator, asyn
 // POST /provisioning/olts/:oltId/authorize — jalankan authorize dari preset.
 // Pengaman: confirm=true wajib (operator sudah lihat preview via /plan). Driver
 // idempoten (cek SN) & tolak tabrakan ont-id. ?notify=1 → hasil ke Telegram.
-router.post('/olts/:oltId/authorize', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+router.post('/olts/:oltId/authorize', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
     try {
@@ -177,7 +178,10 @@ router.post('/olts/:oltId/authorize', authMiddleware, requireTenantContext, requ
                 onu: { ponId: body.ponId, sn: body.sn, onuId: body.onuId },
                 confirm: body.confirm,
             },
-            { notify: wantsNotify(req) },
+            {
+                notify: wantsNotify(req),
+                actor: { userId: req.user?.id, ip: req.ip, userAgent: req.headers['user-agent'] },
+            },
         );
         // Authorize gagal (mis. tabrakan ont-id) tetap 200 dgn result.success=false
         // agar UI bisa tampilkan pesan; error tak terduga → catch di bawah (500).
@@ -201,7 +205,7 @@ const wantsNotify = (req: { query: Record<string, unknown> }): boolean => {
 };
 
 // GET /provisioning/olts/:oltId/unconfigured — Operator+
-router.get('/olts/:oltId/unconfigured', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+router.get('/olts/:oltId/unconfigured', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
     try {
@@ -224,7 +228,7 @@ const CLI_PROBE_RE = /^(?:show|display|enable|help|list|\?)[\w ?/.\-]{0,74}$/i;
 
 // GET /provisioning/olts/:oltId/autofind-probe — login + jalankan perintah, dump mentah.
 // ?cmd=<show...> override perintah (default `show ont autofind all`) untuk discovery.
-router.get('/olts/:oltId/autofind-probe', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+router.get('/olts/:oltId/autofind-probe', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
 
@@ -253,7 +257,7 @@ router.get('/olts/:oltId/autofind-probe', authMiddleware, requireTenantContext, 
 });
 
 // GET /provisioning/olts/:oltId/telnet-probe — dump banner mentah (diagnostik prompt)
-router.get('/olts/:oltId/telnet-probe', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+router.get('/olts/:oltId/telnet-probe', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
     try {
@@ -265,7 +269,7 @@ router.get('/olts/:oltId/telnet-probe', authMiddleware, requireTenantContext, re
 });
 
 // GET /provisioning/olts/:oltId/test-connection — uji telnet ke OLT (Operator+)
-router.get('/olts/:oltId/test-connection', authMiddleware, requireTenantContext, requireOperator, async (req, res) => {
+router.get('/olts/:oltId/test-connection', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);
     if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
     try {

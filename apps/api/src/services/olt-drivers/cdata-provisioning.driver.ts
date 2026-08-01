@@ -294,9 +294,30 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
             enablePassword: this.config.password,
         };
 
-        // 1. Idempotensi + cek tabrakan (best-effort — read-only).
-        const infoRaw = await probeTelnetExec({ ...conn, command: `show ont info ${assertCliSafe(port, 'ponPort')} all` });
-        const existing = this.parseOntInfo(infoRaw);
+        const fsSafe = assertCliSafe(fs, 'ponFS');
+        const portSafe = assertCliSafe(port, 'ponPort');
+
+        // 1. Idempotensi + cek tabrakan — FAIL-CLOSED. Baca `show ont info` via
+        //    executor (punya `reachedShell`). Bila login/telnet gagal ATAU output
+        //    tak dikenali (tak ada "Total:" / ada "%") → TOLAK, JANGAN menulis buta
+        //    (mencegah menimpa ONT live saat baca gagal — CRITICAL).
+        const readSession = await runTelnetCommands({
+            ...conn,
+            commands: ['config', `interface gpon ${fsSafe}`, `show ont info ${portSafe} all`, 'end'],
+        });
+        if (!readSession.reachedShell) {
+            return { success: false, onu, appliedSteps: 0, error: 'Gagal login/telnet ke OLT saat verifikasi status port — dibatalkan (tidak menulis).' };
+        }
+        const infoOut = readSession.outputs.find((o) => o.command.startsWith('show ont info'))?.output ?? '';
+        if (!/total\s*:/i.test(infoOut) || /%/.test(infoOut)) {
+            return {
+                success: false,
+                onu,
+                appliedSteps: 0,
+                error: `Verifikasi status port gagal (output tak dikenali) — dibatalkan demi keamanan: ${infoOut.replace(/\s+/g, ' ').trim().slice(0, 200) || '(kosong)'}`,
+            };
+        }
+        const existing = this.parseOntInfo(infoOut);
         const snUpper = onu.sn.toUpperCase();
         const sameSn = existing.find((e) => e.sn.toUpperCase() === snUpper);
         if (sameSn) {
@@ -308,7 +329,7 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
                 message: `SN ${onu.sn} sudah ter-authorize (ONT-ID ${sameSn.ontId}) di port ${port}. Tidak diubah.`,
             };
         }
-        const idClash = existing.find((e) => e.ontId === onu.onuId);
+        const idClash = existing.find((e) => Number(e.ontId) === Number(onu.onuId));
         if (idClash) {
             return {
                 success: false,

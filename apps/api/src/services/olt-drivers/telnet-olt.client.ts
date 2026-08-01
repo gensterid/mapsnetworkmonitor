@@ -396,6 +396,7 @@ export function runTelnetCommands(params: {
                         return;
                     }
                     stage = 'run';
+                    full = ''; // buang jejak login/password dari transkrip (keamanan)
                     sendNext();
                     return;
                 }
@@ -409,6 +410,7 @@ export function runTelnetCommands(params: {
                 }
                 if (/#\s*$/.test(tail)) {
                     stage = 'run';
+                    full = ''; // buang jejak login/enable-password dari transkrip
                     sendNext();
                 }
                 return;
