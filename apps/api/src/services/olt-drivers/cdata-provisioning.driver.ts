@@ -255,22 +255,6 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
     // ---- Slice C: tulis-live (authorize) ----
 
     /**
-     * Parse `show ont info <port> all` → daftar { ontId, sn } yang SUDAH
-     * ter-authorize di port itu. Format data (dikonfirmasi manual):
-     *   0/0 2 1 TPLGCAF02E40 Active Online failed mismatch
-     *   <F>/<S> <port> <ont-id> <SN> <control> <run> ...
-     * Dipakai cek idempotensi (SN sudah ada?) & tabrakan ont-id.
-     */
-    private parseOntInfo(output: string): { ontId: string; sn: string }[] {
-        const rows: { ontId: string; sn: string }[] = [];
-        for (const line of output.split(/\r?\n/)) {
-            const m = line.match(/^\s*\d+\/\d+\s+\d+\s+(\d+)\s+([A-Za-z0-9-]{6,20})\b/);
-            if (m) rows.push({ ontId: m[1] as string, sn: m[2] as string });
-        }
-        return rows;
-    }
-
-    /**
      * TULIS-LIVE: authorize satu ONU by SN + bind profil + service-port + save.
      * Idempoten & aman-tabrakan:
      *  1. Baca `show ont info <port> all` — bila SN sudah ada → alreadyProvisioned;
@@ -298,17 +282,12 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
             enablePassword: this.config.password,
         };
 
-        const fsSafe = assertCliSafe(fs, 'ponFS');
-        const portSafe = assertCliSafe(port, 'ponPort');
-
-        // 1. Idempotensi + cek tabrakan — FAIL-CLOSED. Baca `show ont info` via
-        //    executor (punya `reachedShell`). Bila login/telnet gagal ATAU output
-        //    tak dikenali (tak ada "Total:" / ada "%") → TOLAK, JANGAN menulis buta
-        //    (mencegah menimpa ONT live saat baca gagal — CRITICAL).
-        const readSession = await runTelnetCommands({
-            ...conn,
-            commands: ['config', `interface gpon ${fsSafe}`, `show ont info ${portSafe} all`, 'end'],
-        });
+        // 1. Idempotensi + cek tabrakan — FAIL-CLOSED. Baca `show ont info all`
+        //    (perintah TERBUKTI jalan; varian `interface gpon`/`show ont info <port>
+        //    all` di firmware ini balas "% Command incomplete"). Bila login/telnet
+        //    gagal ATAU output tak dikenali (tak ada "Total:") → TOLAK, JANGAN
+        //    menulis buta (mencegah menimpa ONT live saat baca gagal — CRITICAL).
+        const readSession = await runTelnetCommands({ ...conn, commands: ['config', 'show ont info all', 'end'] });
         if (!readSession.reachedShell) {
             return { success: false, onu, appliedSteps: 0, error: 'Gagal login/telnet ke OLT saat verifikasi status port — dibatalkan (tidak menulis).' };
         }
@@ -321,19 +300,21 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
                 error: `Verifikasi status port gagal (output tak dikenali) — dibatalkan demi keamanan: ${infoOut.replace(/\s+/g, ' ').trim().slice(0, 200) || '(kosong)'}`,
             };
         }
-        const existing = this.parseOntInfo(infoOut);
+        const all = this.parseRegistered(infoOut);
         const snUpper = onu.sn.toUpperCase();
-        const sameSn = existing.find((e) => e.sn.toUpperCase() === snUpper);
+        // SN unik lintas-OLT → cek global (bila sudah ter-authorize di PON mana pun).
+        const sameSn = all.find((e) => e.sn.toUpperCase() === snUpper);
         if (sameSn) {
             return {
                 success: true,
-                onu: { ...onu, onuId: sameSn.ontId },
+                onu: { ...onu, onuId: sameSn.onuId, ponId: sameSn.ponId },
                 appliedSteps: 0,
                 alreadyProvisioned: true,
-                message: `SN ${onu.sn} sudah ter-authorize (ONT-ID ${sameSn.ontId}) di port ${port}. Tidak diubah.`,
+                message: `SN ${onu.sn} sudah ter-authorize (ONT-ID ${sameSn.onuId} di PON ${sameSn.ponId}). Tidak diubah.`,
             };
         }
-        const idClash = existing.find((e) => Number(e.ontId) === Number(onu.onuId));
+        // ont-id unik PER-PORT → cek hanya ONT di port target.
+        const idClash = all.filter((e) => e.ponId === onu.ponId).find((e) => Number(e.onuId) === Number(onu.onuId));
         if (idClash) {
             return {
                 success: false,
@@ -512,14 +493,10 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
         if (!preset.lineProfile || !preset.serviceProfile) throw new Error('Preset butuh lineProfile & serviceProfile.');
 
         const conn = this.conn();
-        const fsSafe = assertCliSafe(fs, 'ponFS');
-        const portSafe = assertCliSafe(port, 'ponPort');
 
-        // 1. FAIL-CLOSED: verifikasi SN↔ont-id target ada di port ini.
-        const readSession = await runTelnetCommands({
-            ...conn,
-            commands: ['config', `interface gpon ${fsSafe}`, `show ont info ${portSafe} all`, 'end'],
-        });
+        // 1. FAIL-CLOSED: verifikasi SN↔ont-id↔PON target lewat `show ont info all`
+        //    (perintah TERBUKTI jalan; varian per-port balas "% Command incomplete").
+        const readSession = await runTelnetCommands({ ...conn, commands: ['config', 'show ont info all', 'end'] });
         if (!readSession.reachedShell) {
             return { success: false, onu: target, appliedSteps: 0, error: 'Gagal login/telnet ke OLT saat verifikasi — dibatalkan.' };
         }
@@ -533,14 +510,16 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
                 error: `Verifikasi status port gagal (output tak dikenali) — dibatalkan. Output: ${infoOut.replace(/\s+/g, ' ').trim().slice(0, 250) || '(kosong)'}`,
             };
         }
-        const existing = this.parseOntInfo(infoOut);
-        const match = existing.find((e) => Number(e.ontId) === Number(target.onuId) && e.sn.toUpperCase() === target.sn!.toUpperCase());
+        const existing = this.parseRegistered(infoOut);
+        const match = existing.find(
+            (e) => e.sn.toUpperCase() === target.sn!.toUpperCase() && Number(e.onuId) === Number(target.onuId) && e.ponId === target.ponId,
+        );
         if (!match) {
             return {
                 success: false,
                 onu: target,
                 appliedSteps: 0,
-                error: `ONT-ID ${target.onuId} dengan SN ${target.sn} tak ditemukan di port ${port}. Refresh daftar (mungkin sudah berubah).`,
+                error: `ONT SN ${target.sn} (ID ${target.onuId}) tak ditemukan di PON ${target.ponId}. Refresh daftar (mungkin sudah berubah).`,
             };
         }
 

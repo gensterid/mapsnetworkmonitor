@@ -122,7 +122,7 @@ const readSession = (rows: string) => ({
     transcript: '',
     reachedShell: true,
     completed: true,
-    outputs: [{ command: 'show ont info 2 all', output: `${ONT_INFO_HEADER}${rows}` }],
+    outputs: [{ command: 'show ont info all', output: `${ONT_INFO_HEADER}${rows}` }],
 });
 const target = { ponId: '0/0/2', sn: 'DD16B3551CD3', onuId: '5' };
 
@@ -162,7 +162,7 @@ describe('CDataProvisioningDriver.authorizeOnu (idempotent + collision-safe + fa
             transcript: '',
             reachedShell: true,
             completed: true,
-            outputs: [{ command: 'show ont info 2 all', output: '% Unknown command.' }],
+            outputs: [{ command: 'show ont info all', output: '% Unknown command.' }],
         });
         const r = await driver().authorizeOnu(target, preset());
         expect(r.success).toBe(false);
