@@ -313,7 +313,7 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
             return { success: false, onu, appliedSteps: 0, error: 'Gagal login/telnet ke OLT saat verifikasi status port — dibatalkan (tidak menulis).' };
         }
         const infoOut = readSession.outputs.find((o) => o.command.startsWith('show ont info'))?.output ?? '';
-        if (!/total\s*:/i.test(infoOut) || /%/.test(infoOut)) {
+        if (!/total\s*:/i.test(infoOut)) {
             return {
                 success: false,
                 onu,
@@ -524,8 +524,14 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
             return { success: false, onu: target, appliedSteps: 0, error: 'Gagal login/telnet ke OLT saat verifikasi — dibatalkan.' };
         }
         const infoOut = readSession.outputs.find((o) => o.command.startsWith('show ont info'))?.output ?? '';
-        if (!/total\s*:/i.test(infoOut) || /%/.test(infoOut)) {
-            return { success: false, onu: target, appliedSteps: 0, error: 'Verifikasi status port gagal (output tak dikenali) — dibatalkan.' };
+        // Proof-of-success = ada "Total:" (output error/`% …` tak punya itu).
+        if (!/total\s*:/i.test(infoOut)) {
+            return {
+                success: false,
+                onu: target,
+                appliedSteps: 0,
+                error: `Verifikasi status port gagal (output tak dikenali) — dibatalkan. Output: ${infoOut.replace(/\s+/g, ' ').trim().slice(0, 250) || '(kosong)'}`,
+            };
         }
         const existing = this.parseOntInfo(infoOut);
         const match = existing.find((e) => Number(e.ontId) === Number(target.onuId) && e.sn.toUpperCase() === target.sn!.toUpperCase());
