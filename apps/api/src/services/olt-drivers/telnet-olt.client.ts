@@ -415,8 +415,14 @@ export function runTelnetCommands(params: {
                 }
                 return;
             }
-            // stage === 'run': tunggu prompt kembali setelah tiap perintah.
-            if (cmdIndex >= 0 && PROMPT.test(tail)) {
+            // stage === 'run': tunggu prompt BARU — hanya yang muncul SETELAH
+            // perintah ini dikirim (offset cmdStart). Kalau pakai `tail` global,
+            // prompt LAMA (mis. `(config)#`) masih cocok sebelum perangkat sempat
+            // memproses, lalu perintah berikutnya dikirim beruntun (type-ahead);
+            // perangkat men-drop perintah mode-entry (`config`/`interface gpon`)
+            // sehingga `ont modify` jatuh di top-level → `% Unknown command`.
+            // Perintah tak pernah memuat `#`/`>`, jadi hanya prompt balasan yang cocok.
+            if (cmdIndex >= 0 && PROMPT.test(full.slice(cmdStart).slice(-160))) {
                 sendNext();
             }
         });
