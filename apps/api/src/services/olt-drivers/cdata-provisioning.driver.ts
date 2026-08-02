@@ -252,6 +252,19 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
         return onus;
     }
 
+    /**
+     * Ringkas transkrip per-perintah untuk pesan diagnosa (mis. tahu perintah mana
+     * yang gagal masuk mode). Aman ditampilkan — login sudah diredaksi executor.
+     */
+    private dumpSteps(outputs: { command: string; output: string }[]): string {
+        return (
+            outputs
+                .map((o) => `[${o.command}]→ ${o.output.replace(/\s+/g, ' ').trim().slice(0, 70) || '(kosong)'}`)
+                .join('  ||  ')
+                .slice(0, 500) || '(tak ada langkah tereksekusi)'
+        );
+    }
+
     // ---- Slice C: tulis-live (authorize) ----
 
     /**
@@ -341,7 +354,7 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
                 success: false,
                 onu: { ...onu },
                 appliedSteps: session.outputs.length,
-                error: `Authorize gagal/tak pasti. Output "ont add": ${addOut.replace(/\s+/g, ' ').trim().slice(0, 300) || '(kosong)'}`,
+                error: `Authorize gagal/tak pasti. Jejak langkah: ${this.dumpSteps(session.outputs)}`,
             };
         }
 
@@ -538,7 +551,7 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
                 success: false,
                 onu: target,
                 appliedSteps: session.outputs.length,
-                error: `Modify gagal/tak terkirim. Output "ont modify": ${modOut.replace(/\s+/g, ' ').trim().slice(0, 300) || '(kosong)'}`,
+                error: `Modify gagal/tak terkirim. Jejak langkah: ${this.dumpSteps(session.outputs)}`,
             };
         }
 
