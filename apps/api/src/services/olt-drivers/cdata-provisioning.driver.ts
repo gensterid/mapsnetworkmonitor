@@ -489,8 +489,10 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
                 command: `service-port autoindex vlan ${vlan} gpon ${fsSafe} port ${portSafe} ont ${ontId} gemport 1 multi-service user-vlan ${vlan} tag-action transparent`,
             });
         }
+        // `save` di CONFIG view dulu (valid: enable view & config view), baru `end`
+        // — sesuai masukan operator; keduanya benar tapi save-sebelum-end lebih rapi.
+        steps.push({ description: 'Simpan konfigurasi (config view)', command: 'save' });
         steps.push({ description: 'Kembali ke privileged', command: 'end' });
-        steps.push({ description: 'Simpan konfigurasi', command: 'save' });
         return steps;
     }
 

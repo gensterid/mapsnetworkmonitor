@@ -311,6 +311,11 @@ router.get('/olts/:oltId/unconfigured', authMiddleware, strictLimiter, requireTe
 // berbahaya (reboot/delete/config) & injection. Satu perintah per sesi →
 // `enable` sendirian hanya pindah mode, tak bisa dirangkai jadi aksi merusak.
 const CLI_PROBE_RE = /^(?:show|display|enable|help|list|\?)[\w ?/.\-]{0,74}$/i;
+// Navigasi mode untuk DIAGNOSA mode-entry (kenapa `config`/`interface gpon`
+// ditolak lewat transport kita padahal jalan di PuTTY). Non-destruktif:
+// probe = SATU perintah per sesi TANPA `save` → tak ada yang persist & tak bisa
+// dirangkai jadi tulis. Membedakan bug transport vs sekuens perintah.
+const CLI_NAV_RE = /^(?:config(?:ure)?|conf|end|exit|quit|interface gpon [0-9]+\/[0-9]+)$/i;
 
 // GET /provisioning/olts/:oltId/autofind-probe — login + jalankan perintah, dump mentah.
 // ?cmd=<show...> override perintah (default `show ont autofind all`) untuk discovery.
@@ -322,8 +327,8 @@ router.get('/olts/:oltId/autofind-probe', authMiddleware, strictLimiter, require
     let command: string | undefined;
     if (typeof rawCmd === 'string' && rawCmd.trim().length > 0) {
         const c = rawCmd.trim();
-        if (!CLI_PROBE_RE.test(c)) {
-            return res.status(400).json({ error: 'cmd hanya boleh perintah show/display (diagnostik read-only)' });
+        if (!CLI_PROBE_RE.test(c) && !CLI_NAV_RE.test(c)) {
+            return res.status(400).json({ error: 'cmd hanya boleh show/display atau navigasi mode (config/interface/end/exit) — diagnostik' });
         }
         command = c;
     }
