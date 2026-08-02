@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { usePresets, useCreatePreset, useUpdatePreset, useDeletePreset } from '@/hooks/useProvisioning';
+import { usePresets, useCreatePreset, useUpdatePreset, useDeletePreset, useOltProfiles } from '@/hooks/useProvisioning';
 import { useOlts } from '@/hooks';
 import { Plus, SlidersHorizontal, Edit, Trash2, KeyRound, Server } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -62,6 +62,8 @@ function PresetFormModal({ isOpen, onClose, preset }) {
     const createPreset = useCreatePreset();
     const updatePreset = useUpdatePreset();
     const [formData, setFormData] = useState(() => initForm(preset));
+    // Ambil profil langsung dari OLT terpilih → dropdown (tanpa salah ketik ID).
+    const { data: oltProfiles, isFetching: profilesLoading, isError: profilesError } = useOltProfiles(formData.oltId);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -136,19 +138,47 @@ function PresetFormModal({ isOpen, onClose, preset }) {
 
                 {/* Profil & VLAN */}
                 <div className="space-y-4 p-4 rounded-lg bg-surface-dark/30 border border-slate-border/50">
-                    <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Profil & VLAN</p>
+                    <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-fg-muted uppercase tracking-wider">Profil & VLAN</p>
+                        {formData.oltId && (
+                            <span className="text-xs text-fg-muted">
+                                {profilesLoading ? 'Memuat profil dari OLT…' : profilesError ? '⚠️ gagal ambil profil — isi ID manual' : '✓ profil dari OLT'}
+                            </span>
+                        )}
+                    </div>
+                    {!formData.oltId && (
+                        <p className="text-xs text-amber-400">Pilih OLT di atas agar Line/Service Profile jadi dropdown otomatis (cegah salah ID).</p>
+                    )}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-fg">ONU Type Profile</label>
-                            <Input name="onuTypeProfile" value={formData.onuTypeProfile} onChange={handleChange} placeholder="mis. HOME-1GE" />
+                            <Input name="onuTypeProfile" value={formData.onuTypeProfile} onChange={handleChange} placeholder="opsional (C-Data: kosongkan)" />
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-fg">Line Profile</label>
-                            <Input name="lineProfile" value={formData.lineProfile} onChange={handleChange} placeholder="id/nama" />
+                            {oltProfiles?.lineProfiles?.length ? (
+                                <select name="lineProfile" value={formData.lineProfile} onChange={handleChange} className={selectCls}>
+                                    <option value="">— pilih —</option>
+                                    {oltProfiles.lineProfiles.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.id} — {p.name}{p.bindCount != null ? ` (${p.bindCount})` : ''}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <Input name="lineProfile" value={formData.lineProfile} onChange={handleChange} placeholder="id (pilih OLT utk daftar)" />
+                            )}
                         </div>
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-fg">Service Profile</label>
-                            <Input name="serviceProfile" value={formData.serviceProfile} onChange={handleChange} placeholder="id/nama" />
+                            {oltProfiles?.srvProfiles?.length ? (
+                                <select name="serviceProfile" value={formData.serviceProfile} onChange={handleChange} className={selectCls}>
+                                    <option value="">— pilih —</option>
+                                    {oltProfiles.srvProfiles.map((p) => (
+                                        <option key={p.id} value={p.id}>{p.id} — {p.name}{p.bindCount != null ? ` (${p.bindCount})` : ''}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <Input name="serviceProfile" value={formData.serviceProfile} onChange={handleChange} placeholder="id (pilih OLT utk daftar)" />
+                            )}
                         </div>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

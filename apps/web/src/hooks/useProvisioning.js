@@ -19,6 +19,17 @@ export function usePresets() {
     });
 }
 
+/** Line/srv profile OLT untuk dropdown isi preset (buka sesi telnet — cache 60s). */
+export function useOltProfiles(oltId) {
+    return useQuery({
+        queryKey: ['olt-profiles', oltId],
+        queryFn: () => provisioningService.getProfiles(oltId),
+        enabled: !!oltId,
+        staleTime: 60000,
+        retry: false,
+    });
+}
+
 export function useCreatePreset() {
     const qc = useQueryClient();
     return useMutation({

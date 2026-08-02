@@ -13,6 +13,9 @@ export const provisioningService = {
     updatePreset: (id, data) => patch(`/provisioning/presets/${id}`, data),
     deletePreset: (id) => del(`/provisioning/presets/${id}`),
 
+    // Baca profil OLT (untuk dropdown isi preset)
+    getProfiles: (oltId) => get(`/provisioning/olts/${oltId}/profiles`),
+
     // Fase-1 authorize
     testConnection: (oltId) => get(`/provisioning/olts/${oltId}/test-connection`),
     getUnconfigured: (oltId) => get(`/provisioning/olts/${oltId}/unconfigured`),

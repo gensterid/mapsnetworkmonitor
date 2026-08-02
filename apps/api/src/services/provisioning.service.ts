@@ -11,6 +11,7 @@ import {
     ProvisionResult,
     ProvisionPlan,
     RegisteredOnu,
+    OltProfiles,
     ModifyOptions,
     OnuRef,
 } from './olt-drivers/olt-provisioning.interface.js';
@@ -341,6 +342,15 @@ export const provisioningService = {
             notify = await notificationService.pushTextToTenant(olt.tenantId, msg, { provisioning: true });
         }
         return { result, notify };
+    },
+
+    /** READ-ONLY: daftar line/srv profile OLT (untuk dropdown isi preset). */
+    getProfiles: async (oltId: string, tenantId?: string | null): Promise<OltProfiles> => {
+        const { driver } = await resolveOltAndDriver(oltId, tenantId);
+        if (typeof driver.getProfiles !== 'function') {
+            throw new Error('Driver OLT ini belum mendukung baca profil.');
+        }
+        return driver.getProfiles();
     },
 
     /** READ-ONLY: daftar ONT yang SUDAH teregister (mode auto-auth) untuk Modify. */

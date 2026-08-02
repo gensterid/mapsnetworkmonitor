@@ -284,3 +284,35 @@ describe('CDataProvisioningDriver Modify (registered ONT)', () => {
         expect(mockRun).toHaveBeenCalledTimes(1);
     });
 });
+
+describe('CDataProvisioningDriver.getProfiles', () => {
+    beforeEach(() => {
+        mockExec.mockReset();
+        mockRun.mockReset();
+    });
+
+    it('parses line & srv profiles (different column orders)', async () => {
+        mockRun.mockResolvedValueOnce({
+            transcript: '',
+            reachedShell: true,
+            completed: true,
+            outputs: [
+                {
+                    command: 'show ont-line-profile gpon all',
+                    output: `  Profile-ID  Binding times  Bind by profile  Profile-name\n   0    0    0    line-profile_0\n   1    14   1    genster\n   3    1    0    line-profile_303\n Total: 3`,
+                },
+                {
+                    command: 'show ont-srv-profile gpon all',
+                    output: `  Profile-ID  Profile-name  Binding times  Bind by profile\n  0    srv-profile_0    18    1\n Total: 1`,
+                },
+            ],
+        });
+        const { lineProfiles, srvProfiles } = await driver().getProfiles();
+        expect(lineProfiles).toEqual([
+            { id: '0', name: 'line-profile_0', bindCount: 0 },
+            { id: '1', name: 'genster', bindCount: 14 },
+            { id: '3', name: 'line-profile_303', bindCount: 1 },
+        ]);
+        expect(srvProfiles).toEqual([{ id: '0', name: 'srv-profile_0', bindCount: 18 }]);
+    });
+});

@@ -209,6 +209,18 @@ router.post('/olts/:oltId/authorize', authMiddleware, strictLimiter, requireTena
 
 // ---- Modify ONT teregister (mode auto-auth): rebind profil/VLAN by SN ----
 
+// GET /provisioning/olts/:oltId/profiles — daftar line/srv profile OLT (untuk isi preset).
+router.get('/olts/:oltId/profiles', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
+    const idCheck = z.string().uuid().safeParse(req.params.oltId);
+    if (!idCheck.success) return res.status(400).json({ error: 'oltId tidak valid' });
+    try {
+        const data = await provisioningService.getProfiles(idCheck.data, getEffectiveTenantId(req));
+        res.json({ data });
+    } catch (error) {
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+});
+
 // GET /provisioning/olts/:oltId/registered — daftar ONT teregister (Operator+).
 router.get('/olts/:oltId/registered', authMiddleware, strictLimiter, requireTenantContext, requireOperator, async (req, res) => {
     const idCheck = z.string().uuid().safeParse(req.params.oltId);

@@ -67,6 +67,22 @@ export interface UnconfiguredDiscovery {
     raw: string;
 }
 
+/** Profil (line/srv) yang ADA di OLT — untuk dropdown pengisian preset. */
+export interface OltProfile {
+    /** profile-id numerik (string). */
+    id: string;
+    /** profile-name. */
+    name: string;
+    /** jumlah ONT terikat (petunjuk profil aktif). */
+    bindCount?: number;
+}
+
+/** Kumpulan profil OLT untuk mengisi preset tanpa salah ID. */
+export interface OltProfiles {
+    lineProfiles: OltProfile[];
+    srvProfiles: OltProfile[];
+}
+
 /** ONU yang SUDAH ter-authorize/teregister di OLT (untuk fitur Modify). */
 export interface RegisteredOnu {
     /** PON F/S/P, mis. "0/0/2". */
@@ -222,6 +238,9 @@ export interface IOltProvisioningDriver {
      * auto-auth — ONU auto ter-config, lalu diubah profil/VLAN-nya by SN).
      */
     getRegisteredOnus?(): Promise<RegisteredOnu[]>;
+
+    /** Opsional: daftar line/srv profile yang ADA di OLT (dropdown isi preset). */
+    getProfiles?(): Promise<OltProfiles>;
 
     /** Opsional (Modify): DRY-RUN perintah modify (rebind profil/VLAN). */
     planModify?(target: OnuRef, preset: ProvisioningPreset, opts?: ModifyOptions): Promise<ProvisionPlan>;

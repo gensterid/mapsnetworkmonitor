@@ -4,6 +4,8 @@ import {
     UnconfiguredOnu,
     UnconfiguredDiscovery,
     RegisteredOnu,
+    OltProfile,
+    OltProfiles,
     ModifyOptions,
     OnuRef,
     ProvisioningPreset,
@@ -396,6 +398,41 @@ export class CDataProvisioningDriver extends BaseOltProvisioningDriver {
             throw new Error(`Output "show ont info all" tak dikenali: ${out.replace(/\s+/g, ' ').trim().slice(0, 200) || '(kosong)'}`);
         }
         return this.parseRegistered(out);
+    }
+
+    /**
+     * READ-ONLY: daftar line & srv profile yang ADA di OLT (untuk isi preset via
+     * dropdown, tanpa salah ID). Dua perintah, satu sesi (jalan di privileged).
+     */
+    async getProfiles(): Promise<OltProfiles> {
+        const session = await runTelnetCommands({
+            ...this.conn(),
+            commands: ['show ont-line-profile gpon all', 'show ont-srv-profile gpon all'],
+        });
+        if (!session.reachedShell) throw new Error('Gagal login/telnet ke OLT.');
+        const lineOut = session.outputs.find((o) => o.command.includes('line-profile'))?.output ?? '';
+        const srvOut = session.outputs.find((o) => o.command.includes('srv-profile'))?.output ?? '';
+        return { lineProfiles: this.parseLineProfiles(lineOut), srvProfiles: this.parseSrvProfiles(srvOut) };
+    }
+
+    /** line-profile: kolom `Profile-ID  Binding-times  Bind-by  Profile-name`. */
+    private parseLineProfiles(output: string): OltProfile[] {
+        const rows: OltProfile[] = [];
+        for (const line of output.split(/\r?\n/)) {
+            const m = line.match(/^\s*(\d+)\s+(\d+)\s+\d+\s+(\S+)/);
+            if (m) rows.push({ id: m[1] as string, name: m[3] as string, bindCount: Number(m[2]) });
+        }
+        return rows;
+    }
+
+    /** srv-profile: kolom `Profile-ID  Profile-name  Binding-times  Bind-by`. */
+    private parseSrvProfiles(output: string): OltProfile[] {
+        const rows: OltProfile[] = [];
+        for (const line of output.split(/\r?\n/)) {
+            const m = line.match(/^\s*(\d+)\s+(\S+)\s+(\d+)\s+\d+/);
+            if (m) rows.push({ id: m[1] as string, name: m[2] as string, bindCount: Number(m[3]) });
+        }
+        return rows;
     }
 
     /** Parse tabel `show ont info all`: `F/S P ONT-ID SN Control Run …`. */
