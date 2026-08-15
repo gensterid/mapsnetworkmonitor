@@ -6,9 +6,17 @@ import { userRouters, routers, users } from '../db/schema/index.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireAdmin } from '../middleware/rbac.middleware.js';
 import { asyncHandler, ApiError } from '../middleware/error.middleware.js';
-import { getEffectiveTenantId } from '../lib/tenant-utils.js';
 
 const router = Router();
+
+// Scope tenant KONSISTEN dengan GET /users (list): superadmin = global,
+// non-superadmin = tenant mereka (enforced). Sengaja TIDAK memakai
+// getEffectiveTenantId() — fungsi itu menghormati header `x-tenant-id`, jadi
+// superadmin yang sedang memfilter ke satu tenant (TenantSwitcher) akan 404
+// saat mengelola router user lintas-tenant yang TETAP tampil di daftar global.
+function scopeTenantId(req: { user?: { role?: string; tenantId?: string | null } }): string | undefined {
+    return req.user?.role === 'superadmin' ? undefined : (req.user?.tenantId ?? undefined);
+}
 
 // Guard self-contained — jangan bergantung pada urutan mount di index.ts.
 router.use(authMiddleware);
@@ -55,7 +63,7 @@ router.get(
     '/:userId/routers',
     asyncHandler(async (req, res) => {
         const userId = req.params.userId as string;
-        const tenantId = getEffectiveTenantId(req);
+        const tenantId = scopeTenantId(req);
 
         await assertUserOwned(userId, tenantId);
 
@@ -81,7 +89,7 @@ router.post(
     '/:userId/routers',
     asyncHandler(async (req, res) => {
         const userId = req.params.userId as string;
-        const tenantId = getEffectiveTenantId(req);
+        const tenantId = scopeTenantId(req);
         const { routerIds } = assignRoutersSchema.parse(req.body);
 
         await assertUserOwned(userId, tenantId);
