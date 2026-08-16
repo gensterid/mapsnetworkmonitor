@@ -154,7 +154,7 @@ router.post(
         await settingsService.logAction('create', 'router', newRouter.id, req.user!.id, req.user!.tenantId!, { name: newRouter.name, host: newRouter.host }, req);
 
         try {
-            const refreshed = await routerService.refreshRouterStatus(newRouter.id, false, true, getEffectiveTenantId(req));
+            const refreshed = await routerService.refreshRouterStatus(newRouter.id, false, true, getEffectiveTenantId(req), true);
             if (refreshed) newRouter = refreshed;
         } catch (err: any) {
             logger.warn({ routerId: newRouter.id, err }, 'Initial refresh failed');
@@ -189,7 +189,7 @@ router.put(
 
         // Immediately trigger status refresh after update to clear errors and update UI
         try {
-            await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req));
+            await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req), true);
         } catch (err: any) {
             logger.warn({ routerId: id, err }, 'Refresh after update failed');
         }
@@ -236,7 +236,7 @@ router.post('/test-connection', strictLimiter, requireOperator, asyncHandler(asy
 
 router.post('/:id/refresh', requireOperator, asyncHandler(async (req, res) => {
     const id = req.params.id as string;
-    const router = await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req));
+    const router = await routerService.refreshRouterStatus(id, false, true, getEffectiveTenantId(req), true);
     if (!router) throw ApiError.notFound('Router not found');
     const { passwordEncrypted, ...sanitized } = router;
     res.json({ data: sanitized });

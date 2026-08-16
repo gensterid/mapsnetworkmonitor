@@ -503,8 +503,8 @@ export class RouterService {
     /**
      * Fetch and update router status and info
      */
-    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true, tenantId?: string): Promise<Router | undefined> {
-        return routerSyncService.refreshRouterStatus(id, includeNetwatch, isFullSync, tenantId);
+    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true, tenantId?: string, forceAttempt: boolean = false): Promise<Router | undefined> {
+        return routerSyncService.refreshRouterStatus(id, includeNetwatch, isFullSync, tenantId, forceAttempt);
     }
 
     /**

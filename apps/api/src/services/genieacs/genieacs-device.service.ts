@@ -9,6 +9,15 @@ import { settingsService } from '../settings.service.js';
 import { GenieACSDevice, getGenieAcsConfig } from './genieacs-core.service.js';
 import { checkSignalChange } from '../signal-alert.service.js';
 import { env } from '../../config/env.js';
+import { CircuitBreaker } from '../../lib/circuit-breaker.js';
+
+// #1: Circuit-breaker per-tenant/router untuk GenieACS. Saat ACS `ECONNREFUSED`/
+// timeout, key di-trip → panggilan berikutnya di-skip (return []) selama cooldown,
+// menghentikan hammer + spam log tiap siklus. `force=true` (aksi user) bypass.
+const genieBreaker = new CircuitBreaker({ baseMs: 60_000, maxMs: 10 * 60_000 });
+function genieBreakerKey(routerId?: string, tenantId?: string): string {
+    return `${tenantId || 'all'}:${routerId || 'all'}`;
+}
 
 /**
  * Get all devices from GenieACS
@@ -18,6 +27,13 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
     if (!force) {
         const cached = await cacheService.get<GenieACSDevice[]>(cacheKey);
         if (cached) return cached;
+    }
+
+    // #1: Bila ACS baru saja tak terjangkau, skip cepat (tanpa cache = list kosong)
+    // agar tak hammer + spam log. `force` (refresh manual user) tetap mencoba.
+    const breakerKey = genieBreakerKey(routerId, tenantId);
+    if (!force && genieBreaker.isTripped(breakerKey)) {
+        return [];
     }
 
     try {
@@ -110,16 +126,20 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
 
         const result = response.data.map((dev: any) => transformGenieACSDevice(dev));
         await cacheService.set(cacheKey, result, cacheService.TTL.GENIEACS_DEVICES);
+        genieBreaker.recordSuccess(breakerKey);
         return result;
     } catch (error: any) {
-        // Log the error for internal diagnostics
-        logger.error({ 
-            err: error?.message || String(error),
-            code: error?.code,
-            routerId, 
-            tenantId 
-        }, 'GenieACS: Failed to fetch devices');
-        
+        const code = error?.code || error?.errno;
+        const isConn = ['ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET', 'EHOSTUNREACH', 'ENOTFOUND', 'EAI_AGAIN'].includes(code)
+            || /timeout|network|unreachable|aggregateerror/i.test(error?.message || '');
+        if (isConn) {
+            // Trip breaker + log SEKALI (WARN) alih-alih ERROR tiap siklus.
+            const cooldownMs = genieBreaker.recordFailure(breakerKey);
+            logger.warn({ code, routerId, tenantId, cooldownMs }, 'GenieACS unreachable — circuit opened (skip until cooldown)');
+        } else {
+            // Error non-koneksi (mis. 4xx/parse) → tetap ERROR, tak men-trip breaker.
+            logger.error({ err: error?.message || String(error), code, routerId, tenantId }, 'GenieACS: Failed to fetch devices');
+        }
         // Re-throw the error so the controller can handle HTTP status codes (503/504)
         throw error;
     }

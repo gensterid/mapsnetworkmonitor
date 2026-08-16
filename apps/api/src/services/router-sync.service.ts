@@ -22,6 +22,13 @@ import { routerMetricsService } from './router-metrics.service.js';
 import { routerInterfaceService } from './router-interface.service.js';
 import { eventEmitter } from './event-emitter.service.js';
 import { routerActionService } from './router-action.service.js';
+import { CircuitBreaker } from '../lib/circuit-breaker.js';
+
+// #3: Circuit-breaker per-router. Router yang baru gagal konek (timeout 30 dtk /
+// connection closed) di-trip → poll latar berikutnya di-SKIP selama cooldown,
+// jadi tak buang 30 dtk tiap siklus untuk router mati. Backoff auto-melebar
+// (2m → 4m → 8m, cap 10m). Refresh manual (forceAttempt) selalu bypass.
+const routerBreaker = new CircuitBreaker({ baseMs: 2 * 60_000, maxMs: 10 * 60_000 });
 
 export class RouterSyncService {
     /**
@@ -29,7 +36,7 @@ export class RouterSyncService {
      * @param id Router ID
      * @param includeNetwatch If true, also sync netwatch entries in the same connection
      */
-    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true, tenantId?: string): Promise<Router | undefined> {
+    async refreshRouterStatus(id: string, includeNetwatch: boolean = false, isFullSync: boolean = true, tenantId?: string, forceAttempt: boolean = false): Promise<Router | undefined> {
         // We need a basic find to check initial status
         const [router] = await db.select().from(routers).where(eq(routers.id, id));
         if (!router) return undefined;
@@ -38,6 +45,16 @@ export class RouterSyncService {
         if (router.status === 'maintenance' && !isFullSync) {
             logger.debug({ routerId: id, name: router.name }, '⏭️ Skipping background sync for router in maintenance mode');
             return router;
+        }
+
+        // #3: Router yang baru gagal konek → skip cepat (jangan tunggu 30 dtk lagi).
+        // Hanya untuk poll latar; refresh manual (forceAttempt) tetap mencoba.
+        if (!forceAttempt && routerBreaker.isTripped(id)) {
+            logger.debug(
+                { routerId: id, name: router.name, cooldownMs: routerBreaker.remainingMs(id) },
+                '⏭️ Skip poll — router dalam cooldown kegagalan (fast-skip)',
+            );
+            return router; // status = last-known (offline); tak menyentuh koneksi
         }
 
         const previousStatus = router.status;
@@ -81,6 +98,7 @@ export class RouterSyncService {
                 .returning();
 
             finalUpdatedRouter = updatedRouter;
+            routerBreaker.recordSuccess(id); // konek sukses → reset cooldown
 
             // 2. STATUS CHANGE ALERT: Handle transition from offline to online
             if (previousStatus === 'offline') {
@@ -221,6 +239,21 @@ export class RouterSyncService {
                 friendlyError = `Database Update Error${pgDetail ? ': ' + pgDetail.substring(0, 30) : ' during Sync'}`;
             } else {
                 friendlyError = `API Error: ${errMsg.substring(0, 50)}${errMsg.length > 50 ? '...' : ''}`;
+            }
+
+            // #3: Trip cooldown HANYA untuk kegagalan konektivitas (timeout/refused/
+            // reset/unreachable/closed) — bukan salah-password (fail cepat) atau
+            // error DB (bug kita), yang tak butuh backoff.
+            const isConnectivityFail = !isDbError && (
+                lowErrMsg.includes('timeout') || lowErrMsg.includes('etimedout') || lowErrMsg.includes('timed out after') ||
+                lowErrMsg.includes('econnrefused') || lowErrMsg.includes('ehostunreach') || lowErrMsg.includes('enotfound') ||
+                lowErrMsg.includes('eai_again') || lowErrMsg.includes('econnreset') || lowErrMsg.includes('epipe') ||
+                lowErrMsg.includes('socket hang up') || lowErrMsg.includes('cannot connect') ||
+                lowErrMsg.includes('unreachable') || lowErrMsg.includes('connection closed')
+            );
+            if (isConnectivityFail) {
+                const cooldownMs = routerBreaker.recordFailure(id);
+                logger.debug({ routerId: id, name: router.name, cooldownMs }, '⏭️ Router poll cooldown di-set (gagal konek)');
             }
 
             const [updatedRouter] = await db
