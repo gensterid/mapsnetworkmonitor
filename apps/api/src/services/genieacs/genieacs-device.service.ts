@@ -12,11 +12,27 @@ import { env } from '../../config/env.js';
 import { CircuitBreaker } from '../../lib/circuit-breaker.js';
 
 // #1: Circuit-breaker per-tenant/router untuk GenieACS. Saat ACS `ECONNREFUSED`/
-// timeout, key di-trip → panggilan berikutnya di-skip (return []) selama cooldown,
-// menghentikan hammer + spam log tiap siklus. `force=true` (aksi user) bypass.
+// timeout, key di-trip → panggilan berikutnya SHORT-CIRCUIT selama cooldown,
+// menghentikan hammer + spam log tiap siklus. Auto half-open saat cooldown habis.
 const genieBreaker = new CircuitBreaker({ baseMs: 60_000, maxMs: 10 * 60_000 });
 function genieBreakerKey(routerId?: string, tenantId?: string): string {
     return `${tenantId || 'all'}:${routerId || 'all'}`;
+}
+
+/**
+ * Ditrigger saat breaker GenieACS terbuka (short-circuit). Membawa
+ * `code = 'ECONNREFUSED'` supaya handler route yang ADA memetakannya jadi 503
+ * "GenieACS unreachable" (operator TETAP lihat ACS mati — tak dimask jadi "0
+ * perangkat"). Flag `isCircuitOpen` dipakai `syncMetadata` untuk skip SENYAP
+ * (bukan ERROR) di jalur latar.
+ */
+export class GenieAcsCircuitOpenError extends Error {
+    readonly code = 'ECONNREFUSED';
+    readonly isCircuitOpen = true;
+    constructor(message = 'GenieACS tak terjangkau (circuit open — auto-retry saat cooldown habis)') {
+        super(message);
+        this.name = 'GenieAcsCircuitOpenError';
+    }
 }
 
 /**
@@ -29,11 +45,15 @@ export async function getDevices(routerId?: string, tenantId?: string, query: an
         if (cached) return cached;
     }
 
-    // #1: Bila ACS baru saja tak terjangkau, skip cepat (tanpa cache = list kosong)
-    // agar tak hammer + spam log. `force` (refresh manual user) tetap mencoba.
+    // #1: Bila ACS baru saja tak terjangkau (breaker terbuka), short-circuit:
+    // LEMPAR error terklasifikasi (bukan return []). Route user → 503 (outage
+    // terlihat, tak dimask jadi "0 perangkat"); syncMetadata → skip senyap.
+    // Cek cache DULU (di atas) — cache segar tetap disajikan selama outage.
+    // Berlaku utk `force` juga: satu-satunya pemanggil force = prewarm scheduler
+    // yang memang harus tunduk pada cooldown (user tak pernah kirim force).
     const breakerKey = genieBreakerKey(routerId, tenantId);
-    if (!force && genieBreaker.isTripped(breakerKey)) {
-        return [];
+    if (genieBreaker.isTripped(breakerKey)) {
+        throw new GenieAcsCircuitOpenError();
     }
 
     try {
@@ -673,7 +693,13 @@ export async function syncMetadata(routerId?: string, tenantId?: string) {
             }
         }
         return { added, updated, total };
-    } catch (error) {
+    } catch (error: any) {
+        // Breaker terbuka → skip SENYAP (bukan ERROR tiap siklus). Error nyata
+        // (kegagalan pertama yang men-trip breaker) tetap ter-log sekali.
+        if (error?.isCircuitOpen) {
+            logger.debug({ routerId, tenantId }, 'ACS syncMetadata dilewati — GenieACS circuit open (cooldown)');
+            return { added, updated, total };
+        }
         logger.error({ err: error }, 'GenieACS syncMetadata Error');
         return { added: 0, updated: 0, total: 0 };
     }
