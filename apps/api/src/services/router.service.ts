@@ -151,8 +151,17 @@ export class RouterService {
         const cached = await cacheService.get<any[]>(cacheKey);
         if (cached) return cached;
 
+        // Operator/user: perluas scope tenant ke SEMUA ISP yang boleh diakses
+        // (tenant primer + Additional ISP Access) agar router LINTAS-ISP yang
+        // di-ASSIGN ikut tampil. Filter assignment tetap di repository → hanya
+        // router yang ditandai, bukan semua router ISP lain.
+        let scopeTenant: string | string[] | undefined = tenantId;
+        if (userId && userRole && userRole !== 'admin' && userRole !== 'superadmin') {
+            scopeTenant = await this.getAccessibleTenantIds(userId, typeof tenantId === 'string' ? tenantId : undefined);
+        }
+
         // Use repository for the base router list (handles RBAC and Tenant Isolation)
-        const allRouters = await routerRepository.findAll({ tenantId, userId, userRole });
+        const allRouters = await routerRepository.findAll({ tenantId: scopeTenant, userId, userRole });
         if (allRouters.length === 0) return [];
 
         const routerIds = allRouters.map(r => r.id);
@@ -251,16 +260,36 @@ export class RouterService {
     /**
      * Check if a user has access to a specific router
      */
+    /** ISP yang boleh diakses user: tenant primer + Additional ISP Access (userTenants). */
+    private async getAccessibleTenantIds(userId: string, primaryTenantId?: string): Promise<string[]> {
+        const { userTenants } = await import('../db/schema/index.js');
+        const rows = await db
+            .select({ tenantId: userTenants.tenantId })
+            .from(userTenants)
+            .where(eq(userTenants.userId, userId));
+        const ids = new Set<string>();
+        if (primaryTenantId) ids.add(primaryTenantId);
+        for (const r of rows) if (r.tenantId) ids.add(r.tenantId as string);
+        return [...ids];
+    }
+
     async hasAccess(userId: string, userRole: string, routerId: string, tenantId?: string): Promise<boolean> {
         if (userRole === 'superadmin') return true;
 
-        // Check if router exists and belongs to the same tenant
-        if (tenantId) {
-            const router = await this.findById(routerId, tenantId);
-            if (!router) return false;
+        // Admin: dibatasi ke tenant-nya (perilaku lama dipertahankan).
+        if (userRole === 'admin') {
+            if (tenantId) {
+                const router = await this.findById(routerId, tenantId);
+                return !!router;
+            }
+            return true;
         }
 
-        if (userRole === 'admin') return true;
+        // Operator/user: WAJIB router di-ASSIGN ke mereka (userRouters). Assignment
+        // dibuat superadmin/admin (admin hanya boleh router tenant-nya), jadi
+        // assignment = otorisasi. TAMBAHAN pengaman: router harus berada di ISP
+        // yang boleh diakses user (primer + Additional ISP Access) — dukung
+        // lintas-ISP tanpa membuka router ISP lain yang tak ditandai.
         if (!userId) return false;
 
         const { userRouters } = await import('../db/schema/index.js');
@@ -271,8 +300,12 @@ export class RouterService {
                 eq(userRouters.userId, userId),
                 eq(userRouters.routerId, routerId)
             ));
+        if (!assignment) return false;
 
-        return !!assignment;
+        const accessible = await this.getAccessibleTenantIds(userId, tenantId);
+        if (accessible.length === 0) return true; // tak ada info tenant → assignment sudah cukup
+        const target = await this.findById(routerId); // baca tenant router (akses sudah lolos assignment)
+        return !target?.tenantId || accessible.includes(target.tenantId);
     }
 
     /**

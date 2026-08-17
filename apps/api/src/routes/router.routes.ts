@@ -130,7 +130,18 @@ router.get(
     '/:id',
     asyncHandler(async (req, res) => {
         const id = req.params.id as string;
-        const router = await routerService.findById(id, getEffectiveTenantId(req));
+        const role = req.user?.role;
+        let router;
+        if (role === 'operator' || role === 'user') {
+            // Operator lintas-ISP: gate via hasAccess (cek assignment + ISP yang
+            // boleh diakses), lalu ambil tanpa scope tenant primer (akses sudah
+            // diverifikasi) — agar router yang di-assign di ISP lain tetap terbuka.
+            const ok = await routerService.hasAccess(req.user!.id, role, id, getEffectiveTenantId(req));
+            if (!ok) throw ApiError.notFound('Router not found');
+            router = await routerService.findById(id);
+        } else {
+            router = await routerService.findById(id, getEffectiveTenantId(req));
+        }
         if (!router) throw ApiError.notFound('Router not found');
         const { passwordEncrypted, ...sanitized } = router;
         res.json({ data: sanitized });
