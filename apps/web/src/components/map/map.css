@@ -119,7 +119,8 @@ svg.leaflet-zoom-animated {
     /* REDUCED SCALE baseline to make it more obvious - ADDED !IMPORTANT to ensure override */
     transform: scale(var(--map-zoom-scale, 1)) !important;
     transform-origin: center center;
-    will-change: transform;
+    /* will-change DIHAPUS: mempromosikan tiap marker ke layer GPU permanen —
+       ×500 = memori membengkak di Firefox. Scale/transisi tetap jalan. */
     transition: transform 0.2s ease;
 }
 
@@ -130,9 +131,11 @@ svg.leaflet-zoom-animated {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(15, 23, 42, 0.4) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    /* backdrop-filter DIHAPUS: di ×500 marker + animasi pulse yang terus
+       mengubah latar, Firefox harus mem-blur ulang latar tiap frame → hang.
+       Badge tipe/status memang transparent (bg dioverride di bawah), jadi blur
+       nyaris tak terlihat tapi biayanya fatal. Bg solid sbg kompensasi. */
+    background: rgba(15, 23, 42, 0.72) !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     border-radius: 12px;
     position: relative;
@@ -217,7 +220,7 @@ svg.leaflet-zoom-animated {
     max-width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
-    backdrop-filter: blur(4px);
+    /* backdrop-filter dihapus (bg sudah 0.9 opaque) — mahal di Firefox ×500. */
     border: 1px solid rgba(255, 255, 255, 0.1);
 
     /* Absolute positioning to ensure it doesn't affect icon flow/centering */
@@ -284,9 +287,8 @@ svg.leaflet-zoom-animated {
 .device-icon__ports-bg {
     position: absolute;
     inset: 0;
-    background: rgba(15, 23, 42, 0.6);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    /* backdrop-filter dihapus — mahal di Firefox saat di ratusan marker. */
+    background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 20px;
     z-index: -1;
@@ -329,9 +331,8 @@ svg.leaflet-zoom-animated {
 }
 
 .device-icon__label-text {
-    background: rgba(15, 23, 42, 0.4);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    /* backdrop-filter dihapus — biang hang Firefox (×500 + latar beranimasi). */
+    background: rgba(15, 23, 42, 0.85);
     color: white;
     font-size: 10px;
     font-weight: 700;
@@ -1042,7 +1043,8 @@ svg.leaflet-zoom-animated {
 .device-icon--online .device-icon__badge,
 .device-icon--warning .device-icon__badge,
 .device-icon--offline .device-icon__badge {
-    will-change: opacity;
+    /* will-change dihapus (layer permanen ×500 = memori Firefox). `contain`
+       tetap → animasi opacity terisolasi & di-layerize on-demand saja. */
     contain: layout paint style;
 }
 
