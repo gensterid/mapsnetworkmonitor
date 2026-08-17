@@ -179,7 +179,7 @@ function AddUserModal({ isOpen, onClose, onSuccess }) {
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                        {error}
+                        {typeof error === 'string' ? error : (error?.message || 'Terjadi kesalahan')}
                     </div>
                 )}
 
@@ -410,7 +410,7 @@ function EditUserModal({ user, isOpen, onClose, onSuccess }) {
             <form onSubmit={handleSubmit} className="space-y-4">
                 {error && (
                     <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
-                        {error}
+                        {typeof error === 'string' ? error : (error?.message || 'Terjadi kesalahan')}
                     </div>
                 )}
 
