@@ -273,16 +273,22 @@ router.put(
 
         const { additionalTenantIds, ...userData } = updateUserSchema.parse(req.body);
 
+        // Scope lookup KONSISTEN dgn GET /users (list) & GET /:id: superadmin =
+        // global (JANGAN pakai getEffectiveTenantId yg honor x-tenant-id → 404 saat
+        // superadmin punya tenant aktif tapi target user beda ISP); non-superadmin
+        // = tenant primer mereka (enforcement primary-ISP di atas).
+        const scopeTenantId = req.user?.role === 'superadmin' ? undefined : (req.user?.tenantId as string);
+
         // RBAC: Only superadmin can change the primary tenantId
         if (userData.tenantId !== undefined && req.user?.role !== 'superadmin') {
-            const currentUser = await userService.findById(id, getEffectiveTenantId(req));
+            const currentUser = await userService.findById(id, scopeTenantId);
             if (currentUser && currentUser.tenantId !== userData.tenantId) {
                 throw ApiError.forbidden('Only superadmins can change the primary ISP assignment');
             }
         }
 
         // Fetch target user for target protection
-        const targetUser = await userService.findById(id, getEffectiveTenantId(req));
+        const targetUser = await userService.findById(id, scopeTenantId);
         if (!targetUser) {
             throw ApiError.notFound('User not found');
         }
@@ -354,8 +360,11 @@ router.put(
 
         const { role } = updateRoleSchema.parse(req.body);
 
+        // Superadmin = global (jangan honor x-tenant-id → 404 lintas-ISP); lainnya = tenant primer.
+        const scopeTenantId = req.user?.role === 'superadmin' ? undefined : (req.user?.tenantId as string);
+
         // Fetch target user to check their current role
-        const targetUser = await userService.findById(id, getEffectiveTenantId(req));
+        const targetUser = await userService.findById(id, scopeTenantId);
         if (!targetUser) {
             throw ApiError.notFound('User not found');
         }
@@ -425,8 +434,11 @@ router.put(
 
         const { password } = updatePasswordSchema.parse(req.body);
 
+        // Superadmin = global (jangan honor x-tenant-id → 404 lintas-ISP); lainnya = tenant primer.
+        const scopeTenantId = req.user?.role === 'superadmin' ? undefined : (req.user?.tenantId as string);
+
         // Fetch target user
-        const targetUser = await userService.findById(id, getEffectiveTenantId(req));
+        const targetUser = await userService.findById(id, scopeTenantId);
         if (!targetUser) {
             throw ApiError.notFound('User not found');
         }
@@ -487,7 +499,10 @@ router.delete(
             throw ApiError.badRequest('Cannot delete your own account');
         }
 
-        const user = await userService.findById(id, getEffectiveTenantId(req));
+        // Superadmin = global (jangan honor x-tenant-id → 404 lintas-ISP); lainnya = tenant primer.
+        const scopeTenantId = req.user?.role === 'superadmin' ? undefined : (req.user?.tenantId as string);
+
+        const user = await userService.findById(id, scopeTenantId);
 
         if (!user) {
             throw ApiError.notFound('User not found');
