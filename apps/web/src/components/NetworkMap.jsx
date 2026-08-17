@@ -2475,7 +2475,7 @@ const NetworkMap = ({
     }), [hoverTick, displayTrafficMap, trafficMapRef, timezone, isHeatmapMode, isLiveMode]);
 
     return (
-        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} ${!enableAnimation ? 'animations-disabled' : ''} map-type-${mapType}`}>
+        <main ref={mapContainerRef} className={`flex-1 relative flex flex-col bg-[#020617] overflow-hidden h-full ${lowPerfMode ? 'low-perf' : ''} ${(!enableClustering && markers.length > 150) ? 'map-heavy-markers' : ''} ${!enableAnimation ? 'animations-disabled' : ''} map-type-${mapType}`}>
             {!googleLoaded && !googleFailed && (
                 <div className="absolute inset-0 z-[2000] bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-center text-center px-4">
                     <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mb-4"></div>

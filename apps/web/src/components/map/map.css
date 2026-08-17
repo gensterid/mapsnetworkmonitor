@@ -1387,6 +1387,36 @@ svg.leaflet-zoom-animated {
     display: none !important;
 }
 
+/* ===== Auto-ringan: marker SANGAT banyak (clustering OFF, >150 marker) =====
+   Ratusan marker individual yang saling menumpuk: tiap satu = layer paint
+   (`contain`) + lingkaran pulse beranimasi + glow. Di Firefox ini meledakkan
+   GPU/memori (teramati 6.8 GB). Saat padat, matikan efek BERAT per-marker;
+   marker tetap tampil (badge + label + warna status). Diterapkan OTOMATIS —
+   tak perlu Mode Hemat, dan efek penuh tetap ada saat marker sedikit. */
+.map-heavy-markers .device-icon__pulse {
+    display: none !important;
+}
+
+.map-heavy-markers .device-icon--online .device-icon__badge,
+.map-heavy-markers .device-icon--warning .device-icon__badge,
+.map-heavy-markers .device-icon--offline .device-icon__badge,
+.map-heavy-markers .device-icon--full .device-icon__ports-text {
+    animation: none !important;
+}
+
+/* Buang glow (box-shadow radius besar) — overdraw brutal saat ratusan bertindih.
+   Selektor disamakan tingkat kekhususannya dgn aturan dot-mode agar menang. */
+.map-heavy-markers .device-icon__badge,
+.map-heavy-markers .device-icon__indicator,
+.map-heavy-markers .dot-mode .device-icon__badge,
+.map-heavy-markers .dot-mode.device-icon--online .device-icon__badge,
+.map-heavy-markers .dot-mode.device-icon--offline .device-icon__badge,
+.map-heavy-markers .dot-mode.device-icon--warning .device-icon__badge,
+.map-heavy-markers .dot-mode.device-icon--odp .device-icon__badge,
+.map-heavy-markers .dot-mode.device-icon--pppoe .device-icon__badge {
+    box-shadow: none !important;
+}
+
 /* ===== Global Animation Toggle Support ===== */
 .animations-disabled *,
 .animations-disabled ::before,
