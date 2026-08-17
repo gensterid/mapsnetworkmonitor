@@ -423,7 +423,13 @@ const NetworkMap = ({
         try { const saved = localStorage.getItem('map_clustering_enabled'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : true; } catch { return true; }
     });
     const [lowPerfMode, setLowPerfMode] = useState(() => {
-        try { const saved = localStorage.getItem('map_low_perf_enabled'); return saved !== null && saved !== 'undefined' ? JSON.parse(saved) : false; } catch { return false; }
+        // Preferensi tersimpan (toggle manual) selalu menang.
+        try { const saved = localStorage.getItem('map_low_perf_enabled'); if (saved !== null && saved !== 'undefined') return JSON.parse(saved); } catch { /* abaikan */ }
+        // Default: ON di Firefox. backdrop-filter + filter SVG (drop-shadow) +
+        // animasi tak-henti per-marker (×500) JAUH lebih mahal di Firefox drpd
+        // Chrome (compositing GPU beda) → CPU/memori melonjak & tab hang. User
+        // tetap bisa mematikannya via tombol "Mode Hemat" di kontrol peta.
+        try { return /firefox/i.test(navigator.userAgent); } catch { return false; }
     });
     const [isHeatmapMode, setIsHeatmapMode] = useState(false);
 
