@@ -126,7 +126,7 @@ router.get(
             if (!routerId) {
                 throw ApiError.forbidden('Router ID is required for non-admins');
             }
-            const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId);
+            const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId, getEffectiveTenantId(req));
             if (!hasAccess) {
                 throw ApiError.forbidden('Access denied to this router');
             }
@@ -155,7 +155,7 @@ router.get(
         // Access Control
         if (req.user?.role !== 'admin' && req.user?.role !== 'superadmin') {
             if (!routerId) throw ApiError.forbidden('Router ID is required for non-admins');
-            const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId);
+            const hasAccess = await routerService.hasAccess(req.user!.id, req.user!.role, routerId, getEffectiveTenantId(req));
             if (!hasAccess) throw ApiError.forbidden('Access denied');
         }
 

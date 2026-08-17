@@ -302,10 +302,13 @@ export class RouterService {
             ));
         if (!assignment) return false;
 
+        // FAIL-CLOSED: bila konteks tenant hilang (akun operator tanpa tenant, atau
+        // router tanpa tenantId), TOLAK — jangan buka akses lintas-tenant tanpa
+        // batas ISP yang jelas. (Konsisten dgn guard requireTenantContext lain.)
         const accessible = await this.getAccessibleTenantIds(userId, tenantId);
-        if (accessible.length === 0) return true; // tak ada info tenant → assignment sudah cukup
-        const target = await this.findById(routerId); // baca tenant router (akses sudah lolos assignment)
-        return !target?.tenantId || accessible.includes(target.tenantId);
+        if (accessible.length === 0) return false;
+        const target = await this.findById(routerId); // baca tenant router (assignment sudah lolos)
+        return !!target?.tenantId && accessible.includes(target.tenantId);
     }
 
     /**
