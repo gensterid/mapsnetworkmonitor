@@ -236,6 +236,7 @@ export class OltService {
                                 set: {
                                     status: status as any,
                                     lastRxPower: device.signal ? String(device.signal) : sql`onus.last_rx_power`,
+                                    description: sql`COALESCE(NULLIF(excluded.description, ''), onus.description)`,
                                     updatedAt: new Date(),
                                 } as any
                             }).returning();
@@ -269,6 +270,11 @@ export class OltService {
                             if (status === 'online') updateData.lastSeen = new Date();
                             if (incomingName && !incomingName.startsWith('ONT-')) {
                                 updateData.name = incomingName;
+                            }
+                            // Deskripsi operator dari OLT (OnuDesc) → NOTE + kunci auto-link.
+                            // Update saat OLT kirim nilai; kalau kosong, pertahankan yang lama.
+                            if ((device as any).description) {
+                                updateData.description = (device as any).description;
                             }
 
                             // Deteksi perubahan redaman (RX power) signifikan SEBELUM
@@ -306,7 +312,7 @@ export class OltService {
                         status: dbOnu!.status,
                         latitude: dbOnu!.latitude,
                         longitude: dbOnu!.longitude,
-                        description: (dbOnu as any).description,
+                        description: (device as any).description || (dbOnu as any).description,
                         name: dbOnu!.name || device.name,
                         lastRxPower: device.signal || dbOnu!.lastRxPower,
                         lastDown: dbOnu!.lastSeen,
