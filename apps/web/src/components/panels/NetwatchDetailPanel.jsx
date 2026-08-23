@@ -23,6 +23,7 @@ import {
 import { Link } from 'react-router-dom';
 import SidePanel from './SidePanel';
 import MetricCard from './MetricCard';
+import OnuPerfHistoryCard from './OnuPerfHistoryCard';
 import { mapToStatus, STATUS_CLASSES, STATUS_LABELS } from '@/constants/status';
 import { resolveCoreColor } from '@/lib/fiberColors';
 import { useAppTimezone, useGenieACSDevices } from '@/hooks';
@@ -412,6 +413,14 @@ export function NetwatchDetailPanel({ isOpen, onClose, netwatch, onEditFull, onD
                         )}
                     </>
                 )}
+
+                {/* Riwayat performa: Latency + RX Power 30 hari (reuse endpoint analytics). */}
+                <OnuPerfHistoryCard
+                    routerId={netwatch.routerId}
+                    host={netwatch.host}
+                    onuId={netwatch.linkedOnuId}
+                    enabled={isOpen}
+                />
 
                 {/* Connected Devices section — derive dari GenieACS data kalau ada.
                     Total WiFi clients + per-SSID breakdown. Wired LAN clients
