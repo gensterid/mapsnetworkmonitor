@@ -695,6 +695,8 @@ const DeviceModal = ({
                                                          device.linkSource === 'host' ? 'Host IP' :
                                                          device.linkSource === 'name_exact' ? 'Name match' :
                                                          device.linkSource === 'name_fuzzy' ? 'Name fuzzy' :
+                                                         device.linkSource === 'desc_exact' ? 'Deskripsi (nama)' :
+                                                         device.linkSource === 'desc_fuzzy' ? 'Deskripsi fuzzy' :
                                                          device.linkSource || '—'}
                                                     </div>
                                                     <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 10 }}>

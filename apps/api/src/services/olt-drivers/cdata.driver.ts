@@ -345,22 +345,6 @@ export class CDataDriver extends BaseOltDriver {
     private parseOnuData(data: any): OnuInfo[] {
         const items = data.data?.list || data.data || data.onus || (Array.isArray(data) ? data : []);
 
-        // [DIAG-SEMENTARA] Set env OLT_DEBUG_ONU_SN=<serial> untuk melacak di FIELD
-        // mana nama operator ONU (mis. "ady27 box") disimpan C-Data. Log:
-        //  1) ringkasan batch (schema field item-pertama + daftar SN) — supaya
-        //     ketahuan kalau SN target TAK ada di response ini (mungkin endpoint lain);
-        //  2) seluruh field mentah item yang SN-nya cocok (di bawah, dalam .map).
-        // HAPUS setelah root cause ketemu.
-        const __dbgSn = process.env.OLT_DEBUG_ONU_SN;
-        if (__dbgSn && Array.isArray(items) && items.length > 0) {
-            logger.info({
-                targetSn: __dbgSn,
-                totalItems: items.length,
-                firstItemKeys: Object.keys(items[0] || {}),
-                allSns: items.map((i: any) => String(i.PonSn || i.sn || i.onu_sn || i.mac || '')).slice(0, 80),
-            }, '[DIAG][C-Data] Ringkasan batch ONU (schema field + daftar SN)');
-        }
-
         return items.map((item: any) => {
             const runningState = item.RunningState !== undefined ? item.RunningState : item.running_state;
             const status = (runningState === 1 || item.status === 'online' || item.state === 'online') ? 'online' : 'offline';
@@ -396,17 +380,6 @@ export class CDataDriver extends BaseOltDriver {
                 item.InputPower || item.receive_power || item.ReceivePower || item.rx_pwr || item.rx_optical_power ||
                 item.OnuRxPwr || item.OnuRxPower || item.Rx_Power || item.OnuOpticalPower || item.OnuInputPower
             );
-
-            // [DIAG-SEMENTARA] Dump SEMUA field mentah ONU yang SN-nya = OLT_DEBUG_ONU_SN.
-            if (__dbgSn) {
-                const __itemSn = String(item.PonSn || item.sn || item.mac || item.onu_sn || '');
-                if (__itemSn.toUpperCase() === __dbgSn.toUpperCase()) {
-                    logger.info(
-                        { sn: __itemSn, keys: Object.keys(item), rawItem: item },
-                        '[DIAG][C-Data] Field mentah ONU target — cari nilai nama operator',
-                    );
-                }
-            }
 
             return {
                 ponId: String(item.PonId || item.pon_id || item.ponIndex || '0'),

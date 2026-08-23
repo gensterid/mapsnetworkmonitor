@@ -456,6 +456,9 @@ export class OltService {
                 ponPort: device.ponId,
                 onuIndex: device.onuId,
                 name: resolvedName,
+                // Deskripsi operator dari OLT (C-Data OnuDesc, HSGQ ont_description).
+                // Ditampilkan sbg NOTE + dipakai auto-link (netwatch-linkage tier desc).
+                description: (device as any).description || null,
                 status: status,
                 tenantId: tenantId,
                 lastRxPower: device.signal ? String(device.signal) : null,
@@ -580,6 +583,10 @@ export class OltService {
                         // 'ONT-XXXX' fallback (driver returned empty); keep existing name
                         // in that case so we don't overwrite a real name with placeholder.
                         name: sql`CASE WHEN excluded.name LIKE 'ONT-%' THEN onus.name ELSE excluded.name END`,
+                        // Deskripsi OLT = sumber kebenaran NOTE. Update saat OLT kirim
+                        // nilai; kalau kosong/transient, pertahankan yang lama (jangan
+                        // menghapus deskripsi yg pernah terisi / dari jalur ACS).
+                        description: sql`COALESCE(NULLIF(excluded.description, ''), onus.description)`,
                         // archivedAt intentionally NOT in the SET clause —
                         // operator's archive must be sticky against polling.
                         // To unarchive, operator must explicitly Unarchive via UI.

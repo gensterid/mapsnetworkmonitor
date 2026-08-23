@@ -42,6 +42,9 @@ export async function syncToOnus(routerId: string, tx: any = db): Promise<void> 
  *   5. 'host'       — netwatch.host = onu.host (legacy fallback)
  *   6. 'name_exact' — case-insensitive name match
  *   7. 'name_fuzzy' — netwatch.name contains onu.name (len > 3)
+ *   8. 'desc_exact' — case-insensitive match ke onu.description (nama operator
+ *                     di OLT: C-Data OnuDesc / HSGQ ont_description)
+ *   9. 'desc_fuzzy' — netwatch.name contains onu.description (len > 3)
  *
  * Filters always applied:
  *   - same router (tenant/router scope)
@@ -107,6 +110,20 @@ function pickByTier(entry: any, sortedOnus: any[], strictMode = false): { onu: a
             entryNameNormalized.includes(o.name.toLowerCase().trim())
         );
         if (o7) return { onu: o7, source: 'name_fuzzy' };
+
+        // Tier 8 — exact DESCRIPTION match. Banyak OLT (C-Data OnuDesc, HSGQ
+        // ont_description) menyimpan nama pelanggan di `description`, sedangkan
+        // `name` justru identifier auto (mis. 'HG6243C_0/0/2:16'). Tanpa tier ini,
+        // ONT tanpa-ACS yang namanya cuma di description tak pernah auto-link.
+        const o8 = sortedOnus.find(o => (o.description || '').toLowerCase().trim() === entryNameNormalized);
+        if (o8) return { onu: o8, source: 'desc_exact' };
+
+        // Tier 9 — fuzzy description (substring)
+        const o9 = sortedOnus.find(o =>
+            o.description && o.description.length > 3 &&
+            entryNameNormalized.includes(o.description.toLowerCase().trim())
+        );
+        if (o9) return { onu: o9, source: 'desc_fuzzy' };
     }
 
     return { onu: null, source: null };
