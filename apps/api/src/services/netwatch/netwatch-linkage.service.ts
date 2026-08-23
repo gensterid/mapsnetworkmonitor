@@ -60,7 +60,16 @@ export async function syncToOnus(routerId: string, tx: any = db): Promise<void> 
 const SN_COMMENT_RE = /SN[:=]\s*([A-Z0-9]+)/i;
 const USER_COMMENT_RE = /(?:user|pppoe)[:=]\s*(\S+)/i;
 
-function pickByTier(entry: any, sortedOnus: any[], strictMode = false): { onu: any | null; source: string | null } {
+// Peringkat tier (angka kecil = lebih kuat/andal). Dipakai untuk meng-upgrade
+// link LEMAH (fuzzy) ke match yang lebih tinggi bila kini tersedia.
+const TIER_RANK: Record<string, number> = {
+    sn: 1, pppoe_user: 2, pppoe_ip: 3, mgmt_ip: 4, host: 5,
+    name_exact: 6, desc_exact: 7, name_fuzzy: 8, desc_fuzzy: 9,
+};
+const tierRank = (s?: string | null): number => TIER_RANK[s || ''] ?? 99;
+const isWeakSource = (s?: string | null): boolean => s === 'name_fuzzy' || s === 'desc_fuzzy';
+
+export function pickByTier(entry: any, sortedOnus: any[], strictMode = false): { onu: any | null; source: string | null } {
     const host = (entry.host || '').trim();
     const comment = `${entry.name || ''} ${entry.comment || ''}`;
     const entryNameNormalized = (entry.name || '').toLowerCase().trim();
@@ -100,30 +109,35 @@ function pickByTier(entry: any, sortedOnus: any[], strictMode = false): { onu: a
     }
 
     if (entryNameNormalized) {
-        // Tier 6 — exact name match (case-insensitive)
-        const o6 = sortedOnus.find(o => (o.name || '').toLowerCase().trim() === entryNameNormalized);
-        if (o6) return { onu: o6, source: 'name_exact' };
+        // Urutan sengaja: SEMUA tier EXACT dulu, baru tier FUZZY. Match exact
+        // (name/description) lebih andal daripada fuzzy-substring, sehingga
+        // netwatch "ady27 box" harus menang ke ONU deskripsi "ady27 box"
+        // (desc_exact) alih-alih ter-fuzzy ke ONU lain berdeskripsi "ADY27".
 
-        // Tier 7 — fuzzy name (substring)
-        const o7 = sortedOnus.find(o =>
-            o.name && o.name.length > 3 &&
-            entryNameNormalized.includes(o.name.toLowerCase().trim())
-        );
-        if (o7) return { onu: o7, source: 'name_fuzzy' };
+        // Tier — exact name match (case-insensitive)
+        const oNameExact = sortedOnus.find(o => (o.name || '').toLowerCase().trim() === entryNameNormalized);
+        if (oNameExact) return { onu: oNameExact, source: 'name_exact' };
 
-        // Tier 8 — exact DESCRIPTION match. Banyak OLT (C-Data OnuDesc, HSGQ
+        // Tier — exact DESCRIPTION match. Banyak OLT (C-Data OnuDesc, HSGQ
         // ont_description) menyimpan nama pelanggan di `description`, sedangkan
         // `name` justru identifier auto (mis. 'HG6243C_0/0/2:16'). Tanpa tier ini,
         // ONT tanpa-ACS yang namanya cuma di description tak pernah auto-link.
-        const o8 = sortedOnus.find(o => (o.description || '').toLowerCase().trim() === entryNameNormalized);
-        if (o8) return { onu: o8, source: 'desc_exact' };
+        const oDescExact = sortedOnus.find(o => (o.description || '').toLowerCase().trim() === entryNameNormalized);
+        if (oDescExact) return { onu: oDescExact, source: 'desc_exact' };
 
-        // Tier 9 — fuzzy description (substring)
-        const o9 = sortedOnus.find(o =>
+        // Tier — fuzzy name (substring)
+        const oNameFuzzy = sortedOnus.find(o =>
+            o.name && o.name.length > 3 &&
+            entryNameNormalized.includes(o.name.toLowerCase().trim())
+        );
+        if (oNameFuzzy) return { onu: oNameFuzzy, source: 'name_fuzzy' };
+
+        // Tier — fuzzy description (substring)
+        const oDescFuzzy = sortedOnus.find(o =>
             o.description && o.description.length > 3 &&
             entryNameNormalized.includes(o.description.toLowerCase().trim())
         );
-        if (o9) return { onu: o9, source: 'desc_fuzzy' };
+        if (oDescFuzzy) return { onu: oDescFuzzy, source: 'desc_fuzzy' };
     }
 
     return { onu: null, source: null };
@@ -159,12 +173,33 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
             // Operator lock — never overwrite a manual choice.
             if (entry.linkLocked) continue;
 
-            // Already linked + source recorded → skip to keep stability. Operator
-            // can re-link via UI (which clears link_source / sets manual).
-            if (entry.linkedOnuId && entry.linkSource) continue;
+            // Sudah ter-link + sumber tercatat.
+            //  - Sumber KUAT (bukan fuzzy) → skip demi stabilitas. Operator bisa
+            //    re-link via UI (yang clear link_source / set manual).
+            //  - Sumber LEMAH (name_fuzzy/desc_fuzzy) → rawan salah cocok (mis.
+            //    netwatch "ady27 box" ter-fuzzy ke ONU deskripsi "ADY27"). Coba
+            //    UPGRADE bila kini tersedia match tier lebih tinggi — mis.
+            //    desc_exact yang baru muncul setelah deskripsi OLT ter-backfill.
+            const alreadyLinked = !!(entry.linkedOnuId && entry.linkSource);
+            if (alreadyLinked && !isWeakSource(entry.linkSource)) continue;
 
             const { onu: targetOnu, source } = pickByTier(entry, sortedOnus, strictMode);
             if (!targetOnu || !source) continue;
+
+            // Untuk entri yang sudah ter-link lemah: hanya pindah bila hasil baru
+            // benar-benar tier LEBIH TINGGI dan ONU berbeda (hindari churn/flap).
+            if (alreadyLinked) {
+                if (targetOnu.id === entry.linkedOnuId) continue;
+                if (tierRank(source) >= tierRank(entry.linkSource)) continue;
+                logger.info({
+                    routerId,
+                    netwatch: entry.name,
+                    fromSource: entry.linkSource,
+                    toSource: source,
+                    oldOnuId: entry.linkedOnuId,
+                    newOnuSn: targetOnu.sn,
+                }, '[Linkage] Upgrade link lemah → tier lebih tinggi');
+            }
 
             // Audit trail: tenant-wide fallback can legitimately match SN/PPPoE user
             // across routers (e.g. uplink router monitoring downstream OLT). Logged
