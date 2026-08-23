@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickByTier } from '../../services/netwatch/netwatch-linkage.service.js';
+import { pickByTier, shouldUpgradeWeakLink } from '../../services/netwatch/netwatch-linkage.service.js';
 
 // Fixture ONU dengan default null di semua field yang dibaca pickByTier.
 const onu = (over: Record<string, unknown> = {}) => ({
@@ -96,5 +96,40 @@ describe('pickByTier — prioritas linkage netwatch↔ONU', () => {
 
         expect(result.source).toBeNull();
         expect(result.onu).toBeNull();
+    });
+});
+
+describe('shouldUpgradeWeakLink — keputusan reassign link yang sudah ada', () => {
+    it('upgrade: sumber lemah (desc_fuzzy) → tier lebih tinggi (desc_exact), ONU beda', () => {
+        expect(shouldUpgradeWeakLink('desc_fuzzy', 'onu-A', 'desc_exact', 'onu-B')).toBe(true);
+    });
+
+    it('upgrade: name_fuzzy → desc_exact (semua exact di atas semua fuzzy)', () => {
+        expect(shouldUpgradeWeakLink('name_fuzzy', 'onu-A', 'desc_exact', 'onu-B')).toBe(true);
+    });
+
+    it('no-op: ONU hasil sama dengan yang sekarang', () => {
+        expect(shouldUpgradeWeakLink('desc_fuzzy', 'onu-A', 'desc_exact', 'onu-A')).toBe(false);
+    });
+
+    it('no-op: tier hasil sama/lebih rendah (desc_fuzzy → desc_fuzzy)', () => {
+        expect(shouldUpgradeWeakLink('desc_fuzzy', 'onu-A', 'desc_fuzzy', 'onu-B')).toBe(false);
+    });
+
+    it('beku: sumber KUAT (desc_exact) tak pernah di-upgrade walau ada match lain', () => {
+        expect(shouldUpgradeWeakLink('desc_exact', 'onu-A', 'sn', 'onu-B')).toBe(false);
+    });
+
+    it('beku: sumber MANUAL (pilihan operator) tak pernah ditimpa', () => {
+        expect(shouldUpgradeWeakLink('manual', 'onu-A', 'sn', 'onu-B')).toBe(false);
+    });
+
+    it('beku: sumber kuat lain (mgmt_ip) tetap stabil', () => {
+        expect(shouldUpgradeWeakLink('mgmt_ip', 'onu-A', 'desc_exact', 'onu-B')).toBe(false);
+    });
+
+    it('aman: currentSource null/undefined → bukan lemah → tak diubah', () => {
+        expect(shouldUpgradeWeakLink(null, null, 'desc_exact', 'onu-B')).toBe(false);
+        expect(shouldUpgradeWeakLink(undefined, undefined, 'desc_exact', 'onu-B')).toBe(false);
     });
 });

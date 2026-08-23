@@ -34,17 +34,21 @@ export async function syncToOnus(routerId: string, tx: any = db): Promise<void> 
  * routerNetwatch.linkSource so the UI can explain WHY a marker is linked
  * to a particular ONU.
  *
- * Tier order (highest priority first):
+ * Tier order (highest priority first) — SEMUA tier exact sebelum tier fuzzy:
  *   1. 'sn'         — SN encoded in netwatch comment (e.g. 'SN:ZTEGxxx')
  *   2. 'pppoe_user' — comment contains 'user:foo@isp' matching onu.pppoeUser
  *   3. 'pppoe_ip'   — netwatch.host = onu.pppoeIp
  *   4. 'mgmt_ip'    — netwatch.host = onu.mgmtIp (TR-069 management)
  *   5. 'host'       — netwatch.host = onu.host (legacy fallback)
  *   6. 'name_exact' — case-insensitive name match
- *   7. 'name_fuzzy' — netwatch.name contains onu.name (len > 3)
- *   8. 'desc_exact' — case-insensitive match ke onu.description (nama operator
+ *   7. 'desc_exact' — case-insensitive match ke onu.description (nama operator
  *                     di OLT: C-Data OnuDesc / HSGQ ont_description)
+ *   8. 'name_fuzzy' — netwatch.name contains onu.name (len > 3)
  *   9. 'desc_fuzzy' — netwatch.name contains onu.description (len > 3)
+ *
+ * Sumber khusus non-tier: 'manual' — link dipilih operator via UI. Diperlakukan
+ * sebagai KUAT (bukan fuzzy) sehingga auto-linkage tak pernah menimpanya.
+ * Lihat TIER_RANK + shouldUpgradeWeakLink().
  *
  * Filters always applied:
  *   - same router (tenant/router scope)
@@ -67,7 +71,28 @@ const TIER_RANK: Record<string, number> = {
     name_exact: 6, desc_exact: 7, name_fuzzy: 8, desc_fuzzy: 9,
 };
 const tierRank = (s?: string | null): number => TIER_RANK[s || ''] ?? 99;
+// Hanya link fuzzy (substring) yang boleh di-upgrade otomatis. Sumber exact,
+// IP/SN, dan 'manual' (pilihan operator) dianggap KUAT → tak pernah ditimpa.
 const isWeakSource = (s?: string | null): boolean => s === 'name_fuzzy' || s === 'desc_fuzzy';
+
+/**
+ * Keputusan murni: bolehkah link yang SUDAH ADA di-reassign ke hasil pickByTier
+ * yang baru? Dipakai performLinkage untuk meng-upgrade link LEMAH tanpa
+ * mengganggu link kuat/manual dan tanpa churn.
+ *
+ * true HANYA bila: sumber saat ini lemah (fuzzy) DAN ONU hasil berbeda DAN
+ * tier hasil benar-benar lebih tinggi (angka TIER_RANK lebih kecil).
+ */
+export function shouldUpgradeWeakLink(
+    currentSource: string | null | undefined,
+    currentOnuId: string | null | undefined,
+    pickedSource: string,
+    pickedOnuId: string,
+): boolean {
+    if (!isWeakSource(currentSource)) return false;      // kuat/manual/lock → jangan sentuh
+    if (pickedOnuId === currentOnuId) return false;      // ONU sama → no-op (anti-flap)
+    return tierRank(pickedSource) < tierRank(currentSource); // hanya naik tier
+}
 
 export function pickByTier(entry: any, sortedOnus: any[], strictMode = false): { onu: any | null; source: string | null } {
     const host = (entry.host || '').trim();
@@ -181,6 +206,8 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
             //    UPGRADE bila kini tersedia match tier lebih tinggi — mis.
             //    desc_exact yang baru muncul setelah deskripsi OLT ter-backfill.
             const alreadyLinked = !!(entry.linkedOnuId && entry.linkSource);
+            // Fast-path: link kuat/manual tak pernah berubah → lewati pickByTier.
+            // (Sama verdict-nya dengan shouldUpgradeWeakLink, sekadar hemat kerja.)
             if (alreadyLinked && !isWeakSource(entry.linkSource)) continue;
 
             const { onu: targetOnu, source } = pickByTier(entry, sortedOnus, strictMode);
@@ -189,8 +216,7 @@ export async function performLinkage(routerId: string, activeOnus: any[], tx: an
             // Untuk entri yang sudah ter-link lemah: hanya pindah bila hasil baru
             // benar-benar tier LEBIH TINGGI dan ONU berbeda (hindari churn/flap).
             if (alreadyLinked) {
-                if (targetOnu.id === entry.linkedOnuId) continue;
-                if (tierRank(source) >= tierRank(entry.linkSource)) continue;
+                if (!shouldUpgradeWeakLink(entry.linkSource, entry.linkedOnuId, source, targetOnu.id)) continue;
                 logger.info({
                     routerId,
                     netwatch: entry.name,

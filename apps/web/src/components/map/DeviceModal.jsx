@@ -687,8 +687,9 @@ const DeviceModal = ({
                                             {device?.id && (device.linkSource || device.linkLocked) && (
                                                 <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
                                                     <div style={{ fontSize: 10, color: '#64748b' }}>
-                                                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>Auto-link: </span>
-                                                        {device.linkSource === 'sn' ? 'SN match' :
+                                                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>{device.linkSource === 'manual' ? 'Link: ' : 'Auto-link: '}</span>
+                                                        {device.linkSource === 'manual' ? 'Manual (operator)' :
+                                                         device.linkSource === 'sn' ? 'SN match' :
                                                          device.linkSource === 'pppoe_user' ? 'PPPoE user' :
                                                          device.linkSource === 'pppoe_ip' ? 'PPPoE IP' :
                                                          device.linkSource === 'mgmt_ip' ? 'TR-069 IP' :

@@ -201,6 +201,24 @@ export async function updateEntry(routerId: string, id: string, data: any, tenan
         const sanitizedData: any = { ...data };
         if (sanitizedData.host === '') sanitizedData.host = null;
 
+        // Manual link intent. Saat operator MENGUBAH linkedOnuId lewat UI, tandai
+        // linkSource='manual' supaya auto-linkage (yang boleh meng-upgrade link
+        // fuzzy) tak pernah diam-diam mengembalikannya. Membersihkan link (→ null)
+        // me-reset linkSource agar auto-linkage boleh memilih ulang.
+        //   - Hanya bertindak saat nilai BENAR-BENAR berubah — full-form save yang
+        //     mengirim ulang linkedOnuId yang sama tak boleh membekukan auto-link
+        //     yang tak disentuh operator (mis. edit lokasi saja).
+        //   - Hormati linkSource eksplisit di payload bila memang dikirim.
+        //   - data.linkedOnuId === undefined (mis. heal-now yang hanya kirim host)
+        //     → tak disentuh.
+        if (data.linkSource === undefined && data.linkedOnuId !== undefined) {
+            const newLink = data.linkedOnuId || null;
+            const oldLink = entry.linkedOnuId || null;
+            if (newLink !== oldLink) {
+                sanitizedData.linkSource = newLink ? 'manual' : null;
+            }
+        }
+
         // Smart Sync state derivation based on whether MikroTik push succeeded.
         if (entry.isAppOnly) {
             // App-only entries don't sync to MikroTik
