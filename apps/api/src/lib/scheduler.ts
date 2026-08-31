@@ -3,10 +3,11 @@ import { routerService, settingsService, oltService, genieacsService, backupServ
 import { shouldEnqueueRouter, queueHasCapacity } from '../services/queue.service.js';
 import { alertEscalationService } from '../services/alert-escalation.service.js';
 import { db } from '../db/index.js';
-import { routers, routerNetwatch, olts, onus, tenants, routerMetrics, routerInterfaceMetrics, alerts, auditLogs, devicePerformanceHistory } from '../db/schema/index.js';
+import { routers, routerNetwatch, olts, onus, tenants, alerts, auditLogs } from '../db/schema/index.js';
 import { count, eq, lt, and, sql, isNull } from 'drizzle-orm';
 import { logger } from './logger.js';
 import { partitionService } from '../services/db/partition.service.js';
+import { METRICS_HYPERTABLES, METRICS_RETENTION_DEFAULT_DAYS, pickRetentionDays } from './metrics-retention.js';
 import { env } from '../config/env.js';
 
 // Scheduler intervals \xe2\x80\x94 baca dari env (lib/env.ts schema) untuk runtime
@@ -472,54 +473,26 @@ async function syncGenieAcs(): Promise<void> {
 }
 
 /**
- * Performs deletion in batches to avoid table locking and long transactions.
- * Uses parameterized queries to prevent SQL injection.
+ * Pasang retention policy Timescale (idempoten) untuk tiap hypertable metrik.
+ *
+ * Catatan: add_retention_policy(if_not_exists=>true) TIDAK mengubah policy yang
+ * sudah ada — untuk ganti window, ubah policy langsung di DB.
  */
-async function batchDeleteSafe(
-    table: typeof routerMetrics | typeof devicePerformanceHistory | typeof routerInterfaceMetrics,
-    tenantId: string,
-    cutoffDate: Date,
-    batchSize: number = 5000
-): Promise<number> {
-    let totalDeleted = 0;
-    let deletedInBatch = batchSize;
-    const tableName = table === routerMetrics ? 'router_metrics'
-        : table === devicePerformanceHistory ? 'device_performance_history'
-        : 'router_interface_metrics';
-
-    logger.debug({ tableName, tenantId }, '🧹 Starting batch cleanup...');
-
-    while (deletedInBatch === batchSize) {
+async function ensureMetricsRetentionPolicies(allTenants: { id: string }[]): Promise<void> {
+    for (const [table, settingKey] of Object.entries(METRICS_HYPERTABLES)) {
+        const tenantValues = await Promise.all(
+            allTenants.map(t => settingsService.getSettingValue(settingKey, t.id, METRICS_RETENTION_DEFAULT_DAYS)),
+        );
+        const days = pickRetentionDays(tenantValues as number[]);
         try {
-            // Safe: Uses Drizzle's parameterized sql template literal
-            // The tenant_id and recorded_at values are properly bound as parameters
-            // Pass cutoff as ISO string — JS Date.toString() produces a format
-            // PostgreSQL 14 refuses to coerce into a timestamp, causing the
-            // delete to fail silently and old metrics to accumulate.
-            const cutoffIso = cutoffDate.toISOString();
-            const result = await db.execute(
-                sql`DELETE FROM ${table}
-                    WHERE id IN (
-                        SELECT id FROM ${table}
-                        WHERE tenant_id = ${tenantId} AND recorded_at < ${cutoffIso}
-                        LIMIT ${batchSize}
-                    )`
-            );
-            deletedInBatch = (result as any).rowCount || 0;
-            totalDeleted += deletedInBatch;
-            
-            if (deletedInBatch > 0) {
-                logger.debug({ tableName, deletedInBatch, totalDeleted }, '🧹 Batch deleted');
-                // Brief pause to let other operations happen
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
+            // `table` = konstanta internal (bukan input user) → aman untuk sql.raw.
+            await db.execute(sql.raw(
+                `SELECT add_retention_policy('${table}', make_interval(days => ${days}), if_not_exists => true)`,
+            ));
         } catch (err: any) {
-            logger.error({ err: err.message, tableName }, '❌ Batch delete failed');
-            break;
+            logger.warn({ err: err?.message, table }, 'Retention policy metrik dilewati (bukan hypertable / Timescale nonaktif?)');
         }
     }
-
-    return totalDeleted;
 }
 
 /**
@@ -528,30 +501,16 @@ async function batchDeleteSafe(
 async function cleanupOldMetrics(): Promise<void> {
     try {
         const allTenants = await db.select().from(tenants);
+
+        // Retensi metrik high-volume (router_metrics, device_performance_history,
+        // router_interface_metrics) = hypertable TimescaleDB terkompresi → dipangkas
+        // lewat retention policy (drop_chunks), BUKAN DELETE per-baris yang tak jalan
+        // di chunk terkompresi. Idempoten, sekali per siklus (lintas-tenant).
+        await ensureMetricsRetentionPolicies(allTenants);
+
         for (const tenant of allTenants) {
-            // 1. Device metrics (CPU, RAM, etc.) - HIGH VOLUME
-            const metricsRetention = await settingsService.getSettingValue('metrics_retention_days', tenant.id, 30);
-            const mCutoff = new Date();
-            mCutoff.setDate(mCutoff.getDate() - metricsRetention);
-
-            await batchDeleteSafe(routerMetrics, tenant.id, mCutoff);
-
-            // 1b. Device Latency & Signal history (Performance) - HIGH VOLUME
-            const perfRetention = await settingsService.getSettingValue('performance_retention_days', tenant.id, 30);
-            const pCutoff = new Date();
-            pCutoff.setDate(pCutoff.getDate() - perfRetention);
-
-            await batchDeleteSafe(devicePerformanceHistory, tenant.id, pCutoff);
-
-            // 2. Interface traffic metrics - HIGH VOLUME
-            const ifMetricsRetention = await settingsService.getSettingValue('interface_metrics_retention_days', tenant.id, 30);
-            const ifCutoff = new Date();
-            ifCutoff.setDate(ifCutoff.getDate() - ifMetricsRetention);
-
-            await batchDeleteSafe(routerInterfaceMetrics, tenant.id, ifCutoff);
-
-            // 2b. Per-client bandwidth deltas (Phase 1)
-            const clientBwRetention = await settingsService.getSettingValue('client_bandwidth_retention_days', tenant.id, 30);
+            // Per-client bandwidth deltas — tabel BIASA (bukan hypertable), DELETE aman.
+            const clientBwRetention = await settingsService.getSettingValue('client_bandwidth_retention_days', tenant.id, 60);
             const cbwCutoff = new Date();
             cbwCutoff.setDate(cbwCutoff.getDate() - clientBwRetention);
             await db.execute(sql`DELETE FROM client_bandwidth_history WHERE tenant_id = ${tenant.id} AND recorded_at < ${cbwCutoff.toISOString()}`);
@@ -599,7 +558,11 @@ async function cleanupOldMetrics(): Promise<void> {
             // produces "Sat Jan 24 2026 21:03:05 GMT+0000 (Coordinated Universal Time)"
             // which PostgreSQL refuses to coerce into a timestamp.
             await db.execute(sql`DELETE FROM router_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff.toISOString()}`);
-            await db.execute(sql`DELETE FROM genieacs_backups WHERE tenant_id = ${tenant.id} AND created_at < ${bCutoff.toISOString()}`);
+            // genieacs_backups TIDAK punya kolom tenant_id — scope via ONU pemiliknya
+            // (gb.onu_id → onus.tenant_id). Sebelumnya query pakai `tenant_id` langsung
+            // → error "column tenant_id does not exist" → melempar & MEMBATALKAN sisa
+            // cleanupOldMetrics (pppoe/ghost/partition maintenance tak jalan).
+            await db.execute(sql`DELETE FROM genieacs_backups gb USING onus o WHERE gb.onu_id = o.id AND o.tenant_id = ${tenant.id} AND gb.created_at < ${bCutoff.toISOString()}`);
 
             // 6. Disconnected PPPoE Sessions
             const pppoeRetention = await settingsService.getSettingValue('pppoe_retention_days', tenant.id, 30);
