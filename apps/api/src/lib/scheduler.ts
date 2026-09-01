@@ -473,24 +473,41 @@ async function syncGenieAcs(): Promise<void> {
 }
 
 /**
- * Pasang retention policy Timescale (idempoten) untuk tiap hypertable metrik.
+ * Sinkronkan retention policy Timescale untuk tiap hypertable metrik ke window
+ * yang dihitung ulang tiap siklus (nilai paling longgar antar-tenant).
  *
- * Catatan: add_retention_policy(if_not_exists=>true) TIDAK mengubah policy yang
- * sudah ada — untuk ganti window, ubah policy langsung di DB.
+ * Tidak memakai `if_not_exists => true` semata — itu no-op saat policy sudah ada,
+ * sehingga perubahan window (mis. tenant baru minta retensi lebih panjang) TAK
+ * pernah diterapkan. DO-block di bawah: pasang bila belum ada, dan REPLACE
+ * (remove+add) bila interval-nya beda → setting benar-benar dihormati.
  */
 async function ensureMetricsRetentionPolicies(allTenants: { id: string }[]): Promise<void> {
     for (const [table, settingKey] of Object.entries(METRICS_HYPERTABLES)) {
         const tenantValues = await Promise.all(
             allTenants.map(t => settingsService.getSettingValue(settingKey, t.id, METRICS_RETENTION_DEFAULT_DAYS)),
         );
+        // `days` di-clamp ke integer [1, 3650] oleh pickRetentionDays; `table` =
+        // konstanta internal (bukan input user) → aman untuk sql.raw.
         const days = pickRetentionDays(tenantValues as number[]);
         try {
-            // `table` = konstanta internal (bukan input user) → aman untuk sql.raw.
-            await db.execute(sql.raw(
-                `SELECT add_retention_policy('${table}', make_interval(days => ${days}), if_not_exists => true)`,
-            ));
+            await db.execute(sql.raw(`DO $$
+DECLARE cur interval;
+DECLARE want interval := make_interval(days => ${days});
+BEGIN
+  SELECT (config->>'drop_after')::interval INTO cur
+    FROM timescaledb_information.jobs
+   WHERE proc_name = 'policy_retention' AND hypertable_name = '${table}'
+   LIMIT 1;
+  IF cur IS NULL THEN
+    PERFORM add_retention_policy('${table}', want);
+  ELSIF cur <> want THEN
+    PERFORM remove_retention_policy('${table}');
+    PERFORM add_retention_policy('${table}', want);
+    RAISE NOTICE 'retention % disinkronkan: % -> %', '${table}', cur, want;
+  END IF;
+END $$;`));
         } catch (err: any) {
-            logger.warn({ err: err?.message, table }, 'Retention policy metrik dilewati (bukan hypertable / Timescale nonaktif?)');
+            logger.warn({ err: err?.message, table, days }, 'Retention policy metrik dilewati (bukan hypertable / Timescale nonaktif?)');
         }
     }
 }
@@ -562,6 +579,9 @@ async function cleanupOldMetrics(): Promise<void> {
             // (gb.onu_id → onus.tenant_id). Sebelumnya query pakai `tenant_id` langsung
             // → error "column tenant_id does not exist" → melempar & MEMBATALKAN sisa
             // cleanupOldMetrics (pppoe/ghost/partition maintenance tak jalan).
+            // Asumsi: onu_id selalu terisi (satu-satunya jalur insert set onu.id, FK
+            // cascade-delete). Kalau nanti ada backup 'template' tanpa ONU (onu_id NULL),
+            // baris itu tak ter-prune di sini — tambah cabang khusus saat fitur itu ada.
             await db.execute(sql`DELETE FROM genieacs_backups gb USING onus o WHERE gb.onu_id = o.id AND o.tenant_id = ${tenant.id} AND gb.created_at < ${bCutoff.toISOString()}`);
 
             // 6. Disconnected PPPoE Sessions

@@ -15,16 +15,21 @@ export const METRICS_HYPERTABLES = {
 } as const;
 
 export const METRICS_RETENTION_DEFAULT_DAYS = 60;
+// Batas atas waras (10 tahun). Mencegah nilai salah-ketik yang sangat besar
+// (mis. 1e21) memicu notasi eksponensial di make_interval → query gagal → policy
+// tak terpasang → penyimpanan membengkak lagi.
+export const METRICS_RETENTION_MAX_DAYS = 3650;
 
 /**
  * Retensi GLOBAL per hypertable = nilai PALING LONGGAR antar-tenant (chunk dibagi
  * lintas-tenant, jadi window terpendek akan menghapus data tenant lain lebih awal).
- * Selalu ≥ default dan ≥ 1 hari, dibulatkan ke integer (make_interval butuh int).
+ * Di-clamp ke [1, METRICS_RETENTION_MAX_DAYS] dan dibulatkan ke integer
+ * (make_interval butuh int). Nilai non-number/non-finite diabaikan.
  */
 export function pickRetentionDays(tenantValues: number[], defaultDays: number = METRICS_RETENTION_DEFAULT_DAYS): number {
     let days = defaultDays;
     for (const v of tenantValues) {
         if (Number.isFinite(v) && v > days) days = v;
     }
-    return Math.max(1, Math.floor(days));
+    return Math.min(METRICS_RETENTION_MAX_DAYS, Math.max(1, Math.floor(days)));
 }

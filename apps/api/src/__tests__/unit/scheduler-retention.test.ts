@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pickRetentionDays, METRICS_RETENTION_DEFAULT_DAYS } from '../../lib/metrics-retention.js';
+import { pickRetentionDays, METRICS_RETENTION_DEFAULT_DAYS, METRICS_RETENTION_MAX_DAYS } from '../../lib/metrics-retention.js';
 
 describe('pickRetentionDays — window retensi hypertable metrik', () => {
     it('pakai default saat tak ada tenant', () => {
@@ -28,5 +28,17 @@ describe('pickRetentionDays — window retensi hypertable metrik', () => {
 
     it('hormati default kustom saat semua tenant lebih rendah', () => {
         expect(pickRetentionDays([10, 20], 30)).toBe(30);
+    });
+
+    // getSettingValue mengembalikan nilai jsonb apa adanya (setting API = z.unknown()),
+    // jadi runtime bisa string/null/boolean/objek. Number.isFinite harus menyaring semua.
+    it('abaikan tipe non-number di runtime (string/null/boolean/objek)', () => {
+        const messy = ['90', null, true, {}, undefined] as unknown as number[];
+        expect(pickRetentionDays(messy)).toBe(METRICS_RETENTION_DEFAULT_DAYS);
+    });
+
+    it('clamp nilai sangat besar ke batas atas (cegah make_interval eksponensial)', () => {
+        expect(pickRetentionDays([1e21])).toBe(METRICS_RETENTION_MAX_DAYS);
+        expect(pickRetentionDays([999999])).toBe(METRICS_RETENTION_MAX_DAYS);
     });
 });
